@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.web2.dav.test.test_prop.PROP.test_PROPFIND -*-
 ##
-# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -8,10 +8,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -40,7 +40,7 @@ from twext.web2.http import HTTPError
 from twext.web2 import responsecode
 from twext.web2.http import StatusResponse
 from txdav.xml import element as davxml
-from twext.web2.dav.http import MultiStatusResponse, statusForFailure,\
+from twext.web2.dav.http import MultiStatusResponse, statusForFailure, \
     ErrorResponse
 from twext.web2.dav.util import normalizeURL, davXMLFromStream
 
@@ -107,15 +107,15 @@ def http_PROPFIND(self, request):
     #
     request_uri = request.uri
     depth = request.headers.getHeader("depth", "infinity")
-    
+
     # By policy we will never allow a depth:infinity propfind
     if depth == "infinity":
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.PropfindFiniteDepth()))
 
     # Look for Prefer header first, then try Brief
     prefer = request.headers.getHeader("prefer", {})
-    returnMinimal = "return-minimal" in prefer
-    noRoot = "depth-noroot" in prefer
+    returnMinimal = any([key == "return" and value == "minimal" for key, value, _ignore_args in prefer])
+    noRoot = any([key == "depth-noroot" and value is None for key, value, _ignore_args in prefer])
     if not returnMinimal:
         returnMinimal = request.headers.getHeader("brief", False)
 
@@ -198,13 +198,21 @@ def http_PROPFIND(self, request):
 
         for status in properties_by_status:
             properties = properties_by_status[status]
-            if not properties: continue
+            if not properties:
+                continue
 
-            xml_status    = davxml.Status.fromResponseCode(status)
+            xml_status = davxml.Status.fromResponseCode(status)
             xml_container = davxml.PropertyContainer(*properties)
-            xml_propstat  = davxml.PropertyStatus(xml_container, xml_status)
+            xml_propstat = davxml.PropertyStatus(xml_container, xml_status)
 
             propstats.append(xml_propstat)
+
+        # Always need to have at least one propstat present (required by Prefer header behavior)
+        if len(propstats) == 0:
+            propstats.append(davxml.PropertyStatus(
+                davxml.PropertyContainer(),
+                davxml.Status.fromResponseCode(responsecode.OK)
+            ))
 
         xml_resource = davxml.HRef(uri)
         xml_response = davxml.PropertyStatusResponse(xml_resource, *propstats)

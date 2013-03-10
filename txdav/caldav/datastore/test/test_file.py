@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ def setUpCalendarStore(test):
     calendarPath.parent().makedirs()
     storePath.copyTo(calendarPath)
 
-    # Set year values to current year    
+    # Set year values to current year
     nowYear = PyCalendarDateTime.getToday().getYear()
     for home in calendarPath.child("ho").child("me").children():
         if not home.basename().startswith("."):
@@ -75,7 +75,7 @@ def setUpCalendarStore(test):
                 if not calendar.basename().startswith("."):
                     for resource in calendar.children():
                         if resource.basename().endswith(".ics"):
-                            resource.setContent(resource.getContent() % {"now":nowYear})
+                            resource.setContent(resource.getContent() % {"now": nowYear})
 
     testID = test.id()
     test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory,
@@ -314,8 +314,8 @@ class CalendarTest(unittest.TestCase):
             self.calendar1.removeCalendarObjectWithName, name
         )
 
-
     counter = 0
+
     @inlineCallbacks
     def _refresh(self):
         """
@@ -442,7 +442,7 @@ class CalendarObjectTest(unittest.TestCase):
         L{CalendarObject} has instance attributes, C{_path} and C{_calendar},
         which refer to its position in the filesystem and the calendar in which
         it is contained, respectively.
-        """ 
+        """
         self.failUnless(
             isinstance(self.object1._path, FilePath),
             self.object1._path
@@ -481,7 +481,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         """
         Overridden to be skipped.
         """
-
 
     # TODO: ideally the file store would support all of this sharing stuff.
     test_shareWith.skip = "Not implemented for file store yet."

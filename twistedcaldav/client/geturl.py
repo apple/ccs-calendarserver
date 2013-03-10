@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,8 +62,10 @@ class AccumulatingProtocol(protocol.Protocol):
             self.factory.protocolConnectionMade = None
             d.callback(self)
 
+
     def dataReceived(self, data):
         self.data += data
+
 
     def connectionLost(self, reason):
         self.closed = 1
@@ -72,12 +74,16 @@ class AccumulatingProtocol(protocol.Protocol):
             d, self.closedDeferred = self.closedDeferred, None
             d.callback(None)
 
+
+
 @inlineCallbacks
 def getURL(url, method="GET", redirect=0):
 
+    if isinstance(url, unicode):
+        url = url.encode("utf-8")
     agent = Agent(reactor)
     headers = http_headers.Headers({})
-    
+
     try:
         response = (yield agent.request(method, url, headers, None))
     except Exception, e:
@@ -90,14 +96,14 @@ def getURL(url, method="GET", redirect=0):
             else:
                 location = response.headers.getRawHeaders("location")
                 if location:
-                    newresponse = (yield getURL(location[0], method=method, redirect=redirect+1))
+                    newresponse = (yield getURL(location[0], method=method, redirect=redirect + 1))
                     if response.code == MOVED_PERMANENTLY:
                         scheme, netloc, url, _ignore_params, _ignore_query, _ignore_fragment = urlparse(location[0])
                         newresponse.location = urlunparse((scheme, netloc, url, None, None, None,))
                     returnValue(newresponse)
                 else:
                     log.err("Redirect without a Location header")
-    
+
     if response is not None and response.code / 100 == 2:
         protocol = AccumulatingProtocol()
         response.deliverBody(protocol)
@@ -106,6 +112,5 @@ def getURL(url, method="GET", redirect=0):
         response.data = protocol.data
     else:
         log.error("Failed getURL: %s" % (url,))
-        
-    returnValue(response)
 
+    returnValue(response)

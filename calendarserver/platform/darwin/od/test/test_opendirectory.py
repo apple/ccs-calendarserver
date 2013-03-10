@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from twistedcaldav.test.util import TestCase
 import hashlib
@@ -41,10 +42,10 @@ try:
     if "odtestalbert" in recordNames:
         runTests = True
     else:
-        print "Please run setup_directory.py to populate OD"
+        print("Please run setup_directory.py to populate OD")
 
 except ImportError:
-    print "Unable to import OpenDirectory framework"
+    print("Unable to import OpenDirectory framework")
 
 
 def generateNonce():

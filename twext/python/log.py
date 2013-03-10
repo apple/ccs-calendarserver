@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 Classes and functions to do granular logging.
@@ -110,7 +111,7 @@ def pythonLogLevelForLevel(level):
 #    # In case we add log levels that don't map to pythong logging levels:
 #    #
 #    for l in logLevels:
-#        print "Trying %s: %s, %s" % (l, l in pythonLogLevelMapping, cmpLogLevels(level, l) <= 0)
+#        print("Trying %s: %s, %s" % (l, l in pythonLogLevelMapping, cmpLogLevels(level, l) <= 0))
 #        if l in pythonLogLevelMapping and cmpLogLevels(level, l) <= 0:
 #            return pythonLogLevelMapping[l]
 #

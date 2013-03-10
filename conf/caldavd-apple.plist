@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-    Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+    Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -96,9 +96,16 @@
 
     <!-- Database connection -->
     <key>DBType</key>
-    <string>postgres</string>
+    <string></string>
     <key>DSN</key>
-    <string>/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::</string>
+    <string></string>
+    <key>DBImportFile</key>
+    <string>/Library/Server/Calendar and Contacts/DataDump.sql</string>
+    <key>Postgres</key>
+    <dict>
+        <key>Ctl</key>
+        <string>xpg_ctl</string>
+    </dict>
 
     <!-- Data root -->
     <key>DataRoot</key>
@@ -240,7 +247,7 @@
       <key>Basic</key>
       <dict>
         <key>Enabled</key>
-        <false/>
+        <true/>
       </dict>
 
       <!-- Digest challenge/response -->
@@ -353,30 +360,6 @@
 
       <key>Services</key>
       <dict>
-        <key>XMPPNotifier</key>
-        <dict>
-          <!-- XMPP notification service -->
-          <key>Service</key>
-          <string>twistedcaldav.notify.XMPPNotifierService</string>
-          <key>Enabled</key>
-          <false/>
-
-          <!-- XMPP host and port to contact -->
-          <key>Host</key>
-          <string>xmpp.host.name</string>
-          <key>Port</key>
-          <integer>5222</integer>
-
-          <!-- Jabber ID and password for the server -->
-          <key>JID</key>
-          <string>jid@xmpp.host.name/resource</string>
-          <key>Password</key>
-          <string>password_goes_here</string>
-
-          <!-- PubSub service address -->
-          <key>ServiceAddress</key>
-          <string>pubsub.xmpp.host.name</string>
-        </dict>
       </dict>
     </dict>
 
@@ -408,8 +391,8 @@
         <key>AddressPatterns</key>
         <array>
         </array>
-        <key>Servers</key>
-        <string>servertoserver.xml</string>
+        <key>RemoteServers</key>
+        <string>remoteservers.xml</string>
       </dict>
 
       <!-- iMIP protocol options -->
@@ -483,6 +466,10 @@
 
     <!-- Calendar Drop Box -->
     <key>EnableDropBox</key>
+    <false/>
+
+    <!-- Calendar Managed Attachments -->
+    <key>EnableManagedAttachments</key>
     <true/>
 
     <!-- Private Events -->

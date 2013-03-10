@@ -1,5 +1,6 @@
 # Copyright (c) 2001-2007 Twisted Matrix Laboratories.
 # See LICENSE for details.
+from __future__ import print_function
 
 """
 Tests for HTTP client.
@@ -393,7 +394,7 @@ class TestEdgeCases(ClientTests):
         req = http.ClientRequest('GET', '/', None, None)
 
         def gotResp(r):
-            print r
+            print(r)
 
         d = cxn.client.submitRequest(req).addCallback(gotResp)
 

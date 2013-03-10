@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_icalendar -*-
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,9 +67,9 @@ allowedComponents = (
     "VEVENT",
     "VTODO",
     "VTIMEZONE",
-    #"VJOURNAL",
+    # "VJOURNAL",
     "VFREEBUSY",
-    #"VAVAILABILITY",
+    # "VAVAILABILITY",
 )
 
 # 2445 default values and parameters
@@ -172,7 +172,8 @@ class Property (object):
             self._pycalendar = pyobj
         else:
             # Convert params dictionary to list of lists format used by pycalendar
-            self._pycalendar = PyCalendarProperty(name, value)
+            valuetype = kwargs.get("valuetype")
+            self._pycalendar = PyCalendarProperty(name, value, valuetype=valuetype)
             for attrname, attrvalue in params.items():
                 self._pycalendar.addAttribute(PyCalendarAttribute(attrname, attrvalue))
 
@@ -953,6 +954,21 @@ class Component (object):
         self._markAsDirty()
 
 
+    def removeAllPropertiesWithName(self, pname):
+        """
+        Remove all properties with the given name from all components.
+
+        @param pname: the property name to remove from all components.
+        @type pname: C{str}
+        """
+
+        for property in self.properties(pname):
+            self.removeProperty(property)
+
+        for component in self.subcomponents():
+            component.removeAllPropertiesWithName(pname)
+
+
     def replaceProperty(self, property):
         """
         Add or replace a property in this component.
@@ -1265,7 +1281,7 @@ class Component (object):
         is added as STATUS:CANCELLED and the EXDATE removed.
 
         @param rid: recurrence-id value
-        @type rid: L{PyCalendarDateTime}
+        @type rid: L{PyCalendarDateTime} or C{str}
         @param allowCancelled: whether to allow a STATUS:CANCELLED override
         @type allowCancelled: C{bool}
 
@@ -1279,6 +1295,9 @@ class Component (object):
         master = self.masterComponent()
         if master is None:
             return None
+
+        if isinstance(rid, str):
+            rid = PyCalendarDateTime.parseText(rid) if rid else None
 
         # TODO: Check that the recurrence-id is a valid instance
         # For now we just check that there is no matching EXDATE
@@ -1639,8 +1658,8 @@ class Component (object):
         timezone_refs = set()
         timezones = set()
         got_master = False
-        #got_override     = False
-        #master_recurring = False
+        # got_override     = False
+        # master_recurring = False
 
         for subcomponent in self.subcomponents():
             if subcomponent.name() == "VTIMEZONE":
@@ -1790,9 +1809,9 @@ class Component (object):
         else:
             return None
 
-    ##
+    # #
     # iTIP stuff
-    ##
+    # #
 
 
     def isValidMethod(self):
@@ -2249,6 +2268,77 @@ class Component (object):
             component.replaceProperty(property)
 
 
+    def hasPropertyWithParameterMatch(self, propname, param_name, param_value, param_value_is_default=False):
+        """
+        See if property whose name, and parameter name, value match in any components.
+
+        @param property: the L{Property} to replace in this component.
+        @param param_name: the C{str} of parameter name to match.
+        @param param_value: the C{str} of parameter value to match, if C{None} then just match on the
+            presence of the parameter name.
+        @param param_value_is_default: C{bool} to indicate whether absence of the named parameter
+            also implies a match
+
+        @return: C{True} if matching property found, C{False} if not
+        @rtype: C{bool}
+        """
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() in ignoredComponents:
+                    continue
+                if component.hasPropertyWithParameterMatch(propname, param_name, param_value, param_value_is_default):
+                    return True
+        else:
+            for oldprop in tuple(self.properties(propname)):
+                pvalue = oldprop.parameterValue(param_name)
+                if pvalue is None and param_value_is_default or pvalue == param_value or param_value is None:
+                    return True
+
+        return False
+
+
+    def replaceAllPropertiesWithParameterMatch(self, property, param_name, param_value, param_value_is_default=False):
+        """
+        Replace a property whose name, and parameter name, value match in all components.
+
+        @param property: the L{Property} to replace in this component.
+        @param param_name: the C{str} of parameter name to match.
+        @param param_value: the C{str} of parameter value to match.
+        @param param_value_is_default: C{bool} to indicate whether absence of the named parameter
+            also implies a match
+        """
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() in ignoredComponents:
+                    continue
+                component.replaceAllPropertiesWithParameterMatch(property, param_name, param_value, param_value_is_default)
+        else:
+            for oldprop in tuple(self.properties(property.name())):
+                pvalue = oldprop.parameterValue(param_name)
+                if pvalue is None and param_value_is_default or pvalue == param_value:
+                    self.removeProperty(oldprop)
+                    self.addProperty(property)
+
+
+    def removeAllPropertiesWithParameterMatch(self, propname, param_name, param_value, param_value_is_default=False):
+        """
+        Remove all properties whose name, and parameter name, value match in all components.
+        """
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() in ignoredComponents:
+                    continue
+                component.removeAllPropertiesWithParameterMatch(propname, param_name, param_value, param_value_is_default)
+        else:
+            for oldprop in tuple(self.properties(propname)):
+                pvalue = oldprop.parameterValue(param_name)
+                if pvalue is None and param_value_is_default or pvalue == param_value:
+                    self.removeProperty(oldprop)
+
+
     def transferProperties(self, from_calendar, properties):
         """
         Transfer specified properties from old calendar into all components
@@ -2362,6 +2452,21 @@ class Component (object):
             if component.name() in ignoredComponents:
                 continue
             [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() != attendee.lower()]
+
+
+    def removeAllButTheseAttendees(self, attendees):
+        """
+        Remove all ATTENDEE properties except for the ones specified.
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        attendees = set([attendee.lower() for attendee in attendees])
+
+        for component in self.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
+            [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() not in attendees]
 
 
     def hasAlarm(self):
@@ -3039,9 +3144,9 @@ END:VCALENDAR
 
 
 
-##
+# #
 # Timezones
-##
+# #
 
 def tzexpand(tzdata, start, end):
     """
@@ -3121,23 +3226,23 @@ def tzexpandlocal(tzdata, start, end):
     if tzexpanded:
         if start != tzexpanded[0][0]:
             results.append((
-                str(start),
-                PyCalendarUTCOffsetValue(tzexpanded[0][1]).getText(),
-                PyCalendarUTCOffsetValue(tzexpanded[0][1]).getText(),
+                start,
+                tzexpanded[0][1],
+                tzexpanded[0][1],
                 tzexpanded[0][3],
             ))
     else:
         results.append((
-            str(start),
-            PyCalendarUTCOffsetValue(tzcomp._pycalendar.getTimezoneOffsetSeconds(start)).getText(),
-            PyCalendarUTCOffsetValue(tzcomp._pycalendar.getTimezoneOffsetSeconds(start)).getText(),
-            tzcomp.getTZName(),
+            start,
+            tzcomp._pycalendar.getTimezoneOffsetSeconds(start),
+            tzcomp._pycalendar.getTimezoneOffsetSeconds(start),
+            tzcomp._pycalendar.getTimezoneDescriptor(start),
         ))
     for tzstart, tzoffsetfrom, tzoffsetto, name in tzexpanded:
         results.append((
-            tzstart.getText(),
-            PyCalendarUTCOffsetValue(tzoffsetfrom).getText(),
-            PyCalendarUTCOffsetValue(tzoffsetto).getText(),
+            tzstart,
+            tzoffsetfrom,
+            tzoffsetto,
             name,
         ))
 
@@ -3145,9 +3250,62 @@ def tzexpandlocal(tzdata, start, end):
 
 
 
-##
+# #
 # Utilities
-##
+# #
+
+def normalizeCUAddress(cuaddr, lookupFunction, principalFunction, toUUID=True):
+    # Check that we can lookup this calendar user address - if not
+    # we cannot do anything with it
+    _ignore_name, guid, cuaddrs = lookupFunction(normalizeCUAddr(cuaddr), principalFunction, config)
+
+    if toUUID:
+        # Always re-write value to urn:uuid
+        if guid:
+            return "urn:uuid:%s" % (guid,)
+
+    # If it is already a non-UUID address leave it be
+    elif cuaddr.startswith("urn:uuid:"):
+
+        # Pick the first mailto,
+        # or failing that the first path one,
+        # or failing that the first http one,
+        # or failing that the first one
+        first_mailto = None
+        first_path = None
+        first_http = None
+        first = None
+        for addr in cuaddrs:
+            if addr.startswith("mailto:"):
+                first_mailto = addr
+                break
+            elif addr.startswith("/"):
+                if not first_path:
+                    first_path = addr
+            elif addr.startswith("http:"):
+                if not first_http:
+                    first_http = addr
+            elif not first:
+                first = addr
+
+        if first_mailto:
+            newaddr = first_mailto
+        elif first_path:
+            newaddr = first_path
+        elif first_http:
+            newaddr = first_http
+        elif first:
+            newaddr = first
+        else:
+            newaddr = None
+
+        # Make the change
+        if newaddr:
+            return newaddr
+
+    return cuaddr
+
+
 
 #
 # This function is from "Python Cookbook, 2d Ed., by Alex Martelli, Anna

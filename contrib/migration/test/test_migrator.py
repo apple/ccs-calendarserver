@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import twistedcaldav.test.util
 from contrib.migration.calendarmigrator import (
@@ -90,7 +91,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : True,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": True,
@@ -129,7 +132,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : False,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": False,
@@ -168,7 +173,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : True,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": True,
@@ -207,7 +214,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : True,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": True,
@@ -246,7 +255,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [1111, 2222, 4444, 5555, 7777, 8888],
             "BindSSLPorts": [3333, 6666, 9999, 11111],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : True,
             "HTTPPort": 8888,
             "RedirectHTTPToHTTPS": True,
@@ -282,7 +293,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : False,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": False,
@@ -313,7 +326,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : True,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": True,
@@ -335,7 +350,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : False,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": False,
@@ -383,7 +400,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : False,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": False,
@@ -423,7 +442,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : False,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": False,
@@ -476,7 +497,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : False,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": False,
@@ -518,7 +541,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : False,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": False,
@@ -560,7 +585,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : False,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": False,
@@ -596,7 +623,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
             "ConfigRoot" : "Config",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DSN" : "",
+            "DBType" : "",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
             "EnableSSL" : False,
             "HTTPPort": 8008,
             "RedirectHTTPToHTTPS": False,
@@ -1065,7 +1094,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ]
 
         for description, (source, target), paths, expected in info:
-            # print "-=-=-=- %s -=-=-=-" % (description,)
+            # print("-=-=-=- %s -=-=-=-" % (description,))
             accessor = StubDiskAccessor(paths)
             actual = examinePreviousSystem(source, target, diskAccessor=accessor)
             self.assertEquals(expected, actual)

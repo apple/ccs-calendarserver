@@ -2,7 +2,7 @@
 # See LICENSE for details.
 
 ##
-# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -51,5 +51,7 @@ import txdav.xml.rfc5842
 import txdav.xml.rfc5995
 import txdav.xml.rfc6578
 import txdav.xml.extensions
+
+# FIXME: add symbols to __all__
 
 txdav # Shhh pyflakes

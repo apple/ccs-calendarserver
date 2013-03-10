@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from StringIO import StringIO
 from caldavclientlibrary.client.clientsession import CalDAVSession
@@ -127,11 +128,11 @@ class SQLUsage(object):
         
         # Now loop over sets of events
         for count in counts:
-            print "Testing count = %d" % (count,)
+            print("Testing count = %d" % (count,))
             self.ensureEvents(sessions[0], sessions[0].calendarHref, count)
             result = {}
             for request in requests:
-                print "  Test = %s" % (request.label,)
+                print("  Test = %s" % (request.label,))
                 result[request.label] = request.execute()
             self.results[count] = result
     
@@ -144,7 +145,7 @@ class SQLUsage(object):
     def _printReport(self, title, attr, colFormat):
         table = tables.Table()
         
-        print title
+        print(title)
         headers = ["Events"] + self.requestLabels
         table.addHeader(headers)
         formats = [tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY)] + \
@@ -155,8 +156,8 @@ class SQLUsage(object):
             table.addRow(row)
         os = StringIO()
         table.printTable(os=os)
-        print os.getvalue()
-        print
+        print(os.getvalue())
+        print("")
             
     def ensureEvents(self, session, calendarhref, n):
         """
@@ -175,9 +176,9 @@ class SQLUsage(object):
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print """Usage: sqlusage.py [options] [FILE]
+    print("""Usage: sqlusage.py [options] [FILE]
 Options:
     -h             Print this help and exit
     --server       Server hostname
@@ -191,7 +192,7 @@ Arguments:
 
 Description:
 This utility will analyze the output of s pg_stat_statement table.
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)

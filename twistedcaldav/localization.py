@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-
+from __future__ import print_function
 from __future__ import with_statement
+
 import gettext
 import inspect
 import os
@@ -46,8 +47,8 @@ How to use:
     from localization import translationTo
 
     with translationTo('de'):
-        print _("Hello")
-        print _("The event will last %(days)d days") % { 'days' : 4 }
+        print(_("Hello"))
+        print(_("The event will last %(days)d days") % { 'days' : 4 })
 
     ... Hallo
     ... Die Veranstaltung dauert 4 Tage
@@ -55,10 +56,8 @@ How to use:
 Before you can actually get translated text, you need to:
 
     1) Choose a "domain" for your code, such as 'calendarserver'
-    2) Run pygettext.py on your source to generate a <domain>.pot file.
-       pygettext.py scans the source for _( ) and copies those strings to the
-       .pot.
-    3) For each language, copy the .pot file to .po and give it to the person
+    2) Run xgettext on your source to generate a <domain>.po file.
+    3) For each language, give the .po file to the person
        who is doing the translation for editing
     4) Run msgfmt.py on the translated .po to generate a binary .mo
     5) Put the .mo into locales/<lang>/LC_MESSAGES/<domain>.mo
@@ -76,12 +75,12 @@ function for the duration of the "with" context.  It's smart enough to allow
 nesting of "with" contexts, as in:
 
     with translationTo('de'):
-        print _("Hello") # in German
+        print(_("Hello") # in German)
 
         with translationTo('fr'):
-            print _("Hello") # in French
+            print(_("Hello") # in French)
 
-        print _("Hello") # in German
+        print(_("Hello") # in German)
 
 If a translation file cannot be found for the specified language, it will fall
 back to 'en'.  If 'en' can't be found, gettext will raise IOError.
@@ -90,12 +89,12 @@ If you use the with/as form, you will get an object that implements some
 helper methods for date formatting:
 
     with translationTo('en') as trans:
-        print trans.dtDate(PyCalendarDateTime.getToday())
+        print(trans.dtDate(PyCalendarDateTime.getToday()))
 
     ... Thursday, October 23, 2008
 
     with translationTo('fr') as trans:
-        print trans.dtDate(PyCalendarDateTime.getToday())
+        print(trans.dtDate(PyCalendarDateTime.getToday()))
 
     ... Jeudi, Octobre 23, 2008
 
@@ -244,7 +243,7 @@ class translationTo(object):
                 'hour24Number' : val.getHours(), # 0-23
                 'hour12Number' : hour12, # 1-12
                 'minuteNumber' : val.getMinutes(), # 0-59
-                'ampm'         : _(ampm),
+                'ampm'         : ampm,
             }
         )
 
@@ -265,8 +264,8 @@ class translationTo(object):
         if days == 1:
             parts.append(_("1 day"))
         elif days > 1:
-            parts.append(_("%(dayCount)d days" %
-                { 'dayCount' : days }))
+            parts.append(_("%(dayCount)d days") %
+                { 'dayCount' : days })
 
         hours = divmod(total / 3600, 24)[1]
         minutes = divmod(total / 60, 60)[1]

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import pickle
 from time import time
@@ -192,7 +193,7 @@ def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
     msg('dtrace stopped')
     for (k, v) in leftOver.items():
         if v:
-            print 'Extra', k, ':', v
+            print('Extra', k, ':', v)
     returnValue(data)
 
 

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,6 +52,8 @@ def holiday(uid):
             .sibling("data").child("Holidays").child(uid + ".ics")
             .getContent()
     )
+
+
 
 def sample(name):
     return (
@@ -195,7 +197,6 @@ class IntegrationTests(TestCase):
         self.mainCalled = False
         self.patch(export, "utilityMain", self.fakeUtilityMain)
 
-
         self.store = yield buildStore(self, None)
         self.waitToStop = Deferred()
 
@@ -208,7 +209,7 @@ class IntegrationTests(TestCase):
         self.waitToStop.callback(None)
 
 
-    def fakeUtilityMain(self, configFileName, serviceClass, reactor=None):
+    def fakeUtilityMain(self, configFileName, serviceClass, reactor=None, verbose=False):
         """
         Verify a few basic things.
         """
@@ -484,5 +485,3 @@ class IntegrationTests(TestCase):
             Component.fromString(resultForUser2),
             Component.fromString(output.getContent())
         )
-
-

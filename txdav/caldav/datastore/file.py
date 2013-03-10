@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_file -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,8 +34,6 @@ from errno import ENOENT
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
 
-from twisted.python.failure import Failure
-
 from twext.python.vcomponent import VComponent
 from txdav.xml import element as davxml
 from txdav.xml.rfc2518 import ResourceType, GETContentType
@@ -46,17 +44,16 @@ from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
 from twistedcaldav.ical import InvalidICalendarDataError
-from twistedcaldav.sharing import InvitesDatabase
 
 from txdav.caldav.icalendarstore import IAttachment
 from txdav.caldav.icalendarstore import ICalendar, ICalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome
 
-from txdav.caldav.datastore.index_file import Index as OldIndex,\
+from txdav.caldav.datastore.index_file import Index as OldIndex, \
     IndexSchedule as OldInboxIndex
 from txdav.caldav.datastore.util import (
     validateCalendarComponent, dropboxIDFromCalendarObject, CalendarObjectBase,
-    StorageTransportBase
+    StorageTransportBase, AttachmentRetrievalTransport
 )
 
 from txdav.common.datastore.file import (
@@ -91,7 +88,6 @@ class CalendarHome(CommonHome):
                                            transaction, notifiers)
 
         self._childClass = Calendar
-
 
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
@@ -131,7 +127,7 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
-        
+
         objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
         for objectResource in objectResources:
             if ok_object and objectResource._path == ok_object._path:
@@ -139,19 +135,21 @@ class CalendarHome(CommonHome):
             matched_type = "schedule" if objectResource.isScheduleObject else "calendar"
             if type == "schedule" or matched_type == "schedule":
                 returnValue(True)
-            
+
         returnValue(False)
+
 
     @inlineCallbacks
     def getCalendarResourcesForUID(self, uid, allow_shared=False):
-        
+
         results = []
         objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
         for objectResource in objectResources:
-            if allow_shared or objectResource._parentCollection._owned:
+            if allow_shared or objectResource._parentCollection.owned():
                 results.append(objectResource)
-            
+
         returnValue(results)
+
 
     @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
@@ -188,17 +186,18 @@ class CalendarHome(CommonHome):
         defaultCal = self.createCalendarWithName("calendar")
         props = defaultCal.properties()
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
-        
+
         # Check whether components type must be separate
         if config.RestrictCalendarsToOneComponentType:
             defaultCal.setSupportedComponents("VEVENT")
-            
+
             # Default tasks
             defaultTasks = self.createCalendarWithName("tasks")
             props = defaultTasks.properties()
             defaultTasks.setSupportedComponents("VTODO")
-            
+
         self.createCalendarWithName("inbox")
+
 
     def ensureDefaultCalendarsExist(self):
         """
@@ -224,9 +223,11 @@ class CalendarHome(CommonHome):
                         newname = str(uuid.uuid4())
                     newcal = self.createCalendarWithName(newname)
                     newcal.setSupportedComponents(support_component)
-            
+
             _requireCalendarWithType("VEVENT", "calendar")
             _requireCalendarWithType("VTODO", "tasks")
+
+
 
 class Calendar(CommonHomeChild):
     """
@@ -252,7 +253,6 @@ class Calendar(CommonHomeChild):
         super(Calendar, self).__init__(name, calendarHome, owned, realName=realName)
 
         self._index = Index(self)
-        self._invites = Invites(self)
         self._objectResourceClass = CalendarObject
 
 
@@ -263,15 +263,6 @@ class Calendar(CommonHomeChild):
 
     def resourceType(self):
         return ResourceType.calendar #@UndefinedVariable
-
-
-    def asShared(self):
-        """
-        Stub for interface-compliance tests.
-        """
-        # TODO: implement me.
-        raise NotImplementedError()
-
 
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome
@@ -294,16 +285,18 @@ class Calendar(CommonHomeChild):
         Update the private property with the supported components. Technically this should only happen once
         on collection creation, but for migration we may need to change after the fact - hence a separate api.
         """
-        
+
         pname = PropertyName.fromElement(customxml.TwistedCalendarSupportedComponents)
         if supported_components:
             self.properties()[pname] = customxml.TwistedCalendarSupportedComponents.fromString(supported_components)
         elif pname in self.properties():
             del self.properties()[pname]
 
+
     def getSupportedComponents(self):
         result = str(self.properties().get(PropertyName.fromElement(customxml.TwistedCalendarSupportedComponents), ""))
         return result if result else None
+
 
     def isSupportedComponent(self, componentType):
         supported = self.getSupportedComponents()
@@ -311,6 +304,7 @@ class Calendar(CommonHomeChild):
             return componentType.upper() in supported.split(",")
         else:
             return True
+
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -325,11 +319,13 @@ class Calendar(CommonHomeChild):
             ),
         )
 
+
     def contentType(self):
         """
         The content type of Calendar objects is text/calendar.
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
+
 
     def splitCollectionByComponentTypes(self):
         """
@@ -337,48 +333,64 @@ class Calendar(CommonHomeChild):
         each containing only one component type. When doing this make sure properties and sharing state are preserved
         on any new calendars created.
         """
-        
+
         # TODO: implement this for filestore
         pass
+
 
     def _countComponentTypes(self):
         """
         Count each component type in this calendar.
-        
-        @return: a C{tuple} of C{tuple} containing the component type name and count. 
+
+        @return: a C{tuple} of C{tuple} containing the component type name and count.
         """
 
         rows = self._index._oldIndex.componentTypeCounts()
         result = tuple([(componentType, componentCount) for componentType, componentCount in sorted(rows, key=lambda x:x[0])])
         return result
 
+
     def _splitComponentType(self, component):
         """
         Create a new calendar and move all components of the specified component type into the new one.
         Make sure properties and sharing state is preserved on the new calendar.
-        
+
         @param component: Component type to split out
         @type component: C{str}
         """
-        
+
         # TODO: implement this for filestore
         pass
+
 
     def _transferSharingDetails(self, newcalendar, component):
         """
         If the current calendar is shared, make the new calendar shared in the same way, but tweak the name.
         """
-        
+
         # TODO: implement this for filestore
         pass
-    
+
+
     def _transferCalendarObjects(self, newcalendar, component):
         """
         Move all calendar components of the specified type to the specified calendar.
         """
-        
+
         # TODO: implement this for filestore
         pass
+
+
+    def creatingResourceCheckAttachments(self, component):
+        """
+        When component data is created or changed we need to look for changes related to managed attachments.
+
+        @param component: the new calendar data
+        @type component: L{Component}
+        """
+        return succeed(None)
+
+
 
 class CalendarObject(CommonObjectResource, CalendarObjectBase):
     """
@@ -391,7 +403,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def __init__(self, name, calendar, metadata=None):
         super(CalendarObject, self).__init__(name, calendar)
         self._attachments = {}
-        
+
         if metadata is not None:
             self.accessMode = metadata.get("accessMode", "")
             self.isScheduleObject = metadata.get("isScheduleObject", False)
@@ -430,7 +442,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if self._path.exists():
                 backup = hidden(self._path.temporarySibling())
                 self._path.moveTo(backup)
-            
+
             fh = self._path.open("w")
             try:
                 # FIXME: concurrency problem; if this write is interrupted
@@ -478,11 +490,15 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         if unfixed:
             self.log_error("Calendar data at %s had unfixable problems:\n  %s" % (self._path.path, "\n  ".join(unfixed),))
-        
+
         if fixed:
             self.log_error("Calendar data at %s had fixable problems:\n  %s" % (self._path.path, "\n  ".join(fixed),))
 
         return component
+
+
+    def remove(self):
+        pass
 
 
     def _text(self):
@@ -518,34 +534,40 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     "File corruption detected (improper start) in file: %s"
                     % (self._path.path,)
                 )
-        
+
         self._objectText = text
         return text
+
 
     def uid(self):
         if not hasattr(self, "_uid"):
             self._uid = self.component().resourceUID()
         return self._uid
 
+
     def componentType(self):
         if not hasattr(self, "_componentType"):
             self._componentType = self.component().mainType()
         return self._componentType
 
+
     def organizer(self):
         return self.component().getOrganizer()
 
+
     def getMetadata(self):
         metadata = {}
-        metadata["accessMode"] = self.accessMode 
+        metadata["accessMode"] = self.accessMode
         metadata["isScheduleObject"] = self.isScheduleObject
         metadata["scheduleTag"] = self.scheduleTag
         metadata["scheduleEtags"] = self.scheduleEtags
         metadata["hasPrivateComment"] = self.hasPrivateComment
         return metadata
 
+
     def _get_accessMode(self):
         return str(self.properties().get(PropertyName.fromElement(customxml.TwistedCalendarAccessProperty), ""))
+
 
     def _set_accessMode(self, value):
         pname = PropertyName.fromElement(customxml.TwistedCalendarAccessProperty)
@@ -566,6 +588,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             prop = str(prop) == "true"
         return prop
 
+
     def _set_isScheduleObject(self, value):
         pname = PropertyName.fromElement(customxml.TwistedSchedulingObjectResource)
         if value is not None:
@@ -578,6 +601,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _get_scheduleTag(self):
         return str(self.properties().get(PropertyName.fromElement(caldavxml.ScheduleTag), ""))
 
+
     def _set_scheduleTag(self, value):
         pname = PropertyName.fromElement(caldavxml.ScheduleTag)
         if value:
@@ -589,6 +613,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     def _get_scheduleEtags(self):
         return tuple([str(etag) for etag in self.properties().get(PropertyName.fromElement(customxml.TwistedScheduleMatchETags), customxml.TwistedScheduleMatchETags()).children])
+
 
     def _set_scheduleEtags(self, value):
         if value:
@@ -605,6 +630,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _get_hasPrivateComment(self):
         return PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty) in self.properties()
 
+
     def _set_hasPrivateComment(self, value):
         pname = PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty)
         if value:
@@ -613,6 +639,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             del self.properties()[pname]
 
     hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
+
+
+    def addAttachment(self, pathpattern, rids, content_type, filename, stream):
+        raise NotImplementedError
+
+
+    def updateAttachment(self, pathpattern, managed_id, content_type, filename, stream):
+        raise NotImplementedError
+
+
+    def removeAttachment(self, rids, managed_id):
+        raise NotImplementedError
+
 
     @inlineCallbacks
     def createAttachmentWithName(self, name):
@@ -703,11 +742,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 PropertyName.fromElement(caldavxml.ScheduleTag),
                 PropertyName.fromElement(customxml.TwistedScheduleMatchETags),
                 PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty),
-                PropertyName.fromElement(caldavxml.Originator),
-                PropertyName.fromElement(caldavxml.Recipient),
                 PropertyName.fromElement(customxml.ScheduleChanges),
             ),
         )
+
 
     # IDataStoreObject
     def contentType(self):
@@ -720,7 +758,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 class AttachmentStorageTransport(StorageTransportBase):
 
-    def __init__(self, attachment, contentType):
+    def __init__(self, attachment, contentType, dispositionName):
         """
         Initialize this L{AttachmentStorageTransport} and open its file for
         writing.
@@ -729,14 +767,30 @@ class AttachmentStorageTransport(StorageTransportBase):
         @type attachment: L{Attachment}
         """
         super(AttachmentStorageTransport, self).__init__(
-            attachment, contentType)
+            attachment, contentType, dispositionName)
         self._path = self._attachment._path.temporarySibling()
         self._file = self._path.open("w")
+
+        self._txn.postAbort(self.aborted)
+
+
+    @property
+    def _txn(self):
+        return self._attachment._txn
+
+
+    def aborted(self):
+        """
+        Transaction aborted - clean up temp files.
+        """
+        if self._path.exists():
+            self._path.remove()
 
 
     def write(self, data):
         # FIXME: multiple chunks
         self._file.write(data)
+        return super(AttachmentStorageTransport, self).write(data)
 
 
     def loseConnection(self):
@@ -785,6 +839,11 @@ class Attachment(FileMetaDataMixin):
         self._dropboxPath = dropboxPath
 
 
+    @property
+    def _txn(self):
+        return self._calendarObject._txn
+
+
     def name(self):
         return self._name
 
@@ -796,17 +855,12 @@ class Attachment(FileMetaDataMixin):
         return propStoreClass(uid, lambda: self._path)
 
 
-    def store(self, contentType):
-        return AttachmentStorageTransport(self, contentType)
+    def store(self, contentType, dispositionName=None):
+        return AttachmentStorageTransport(self, contentType, dispositionName)
 
 
     def retrieve(self, protocol):
-        # FIXME: makeConnection
-        # FIXME: actually stream
-        # FIMXE: connectionLost
-        protocol.dataReceived(self._path.getContent())
-        # FIXME: ConnectionDone, not NotImplementedError
-        protocol.connectionLost(Failure(NotImplementedError()))
+        return AttachmentRetrievalTransport(self._path).start(protocol)
 
 
     @property
@@ -865,14 +919,3 @@ class Index(object):
             calendarObject._componentType = componentType
 
             yield calendarObject
-
-
-class Invites(object):
-    #
-    # OK, here's where we get ugly.
-    # The index code needs to be rewritten also, but in the meantime...
-    #
-    def __init__(self, calendar):
-        self.calendar = calendar
-        stubResource = CalendarStubResource(calendar)
-        self._oldInvites = InvitesDatabase(stubResource)

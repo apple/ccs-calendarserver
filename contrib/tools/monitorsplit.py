@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import getopt
 import sys
@@ -29,7 +30,7 @@ def split(fpath, outputDir):
     
     global outputFile, fileCount, lastWeek
 
-    print "Splitting data for %s" % (fpath,)
+    print("Splitting data for %s" % (fpath,))
     f = GzipFile(fpath) if fpath.endswith(".gz") else open(fpath)
     for line in f:
         if line.startswith("2010/0"):
@@ -48,7 +49,7 @@ def split(fpath, outputDir):
                 outputFile = open(os.path.join(outputDir, "request.log.%s" % (date,)), "w")
                 fileCount += 1
                 lastWeek = currentWeek
-                print "Changed to week of %s" % (date,)
+                print("Changed to week of %s" % (date,))
         
             output = ["-----\n"]
             output.append(line)
@@ -75,9 +76,9 @@ def expandDate(date):
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print """Usage: monitoranalysis [options] FILE+
+    print("""Usage: monitoranalysis [options] FILE+
 Options:
     -h          Print this help and exit
     -d          Directory to store split files in
@@ -92,7 +93,7 @@ Arguments:
 Description:
 This utility will analyze the output of the request monitor tool and
 generate some pretty plots of data.
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)
@@ -125,4 +126,4 @@ if __name__ == "__main__":
     for arg in args:
         split(argPath(arg), outputDir)
     
-    print "Created %d files" % (fileCount,)
+    print("Created %d files" % (fileCount,))

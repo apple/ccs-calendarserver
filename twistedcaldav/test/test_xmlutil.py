@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import twistedcaldav.test.util
 from cStringIO import StringIO
 from twistedcaldav.xmlutil import readXML, writeXML, addSubElement,\
-    changeSubElementText
+    changeSubElementText, createElement, elementToXML, readXMLString
 
 class XMLUtil(twistedcaldav.test.util.TestCase):
     """
@@ -139,3 +139,14 @@ class XMLUtil(twistedcaldav.test.util.TestCase):
         changeSubElementText(root, "new", "new text")
         self._checkXML(root, XMLUtil.data6)
 
+
+    def test_emoji(self):
+        """
+        Verify we can serialize and parse unicode values above 0xFFFF
+        """
+        name = u"Emoji \U0001F604"
+        elem = createElement("test", text=name)
+        xmlString1 = elementToXML(elem)
+        parsed = readXMLString(xmlString1)[1]
+        xmlString2 = elementToXML(parsed)
+        self.assertEquals(xmlString1, xmlString2)

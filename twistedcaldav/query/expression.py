@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
-Query Expression Elements. These are used to build a 'generic' query expression tree that can then
-be used by different query language generators to produce the actual query syntax required (SQL, xpath eyc).
+Query Expression Elements. These are used to build a 'generic' query
+expression tree that can then be used by different query language
+generators to produce the actual query syntax required (SQL, xpath
+eyc).
 """
 
 __version__ = "0.0"
@@ -329,9 +332,9 @@ if __name__ == "__main__":
     e3 = containsExpression("summary", "help", True)
     e4 = notExpression(e3)
     e5 = andExpression([e1, e2, e4])
-    print e5
+    print(e5)
     e6 = inExpression("type", ("vevent", "vtodo",), False)
-    print e6
+    print(e6)
     e7 = notinExpression("type", ("vevent", "vtodo",), False)
-    print e7
+    print(e7)
 

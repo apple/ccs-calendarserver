@@ -1,7 +1,7 @@
 #!/ngs/app/ical/code/bin/python
 
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 # Sends SIGTERM to any calendar server child process whose VSIZE exceeds 2GB
 # Only for use in a specific environment
@@ -54,9 +55,9 @@ for pidString in sorted(os.listdir(PROCDIR)):
                 continue
             serverProcessCount += 1
             if vsize > CUTOFFBYTES:
-                print "Killing process %d with VSIZE %d" % (pidNumber, vsize)
+                print("Killing process %d with VSIZE %d" % (pidNumber, vsize))
                 os.kill(pidNumber, signal.SIGTERM)
                 numKilled += 1
 
-print "Examined %d server processes" % (serverProcessCount,)
-print "Killed %d processes" % (numKilled,)
+print("Examined %d server processes" % (serverProcessCount,))
+print("Killed %d processes" % (numKilled,))

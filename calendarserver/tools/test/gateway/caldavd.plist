@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-    Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+    Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -91,11 +91,11 @@
 
     <!-- Log root -->
     <key>LogRoot</key>
-    <string>/var/log/caldavd</string>
+    <string>Logs</string>
 
     <!-- Run root -->
     <key>RunRoot</key>
-    <string>/var/run</string>
+    <string>Logs/state</string>
 
     <!-- Child aliases -->
     <key>Aliases</key>
@@ -279,7 +279,7 @@
      -->
 
 	<key>ProxyLoadFromFile</key>
-    <string>conf/auth/proxies-test.xml</string>
+    <string></string>
 
     <!--
         Special principals

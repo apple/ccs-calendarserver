@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -131,4 +131,57 @@ class SubprocessStartup(TestCase):
         cursor.execute("select * from test_dummy_table")
         values = cursor.fetchall()
         self.assertEquals(values, [["dummy"]])
+
+    @inlineCallbacks
+    def test_startService_withDumpFile(self):
+        """
+        Assuming a properly configured environment ($PATH points at an 'initdb'
+        and 'postgres', $PYTHONPATH includes pgdb), starting a
+        L{PostgresService} will start the service passed to it, after importing
+        an existing dump file.
+        """
+
+        test = self
+        class SimpleService1(Service):
+
+            instances = []
+            ready = Deferred()
+
+            def __init__(self, connectionFactory):
+                self.connection = connectionFactory()
+                test.addCleanup(self.connection.close)
+                self.instances.append(self)
+
+
+            def startService(self):
+                cursor = self.connection.cursor()
+                try:
+                    cursor.execute(
+                        "insert into import_test_table values ('value2')"
+                    )
+                except:
+                    self.ready.errback()
+                else:
+                    self.ready.callback(None)
+                finally:
+                    cursor.close()
+
+        # The SQL in importFile.sql will get executed, including the insertion of "value1"
+        importFileName = CachingFilePath(__file__).parent().child("importFile.sql").path
+        svc = PostgresService(
+            CachingFilePath("postgres_3.pgdb"),
+            SimpleService1,
+            "",
+            databaseName="dummy_db",
+            testMode=True,
+            importFileName=importFileName
+        )
+        svc.startService()
+        self.addCleanup(svc.stopService)
+        yield SimpleService1.ready
+        connection = SimpleService1.instances[0].connection
+        cursor = connection.cursor()
+        cursor.execute("select * from import_test_table")
+        values = cursor.fetchall()
+        self.assertEquals(values, [["value1"],["value2"]])
 

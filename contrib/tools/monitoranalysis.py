@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import matplotlib.pyplot as plt
 import getopt
@@ -26,7 +27,7 @@ initialDate = None
 
 def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
     
-    print "Analyzing data for %s" % (fpath,)
+    print("Analyzing data for %s" % (fpath,))
     data = []
     firstDate = None
     global initialDate
@@ -77,7 +78,7 @@ def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
     
                     if reqs <= 80:
                         data.append((dtstamp, reqs, resp, lqnon, cpu))
-                    #print "%s %d %d %d %d" % (dtstamp, reqs, resp, lqnon, cpu)
+                    #print("%s %d %d %d %d" % (dtstamp, reqs, resp, lqnon, cpu))
             except StopIteration:
                 break
     
@@ -93,7 +94,7 @@ def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
 
     dataset.append((title, data,))
     
-    print "Stored %d data points" % (len(data),)
+    print("Stored %d data points" % (len(data),))
 
 def plotListenQBands(data, first, last, xlim, ylim):
 
@@ -161,7 +162,7 @@ def plotCPUBands(data, first, last, xlim, ylim):
 
 def plot(figure, noshow, nosave, pngDir, xlim, ylim):
     
-    print "Plotting data"
+    print("Plotting data")
     
     plt.figure(figure, figsize=(16, 5 * len(dataset)))
 
@@ -193,9 +194,9 @@ def expandDate(date):
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print """Usage: monitoranalysis [options] [FILE+]
+    print("""Usage: monitoranalysis [options] [FILE+]
 Options:
     -h             Print this help and exit
     -d             Directory to save PNGs to
@@ -216,7 +217,7 @@ Arguments:
 Description:
 This utility will analyze the output of the request monitor tool and
 generate some pretty plots of data.
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)
@@ -273,7 +274,7 @@ if __name__ == "__main__":
         count = 1
         for name in fnames:
             if name.startswith("request.log"):
-                print "Found file: %s" % (os.path.join(scanDir, name),)
+                print("Found file: %s" % (os.path.join(scanDir, name),))
                 trailer = name[len("request.log"):]
                 if trailer.startswith("."):
                     trailer = trailer[1:]

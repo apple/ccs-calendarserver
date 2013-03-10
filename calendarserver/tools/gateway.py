@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,44 +15,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from getopt import getopt, GetoptError
-from grp import getgrnam
-from pwd import getpwnam
 import os
 import sys
 import xml
 
 from twext.python.plistlib import readPlistFromString, writePlistToString
 
-from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
-from twisted.python.util import switchUID
-from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import DirectoryError
 from txdav.xml import element as davxml
 
-from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, checkDirectory
 from calendarserver.tools.principals import (
     principalForPrincipalID, proxySubprincipal, addProxy, removeProxy,
     getProxies, setProxies, ProxyError, ProxyWarning, updateRecord
 )
+from calendarserver.tools.purge import WorkerService, PurgeOldEventsService, DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS
+from calendarserver.tools.cmdline import utilityMain
 
-from twext.python.log import StandardIOObserver
+from pycalendar.datetime import PyCalendarDateTime
 
 
 def usage(e=None):
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options]" % (name,)
-    print ""
-    print "  TODO: describe usage"
-    print ""
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -e --error: send stderr to stdout"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
-    print ""
+    print("usage: %s [options]" % (name,))
+    print("")
+    print("  TODO: describe usage")
+    print("")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -e --error: send stderr to stdout")
+    print("  -f --config <path>: Specify caldavd.plist configuration path")
+    print("")
 
     if e:
         sys.exit(64)
@@ -60,10 +57,31 @@ def usage(e=None):
         sys.exit(0)
 
 
+
+class RunnerService(WorkerService):
+    """
+    A wrapper around Runner which uses utilityMain to get the store
+    """
+
+    commands = None
+
+    @inlineCallbacks
+    def doWork(self):
+        """
+        Create/run a Runner to execute the commands
+        """
+        rootResource = self.rootResource()
+        directory = rootResource.getDirectory()
+        runner = Runner(rootResource, directory, self._store, self.commands)
+        if runner.validate():
+            yield runner.run()
+
+
+
 def main():
 
     try:
-        (optargs, args) = getopt(
+        (optargs, _ignore_args) = getopt(
             sys.argv[1:], "hef:", [
                 "help",
                 "error",
@@ -77,54 +95,20 @@ def main():
     # Get configuration
     #
     configFileName = None
+    debug = False
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
             usage()
 
         if opt in ("-e", "--error"):
-            observer = StandardIOObserver()
-            observer.start()
+            debug = True
 
         elif opt in ("-f", "--config"):
             configFileName = arg
 
         else:
             raise NotImplementedError(opt)
-
-    try:
-        loadConfig(configFileName)
-
-        # Create the DataRoot directory before shedding privileges
-        if config.DataRoot.startswith(config.ServerRoot + os.sep):
-            checkDirectory(
-                config.DataRoot,
-                "Data root",
-                access=os.W_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
-
-        # Shed privileges
-        if config.UserName and config.GroupName and os.getuid() == 0:
-            uid = getpwnam(config.UserName).pw_uid
-            gid = getgrnam(config.GroupName).gr_gid
-            switchUID(uid, uid, gid)
-
-        os.umask(config.umask)
-
-        # Configure memcached client settings prior to setting up resource
-        # hierarchy (in getDirectory)
-        setupMemcached(config)
-
-        try:
-            config.directory = getDirectory()
-        except DirectoryError, e:
-            respondWithError(str(e))
-            return
-
-    except ConfigurationError, e:
-        respondWithError(str(e))
-        return
 
     #
     # Read commands from stdin
@@ -143,15 +127,8 @@ def main():
     else:
         commands = [plist]
 
-    runner = Runner(config.directory, commands)
-    if not runner.validate():
-        return
-
-    #
-    # Start the reactor
-    #
-    reactor.callLater(0, runner.run)
-    reactor.run()
+    RunnerService.commands = commands
+    utilityMain(configFileName, RunnerService, verbose=debug)
 
 
 attrMap = {
@@ -171,18 +148,22 @@ attrMap = {
     'Country' : { 'extras' : True, 'attr' : 'country', },
     'Phone' : { 'extras' : True, 'attr' : 'phone', },
     'AutoSchedule' : { 'attr' : 'autoSchedule', },
+    'AutoAcceptGroup' : { 'attr' : 'autoAcceptGroup', },
 }
 
 class Runner(object):
 
-    def __init__(self, directory, commands):
+    def __init__(self, root, directory, store, commands):
+        self.root = root
         self.dir = directory
+        self.store = store
         self.commands = commands
+
 
     def validate(self):
         # Make sure commands are valid
         for command in self.commands:
-            if not command.has_key('command'):
+            if 'command' not in command:
                 respondWithError("'command' missing from plist")
                 return False
             commandName = command['command']
@@ -191,6 +172,7 @@ class Runner(object):
                 respondWithError("Unknown command '%s'" % (commandName,))
                 return False
         return True
+
 
     @inlineCallbacks
     def run(self):
@@ -207,20 +189,18 @@ class Runner(object):
             respondWithError("Command failed: '%s'" % (str(e),))
             raise
 
-        finally:
-            reactor.stop()
-
     # Locations
+
 
     def command_getLocationList(self, command):
         respondWithRecordsOfType(self.dir, command, "locations")
 
+
     @inlineCallbacks
     def command_createLocation(self, command):
-
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
 
         try:
@@ -232,9 +212,10 @@ class Runner(object):
         readProxies = command.get("ReadProxies", None)
         writeProxies = command.get("WriteProxies", None)
         principal = principalForPrincipalID(record.guid, directory=self.dir)
-        (yield setProxies(principal, readProxies, writeProxies))
+        (yield setProxies(principal, readProxies, writeProxies, directory=self.dir))
 
         respondWithRecordsOfType(self.dir, command, "locations")
+
 
     @inlineCallbacks
     def command_getLocationAttributes(self, command):
@@ -249,7 +230,9 @@ class Runner(object):
             respondWithError("Principal not found: %s" % (guid,))
             return
         recordDict['AutoSchedule'] = principal.getAutoSchedule()
-        recordDict['ReadProxies'], recordDict['WriteProxies'] = (yield getProxies(principal))
+        recordDict['AutoAcceptGroup'] = principal.getAutoAcceptGroup()
+        recordDict['ReadProxies'], recordDict['WriteProxies'] = (yield getProxies(principal,
+            directory=self.dir))
         respond(command, recordDict)
 
     command_getResourceAttributes = command_getLocationAttributes
@@ -262,10 +245,11 @@ class Runner(object):
         principal = principalForPrincipalID(command['GeneratedUID'],
             directory=self.dir)
         (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
+        (yield principal.setAutoAcceptGroup(command.get('AutoAcceptGroup', "")))
 
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
         try:
             record = (yield updateRecord(False, self.dir, "locations", **kwargs))
@@ -276,14 +260,15 @@ class Runner(object):
         readProxies = command.get("ReadProxies", None)
         writeProxies = command.get("WriteProxies", None)
         principal = principalForPrincipalID(record.guid, directory=self.dir)
-        (yield setProxies(principal, readProxies, writeProxies))
+        (yield setProxies(principal, readProxies, writeProxies, directory=self.dir))
 
         yield self.command_getLocationAttributes(command)
+
 
     def command_deleteLocation(self, command):
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
         try:
             self.dir.destroyRecord("locations", **kwargs)
@@ -294,14 +279,16 @@ class Runner(object):
 
     # Resources
 
+
     def command_getResourceList(self, command):
         respondWithRecordsOfType(self.dir, command, "resources")
+
 
     @inlineCallbacks
     def command_createResource(self, command):
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
 
         try:
@@ -313,9 +300,10 @@ class Runner(object):
         readProxies = command.get("ReadProxies", None)
         writeProxies = command.get("WriteProxies", None)
         principal = principalForPrincipalID(record.guid, directory=self.dir)
-        (yield setProxies(principal, readProxies, writeProxies))
+        (yield setProxies(principal, readProxies, writeProxies, directory=self.dir))
 
         respondWithRecordsOfType(self.dir, command, "resources")
+
 
     @inlineCallbacks
     def command_setResourceAttributes(self, command):
@@ -325,10 +313,11 @@ class Runner(object):
         principal = principalForPrincipalID(command['GeneratedUID'],
             directory=self.dir)
         (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
+        (yield principal.setAutoAcceptGroup(command.get('AutoAcceptGroup', "")))
 
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
         try:
             record = (yield updateRecord(False, self.dir, "resources", **kwargs))
@@ -339,14 +328,15 @@ class Runner(object):
         readProxies = command.get("ReadProxies", None)
         writeProxies = command.get("WriteProxies", None)
         principal = principalForPrincipalID(record.guid, directory=self.dir)
-        (yield setProxies(principal, readProxies, writeProxies))
+        (yield setProxies(principal, readProxies, writeProxies, directory=self.dir))
 
         yield self.command_getResourceAttributes(command)
+
 
     def command_deleteResource(self, command):
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
         try:
             self.dir.destroyRecord("resources", **kwargs)
@@ -357,6 +347,7 @@ class Runner(object):
 
     # Proxies
 
+
     @inlineCallbacks
     def command_listWriteProxies(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
@@ -364,6 +355,7 @@ class Runner(object):
             respondWithError("Principal not found: %s" % (command['Principal'],))
             return
         (yield respondWithProxies(self.dir, command, principal, "write"))
+
 
     @inlineCallbacks
     def command_addWriteProxy(self, command):
@@ -386,6 +378,7 @@ class Runner(object):
             pass
         (yield respondWithProxies(self.dir, command, principal, "write"))
 
+
     @inlineCallbacks
     def command_removeWriteProxy(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
@@ -405,6 +398,7 @@ class Runner(object):
             pass
         (yield respondWithProxies(self.dir, command, principal, "write"))
 
+
     @inlineCallbacks
     def command_listReadProxies(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
@@ -412,6 +406,7 @@ class Runner(object):
             respondWithError("Principal not found: %s" % (command['Principal'],))
             return
         (yield respondWithProxies(self.dir, command, principal, "read"))
+
 
     @inlineCallbacks
     def command_addReadProxy(self, command):
@@ -431,6 +426,7 @@ class Runner(object):
         except ProxyWarning, e:
             pass
         (yield respondWithProxies(self.dir, command, principal, "read"))
+
 
     @inlineCallbacks
     def command_removeReadProxy(self, command):
@@ -452,6 +448,24 @@ class Runner(object):
         (yield respondWithProxies(self.dir, command, principal, "read"))
 
 
+    @inlineCallbacks
+    def command_purgeOldEvents(self, command):
+        """
+        Convert RetainDays from the command dictionary into a date, then purge
+        events older than that date.
+
+        @param command: the dictionary parsed from the plist read from stdin
+        @type command: C{dict}
+        """
+        retainDays = command.get("RetainDays", DEFAULT_RETAIN_DAYS)
+        cutoff = PyCalendarDateTime.getToday()
+        cutoff.setDateOnly(False)
+        cutoff.offsetDay(-retainDays)
+        eventCount = (yield PurgeOldEventsService.purgeOldEvents(self.store, cutoff, DEFAULT_BATCH_SIZE))
+        respond(command, {'EventsRemoved' : eventCount, "RetainDays" : retainDays})
+
+
+
 @inlineCallbacks
 def respondWithProxies(directory, command, principal, proxyType):
     proxies = []
@@ -460,12 +474,13 @@ def respondWithProxies(directory, command, principal, proxyType):
         membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
         if membersProperty.children:
             for member in membersProperty.children:
-                proxyPrincipal = principalForPrincipalID(str(member))
+                proxyPrincipal = principalForPrincipalID(str(member), directory=directory)
                 proxies.append(proxyPrincipal.record.guid)
 
     respond(command, {
         'Principal' : principal.record.guid, 'Proxies' : proxies
     })
+
 
 
 def recordToDict(record):
@@ -483,6 +498,8 @@ def recordToDict(record):
             pass
     return recordDict
 
+
+
 def respondWithRecordsOfType(directory, command, recordType):
     result = []
     for record in directory.listRecords(recordType):
@@ -490,11 +507,15 @@ def respondWithRecordsOfType(directory, command, recordType):
         result.append(recordDict)
     respond(command, result)
 
+
+
 def respond(command, result):
-    sys.stdout.write(writePlistToString( { 'command' : command['command'], 'result' : result } ) )
+    sys.stdout.write(writePlistToString({'command' : command['command'], 'result' : result}))
+
+
 
 def respondWithError(msg, status=1):
-    sys.stdout.write(writePlistToString( { 'error' : msg, } ) )
+    sys.stdout.write(writePlistToString({'error' : msg, }))
     """
     try:
         reactor.stop()

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +37,9 @@ from txdav.xml.element import WebDAVTextElement, Principal, HRef
 
 
 class AuthenticationWrapper(WrapperResource):
-    def __init__(self, resource, portal, credentialFactories, loginInterfaces):
+    def __init__(self, resource, portal,
+        wireEncryptedCredentialFactories, wireUnencryptedCredentialFactories,
+        loginInterfaces):
         """
         Wrap the given resource and use the parameters to set up the request
         to allow anyone to challenge and handle authentication.
@@ -45,21 +47,40 @@ class AuthenticationWrapper(WrapperResource):
         @param resource: L{DAVResource} FIXME: This should get promoted to
             twext.web2.auth
         @param portal: The cred portal
-        @param credentialFactories: Sequence of credentialFactories that can
-            be used to authenticate by resources in this tree.
+        @param wireEncryptedCredentialFactories: Sequence of credentialFactories
+            that can be used to authenticate by resources in this tree over a
+            wire-encrypted channel (SSL).
+        @param wireUnencryptedCredentialFactories: Sequence of credentialFactories
+            that can be used to authenticate by resources in this tree over a
+            wire-unencrypted channel (non-SSL).
         @param loginInterfaces: More cred stuff
         """
         super(AuthenticationWrapper, self).__init__(resource)
 
         self.portal = portal
-        self.credentialFactories = dict([(factory.scheme, factory)
-                                         for factory in credentialFactories])
+        self.wireEncryptedCredentialFactories = dict([(factory.scheme, factory)
+                                         for factory in wireEncryptedCredentialFactories])
+        self.wireUnencryptedCredentialFactories = dict([(factory.scheme, factory)
+                                         for factory in wireUnencryptedCredentialFactories])
         self.loginInterfaces = loginInterfaces
+
+        # FIXME: some unit tests access self.credentialFactories, so assigning here
+        self.credentialFactories = self.wireEncryptedCredentialFactories
 
     def hook(self, req):
         req.portal = self.portal
-        req.credentialFactories = self.credentialFactories
         req.loginInterfaces = self.loginInterfaces
+
+        # If not using SSL, use the factory list which excludes "Basic"
+        if getattr(req, "chanRequest", None) is None: # This is only None in unit tests
+            secureConnection = True
+        else:
+            ignored, secureConnection = req.chanRequest.getHostInfo()
+        req.credentialFactories = (
+            self.wireEncryptedCredentialFactories
+            if secureConnection
+            else self.wireUnencryptedCredentialFactories
+        )
 
 
 class IPrincipal(Interface):

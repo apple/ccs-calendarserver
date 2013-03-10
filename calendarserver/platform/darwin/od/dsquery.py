@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 ##
+from __future__ import print_function
 
 """
 Compound query builder. We do this in Python to avoid having to mess
@@ -130,5 +131,5 @@ if __name__=='__main__':
     for expr, result in exprs:
         gen = expr.generate()
         if gen != result:
-            print "Generate expression %s != %s" % (gen, result,)
-    print "Done."
+            print("Generate expression %s != %s" % (gen, result,))
+    print("Done.")

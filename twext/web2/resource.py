@@ -1,7 +1,7 @@
 # -*- test-case-name: twext.web2.test.test_server,twext.web2.test.test_resource -*-
 ##
 # Copyright (c) 2001-2007 Twisted Matrix Laboratories.
-# Copyright (c) 2010-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +34,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.web2 import iweb, http, server, responsecode
 
+from twisted.internet.defer import maybeDeferred
 class RenderMixin(object):
     """
     Mix-in class for L{iweb.IResource} which provides a dispatch mechanism for
@@ -106,7 +107,18 @@ class RenderMixin(object):
             returnValue(response)
 
         yield self.checkPreconditions(request)
-        returnValue((yield method(request)))
+        result = maybeDeferred(method, request)
+        result.addErrback(self.methodRaisedException)
+        returnValue((yield result))
+
+
+    def methodRaisedException(self, failure):
+        """
+        An C{http_METHOD} method raised an exception; this is an errback for
+        that exception.  By default, simply propagate the error up; subclasses
+        may override this for top-level exception handling.
+        """
+        return failure
 
 
     def http_OPTIONS(self, request):

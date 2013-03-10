@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.enterprise.test.test_fixtures -*-
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,10 @@ def buildConnectionPool(testCase, schemaText="", dialect=SQLITE_DIALECT):
     @param schemaText: The text of the schema with which to initialize the
         database.
     @type schemaText: L{str}
+
+    @return: a L{ConnectionPool} service whose C{startService} method has
+        already been invoked.
+    @rtype: L{ConnectionPool}
     """
     sqlitename = testCase.mktemp()
     seqs = {}

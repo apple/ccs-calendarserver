@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ ignores = set((
 ))
 
 def makepatches(project):
-    
+
     # First delete existing patch files.
     path = os.path.join(libpatches, project)
     print "Removing patches from directory: %s" % (path[len(cwd) + 1:],)
@@ -44,13 +44,13 @@ def makepatches(project):
         fpath = os.path.join(path, file)
         if os.path.isfile(fpath):
             os.remove(fpath)
-    
+
     # Now execute svn status to find files needing to be patched.
     os.system("%s status ../%s > temppatch" % (svn, project))
-    
+
     f = open("temppatch")
     for line in f:
-        
+
         # We are only interested in new files and modified files.
         if line and line[0] == "?":
             new = True
@@ -58,7 +58,7 @@ def makepatches(project):
             new = False
         else:
             continue
-        
+
         # Ignore files ending in .pyc and file names starting with ".".
         line = line[1:]
         line = line.strip()
@@ -66,20 +66,20 @@ def makepatches(project):
             continue
         if os.path.basename(line)[0] == ".":
             continue
-        
+
         # Ignore build directories at the top-level
         if line[3 + len(project) + 1:].startswith("build%s" % (os.path.sep,)):
             continue
-        
+
         # Ignore modified directories - we will patch the files in them
         if not new and os.path.isdir(line):
             continue
-        
+
         # Generate the name of the patch file we want to create.
         patch = line[:line.rfind(".")]
         patch = patch[3 + len(project) + 1:]
         patch = patch.replace(os.sep, ".") + ".patch"
-        
+
         # Check whether this is a patch we want to ignore
         if patch in ignores:
             continue
@@ -87,7 +87,7 @@ def makepatches(project):
         patch = os.path.join(path, patch)
 
         print ("Creating diff file %s for existing file %s", "Creating diff file %s for new file %s")[new] % (patch[len(cwd) + 1:], line)
-        
+
         # Generate an svn diff.
         # NB For new files we have to first add them then do the diff, then revert,
         # otherwise svn diff complains about an unversioned resource.
@@ -96,7 +96,7 @@ def makepatches(project):
         os.system("%s diff %s > tempdiff" % (svn, line))
         if new:
             os.system("%s revert -q %s" % (svn, line))
-        
+
         # Now replace the directory prefix in the diff output and write to the actual patch file.
         repl = "../%s/" % (project,)
         fin = open("tempdiff")
@@ -106,12 +106,12 @@ def makepatches(project):
         fout.close()
         fin.close()
         os.remove("tempdiff")
-        
+
     f.close()
     os.remove("temppatch")
-    
-if __name__ == "__main__":
 
+
+if __name__ == "__main__":
     try:
         for project in projects:
             makepatches(project)

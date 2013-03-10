@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import os
 
@@ -94,7 +95,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         DirectoryPrincipalResource.principalURL(),
         """
         for directory in self.directoryServices:
-            #print "\n -> %s" % (directory.__class__.__name__,)
+            #print("\n -> %s" % (directory.__class__.__name__,))
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
             provisioningURL = "/" + directory.__class__.__name__ + "/"
@@ -107,7 +108,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             self.assertEquals(recordTypes, set(directory.recordTypes()))
 
             for recordType in recordTypes:
-                #print "   -> %s" % (recordType,)
+                #print("   -> %s" % (recordType,))
                 typeResource = provisioningResource.getChild(recordType)
                 self.failUnless(isinstance(typeResource, DirectoryPrincipalTypeProvisioningResource))
 
@@ -126,7 +127,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 self.assertEquals(shortNames, set(expected))
 
                 for shortName in shortNames:
-                    #print "     -> %s" % (shortName,)
+                    #print("     -> %s" % (shortName,))
                     recordResource = typeResource.getChild(shortName)
                     self.failUnless(isinstance(recordResource, DirectoryPrincipalResource))
 
@@ -560,7 +561,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         DirectoryPrincipalResource.canAutoSchedule()
         """
-        
+
         # Set all resources and locations to auto-schedule, plus one user
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
@@ -590,6 +591,27 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             if record.enabledForCalendaring:
                 self.assertFalse(recordResource.canAutoSchedule())
 
+
+    def test_canAutoScheduleAutoAcceptGroup(self):
+        """
+        DirectoryPrincipalResource.canAutoSchedule(organizer)
+        """
+
+        # Location "apollo" has an auto-accept group ("both_coasts") set in augments.xml,
+        # therefore any organizer in that group should be able to auto schedule
+
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            if record.uid == "apollo":
+
+                # No organizer
+                self.assertFalse(recordResource.canAutoSchedule())
+
+                # Organizer in auto-accept group
+                self.assertTrue(recordResource.canAutoSchedule(organizer="mailto:wsanchez@example.com"))
+                # Organizer not in auto-accept group
+                self.assertFalse(recordResource.canAutoSchedule(organizer="mailto:a@example.com"))
+
+
     @inlineCallbacks
     def test_defaultAccessControlList_principals(self):
         """
@@ -606,14 +628,14 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         Default access controls for principal provisioning resources.
         """
         for directory in self.directoryServices:
-            #print "\n -> %s" % (directory.__class__.__name__,)
+            #print("\n -> %s" % (directory.__class__.__name__,))
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
             for args in _authReadOnlyPrivileges(self, provisioningResource, provisioningResource.principalCollectionURL()):
                 yield self._checkPrivileges(*args)
 
             for recordType in (yield provisioningResource.listChildren()):
-                #print "   -> %s" % (recordType,)
+                #print("   -> %s" % (recordType,))
                 typeResource = provisioningResource.getChild(recordType)
 
                 for args in _authReadOnlyPrivileges(self, typeResource, typeResource.principalCollectionURL()):
@@ -682,14 +704,14 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             if allowed:
                 def onError(f):
                     f.trap(AccessDeniedError)
-                    #print resource.readDeadProperty(davxml.ACL)
+                    #print(resource.readDeadProperty(davxml.ACL))
                     self.fail("%s should have %s privilege on %r" % (principal.sname(), privilege.sname(), resource))
                 d.addErrback(onError)
             else:
                 def expectAccessDenied(f):
                     f.trap(AccessDeniedError)
                 def onSuccess(_):
-                    #print resource.readDeadProperty(davxml.ACL)
+                    #print(resource.readDeadProperty(davxml.ACL))
                     self.fail("%s should not have %s privilege on %r" % (principal.sname(), privilege.sname(), resource))
                 d.addCallbacks(onSuccess, expectAccessDenied)
             return d

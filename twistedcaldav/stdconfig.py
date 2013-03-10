@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_stdconfig -*-
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -178,16 +178,16 @@ DEFAULT_RESOURCE_PARAMS = {
 
 DEFAULT_AUGMENT_PARAMS = {
     "twistedcaldav.directory.augment.AugmentXMLDB": {
-        "xmlFiles": ["augments.xml",],
+        "xmlFiles": ["augments.xml", ],
         "statSeconds" : 15,
     },
     "twistedcaldav.directory.augment.AugmentSqliteDB": {
         "dbpath": "augments.sqlite",
     },
     "twistedcaldav.directory.augment.AugmentPostgreSQLDB": {
-        "host":     "localhost",
+        "host": "localhost",
         "database": "augments",
-        "user":     "",
+        "user": "",
         "password": "",
     },
 }
@@ -197,9 +197,9 @@ DEFAULT_PROXYDB_PARAMS = {
         "dbpath": "proxies.sqlite",
     },
     "twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB": {
-        "host":     "localhost",
+        "host": "localhost",
         "database": "proxies",
-        "user":     "",
+        "user": "",
         "password": "",
         "dbtype": "",
     },
@@ -208,7 +208,7 @@ DEFAULT_PROXYDB_PARAMS = {
 
 directoryAddressBookBackingServiceDefaultParams = {
     "twistedcaldav.directory.xmldirectorybacker.XMLDirectoryBackingService": {
-        "xmlFile": "accounts.xml",
+        "xmlFile": "/etc/carddavd/accounts.xml",
         "recordTypes": ("users", "groups"),
         "statSeconds" : 15,
     },
@@ -219,16 +219,16 @@ directoryAddressBookBackingServiceDefaultParams = {
         "userNode": "/Search",
         "queryGroupRecords": True,
         "groupNode": "/Search",
-        "maxDSQueryRecords":0,
+        "maxDSQueryRecords": 0,
         "queryDSLocal": False,
         "ignoreSystemRecords": True,
-        "dsLocalCacheTimeout":30,
+        "dsLocalCacheTimeout": 30,
         "fakeETag": True,
         "addDSAttrXProperties": False,
         "appleInternalServer": False,
-        "additionalAttributes" : None,
-        "allowedAttributes" : None,
-        "searchAttributes" : None,
+        "additionalAttributes" : [],
+        "allowedAttributes" : [],
+        "searchAttributes" : [],
     },
     "twistedcaldav.directory.ldapdirectorybacker.LdapDirectoryBackingService": {
         "appleInternalServer": False,
@@ -279,51 +279,57 @@ DEFAULT_CONFIG = {
     #    default.  For example, it may be the address of a load balancer or
     #    proxy which forwards connections to the server.
     #
-    "ServerHostName": "",          # Network host name.
-    "HTTPPort": 0,                 # HTTP port (0 to disable HTTP)
-    "SSLPort" : 0,                 # SSL port (0 to disable HTTPS)
-    "EnableSSL" : False,           # Whether to listen on SSL port(s)
+    "ServerHostName": "", # Network host name.
+    "HTTPPort": 0, # HTTP port (0 to disable HTTP)
+    "SSLPort" : 0, # SSL port (0 to disable HTTPS)
+    "EnableSSL" : False, # Whether to listen on SSL port(s)
     "RedirectHTTPToHTTPS" : False, # If True, all nonSSL requests redirected to an SSL Port
-    "SSLMethod" : "SSLv3_METHOD",  # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
+    "SSLMethod" : "SSLv3_METHOD", # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
     "SSLCiphers" : "ALL:!aNULL:!ADH:!eNULL:!LOW:!EXP:RC4+RSA:+HIGH:+MEDIUM",
+    "StrictTransportSecuritySeconds" : 7 * 24 * 60 * 60, # max-age value for
+        # Strict-Transport-Security header; set to 0 to disable header.
 
     #
     # Network address configuration information
     #
     #    This configures the actual network address that the server binds to.
     #
-    "BindAddresses": [],   # List of IP addresses to bind to [empty = all]
-    "BindHTTPPorts": [],   # List of port numbers to bind to for HTTP
+    "BindAddresses": [], # List of IP addresses to bind to [empty = all]
+    "BindHTTPPorts": [], # List of port numbers to bind to for HTTP
                            # [empty = same as "Port"]
-    "BindSSLPorts" : [],   # List of port numbers to bind to for SSL
+    "BindSSLPorts" : [], # List of port numbers to bind to for SSL
                            # [empty = same as "SSLPort"]
-    "InheritFDs"   : [],   # File descriptors to inherit for HTTP requests
+    "InheritFDs"   : [], # File descriptors to inherit for HTTP requests
                            # (empty = don't inherit)
-    "InheritSSLFDs": [],   # File descriptors to inherit for HTTPS requests
+    "InheritSSLFDs": [], # File descriptors to inherit for HTTPS requests
                            # (empty = don't inherit)
-    "MetaFD"       : 0,    # Inherited file descriptor to call recvmsg() on to
+    "MetaFD"       : 0, # Inherited file descriptor to call recvmsg() on to
                            # receive sockets (none = don't inherit)
 
     "UseMetaFD"    : True, # Use a 'meta' FD, i.e. an FD to transmit other FDs
                            # to slave processes.
 
     "UseDatabase"  : True, # True: database; False: files
-    
+
     "TransactionTimeoutSeconds" : 0, # Timeout transactions that take longer than
                               # the specified number of seconds. Zero means
                               # no timeouts
 
-    "DBType"       : "",   # 2 possible values: empty, meaning 'spawn postgres
+    "DBType"       : "", # 2 possible values: empty, meaning 'spawn postgres
                            # yourself', or 'postgres', meaning 'connect to a
                            # postgres database as specified by the 'DSN'
                            # configuration key.  Will support more values in
                            # the future.
 
-    "DSN"          : "",   # Data Source Name.  Used to connect to an external
+    "SpawnedDBUser" : "caldav", # The username to use when DBType is empty
+
+    "DBImportFile" : "", # File path to SQL file to import at startup (includes schema)
+
+    "DSN"          : "", # Data Source Name.  Used to connect to an external
                            # database if DBType is non-empty.  Format varies
                            # depending on database type.
 
-    "DBAMPFD"      : 0,    # Internally used by database to tell slave
+    "DBAMPFD"      : 0, # Internally used by database to tell slave
                            # processes to inherit a file descriptor and use it
                            # as an AMP connection over a UNIX socket; see
                            # twext.enterprise.adbapi2.ConnectionPoolConnection
@@ -332,11 +338,15 @@ DEFAULT_CONFIG = {
                                     # the master process, rather than having
                                     # each client make its connections directly.
 
+    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
+                                   # tools from running if the database needs a schema
+                                   # upgrade.
+
     #
     # Types of service provided
     #
-    "EnableCalDAV"  : True,  # Enable CalDAV service
-    "EnableCardDAV" : True,  # Enable CardDAV service
+    "EnableCalDAV"  : True, # Enable CalDAV service
+    "EnableCardDAV" : True, # Enable CardDAV service
 
     #
     # Data store
@@ -350,20 +360,20 @@ DEFAULT_CONFIG = {
     "LogRoot"                 : "/var/log/caldavd",
     "RunRoot"                 : "/var/run/caldavd",
     "WebCalendarRoot"         : "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd",
-    
+
     #
     # Quotas
     #
-    
+
     # Attachments
     "UserQuota"                 : 104857600, # User attachment quota (in bytes)
-    
+
     # Resource data
-    "MaxCollectionsPerHome"     :      50, # Maximum number of calendars/address books allowed in a home
-    "MaxResourcesPerCollection" :   10000, # Maximum number of resources in a calendar/address book
+    "MaxCollectionsPerHome"     : 50, # Maximum number of calendars/address books allowed in a home
+    "MaxResourcesPerCollection" : 10000, # Maximum number of resources in a calendar/address book
     "MaxResourceSize"           : 1048576, # Maximum resource size (in bytes)
-    "MaxAttendeesPerInstance"   :     100, # Maximum number of unique attendees
-    "MaxAllowedInstances"       :    3000, # Maximum number of instances the server will index
+    "MaxAttendeesPerInstance"   : 100, # Maximum number of unique attendees
+    "MaxAllowedInstances"       : 3000, # Maximum number of instances the server will index
 
     # Set to URL path of wiki authentication service, e.g. "/auth", in order
     # to use javascript authentication dialog.  Empty string indicates standard
@@ -412,22 +422,22 @@ DEFAULT_CONFIG = {
         "type": "twistedcaldav.directory.calendaruserproxy.ProxySqliteDB",
         "params": DEFAULT_PROXYDB_PARAMS["twistedcaldav.directory.calendaruserproxy.ProxySqliteDB"],
     },
-    "ProxyLoadFromFile": "",    # Allows for initialization of the proxy database from an XML file
+    "ProxyLoadFromFile": "", # Allows for initialization of the proxy database from an XML file
 
     #
     # Special principals
     #
-    "AdminPrincipals": [],                       # Principals with "DAV:all" access (relative URLs)
-    "ReadPrincipals": [],                        # Principals with "DAV:read" access (relative URLs)
-    "EnableProxyPrincipals": True,               # Create "proxy access" principals
+    "AdminPrincipals": [], # Principals with "DAV:all" access (relative URLs)
+    "ReadPrincipals": [], # Principals with "DAV:read" access (relative URLs)
+    "EnableProxyPrincipals": True, # Create "proxy access" principals
 
     #
     # Permissions
     #
-    "EnableAnonymousReadRoot": True,    # Allow unauthenticated read access to /
-    "EnableAnonymousReadNav": False,    # Allow unauthenticated read access to hierarchy
-    "EnablePrincipalListings": True,    # Allow listing of principal collections
-    "EnableMonolithicCalendars": True,  # Render calendar collections as a monolithic iCalendar object
+    "EnableAnonymousReadRoot": True, # Allow unauthenticated read access to /
+    "EnableAnonymousReadNav": False, # Allow unauthenticated read access to hierarchy
+    "EnablePrincipalListings": True, # Allow listing of principal collections
+    "EnableMonolithicCalendars": True, # Render calendar collections as a monolithic iCalendar object
 
     #
     # Client controls
@@ -438,15 +448,20 @@ DEFAULT_CONFIG = {
     # Authentication
     #
     "Authentication": {
-        "Basic": { "Enabled": False },     # Clear text; best avoided
+        "Basic": {                         # Clear text; best avoided
+            "Enabled": True,
+            "AllowedOverWireUnencrypted": False, # Advertised over non-SSL?
+        },
         "Digest": {                        # Digest challenge/response
             "Enabled": True,
             "Algorithm": "md5",
             "Qop": "",
+            "AllowedOverWireUnencrypted": True, # Advertised over non-SSL?
         },
         "Kerberos": {                       # Kerberos/SPNEGO
             "Enabled": False,
-            "ServicePrincipal": ""
+            "ServicePrincipal": "",
+            "AllowedOverWireUnencrypted": True, # Advertised over non-SSL?
         },
         "Wiki": {
             "Enabled": False,
@@ -463,11 +478,11 @@ DEFAULT_CONFIG = {
     #
     # Logging
     #
-    "AccessLogFile"  : "access.log",  # Apache-style access log
-    "ErrorLogFile"   : "error.log",   # Server activity log
-    "ErrorLogEnabled"   : True,       # True = use log file, False = stdout
-    "ErrorLogRotateMB"  : 10,         # Rotate error log after so many megabytes
-    "ErrorLogMaxRotatedFiles"  : 5,   # Retain this many error log files
+    "AccessLogFile"  : "access.log", # Apache-style access log
+    "ErrorLogFile"   : "error.log", # Server activity log
+    "ErrorLogEnabled"   : True, # True = use log file, False = stdout
+    "ErrorLogRotateMB"  : 10, # Rotate error log after so many megabytes
+    "ErrorLogMaxRotatedFiles"  : 5, # Retain this many error log files
     "PIDFile"        : "caldavd.pid",
     "RotateAccessLog"   : False,
     "EnableExtendedAccessLog": True,
@@ -488,21 +503,21 @@ DEFAULT_CONFIG = {
         "EnableTCPStatsSocket"   : False,
         "TCPStatsPort"           : 8100,
     },
-    
+
     "LogDatabase" : {
         "LabelsInSQL"            : False,
         "Statistics"             : False,
         "StatisticsLogFile"      : "sqlstats.log",
         "SQLStatements"          : False,
-        "TransactionWaitSeconds" : 0, 
+        "TransactionWaitSeconds" : 0,
     },
 
     #
     # SSL/TLS
     #
-    "SSLCertificate"     : "",  # Public key
-    "SSLPrivateKey"      : "",  # Private key
-    "SSLAuthorityChain"  : "",  # Certificate Authority Chain
+    "SSLCertificate"     : "", # Public key
+    "SSLPrivateKey"      : "", # Private key
+    "SSLAuthorityChain"  : "", # Certificate Authority Chain
     "SSLPassPhraseDialog": "/etc/apache2/getsslpassphrase",
     "SSLCertAdmin"       : "/Applications/Server.app/Contents/ServerRoot/usr/sbin/certadmin",
 
@@ -527,6 +542,15 @@ DEFAULT_CONFIG = {
         },
     },
 
+    # How large a spawned process is allowed to get before it's stopped
+    "MemoryLimiter" : {
+        "Enabled" : True,
+        "Seconds" : 60, # How often to check memory sizes (in seconds)
+        "Bytes"   : 2 * 1024 * 1024 * 1024, # Memory limit (RSS in bytes)
+        "ResidentOnly" : True,  # True: only take into account resident memory;
+                                # False: include virtual memory
+    },
+
     #
     # Service ACLs
     #
@@ -537,11 +561,13 @@ DEFAULT_CONFIG = {
     #
     # Standard (or draft) WebDAV extensions
     #
-    "EnableAddMember"             : True,  # POST ;add-member extension
-    "EnableSyncReport"            : True,  # REPORT collection-sync
-    "EnableSyncReportHome"        : True,  # REPORT collection-sync on home collections
-    "EnableWellKnown"             : True,  # /.well-known resource
-    "EnableCalendarQueryExtended" : True,  # Extended calendar-query REPORT
+    "EnableAddMember"             : True, # POST ;add-member extension
+    "EnableSyncReport"            : True, # REPORT collection-sync
+    "EnableSyncReportHome"        : True, # REPORT collection-sync on home collections
+    "EnableWellKnown"             : True, # /.well-known resource
+    "EnableCalendarQueryExtended" : True, # Extended calendar-query REPORT
+
+    "EnableManagedAttachments"    : False, # Support Managed Attachments
 
     #
     # Non-standard CalDAV extensions
@@ -549,50 +575,50 @@ DEFAULT_CONFIG = {
     "EnableDropBox"           : False, # Calendar Drop Box
     "EnablePrivateEvents"     : False, # Private Events
     "EnableTimezoneService"   : False, # Old Timezone service
-    
+
     "TimezoneService"         : {    # New standard timezone service
-        "Enabled"       : False,     # Overall on/off switch
+        "Enabled"       : False, # Overall on/off switch
         "Mode"          : "primary", # Can be "primary" or "secondary"
-        "BasePath"      : "",        # Path to zoneinfo - if None use default package path
+        "BasePath"      : "", # Path to zoneinfo - if None use default package path
                                      # secondary service MUST define its own writable path
-        "XMLInfoPath"   : "",        # Path to db cache info - if None use default package path
+        "XMLInfoPath"   : "", # Path to db cache info - if None use default package path
                                      # secondary service MUST define its own writable path if
                                      # not None
-        
+
         "SecondaryService" : {
             # Only one of these should be used when a secondary service is used
-            "Host"                  : "",        # Domain/IP of secondary service to discover
-            "URI"                   : "",        # HTTP(s) URI to secondary service
+            "Host"                  : "", # Domain/IP of secondary service to discover
+            "URI"                   : "", # HTTP(s) URI to secondary service
 
             "UpdateIntervalMinutes" : 24 * 60,
         }
     },
-    
+
     "EnableTimezonesByReference" : False, # Strip out VTIMEZONES that are known
 
-    "EnableBatchUpload"       : True,     # POST batch uploads
-    "MaxResourcesBatchUpload" : 100,      # Maximum number of resources in a batch POST
+    "EnableBatchUpload"       : True, # POST batch uploads
+    "MaxResourcesBatchUpload" : 100, # Maximum number of resources in a batch POST
     "MaxBytesBatchUpload"     : 10485760, # Maximum size of a batch POST (10 MB)
-    
+
     "Sharing": {
         "Enabled"             : False, # Overall on/off switch
         "AllowExternalUsers"  : False, # External (non-principal) sharees allowed
 
         "Calendars" : {
-            "Enabled"         : True,  # Calendar on/off switch
+            "Enabled"         : True, # Calendar on/off switch
         },
         "AddressBooks" : {
-            "Enabled"         : True,  # Address Books on/off switch
-        }        
+            "Enabled"         : True, # Address Books on/off switch
+        }
     },
-    
-    "RestrictCalendarsToOneComponentType" : True,  # Only allow calendars to be created with a single component type
+
+    "RestrictCalendarsToOneComponentType" : True, # Only allow calendars to be created with a single component type
                                                    # If this is on, it will also trigger an upgrade behavior that will
                                                    # split existing calendars into multiples based on component type.
                                                    # If on, it will also cause new accounts to provision with separate
                                                    # calendars for events and tasks.
 
-    "ParallelUpgrades" : False,    # Perform upgrades - currently only the
+    "ParallelUpgrades" : False, # Perform upgrades - currently only the
                                    # database -> filesystem migration - but in
                                    # the future, hopefully all relevant
                                    # upgrades - in parallel in subprocesses.
@@ -602,23 +628,23 @@ DEFAULT_CONFIG = {
                             # the database, merge the data from the filesystem
                             # into the database homes.
 
-    "EnableDefaultAlarms" :  True, # Support for default alarms generated by the server
-    "RemoveDuplicateAlarms": True,  # Remove duplicate alarms on PUT
+    "EnableDefaultAlarms" : True, # Support for default alarms generated by the server
+    "RemoveDuplicateAlarms": True, # Remove duplicate alarms on PUT
 
     # CardDAV Features
     "DirectoryAddressBook": {
         "Enabled": True,
-        "type":    "twistedcaldav.directory.xmldirectorybacker.XMLDirectoryBackingService",
-        "params":  directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.xmldirectorybacker.XMLDirectoryBackingService"],
-        "name":    "directory",
+        "type": "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
+        "params": directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
+        "name": "directory",
         "MaxQueryResults": 1000,
     },
     "EnableSearchAddressBook": False, # /directory resource exists
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
 
     "GlobalAddressBook": {
-        "Enabled":                   False,
-        "Name":                      "global-addressbook",
+        "Enabled": False,
+        "Name": "global-addressbook",
         "EnableAnonymousReadAccess": False,
     },
 
@@ -634,49 +660,66 @@ DEFAULT_CONFIG = {
     #
 
     "Scheduling": {
-        
+
         "CalDAV": {
-            "EmailDomain"                : "",    # Domain for mailto calendar user addresses on this server
-            "HTTPDomain"                 : "",    # Domain for http calendar user addresses on this server
-            "AddressPatterns"            : [],    # Regex patterns to match local calendar user addresses
-            "OldDraftCompatibility"      : True,  # Whether to maintain compatibility with non-implicit mode
-            "ScheduleTagCompatibility"   : True,  # Whether to support older clients that do not use Schedule-Tag feature
-            "EnablePrivateComments"      : True,  # Private comments from attendees to organizer
+            "EmailDomain"                : "", # Domain for mailto calendar user addresses on this server
+            "HTTPDomain"                 : "", # Domain for http calendar user addresses on this server
+            "AddressPatterns"            : [], # Regex patterns to match local calendar user addresses
+            "OldDraftCompatibility"      : True, # Whether to maintain compatibility with non-implicit mode
+            "ScheduleTagCompatibility"   : True, # Whether to support older clients that do not use Schedule-Tag feature
+            "EnablePrivateComments"      : True, # Private comments from attendees to organizer
+            "PerAttendeeProperties"      : [     # Names of iCalendar properties that are preserved when an Attendee does an invite PUT
+                "X-APPLE-NEEDS-REPLY",
+                "X-APPLE-TRAVEL-DURATION",
+                "X-APPLE-TRAVEL-START",
+                "X-APPLE-TRAVEL-RETURN-DURATION",
+                "X-APPLE-TRAVEL-RETURN",
+            ],
         },
 
         "iSchedule": {
             "Enabled"          : False, # iSchedule protocol
-            "AddressPatterns"  : [],    # Reg-ex patterns to match iSchedule-able calendar user addresses
-            "Servers"          : "servertoserver.xml",    # iSchedule server configurations
+            "AddressPatterns"  : [], # Reg-ex patterns to match iSchedule-able calendar user addresses
+            "RemoteServers"    : "remoteservers.xml", # iSchedule server configurations
+            "SerialNumber"     : 1,  # Capabilities serial number
+            "DNSDebug"         : "", # File where a fake Bind zone exists for creating fake DNS results
+            "DKIM"             : {      # DKIM options
+                "Enabled"               : True, # DKIM signing/verification enabled
+                "Domain"                : "", # Domain for DKIM (defaults to ServerHostName)
+                "KeySelector"           : "ischedule", # Selector for public key
+                "SignatureAlgorithm"    : "rsa-sha256", # Signature algorithm (one of rsa-sha1 or rsa-sha256)
+                "UseDNSKey"             : True, # This server's public key stored in DNS
+                "UseHTTPKey"            : True, # This server's public key stored in HTTP /.well-known
+                "UsePrivateExchangeKey" : True, # This server's public key manually exchanged with others
+                "ExpireSeconds"         : 3600, # Expiration time for signature verification
+                "PrivateKeyFile"        : "", # File where private key is stored
+                "PublicKeyFile"         : "", # File where public key is stored
+                "PrivateExchanges"      : "", # Directory where private exchange public keys are stored
+                "ProtocolDebug"         : False, # Turn on protocol level debugging to return detailed information to the requestor
+            },
         },
 
         "iMIP": {
             "Enabled"          : False, # Server-to-iMIP protocol
-            "MailGatewayServer" : "localhost",
-            "MailGatewayPort"   : 62310,
-            "Username"          : "com.apple.calendarserver", # For account injecting replies
-            "Password"          : "",    # For account injecting replies
-            "GUID"              : "B86ED9D3-49BD-44F8-8F5E-C89D08753DAC", # GUID for special internal user
-            "Header"            : "x-calendarserver-internal", # HTTP header for internal authentication
             "Sending": {
-                "Server"        : "",    # SMTP server to relay messages through
-                "Port"          : 587,   # SMTP server port to relay messages through
-                "Address"       : "",    # 'From' address for server
+                "Server"        : "", # SMTP server to relay messages through
+                "Port"          : 587, # SMTP server port to relay messages through
+                "Address"       : "", # 'From' address for server
                 "UseSSL"        : True,
-                "Username"      : "",    # For account sending mail
-                "Password"      : "",    # For account sending mail
-                "SuppressionDays" : 7,   # Messages for events older than this may days are not sent
+                "Username"      : "", # For account sending mail
+                "Password"      : "", # For account sending mail
+                "SuppressionDays" : 7, # Messages for events older than this may days are not sent
             },
             "Receiving": {
-                "Server"        : "",    # Server to retrieve email messages from
-                "Port"          : 0,     # Server port to retrieve email messages from
+                "Server"        : "", # Server to retrieve email messages from
+                "Port"          : 0, # Server port to retrieve email messages from
                 "UseSSL"        : True,
-                "Type"          : "",    # Type of message access server: 'pop' or 'imap'
-                "PollingSeconds"    : 30,  # How often to fetch mail
-                "Username"      : "",    # For account receiving mail
-                "Password"      : "",    # For account receiving mail
+                "Type"          : "", # Type of message access server: 'pop' or 'imap'
+                "PollingSeconds"    : 30, # How often to fetch mail
+                "Username"      : "", # For account receiving mail
+                "Password"      : "", # For account receiving mail
             },
-            "AddressPatterns"   : [],    # Regex patterns to match iMIP-able calendar user addresses
+            "AddressPatterns"   : [], # Regex patterns to match iMIP-able calendar user addresses
             "MailTemplatesDirectory": "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/email_templates", # Directory containing HTML templates for email invitations (invite.html, cancel.html)
             "MailIconsDirectory": "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/date_icons", # Directory containing language-specific subdirectories containing date-specific icons for email invitations
             "InvitationDaysToLive" : 90, # How many days invitations are valid
@@ -686,36 +729,38 @@ DEFAULT_CONFIG = {
             "AllowGroupAsOrganizer"               : False, # Allow groups to be Organizers
             "AllowLocationAsOrganizer"            : False, # Allow locations to be Organizers
             "AllowResourceAsOrganizer"            : False, # Allow resources to be Organizers
-            "LimitFreeBusyAttendees"              :  30,    # Maximum number of attendees to request freebusy for
-            "AttendeeRefreshBatch"                :   5,    # Number of attendees to do batched refreshes: 0 - no batching
-            "AttendeeRefreshBatchDelaySeconds"    :   5,    # Time after an iTIP REPLY for first batched attendee refresh
-            "AttendeeRefreshBatchIntervalSeconds" :   5,    # Time between attendee batch refreshes
-            "UIDLockTimeoutSeconds"               :  60,    # Time for implicit UID lock timeout
-            "UIDLockExpirySeconds"                : 300,    # Expiration time for UID lock,
-            "V1Compatibility"                     : False,  # Allow /path-based CUAs in scheduling replies
-            "PrincipalHostAliases"                : [],     # Hostnames matched in http(s) CUAs
-            
-            "DelegeteRichFreeBusy"                : True,   # Delegates can get extra info in a freebusy request
-            "RoomResourceRichFreeBusy"            : True,   # Any user can get extra info for rooms/resources in a freebusy request 
+            "LimitFreeBusyAttendees"              : 30, # Maximum number of attendees to request freebusy for
+            "AttendeeRefreshBatch"                : 5, # Number of attendees to do batched refreshes: 0 - no batching
+            "AttendeeRefreshBatchDelaySeconds"    : 5, # Time after an iTIP REPLY for first batched attendee refresh
+            "AttendeeRefreshBatchIntervalSeconds" : 5, # Time between attendee batch refreshes
+            "UIDLockTimeoutSeconds"               : 60, # Time for implicit UID lock timeout
+            "UIDLockExpirySeconds"                : 300, # Expiration time for UID lock,
+            "V1Compatibility"                     : False, # Allow /path-based CUAs in scheduling replies
+            "PrincipalHostAliases"                : [], # Host names matched in http(s) CUAs
+            "TimestampAttendeePartStatChanges"    : True, # Add a time stamp when an Attendee changes their PARTSTAT
+
+            "DelegeteRichFreeBusy"                : True, # Delegates can get extra info in a freebusy request
+            "RoomResourceRichFreeBusy"            : True, # Any user can get extra info for rooms/resources in a freebusy request
 
             "AutoSchedule" : {
-                "Enabled"                         : True,   # Auto-scheduling will never occur if set to False
-                "Always"                          : False,  # Override augments setting and always auto-schedule
-                "AllowUsers"                      : False,  # Allow auto-schedule for users
-                "DefaultMode"                     : "automatic",   # Default mode for auto-schedule processing, one of:
+                "Enabled"                         : True, # Auto-scheduling will never occur if set to False
+                "Always"                          : False, # Override augments setting and always auto-schedule
+                "AllowUsers"                      : False, # Allow auto-schedule for users
+                "DefaultMode"                     : "automatic", # Default mode for auto-schedule processing, one of:
                                                                    # "none"            - no auto-scheduling
                                                                    # "accept-always"   - always accept, ignore busy time
                                                                    # "decline-always"  - always decline, ignore free time
                                                                    # "accept-if-free"  - accept if free, do nothing if busy
                                                                    # "decline-if-busy" - decline if busy, do nothing if free
                                                                    # "automatic"       - accept if free, decline if busy
+                "FutureFreeBusyDays"              : 3 * 365,       # How far into the future to check for booking conflicts
             }
         }
     },
 
     "FreeBusyURL": {
         "Enabled"          : False, # Per-user free-busy-url protocol
-        "TimePeriod"       : 14,    # Number of days into the future to generate f-b data if no explicit time-range is specified
+        "TimePeriod"       : 14, # Number of days into the future to generate f-b data if no explicit time-range is specified
         "AnonymousAccess"  : False, # Allow anonymous read access to free-busy URL
     },
 
@@ -725,24 +770,14 @@ DEFAULT_CONFIG = {
     "Notifications" : {
         "Enabled": False,
         "CoalesceSeconds" : 3,
-        "InternalNotificationHost" : "localhost",
-        "InternalNotificationPort" : 62309,
-        "BindAddress" : "127.0.0.1",
 
         "Services" : {
-            "SimpleLineNotifier" : {
-                "Service" : "twistedcaldav.notify.SimpleLineNotifierService",
-                "Enabled" : False,
-                "Port" : 62308,
-            },
-            "ApplePushNotifier" : {
-                "Service" : "calendarserver.push.applepush.ApplePushNotifierService",
+            "APNS" : {
                 "Enabled" : False,
                 "SubscriptionURL" : "apns",
                 "SubscriptionRefreshIntervalSeconds" : 2 * 24 * 60 * 60, # How often the client should re-register (2 days)
                 "SubscriptionPurgeIntervalSeconds" : 12 * 60 * 60, # How often a purge is done (12 hours)
                 "SubscriptionPurgeSeconds" : 14 * 24 * 60 * 60, # How old a subscription must be before it's purged (14 days)
-                "DataHost" : "",
                 "ProviderHost" : "gateway.push.apple.com",
                 "ProviderPort" : 2195,
                 "FeedbackHost" : "feedback.push.apple.com",
@@ -766,38 +801,11 @@ DEFAULT_CONFIG = {
                     "Topic" : "",
                 },
             },
-            "AMPNotifier" : {
-                "Service" : "calendarserver.push.amppush.AMPPushNotifierService",
-                "Enabled" : True,
+            "AMP" : {
+                "Enabled" : False,
                 "Port" : 62311,
                 "EnableStaggering" : False,
                 "StaggerSeconds" : 3,
-            },
-            "XMPPNotifier" : {
-                "Service" : "twistedcaldav.notify.XMPPNotifierService",
-                "Enabled" : False,
-                "Host" : "", # "xmpp.host.name"
-                "Port" : 5222,
-                "JID" : "", # "jid@xmpp.host.name/resource"
-                "Password" : "",
-                "ServiceAddress" : "", # "pubsub.xmpp.host.name"
-                "CalDAV" : {
-                    "APSBundleID" : "",
-                    "SubscriptionURL" : "",
-                    "APSEnvironment" : "PRODUCTION",
-                },
-                "CardDAV" : {
-                    "APSBundleID" : "",
-                    "SubscriptionURL" : "",
-                    "APSEnvironment" : "PRODUCTION",
-                },
-                "NodeConfiguration" : {
-                    "pubsub#deliver_payloads" : "1",
-                    "pubsub#persist_items" : "1",
-                },
-                "KeepAliveSeconds" : 120,
-                "HeartbeatMinutes" : 30,
-                "AllowedJIDs": [],
             },
         }
     },
@@ -806,11 +814,11 @@ DEFAULT_CONFIG = {
     # Support multiple hosts within a domain
     #
     "Servers" : {
-        "Enabled": False,                          # Multiple servers/partitions enabled or not
-        "ConfigFile": "servers.xml",               # File path for server information
-        "MaxClients": 5,                           # Pool size for connections to each partition
+        "Enabled": False, # Multiple servers/partitions enabled or not
+        "ConfigFile": "localservers.xml", # File path for server information
+        "MaxClients": 5, # Pool size for connections to each partition
     },
-    "ServerPartitionID": "",                       # Unique ID for this server's partition instance.
+    "ServerPartitionID": "", # Unique ID for this server's partition instance.
 
     #
     # Performance tuning
@@ -936,6 +944,11 @@ DEFAULT_CONFIG = {
         "Options": [
             "-c standard_conforming_strings=on",
         ],
+        "Ctl": "pg_ctl", # Iff the DBType is '', and we're spawning postgres
+                         # ourselves, where is the pg_ctl tool to spawn it with?
+        "Init": "initdb", # Iff the DBType is '', and we're spawning postgres
+                          # ourselves, where is the initdb tool to create its
+                          # database cluster with?
     },
 
     "QueryCaching" : {
@@ -962,17 +975,17 @@ DEFAULT_CONFIG = {
 
     "EnableKeepAlive": False,
 
-    "EnableResponseCache":  True,
+    "EnableResponseCache": True,
     "ResponseCacheTimeout": 30, # Minutes
 
-    "EnableFreeBusyCache":          True,
-    "FreeBusyCacheDaysBack":        7,
-    "FreeBusyCacheDaysForward":     12 * 7,
+    "EnableFreeBusyCache": True,
+    "FreeBusyCacheDaysBack": 7,
+    "FreeBusyCacheDaysForward": 12 * 7,
 
-    "FreeBusyIndexLowerLimitDays":  365,
+    "FreeBusyIndexLowerLimitDays": 365,
     "FreeBusyIndexExpandAheadDays": 365,
-    "FreeBusyIndexExpandMaxDays":   5 * 365,
-    "FreeBusyIndexDelayedExpand":   True,
+    "FreeBusyIndexExpandMaxDays": 5 * 365,
+    "FreeBusyIndexDelayedExpand": True,
 
     # Specify which opendirectory module to use:
     # "opendirectory" is PyOpenDirectory (the old one which uses
@@ -992,7 +1005,12 @@ DEFAULT_CONFIG = {
     # during migration
     "MigratedInboxDaysCutoff": 60,
 
-    "Includes": [],     # Other plists to parse after this one
+    # The default timezone for the server; on OS X you can leave this empty and the
+    # system's timezone will be used.  If empty and not on OS X it will default to
+    # America/Los_Angeles.
+    "DefaultTimezone" : "",
+
+    "Includes": [], # Other plists to parse after this one
 }
 
 
@@ -1015,7 +1033,7 @@ class NoUnicodePlistParser(PlistParser):
 
 
 class PListConfigProvider(ConfigProvider):
-    
+
     def loadConfig(self):
         configDict = {}
         if self._configFileName:
@@ -1038,11 +1056,13 @@ class PListConfigProvider(ConfigProvider):
         try:
             configDict = parser.parse(open(filename))
         except (IOError, OSError):
-            log.err("Configuration file does not exist or is inaccessible: %s" % (filename, ))
-            raise ConfigurationError("Configuration file does not exist or is inaccessible: %s" % (filename, ))
+            log.err("Configuration file does not exist or is inaccessible: %s" % (filename,))
+            raise ConfigurationError("Configuration file does not exist or is inaccessible: %s" % (filename,))
         else:
             configDict = _cleanup(configDict, self._defaults)
         return configDict
+
+
 
 def _expandPath(path):
     if '$' in path:
@@ -1062,6 +1082,10 @@ RELATIVE_PATHS = [
     ("DataRoot", "AttachmentsRoot"),
     ("DataRoot", ("TimezoneService", "BasePath",)),
     ("ConfigRoot", "SudoersFile"),
+    ("ConfigRoot", ("Scheduling", "iSchedule", "DNSDebug",)),
+    ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateKeyFile",)),
+    ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PublicKeyFile",)),
+    ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateExchanges",)),
     ("LogRoot", "AccessLogFile"),
     ("LogRoot", "ErrorLogFile"),
     ("LogRoot", ("Postgres", "LogFile",)),
@@ -1089,7 +1113,7 @@ def _updateDataStore(configDict, reloading=False):
         if root in configDict:
             if isinstance(relativePath, str):
                 relativePath = (relativePath,)
-            
+
             inDict = configDict
             for segment in relativePath[:-1]:
                 if segment not in inDict:
@@ -1101,7 +1125,7 @@ def _updateDataStore(configDict, reloading=False):
             if inDict and lastPath in inDict:
                 previousAbsoluteName = ".absolute." + relativePath
                 previousRelativeName = ".relative." + relativePath
-    
+
                 # If we previously made the name absolute, and the name in the
                 # config is still the same absolute name that we made it, let's
                 # change it to be the relative name again.  (This is necessary
@@ -1122,12 +1146,15 @@ def _updateDataStore(configDict, reloading=False):
                 configDict[previousAbsoluteName] = newAbsolutePath
 
 
+
 def _updateHostName(configDict, reloading=False):
     if not configDict.ServerHostName:
         hostname = getfqdn()
         if not hostname:
             hostname = "localhost"
         configDict.ServerHostName = hostname
+
+
 
 def _preUpdateDirectoryService(configDict, items, reloading=False):
     # Special handling for directory services configs
@@ -1148,12 +1175,16 @@ def _preUpdateDirectoryService(configDict, items, reloading=False):
     for param in items.get("DirectoryService", {}).get("params", {}):
         if dsType in DEFAULT_SERVICE_PARAMS and param not in DEFAULT_SERVICE_PARAMS[dsType]:
             log.warn("Parameter %s is not supported by service %s" % (param, dsType))
-            
+
+
+
 def _postUpdateDirectoryService(configDict, reloading=False):
     if configDict.DirectoryService.type in DEFAULT_SERVICE_PARAMS:
         for param in tuple(configDict.DirectoryService.params):
             if param not in DEFAULT_SERVICE_PARAMS[configDict.DirectoryService.type]:
                 del configDict.DirectoryService.params[param]
+
+
 
 def _preUpdateResourceService(configDict, items, reloading=False):
     # Special handling for directory services configs
@@ -1174,12 +1205,15 @@ def _preUpdateResourceService(configDict, items, reloading=False):
     for param in items.get("ResourceService", {}).get("params", {}):
         if dsType in DEFAULT_RESOURCE_PARAMS and param not in DEFAULT_RESOURCE_PARAMS[dsType]:
             log.warn("Parameter %s is not supported by service %s" % (param, dsType))
-            
+
+
+
 def _postUpdateResourceService(configDict, reloading=False):
     if configDict.ResourceService.type in DEFAULT_RESOURCE_PARAMS:
         for param in tuple(configDict.ResourceService.params):
             if param not in DEFAULT_RESOURCE_PARAMS[configDict.ResourceService.type]:
                 del configDict.ResourceService.params[param]
+
 
 
 def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items, reloading=False):
@@ -1210,6 +1244,8 @@ def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items, rel
         if param not in directoryAddressBookBackingServiceDefaultParams[configDict.DirectoryAddressBook.type]:
             del configDict.DirectoryAddressBook.params[param]
 
+
+
 def _postUpdateAugmentService(configDict, reloading=False):
     if configDict.AugmentService.type in DEFAULT_AUGMENT_PARAMS:
         for param in tuple(configDict.AugmentService.params):
@@ -1217,12 +1253,16 @@ def _postUpdateAugmentService(configDict, reloading=False):
                 log.warn("Parameter %s is not supported by service %s" % (param, configDict.AugmentService.type))
                 del configDict.AugmentService.params[param]
 
+
+
 def _postUpdateProxyDBService(configDict, reloading=False):
     if configDict.ProxyDBService.type in DEFAULT_PROXYDB_PARAMS:
         for param in tuple(configDict.ProxyDBService.params):
             if param not in DEFAULT_PROXYDB_PARAMS[configDict.ProxyDBService.type]:
                 log.warn("Parameter %s is not supported by service %s" % (param, configDict.ProxyDBService.type))
                 del configDict.ProxyDBService.params[param]
+
+
 
 def _updateACLs(configDict, reloading=False):
     #
@@ -1245,17 +1285,17 @@ def _updateACLs(configDict, reloading=False):
 
     configDict.AdminACEs = tuple(
         davxml.ACE(
-            davxml.Principal(davxml.HRef(principal)),
+            davxml.Principal(davxml.HRef(admin_principal)),
             davxml.Grant(davxml.Privilege(davxml.All())),
             davxml.Protected(),
             TwistedACLInheritable(),
         )
-        for principal in configDict.AdminPrincipals
+        for admin_principal in configDict.AdminPrincipals
     )
 
     configDict.ReadACEs = tuple(
         davxml.ACE(
-            davxml.Principal(davxml.HRef(principal)),
+            davxml.Principal(davxml.HRef(read_principal)),
             davxml.Grant(
                 davxml.Privilege(davxml.Read()),
                 davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
@@ -1263,7 +1303,7 @@ def _updateACLs(configDict, reloading=False):
             davxml.Protected(),
             TwistedACLInheritable(),
         )
-        for principal in configDict.ReadPrincipals
+        for read_principal in configDict.ReadPrincipals
     )
 
     configDict.RootResourceACL = davxml.ACL(
@@ -1271,7 +1311,7 @@ def _updateACLs(configDict, reloading=False):
         readOnlyACE(configDict.EnableAnonymousReadRoot),
 
         # Add inheritable all access for admins
-        *configDict.AdminACEs
+        * configDict.AdminACEs
     )
 
     log.debug("Root ACL: %s" % (configDict.RootResourceACL.toxml(),))
@@ -1281,9 +1321,9 @@ def _updateACLs(configDict, reloading=False):
         readOnlyACE(configDict.EnableAnonymousReadNav),
 
         # Add read and read-acl access for admins
-        *[
+        * [
             davxml.ACE(
-                davxml.Principal(davxml.HRef(principal)),
+                davxml.Principal(davxml.HRef(_principal)),
                 davxml.Grant(
                     davxml.Privilege(davxml.Read()),
                     davxml.Privilege(davxml.ReadACL()),
@@ -1291,7 +1331,7 @@ def _updateACLs(configDict, reloading=False):
                 ),
                 davxml.Protected(),
             )
-            for principal in configDict.AdminPrincipals
+            for _principal in configDict.AdminPrincipals
         ]
     )
 
@@ -1319,6 +1359,8 @@ def _updateRejectClients(configDict, reloading=False):
     except re.error, e:
         raise ConfigurationError("Invalid regular expression in RejectClients: %s" % (e,))
 
+
+
 def _updateLogLevels(configDict, reloading=False):
     clearLogLevels()
 
@@ -1335,12 +1377,14 @@ def _updateLogLevels(configDict, reloading=False):
     except InvalidLogLevelError, e:
         raise ConfigurationError("Invalid log level: %s" % (e.level))
 
+
+
 def _updateNotifications(configDict, reloading=False):
     # Reloading not supported -- requires process running as root
     if reloading:
         return
 
-    for key, service in configDict.Notifications["Services"].iteritems():
+    for _ignore_key, service in configDict.Notifications["Services"].iteritems():
         if service["Enabled"]:
             configDict.Notifications["Enabled"] = True
             break
@@ -1349,14 +1393,7 @@ def _updateNotifications(configDict, reloading=False):
 
     for key, service in configDict.Notifications["Services"].iteritems():
 
-        if (
-            service["Service"] == "calendarserver.push.applepush.ApplePushNotifierService" and
-            service["Enabled"]
-        ):
-            # The default for apple push DataHost is ServerHostName
-            if service["DataHost"] == "":
-                service["DataHost"] = configDict.ServerHostName
-
+        if (key == "APNS" and service["Enabled"]):
             # Retrieve APN topics from certificates if not explicitly set
             for protocol, accountName in (
                 ("CalDAV", "apns:com.apple.calendar"),
@@ -1386,37 +1423,6 @@ def _updateNotifications(configDict, reloading=False):
                     log.info("%s APN certificate passphrase not found in keychain" % (protocol,))
 
 
-        if (
-            service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
-            service["Enabled"]
-        ):
-            # If we already have the password, don't fetch it again
-            if service["Password"]:
-                continue
-
-            # Get password from keychain.  If not there, fall back to what
-            # is in the plist.
-            try:
-                password = getPasswordFromKeychain(service["JID"])
-                service["Password"] = password
-                log.info("XMPP password retreived from keychain")
-            except KeychainAccessError:
-                # The system doesn't support keychain
-                pass
-            except KeychainPasswordNotFound:
-                # The password doesn't exist in the keychain.
-                log.info("XMPP password not found in keychain")
-
-            # Check for empty fields
-            for key, value in service.iteritems():
-                if not value and key not in (
-                    "AllowedJIDs", "HeartbeatMinutes", "Password",
-                    "SubscriptionURL", "APSBundleID"
-                ):
-                    raise ConfigurationError("Invalid %s for XMPPNotifierService: %r"
-                                             % (key, value))
-
-
 
 def _updateScheduling(configDict, reloading=False):
     #
@@ -1430,22 +1436,6 @@ def _updateScheduling(configDict, reloading=False):
     service = configDict.Scheduling["iMIP"]
 
     if service["Enabled"]:
-
-        # If we already have the password, don't fetch it again
-        if service["Password"]:
-            return
-
-        # Get password for the user that is allowed to inject iMIP replies
-        # to the server's /inbox; if not available, fall back to plist
-        if service["Username"]:
-            try:
-                service["Password"] = getPasswordFromKeychain(service["Username"])
-            except KeychainAccessError:
-                # The system doesn't support keychain
-                pass
-            except KeychainPasswordNotFound:
-                # The password doesn't exist in the keychain.
-                log.info("iMIP injecting password not found in keychain")
 
         for direction in ("Sending", "Receiving"):
             if service[direction].Username:
@@ -1467,16 +1457,20 @@ def _updateScheduling(configDict, reloading=False):
                     log.info("iMIP %s password not found in keychain" %
                         (direction,))
 
+
+
 def _updateServers(configDict, reloading=False):
-    import servers
+    from twistedcaldav.scheduling.ischedule.localservers import Servers
     if configDict.Servers.Enabled:
-        servers.Servers.load()
-        servers.Servers.getThisServer().installReverseProxies(
+        Servers.load()
+        Servers.getThisServer().installReverseProxies(
             configDict.ServerPartitionID,
             configDict.Servers.MaxClients,
         )
     else:
-        servers.Servers.clear()
+        Servers.clear()
+
+
 
 def _updateCompliance(configDict, reloading=False):
 
@@ -1499,6 +1493,10 @@ def _updateCompliance(configDict, reloading=False):
             compliance += caldavxml.caldav_query_extended_compliance
         if configDict.EnableDefaultAlarms:
             compliance += caldavxml.caldav_default_alarms_compliance
+        if configDict.EnableManagedAttachments:
+            compliance += caldavxml.caldav_managed_attachments_compliance
+        if configDict.Scheduling.Options.TimestampAttendeePartStatChanges:
+            compliance += customxml.calendarserver_partstat_changes_compliance
     else:
         compliance = ()
 
@@ -1535,7 +1533,7 @@ POST_UPDATE_HOOKS = (
     _updateServers,
     _updateCompliance,
     )
-    
+
 def _cleanup(configDict, defaultDict):
     cleanDict = copy.deepcopy(configDict)
 
@@ -1548,6 +1546,7 @@ def _cleanup(configDict, defaultDict):
             log.err("Ignoring unknown configuration option: %r" % (key,))
             del cleanDict[key]
 
+
     def deprecated(oldKey, newKey):
         log.err("Configuration option %r is deprecated in favor of %r." % (oldKey, newKey))
         if oldKey in configDict and newKey in configDict:
@@ -1555,6 +1554,7 @@ def _cleanup(configDict, defaultDict):
                 "Both %r and %r options are specified; use the %r option only."
                 % (oldKey, newKey, newKey)
             )
+
 
     def renamed(oldKey, newKey):
         deprecated(oldKey, newKey)
@@ -1588,14 +1588,13 @@ def _preserveConfig(configDict):
     re-fetched after the process has shed privileges
     """
     iMIP = configDict.Scheduling.iMIP
-    XMPP = configDict.Notifications.Services.XMPPNotifier
     preserved = {
-        "iMIPPassword" : iMIP.Password,
         "MailSendingPassword" : iMIP.Sending.Password,
         "MailReceivingPassword" : iMIP.Receiving.Password,
-        "XMPPPassword" : XMPP.Password,
     }
     return preserved
+
+
 
 def _restoreConfig(configDict, preserved):
     """
@@ -1603,11 +1602,8 @@ def _restoreConfig(configDict, preserved):
     re-fetched after the process has shed privileges
     """
     iMIP = configDict.Scheduling.iMIP
-    XMPP = configDict.Notifications.Services.XMPPNotifier
-    iMIP.Password = preserved["iMIPPassword"]
     iMIP.Sending.Password = preserved["MailSendingPassword"]
     iMIP.Receiving.Password = preserved["MailReceivingPassword"]
-    XMPP.Password = preserved["XMPPPassword"]
 
 
 config.addResetHooks(_preserveConfig, _restoreConfig)

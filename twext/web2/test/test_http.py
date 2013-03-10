@@ -14,7 +14,7 @@ from twisted.internet import defer
 from twisted.internet.defer import waitForDeferred, deferredGenerator
 from twisted.protocols import loopback
 from twisted.python import util, runtime
-from twext.web2.channel.http import SSLRedirectRequest
+from twext.web2.channel.http import SSLRedirectRequest, HTTPFactory
 from twisted.internet.task import deferLater
 
 class PreconditionTestCase(unittest.TestCase):
@@ -449,6 +449,45 @@ class HTTPTests(unittest.TestCase):
         self.assertEquals(cxn.client.done, done)
 
 
+class GracefulShutdownTestCase(HTTPTests):
+
+    def _callback(self, result):
+        self.callbackFired = True
+
+    def testAllConnectionsClosedWithoutConnectedChannels(self):
+        """
+        allConnectionsClosed( ) should fire right away if no connected channels
+        """
+        self.callbackFired = False
+
+        factory = HTTPFactory(None)
+        factory.allConnectionsClosed().addCallback(self._callback)
+        self.assertTrue(self.callbackFired)  # now!
+
+    def testallConnectionsClosedWithConnectedChannels(self):
+        """
+        allConnectionsClosed( ) should only fire after all connected channels
+        have been removed
+        """
+        self.callbackFired = False
+
+        factory = HTTPFactory(None)
+        factory.addConnectedChannel("A")
+        factory.addConnectedChannel("B")
+        factory.addConnectedChannel("C")
+
+        factory.allConnectionsClosed().addCallback(self._callback)
+
+        factory.removeConnectedChannel("A")
+        self.assertFalse(self.callbackFired) # wait for it...
+
+        factory.removeConnectedChannel("B")
+        self.assertFalse(self.callbackFired) # wait for it...
+
+        factory.removeConnectedChannel("C")
+        self.assertTrue(self.callbackFired)  # now!
+
+
 class CoreHTTPTestCase(HTTPTests):
     # Note: these tests compare the client output using string
     #       matching. It is acceptable for this to change and break
@@ -702,18 +741,6 @@ class CoreHTTPTestCase(HTTPTests):
 
         cxn.client.loseConnection()
         self.assertDone(cxn)
-
-
-    def test_http1_1_sts(self):
-        """
-        L{SSLRedirectRequest} uses strict transport security, and will set the
-        appropriate header.
-        """
-        self.requestClass = TestSSLRedirectRequest
-        return self.testHTTP1_1_chunking(
-            "Strict-Transport-Security: max-age=600"
-        )
-
 
     def testHTTP1_1_expect_continue(self):
         cxn = self.connect()

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 Tests for calendarserver.tools.calverify
@@ -20,7 +21,8 @@ Tests for calendarserver.tools.calverify
 
 from StringIO import StringIO
 from calendarserver.tap.util import getRootResource
-from calendarserver.tools.calverify import CalVerifyService
+from calendarserver.tools.calverify import BadDataService, \
+    SchedulingMismatchService, DoubleBookingService
 from pycalendar.datetime import PyCalendarDateTime
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -154,9 +156,9 @@ SUMMARY:Ancient event
 DTSTART:20100307T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
-ORGANIZER:mailto:example2@example.com
-ATTENDEE:mailto:example1@example.com
-ATTENDEE:mailto:example2@example.com
+ORGANIZER:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
@@ -175,8 +177,8 @@ SUMMARY:Ancient event
 DTSTART:20100307T111500Z
 DTSTAMP:20100303T181220Z
 ORGANIZER:http://demo.com:8008/principals/__uids__/D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
-ATTENDEE:mailto:example1@example.com
-ATTENDEE:mailto:example2@example.com
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
@@ -196,9 +198,9 @@ TRANSP:OPAQUE
 SUMMARY:Ancient event
 DTSTART:20100307T111500Z
 DTSTAMP:20100303T181220Z
-ORGANIZER:mailto:example1@example.com
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:http://demo.com:8008/principals/__uids__/D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
-ATTENDEE:mailto:example2@example.com
+ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
@@ -220,7 +222,7 @@ DTSTART:20100307T111500Z
 DTSTAMP:20100303T181220Z
 ORGANIZER:http://demo.com:8008/principals/__uids__/D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:http://demo.com:8008/principals/__uids__/D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
-ATTENDEE:mailto:example2@example.com
+ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
@@ -246,7 +248,7 @@ ORGANIZER;CALENDARSERVER-OLD-CUA="http://demo.com:8008/principals/__uids__/
 ATTENDEE;CALENDARSERVER-OLD-CUA="http://demo.com:8008/principals/__uids__/D
  46F3D71-04B7-43C2-A7B6-6F92F92E61D0":urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92
  F92E61D0
-ATTENDEE:mailto:example2@example.com
+ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
@@ -272,13 +274,13 @@ ORGANIZER;CALENDARSERVER-OLD-CUA="base64-aHR0cDovL2RlbW8uY29tOjgwMDgvcHJpbm
 ATTENDEE;CALENDARSERVER-OLD-CUA="base64-aHR0cDovL2RlbW8uY29tOjgwMDgvcHJpbmN
  pcGFscy9fX3VpZHNfXy9ENDZGM0Q3MS0wNEI3LTQzQzItQTdCNi02RjkyRjkyRTYxRDA=":u
  rn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
-ATTENDEE:mailto:example2@example.com
+ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
-BAD9_ICS =                 """BEGIN:VCALENDAR
+BAD9_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -390,6 +392,26 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
+BAD12_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:BAD12
+DTEND:20100307T151500Z
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:20100307T111500Z
+DTSTAMP:20100303T181220Z
+ORGANIZER:mailto:example2@example.com
+ATTENDEE:mailto:example1@example.com
+ATTENDEE:mailto:example2@example.com
+SEQUENCE:2
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
 
 
 class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
@@ -420,6 +442,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
                 "bad9.ics" : (BAD9_ICS, metadata,),
                 "bad10.ics" : (BAD10_ICS, metadata,),
                 "bad11.ics" : (BAD11_ICS, metadata,),
+                "bad12.ics" : (BAD12_ICS, metadata,),
             }
         },
     }
@@ -447,7 +470,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def populate(self):
-        
+
         # Need to bypass normal validation inside the store
         util.validationBypass = True
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest(), migrating=True)
@@ -508,19 +531,20 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         self.commit()
 
         options = {
-            "ical":True,
-            "nobase64":False,
-            "verbose":False,
-            "uid":"",
-            "uuid":"",
-            "tzid":"",
+            "ical": True,
+            "fix": False,
+            "nobase64": False,
+            "verbose": False,
+            "uid": "",
+            "uuid": "",
+            "tzid": "",
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, False)
+        yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 12)
+        self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD1",),
             ("home1", "BAD2",),
@@ -532,6 +556,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
             ("home1", "BAD9",),
             ("home1", "BAD10",),
             ("home1", "BAD11",),
+            ("home1", "BAD12",),
         )))
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
@@ -549,23 +574,24 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         self.commit()
 
         options = {
-            "ical":True,
-            "nobase64":False,
-            "verbose":False,
-            "uid":"",
-            "uuid":"",
-            "tzid":"",
+            "ical": True,
+            "fix": True,
+            "nobase64": False,
+            "verbose": False,
+            "uid": "",
+            "uuid": "",
+            "tzid": "",
         }
         output = StringIO()
-        
+
         # Do fix
         self.patch(config.Scheduling.Options, "PrincipalHostAliases", "demo.com")
         self.patch(config, "HTTPPort", 8008)
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, True)
+        yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 12)
+        self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD1",),
             ("home1", "BAD2",),
@@ -577,21 +603,23 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
             ("home1", "BAD9",),
             ("home1", "BAD10",),
             ("home1", "BAD11",),
+            ("home1", "BAD12",),
         )))
 
         # Do scan
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        options["fix"] = False
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, False)
+        yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 12)
+        self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD1",),
         )))
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
         self.assertNotEqual(sync_token_old, sync_token_new)
-        
+
         # Make sure mailto: fix results in urn:uuid value without SCHEDULE-AGENT
         obj = yield self.calendarObjectUnderTest("bad10.ics")
         ical = yield obj.component()
@@ -603,7 +631,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
                 attendee.value().startswith("urn:uuid:") or
                 attendee.value().startswith("/principals")
             )
-            
+
 
     @inlineCallbacks
     def test_scanBadCuaOnly(self):
@@ -616,20 +644,21 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         self.commit()
 
         options = {
-            "ical":False,
-            "badcua":True,
-            "nobase64":False,
-            "verbose":False,
-            "uid":"",
-            "uuid":"",
-            "tzid":"",
+            "ical": False,
+            "fix": False,
+            "badcua": True,
+            "nobase64": False,
+            "verbose": False,
+            "uid": "",
+            "uuid": "",
+            "tzid": "",
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, False)
+        yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 12)
+        self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD4",),
             ("home1", "BAD5",),
@@ -637,10 +666,12 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
             ("home1", "BAD7",),
             ("home1", "BAD9",),
             ("home1", "BAD10",),
+            ("home1", "BAD12",),
         )))
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
         self.assertEqual(sync_token_old, sync_token_new)
+
 
     @inlineCallbacks
     def test_fixBadCuaOnly(self):
@@ -653,24 +684,25 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         self.commit()
 
         options = {
-            "ical":False,
-            "badcua":True,
-            "nobase64":False,
-            "verbose":False,
-            "uid":"",
-            "uuid":"",
-            "tzid":"",
+            "ical": False,
+            "fix": True,
+            "badcua": True,
+            "nobase64": False,
+            "verbose": False,
+            "uid": "",
+            "uuid": "",
+            "tzid": "",
         }
         output = StringIO()
-        
+
         # Do fix
         self.patch(config.Scheduling.Options, "PrincipalHostAliases", "demo.com")
         self.patch(config, "HTTPPort", 8008)
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, True)
+        yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 12)
+        self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD4",),
             ("home1", "BAD5",),
@@ -678,19 +710,22 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
             ("home1", "BAD7",),
             ("home1", "BAD9",),
             ("home1", "BAD10",),
+            ("home1", "BAD12",),
         )))
 
         # Do scan
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        options["fix"] = False
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, False)
+        yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 12)
+        self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
         )))
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
         self.assertNotEqual(sync_token_old, sync_token_new)
+
 
     def test_fixBadCuaLines(self):
         """
@@ -871,27 +906,27 @@ END:VCALENDAR
 """.replace("\n", "\r\n"),
             ),
         )
-        
+
         optionsNo64 = {
-            "ical":True,
-            "nobase64":True,
-            "verbose":False,
-            "uid":"",
-            "uuid":"",
-            "tzid":"",
+            "ical": True,
+            "nobase64": True,
+            "verbose": False,
+            "uid": "",
+            "uuid": "",
+            "tzid": "",
         }
-        calverifyNo64 = CalVerifyService(self._sqlCalendarStore, optionsNo64, StringIO(), reactor, config)
+        calverifyNo64 = BadDataService(self._sqlCalendarStore, optionsNo64, StringIO(), reactor, config)
         calverifyNo64.emailDomain = "example.com"
 
         options64 = {
-            "ical":True,
-            "nobase64":False,
-            "verbose":False,
-            "uid":"",
-            "uuid":"",
-            "tzid":"",
+            "ical": True,
+            "nobase64": False,
+            "verbose": False,
+            "uid": "",
+            "uuid": "",
+            "tzid": "",
         }
-        calverify64 = CalVerifyService(self._sqlCalendarStore, options64, StringIO(), reactor, config)
+        calverify64 = BadDataService(self._sqlCalendarStore, options64, StringIO(), reactor, config)
         calverify64.emailDomain = "example.com"
 
         for bad, oknobase64, okbase64 in data:
@@ -900,6 +935,7 @@ END:VCALENDAR
             okbase64 = okbase64.replace("\r\n ", "")
             self.assertEqual(calverifyNo64.fixBadOldCuaLines(bad), oknobase64)
             self.assertEqual(calverify64.fixBadOldCuaLines(bad), okbase64)
+
 
 
 class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
@@ -915,9 +951,9 @@ class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
         "hasPrivateComment": False,
     }
 
-    uuid1  = "D46F3D71-04B7-43C2-A7B6-6F92F92E61D0"
-    uuid2  = "47B16BB4-DB5F-4BF6-85FE-A7DA54230F92"
-    uuid3  = "AC478592-7783-44D1-B2AE-52359B4E8415"
+    uuid1 = "D46F3D71-04B7-43C2-A7B6-6F92F92E61D0"
+    uuid2 = "47B16BB4-DB5F-4BF6-85FE-A7DA54230F92"
+    uuid3 = "AC478592-7783-44D1-B2AE-52359B4E8415"
     uuidl1 = "75EA36BE-F71B-40F9-81F9-CF59BF40CA8F"
 
     @inlineCallbacks
@@ -945,7 +981,7 @@ class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
         self.patch(config.AugmentService.params, "xmlFiles",
             [os.path.join(
                 os.path.dirname(__file__), "calverify", "augments.xml"
-            ),]
+            ), ]
         )
         self.rootResource = getRootResource(config, self._sqlCalendarStore)
         self.directory = self.rootResource.getDirectory()
@@ -953,7 +989,7 @@ class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def populate(self):
-        
+
         # Need to bypass normal validation inside the store
         util.validationBypass = True
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest(), migrating=True)
@@ -997,7 +1033,11 @@ class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
             (yield self.calendarUnderTest(home_name, calendar_name, txn)).calendarObjectWithName(name))
         )
 
-now = PyCalendarDateTime.getToday().getYear()
+now = PyCalendarDateTime.getToday()
+now.setDay(1)
+now.offsetMonth(2)
+nowYear = now.getYear()
+nowMonth = now.getMonth()
 
 class CalVerifyMismatchTestsNonRecurring(CalVerifyMismatchTestsBase):
     """
@@ -1012,10 +1052,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISSING_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1024,7 +1064,7 @@ ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendees have event, organizer does not
     MISSING_ORGANIZER_2_ICS = """BEGIN:VCALENDAR
@@ -1034,10 +1074,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISSING_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1046,7 +1086,7 @@ ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISSING_ORGANIZER_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1055,10 +1095,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISSING_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1067,7 +1107,7 @@ ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendee partstat mismatch
     MISMATCH_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
@@ -1077,10 +1117,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1089,7 +1129,7 @@ ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH_ATTENDEE_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1098,10 +1138,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1110,7 +1150,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH_ATTENDEE_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1119,10 +1159,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1131,7 +1171,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendee events outside time range
     MISMATCH2_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
@@ -1141,10 +1181,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1153,7 +1193,7 @@ ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH2_ATTENDEE_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1162,10 +1202,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1174,7 +1214,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH2_ATTENDEE_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1183,10 +1223,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1195,7 +1235,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Organizer event outside time range
     MISMATCH_ORGANIZER_1_ICS = """BEGIN:VCALENDAR
@@ -1205,10 +1245,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1217,7 +1257,7 @@ ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now-2}
+""".replace("\n", "\r\n") % {"year": nowYear - 1, "month": nowMonth}
 
     MISMATCH_ORGANIZER_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1226,10 +1266,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1238,7 +1278,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendee uuid3 has event with different organizer
     MISMATCH3_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
@@ -1248,10 +1288,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH3_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1260,7 +1300,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH3_ATTENDEE_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1269,10 +1309,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH3_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1280,7 +1320,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH3_ATTENDEE_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1289,17 +1329,17 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH3_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH_ORGANIZER_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1308,10 +1348,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1320,7 +1360,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendee uuid3 has event they are not invited to
     MISMATCH2_ORGANIZER_1_ICS = """BEGIN:VCALENDAR
@@ -1330,10 +1370,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1341,7 +1381,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH2_ORGANIZER_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1350,10 +1390,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1361,7 +1401,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH2_ORGANIZER_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1370,10 +1410,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1382,8 +1422,7 @@ ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
-
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     requirements = {
         CalVerifyMismatchTestsBase.uuid1 : {
@@ -1436,19 +1475,21 @@ END:VCALENDAR
         self.commit()
 
         options = {
-            "ical":False,
-            "badcua":False,
-            "mismatch":True,
-            "nobase64":False,
-            "verbose":False,
-            "details":False,
-            "uid":"",
-            "uuid":"",
-            "tzid":"",
+            "ical": False,
+            "badcua": False,
+            "mismatch": True,
+            "nobase64": False,
+            "fix": False,
+            "verbose": False,
+            "details": False,
+            "uid": "",
+            "uuid": "",
+            "tzid": "",
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, False, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 17)
         self.assertEqual(calverify.results["Missing Attendee"], set((
@@ -1478,7 +1519,7 @@ END:VCALENDAR
         self.assertTrue("Fix remove" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
         self.assertTrue("Fix failures" not in calverify.results)
-        self.assertTrue("Fixed Auto-Accepts" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
 
         sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
         sync_token_new2 = (yield (yield self.calendarUnderTest(self.uuid2)).syncToken())
@@ -1501,19 +1542,21 @@ END:VCALENDAR
         self.commit()
 
         options = {
-            "ical":False,
-            "badcua":False,
-            "mismatch":True,
-            "nobase64":False,
-            "verbose":False,
-            "details":False,
-            "uid":"",
-            "uuid":"",
-            "tzid":"",
+            "ical": False,
+            "badcua": False,
+            "mismatch": True,
+            "nobase64": False,
+            "fix": True,
+            "verbose": False,
+            "details": False,
+            "uid": "",
+            "uuid": "",
+            "tzid": "",
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, True, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 17)
         self.assertEqual(calverify.results["Missing Attendee"], set((
@@ -1536,7 +1579,7 @@ END:VCALENDAR
             ("MISMATCH_ORGANIZER_ICS", self.uuid3, self.uuid1,),
             ("MISMATCH2_ORGANIZER_ICS", self.uuid3, self.uuid1,),
         )))
-        
+
         self.assertEqual(calverify.results["Fix change event"], set((
             (self.uuid2, "calendar", "MISMATCH_ATTENDEE_ICS",),
             (self.uuid3, "calendar", "MISMATCH_ATTENDEE_ICS",),
@@ -1546,12 +1589,12 @@ END:VCALENDAR
             (self.uuid2, "calendar", "MISMATCH_ORGANIZER_ICS",),
             (self.uuid3, "calendar2", "MISMATCH_ORGANIZER_ICS",),
         )))
-        
+
         self.assertEqual(calverify.results["Fix add event"], set((
             (self.uuid2, "calendar", "MISSING_ATTENDEE_ICS",),
             (self.uuid3, "calendar2", "MISSING_ATTENDEE_ICS",),
         )))
-        
+
         self.assertEqual(calverify.results["Fix add inbox"], set((
             (self.uuid2, "MISSING_ATTENDEE_ICS",),
             (self.uuid3, "MISSING_ATTENDEE_ICS",),
@@ -1563,7 +1606,7 @@ END:VCALENDAR
             (self.uuid2, "MISMATCH_ORGANIZER_ICS",),
             (self.uuid3, "MISMATCH_ORGANIZER_ICS",),
         )))
-        
+
         self.assertEqual(calverify.results["Fix remove"], set((
             (self.uuid2, "calendar", "missing_organizer.ics",),
             (self.uuid3, "calendar", "missing_organizer.ics",),
@@ -1577,7 +1620,7 @@ END:VCALENDAR
         self.assertEqual(obj, None)
 
         self.assertEqual(calverify.results["Fix failures"], 0)
-        self.assertEqual(calverify.results["Fixed Auto-Accepts"], [])
+        self.assertEqual(calverify.results["Auto-Accepts"], [])
 
         sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
         sync_token_new2 = (yield (yield self.calendarUnderTest(self.uuid2)).syncToken())
@@ -1588,8 +1631,9 @@ END:VCALENDAR
 
         # Re-scan after changes to make sure there are no errors
         self.commit()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, False, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        options["fix"] = False
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 14)
         self.assertTrue("Missing Attendee" not in calverify.results)
@@ -1600,7 +1644,9 @@ END:VCALENDAR
         self.assertTrue("Fix add inbox" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
         self.assertTrue("Fix failures" not in calverify.results)
-        self.assertTrue("Fixed Auto-Accepts" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
+
+
 
 class CalVerifyMismatchTestsAutoAccept(CalVerifyMismatchTestsBase):
     """
@@ -1615,10 +1661,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISSING_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1626,7 +1672,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendee partstat mismatch
     MISMATCH_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
@@ -1636,10 +1682,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1647,7 +1693,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH_ATTENDEE_L1_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1656,10 +1702,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1667,8 +1713,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
-
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     requirements = {
         CalVerifyMismatchTestsBase.uuid1 : {
@@ -1706,19 +1751,21 @@ END:VCALENDAR
         self.commit()
 
         options = {
-            "ical":False,
-            "badcua":False,
-            "mismatch":True,
-            "nobase64":False,
-            "verbose":False,
-            "details":False,
-            "uid":"",
-            "uuid":"",
-            "tzid":"",
+            "ical": False,
+            "badcua": False,
+            "mismatch": True,
+            "nobase64": False,
+            "fix": False,
+            "verbose": False,
+            "details": False,
+            "uid": "",
+            "uuid": "",
+            "tzid": "",
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, False, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 3)
         self.assertEqual(calverify.results["Missing Attendee"], set((
@@ -1735,7 +1782,7 @@ END:VCALENDAR
         self.assertTrue("Fix add inbox" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
         self.assertTrue("Fix failures" not in calverify.results)
-        self.assertTrue("Fixed Auto-Accepts" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
 
         sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
         sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
@@ -1755,19 +1802,21 @@ END:VCALENDAR
         self.commit()
 
         options = {
-            "ical":False,
-            "badcua":False,
-            "mismatch":True,
-            "nobase64":False,
-            "verbose":False,
-            "details":False,
-            "uid":"",
-            "uuid":"",
-            "tzid":"",
+            "ical": False,
+            "badcua": False,
+            "mismatch": True,
+            "nobase64": False,
+            "fix": True,
+            "verbose": False,
+            "details": False,
+            "uid": "",
+            "uuid": "",
+            "tzid": "",
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, True, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 3)
         self.assertEqual(calverify.results["Missing Attendee"], set((
@@ -1778,29 +1827,29 @@ END:VCALENDAR
         )))
         self.assertTrue("Missing Organizer" not in calverify.results)
         self.assertTrue("Mismatch Organizer" not in calverify.results)
-        
+
         self.assertEqual(calverify.results["Fix change event"], set((
             (self.uuidl1, "calendar", "MISMATCH_ATTENDEE_ICS",),
         )))
-        
+
         self.assertEqual(calverify.results["Fix add event"], set((
             (self.uuidl1, "calendar", "MISSING_ATTENDEE_ICS",),
         )))
-        
+
         self.assertEqual(calverify.results["Fix add inbox"], set((
             (self.uuidl1, "MISSING_ATTENDEE_ICS",),
             (self.uuidl1, "MISMATCH_ATTENDEE_ICS",),
         )))
-        
+
         self.assertTrue("Fix remove" not in calverify.results)
 
         self.assertEqual(calverify.results["Fix failures"], 0)
-        testResults = sorted(calverify.results["Fixed Auto-Accepts"], key=lambda x:x["uid"])
+        testResults = sorted(calverify.results["Auto-Accepts"], key=lambda x: x["uid"])
         self.assertEqual(testResults[0]["path"], "/calendars/__uids__/%s/calendar/mismatched_attendee.ics" % self.uuidl1)
         self.assertEqual(testResults[0]["uid"], "MISMATCH_ATTENDEE_ICS")
-        self.assertEqual(testResults[0]["start"].getText(), "%s0307T031500" % (now,))
+        self.assertEqual(testResults[0]["start"].getText()[:8], "%(year)s%(month)02d07" % {"year": nowYear, "month": nowMonth})
         self.assertEqual(testResults[1]["uid"], "MISSING_ATTENDEE_ICS")
-        self.assertEqual(testResults[1]["start"].getText(), "%s0307T031500" % (now,))
+        self.assertEqual(testResults[1]["start"].getText()[:8], "%(year)s%(month)02d07" % {"year": nowYear, "month": nowMonth})
 
         sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
         sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
@@ -1809,8 +1858,9 @@ END:VCALENDAR
 
         # Re-scan after changes to make sure there are no errors
         self.commit()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, False, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        options["fix"] = False
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 4)
         self.assertTrue("Missing Attendee" not in calverify.results)
@@ -1821,4 +1871,721 @@ END:VCALENDAR
         self.assertTrue("Fix add inbox" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
         self.assertTrue("Fix failures" not in calverify.results)
-        self.assertTrue("Fixed Auto-Accepts" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
+
+
+
+class CalVerifyMismatchTestsUUID(CalVerifyMismatchTestsBase):
+    """
+    Tests calverify for iCalendar mismatch problems for auto-accept attendees.
+    """
+
+    # Organizer has event, attendee do not
+    MISSING_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:MISSING_ATTENDEE_ICS
+DTEND:%(year)s%(month)02d07T151500Z
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s%(month)02d07T111500Z
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    # Attendee partstat mismatch
+    MISMATCH_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:MISMATCH_ATTENDEE_ICS
+DTEND:%(year)s%(month)02d07T151500Z
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s%(month)02d07T111500Z
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    MISMATCH_ATTENDEE_L1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:MISMATCH_ATTENDEE_ICS
+DTEND:%(year)s%(month)02d07T151500Z
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s%(month)02d07T111500Z
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    requirements = {
+        CalVerifyMismatchTestsBase.uuid1 : {
+            "calendar" : {
+                 "missing_attendee.ics"      : (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+           },
+           "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuid2 : {
+            "calendar" : {},
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuid3 : {
+            "calendar" : {},
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuidl1 : {
+            "calendar" : {
+                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_L1_ICS, CalVerifyMismatchTestsBase.metadata,),
+            },
+            "inbox" : {},
+        },
+    }
+
+    @inlineCallbacks
+    def test_scanMismatchOnly(self):
+        """
+        CalVerifyService.doScan without fix for mismatches. Make sure it detects
+        as much as it can. Make sure sync-token is not changed.
+        """
+
+        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.commit()
+
+        options = {
+            "ical": False,
+            "badcua": False,
+            "mismatch": True,
+            "nobase64": False,
+            "fix": False,
+            "verbose": False,
+            "details": False,
+            "uid": "",
+            "uuid": CalVerifyMismatchTestsBase.uuidl1,
+            "tzid": "",
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+        }
+        output = StringIO()
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], 2)
+        self.assertTrue("Missing Attendee" not in calverify.results)
+        self.assertEqual(calverify.results["Mismatch Attendee"], set((
+            ("MISMATCH_ATTENDEE_ICS", self.uuid1, self.uuidl1,),
+        )))
+        self.assertTrue("Missing Organizer" not in calverify.results)
+        self.assertTrue("Mismatch Organizer" not in calverify.results)
+
+        self.assertTrue("Fix change event" not in calverify.results)
+        self.assertTrue("Fix add event" not in calverify.results)
+        self.assertTrue("Fix add inbox" not in calverify.results)
+        self.assertTrue("Fix remove" not in calverify.results)
+        self.assertTrue("Fix failures" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
+
+        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.assertEqual(sync_token_old1, sync_token_new1)
+        self.assertEqual(sync_token_oldl1, sync_token_newl1)
+
+
+    @inlineCallbacks
+    def test_fixMismatch(self):
+        """
+        CalVerifyService.doScan with fix for mismatches. Make sure it detects
+        and fixes as much as it can. Make sure sync-token is not changed.
+        """
+
+        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.commit()
+
+        options = {
+            "ical": False,
+            "badcua": False,
+            "mismatch": True,
+            "nobase64": False,
+            "fix": True,
+            "verbose": False,
+            "details": False,
+            "uid": "",
+            "uuid": CalVerifyMismatchTestsBase.uuidl1,
+            "tzid": "",
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+        }
+        output = StringIO()
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], 2)
+        self.assertTrue("Missing Attendee" not in calverify.results)
+        self.assertEqual(calverify.results["Mismatch Attendee"], set((
+            ("MISMATCH_ATTENDEE_ICS", self.uuid1, self.uuidl1,),
+        )))
+        self.assertTrue("Missing Organizer" not in calverify.results)
+        self.assertTrue("Mismatch Organizer" not in calverify.results)
+
+        self.assertEqual(calverify.results["Fix change event"], set((
+            (self.uuidl1, "calendar", "MISMATCH_ATTENDEE_ICS",),
+        )))
+
+        self.assertTrue("Fix add event" not in calverify.results)
+
+        self.assertEqual(calverify.results["Fix add inbox"], set((
+            (self.uuidl1, "MISMATCH_ATTENDEE_ICS",),
+        )))
+
+        self.assertTrue("Fix remove" not in calverify.results)
+
+        self.assertEqual(calverify.results["Fix failures"], 0)
+        testResults = sorted(calverify.results["Auto-Accepts"], key=lambda x: x["uid"])
+        self.assertEqual(testResults[0]["path"], "/calendars/__uids__/%s/calendar/mismatched_attendee.ics" % self.uuidl1)
+        self.assertEqual(testResults[0]["uid"], "MISMATCH_ATTENDEE_ICS")
+        self.assertEqual(testResults[0]["start"].getText()[:8], "%(year)s%(month)02d07" % {"year": nowYear, "month": nowMonth})
+
+        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.assertEqual(sync_token_old1, sync_token_new1)
+        self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
+
+        # Re-scan after changes to make sure there are no errors
+        self.commit()
+        options["fix"] = False
+        options["uuid"] = CalVerifyMismatchTestsBase.uuidl1
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], 2)
+        self.assertTrue("Missing Attendee" not in calverify.results)
+        self.assertTrue("Mismatch Attendee" not in calverify.results)
+        self.assertTrue("Missing Organizer" not in calverify.results)
+        self.assertTrue("Mismatch Organizer" not in calverify.results)
+        self.assertTrue("Fix add event" not in calverify.results)
+        self.assertTrue("Fix add inbox" not in calverify.results)
+        self.assertTrue("Fix remove" not in calverify.results)
+        self.assertTrue("Fix failures" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
+
+
+
+class CalVerifyDoubleBooked(CalVerifyMismatchTestsBase):
+    """
+    Tests calverify for double-bookings.
+    """
+
+    # No overlap
+    INVITE_NO_OVERLAP_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP_ICS
+DTSTART:%(year)s%(month)02d07T100000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    # Two overlapping
+    INVITE_NO_OVERLAP1_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP1_1_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP1_1_ICS
+DTSTART:%(year)s%(month)02d07T110000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    INVITE_NO_OVERLAP1_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP1_2_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP1_2_ICS
+DTSTART:%(year)s%(month)02d07T120000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    # Two overlapping with one transparent
+    INVITE_NO_OVERLAP2_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP2_1_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP2_1_ICS
+DTSTART:%(year)s%(month)02d07T140000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    INVITE_NO_OVERLAP2_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP2_2_ICS
+SUMMARY:INVITE_NO_OVERLAP2_2_ICS
+DTSTART:%(year)s%(month)02d07T150000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    # Two overlapping with one cancelled
+    INVITE_NO_OVERLAP3_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP3_1_ICS
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s%(month)02d07T170000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    INVITE_NO_OVERLAP3_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP3_2_ICS
+SUMMARY:INVITE_NO_OVERLAP3_2_ICS
+DTSTART:%(year)s%(month)02d07T180000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    # Two overlapping recurring
+    INVITE_NO_OVERLAP4_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP4_1_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP4_1_ICS
+DTSTART:%(year)s%(month)02d08T120000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+RRULE:FREQ=DAILY;COUNT=3
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    INVITE_NO_OVERLAP4_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP4_2_ICS
+SUMMARY:INVITE_NO_OVERLAP4_2_ICS
+DTSTART:%(year)s%(month)02d09T120000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    # Two overlapping on one recurrence instance
+    INVITE_NO_OVERLAP5_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP5_1_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP5_1_ICS
+DTSTART:%(year)s%(month)02d12T120000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+RRULE:FREQ=DAILY;COUNT=3
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    INVITE_NO_OVERLAP5_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP5_2_ICS
+SUMMARY:INVITE_NO_OVERLAP5_2_ICS
+DTSTART:%(year)s%(month)02d13T140000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP5_2_ICS
+SUMMARY:INVITE_NO_OVERLAP5_2_ICS
+RECURRENCE-ID:%(year)s%(month)02d14T140000Z
+DTSTART:%(year)s%(month)02d14T130000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    # Two not overlapping - one all-day
+    INVITE_NO_OVERLAP6_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP6_1_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP6_1_ICS
+DTSTART;TZID=America/Los_Angeles:%(year)s%(month)02d20T200000
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    INVITE_NO_OVERLAP6_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP6_2_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP6_2_ICS
+DTSTART;VALUE=DATE:%(year)s%(month)02d21
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    # Two overlapping - same organizer and summary
+    INVITE_NO_OVERLAP7_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP7_1_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP7_1_ICS
+DTSTART:%(year)s%(month)02d23T110000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    INVITE_NO_OVERLAP7_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP7_2_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP7_1_ICS
+DTSTART:%(year)s%(month)02d23T120000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
+
+    allEvents = {
+        "invite1.ics"      : (INVITE_NO_OVERLAP_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite2.ics"      : (INVITE_NO_OVERLAP1_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite3.ics"      : (INVITE_NO_OVERLAP1_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite4.ics"      : (INVITE_NO_OVERLAP2_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite5.ics"      : (INVITE_NO_OVERLAP2_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite6.ics"      : (INVITE_NO_OVERLAP3_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite7.ics"      : (INVITE_NO_OVERLAP3_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite8.ics"      : (INVITE_NO_OVERLAP4_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite9.ics"      : (INVITE_NO_OVERLAP4_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite10.ics"     : (INVITE_NO_OVERLAP5_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite11.ics"     : (INVITE_NO_OVERLAP5_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite12.ics"     : (INVITE_NO_OVERLAP6_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite13.ics"     : (INVITE_NO_OVERLAP6_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite14.ics"     : (INVITE_NO_OVERLAP7_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite15.ics"     : (INVITE_NO_OVERLAP7_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+    }
+
+    requirements = {
+        CalVerifyMismatchTestsBase.uuid1 : {
+            "calendar" : allEvents,
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuid2 : {
+            "calendar" : {},
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuid3 : {
+            "calendar" : {},
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuidl1 : {
+            "calendar" : allEvents,
+            "inbox" : {},
+        },
+    }
+
+    @inlineCallbacks
+    def test_scanDoubleBookingOnly(self):
+        """
+        CalVerifyService.doScan without fix for mismatches. Make sure it detects
+        as much as it can. Make sure sync-token is not changed.
+        """
+
+        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.commit()
+
+        options = {
+            "ical": False,
+            "badcua": False,
+            "mismatch": False,
+            "nobase64": False,
+            "double": True,
+            "fix": False,
+            "verbose": False,
+            "details": False,
+            "summary": False,
+            "days": 365,
+            "uid": "",
+            "uuid": self.uuidl1,
+            "tzid": "utc",
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+        }
+        output = StringIO()
+        calverify = DoubleBookingService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]))
+        self.assertEqual(
+            [(sorted((i.uid1, i.uid2,)), str(i.start),) for i in calverify.results["Double-bookings"]],
+            [
+                (["INVITE_NO_OVERLAP1_1_ICS", "INVITE_NO_OVERLAP1_2_ICS"], "%(year)s%(month)02d07T120000Z" % {"year": nowYear, "month": nowMonth}),
+                (["INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS"], "%(year)s%(month)02d09T120000Z" % {"year": nowYear, "month": nowMonth}),
+                (["INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS"], "%(year)s%(month)02d10T120000Z" % {"year": nowYear, "month": nowMonth}),
+                (["INVITE_NO_OVERLAP5_1_ICS", "INVITE_NO_OVERLAP5_2_ICS"], "%(year)s%(month)02d14T130000Z" % {"year": nowYear, "month": nowMonth}),
+            ],
+        )
+        self.assertEqual(calverify.results["Number of double-bookings"], 4)
+        self.assertEqual(calverify.results["Number of unique double-bookings"], 3)
+
+        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.assertEqual(sync_token_old1, sync_token_new1)
+        self.assertEqual(sync_token_oldl1, sync_token_newl1)
+
+
+    def test_instance(self):
+        """
+        CalVerifyService.doScan without fix for mismatches. Make sure it detects
+        as much as it can. Make sure sync-token is not changed.
+        """
+
+        s = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:4760FF93-C7F8-4EB0-B3E8-0B22A96DB1BC
+DTSTART;TZID=America/Los_Angeles:20130221T170000
+DTEND;TZID=America/Los_Angeles:20130221T180000
+ATTENDEE;CN=Casa Blanca APPLE EMP ONLY (12) DA03 4th;CUTYPE=ROOM;PARTSTAT=
+ ACCEPTED;ROLE=REQ-PARTICIPANT:urn:uuid:366CC7BE-FEF7-4FFF-B713-6B883538A24
+ 9
+ATTENDEE;CN=Mark Chu;CUTYPE=INDIVIDUAL;EMAIL=markchu@apple.com;PARTSTAT=AC
+ CEPTED;ROLE=REQ-PARTICIPANT:urn:uuid:46F9D5D9-08E8-4987-9636-CC796F4093C6
+ATTENDEE;CN=Kristie Phan;CUTYPE=INDIVIDUAL;EMAIL=kristie_phan@apple.com;PA
+ RTSTAT=ACCEPTED:urn:uuid:97E8720F-4364-DBEC-6721-123E9A92B980
+CREATED:20130220T200530Z
+DTSTAMP:20130222T002246Z
+EXDATE:20130228T010000Z
+EXDATE:20130314T000000Z
+EXDATE:20130321T000000Z
+EXDATE:20130327T000000Z
+EXDATE:20130328T000000Z
+EXDATE:20130403T000000Z
+LOCATION:Casa Blanca APPLE EMP ONLY (12) DA03 4th
+ORGANIZER;CN=Kristie Phan;EMAIL=kristie_phan@apple.com;SCHEDULE-STATUS=1.2
+ :urn:uuid:97E8720F-4364-DBEC-6721-123E9A92B980
+RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;WKST=SU
+SEQUENCE:13
+SUMMARY:ESD Daily Meeting
+END:VEVENT
+END:VCALENDAR
+"""
+        from twistedcaldav.ical import Component
+        c = Component.fromString(s)
+        start = PyCalendarDateTime.getToday()
+        start.setDateOnly(False)
+        end = start.duplicate()
+        end.offsetDay(30)
+        config.MaxAllowedInstances = 3000
+        i = c.expandTimeRanges(end, start, ignoreInvalidInstances=True)
+        print(i)

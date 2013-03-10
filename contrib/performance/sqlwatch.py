@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import sys, signal, time
 
@@ -52,20 +53,20 @@ def collect(directory):
     while True:
         pids = instancePIDs(directory)
         dtrace = DTraceCollector("sql_measure.d", pids)
-        print 'Starting'
+        print('Starting')
         yield dtrace.start()
-        print 'Started'
+        print('Started')
         try:
             yield waitForInterrupt()
         except Stop:
             yield dtrace.stop()
             break
-        print 'Stopping'
+        print('Stopping')
         stats = yield dtrace.stop()
         for s in stats:
             if s.name == 'execute':
                 s.statements(stats[s])
-        print 'Stopped'
+        print('Stopped')
 
 
 def main():

@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_cachedirectory -*-
 ##
-# Copyright (c) 2009-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -96,9 +96,8 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
         for indexType, indexKey in indexTypes:
             self.recordsIndexedBy[indexType][indexKey] = record
             if useMemcache:
-                key = "dir|%s|%s|%s|%s" % (self.directoryService.baseGUID,
-                    indexType, indexKey,
-                    "|".join(self.directoryService.recordTypes()))
+                key = self.directoryService.generateMemcacheKey(indexType, indexKey,
+                    record.recordType)
                 self.log_debug("Memcache: storing %s" % (key,))
                 try:
                     self.directoryService.memcacheSet(key, record)
@@ -226,6 +225,29 @@ class CachingDirectoryService(DirectoryService):
                 raise DirectoryMemcacheError("Failed to read from memcache")
         return record
 
+    def generateMemcacheKey(self, indexType, indexKey, recordType):
+        """
+        Return a key that can be used to store/retrieve a record in memcache.
+        if short-name is the indexType the recordType be encoded into the key.
+
+        @param indexType: one of the indexTypes( ) values
+        @type indexType: C{str}
+        @param indexKey: the value being indexed
+        @type indexKey: C{str}
+        @param recordType: the type of record being cached
+        @type recordType: C{str}
+        @return: a memcache key comprised of the passed-in values and the directory
+            service's baseGUID
+        @rtype: C{str}
+        """
+        keyVersion = 2
+        if indexType == CachingDirectoryService.INDEX_TYPE_SHORTNAME:
+            return "dir|v%d|%s|%s|%s|%s" % (keyVersion,self.baseGUID, recordType,
+                indexType, indexKey)
+        else:
+            return "dir|v%d|%s|%s|%s" % (keyVersion, self.baseGUID, indexType,
+                indexKey)
+
     def _initCaches(self):
         self._recordCaches = dict([
             (recordType, self.cacheClass(self, recordType))
@@ -315,8 +337,12 @@ class CachingDirectoryService(DirectoryService):
 
         # Check memcache
         if config.Memcached.Pools.Default.ClientEnabled:
-            key = "dir|%s|%s|%s|%s" % (self.baseGUID, indexType, indexKey,
-                "|".join(self.recordTypes()))
+
+            # The only time the recordType arg matters is when indexType is
+            # short-name, and in that case recordTypes will contain exactly
+            # one recordType, so using recordTypes[0] here is always safe:
+            key = self.generateMemcacheKey(indexType, indexKey, recordTypes[0])
+
             self.log_debug("Memcache: checking %s" % (key,))
 
             try:

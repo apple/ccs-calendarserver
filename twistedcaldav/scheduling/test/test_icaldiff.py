@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import twistedcaldav.test.util
 from difflib import unified_diff
 
 import itertools
+import re
+from twistedcaldav.config import config
 
 class ICalDiff (twistedcaldav.test.util.TestCase):
     """
@@ -27,7 +29,7 @@ class ICalDiff (twistedcaldav.test.util.TestCase):
     """
 
     def test_organizer_diff(self):
-        
+
         data = (
             (
                 "#1.1 Simple component, no change",
@@ -477,7 +479,6 @@ END:VCALENDAR
 
     def test_attendee_merge_simple(self):
 
-        
         data = (
             (
                 "#1.1 Simple component, no change",
@@ -559,7 +560,7 @@ UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -1181,12 +1182,17 @@ END:VCALENDAR
                 diffResult[0],
                 diffResult[1],
                 tuple(sorted(diffResult[2])),
-                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+                re.sub(
+                    "X-CALENDARSERVER-DTSTAMP=[^Z]+",
+                    "X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXX",
+                    str(diffResult[3]).replace("\r", "").replace("\n ", "")
+                ) if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
+
     def test_attendee_merge_complex(self):
-        
+
         data = (
             (
                 "#1.1 Complex component, no change",
@@ -1566,7 +1572,7 @@ UID:12345-67890
 RECURRENCE-ID:20080602T120000Z
 DTSTART:20080602T123000Z
 DTEND:20080602T130000Z
-ATTENDEE;PARTSTAT=ACCEPTED;RSVP=TRUE:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;RSVP=TRUE;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
 END:VEVENT
 BEGIN:VEVENT
@@ -1575,7 +1581,7 @@ RECURRENCE-ID:20080604T120000Z
 DTSTART:20080604T120000Z
 DTEND:20080604T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=DECLINED;RSVP=TRUE:mailto:user2@example.com
+ATTENDEE;PARTSTAT=DECLINED;RSVP=TRUE;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -1678,13 +1684,17 @@ END:VCALENDAR
                 diffResult[0],
                 diffResult[1],
                 tuple(sorted(diffResult[2])),
-                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+                re.sub(
+                    "X-CALENDARSERVER-DTSTAMP=[^Z]+",
+                    "X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXX",
+                    str(diffResult[3]).replace("\r", "").replace("\n ", "")
+                ) if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
 
     def test_attendee_merge_exdate(self):
-        
+
         data = (
             (
                 "#1.1 Single component, one EXDATE",
@@ -1738,6 +1748,7 @@ DTEND:20080604T130000Z
 ATTENDEE:mailto:user1@example.com
 ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:TRANSPARENT
 X-CALENDARSERVER-HIDDEN-INSTANCE:T
 END:VEVENT
 END:VCALENDAR
@@ -1795,6 +1806,7 @@ DTEND:20080604T130000Z
 ATTENDEE:mailto:user1@example.com
 ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:TRANSPARENT
 X-CALENDARSERVER-HIDDEN-INSTANCE:T
 END:VEVENT
 BEGIN:VEVENT
@@ -1805,6 +1817,7 @@ DTEND:20080605T130000Z
 ATTENDEE:mailto:user1@example.com
 ATTENDEE;PARTSTAT=DECLINED:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:TRANSPARENT
 X-CALENDARSERVER-HIDDEN-INSTANCE:T
 END:VEVENT
 END:VCALENDAR
@@ -1871,6 +1884,7 @@ DTEND:20080604T140000Z
 ATTENDEE:mailto:user1@example.com
 ATTENDEE;PARTSTAT=DECLINED;RSVP=TRUE:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:TRANSPARENT
 X-CALENDARSERVER-HIDDEN-INSTANCE:T
 END:VEVENT
 END:VCALENDAR
@@ -1938,6 +1952,7 @@ DTEND:20080604T140000Z
 ATTENDEE:mailto:user1@example.com
 ATTENDEE;PARTSTAT=DECLINED;RSVP=TRUE:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:TRANSPARENT
 X-CALENDARSERVER-HIDDEN-INSTANCE:T
 END:VEVENT
 BEGIN:VEVENT
@@ -1948,6 +1963,7 @@ DTEND:20080606T130000Z
 ATTENDEE:mailto:user1@example.com
 ATTENDEE;PARTSTAT=DECLINED;RSVP=TRUE:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:TRANSPARENT
 X-CALENDARSERVER-HIDDEN-INSTANCE:T
 END:VEVENT
 END:VCALENDAR
@@ -1998,6 +2014,17 @@ VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:TRANSPARENT
+X-CALENDARSERVER-HIDDEN-INSTANCE:T
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
 RECURRENCE-ID:20080604T120000Z
 DTSTART:20080604T130000Z
 DTEND:20080604T140000Z
@@ -2021,8 +2048,9 @@ END:VCALENDAR
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
+
     def test_attendee_merge_cancelled(self):
-        
+
         data = (
             (
                 "#1.1 Remove EXDATE add CANCELLED",
@@ -2385,8 +2413,9 @@ END:VCALENDAR
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
+
     def test_attendee_merge_dropbox(self):
-        
+
         data = (
             (
                 "#1.1 Remove dropbox",
@@ -2653,6 +2682,7 @@ END:VCALENDAR
             ),
         )
 
+        self.patch(config, "EnableDropBox", True)
         for description, calendar1, calendar2, attendee, result in data:
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
             diffResult = differ.attendeeMerge(attendee)
@@ -2664,9 +2694,9 @@ END:VCALENDAR
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
+
     def test_attendee_merge_fake_master(self):
 
-        
         data = (
             (
                 "#1.1 Single overridden component, partstat change - ok",
@@ -2707,7 +2737,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -2752,7 +2782,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T130000Z
 DTEND:20080601T140000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -2797,7 +2827,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T130000Z
 DTEND:20080601T140000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -2851,7 +2881,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True, ('20080601T120000Z','20080602T120000Z',), """BEGIN:VCALENDAR
+                (True, True, ('20080601T120000Z', '20080602T120000Z',), """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -2860,7 +2890,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 BEGIN:VEVENT
@@ -2869,7 +2899,7 @@ RECURRENCE-ID:20080602T120000Z
 DTSTART:20080602T120000Z
 DTEND:20080602T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED;RSVP=TRUE:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;RSVP=TRUE;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -2923,7 +2953,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 "mailto:user2@example.com",
-                (True, True, ('20080601T120000Z','20080602T120000Z',), """BEGIN:VCALENDAR
+                (True, True, ('20080601T120000Z', '20080602T120000Z',), """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -2932,7 +2962,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T140000Z
 DTEND:20080601T150000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 BEGIN:VEVENT
@@ -2941,7 +2971,7 @@ RECURRENCE-ID:20080602T120000Z
 DTSTART:20080602T120000Z
 DTEND:20080602T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -3058,7 +3088,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -3126,7 +3156,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -3195,7 +3225,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -3210,12 +3240,17 @@ END:VCALENDAR
                 diffResult[0],
                 diffResult[1],
                 tuple(sorted(diffResult[2])),
-                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+                re.sub(
+                    "X-CALENDARSERVER-DTSTAMP=[^Z]+",
+                    "X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXX",
+                    str(diffResult[3]).replace("\r", "").replace("\n ", "")
+                ) if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
+
     def test_what_is_different(self):
-        
+
         data1 = (
             (
                 "#1.1 Simple component, no change",
@@ -3273,7 +3308,7 @@ SUMMARY:Test1
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"SUMMARY":set(),}},
+                {"": {"SUMMARY": set(), }},
             ),
             (
                 "#1.3 Simple component, one property change, one addition, one removal",
@@ -3301,7 +3336,7 @@ DESCRIPTION:Something to do.
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"SUMMARY":set(), "LOCATION":set(), "DESCRIPTION":set(),}},
+                {"": {"SUMMARY": set(), "LOCATION": set(), "DESCRIPTION": set(), }},
             ),
             (
                 "#1.4 Simple component, add attendee",
@@ -3334,7 +3369,7 @@ ATTENDEE:mailto:user3@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"ATTENDEE":set(),}},
+                {"": {"ATTENDEE": set(), }},
             ),
             (
                 "#1.5 Simple component, remove attendee",
@@ -3365,7 +3400,7 @@ ATTENDEE:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"ATTENDEE":set(),}},
+                {"": {"ATTENDEE": set(), }},
             ),
             (
                 "#1.6 Simple component, attendee PARTSTAT only",
@@ -3397,7 +3432,7 @@ ATTENDEE;PARTSTAT="ACCEPTED":mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"ATTENDEE":set(),}},
+                {"": {"ATTENDEE": set(), }},
             ),
             (
                 "#1.7 Simple component, attendee PARTSTAT and addition",
@@ -3430,7 +3465,7 @@ ATTENDEE:mailto:user3@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"ATTENDEE":set(),}},
+                {"": {"ATTENDEE": set(), }},
             ),
             (
                 "#1.8 Simple component, attendee RSVP only",
@@ -3462,7 +3497,7 @@ ATTENDEE;RSVP=TRUE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"ATTENDEE":set(),}},
+                {"": {"ATTENDEE": set(), }},
             ),
             (
                 "#1.9 Simple component, DTSTART/DTEND VALUE",
@@ -3494,7 +3529,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"DTEND":set(("VALUE",)), "DTSTART":set(("VALUE",)),}},
+                {"": {"DTEND": set(("VALUE",)), "DTSTART": set(("VALUE",)), }},
             ),
             (
                 "#1.10 Simple component, DTSTART/DTEND TZID",
@@ -3562,10 +3597,10 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"DTEND":set(("TZID",)), "DTSTART":set(("TZID",)),}},
+                {"": {"DTEND": set(("TZID",)), "DTSTART": set(("TZID",)), }},
             ),
         )
-        
+
         data2 = (
             (
                 "#2.1 Simple recurring component, no change",
@@ -3627,7 +3662,7 @@ RRULE:COUNT=400;FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"SUMMARY":set(),}},
+                {"": {"SUMMARY": set(), }},
             ),
             (
                 "#2.3 Simple component, one property change, one addition, one removal",
@@ -3657,7 +3692,7 @@ RRULE:COUNT=400;FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"SUMMARY":set(), "LOCATION":set(), "DESCRIPTION":set(),}},
+                {"": {"SUMMARY": set(), "LOCATION": set(), "DESCRIPTION": set(), }},
             ),
             (
                 "#2.4 Simple component, add attendee",
@@ -3692,7 +3727,7 @@ RRULE:COUNT=400;FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"ATTENDEE":set(),}},
+                {"": {"ATTENDEE": set(), }},
             ),
             (
                 "#2.5 Simple component, remove attendee",
@@ -3725,7 +3760,7 @@ RRULE:COUNT=400;FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"ATTENDEE":set(),}},
+                {"": {"ATTENDEE": set(), }},
             ),
             (
                 "#2.6 Simple component, attendee PARTSTAT only",
@@ -3759,7 +3794,7 @@ RRULE:COUNT=400;FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"ATTENDEE":set(),}},
+                {"": {"ATTENDEE": set(), }},
             ),
             (
                 "#2.7 Simple component, attendee PARTSTAT and addition",
@@ -3794,7 +3829,7 @@ RRULE:COUNT=400;FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"ATTENDEE":set(),}},
+                {"": {"ATTENDEE": set(), }},
             ),
             (
                 "#2.8 Simple recurring component, property order change",
@@ -3835,7 +3870,7 @@ END:VCALENDAR
                 {},
             ),
         )
-        
+
         data3 = (
             (
                 "#3.1 Complex recurring component, no change",
@@ -3937,7 +3972,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"20080602T120000Z":{"SUMMARY":set(),}},
+                {"20080602T120000Z": {"SUMMARY": set(), }},
             ),
             (
                 "#3.3 Simple component, one property change in master",
@@ -3985,7 +4020,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"SUMMARY":set(),}},
+                {"": {"SUMMARY": set(), }},
             ),
             (
                 "#3.4 Simple component, one property change in master and instance",
@@ -4033,7 +4068,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"SUMMARY":set(),}, "20080602T120000Z":{"SUMMARY":set(),}},
+                {"": {"SUMMARY": set(), }, "20080602T120000Z": {"SUMMARY": set(), }},
             ),
             (
                 "#3.5 Simple component, different property change in master and instance",
@@ -4082,7 +4117,7 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                {"":{"SUMMARY":set()}, "20080602T120000Z":{"Description":set()}},
+                {"": {"SUMMARY": set()}, "20080602T120000Z": {"Description": set()}},
             ),
             (
                 "#3.6 Simple component, instance added no change",
@@ -4152,7 +4187,7 @@ SUMMARY:Test
 END:VEVENT
 END:VCALENDAR
 """,
-                {"20080602T120000Z":{"DTSTART":set(), "DTEND":set(), }},
+                {"20080602T120000Z": {"DTSTART": set(), "DTEND": set(), }},
             ),
             (
                 "#3.8 Simple component, instance removed no change",
@@ -4222,17 +4257,18 @@ RRULE:COUNT=400;FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                {"20080602T120000Z":{"DTSTART":set(), "DTEND":set(), }},
+                {"20080602T120000Z": {"DTSTART": set(), "DTEND": set(), }},
             ),
         )
-        
+
         for description, calendar1, calendar2, rids in itertools.chain(data1, data2, data3,):
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
             got_rids = differ.whatIsDifferent()
             self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
-        
+
+
     def test_organizer_smart_merge(self):
-        
+
         data1 = (
             (
                 "#1.1 Simple component, no change",
@@ -4475,7 +4511,7 @@ END:VCALENDAR
 """,
             ),
         )
-        
+
         data2 = (
             (
                 "#2.1 Simple recurring component, no change",
@@ -5030,7 +5066,7 @@ END:VCALENDAR
 """,
             ),
         )
-        
+
         for description, calendar1, calendar2, changed_calendar in itertools.chain(data1, data2,):
             cal1 = Component.fromString(calendar1)
             cal2 = Component.fromString(calendar2)

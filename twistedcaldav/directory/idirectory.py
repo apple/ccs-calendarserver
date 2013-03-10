@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,20 +102,21 @@ class IDirectoryService(Interface):
         """
         @param tokens: The tokens to search on
         @type tokens: C{list} of C{str} (utf-8 bytes)
-        @param context: An indication of what the end user is searching
-            for; "attendee", "location", or None
+
+        @param context: An indication of what the end user is searching for;
+            "attendee", "location", or None
         @type context: C{str}
-        @return: a deferred sequence of L{IDirectoryRecord}s which
-            match the given tokens and optional context.
 
-        Each token is searched for within each record's full name and
-        email address; if each token is found within a record that
-        record is returned in the results.
+        @return: a deferred sequence of L{IDirectoryRecord}s which match the
+            given tokens and optional context.
 
-        If context is None, all record types are considered.  If
-        context is "location", only locations are considered.  If
-        context is "attendee", only users, groups, and resources
-        are considered.
+            Each token is searched for within each record's full name and email
+            address; if each token is found within a record that record is
+            returned in the results.
+
+            If context is None, all record types are considered.  If context is
+            "location", only locations are considered.  If context is
+            "attendee", only users, groups, and resources are considered.
         """
 
 

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
 # Copyright (c) 2007 Twisted Matrix Laboratories.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -589,15 +589,24 @@ class WebDAVTextElement (WebDAVElement):
     def fromString(clazz, string):
         if string is None:
             return clazz()
-        elif isinstance(string, (str, unicode)):
+        elif isinstance(string, (unicode, str)):
             return clazz(PCDATAElement(string))
         else:
             return clazz(PCDATAElement(str(string)))
 
     allowed_children = { PCDATAElement: (0, None) }
 
+    def toString(self):
+        """
+        @return: a unicode string containing the text in this element.
+        """
+        return self.__str__().decode("utf-8")
+
     def __str__(self):
-        return "".join([c.data for c in self.children])
+        """
+        @return: a byte string containing the text in this element.
+        """
+        return b"".join([c.data for c in self.children])
 
     def __repr__(self):
         content = str(self)

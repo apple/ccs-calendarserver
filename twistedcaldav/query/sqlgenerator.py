@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 SQL statement generator from query expressions.
@@ -320,14 +321,14 @@ if __name__ == "__main__":
     e2 = expression.timerangeExpression("20060101T120000Z", "20060101T130000Z", "20060101T080000Z", "20060101T090000Z")
     e3 = expression.notcontainsExpression("SUMMARY", "help", True)
     e5 = expression.andExpression([e1, e2, e3])
-    print e5
+    print(e5)
     sql = sqlgenerator(e5, 'dummy-cal', 'dummy-user')
-    print sql.generate()
+    print(sql.generate())
     e6 = expression.inExpression("TYPE", ("VEVENT", "VTODO",), False)
-    print e6
+    print(e6)
     sql = sqlgenerator(e6, 'dummy-cal', 'dummy-user')
-    print sql.generate()
+    print(sql.generate())
     e7 = expression.notinExpression("TYPE", ("VEVENT", "VTODO",), False)
-    print e7
+    print(e7)
     sql = sqlgenerator(e7, 'dummy-cal', 'dummy-user')
-    print sql.generate()
+    print(sql.generate())

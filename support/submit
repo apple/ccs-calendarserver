@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,10 +23,12 @@
 set -e
 set -u
 
-version="18";
+version="19";
 
  wd="$(cd "$(dirname "$0")" && pwd)";
 src="$(cd "${wd}/.." && pwd)";
+
+unset CALENDARSERVER_BUILD_DEPS;
 
 ##
 # Command line
@@ -38,6 +40,7 @@ package=false;
 
         submission_enabled=true;
 ignore_uncommitted_changes=false;
+    build_no_verify_source=false;
 
 usage ()
 {
@@ -46,19 +49,20 @@ usage ()
   if [ "${1-}" != "-" ]; then echo "$@"; echo; fi;
 
   echo "Usage: ${program} release [release ...]";
-  echo "       ${program} -b[ip]";
+  echo "       ${program} release -b[ipn]";
   echo "";
   echo "Options:";
   echo "	-b Run buildit";
   echo "	-i Install resulting build on this system";
   echo "	-p Create a package with the resulting build";
   echo "	-f Ignore uncommitted changes";
+  echo "	-n skip buildit source verification";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hbipf' option; do
+while getopts 'hbipfn' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
@@ -66,6 +70,7 @@ while getopts 'hbipf' option; do
     'i')                    install=true; ;;
     'p')                    package=true; ;;
     'f') ignore_uncommitted_changes=true; ;;
+    'n') 	 build_no_verify_source=true; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -73,6 +78,7 @@ shift $((${OPTIND} - 1));
 if ! "${build}"; then
   if "${install}"; then usage "-i flag requires -b"; fi;
   if "${package}"; then usage "-p flag requires -b"; fi;
+  if "${build_no_verify_source}"; then usage "-n flag requires -b"; fi;
 
   if ! "${submission_enabled}"; then
     echo "Submissions from this branch are not enabled.";
@@ -178,10 +184,16 @@ if "${build}"; then
   for release in "${releases}"; do
       release_flags="${release_flags} -release ${release}";
   done;
+  
+  if "${build_no_verify_source}"; then
+    verify_flags=" -noverifysource";
+  else
+    verify_flags="";
+  fi;  
 
   sudo buildit "${wc}" \
     $(file /System/Library/Frameworks/Python.framework/Versions/Current/Python | sed -n -e 's|^.*(for architecture \([^)][^)]*\).*$|-arch \1|p' | sed 's|ppc7400|ppc|') \
-    ${merge_flags}${release_flags};
+    ${merge_flags}${release_flags}${verify_flags};
 
   if "${package}"; then
     package_file="${project_version}.tgz";
@@ -199,4 +211,4 @@ else
   submitproject "${wc}" ${releases};
 fi;
 
-rm -rf "${tmp}";
+sudo rm -rf "${tmp}";

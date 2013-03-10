@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+.\" Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 .\"
 .\" Licensed under the Apache License, Version 2.0 (the "License");
 .\" you may not use this file except in compliance with the License.
@@ -38,6 +38,8 @@
 .Op Fl -get-auto-schedule
 .Op Fl -set-auto-schedule-mode Ar none|accept-always|decline-always|accept-if-free|decline-if-busy|automatic
 .Op Fl -get-auto-schedule-mode
+.Op Fl -set-auto-accept-group Ar group
+.Op Fl -get-auto-accept-group
 .Op Fl -add Ar locations|resources full-name [record-name] [GUID]
 .Op Fl -remove
 .Ar principal
@@ -50,7 +52,7 @@ actor that can access the server, such as users, groups, locations and
 resources.
 .Pp
 .Nm
-should be run as a user with the same priviledges as the Calendar
+should be run as a user with the same privileges as the Calendar
 Server itself, as it needs to read and write data that belongs to the
 server.
 .Nm
@@ -123,6 +125,11 @@ as a proxy.
 Enable or disable automatic scheduling.
 .It Fl -get-auto-schedule
 Get the automatic scheduling state.
+.It Fl -set-auto-accept-group Ar group
+The principal will auto-accept any invites from any member of the group (as long
+as there are no conflicts).
+.It Fl -get-auto-accept-group
+Get the currently assigned auto-accept group for the principal.
 .It Fl -add Ar locations|resources full-name [record-name] [GUID]
 Add a new location or resource. Record name and GUID are optional.  If
 GUID is not specified, one will be generated.  If record name is not

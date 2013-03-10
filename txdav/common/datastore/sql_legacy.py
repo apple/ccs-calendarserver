@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_sharing,twistedcaldav.test.test_calendarquery -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,25 +29,17 @@ from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, pyCalendarTodatetime
 from twistedcaldav.memcachepool import CachePoolUserMixIn
-from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.query import \
     calendarqueryfilter, calendarquery, addressbookquery, expression, \
     addressbookqueryfilter
 from twistedcaldav.query.sqlgenerator import sqlgenerator
-from twistedcaldav.sharing import Invite
-from twistedcaldav.sharing import SharedCollectionRecord
 
 from txdav.caldav.icalendarstore import TimeRangeLowerLimit, TimeRangeUpperLimit
 from txdav.common.icommondatastore import IndexedSearchException, \
     ReservationError, NoSuchObjectResourceError
 
-from txdav.common.datastore.sql_tables import (
-    _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_DIRECT,
-    _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED,
-    _BIND_STATUS_INVALID, CALENDAR_BIND_TABLE, CALENDAR_HOME_TABLE,
-    ADDRESSBOOK_HOME_TABLE, ADDRESSBOOK_BIND_TABLE, schema)
-from twext.enterprise.dal.syntax import Delete, Insert, Parameter, \
-    SavepointAction, Select, Update 
+from txdav.common.datastore.sql_tables import schema
+from twext.enterprise.dal.syntax import Parameter, Select
 from twext.python.clsprop import classproperty
 from twext.python.log import Logger, LoggingMixIn
 
@@ -64,697 +56,19 @@ indexfbtype_to_icalfbtype = {
     4: 'T',
 }
 
-class PostgresLegacyNotificationsEmulator(object):
-    def __init__(self, notificationsCollection):
-        self._collection = notificationsCollection
-
-
-    @inlineCallbacks
-    def _recordForObject(self, notificationObject):
-        if notificationObject:
-            returnValue(
-                NotificationRecord(
-                    notificationObject.uid(),
-                    notificationObject.name(),
-                    (yield notificationObject.xmlType().toxml())
-                )
-            )
-        else:
-            returnValue(None)
-
-
-    def recordForName(self, name):
-        return self._recordForObject(
-            self._collection.notificationObjectWithName(name)
-        )
-
-
-    @inlineCallbacks
-    def recordForUID(self, uid):
-        returnValue((yield self._recordForObject(
-            (yield self._collection.notificationObjectWithUID(uid))
-        )))
-
-
-    def removeRecordForUID(self, uid):
-        return self._collection.removeNotificationObjectWithUID(uid)
-
-
-    def removeRecordForName(self, name):
-        return self._collection.removeNotificationObjectWithName(name)
-
-
-
-class SQLLegacyInvites(object):
-    """
-    Emulator for the implicit interface specified by
-    L{twistedcaldav.sharing.InvitesDatabase}.
-    """
-
-    _homeTable = None
-    _bindTable = None
-
-    _homeSchema = None
-    _bindSchema = None
-
-    def __init__(self, collection):
-        self._collection = collection
-
-        # Since we do multi-table requests we need a dict that combines tables
-        self._combinedTable = {}
-        for key, value in self._homeTable.iteritems():
-            self._combinedTable["HOME:%s" % (key,)] = value
-        for key, value in self._bindTable.iteritems():
-            self._combinedTable["BIND:%s" % (key,)] = value
-
-
-    @property
-    def _txn(self):
-        return self._collection._txn
-
-
-    def _getHomeWithUID(self, uid):
-        raise NotImplementedError()
-
-
-    def create(self):
-        "No-op, because the index implicitly always exists in the database."
-
-
-    def remove(self):
-        "No-op, because the index implicitly always exists in the database."
-
-
-    @classmethod
-    def _allColumnsQuery(cls, condition):
-        inv = schema.INVITE
-        home = cls._homeSchema
-        bind = cls._bindSchema
-        return Select(
-            [inv.INVITE_UID,
-             inv.NAME,
-             inv.RECIPIENT_ADDRESS,
-             home.OWNER_UID,
-             bind.BIND_MODE,
-             bind.BIND_STATUS,
-             bind.MESSAGE],
-            From=inv.join(home).join(bind),
-            Where=(
-                condition
-                .And(inv.RESOURCE_ID == bind.RESOURCE_ID)
-                .And(inv.HOME_RESOURCE_ID == home.RESOURCE_ID)
-                .And(inv.HOME_RESOURCE_ID == bind.HOME_RESOURCE_ID)),
-            OrderBy=inv.NAME, Ascending=True
-        )
-
-
-    @classproperty
-    def _allRecordsQuery(cls): #@NoSelf
-        """
-        DAL query for all invite records with a given resource ID.
-        """
-        inv = schema.INVITE
-        return cls._allColumnsQuery(inv.RESOURCE_ID == Parameter("resourceID"))
-
-
-    @inlineCallbacks
-    def allRecords(self):
-        values = []
-        rows = yield self._allRecordsQuery.on(
-            self._txn, resourceID=self._collection._resourceID
-        )
-        for row in rows:
-            values.append(self._makeInvite(row))
-        returnValue(values)
-
-
-    @classproperty
-    def _inviteForRecipientQuery(cls): #@NoSelf
-        """
-        DAL query to retrieve an invite record for a given recipient address.
-        """
-        inv = schema.INVITE
-        return cls._allColumnsQuery(
-            (inv.RESOURCE_ID == Parameter("resourceID")).And(inv.RECIPIENT_ADDRESS == Parameter("recipient"))
-        )
-
-
-    @inlineCallbacks
-    def recordForUserID(self, userid):
-        rows = yield self._inviteForRecipientQuery.on(
-            self._txn,
-            resourceID=self._collection._resourceID,
-            recipient=userid
-        )
-        returnValue(self._makeInvite(rows[0]) if rows else None)
-
-
-    @classproperty
-    def _inviteForPrincipalUIDQuery(cls): #@NoSelf
-        """
-        DAL query to retrieve an invite record for a given principal UID.
-        """
-        inv = schema.INVITE
-        home = cls._homeSchema
-        return cls._allColumnsQuery(
-            (inv.RESOURCE_ID == Parameter("resourceID")).And(home.OWNER_UID == Parameter("principalUID"))
-        )
-
-
-    @inlineCallbacks
-    def recordForPrincipalUID(self, principalUID):
-        rows = yield self._inviteForPrincipalUIDQuery.on(
-            self._txn,
-            resourceID=self._collection._resourceID,
-            principalUID=principalUID
-        )
-        returnValue(self._makeInvite(rows[0]) if rows else None)
-
-
-    @classproperty
-    def _inviteForUIDQuery(cls): #@NoSelf
-        """
-        DAL query to retrieve an invite record for a given recipient address.
-        """
-        inv = schema.INVITE
-        return cls._allColumnsQuery(inv.INVITE_UID == Parameter("uid"))
-
-
-    @inlineCallbacks
-    def recordForInviteUID(self, inviteUID):
-        rows = yield self._inviteForUIDQuery.on(self._txn, uid=inviteUID)
-        returnValue(self._makeInvite(rows[0]) if rows else None)
-
-
-    def _makeInvite(self, row):
-        [inviteuid, common_name, userid, ownerUID,
-            bindMode, bindStatus, summary] = row
-        # FIXME: this is really the responsibility of the protocol layer.
-        state = {
-            _BIND_STATUS_INVITED: "NEEDS-ACTION",
-            _BIND_STATUS_ACCEPTED: "ACCEPTED",
-            _BIND_STATUS_DECLINED: "DECLINED",
-            _BIND_STATUS_INVALID: "INVALID",
-        }[bindStatus]
-        access = {
-            _BIND_MODE_OWN: "own",
-            _BIND_MODE_READ: "read-only",
-            _BIND_MODE_WRITE: "read-write"
-        }[bindMode]
-        return Invite(
-            inviteuid, userid, ownerUID, common_name,
-            access, state, summary
-        )
-
-
-    @classproperty
-    def _updateBindQuery(cls): #@NoSelf
-        bind = cls._bindSchema
-
-        return Update({bind.BIND_MODE: Parameter("mode"),
-                       bind.BIND_STATUS: Parameter("status"),
-                       bind.MESSAGE: Parameter("message")},
-                      Where=
-                      (bind.RESOURCE_ID == Parameter("resourceID"))
-                      .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
-
-
-    @classproperty
-    def _idsForInviteUID(cls): #@NoSelf
-        inv = schema.INVITE
-        return Select([inv.RESOURCE_ID, inv.HOME_RESOURCE_ID],
-                      From=inv,
-                      Where=inv.INVITE_UID == Parameter("inviteuid"))
-
-
-    @classproperty
-    def _updateInviteQuery(cls): #@NoSelf
-        """
-        DAL query to update an invitation for a given recipient.
-        """
-        inv = schema.INVITE
-        return Update({inv.NAME: Parameter("name")},
-                      Where=inv.INVITE_UID == Parameter("uid"))
-
-
-    @classproperty
-    def _insertBindQuery(cls): #@NoSelf
-        bind = cls._bindSchema
-        return Insert(
-            {
-                bind.HOME_RESOURCE_ID: Parameter("homeID"),
-                bind.RESOURCE_ID: Parameter("resourceID"),
-                bind.BIND_MODE: Parameter("mode"),
-                bind.BIND_STATUS: Parameter("status"),
-                bind.MESSAGE: Parameter("message"),
-                bind.RESOURCE_NAME: Parameter("resourceName"),
-                bind.SEEN_BY_OWNER: False,
-                bind.SEEN_BY_SHAREE: False,
-            }
-        )
-
-
-    @classproperty
-    def _insertInviteQuery(cls): #@NoSelf
-        inv = schema.INVITE
-        return Insert(
-            {
-                inv.INVITE_UID: Parameter("uid"),
-                inv.NAME: Parameter("name"),
-                inv.HOME_RESOURCE_ID: Parameter("homeID"),
-                inv.RESOURCE_ID: Parameter("resourceID"),
-                inv.RECIPIENT_ADDRESS: Parameter("recipient")
-            }
-        )
-
-
-    @inlineCallbacks
-    def addOrUpdateRecord(self, record):
-        bindMode = {'read-only': _BIND_MODE_READ,
-                    'read-write': _BIND_MODE_WRITE}[record.access]
-        bindStatus = {
-            "NEEDS-ACTION": _BIND_STATUS_INVITED,
-            "ACCEPTED": _BIND_STATUS_ACCEPTED,
-            "DECLINED": _BIND_STATUS_DECLINED,
-            "INVALID": _BIND_STATUS_INVALID,
-        }[record.state]
-        shareeHome = yield self._getHomeWithUID(record.principalUID)
-        rows = yield self._idsForInviteUID.on(self._txn,
-                                              inviteuid=record.inviteuid)
-        
-        # FIXME: Do the BIND table query before the INVITE table query because BIND currently has proper
-        # constraints in place, whereas INVITE does not. Really we need to do this in a sub-transaction so
-        # we can roll back if any one query fails.
-        if rows:
-            [[resourceID, homeResourceID]] = rows
-            yield self._updateBindQuery.on(
-                self._txn,
-                mode=bindMode, status=bindStatus, message=record.summary,
-                resourceID=resourceID, homeID=homeResourceID
-            )
-            yield self._updateInviteQuery.on(
-                self._txn, name=record.name, uid=record.inviteuid
-            )
-        else:
-            yield self._insertBindQuery.on(
-                self._txn,
-                homeID=shareeHome._resourceID,
-                resourceID=self._collection._resourceID,
-                resourceName=record.inviteuid,
-                mode=bindMode,
-                status=bindStatus,
-                message=record.summary
-            )
-            yield self._insertInviteQuery.on(
-                self._txn, uid=record.inviteuid, name=record.name,
-                homeID=shareeHome._resourceID,
-                resourceID=self._collection._resourceID,
-                recipient=record.userid
-            )
-        
-        # Must send notification to ensure cache invalidation occurs
-        self._collection.notifyChanged()
-
-
-    @classmethod
-    def _deleteOneBindQuery(cls, constraint):
-        inv = schema.INVITE
-        bind = cls._bindSchema
-        return Delete(
-            From=bind, Where=(bind.HOME_RESOURCE_ID, bind.RESOURCE_ID) ==
-            Select([inv.HOME_RESOURCE_ID, inv.RESOURCE_ID],
-                   From=inv, Where=constraint))
-
-
-    @classmethod
-    def _deleteOneInviteQuery(cls, constraint):
-        inv = schema.INVITE
-        return Delete(From=inv, Where=constraint)
-
-
-    @classproperty
-    def _deleteBindByUID(cls): #@NoSelf
-        inv = schema.INVITE
-        return cls._deleteOneBindQuery(inv.INVITE_UID == Parameter("uid"))
-
-
-    @classproperty
-    def _deleteInviteByUID(cls): #@NoSelf
-        inv = schema.INVITE
-        return cls._deleteOneInviteQuery(inv.INVITE_UID == Parameter("uid"))
-
-
-    @inlineCallbacks
-    def removeRecordForInviteUID(self, inviteUID):
-        yield self._deleteBindByUID.on(self._txn, uid=inviteUID)
-        yield self._deleteInviteByUID.on(self._txn, uid=inviteUID)
-        
-        # Must send notification to ensure cache invalidation occurs
-        self._collection.notifyChanged()
-
-
-
-class SQLLegacyCalendarInvites(SQLLegacyInvites):
-    """
-    Emulator for the implicit interface specified by
-    L{twistedcaldav.sharing.InvitesDatabase}.
-    """
-
-    _homeTable = CALENDAR_HOME_TABLE
-    _bindTable = CALENDAR_BIND_TABLE
-
-    _homeSchema = schema.CALENDAR_HOME
-    _bindSchema = schema.CALENDAR_BIND
-
-    def _getHomeWithUID(self, uid):
-        return self._txn.calendarHomeWithUID(uid, create=True)
-
-
-
-class SQLLegacyAddressBookInvites(SQLLegacyInvites):
-    """
-    Emulator for the implicit interface specified by
-    L{twistedcaldav.sharing.InvitesDatabase}.
-    """
-
-    _homeTable = ADDRESSBOOK_HOME_TABLE
-    _bindTable = ADDRESSBOOK_BIND_TABLE
-
-    _homeSchema = schema.ADDRESSBOOK_HOME
-    _bindSchema = schema.ADDRESSBOOK_BIND
-
-    def _getHomeWithUID(self, uid):
-        return self._txn.addressbookHomeWithUID(uid, create=True)
-
-
-
-class SQLLegacyShares(object):
-
-    _homeTable = None
-    _bindTable = None
-    _urlTopSegment = None
-
-    _homeSchema = None
-    _bindSchema = None
-
-    def __init__(self, home):
-        self._home = home
-
-
-    @property
-    def _txn(self):
-        return self._home._txn
-
-
-    def _getHomeWithUID(self, uid):
-        raise NotImplementedError()
-
-
-    def create(self):
-        pass
-
-
-    def remove(self):
-        pass
-
-
-    @classproperty
-    def _allSharedToQuery(cls): #@NoSelf
-        bind = cls._bindSchema
-        return Select(
-            [bind.RESOURCE_ID, bind.RESOURCE_NAME,
-             bind.BIND_MODE, bind.MESSAGE],
-            From=bind,
-            Where=(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-            .And(bind.BIND_MODE != _BIND_MODE_OWN)
-            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
-        )
-
-
-    @classproperty
-    def _inviteUIDByResourceIDsQuery(cls): #@NoSelf
-        inv = schema.INVITE
-        return Select(
-            [inv.INVITE_UID], From=inv, Where=
-            (inv.RESOURCE_ID == Parameter("resourceID"))
-            .And(inv.HOME_RESOURCE_ID == Parameter("homeID"))
-        )
-
-
-    @classproperty
-    def _ownerHomeIDAndName(cls): #@NoSelf
-        bind = cls._bindSchema
-        return Select(
-            [bind.HOME_RESOURCE_ID, bind.RESOURCE_NAME], From=bind, Where=
-            (bind.RESOURCE_ID == Parameter("resourceID"))
-            .And(bind.BIND_MODE == _BIND_MODE_OWN)
-        )
-
-
-    @classproperty
-    def _ownerUIDFromHomeID(cls): #@NoSelf
-        home = cls._homeSchema
-        return Select(
-            [home.OWNER_UID], From=home,
-            Where=home.RESOURCE_ID == Parameter("homeID")
-        )
-
-
-
-
-    @inlineCallbacks
-    def allRecords(self):
-        # This should have been a smart join that got all these columns at
-        # once, but let's not bother to fix it, since the actual query we
-        # _want_ to do (just look for binds in a particular homes) is
-        # much simpler anyway; we should just do that.
-        all = []
-        shareRows = yield self._allSharedToQuery.on(
-            self._txn, homeID=self._home._resourceID)
-        for resourceID, resourceName, bindMode, summary in shareRows:
-            [[ownerHomeID, ownerResourceName]] = yield (
-                self._ownerHomeIDAndName.on(self._txn,
-                                            resourceID=resourceID))
-            [[ownerUID]] = yield self._ownerUIDFromHomeID.on(
-                self._txn, homeID=ownerHomeID)
-            hosturl = '/%s/__uids__/%s/%s' % (
-                self._urlTopSegment, ownerUID, ownerResourceName
-            )
-            localname = resourceName
-            if bindMode != _BIND_MODE_DIRECT:
-                sharetype = 'I'
-                [[shareuid]] = yield self._inviteUIDByResourceIDsQuery.on(
-                    self._txn, resourceID=resourceID,
-                    homeID=self._home._resourceID
-                )
-            else:
-                sharetype = 'D'
-                shareuid = "Direct-%s-%s" % (self._home._resourceID, resourceID,)
-            record = SharedCollectionRecord(
-                shareuid, sharetype, hosturl, localname, summary
-            )
-            all.append(record)
-        returnValue(all)
-
-    def directShareID(self, shareeHome, sharerCollection):
-        return "Direct-%s-%s" % (shareeHome._newStoreHome._resourceID, sharerCollection._newStoreObject._resourceID,)
-
-    @inlineCallbacks
-    def _search(self, **kw):
-        [[key, value]] = kw.items()
-        for record in (yield self.allRecords()):
-            if getattr(record, key) == value:
-                returnValue((record))
-
-
-    def recordForShareUID(self, shareUID):
-        return self._search(shareuid=shareUID)
-
-
-    @classproperty
-    def _updateBindName(cls): #@NoSelf
-        bind = cls._bindSchema
-        return Update({bind.RESOURCE_NAME: Parameter("localname")},
-                      Where=(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                      .And(bind.RESOURCE_ID == Parameter('resourceID')))
-
-
-    @classproperty
-    def _acceptDirectShareQuery(cls): #@NoSelf
-        bind = cls._bindSchema
-        return Insert({
-            bind.HOME_RESOURCE_ID: Parameter("homeID"),
-            bind.RESOURCE_ID: Parameter("resourceID"), 
-            bind.RESOURCE_NAME: Parameter("name"),
-            bind.MESSAGE: Parameter("message"),
-            bind.BIND_MODE: _BIND_MODE_DIRECT,
-            bind.BIND_STATUS: _BIND_STATUS_ACCEPTED,
-            bind.SEEN_BY_OWNER: True,
-            bind.SEEN_BY_SHAREE: True,
-        })
-
-
-    @inlineCallbacks
-    def addOrUpdateRecord(self, record):
-        # record.hosturl -> /.../__uids__/<uid>/<name>
-        splithost = record.hosturl.split('/')
-
-        # Double-check the path
-        if splithost[2] != "__uids__":
-            raise ValueError(
-                "Sharing URL must be a __uids__ path: %s" % (record.hosturl,))
-
-        ownerUID = splithost[3]
-        ownerCollectionName = splithost[4]
-        ownerHome = yield self._getHomeWithUID(ownerUID)
-        ownerCollection = yield ownerHome.childWithName(ownerCollectionName)
-        collectionResourceID = ownerCollection._resourceID
-
-        if record.sharetype == 'I':
-            # There needs to be a bind already, one that corresponds to the
-            # invitation.  The invitation's UID is the same as the share UID.  I
-            # just need to update its 'localname', i.e.
-            # XXX_BIND.XXX_RESOURCE_NAME.
-
-            yield self._updateBindName.on(
-                self._txn, localname=record.localname,
-                homeID=self._home._resourceID, resourceID=collectionResourceID
-            )
-        elif record.sharetype == 'D':
-            # There is no bind entry already so add one - but be aware of possible race to create
-
-            # Use savepoint so we can do a partial rollback if there is a race condition
-            # where this row has already been inserted
-            savepoint = SavepointAction("addOrUpdateRecord")
-            yield savepoint.acquire(self._txn)
-
-            try:
-                yield self._acceptDirectShareQuery.on(
-                    self._txn, homeID=self._home._resourceID,
-                    resourceID=collectionResourceID, name=record.localname,
-                    message=record.summary
-                )
-            except Exception: # FIXME: Really want to trap the pg.DatabaseError but in a non-DB specific manner
-                yield savepoint.rollback(self._txn)
-
-                # For now we will assume that the insert already done is the winner - so nothing more to do here
-            else:
-                yield savepoint.release(self._txn)
-
-        shareeCollection = yield self._home.sharedChildWithName(record.localname)
-        yield shareeCollection._initSyncToken()
-
-
-    @classproperty
-    def _unbindShareQuery(cls): #@NoSelf
-        bind = cls._bindSchema
-        return Update({
-            bind.BIND_STATUS: _BIND_STATUS_DECLINED
-        }, Where=(bind.RESOURCE_NAME == Parameter("name"))
-        .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
-
-
-    @inlineCallbacks
-    def removeRecordForLocalName(self, localname):
-        record = yield self.recordForLocalName(localname)
-        shareeCollection = yield self._home.sharedChildWithName(record.localname)
-        yield shareeCollection._deletedSyncToken(sharedRemoval=True)
-
-        result = yield self._unbindShareQuery.on(self._txn, name=localname,
-                                                 homeID=self._home._resourceID)
-        returnValue(result)
-
-
-    @classproperty
-    def _removeInviteShareQuery(cls): #@NoSelf
-        """
-        DAL query to remove a non-direct share by invite UID.
-        """
-        bind = cls._bindSchema
-        inv = schema.INVITE
-        return Update(
-            {bind.BIND_STATUS: _BIND_STATUS_DECLINED},
-            Where=(bind.HOME_RESOURCE_ID, bind.RESOURCE_ID) ==
-            Select([inv.HOME_RESOURCE_ID, inv.RESOURCE_ID],
-                   From=inv, Where=inv.INVITE_UID == Parameter("uid")))
-
-
-    @classproperty
-    def _removeDirectShareQuery(cls): #@NoSelf
-        """
-        DAL query to remove a direct share by its homeID and resourceID.
-        """
-        bind = cls._bindSchema
-        return Delete(From=bind,
-                      Where=(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                      .And(bind.RESOURCE_ID == Parameter("resourceID")))
-
-
-    @inlineCallbacks
-    def removeRecordForShareUID(self, shareUID):
-
-        record = yield self.recordForShareUID(shareUID)
-        shareeCollection = yield self._home.sharedChildWithName(record.localname)
-        yield shareeCollection._deletedSyncToken(sharedRemoval=True)
-
-        if not shareUID.startswith("Direct"):
-            yield self._removeInviteShareQuery.on(self._txn, uid=shareUID)
-        else:
-            # Extract pieces from synthesised UID
-            homeID, resourceID = shareUID[len("Direct-"):].split("-")
-            # Now remove the binding for the direct share
-            yield self._removeDirectShareQuery.on(
-                self._txn, homeID=homeID, resourceID=resourceID)
-
-
-class SQLLegacyCalendarShares(SQLLegacyShares):
-    """
-    Emulator for the implicit interface specified by
-    L{twistedcaldav.sharing.InvitesDatabase}.
-    """
-
-    _homeTable = CALENDAR_HOME_TABLE
-    _bindTable = CALENDAR_BIND_TABLE
-    _homeSchema = schema.CALENDAR_HOME
-    _bindSchema = schema.CALENDAR_BIND
-    _urlTopSegment = "calendars"
-
-
-    def _getHomeWithUID(self, uid):
-        return self._txn.calendarHomeWithUID(uid, create=True)
-
-
-
-class SQLLegacyAddressBookShares(SQLLegacyShares):
-    """
-    Emulator for the implicit interface specified by
-    L{twistedcaldav.sharing.InvitesDatabase}.
-    """
-
-    _homeTable = ADDRESSBOOK_HOME_TABLE
-    _bindTable = ADDRESSBOOK_BIND_TABLE
-    _homeSchema = schema.ADDRESSBOOK_HOME
-    _bindSchema = schema.ADDRESSBOOK_BIND
-    _urlTopSegment = "addressbooks"
-
-
-    def _getHomeWithUID(self, uid):
-        return self._txn.addressbookHomeWithUID(uid, create=True)
-
-
-
 class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
     def __init__(self, index, cachePool=None):
         self.index = index
         self._cachePool = cachePool
+
 
     def _key(self, uid):
         return 'reservation:%s' % (
             hashlib.md5('%s:%s' % (uid,
                                    self.index.resource._resourceID)).hexdigest())
 
+
     def reserveUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Reserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
@@ -774,7 +88,6 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
 
     def unreserveUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Unreserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
@@ -792,7 +105,6 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
 
     def isReservedUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Is reserved UID %r @ %r" % (
                 uid,
                 self.index.resource))
@@ -807,19 +119,22 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
         d.addCallback(_checkValue)
         return d
 
+
+
 class DummyUIDReserver(LoggingMixIn):
 
     def __init__(self, index):
         self.index = index
         self.reservations = set()
 
+
     def _key(self, uid):
         return 'reservation:%s' % (
             hashlib.md5('%s:%s' % (uid,
                                    self.index.resource._resourceID)).hexdigest())
 
+
     def reserveUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Reserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
@@ -835,7 +150,6 @@ class DummyUIDReserver(LoggingMixIn):
 
 
     def unreserveUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Unreserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
@@ -847,7 +161,6 @@ class DummyUIDReserver(LoggingMixIn):
 
 
     def isReservedUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Is reserved UID %r @ %r" % (
                 uid,
                 self.index.resource))
@@ -871,11 +184,15 @@ class RealSQLBehaviorMixin(object):
     def containsArgument(self, arg):
         return "%%%s%%" % (arg,)
 
+
     def startswithArgument(self, arg):
         return "%s%%" % (arg,)
 
+
     def endswithArgument(self, arg):
         return "%%%s" % (arg,)
+
+
 
 class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
     """
@@ -884,7 +201,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
 
     FIELDS = {
         "TYPE": "CALENDAR_OBJECT.ICALENDAR_TYPE",
-        "UID":  "CALENDAR_OBJECT.ICALENDAR_UID",
+        "UID": "CALENDAR_OBJECT.ICALENDAR_UID",
     }
     RESOURCEDB = "CALENDAR_OBJECT"
     TIMESPANDB = "TIME_RANGE"
@@ -913,7 +230,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
 
         # For SQL data DB we need to restrict the query to just the targeted calendar resource-id if provided
         if self.calendarid:
-            
+
             test = expression.isExpression("CALENDAR_OBJECT.CALENDAR_RESOURCE_ID", str(self.calendarid), True)
 
             # Since timerange expression already have the calendar resource-id test in them, do not
@@ -923,10 +240,10 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
             # Top-level timerange expression already has calendar resource-id restriction in it
             if isinstance(self.expression, expression.timerangeExpression):
                 pass
-            
+
             # Top-level OR - check each component
             elif isinstance(self.expression, expression.orExpression):
-                
+
                 def _hasTopLevelTimerange(testexpr):
                     if isinstance(testexpr, expression.timerangeExpression):
                         return True
@@ -934,7 +251,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
                         return any([isinstance(expr, expression.timerangeExpression) for expr in testexpr.expressions])
                     else:
                         return False
-                        
+
                 hasTimerange = any([_hasTopLevelTimerange(expr) for expr in self.expression.expressions])
 
                 if hasTimerange:
@@ -942,16 +259,15 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
                     pass
                 else:
                     # AND the whole thing with calendarid
-                    self.expression = test.andWith(self.expression)    
+                    self.expression = test.andWith(self.expression)
 
-            
             # Top-level AND - only add additional expression if timerange not present
             elif isinstance(self.expression, expression.andExpression):
                 hasTimerange = any([isinstance(expr, expression.timerangeExpression) for expr in self.expression.expressions])
                 if not hasTimerange:
                     # AND the whole thing
-                    self.expression = test.andWith(self.expression)    
-            
+                    self.expression = test.andWith(self.expression)
+
             # Just AND the entire thing
             else:
                 self.expression = test.andWith(self.expression)
@@ -963,7 +279,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
         select = self.FROM + self.RESOURCEDB
         if self.usedtimespan:
 
-            # Free busy needs transparency join            
+            # Free busy needs transparency join
             if self.freebusy:
                 self.frontArgument(self.userid)
                 select += ", %s LEFT OUTER JOIN %s ON (%s)" % (
@@ -987,6 +303,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
         select = select % tuple(self.substitutions)
 
         return select, self.arguments
+
 
 
 class FormatParamStyleMixin(object):
@@ -1018,6 +335,7 @@ class postgresqlgenerator(FormatParamStyleMixin, CalDAVSQLBehaviorMixin,
     """
     Query generator for PostgreSQL indexed searches.
     """
+
 
 
 def fixbools(sqltext):
@@ -1159,10 +477,10 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         with a longer expansion.
         """
         obj = yield self.calendar.calendarObjectWithName(name)
-        
+
         # Use a new transaction to do this update quickly without locking the row for too long. However, the original
-        # transaction may have the row locked, so use wait=False and if that fails, fall back to using the original txn. 
-        
+        # transaction may have the row locked, so use wait=False and if that fails, fall back to using the original txn.
+
         newTxn = obj.transaction().store().newTransaction()
         try:
             yield obj.lock(wait=False, txn=newTxn)
@@ -1181,7 +499,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
             else:
                 # We repeat this check because the resource may have been re-expanded by someone else
                 rmin, rmax = (yield obj.recurrenceMinMax(txn=newTxn))
-                
+
                 # If the resource is not fully expanded, see if within the required range or not.
                 # Note that expand_start could be None if no lower limit is applied, but expand_end will
                 # never be None
@@ -1254,6 +572,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                 maxDate, isStartDate = filter.getmaxtimerange()
                 if maxDate:
                     maxDate = maxDate.duplicate()
+                    maxDate.offsetDay(1)
                     maxDate.setDateOnly(True)
                     upperLimit = today + PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)
                     if maxDate > upperLimit:
@@ -1261,7 +580,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                     if isStartDate:
                         maxDate += PyCalendarDuration(days=365)
 
-                # Determine if the start date is too early for the restricted range we 
+                # Determine if the start date is too early for the restricted range we
                 # are applying. If it is today or later we don't need to worry about truncation
                 # in the past.
                 minDate, _ignore_isEndDate = filter.getmintimerange()
@@ -1272,7 +591,6 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                     if minDate < truncateLowerLimit:
                         raise TimeRangeLowerLimit(truncateLowerLimit)
 
-                        
                 if maxDate is not None or minDate is not None:
                     yield self.testAndUpdateIndex(minDate, maxDate)
 
@@ -1386,11 +704,14 @@ class PostgresLegacyInboxIndexEmulator(PostgresLegacyIndexEmulator):
     def isAllowedUID(self):
         return succeed(True)
 
+
     def reserveUID(self, uid):
         return succeed(None)
 
+
     def unreserveUID(self, uid):
         return succeed(None)
+
 
     def isReservedUID(self, uid):
         return succeed(False)
@@ -1405,7 +726,7 @@ class CardDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
     """
 
     FIELDS = {
-        "UID":  "ADDRESSBOOK_OBJECT.VCARD_UID",
+        "UID": "ADDRESSBOOK_OBJECT.VCARD_UID",
     }
     RESOURCEDB = "ADDRESSBOOK_OBJECT"
 
@@ -1426,10 +747,10 @@ class CardDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
 
         # For SQL data DB we need to restrict the query to just the targeted calendar resource-id if provided
         if self.calendarid:
-            
+
             # AND the whole thing
             test = expression.isExpression("ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID", str(self.calendarid), True)
-            self.expression = test.andWith(self.expression)    
+            self.expression = test.andWith(self.expression)
 
         # Generate ' where ...' partial statement
         self.sout.write(self.WHERE)
@@ -1449,6 +770,8 @@ class postgresqladbkgenerator(FormatParamStyleMixin, CardDAVSQLBehaviorMixin, sq
     """
     Query generator for PostgreSQL indexed searches.
     """
+
+
 
 class oraclesqladbkgenerator(CardDAVSQLBehaviorMixin, sqlgenerator):
     """
@@ -1557,4 +880,3 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
     def resourcesExist(self, names):
         returnValue(list(set(names).intersection(
             set((yield self.addressbook.listAddressbookObjects())))))
-

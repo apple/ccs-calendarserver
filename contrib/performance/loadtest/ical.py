@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 ##
+from __future__ import print_function
 
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from caldavclientlibrary.protocol.caldav.definitions import csxml
@@ -316,10 +317,10 @@ class _PubSubClientFactory(PubSubClientFactory):
         self._client = client
 
     def initFailed(self, reason):
-        print 'XMPP initialization failed', reason
+        print('XMPP initialization failed', reason)
 
     def authFailed(self, reason):
-        print 'XMPP Authentication failed', reason
+        print('XMPP Authentication failed', reason)
 
     def handleMessageEventItems(self, iq):
         item = iq.firstChildElement().firstChildElement()
@@ -771,7 +772,7 @@ class BaseAppleClient(BaseClient):
                         if caldavxml.supported_calendar_component_set in nodes:
                             for comp in nodes[caldavxml.supported_calendar_component_set].getchildren():
                                 componentTypes.add(comp.get("name").upper())
-                    
+
                     changeTag = davxml.sync_token if self.supportSync else csxml.getctag
                     calendars.append(Calendar(
                             nodeType.tag,
@@ -1986,7 +1987,7 @@ class RequestLogger(object):
                 formatArgs['success'] = self.success
             else:
                 formatArgs['success'] = self.failure
-            print (self.format % formatArgs).encode('utf-8')
+            print((self.format % formatArgs).encode('utf-8'))
 
 
     def report(self, output):

@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.web2.test.test_metafd -*-
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,12 +81,15 @@ class ReportingHTTPService(Service, object):
     def stopService(self):
         """
         Stop reading on the inherited port.
+        @return: a Deferred which fires after the last outstanding request is complete.
         """
         Service.stopService(self)
         # XXX stopping should really be destructive, because otherwise we will
         # always leak a file descriptor; i.e. this shouldn't be restartable.
-        # XXX this needs to return a Deferred.
         self.reportingFactory.inheritedPort.stopReading()
+
+        # Let any outstanding requests finish
+        return self.reportingFactory.allConnectionsClosed()
 
 
     def createTransport(self, skt, peer, data, protocol):

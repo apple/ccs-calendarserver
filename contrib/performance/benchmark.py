@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import sys, os, plistlib
 from os.path import dirname
@@ -335,7 +336,7 @@ def benchmark(host, port, pids, label, scalingParameters, benchmarks):
         statistics[name] = {}
         parameters = scalingParameters.get(name, [1, 9, 81])
         for p in parameters:
-            print '%s, parameter=%s' % (name, p)
+            print('%s, parameter=%s' % (name, p))
             dtrace = DTraceCollector("io_measure.d", pids)
             data = yield measure(host, port, dtrace, p, sampleTime)
             statistics[name][p] = data
@@ -446,7 +447,7 @@ def main():
     try:
         options.parseOptions(sys.argv[1:])
     except UsageError, e:
-        print e
+        print(e)
         return 1
 
     if options['debug']:

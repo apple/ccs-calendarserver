@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -148,6 +148,13 @@ class InvalidSubscriptionValues(ValueError):
     Invalid APN subscription values passed in.
     """
 
+# IMIP Tokens
+
+class InvalidIMIPTokenValues(ValueError):
+    """
+    Invalid IMIP token values passed in.
+    """
+
 #
 # Interfaces
 #
@@ -237,29 +244,64 @@ class ICommonTransaction(ITransaction):
         @param guid: The GUID of the subscribed principal
         @type guid: C{str}
 
-        @return: tuples of (token, key, timestamp)
+        @return: tuples of (token, key, timestamp, userAgent, ipAddr)
         """
 
+    def imipCreateToken(organizer, attendee, icaluid, token=None):
+        """
+        Add an entry in the database; if no token is provided, one will be
+        generated.
+
+        @param organizer: the CUA of the organizer
+        @type organizer: C{str}
+        @param attendee: the mailto: CUA of the attendee
+        @type organizer: C{str}
+        @param icaluid: the icalendar UID of the VEVENT
+        @type organizer: C{str}
+        @param token: the value to use in the "plus address" of the reply-to
+        @type token: C{str}
+        """
+
+    def imipLookupByToken(token):
+        """
+        Returns the organizer, attendee, and icaluid corresponding to the token
+
+        @param token: the token to look up
+        @type token: C{str}
+        """
+
+
+    def imipGetToken(organizer, attendee, icaluid):
+        """
+        Returns the token (if any) corresponding to the given organizer, attendee,
+        and icaluid combination
+
+        @param organizer: the CUA of the organizer
+        @type organizer: C{str}
+        @param attendee: the mailto: CUA of the attendee
+        @type organizer: C{str}
+        @param icaluid: the icalendar UID of the VEVENT
+        @type organizer: C{str}
+        """
+
+
+    def imipRemoveToken(token):
+        """
+        Removes the entry for the given token.
+
+        @param token: the token to remove
+        @type token: C{str}
+        """
+
+
+    def purgeOldIMIPTokens(olderThan):
+        """
+        Removes all tokens whose access time is before olderThan
+        """
+        
 
 class IShareableCollection(Interface):
     """
     A collection resource which may be shared.
     """
 
-    def setSharingUID(shareeUID):
-        """
-        This is a temporary shim method due to the way L{twistedcaldav.sharing}
-        works, which is that it expects to look in the 'sharesDB' object to
-        find what calendars are shared by whom, separately looks up the owner's
-        calendar home based on that information, then sets the sharee's UID on
-        that calendar, the main effect of which is to change the per-user uid
-        of the properties for that calendar object.
-
-        What I{should} be happening is that the calendars just show up in the
-        sharee's calendar home, and have a separate methods to determine the
-        sharee's and the owner's calendar homes, so the front end can tell it's
-        shared.
-
-        @param shareeUID: the UID of the sharee.
-        @type shareeUID: C{str}
-        """

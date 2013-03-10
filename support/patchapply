@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,8 +38,10 @@ def applypatch(project, patch):
     else:
         print "*** Failed to patch %s with %s" % (project, patch[len(cwd) + 1:],)
 
+
+
 def applypatches(project):
-    
+
     # Iterate over each patch file in the patches directory
     path = os.path.join(libpatches, project)
     if os.path.exists(path):
@@ -48,8 +50,8 @@ def applypatches(project):
             if os.path.isfile(fpath) and fpath.endswith(".patch"):
                 applypatch(project, fpath)
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     try:
         for project in projects:
             applypatches(project)

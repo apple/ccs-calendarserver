@@ -2,7 +2,7 @@
 <!DOCTYPE timezones SYSTEM "timezones.dtd">
 
 <timezones>
-  <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+  <dtstamp>2013-01-14T15:32:16Z</dtstamp>
   <timezone>
     <tzid>Africa/Abidjan</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
@@ -78,8 +78,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/Casablanca</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
-    <md5>480b715925a7dd6d17a823f478b9d9aa</md5>
+    <dtstamp>2012-09-24T15:50:25Z</dtstamp>
+    <md5>04541abda65cbc239be83e6ea03f1b5f</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ceuta</tzid>
@@ -263,9 +263,9 @@
   </timezone>
   <timezone>
     <tzid>Africa/Tripoli</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
     <alias>Libya</alias>
-    <md5>056c3dc247ee9ebca73a671524fc4617</md5>
+    <md5>f59e5f16eec995c112b8b27580922fdd</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Tunis</tzid>
@@ -302,8 +302,8 @@
   </timezone>
   <timezone>
     <tzid>America/Araguaina</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>4c7d123f689678a9f8e694de612bf465</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>2cac2a50050e86a3dcf0ce0c3aadcafd</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/Buenos_Aires</tzid>
@@ -400,8 +400,8 @@
   </timezone>
   <timezone>
     <tzid>America/Bahia</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
-    <md5>965f8a79c082df05cf6944a8770cc110</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>2d34d74119af2d61ac357e112a064897</md5>
   </timezone>
   <timezone>
     <tzid>America/Bahia_Banderas</tzid>
@@ -455,8 +455,8 @@
   </timezone>
   <timezone>
     <tzid>America/Campo_Grande</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>91f40ed32ffd45cccab772c911e16e8b</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>e9ca8c50d9b0a5801d730afe826b8373</md5>
   </timezone>
   <timezone>
     <tzid>America/Cancun</tzid>
@@ -516,8 +516,8 @@
   </timezone>
   <timezone>
     <tzid>America/Cuiaba</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>24241f96742ae0d523dcfee27804d382</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>8236494198a73c1c36699b928a644d33</md5>
   </timezone>
   <timezone>
     <tzid>America/Curacao</tzid>
@@ -646,9 +646,9 @@
   </timezone>
   <timezone>
     <tzid>America/Havana</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
     <alias>Cuba</alias>
-    <md5>08c40cf829ef2c3724b48c2977a9145d</md5>
+    <md5>f5d55854250c6d3f9fc819412919cd0f</md5>
   </timezone>
   <timezone>
     <tzid>America/Hermosillo</tzid>
@@ -1026,9 +1026,9 @@
   </timezone>
   <timezone>
     <tzid>America/Sao_Paulo</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
     <alias>Brazil/East</alias>
-    <md5>70b6c992341d503d191bca71461f1d0d</md5>
+    <md5>a510410d393ad5483abef892258fa63f</md5>
   </timezone>
   <timezone>
     <tzid>America/Scoresbysund</tzid>
@@ -1221,8 +1221,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Amman</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>4d42a3e2d81a5f0f423b96d12df0d53d</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>3d5145f59e99e4245ccca5484b38b271</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Anadyr</tzid>
@@ -1344,8 +1344,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Gaza</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
-    <md5>f01b3a4c427305bcf807b6ba8725d56f</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>2f147fe0807c0776b51d77367cf4bc31</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Harbin</tzid>
@@ -1354,8 +1354,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Hebron</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
-    <md5>5186de18517fcbe6792a5979c33d8371</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>b582b6b1656743944987491ebe089332</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Ho_Chi_Minh</tzid>
@@ -1396,10 +1396,10 @@
   </timezone>
   <timezone>
     <tzid>Asia/Jerusalem</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
     <alias>Asia/Tel_Aviv</alias>
     <alias>Israel</alias>
-    <md5>f1a8f9e6a80c9b8e29922e420bacbdfc</md5>
+    <md5>68bab258f99496577d53abe2f2a12963</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kabul</tzid>
@@ -1602,14 +1602,14 @@
   </timezone>
   <timezone>
     <tzid>Asia/Tehran</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
     <alias>Iran</alias>
-    <md5>7cc49f33778450e85624f0f9489bb42e</md5>
+    <md5>d21c79149c3ad3b5721cd6e05bdf65cd</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Tel_Aviv</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>8bed5e3cbfdc3d315de1b40d91e6981a</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>955a3e37e6a05d03e74e732f0dfa8247</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Thimbu</tzid>
@@ -1874,8 +1874,8 @@
   </timezone>
   <timezone>
     <tzid>Brazil/East</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>ee00e2715bd490456eb11be0f7354ad6</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>9479813700d25eead44698d9a688e8f9</md5>
   </timezone>
   <timezone>
     <tzid>Brazil/West</tzid>
@@ -1949,8 +1949,8 @@
   </timezone>
   <timezone>
     <tzid>Cuba</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
-    <md5>37f5b060654373fa3c1d73cb00f29140</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>452309cf98758b1eb73ef7fccef10bef</md5>
   </timezone>
   <timezone>
     <tzid>EET</tzid>
@@ -2588,13 +2588,13 @@
   </timezone>
   <timezone>
     <tzid>Iran</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>a3a23dd1119cd8362fd4019ba9e5a8ec</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>844f28e11094bef30381a7ebe5d0c7c6</md5>
   </timezone>
   <timezone>
     <tzid>Israel</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>ddc7408ffeda022e46aaaa72aaf228be</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>52d4f616c8db8d8df19f022dab5c328c</md5>
   </timezone>
   <timezone>
     <tzid>Jamaica</tzid>
@@ -2613,8 +2613,8 @@
   </timezone>
   <timezone>
     <tzid>Libya</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>0946628c34cfcb3d3d019ef1493961ff</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>f514b497bd861c14aa21612f9101c50c</md5>
   </timezone>
   <timezone>
     <tzid>MET</tzid>
@@ -2673,8 +2673,8 @@
   </timezone>
   <timezone>
     <tzid>Pacific/Apia</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>aef8f66329a5e26715f1375237691865</md5>
+    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <md5>c7fe6c219fb68825f1e065008bc06040</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Auckland</tzid>
@@ -2713,13 +2713,13 @@
   </timezone>
   <timezone>
     <tzid>Pacific/Fakaofo</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
-    <md5>f6e6b383ac59dc830bae9d0f929ebd18</md5>
+    <dtstamp>2012-09-24T15:50:25Z</dtstamp>
+    <md5>4c2841faa2abf5987add7cf4a51e9d9c</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Fiji</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
-    <md5>0c90e7ee8eea3d5f3a6f5d3a2d9ad134</md5>
+    <dtstamp>2012-09-24T15:50:25Z</dtstamp>
+    <md5>dbfb317bfaed28159b6db4a6236d9bd6</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Funafuti</tzid>

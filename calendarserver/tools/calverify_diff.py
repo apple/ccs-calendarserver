@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_calverify -*-
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import getopt
 import sys
@@ -77,16 +78,16 @@ def parseTableMismatch(line):
 
 def diff(results1, results2):
     
-    print "\n\nEvents missing from Attendee's calendars"
+    print("\n\nEvents missing from Attendee's calendars")
     diffSets(results1["table1"], results2["table1"])
     
-    print "\n\nEvents mismatched between Organizer's and Attendee's calendars"
+    print("\n\nEvents mismatched between Organizer's and Attendee's calendars")
     diffSets(results1["table2"], results2["table2"])
     
-    print "\n\nAttendee events missing in Organizer's calendar"
+    print("\n\nAttendee events missing in Organizer's calendar")
     diffSets(results1["table3"], results2["table3"])
     
-    print "\n\nAttendee events mismatched in Organizer's calendar"
+    print("\n\nAttendee events mismatched in Organizer's calendar")
     diffSets(results1["table4"], results2["table4"])
 
 def diffSets(results1, results2):
@@ -95,20 +96,20 @@ def diffSets(results1, results2):
     s2 = set(results2)
     
     d = s1 - s2
-    print "\nIn first, not in second: (%d)" % (len(d),)
+    print("\nIn first, not in second: (%d)" % (len(d),))
     for i in sorted(d):
-        print i
+        print(i)
     
     d = s2 - s1
-    print "\nIn second, not in first: (%d)" % (len(d),)
+    print("\nIn second, not in first: (%d)" % (len(d),))
     for i in sorted(d):
-        print i
+        print(i)
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print """Usage: calverify_diff [options] FILE1 FILE2
+    print("""Usage: calverify_diff [options] FILE1 FILE2
 Options:
     -h          Print this help and exit
 
@@ -119,7 +120,7 @@ Arguments:
 Description:
     This utility will analyze the output of two calverify runs
     and show what is different between the two.
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)
@@ -143,10 +144,10 @@ if __name__ == '__main__':
         fname1 = args[0]
         fname2 = args[1]
 
-    print "*** CalVerify diff from %s to %s" % (
+    print("*** CalVerify diff from %s to %s" % (
         os.path.basename(fname1),
         os.path.basename(fname2),
-    )
+    ))
     results1 = analyze(fname1)
     results2 = analyze(fname2)
     diff(results1, results2)

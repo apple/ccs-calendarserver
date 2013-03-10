@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+Copyright (c) 2013 Apple Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
+<!DOCTYPE accounts SYSTEM "../../../conf/auth/accounts.dtd">
+
+<accounts realm="Test">
+  <user repeat="99">
+    <uid>user%02d</uid>
+    <uid>User %02d</uid>
+    <guid>user%02d</guid>
+    <password>user%02d</password>
+    <name>User %02d</name>
+    <first-name>User</first-name>
+    <last-name>%02d</last-name>
+    <email-address>user%02d@example.com</email-address>
+  </user>
+</accounts>

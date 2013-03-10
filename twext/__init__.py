@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,9 @@
 ##
 
 """
-Extentions to the Twisted Framework.
+Extensions to the Twisted Framework.
 """
 
 from twext import patches
-patches; del(patches)
+patches
+del(patches)

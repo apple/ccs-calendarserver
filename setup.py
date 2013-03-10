@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import sys
 import os
@@ -131,9 +132,11 @@ def doSetup():
                              "bin/calendarserver_backup",
                              "bin/calendarserver_bootstrap_database",
                              "bin/calendarserver_command_gateway",
-                            #"bin/calendarserver_config",
+                            #"bin/calendarserver_config", # Used by run script.
                             #"bin/calendarserver_dbinspect",
+                            #"bin/calendarserver_dkimtool",
                              "bin/calendarserver_export",
+                            #"bin/calendarserver_icalendar_validate",
                             #"bin/calendarserver_load_augmentdb",
                             #"bin/calendarserver_make_partition",
                             #"bin/calendarserver_manage_postgres",
@@ -141,13 +144,14 @@ def doSetup():
                              "bin/calendarserver_manage_push",
                             #"bin/calendarserver_manage_timezones",
                              "bin/calendarserver_migrate_resources",
+                            #"bin/calendarserver_monitor_amp_notifications",
+                            #"bin/calendarserver_monitor_notifications",
                              "bin/calendarserver_purge_attachments",
                              "bin/calendarserver_purge_events",
                              "bin/calendarserver_purge_principals",
                              "bin/calendarserver_shell",
                             #"bin/calendarserver_upgrade",
                             #"bin/calendarserver_verify_data",
-                            #"bin/calendarserver_warmup",
                            ],
         data_files       = [ ("caldavd", ["conf/caldavd.plist"]), ],
         ext_modules      = extensions,
@@ -169,7 +173,7 @@ def doSetup():
         for script in dist.scripts:
             scriptPath = os.path.join(install_scripts, os.path.basename(script))
 
-            print "rewriting %s" % (scriptPath,)
+            print("rewriting %s" % (scriptPath,))
 
             script = []
 

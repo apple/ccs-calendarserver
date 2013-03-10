@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,6 @@ from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
 
 from calendarserver.provision.root import RootResource
 from twistedcaldav.directory import augment
-from twistedcaldav.config import config
 
 class FakeCheckSACL(object):
     def __init__(self, sacls=None):
@@ -85,7 +84,8 @@ class RootTests(TestCase):
         self.root = auth.AuthenticationWrapper(
             root,
             portal,
-            credentialFactories=(basic.BasicCredentialFactory("Test realm"),),
+            (basic.BasicCredentialFactory("Test realm"),),
+            (basic.BasicCredentialFactory("Test realm"),),
             loginInterfaces=(auth.IPrincipal,))
 
         self.site = server.Site(self.root)
@@ -297,33 +297,6 @@ class SACLTests(RootTests):
         except HTTPError, e:
             self.assertEquals(e.response.code, 401)
 
-    @inlineCallbacks
-    def test_internalAuthHeader(self):
-        """
-        Test the behavior of locateChild when x-calendarserver-internal
-        header is set.
-
-        authnuser and authzuser will be set to the internal principal
-        """
-        self.patch(config.Scheduling.iMIP, "Password", "xyzzy")
-
-        headers = http_headers.Headers({})
-        headers.setRawHeaders("x-calendarserver-internal", ["xyzzy"])
-
-        request = SimpleRequest(
-            self.site,
-            "GET",
-            "/principals/",
-            headers=headers,
-        )
-
-        resrc, segments = (yield
-            RootResource.locateChild(self.root.resource, request, ["principals"]
-        ))
-
-        expected = "<?xml version='1.0' encoding='UTF-8'?>\n<principal xmlns='DAV:'>\r\n  <href>/principals/__uids__/%s/</href>\r\n</principal>" % (config.Scheduling.iMIP.GUID,)
-        self.assertEquals(request.authnUser.toxml(), expected)
-        self.assertEquals(request.authzUser.toxml(), expected)
 
 
     def test_DELETE(self):

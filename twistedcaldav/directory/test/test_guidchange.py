@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
+
 from twistedcaldav.directory.directory import DirectoryService
 
 from txdav.xml import element as davxml
@@ -93,14 +95,14 @@ class ProvisionedPrincipals(TestCase):
             if allowed:
                 def onError(f):
                     f.trap(AccessDeniedError)
-                    #print resource.readDeadProperty(davxml.ACL).toxml()
+                    #print(resource.readDeadProperty(davxml.ACL).toxml())
                     self.fail("%s should have %s privilege on %r" % (principal, privilege.sname(), resource))
                 d.addErrback(onError)
             else:
                 def onError(f):
                     f.trap(AccessDeniedError)
                 def onSuccess(_):
-                    #print resource.readDeadProperty(davxml.ACL).toxml()
+                    #print(resource.readDeadProperty(davxml.ACL).toxml())
                     self.fail("%s should not have %s privilege on %r" % (principal, privilege.sname(), resource))
                 d.addCallback(onSuccess)
                 d.addErrback(onError)

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,14 +35,6 @@ class ChangeIPTestCase(TestCase):
                 "original_hostname",
             ],
             "ServerHostName" : "",
-            "Notifications" : {
-                "Services" : {
-                    "XMPPNotifier" : {
-                        "Host" : "original_hostname",
-                        "JID" : "com.apple.notificationuser@original_hostname",
-                    },
-                },
-            },
             "Scheduling" : {
                 "iMIP" : {
                     "Receiving" : {
@@ -74,14 +66,6 @@ class ChangeIPTestCase(TestCase):
                     "new_hostname",
                 ],
                 "ServerHostName" : "",
-                "Notifications" : {
-                    "Services" : {
-                        "XMPPNotifier" : {
-                            "Host" : "new_hostname",
-                            "JID" : "com.apple.notificationuser@new_hostname",
-                        },
-                    },
-                },
                 "Scheduling" : {
                     "iMIP" : {
                         "Receiving" : {

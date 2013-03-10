@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -206,11 +206,11 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         The DATAVERSION column for new calendar homes must match the
         ADDRESSBOOK-DATAVERSION value.
         """
-        
+
         home = yield self.transactionUnderTest().addressbookHomeWithUID("home_version")
         self.assertTrue(home is not None)
         yield self.transactionUnderTest().commit
-        
+
         txn = yield self.transactionUnderTest()
         version = yield txn.calendarserverValue("ADDRESSBOOK-DATAVERSION")[0][0]
         ch = schema.ADDRESSBOOK_HOME
@@ -220,19 +220,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
             Where=ch.OWNER_UID == "home_version",
         ).on(txn)[0][0]
         self.assertEqual(int(homeVersion, version))
-        
-        
-
-    def test_eachAddressbookHome(self):
-        """
-        L{IAddressbookStore.eachAddressbookHome} is currently stubbed out by
-        L{txdav.common.datastore.sql.CommonDataStore}.
-        """
-        return super(AddressBookSQLStorageTests, self).test_eachAddressbookHome()
-
-
-    test_eachAddressbookHome.todo = (
-        "stubbed out, as migration only needs to go from file->sql currently")
 
 
     @inlineCallbacks

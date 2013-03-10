@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-
+from __future__ import print_function
 from __future__ import with_statement
 
 from getopt import getopt, GetoptError
@@ -47,20 +47,20 @@ COPY_EVENT_XATTRS = ('WebDAV:{DAV:}getcontenttype',)
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] source destination" % (name,)
-    print ""
-    print "  Anonymizes calendar data"
-    print ""
-    print "  source and destination should refer to document root directories"
-    print ""
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -n --node <node>: Directory node (defaults to /Search)"
-    print ""
+    print("usage: %s [options] source destination" % (name,))
+    print("")
+    print("  Anonymizes calendar data")
+    print("")
+    print("  source and destination should refer to document root directories")
+    print("")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -n --node <node>: Directory node (defaults to /Search)")
+    print("")
 
     if e:
         sys.exit(64)
@@ -110,14 +110,14 @@ def main():
 def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
     # sourceDirectory and destDirectory are DocumentRoots
 
-    print "Anonymizing calendar data from %s into %s" % (sourceDirectory, destDirectory)
+    print("Anonymizing calendar data from %s into %s" % (sourceDirectory, destDirectory))
 
     homes = 0
     calendars = 0
     resources = 0
 
     if not os.path.exists(sourceDirectory):
-        print "Can't find source: %s" % (sourceDirectory,)
+        print("Can't find source: %s" % (sourceDirectory,))
         sys.exit(1)
 
     if not os.path.exists(destDirectory):
@@ -147,7 +147,7 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
                         for home in os.listdir(secondPath):
                             record = directoryMap.lookupCUA(home)
                             if not record:
-                                print "Couldn't find %s, skipping." % (home,)
+                                print("Couldn't find %s, skipping." % (home,))
                                 continue
                             sourceHome = os.path.join(secondPath, home)
                             destHome = os.path.join(destUidHomes,
@@ -162,13 +162,13 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
                     continue
                 record = directoryMap.lookupCUA(home)
                 if not record:
-                    print "Couldn't find %s, skipping." % (home,)
+                    print("Couldn't find %s, skipping." % (home,))
                     continue
                 sourceHome = os.path.join(sourceUidHomes, home)
                 destHome = os.path.join(destUidHomes, record['guid'])
                 homeList.append((sourceHome, destHome, record))
 
-        print "Processing %d calendar homes..." % (len(homeList),)
+        print("Processing %d calendar homes..." % (len(homeList),))
 
         for sourceHome, destHome, record in homeList:
             quotaUsed = 0
@@ -268,23 +268,23 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
             )
 
             if not (homes % 100):
-                print " %d..." % (homes,)
+                print(" %d..." % (homes,))
 
-    print "Done."
-    print ""
+    print("Done.")
+    print("")
 
-    print "Calendar totals:"
-    print " Calendar homes: %d" % (homes,)
-    print " Calendars: %d" % (calendars,)
-    print " Events: %d" % (resources,)
-    print ""
+    print("Calendar totals:")
+    print(" Calendar homes: %d" % (homes,))
+    print(" Calendars: %d" % (calendars,))
+    print(" Events: %d" % (resources,))
+    print("")
 
 
 def anonymizeData(directoryMap, data):
     try:
         pyobj = PyCalendar.parseText(data)
     except Exception, e:
-        print "Failed to parse (%s): %s" % (e, data)
+        print("Failed to parse (%s): %s" % (e, data))
         return None
 
     # Delete property from the top level
@@ -303,7 +303,7 @@ def anonymizeData(directoryMap, data):
                     cua = prop.getValue().getValue()
                     record = directoryMap.lookupCUA(cua)
                     if record is None:
-                        # print "Can't find record for", cua
+                        # print("Can't find record for", cua)
                         record = directoryMap.addRecord(cua=cua)
                         if record is None:
                             comp.removeProperty(prop)
@@ -371,10 +371,10 @@ class DirectoryMap(object):
             'resources' : ('Resources', 'resource'),
         }
 
-        print "Fetching records from directory: %s" % (node,)
+        print("Fetching records from directory: %s" % (node,))
 
         for internalType, (recordType, friendlyType) in self.strings.iteritems():
-            print " %s..." % (internalType,)
+            print(" %s..." % (internalType,))
             child = Popen(
                 args = [
                     "/usr/bin/dscl", "-plist", node, "-readall",
@@ -402,8 +402,8 @@ class DirectoryMap(object):
                         names=origRecordNames, emails=origEmails,
                         members=origMembers)
 
-        print "Done."
-        print ""
+        print("Done.")
+        print("")
 
     def addRecord(self, internalType="users", guid=None, names=None,
         emails=None, members=None, cua=None):
@@ -450,7 +450,7 @@ class DirectoryMap(object):
                     name = urllib.quote(name).lower()
                     keys.append(name)
                 except:
-                    # print "Failed to urllib.quote( ) %s. Skipping." % (name,)
+                    # print("Failed to urllib.quote( ) %s. Skipping." % (name,))
                     pass
         if emails:
             for email in emails:
@@ -483,13 +483,13 @@ class DirectoryMap(object):
 
 
     def printStats(self):
-        print "Directory totals:"
+        print("Directory totals:")
         for internalType, (recordType, ignore) in self.strings.iteritems():
-            print " %s: %d" % (recordType, self.counts[internalType])
+            print(" %s: %d" % (recordType, self.counts[internalType]))
 
         unknown = self.counts['unknown']
         if unknown:
-            print " Principals not found in directory: %d" % (unknown,)
+            print(" Principals not found in directory: %d" % (unknown,))
 
     def dumpDsImports(self, dirPath):
         if not os.path.exists(dirPath):
@@ -587,7 +587,7 @@ def anonymize(text):
         try:
             text = text.encode('utf-8')
         except UnicodeEncodeError:
-            print "Failed to anonymize:", text
+            print("Failed to anonymize:", text)
             text = "Anonymize me!"
     h = hashlib.md5(text)
     h = h.hexdigest()

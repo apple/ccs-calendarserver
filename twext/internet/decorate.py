@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,10 +27,29 @@ from inspect import getargspec
 
 from twisted.internet.defer import Deferred, succeed
 
+class Memoizable(object):
+    """
+    A class that stores itself in the memo dictionary.
+    """
+
+    def memoMe(self, key, memo):
+        """
+        Add this object to the memo dictionary in whatever fashion is appropriate.
+
+        @param key: key used for lookup
+        @type key: C{object} (typically C{str} or C{int})
+        @param memo: the dict to store to
+        @type memo: C{dict}
+        """
+        raise NotImplementedError
+
+
 
 def memoizedKey(keyArgument, memoAttribute, deferredResult=True):
     """
-    Decorator which memoizes the result of a method on that method's instance.
+    Decorator which memoizes the result of a method on that method's instance. If the instance is derived from
+    class Memoizable, then the memoMe method is used to store the result, otherwise it is stored directly in
+    the dict.
 
     @param keyArgument: The name of the "key" argument.
     @type keyArgument: C{str}
@@ -75,6 +94,7 @@ def memoizedKey(keyArgument, memoAttribute, deferredResult=True):
                 (argname, args, kw, argpos)
             )
 
+
     def decorate(thunk):
         # cheater move to try to get the right argspec from inlineCallbacks.
         # This could probably be more robust, but the 'cell_contents' thing
@@ -103,7 +123,9 @@ def memoizedKey(keyArgument, memoAttribute, deferredResult=True):
 
             if isinstance(result, Deferred):
                 def memoResult(finalResult):
-                    if finalResult is not None:
+                    if isinstance(finalResult, Memoizable):
+                        finalResult.memoMe(key, memo)
+                    elif finalResult is not None:
                         memo[key] = finalResult
                     return finalResult
                 result.addCallback(memoResult)

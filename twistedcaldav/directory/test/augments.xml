@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+Copyright (c) 2009-2013 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -120,6 +120,7 @@ limitations under the License.
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
+    <auto-accept-group>both_coasts</auto-accept-group>
   </record>
   <record>
     <uid>orion</uid>
@@ -173,5 +174,16 @@ limitations under the License.
     <uid>7678EC8A-A069-4E82-9066-7279C6718507</uid>
     <enable>true</enable>
     <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>FC465590-E9E9-4746-ACE8-6C756A49FE4D</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+  </record>
+  <record>
+    <uid>EC465590-E9E9-4746-ACE8-6C756A49FE4D</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-login>true</enable-login>
   </record>
 </augments>

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ from twisted.internet.defer import inlineCallbacks, succeed
 
 from twistedcaldav.linkresource import LinkResource
 from twistedcaldav.resource import CalendarHomeResource
-from twistedcaldav.sharedcollection import SharedCollectionResource
 from twistedcaldav.test.util import TestCase
 
 
@@ -47,6 +46,9 @@ class StubCalendarHomeResource(CalendarHomeResource):
 class StubShare(object):
     def __init__(self, link):
         self.hosturl = link
+
+    def url(self):
+        return self.hosturl
 
 class LinkResourceTests(TestCase):
 
@@ -90,33 +92,5 @@ class LinkResourceTests(TestCase):
             yield resource.locateChild(request, ["link1",])
         except HTTPError, e:
             self.assertEqual(e.response.code, responsecode.LOOP_DETECTED)
-        else:
-            self.fail("HTTPError exception not raised")
-
-class SharedCollectionResourceTests(TestCase):
-
-    @inlineCallbacks
-    def test_okLink(self):
-        resource = StubCalendarHomeResource(self.site.resource, "home", object(), StubHome())
-        self.site.resource.putChild("home", resource)
-        link = SharedCollectionResource(resource, StubShare("/home/outbox/"))
-        resource.putChild("link", link)
-
-        request = SimpleRequest(self.site, "GET", "/home/link/")
-        linked_to, _ignore = (yield resource.locateChild(request, ["link",]))
-        self.assertTrue(linked_to is resource.getChild("outbox"))
-
-    @inlineCallbacks
-    def test_badLink(self):
-        resource = CalendarHomeResource(self.site.resource, "home", object(), StubHome())
-        self.site.resource.putChild("home", resource)
-        link = SharedCollectionResource(resource, StubShare("/home/outbox/abc"))
-        resource.putChild("link", link)
-
-        request = SimpleRequest(self.site, "GET", "/home/link/")
-        try:
-            yield resource.locateChild(request, ["link",])
-        except HTTPError, e:
-            self.assertEqual(e.response.code, responsecode.NOT_FOUND)
         else:
             self.fail("HTTPError exception not raised")

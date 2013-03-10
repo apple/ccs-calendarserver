@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import eventkitframework as EventKit
 from Cocoa import NSDate
 
 store = EventKit.EKEventStore.alloc().init()
 calendars = store.calendarsForEntityType_(0)
-print calendars
+print(calendars)
 raise SystemExit
 
 predicate = store.predicateForEventsWithStartDate_endDate_calendars_(
      NSDate.date(), NSDate.distantFuture(),
      [calendars[2]])
-print store.eventsMatchingPredicate_(predicate)
+print(store.eventsMatchingPredicate_(predicate))

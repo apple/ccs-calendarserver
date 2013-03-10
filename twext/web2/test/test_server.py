@@ -10,6 +10,8 @@ from zope.interface import implements
 from twisted.python import components
 from twext.web2 import http, http_headers, iweb, server
 from twext.web2 import resource, stream
+from twext.web2.dav.test.util import SimpleRequest
+
 from twisted.trial import unittest
 from twisted.internet import reactor, defer, address
 
@@ -112,37 +114,6 @@ class AdaptionTestCase(unittest.TestCase):
         notResource = NotResource()
         self.failUnless(isinstance(iweb.IResource(notResource), ResourceAdapter))
 
-
-
-class SimpleRequest(server.Request):
-    """I can be used in cases where a Request object is necessary
-    but it is beneficial to bypass the chanRequest
-    """
-
-    clientproto = (1,1)
-
-    def __init__(self, site, method, uri, headers=None, content=None):
-        if not headers:
-            headers = http_headers.Headers(headers)
-
-        super(SimpleRequest, self).__init__(
-            site=site,
-            chanRequest=None,
-            command=method,
-            path=uri,
-            version=self.clientproto,
-            contentLength=len(content or ''),
-            headers=headers)
-
-        self.stream = stream.MemoryStream(content or '')
-
-        self.remoteAddr = address.IPv4Address('TCP', '127.0.0.1', 0)
-        self._parseURL()
-        self.host = 'localhost'
-        self.port = 8080
-
-    def writeResponse(self, response):
-        return response
 
 
 class TestChanRequest:

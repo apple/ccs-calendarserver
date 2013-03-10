@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_extensions -*-
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 Extensions to web2.dav
@@ -502,7 +503,7 @@ class DirectoryRenderingMixIn(object):
             else:
                 mimeType = child.contentType()
                 if mimeType is None:
-                    print 'BAD contentType() IMPLEMENTATION', child
+                    print('BAD contentType() IMPLEMENTATION', child)
                     contentType = 'application/octet-stream'
                 else:
                     contentType = "%s/%s" % (mimeType.mediaType, mimeType.mediaSubtype)

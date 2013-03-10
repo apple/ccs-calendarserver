@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import sys, pickle
 
@@ -20,14 +21,14 @@ from benchlib import select
 
 def main():
     if len(sys.argv) < 5:
-        print 'Usage: %s <datafile> <benchmark name> <parameter value> <metric> [command]' % (sys.argv[0],)
+        print('Usage: %s <datafile> <benchmark name> <parameter value> <metric> [command]' % (sys.argv[0],))
     else:
         stat, samples = select(pickle.load(file(sys.argv[1])), *sys.argv[2:5])
         if len(sys.argv) == 5:
-            print 'Samples'
-            print '\t' + '\n\t'.join(map(str, stat.squash(samples)))
-            print 'Commands'
-            print '\t' + '\n\t'.join(stat.commands)
+            print('Samples')
+            print('\t' + '\n\t'.join(map(str, stat.squash(samples))))
+            print('Commands')
+            print('\t' + '\n\t'.join(stat.commands))
         else:
-            print getattr(stat, sys.argv[5])(samples, *sys.argv[6:])
+            print(getattr(stat, sys.argv[5])(samples, *sys.argv[6:]))
 

@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +23,14 @@ __all__ = [
     "getRootResource",
     "getDBPool",
     "FakeRequest",
+    "MemoryLimitService",
 ]
 
 import errno
 import os
 from time import sleep
 from socket import fromfd, AF_UNIX, SOCK_STREAM, socketpair
+import psutil
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
@@ -38,6 +40,7 @@ from twext.web2.dav.util import joinURL
 from twext.web2.http_headers import Headers
 from twext.web2.static import File as FileResource
 
+from twisted.application.service import Service
 from twisted.cred.portal import Portal
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet import reactor as _reactor
@@ -55,11 +58,12 @@ from twistedcaldav.directory.directory import GroupMembershipCache
 from twistedcaldav.directory.internal import InternalDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.wiki import WikiDirectoryService
-from twistedcaldav.notify import NotifierFactory, getPubSubConfiguration
+from calendarserver.push.notifier import NotifierFactory 
 from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import AuthenticationWrapper
-from twistedcaldav.schedule import IScheduleInboxResource
+from twistedcaldav.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
+from twistedcaldav.scheduling.ischedule.resource import IScheduleInboxResource
 from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
@@ -68,6 +72,7 @@ from twistedcaldav.util import getMemorySize, getNCPU
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool, ConnectionPoolConnection
+
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -126,7 +131,11 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
         sharedBuffers=config.Postgres.SharedBuffers,
         maxConnections=config.Postgres.MaxConnections,
         options=config.Postgres.Options,
-        uid=uid, gid=gid
+        uid=uid, gid=gid,
+        spawnedDBUser=config.SpawnedDBUser,
+        importFileName=config.DBImportFile,
+        pgCtl=config.Postgres.Ctl,
+        initDB=config.Postgres.Init,
     )
 
 
@@ -217,20 +226,26 @@ def storeFromConfig(config, txnFactory):
     # Configure NotifierFactory
     #
     if config.Notifications.Enabled:
-        notifierFactory = NotifierFactory(
-            config.Notifications.InternalNotificationHost,
-            config.Notifications.InternalNotificationPort,
-            pubSubConfig=getPubSubConfiguration(config)
-        )
+        # FIXME: NotifierFactory needs reference to the store in order
+        # to get a txn in order to create a Work item
+        notifierFactory = NotifierFactory(None, config.ServerHostName,
+            config.Notifications.CoalesceSeconds)
     else:
         notifierFactory = None
     quota = config.UserQuota
     if quota == 0:
         quota = None
     if txnFactory is not None:
-        return CommonSQLDataStore(
-            txnFactory, notifierFactory, FilePath(config.AttachmentsRoot),
+        if config.EnableSSL:
+            uri = "https://%s:%s" % (config.ServerHostName, config.SSLPort,)
+        else:
+            uri = "http://%s:%s" % (config.ServerHostName, config.HTTPPort,)
+        attachments_uri = uri + "/calendars/__uids__/%(home)s/dropbox/%(dropbox_id)s/%(name)s"
+        store = CommonSQLDataStore(
+            txnFactory, notifierFactory,
+            FilePath(config.AttachmentsRoot), attachments_uri,
             config.EnableCalDAV, config.EnableCardDAV,
+            config.EnableManagedAttachments,
             quota=quota,
             logLabels=config.LogDatabase.LabelsInSQL,
             logStats=config.LogDatabase.Statistics,
@@ -243,11 +258,14 @@ def storeFromConfig(config, txnFactory):
             cacheExpireSeconds=config.QueryCaching.ExpireSeconds
         )
     else:
-        return CommonFileDataStore(
+        store = CommonFileDataStore(
             FilePath(config.DocumentRoot),
             notifierFactory, config.EnableCalDAV, config.EnableCardDAV,
             quota=quota
         )
+    if notifierFactory is not None:
+        notifierFactory.store = store
+    return store
 
 
 
@@ -255,7 +273,6 @@ def directoryFromConfig(config):
     """
     Create an L{AggregateDirectoryService} from the given configuration.
     """
-
     #
     # Setup the Augment Service
     #
@@ -286,7 +303,7 @@ def directoryFromConfig(config):
     directories = []
 
     directoryClass = namedClass(config.DirectoryService.type)
-    principalResourceClass       = DirectoryPrincipalProvisioningResource
+    principalResourceClass = DirectoryPrincipalProvisioningResource
 
     log.info("Configuring directory service of type: %s"
         % (config.DirectoryService.type,))
@@ -348,7 +365,8 @@ def directoryFromConfig(config):
     return directory
 
 
-def getRootResource(config, newStore, resources=None):
+
+def getRootResource(config, newStore, resources=None, directory=None):
     """
     Set up directory service and resource hierarchy based on config.
     Return root resource.
@@ -373,18 +391,19 @@ def getRootResource(config, newStore, resources=None):
     #
     # Default resource classes
     #
-    rootResourceClass               = RootResource
-    calendarResourceClass           = DirectoryCalendarHomeProvisioningResource
-    iScheduleResourceClass          = IScheduleInboxResource
-    timezoneServiceResourceClass    = TimezoneServiceResource
+    rootResourceClass = RootResource
+    calendarResourceClass = DirectoryCalendarHomeProvisioningResource
+    iScheduleResourceClass = IScheduleInboxResource
+    timezoneServiceResourceClass = TimezoneServiceResource
     timezoneStdServiceResourceClass = TimezoneStdServiceResource
-    webCalendarResourceClass        = WebCalendarResource
-    webAdminResourceClass           = WebAdminResource
-    addressBookResourceClass        = DirectoryAddressBookHomeProvisioningResource
+    webCalendarResourceClass = WebCalendarResource
+    webAdminResourceClass = WebAdminResource
+    addressBookResourceClass = DirectoryAddressBookHomeProvisioningResource
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
-    apnSubscriptionResourceClass    = APNSubscriptionResource
+    apnSubscriptionResourceClass = APNSubscriptionResource
 
-    directory = directoryFromConfig(config)
+    if directory is None:
+        directory = directoryFromConfig(config)
 
     #
     # Setup the ProxyDB Service
@@ -402,7 +421,8 @@ def getRootResource(config, newStore, resources=None):
     #
     # Configure the Site and Wrappers
     #
-    credentialFactories = []
+    wireEncryptedCredentialFactories = []
+    wireUnencryptedCredentialFactories = []
 
     portal = Portal(auth.DavRealm())
 
@@ -457,14 +477,14 @@ def getRootResource(config, newStore, resources=None):
                 log.error("Unknown scheme: %s" % (scheme,))
 
         if credFactory:
-            credentialFactories.append(credFactory)
-
+            wireEncryptedCredentialFactories.append(credFactory)
+            if schemeConfig.get("AllowedOverWireUnencrypted", False):
+                wireUnencryptedCredentialFactories.append(credFactory)
 
     #
     # Setup Resource hierarchy
     #
-    log.info("Setting up document root at: %s"
-                  % (config.DocumentRoot,))
+    log.info("Setting up document root at: %s" % (config.DocumentRoot,))
 
     principalCollection = directory.principalCollection
 
@@ -500,10 +520,10 @@ def getRootResource(config, newStore, resources=None):
             directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
             try:
                 FilePath(directoryPath).remove()
-                log.info("Deleted: %s" %    directoryPath)
+                log.info("Deleted: %s" % directoryPath)
             except (OSError, IOError), e:
                 if e.errno != errno.ENOENT:
-                    log.error("Could not delete: %s : %r" %  (directoryPath, e,))
+                    log.error("Could not delete: %s : %r" % (directoryPath, e,))
 
     log.info("Setting up root resource: %r" % (rootResourceClass,))
 
@@ -511,7 +531,6 @@ def getRootResource(config, newStore, resources=None):
         config.DocumentRoot,
         principalCollections=(principalCollection,),
     )
-
 
     root.putChild("principals", principalCollection)
     if config.EnableCalDAV:
@@ -535,6 +554,7 @@ def getRootResource(config, newStore, resources=None):
             (config.EnableCalDAV, "caldav", "/",),
             (config.EnableCardDAV, "carddav", "/",),
             (config.TimezoneService.Enabled, "timezone", "/stdtimezones",),
+            (config.Scheduling.iSchedule.Enabled, "ischedule", "/ischedule"),
         ):
             if enabled:
                 if config.EnableSSL:
@@ -579,14 +599,16 @@ def getRootResource(config, newStore, resources=None):
             root,
         )
         root.putChild("stdtimezones", timezoneStdService)
-        
+
         # TODO: we only want the master to do this
         if _reactor._started:
             _reactor.callLater(0, timezoneStdService.onStartup)
         else:
             addSystemEventTrigger("after", "startup", timezoneStdService.onStartup)
 
-    # iSchedule service is optional
+    #
+    # iSchedule service
+    #
     if config.Scheduling.iSchedule.Enabled:
         log.info("Setting up iSchedule inbox resource: %r"
                       % (iScheduleResourceClass,))
@@ -596,6 +618,18 @@ def getRootResource(config, newStore, resources=None):
             newStore,
         )
         root.putChild("ischedule", ischedule)
+
+        # Do DomainKey resources
+        DKIMUtils.validConfiguration(config)
+        if config.Scheduling.iSchedule.DKIM.Enabled:
+            log.info("Setting up domainkey resource: %r" % (DomainKeyResource,))
+            domain = config.Scheduling.iSchedule.DKIM.Domain if config.Scheduling.iSchedule.DKIM.Domain else config.ServerHostName
+            dk = DomainKeyResource(
+                domain,
+                config.Scheduling.iSchedule.DKIM.KeySelector,
+                config.Scheduling.iSchedule.DKIM.PublicKeyFile,
+            )
+            wellKnownResource.putChild("domainkey", dk)
 
     #
     # WebCal
@@ -625,7 +659,7 @@ def getRootResource(config, newStore, resources=None):
     #
     # Apple Push Notification Subscriptions
     #
-    apnConfig = config.Notifications.Services["ApplePushNotifier"]
+    apnConfig = config.Notifications.Services.APNS
     if apnConfig.Enabled:
         log.info("Setting up APNS resource at /%s" %
             (apnConfig["SubscriptionURL"],))
@@ -638,10 +672,9 @@ def getRootResource(config, newStore, resources=None):
     log.info("Setting up Timezone Cache")
     TimezoneCache.create()
 
-
     log.info("Configuring authentication wrapper")
 
-    overrides = { }
+    overrides = {}
     if resources:
         for path, cls, args, schemes in resources:
 
@@ -668,9 +701,10 @@ def getRootResource(config, newStore, resources=None):
     authWrapper = AuthenticationWrapper(
         root,
         portal,
-        credentialFactories,
+        wireEncryptedCredentialFactories,
+        wireUnencryptedCredentialFactories,
         (auth.IPrincipal,),
-        overrides=overrides,
+        overrides=overrides
     )
 
     logWrapper = DirectoryLogWrapperResource(
@@ -678,7 +712,12 @@ def getRootResource(config, newStore, resources=None):
         directory,
     )
 
+    # FIXME:  Storing a reference to the root resource on the store
+    # until scheduling no longer needs resource objects
+    newStore.rootResource = root
+
     return logWrapper
+
 
 
 def getDBPool(config):
@@ -757,11 +796,9 @@ def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
 
 
 
-
-
 class FakeRequest(object):
 
-    def __init__(self, rootResource, method, path, uri='/'):
+    def __init__(self, rootResource, method, path, uri='/', transaction=None):
         self.rootResource = rootResource
         self.method = method
         self.path = path
@@ -769,6 +806,9 @@ class FakeRequest(object):
         self._resourcesByURL = {}
         self._urlsByResource = {}
         self.headers = Headers()
+        if transaction is not None:
+            self._newStoreTransaction = transaction
+
 
     @inlineCallbacks
     def _getChild(self, resource, segments):
@@ -778,6 +818,7 @@ class FakeRequest(object):
         child, remaining = (yield resource.locateChild(self, segments))
         returnValue((yield self._getChild(child, remaining)))
 
+
     @inlineCallbacks
     def locateResource(self, url):
         url = url.strip("/")
@@ -786,6 +827,7 @@ class FakeRequest(object):
         if resource:
             self._rememberResource(resource, url)
         returnValue(resource)
+
 
     @inlineCallbacks
     def locateChildResource(self, parent, childName):
@@ -801,16 +843,19 @@ class FakeRequest(object):
             self._rememberResource(resource, url)
         returnValue(resource)
 
+
     def _rememberResource(self, resource, url):
         self._resourcesByURL[url] = resource
         self._urlsByResource[resource] = url
         return resource
 
+
     def _forgetResource(self, resource, url):
-        if self._resourcesByURL.has_key(url):
+        if url in self._resourcesByURL:
             del self._resourcesByURL[url]
-        if self._urlsByResource.has_key(resource):
+        if resource in self._urlsByResource:
             del self._urlsByResource[resource]
+
 
     def urlForResource(self, resource):
         url = self._urlsByResource.get(resource, None)
@@ -820,6 +865,99 @@ class FakeRequest(object):
             raise NoURLForResourceError(resource)
         return url
 
-    def addResponseFilter(*args, **kwds):
+
+    def addResponseFilter(self, *args, **kwds):
         pass
 
+
+
+def memoryForPID(pid, residentOnly=True):
+    """
+    Return the amount of memory in use for the given process.  If residentOnly is True,
+        then RSS is returned; if False, then virtual memory is returned.
+    @param pid: process id
+    @type pid: C{int}
+    @param residentOnly: Whether only resident memory should be included
+    @type residentOnly: C{boolean}
+    @return: Memory used by process in bytes
+    @rtype: C{int}
+    """
+    memoryInfo = psutil.Process(pid).get_memory_info()
+    return memoryInfo.rss if residentOnly else memoryInfo.vms
+
+
+
+class MemoryLimitService(Service, object):
+    """
+    A service which when paired with a DelayedStartupProcessMonitor will periodically
+    examine the memory usage of the monitored processes and stop any which exceed
+    a configured limit.  Memcached processes are ignored.
+    """
+
+    def __init__(self, processMonitor, intervalSeconds, limitBytes, residentOnly, reactor=None):
+        """
+        @param processMonitor: the DelayedStartupProcessMonitor
+        @param intervalSeconds: how often to check
+        @type intervalSeconds: C{int}
+        @param limitBytes: any monitored process over this limit is stopped
+        @type limitBytes: C{int}
+        @param residentOnly: whether only resident memory should be included
+        @type residentOnly: C{boolean}
+        @param reactor: for testing
+        """
+        self._processMonitor = processMonitor
+        self._seconds = intervalSeconds
+        self._bytes = limitBytes
+        self._residentOnly = residentOnly
+        self._delayedCall = None
+        if reactor is None:
+            from twisted.internet import reactor
+        self._reactor = reactor
+
+        # Unit tests can swap out _memoryForPID
+        self._memoryForPID = memoryForPID
+
+
+    def startService(self):
+        """
+        Start scheduling the memory checks
+        """
+        super(MemoryLimitService, self).startService()
+        self._delayedCall = self._reactor.callLater(self._seconds, self.checkMemory)
+
+
+    def stopService(self):
+        """
+        Stop checking memory
+        """
+        super(MemoryLimitService, self).stopService()
+        if self._delayedCall is not None and self._delayedCall.active():
+            self._delayedCall.cancel()
+            self._delayedCall = None
+
+
+    def checkMemory(self):
+        """
+        Stop any processes monitored by our paired processMonitor whose resident
+        memory exceeds our configured limitBytes.  Reschedule intervalSeconds in
+        the future.
+        """
+        try:
+            for name in self._processMonitor.processes:
+                if name.startswith("memcached"):
+                    continue
+                proto = self._processMonitor.protocols.get(name, None)
+                if proto is not None:
+                    proc = proto.transport
+                    pid = proc.pid
+                    try:
+                        memory = self._memoryForPID(pid, self._residentOnly)
+                    except Exception, e:
+                        log.error("Unable to determine memory usage of PID: %d (%s)" % (pid, e))
+                        continue
+                    if memory > self._bytes:
+                        log.warn("Killing large process: %s PID:%d %s:%d" %
+                            (name, pid, "Resident" if self._residentOnly else "Virtual", memory))
+                        self._processMonitor.stopProcess(name)
+        finally:
+            self._delayedCall = self._reactor.callLater(self._seconds, self.checkMemory)

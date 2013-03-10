@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2009-2013 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -55,6 +55,7 @@ class MemcachePropertyCollection (LoggingMixIn):
         self.collection = collection
         self.cacheTimeout = cacheTimeout
 
+
     @classmethod
     def memcacheClient(cls, refresh=False):
         if not hasattr(MemcachePropertyCollection, "_memcacheClient"):
@@ -70,6 +71,7 @@ class MemcachePropertyCollection (LoggingMixIn):
             assert MemcachePropertyCollection._memcacheClient is not None
 
         return MemcachePropertyCollection._memcacheClient
+
 
     def propertyCache(self):
         # The property cache has this format:
@@ -88,6 +90,7 @@ class MemcachePropertyCollection (LoggingMixIn):
             self._propertyCache = self._loadCache()
         return self._propertyCache
 
+
     def childCache(self, child):
         path = child.fp.path
         key = self._keyForPath(path)
@@ -105,12 +108,14 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         return propertyCache, key, childCache, token
 
+
     def _keyForPath(self, path):
         key = "|".join((
             self.__class__.__name__,
             path
         ))
         return md5(key).hexdigest()
+
 
     def _loadCache(self, childNames=None):
         if childNames is None:
@@ -134,7 +139,7 @@ class MemcachePropertyCollection (LoggingMixIn):
             for childName in childNames
         ))
 
-        result = self._split_gets_multi((key for key, name in keys),
+        result = self._split_gets_multi((key for key, _ignore_name in keys),
             client.gets_multi)
 
         if self.logger.willLogAtLevel("debug"):
@@ -145,7 +150,7 @@ class MemcachePropertyCollection (LoggingMixIn):
             self.log_debug("Loaded keys for %schildren of %s: %s" % (
                 missing,
                 self.collection,
-                [name for key, name in keys],
+                [name for _ignore_key, name in keys],
             ))
 
         missing = tuple((
@@ -187,6 +192,7 @@ class MemcachePropertyCollection (LoggingMixIn):
             results.update(func(subset))
         return results
 
+
     def _split_set_multi(self, values, func, time=0, chunksize=250):
         """
         Splits set_multi into chunks to avoid a memcacheclient timeout due
@@ -221,6 +227,7 @@ class MemcachePropertyCollection (LoggingMixIn):
             self._split_set_multi(values, client.set_multi,
                 time=self.cacheTimeout)
 
+
     def _buildCache(self, childNames=None):
         if childNames is None:
             childNames = self.collection.listChildren()
@@ -247,13 +254,14 @@ class MemcachePropertyCollection (LoggingMixIn):
 
         return cache
 
+
     def setProperty(self, child, property, uid, delete=False):
         propertyCache, key, childCache, token = self.childCache(child)
 
         if delete:
             qname = property
             qnameuid = qname + (uid,)
-            if childCache.has_key(qnameuid):
+            if qnameuid in childCache:
                 del childCache[qnameuid]
         else:
             qname = property.qname()
@@ -286,7 +294,7 @@ class MemcachePropertyCollection (LoggingMixIn):
                 propertyCache, key, childCache, token = self.childCache(child)
 
                 if delete:
-                    if childCache.has_key(qnameuid):
+                    if qnameuid in childCache:
                         del childCache[qnameuid]
                 else:
                     childCache[qnameuid] = property
@@ -301,8 +309,10 @@ class MemcachePropertyCollection (LoggingMixIn):
                     child
                 ))
 
+
     def deleteProperty(self, child, qname, uid):
         return self.setProperty(child, qname, uid, delete=True)
+
 
     def flushCache(self, child):
         path = child.fp.path
@@ -318,8 +328,10 @@ class MemcachePropertyCollection (LoggingMixIn):
             if not result:
                 raise MemcacheError("Unable to flush cache on %s" % (child,))
 
+
     def propertyStoreForChild(self, child, childPropertyStore):
         return self.ChildPropertyStore(self, child, childPropertyStore)
+
 
     class ChildPropertyStore (LoggingMixIn):
         def __init__(self, parentPropertyCollection, child, childPropertyStore):
@@ -393,14 +405,13 @@ class MemcachePropertyCollection (LoggingMixIn):
                 propertyCache = self.propertyCache()
                 results = propertyCache.keys()
                 if filterByUID:
-                    return [ 
+                    return [
                         (namespace, name)
                         for namespace, name, propuid in results
                         if propuid == uid
                     ]
                 else:
                     return results
-                
 
             self.log_debug("List for %s"
                            % (self.childPropertyStore.resource.fp.path,))

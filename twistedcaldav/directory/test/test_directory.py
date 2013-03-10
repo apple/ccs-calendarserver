@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@ def StubCheckSACL(cls, username, service):
         return 0
     return 1
 
+
+
 class SACLTests(TestCase):
 
     def setUp(self):
@@ -59,10 +61,10 @@ class SACLTests(TestCase):
         """
 
         data = [
-            ("amanda",  True,  True,),
-            ("betty",   True,  False,),
+            ("amanda", True, True,),
+            ("betty", True, False,),
             ("carlene", False, True,),
-            ("daniel",  False, False,),
+            ("daniel", False, False,),
         ]
         for username, cal, ab in data:
             record = DirectoryRecord(self.service, "users", None, (username,),
@@ -71,19 +73,21 @@ class SACLTests(TestCase):
             self.assertEquals(record.enabledForCalendaring, cal)
             self.assertEquals(record.enabledForAddressBooks, ab)
 
+
+
 class GroupMembershipTests (TestCase):
 
     @inlineCallbacks
     def setUp(self):
         super(GroupMembershipTests, self).setUp()
 
-        self.directoryService = XMLDirectoryService(
+        self.directoryFixture.addDirectoryService(XMLDirectoryService(
             {
                 'xmlFile' : xmlFile,
                 'augmentService' :
                     augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
             }
-        )
+        ))
         calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB("proxies.sqlite")
 
         # Set up a principals hierarchy for each service we're testing with
@@ -99,19 +103,23 @@ class GroupMembershipTests (TestCase):
 
         yield XMLCalendarUserProxyLoader(proxiesFile.path).updateProxyDB()
 
+
     def tearDown(self):
         """ Empty the proxy db between tests """
-        return calendaruserproxy.ProxyDBService.clean()
+        return calendaruserproxy.ProxyDBService.clean() #@UndefinedVariable
+
 
     def _getPrincipalByShortName(self, type, name):
         provisioningResource = self.principalRootResources[self.directoryService.__class__.__name__]
         return provisioningResource.principalForShortName(type, name)
+
 
     def _updateMethod(self):
         """
         Update a counter in the following test
         """
         self.count += 1
+
 
     @inlineCallbacks
     def test_groupMembershipCacherService(self):
@@ -153,7 +161,6 @@ class GroupMembershipTests (TestCase):
         self.assertFalse(service.updateAwaiting)
 
 
-
     def test_expandedMembers(self):
         """
         Make sure expandedMembers( ) returns a complete, flattened set of
@@ -191,8 +198,6 @@ class GroupMembershipTests (TestCase):
 
         members = (yield cache.getGroupsFor("a")) # has expired
         self.assertEquals(members, set())
-
-
 
 
     @inlineCallbacks
@@ -569,6 +574,7 @@ class GroupMembershipTests (TestCase):
                 groups,
             )
 
+
     def test_diffAssignments(self):
         """
         Ensure external proxy assignment diffing works
@@ -577,78 +583,77 @@ class GroupMembershipTests (TestCase):
         self.assertEquals(
             (
                 # changed
-                [ ],
+                [],
                 # removed
-                [ ],
+                [],
             ),
             diffAssignments(
                 # old
-                [ ],
+                [],
                 # new
-                [ ],
+                [],
             )
         )
 
         self.assertEquals(
             (
                 # changed
-                [ ],
+                [],
                 # removed
-                [ ],
+                [],
             ),
             diffAssignments(
                 # old
-                [ ("B", set(["3"])), ("A", set(["1", "2"])), ],
+                [("B", set(["3"])), ("A", set(["1", "2"])), ],
                 # new
-                [ ("A", set(["1", "2"])), ("B", set(["3"])), ],
+                [("A", set(["1", "2"])), ("B", set(["3"])), ],
             )
         )
 
         self.assertEquals(
             (
                 # changed
-                [ ("A", set(["1", "2"])), ("B", set(["3"])), ],
+                [("A", set(["1", "2"])), ("B", set(["3"])), ],
                 # removed
-                [ ],
+                [],
             ),
             diffAssignments(
                 # old
-                [ ],
+                [],
                 # new
-                [ ("A", set(["1", "2"])), ("B", set(["3"])), ],
+                [("A", set(["1", "2"])), ("B", set(["3"])), ],
             )
         )
 
         self.assertEquals(
             (
                 # changed
-                [ ],
+                [],
                 # removed
-                [ "A", "B" ],
+                ["A", "B"],
             ),
             diffAssignments(
                 # old
-                [ ("A", set(["1", "2"])), ("B", set(["3"])), ],
+                [("A", set(["1", "2"])), ("B", set(["3"])), ],
                 # new
-                [ ],
+                [],
             )
         )
 
         self.assertEquals(
             (
                 # changed
-                [ ("A", set(["2"])), ("C", set(["4", "5"])), ("D", set(["6"])), ],
+                [("A", set(["2"])), ("C", set(["4", "5"])), ("D", set(["6"])), ],
                 # removed
-                [ "B" ],
+                ["B"],
             ),
             diffAssignments(
                 # old
-                [ ("A", set(["1", "2"])), ("B", set(["3"])), ("C", set(["4"])), ],
+                [("A", set(["1", "2"])), ("B", set(["3"])), ("C", set(["4"])), ],
                 # new
-                [ ("D", set(["6"])), ("C", set(["4", "5"])), ("A", set(["2"])), ],
+                [("D", set(["6"])), ("C", set(["4", "5"])), ("A", set(["2"])), ],
             )
         )
-
 
 
     @inlineCallbacks
@@ -757,19 +762,46 @@ class GroupMembershipTests (TestCase):
             }
         )
 
+
+    def test_autoAcceptMembers(self):
+        """
+        autoAcceptMembers( ) returns an empty list if no autoAcceptGroup is
+        assigned, or the expanded membership if assigned.
+        """
+
+        # No auto-accept-group for "orion" in augments.xml
+        orion = self.directoryService.recordWithGUID("orion")
+        self.assertEquals(orion.autoAcceptMembers(), [])
+
+        # "both_coasts" group assigned to "apollo" in augments.xml
+        apollo = self.directoryService.recordWithGUID("apollo")
+        self.assertEquals(
+            set(apollo.autoAcceptMembers()),
+            set([
+                "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0",
+                 "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1",
+                 "5A985493-EE2C-4665-94CF-4DFEA3A89500",
+                 "6423F94A-6B76-4A3A-815B-D52CFD77935D",
+                 "right_coast",
+                 "left_coast",
+            ])
+        )
+
+
+
 class RecordsMatchingTokensTests(TestCase):
 
     @inlineCallbacks
     def setUp(self):
         super(RecordsMatchingTokensTests, self).setUp()
 
-        self.directoryService = XMLDirectoryService(
+        self.directoryFixture.addDirectoryService(XMLDirectoryService(
             {
                 'xmlFile' : xmlFile,
                 'augmentService' :
                     augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
             }
-        )
+        ))
         calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB("proxies.sqlite")
 
         # Set up a principals hierarchy for each service we're testing with
@@ -785,9 +817,11 @@ class RecordsMatchingTokensTests(TestCase):
 
         yield XMLCalendarUserProxyLoader(proxiesFile.path).updateProxyDB()
 
+
     def tearDown(self):
         """ Empty the proxy db between tests """
-        return calendaruserproxy.ProxyDBService.clean()
+        return calendaruserproxy.ProxyDBService.clean() #@UndefinedVariable
+
 
     @inlineCallbacks
     def test_recordsMatchingTokens(self):
@@ -812,13 +846,14 @@ class RecordsMatchingTokensTests(TestCase):
         self.assertEquals(records[0].shortNames[0], "apollo")
 
 
- 
+
 class GUIDTests(TestCase):
 
     def setUp(self):
         self.service = DirectoryService()
         self.service.setRealm("test")
         self.service.baseGUID = "0E8E6EC2-8E52-4FF3-8F62-6F398B08A498"
+
 
     def test_normalizeUUID(self):
 
@@ -858,6 +893,8 @@ class GUIDTests(TestCase):
                 shortNames=("testing",))
             self.assertEquals(expected, record.guid)
 
+
+
 class DirectoryRecordTests(TestCase):
     """
     Test L{DirectoryRecord} apis.
@@ -867,6 +904,7 @@ class DirectoryRecordTests(TestCase):
         self.service = DirectoryService()
         self.service.setRealm("test")
         self.service.baseGUID = "0E8E6EC2-8E52-4FF3-8F62-6F398B08A498"
+
 
     def test_cacheToken(self):
         """

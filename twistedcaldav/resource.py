@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_resource,twistedcaldav.test.test_wrapping -*-
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -70,15 +70,12 @@ from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.directory.internal import InternalDirectoryRecord
 from twistedcaldav.extensions import DAVResource, DAVPrincipalResource, \
-    PropertyNotFoundError, DAVResourceWithChildrenMixin
+    DAVResourceWithChildrenMixin
 from twistedcaldav.ical import Component
 
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
-from twistedcaldav.notify import (
-    getPubSubConfiguration, getPubSubXMPPURI, getPubSubHeartbeatURI,
-    getPubSubAPSConfiguration,
-)
+from calendarserver.push.notifier import getPubSubAPSConfiguration
 from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
 from twistedcaldav.util import normalizationLookup
 from twistedcaldav.vcard import Component as vComponent
@@ -318,8 +315,14 @@ class CalDAVResource (
         otherResource.associateWithTransaction(self._associatedTransaction)
 
 
-    def transactionError(self):
+    def methodRaisedException(self, failure):
+        """
+        An C{http_METHOD} method raised an exception.  Any type of exception,
+        including those that result in perfectly valid HTTP responses, should
+        abort the transaction.
+        """
         self._transactionError = True
+        return super(CalDAVResource, self).methodRaisedException(failure)
 
 
     @inlineCallbacks
@@ -525,29 +528,10 @@ class CalDAVResource (
         """
         Need to special case schedule-calendar-transp for backwards compatability.
         """
-
-        if type(property) is tuple:
-            qname = property
-        else:
-            qname = property.qname()
-
-        isvirt = self.isVirtualShare()
-        if isvirt:
-            if self.isShadowableProperty(qname):
-                ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
-                p = self.deadProperties().contains(qname, uid=ownerPrincipal.principalUID())
-                if p:
-                    returnValue(p)
-
-            elif (not self.isGlobalProperty(qname)):
-                result = (yield self._hasSharedProperty(qname, request))
-                returnValue(result)
-
         res = (yield self._hasGlobalProperty(property, request))
         returnValue(res)
 
 
-    @inlineCallbacks
     def _hasSharedProperty(self, qname, request):
 
         # Always have default alarms on shared calendars
@@ -557,11 +541,10 @@ class CalDAVResource (
             caldavxml.DefaultAlarmVToDoDateTime.qname(),
             caldavxml.DefaultAlarmVToDoDate.qname(),
         ) and self.isCalendarCollection():
-            returnValue(True)
+            return True
 
-        ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
-        p = self.deadProperties().contains(qname, uid=ownerPrincipal.principalUID())
-        returnValue(p)
+        p = self.deadProperties().contains(qname)
+        return p
 
 
     def _hasGlobalProperty(self, property, request):
@@ -589,8 +572,6 @@ class CalDAVResource (
         else:
             qname = property.qname()
 
-        isvirt = self.isVirtualShare()
-
         if self.isCalendarCollection() or self.isAddressBookCollection():
 
             # Push notification DAV property "pushkey"
@@ -602,7 +583,7 @@ class CalDAVResource (
                 if hasattr(self, "_newStoreObject"):
                     dataObject = getattr(self, "_newStoreObject")
                 if dataObject:
-                    label = "collection" if isvirt else "default"
+                    label = "collection" if self.isShareeCollection() else "default"
                     nodeName = (yield dataObject.nodeName(label=label))
                     if nodeName:
                         propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
@@ -610,30 +591,15 @@ class CalDAVResource (
 
                 returnValue(customxml.PubSubXMPPPushKeyProperty())
 
-        if isvirt:
-            if self.isShadowableProperty(qname):
-                ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
-                try:
-                    p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
-                    returnValue(p)
-                except PropertyNotFoundError:
-                    pass
-
-            elif (not self.isGlobalProperty(qname)):
-                result = (yield self._readSharedProperty(qname, request))
-                returnValue(result)
-
         res = (yield self._readGlobalProperty(qname, property, request))
         returnValue(res)
 
 
-    @inlineCallbacks
     def _readSharedProperty(self, qname, request):
 
         # Default behavior - read per-user dead property
-        ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
-        p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
-        returnValue(p)
+        p = self.deadProperties().get(qname)
+        return p
 
 
     @inlineCallbacks
@@ -747,10 +713,10 @@ class CalDAVResource (
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
 
         elif qname == customxml.SharedURL.qname():
-            isvirt = self.isVirtualShare()
+            isShareeCollection = self.isShareeCollection()
 
-            if isvirt:
-                returnValue(customxml.SharedURL(element.HRef.fromString(self._share.hosturl)))
+            if isShareeCollection:
+                returnValue(customxml.SharedURL(element.HRef.fromString(self._share.url())))
             else:
                 returnValue(None)
 
@@ -763,14 +729,6 @@ class CalDAVResource (
         assert isinstance(property, element.WebDAVElement), (
             "%r is not a WebDAVElement instance" % (property,)
         )
-
-        # Per-user Dav props currently only apply to a sharee's copy of a calendar
-        isvirt = self.isVirtualShare()
-        if isvirt and (self.isShadowableProperty(property.qname()) or (not self.isGlobalProperty(property.qname()))):
-            yield self._preProcessWriteProperty(property, request, isShare=True)
-            ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
-            p = self.deadProperties().set(property, uid=ownerPrincipal.principalUID())
-            returnValue(p)
 
         res = (yield self._writeGlobalProperty(property, request))
         returnValue(res)
@@ -876,8 +834,8 @@ class CalDAVResource (
     def accessControlList(self, request, *args, **kwargs):
 
         acls = None
-        isvirt = self.isVirtualShare()
-        if isvirt:
+        isShareeCollection = self.isShareeCollection()
+        if isShareeCollection:
             acls = (yield self.shareeAccessControlList(request, *args, **kwargs))
 
         if acls is None:
@@ -933,9 +891,9 @@ class CalDAVResource (
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
 
-        isVirt = self.isVirtualShare()
-        if isVirt:
-            parent = (yield self.locateParent(request, self._share.hosturl))
+        isShareeCollection = self.isShareeCollection()
+        if isShareeCollection:
+            parent = (yield self.locateParent(request, self._share.url()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
@@ -950,9 +908,9 @@ class CalDAVResource (
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        isVirt = self.isVirtualShare()
-        if isVirt:
-            parent = (yield self.locateParent(request, self._share.hosturl))
+        isShareeCollection = self.isShareeCollection()
+        if isShareeCollection:
+            parent = (yield self.locateParent(request, self._share.url()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
@@ -968,14 +926,9 @@ class CalDAVResource (
         This is the owner of the resource based on the URI used to access it. For a shared
         collection it will be the sharee, otherwise it will be the regular the ownerPrincipal.
         """
-
-        isVirt = self.isVirtualShare()
-        if isVirt:
-            returnValue(self._shareePrincipal)
-        else:
-            parent = (yield self.locateParent(
-                request, request.urlForResource(self)
-            ))
+        parent = (yield self.locateParent(
+            request, request.urlForResource(self)
+        ))
         if parent and isinstance(parent, CalDAVResource):
             result = (yield parent.resourceOwnerPrincipal(request))
             returnValue(result)
@@ -1390,17 +1343,17 @@ class CalDAVResource (
         """
 
         sharedParent = None
-        isvirt = self.isVirtualShare()
-        if isvirt:
-            # A virtual share's quota root is the resource owner's root
-            sharedParent = (yield request.locateResource(parentForURL(self._share.hosturl)))
+        isShareeCollection = self.isShareeCollection()
+        if isShareeCollection:
+            # A sharee collection's quota root is the resource owner's root
+            sharedParent = (yield request.locateResource(parentForURL(self._share.url())))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if isCalendarCollectionResource(parent) or isAddressBookCollectionResource(parent):
-                isvirt = parent.isVirtualShare()
-                if isvirt:
-                    # A virtual share's quota root is the resource owner's root
-                    sharedParent = (yield request.locateResource(parentForURL(parent._share.hosturl)))
+                isShareeCollection = parent.isShareeCollection()
+                if isShareeCollection:
+                    # A sharee collection's quota root is the resource owner's root
+                    sharedParent = (yield request.locateResource(parentForURL(parent._share.url())))
 
         if sharedParent:
             result = (yield sharedParent.quotaRootResource(request))
@@ -1494,7 +1447,7 @@ class CalDAVResource (
 
                         # Always test against the current etag first just in case schedule-etags is out of sync
                         etag = (yield self.etag())
-                        etags = (etag,) + tuple([http_headers.ETag(etag) for etag in etags])
+                        etags = (etag,) + tuple([http_headers.ETag(schedule_etag) for schedule_etag in etags])
 
                         # Loop over each tag and succeed if any one matches, else re-raise last exception
                         exists = self.exists()
@@ -1589,10 +1542,12 @@ class CalDAVResource (
         return fail(NotImplementedError())
 
 
-    def iCalendarRolledup(self):
+    def iCalendarRolledup(self, request):
         """
         Only implemented by calendar collections; see storebridge.
         """
+        raise HTTPError(responsecode.NOT_ALLOWED)
+
 
     @inlineCallbacks
     def iCalendarFiltered(self, isowner, accessUID=None):
@@ -1918,7 +1873,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
             if self.directoryAddressBookEnabled():
                 baseProperties += (carddavxml.DirectoryGateway.qname(),)
 
-        if config.EnableDropBox:
+        if config.EnableDropBox or config.EnableManagedAttachments:
             baseProperties += (customxml.DropBoxHomeURL.qname(),)
 
         if config.Sharing.Enabled:
@@ -1981,7 +1936,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 returnValue(caldavxml.CalendarUserType(self.record.getCUType()))
 
         elif namespace == calendarserver_namespace:
-            if name == "dropbox-home-URL" and config.EnableDropBox:
+            if name == "dropbox-home-URL" and (config.EnableDropBox or config.EnableManagedAttachments):
                 url = self.dropboxURL()
                 if url is None:
                     returnValue(None)
@@ -2018,7 +1973,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         elif namespace == carddav_namespace and self.addressBooksEnabled():
             if name == "addressbook-home-set":
                 returnValue(carddavxml.AddressBookHomeSet(
-                    *[element.HRef(url) for url in self.addressBookHomeURLs()]
+                    *[element.HRef(abhome_url) for abhome_url in self.addressBookHomeURLs()]
                  ))
             elif name == "directory-gateway" and self.directoryAddressBookEnabled():
                 returnValue(carddavxml.DirectoryGateway(
@@ -2118,6 +2073,15 @@ class DefaultAlarmPropertyMixin(object):
 class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     """
     Logic common to Calendar and Addressbook home resources.
+
+    @ivar _provisionedChildren: A map of resource names to built-in children
+        with protocol-level meanings, like C{"attachments"}, C{"inbox"},
+        C{"outbox"}, and so on.
+    @type _provisionedChildren: L{dict} mapping L{bytes} to L{Resource}
+
+    @ivar _provisionedLinks: A map of resource names to built-in links that the
+        server has inserted into this L{CommonHomeResource}.
+    @type _provisionedLinks: L{dict} mapping L{bytes} to L{Resource}
     """
     cacheNotifierFactory = DisabledCacheNotifier
 
@@ -2182,15 +2146,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             props += (customxml.MaxCollections.qname(),)
 
         return props
-
-
-    def sharesDB(self):
-        """
-        Retrieve the new-style shares DB wrapper.
-        """
-        if not hasattr(self, "_sharesDB"):
-            self._sharesDB = self._newStoreHome.retrieveOldShares()
-        return self._sharesDB
 
 
     def url(self):
@@ -2304,14 +2259,12 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             self.putChild(name, child)
             returnValue(child)
 
-        # Try normal child type
-        child = (yield self.makeRegularChild(name))
+        # get regular or shared child
+        child = yield self.makeRegularChild(name)
 
-        # Try shares next if child does not exist
-        if not child.exists() and self.canShare():
-            sharedchild = yield self.provisionShare(name)
-            if sharedchild:
-                returnValue(sharedchild)
+        # add _share attribute if child is shared; verify that child should
+        # still be accessible and convert it to None if it's not.
+        child = yield self.provisionShare(child)
 
         returnValue(child)
 
@@ -2344,7 +2297,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         children = set(self._provisionedChildren.keys())
         children.update(self._provisionedLinks.keys())
         children.update((yield self._newStoreHome.listChildren()))
-        children.update((yield self._newStoreHome.listSharedChildren()))
         returnValue(children)
 
 
@@ -2368,8 +2320,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         elif qname == (customxml.calendarserver_namespace, "push-transports"):
 
-            if (config.Notifications.Services.XMPPNotifier.Enabled or
-                config.Notifications.Services.ApplePushNotifier.Enabled):
+            if config.Notifications.Services.APNS.Enabled:
 
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
@@ -2399,76 +2350,16 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                                 )
                             )
 
-                        pubSubConfiguration = getPubSubConfiguration(config)
-                        if (pubSubConfiguration['enabled'] and
-                            pubSubConfiguration['xmpp-server']):
-                            children.append(
-                                customxml.PubSubTransportProperty(
-                                    customxml.PubSubXMPPServerProperty(
-                                        pubSubConfiguration['xmpp-server']
-                                    ),
-                                    customxml.PubSubXMPPURIProperty(
-                                        getPubSubXMPPURI(notifierID, pubSubConfiguration)
-                                    ),
-                                    type="XMPP",
-                                )
-                            )
 
                         returnValue(customxml.PubSubPushTransportsProperty(*children))
             returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
-            if (config.Notifications.Services.XMPPNotifier.Enabled or
-                config.Notifications.Services.AMPNotifier.Enabled or
-                config.Notifications.Services.ApplePushNotifier.Enabled):
+            if (config.Notifications.Services.AMP.Enabled or
+                config.Notifications.Services.APNS.Enabled):
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
                     returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))
-            returnValue(None)
-
-        elif qname == (customxml.calendarserver_namespace, "xmpp-uri"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
-                nodeName = (yield self._newStoreHome.nodeName())
-                if nodeName:
-                    notifierID = self._newStoreHome.notifierID()
-                    if notifierID:
-                        pubSubConfiguration = getPubSubConfiguration(config)
-                        returnValue(customxml.PubSubXMPPURIProperty(
-                            getPubSubXMPPURI(notifierID, pubSubConfiguration)))
-
-            returnValue(None)
-
-        elif qname == (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
-                # Look up node name not because we want to return it, but
-                # to see if XMPP server is actually responding.  If it comes
-                # back with an empty nodeName, don't advertise
-                # xmpp-heartbeat-uri
-                nodeName = (yield self._newStoreHome.nodeName())
-                if nodeName:
-                    pubSubConfiguration = getPubSubConfiguration(config)
-                    returnValue(
-                        customxml.PubSubHeartbeatProperty(
-                            customxml.PubSubHeartbeatURIProperty(
-                                getPubSubHeartbeatURI(pubSubConfiguration)
-                            ),
-                            customxml.PubSubHeartbeatMinutesProperty(
-                                str(pubSubConfiguration['heartrate'])
-                            )
-                        )
-                    )
-            returnValue(None)
-
-        elif qname == (customxml.calendarserver_namespace, "xmpp-server"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
-                # Look up node name not because we want to return it, but
-                # to see if XMPP server is actually responding.  If it comes
-                # back with an empty nodeName, don't advertise xmpp-server
-                nodeName = (yield self._newStoreHome.nodeName())
-                if nodeName:
-                    pubSubConfiguration = getPubSubConfiguration(config)
-                    returnValue(customxml.PubSubXMPPServerProperty(
-                        pubSubConfiguration['xmpp-server']))
             returnValue(None)
 
         returnValue((yield super(CommonHomeResource, self).readProperty(property, request)))
@@ -2603,11 +2494,12 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             #caldavxml.DefaultAlarmVToDoDate.qname(),
 
         )
-        existing += (
-            (customxml.calendarserver_namespace, "xmpp-uri"),
-            (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
-            (customxml.calendarserver_namespace, "xmpp-server"),
-        )
+
+        if config.EnableManagedAttachments:
+            existing += (
+                caldavxml.ManagedAttachmentsServerURL.qname(),
+            )
+
         return existing
 
 
@@ -2636,6 +2528,14 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 prop = caldavxml.SupportedCalendarComponentSets()
             returnValue(prop)
 
+        elif qname == caldavxml.ManagedAttachmentsServerURL.qname():
+            if config.EnableManagedAttachments:
+                # The HRef is empty - this will force the client to treat all managed attachment URLs
+                # as relative to this server scheme/host.
+                returnValue(caldavxml.ManagedAttachmentsServerURL(element.HRef.fromString("")))
+            else:
+                returnValue(None)
+
         result = (yield super(CalendarHomeResource, self).readProperty(property, request))
         returnValue(result)
 
@@ -2646,12 +2546,16 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         from twistedcaldav.storebridge import StoreScheduleInboxResource
         self._provisionedChildren["inbox"] = StoreScheduleInboxResource.maybeCreateInbox
 
-        from twistedcaldav.schedule import ScheduleOutboxResource
+        from twistedcaldav.scheduling.caldav.resource import ScheduleOutboxResource
         self._provisionedChildren["outbox"] = ScheduleOutboxResource
 
-        if config.EnableDropBox:
+        if config.EnableDropBox and not config.EnableManagedAttachments:
             from twistedcaldav.storebridge import DropboxCollection
             self._provisionedChildren["dropbox"] = DropboxCollection
+
+        if config.EnableManagedAttachments:
+            from twistedcaldav.storebridge import AttachmentsCollection
+            self._provisionedChildren["dropbox"] = AttachmentsCollection
 
         if config.FreeBusyURL.Enabled:
             from twistedcaldav.freebusyurl import FreeBusyURLResource
@@ -2679,6 +2583,9 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
     @inlineCallbacks
     def makeRegularChild(self, name):
         newCalendar = yield self._newStoreHome.calendarWithName(name)
+        if newCalendar and not newCalendar.owned() and not self.canShare():
+            newCalendar = None
+
         from twistedcaldav.storebridge import CalendarCollectionResource
         similar = CalendarCollectionResource(
             newCalendar, self, name=name,
@@ -2688,13 +2595,13 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         returnValue(similar)
 
 
-    def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
+    def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, mode):
         """
         Test if there are other child object resources with the specified UID.
 
         Pass through direct to store.
         """
-        return self._newStoreHome.hasCalendarResourceUIDSomewhereElse(uid, ok_object._newStoreObject, type)
+        return self._newStoreHome.hasCalendarResourceUIDSomewhereElse(uid, ok_object._newStoreObject, mode)
 
 
     def getCalendarResourcesForUID(self, uid, allow_shared=False):
@@ -2810,7 +2717,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 changed.append("notification/")
 
             # Dropbox is never synchronized
-            if config.EnableDropBox:
+            if config.EnableDropBox or config.EnableManagedAttachments:
                 notallowed.append("dropbox/")
 
         # Add in notification changes
@@ -2865,7 +2772,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if defaultAddressBookProperty and len(defaultAddressBookProperty.children) == 1:
                 defaultAddressBook = str(defaultAddressBookProperty.children[0])
                 adbk = (yield request.locateResource(str(defaultAddressBook)))
-                if adbk is not None and isAddressBookCollectionResource(adbk) and adbk.exists() and not adbk.isVirtualShare():
+                if adbk is not None and isAddressBookCollectionResource(adbk) and adbk.exists() and not adbk.isShareeCollection():
                     returnValue(defaultAddressBookProperty)
 
             # Default is not valid - we have to try to pick one
@@ -2888,7 +2795,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if len(new_adbk) == 1:
                 adbkURI = str(new_adbk[0])
                 adbk = (yield request.locateResource(str(new_adbk[0])))
-            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk) or adbk.isVirtualShare():
+            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk) or adbk.isShareeCollection():
                 # Validate that href's point to a valid addressbook.
                 raise HTTPError(ErrorResponse(
                     responsecode.CONFLICT,
@@ -2938,6 +2845,8 @@ class AddressBookHomeResource (CommonHomeResource):
                 mainCls = GlobalAddressBookCollectionResource
 
         newAddressBook = yield self._newStoreHome.addressbookWithName(name)
+        if newAddressBook and not newAddressBook.owned() and not self.canShare():
+            newAddressBook = None
         similar = mainCls(
             newAddressBook, self, name,
             principalCollections=self.principalCollections()
@@ -2955,13 +2864,17 @@ class AddressBookHomeResource (CommonHomeResource):
         defaultAddressBookURL = joinURL(self.url(), "addressbook")
         defaultAddressBook = (yield self.makeRegularChild("addressbook"))
         if defaultAddressBook is None or not defaultAddressBook.exists():
-            getter = iter((yield self._newStoreHome.addressbooks()))  # These are only unshared children
+            addressbooks = yield self._newStoreHome.addressbooks()
+            ownedAddressBooks = [addressbook for addressbook in addressbooks if addressbook.owned()]
+            ownedAddressBooks.sort(key=lambda ab: ab.name())
+
+            # These are only unshared children
             # FIXME: the back-end should re-provision a default addressbook here.
             # Really, the dead property shouldn't be necessary, and this should
             # be entirely computed by a back-end method like 'defaultAddressBook()'
             try:
-                anAddressBook = getter.next()
-            except StopIteration:
+                anAddressBook = ownedAddressBooks[0]
+            except IndexError:
                 raise RuntimeError("No address books at all.")
 
             defaultAddressBookURL = joinURL(self.url(), anAddressBook.name())
@@ -3071,11 +2984,13 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
     """ AuthenticationWrapper implementation which allows overriding
         credentialFactories on a per-resource-path basis """
 
-    def __init__(self, resource, portal, credentialFactories, loginInterfaces,
-        overrides=None):
+    def __init__(self, resource, portal,
+        wireEncryptedCredentialFactories, wireUnencryptedCredentialFactories,
+        loginInterfaces, overrides=None):
 
         super(AuthenticationWrapper, self).__init__(resource, portal,
-            credentialFactories, loginInterfaces)
+            wireEncryptedCredentialFactories, wireUnencryptedCredentialFactories,
+            loginInterfaces)
 
         self.overrides = {}
         if overrides:
@@ -3091,7 +3006,7 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
         super(AuthenticationWrapper, self).hook(req)
 
         factories = self.overrides.get(req.path.rstrip("/"),
-            self.credentialFactories)
+            req.credentialFactories)
         req.credentialFactories = factories
 
 

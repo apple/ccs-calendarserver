@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,7 +59,6 @@ calendarserver_principal_search_compliance = (
     "calendarserver-principal-search",
 )
 
-
 calendarserver_sharing_compliance = (
     "calendarserver-sharing",
 )
@@ -67,6 +66,10 @@ calendarserver_sharing_compliance = (
 # TODO: This is only needed whilst we do not support scheduling in shared calendars
 calendarserver_sharing_no_scheduling_compliance = (
     "calendarserver-sharing-no-scheduling",
+)
+
+calendarserver_partstat_changes_compliance = (
+    "calendarserver-partstat-changes",
 )
 
 
@@ -415,8 +418,6 @@ class PubSubTransportProperty (WebDAVTextElement):
         (calendarserver_namespace, "subscription-url") : (1, 1),
         (calendarserver_namespace, "apsbundleid") : (1, 1),
         (calendarserver_namespace, "env") : (1, 1),
-        (calendarserver_namespace, "xmpp-server") : (1, 1),
-        (calendarserver_namespace, "xmpp-uri") : (1, 1),
     }
 
 
@@ -467,64 +468,6 @@ class PubSubXMPPPushKeyProperty (WebDAVTextElement):
 
 
 
-@registerElement
-class PubSubXMPPURIProperty (WebDAVTextElement):
-    """
-    A calendar home property to indicate the pubsub XMPP URI to subscribe to
-    for notifications.
-    """
-    namespace = calendarserver_namespace
-    name = "xmpp-uri"
-    protected = True
-    hidden = True
-
-
-
-@registerElement
-class PubSubHeartbeatProperty (WebDAVElement):
-    """
-    A calendar home property to indicate the pubsub XMPP URI to subscribe to
-    for server heartbeats.
-    """
-    namespace = calendarserver_namespace
-    name = "xmpp-heartbeat"
-    protected = True
-    hidden = True
-    allowed_children = {
-        (calendarserver_namespace, "xmpp-heartbeat-uri")     : (1, 1),
-        (calendarserver_namespace, "xmpp-heartbeat-minutes") : (1, 1),
-    }
-
-
-
-@registerElement
-class PubSubHeartbeatURIProperty (WebDAVTextElement):
-    namespace = calendarserver_namespace
-    name = "xmpp-heartbeat-uri"
-    protected = True
-    hidden = True
-
-
-
-@registerElement
-class PubSubHeartbeatMinutesProperty (WebDAVTextElement):
-    namespace = calendarserver_namespace
-    name = "xmpp-heartbeat-minutes"
-    protected = True
-    hidden = True
-
-
-
-@registerElement
-class PubSubXMPPServerProperty (WebDAVTextElement):
-    """
-    A calendar home property to indicate the pubsub XMPP hostname to
-    contact for notifications.
-    """
-    namespace = calendarserver_namespace
-    name = "xmpp-server"
-    protected = True
-    hidden = True
 
 
 PrincipalPropertySearch.allowed_children[(calendarserver_namespace, "limit")] = (0, 1)

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import sys
 import pickle
@@ -71,13 +72,13 @@ def _upload(reactor, url, project, revision, revision_date, benchmark,
         'max': str(max_value),
         'min': str(min_value),
         }
-    print 'uploading', data
+    print('uploading', data)
     agent = Agent(reactor)
     d = agent.request('POST', url, None, StringProducer(urlencode(data)))
     def check(response):
         d = readBody(response)
         def read(body):
-            print 'body', repr(body)
+            print('body', repr(body))
             if response.code != 200:
                 raise Exception("Upload failed: %r" % (response.code,))
         d.addCallback(read)
@@ -110,7 +111,7 @@ def main():
     try:
         options.parseOptions(sys.argv[1:])
     except UsageError, e:
-        print e
+        print(e)
         return 1
 
     fname, benchmark, param, statistic = options['statistic'].split(',')

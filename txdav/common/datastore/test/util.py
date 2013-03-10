@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.carddav.datastore.test -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,42 +14,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 """
 Store test utility functions
 """
 
-import gc
-from hashlib import md5
-from random import Random
-from zope.interface.verify import verifyObject
-from zope.interface.exceptions import BrokenMethodImplementation,\
-    DoesNotImplement
+from __future__ import print_function
 
+from calendarserver.push.notifier import Notifier
+
+from hashlib import md5
+
+from pycalendar.datetime import PyCalendarDateTime
+
+from random import Random
+
+from twext.enterprise.adbapi2 import ConnectionPool
+from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
 from twext.web2.dav.resource import TwistedGETContentMD5
 
+from twisted.application.service import Service
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, inlineCallbacks, succeed
+from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet.defer import returnValue
 from twisted.internet.task import deferLater
 from twisted.python import log
-from twisted.application.service import Service
+from twisted.trial.unittest import TestCase
 
 from twistedcaldav.config import config
-
-from txdav.common.datastore.sql import CommonDataStore, current_sql_schema
-from txdav.base.datastore.subpostgres import PostgresService
-from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
-from txdav.base.propertystore.base import PropertyName
-from txdav.common.icommondatastore import NoSuchHomeChildError
-from twext.enterprise.adbapi2 import ConnectionPool
-from twisted.trial.unittest import TestCase
-from twisted.internet.defer import returnValue
-from twistedcaldav.notify import Notifier, NodeCreationException
-from twext.enterprise.ienterprise import AlreadyFinishedError
+from twistedcaldav.stdconfig import DEFAULT_CONFIG
 from twistedcaldav.vcard import Component as ABComponent
 
-from pycalendar.datetime import PyCalendarDateTime
+from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
+from txdav.base.datastore.subpostgres import PostgresService
+from txdav.base.propertystore.base import PropertyName
+from txdav.common.datastore.sql import CommonDataStore, current_sql_schema
+from txdav.common.datastore.sql_tables import schema
+from txdav.common.icommondatastore import NoSuchHomeChildError
+
+from zope.interface.exceptions import BrokenMethodImplementation, \
+    DoesNotImplement
+from zope.interface.verify import verifyObject
+
+import gc
 
 md5key = PropertyName.fromElement(TwistedGETContentMD5)
 
@@ -70,10 +79,10 @@ def dumpConnectionStatus():
     between tests.  (It is currently not invoked anywhere, but may be useful if
     these types of bugs crop up in the future.)
     """
-    print '+++ ALL CONNECTIONS +++'
+    print("+++ ALL CONNECTIONS +++")
     for connection in allInstancesOf(DiagnosticConnectionWrapper):
-        print connection.label, connection.state
-    print '--- CONNECTIONS END ---'
+        print(connection.label, connection.state)
+    print("--- CONNECTIONS END ---")
 
 
 
@@ -96,7 +105,7 @@ class SQLStoreBuilder(object):
         return PostgresService(
             dbRoot, serviceFactory, current_sql_schema, resetSchema=True,
             databaseName="caldav",
-            options = [
+            options=[
                 "-c log_lock_waits=TRUE",
                 "-c log_statement=all",
                 "-c log_line_prefix='%p.%x '",
@@ -126,7 +135,8 @@ class SQLStoreBuilder(object):
         reactor.addSystemEventTrigger("before", "shutdown", cp.stopService)
         cds = CommonDataStore(
             cp.connection, StubNotifierFactory(),
-            attachmentRoot, quota=staticQuota
+            attachmentRoot, "",
+            quota=staticQuota
         )
         return cds
 
@@ -188,12 +198,26 @@ class SQLStoreBuilder(object):
                             maxConnections=5)
         quota = deriveQuota(testCase)
         store = CommonDataStore(
-            cp.connection, notifierFactory, attachmentRoot, quota=quota
+            cp.connection,
+            notifierFactory,
+            attachmentRoot,
+            "https://example.com/calendars/__uids__/%(home)s/attachments/%(name)s",
+            quota=quota
         )
         store.label = currentTestID
         cp.startService()
         def stopIt():
-            return cp.stopService()
+            # active transactions should have been shut down.
+            wasBusy = len(cp._busy)
+            busyText = repr(cp._busy)
+            stop = cp.stopService()
+            def checkWasBusy(ignored):
+                if wasBusy:
+                    testCase.fail("Outstanding Transactions: " + busyText)
+                return ignored
+            if deriveValue(testCase, _SPECIAL_TXN_CLEAN, lambda tc: False):
+                stop.addBoth(checkWasBusy)
+            return stop
         testCase.addCleanup(stopIt)
         yield self.cleanStore(testCase, store)
         returnValue(store)
@@ -204,27 +228,20 @@ class SQLStoreBuilder(object):
         cleanupTxn = storeToClean.sqlTxnFactory(
             "%s schema-cleanup" % (testCase.id(),)
         )
-        # TODO: should be getting these tables from a declaration of the schema
-        # somewhere.
-        tables = ['INVITE',
-                  'RESOURCE_PROPERTY',
-                  'ATTACHMENT',
-                  'NOTIFICATION_OBJECT_REVISIONS',
-                  'ADDRESSBOOK_OBJECT_REVISIONS',
-                  'CALENDAR_OBJECT_REVISIONS',
-                  'ADDRESSBOOK_OBJECT',
-                  'CALENDAR_OBJECT',
-                  'CALENDAR_BIND',
-                  'ADDRESSBOOK_BIND',
-                  'CALENDAR',
-                  'ADDRESSBOOK',
-                  'CALENDAR_HOME',
-                  'ADDRESSBOOK_HOME',
-                  'NOTIFICATION',
-                  'NOTIFICATION_HOME']
+
+        # Tables are defined in the schema in the order in which the 'create
+        # table' statements are issued, so it's not possible to reference a
+        # later table.  Therefore it's OK to drop them in the (reverse) order
+        # that they happen to be in.
+        tables = [t.name for t in schema.model.tables #@UndefinedVariable
+                  # All tables with rows _in_ the schema are populated
+                  # exclusively _by_ the schema and shouldn't be manipulated
+                  # while the server is running, so we leave those populated.
+                  if not t.schemaRows][::-1]
+
         for table in tables:
             try:
-                yield cleanupTxn.execSQL("delete from "+table, [])
+                yield cleanupTxn.execSQL("delete from " + table, [])
             except:
                 log.err()
         yield cleanupTxn.commit()
@@ -251,13 +268,20 @@ def deriveValue(testCase, attribute, computeDefault):
     for that test.
 
     @param testCase: the test case instance.
+    @type testCase: L{TestCase}
 
     @param attribute: the name of the attribute (the same name passed to
         L{withSpecialValue}).
+    @type attribute: L{str}
 
     @param computeDefault: A 1-argument callable, which will be called with
         C{testCase} to compute a default value for the attribute for the given
         test if no custom one was specified.
+    @type computeDefault: L{callable}
+
+    @return: the value of the given C{attribute} for the given C{testCase}, as
+        decorated with C{withSpecialValue}.
+    @rtype: same type as the return type of L{computeDefault}
     """
     testID = testCase.id()
     testMethodName = testID.split(".")[-1]
@@ -296,6 +320,7 @@ def _computeDefaultQuota(testCase):
 
 
 _SPECIAL_QUOTA = "__special_quota__"
+_SPECIAL_TXN_CLEAN = "__special_txn_clean__"
 
 
 
@@ -329,9 +354,26 @@ def withSpecialQuota(quotaValue):
     Test method decorator that will cause L{deriveQuota} to return a different
     value for test cases that run that test method.
 
-    @see: withSpecialValue
+    @see: L{withSpecialValue}
     """
     return withSpecialValue(_SPECIAL_QUOTA, quotaValue)
+
+
+
+def transactionClean(f=None):
+    """
+    Test method decorator that will cause L{buildStore} to check that no
+    transactions were left outstanding at the end of the test, and fail the
+    test if they are outstanding rather than terminating them by shutting down
+    the connection pool service.
+
+    @see: L{withSpecialValue}
+    """
+    decorator = withSpecialValue(_SPECIAL_TXN_CLEAN, True)
+    if f:
+        return decorator(f)
+    else:
+        return decorator
 
 
 
@@ -376,18 +418,21 @@ def populateCalendarsFrom(requirements, store, migrating=False):
                         yield calendar.createCalendarObjectWithName(
                             objectName,
                             VComponent.fromString(updateToCurrentYear(objData)),
-                            metadata = metadata,
+                            metadata=metadata,
                         )
     yield populateTxn.commit()
+
 
 
 def updateToCurrentYear(data):
     """
     Update the supplied iCalendar data so that all dates are updated to the current year.
     """
-    
+
     nowYear = PyCalendarDateTime.getToday().getYear()
-    return data % {"now":nowYear}
+    return data % {"now": nowYear}
+
+
 
 @inlineCallbacks
 def resetCalendarMD5s(md5s, store):
@@ -417,6 +462,7 @@ def resetCalendarMD5s(md5s, store):
                         )
                         obj.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
     yield populateTxn.commit()
+
 
 
 @inlineCallbacks
@@ -454,6 +500,8 @@ def populateAddressBooksFrom(requirements, store):
                         )
     yield populateTxn.commit()
 
+
+
 @inlineCallbacks
 def resetAddressBookMD5s(md5s, store):
     """
@@ -482,6 +530,7 @@ def resetAddressBookMD5s(md5s, store):
                         )
                         obj.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
     yield populateTxn.commit()
+
 
 
 def assertProvides(testCase, interface, provider):
@@ -574,14 +623,35 @@ class CommonCommonTests(object):
         raise NotImplementedError("CommonCommonTests subclasses must implement.")
 
 
+    @inlineCallbacks
+    def homeUnderTest(self, txn=None, name="home1"):
+        """
+        Get the calendar home detailed by C{requirements['home1']}.
+        """
+        if txn is None:
+            txn = self.transactionUnderTest()
+        returnValue((yield txn.calendarHomeWithUID(name)))
 
-class StubNodeCacher(object):
 
-    def waitForNode(self, notifier, nodeName):
-        if "fail" in nodeName:
-            raise NodeCreationException("Could not create node")
-        else:
-            return succeed(True)
+    @inlineCallbacks
+    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1"):
+        """
+        Get the calendar detailed by C{requirements['home1']['calendar_1']}.
+        """
+        returnValue((yield
+            (yield self.homeUnderTest(txn, home)).calendarWithName(name))
+        )
+
+
+    @inlineCallbacks
+    def calendarObjectUnderTest(self, name="1.ics", txn=None):
+        """
+        Get the calendar detailed by
+        C{requirements['home1']['calendar_1'][name]}.
+        """
+        returnValue((yield (yield self.calendarUnderTest(txn))
+                     .calendarObjectWithName(name)))
+
 
 
 class StubNotifierFactory(object):
@@ -591,19 +661,32 @@ class StubNotifierFactory(object):
 
     def __init__(self):
         self.reset()
-        self.nodeCacher = StubNodeCacher()
-        self.pubSubConfig = {
-            "enabled" : True,
-            "service" : "pubsub.example.com",
-            "host" : "example.com",
-            "port" : "123",
-        }
+        self.hostname = "example.com"
+
 
     def newNotifier(self, label="default", id=None, prefix=None):
         return Notifier(self, label=label, id=id, prefix=prefix)
 
-    def send(self, op, id):
-        self.history.append((op, id))
+
+    def pushKeyForId(self, id):
+        path = "/"
+
+        try:
+            prefix, id = id.split("|", 1)
+            path += "%s/" % (prefix,)
+        except ValueError:
+            # id has no prefix
+            pass
+
+        path += "%s/" % (self.hostname,)
+        if id:
+            path += "%s/" % (id,)
+        return path
+
+
+    def send(self, id):
+        self.history.append(id)
+
 
     def reset(self):
         self.history = []
@@ -622,8 +705,8 @@ def disableMemcacheForTest(aTest):
 
     from twistedcaldav.memcacher import Memcacher
 
+    if not hasattr(config, "Memcached"):
+        config.setDefaults(DEFAULT_CONFIG)
     aTest.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
     aTest.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
     aTest.patch(Memcacher, "allowTestCache", True)
-
-

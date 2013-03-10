@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2009-2012 Apple Inc. All rights reserved.
+Copyright (c) 2009-2013 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -86,6 +86,15 @@ limitations under the License.
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
     <auto-schedule-mode>automatic</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>resource11</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>decline-always</auto-schedule-mode>
+    <auto-accept-group>group01</auto-accept-group>
   </record>
   <record repeat="10">
     <uid>group%02d</uid>

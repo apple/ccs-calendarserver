@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -434,7 +434,7 @@ class AddressBookObjectTest(unittest.TestCase):
         L{AddressBookObject} has instance attributes, C{_path} and C{_addressbook},
         which refer to its position in the filesystem and the addressbook in which
         it is contained, respectively.
-        """ 
+        """
         self.failUnless(
             isinstance(self.object1._path, FilePath),
             self.object1._path
@@ -443,6 +443,7 @@ class AddressBookObjectTest(unittest.TestCase):
             isinstance(self.object1._addressbook, AddressBook),
             self.object1._addressbook
         )
+
 
 
 class FileStorageTests(CommonTests, unittest.TestCase):
@@ -489,5 +490,3 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         ((yield self.addressbookUnderTest())._path.child("not-a-vcard")
          .createDirectory())
         yield self.test_addressbookObjects()
-
-

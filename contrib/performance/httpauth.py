@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import urlparse, urllib2
 
@@ -170,8 +171,8 @@ if __name__ == '__main__':
     d = agent.request(
         'DELETE', 'http://localhost:8008/calendars/users/user01/monkeys3/')
     def deleted(response):
-        print response.code
-        print response.headers
+        print(response.code)
+        print(response.headers)
         reactor.stop()
     d.addCallback(deleted)
     d.addErrback(err)

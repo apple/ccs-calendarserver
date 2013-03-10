@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.enterprise.dal.test.test_sqlsyntax -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@ try:
     cx_Oracle
 except ImportError:
     cx_Oracle = None
+
+
 
 class DALError(Exception):
     """
@@ -319,8 +321,8 @@ class ExpressionSyntax(Syntax):
     __le__ = comparison('<=')
     __add__ = comparison("+")
     __sub__ = comparison("-")
-    __div__= comparison("/")
-    __mul__= comparison("*")
+    __div__ = comparison("/")
+    __mul__ = comparison("*")
 
 
     def __nonzero__(self):
@@ -356,6 +358,8 @@ class ExpressionSyntax(Syntax):
 
     def Contains(self, other):
         return CompoundComparison(self, "like", CompoundComparison(Constant('%'), '||', CompoundComparison(Constant(other), '||', Constant('%'))))
+
+
 
 class FunctionInvocation(ExpressionSyntax):
     def __init__(self, function, *args):
@@ -445,6 +449,7 @@ class Function(object):
 
 
 Count = Function("count")
+Sum = Function("sum")
 Max = Function("max")
 Len = Function("character_length", "length")
 Upper = Function("upper")
@@ -772,22 +777,27 @@ class ColumnSyntax(ExpressionSyntax):
         return self.model.table.name + '.' + name
 
 
+
 class ResultAliasSyntax(ExpressionSyntax):
     
     def __init__(self, expression, alias=None):
         self.expression = expression
         self.alias = alias
 
+
     def aliasName(self, queryGenerator):
         if self.alias is None:
             self.alias = queryGenerator.nextGeneratedID()
         return self.alias
 
+
     def columnReference(self):
         return AliasReferenceSyntax(self)
 
+
     def allColumns(self):
         return self.expression.allColumns()
+
 
     def subSQL(self, queryGenerator, allTables):
         result = SQLFragment()
@@ -796,16 +806,20 @@ class ResultAliasSyntax(ExpressionSyntax):
         return result
 
 
+
 class AliasReferenceSyntax(ExpressionSyntax):
     
     def __init__(self, resultAlias):
         self.resultAlias = resultAlias
 
+
     def allColumns(self):
         return self.resultAlias.allColumns()
 
+
     def subSQL(self, queryGenerator, allTables):
         return SQLFragment(self.resultAlias.aliasName(queryGenerator))
+
 
 
 class AliasedColumnSyntax(ColumnSyntax):
@@ -890,9 +904,9 @@ class CompoundComparison(Comparison):
 
 
     def subSQL(self, queryGenerator, allTables):
-        if ( queryGenerator.dialect == ORACLE_DIALECT
+        if (queryGenerator.dialect == ORACLE_DIALECT
              and isinstance(self.b, Constant) and self.b.value == ''
-             and self.op in ('=', '!=') ):
+             and self.op in ('=', '!=')):
             return NullComparison(self.a, self.op).subSQL(queryGenerator, allTables)
         stmt = SQLFragment()
         result = self._subexpression(self.a, queryGenerator, allTables)
@@ -933,6 +947,7 @@ class _AllColumns(NamedValue):
 
     def __init__(self):
         self.name = "*"
+
 
     def allColumns(self):
         return []
@@ -1006,6 +1021,7 @@ class Tuple(ExpressionSyntax):
         return self.columns
 
 
+
 class SetExpression(object):
     """
     A UNION, INTERSECT, or EXCEPT construct used inside a SELECT.
@@ -1034,6 +1050,7 @@ class SetExpression(object):
         if self.optype not in (None, SetExpression.OPTYPE_ALL, SetExpression.OPTYPE_DISTINCT,):
             raise DALError("Must have either 'all' or 'distinct' in a set expression")
 
+
     def subSQL(self, queryGenerator, allTables):
         result = SQLFragment()
         for select in self.selects:
@@ -1045,8 +1062,11 @@ class SetExpression(object):
             result.append(select.subSQL(queryGenerator, allTables))
         return result
 
+
     def allColumns(self):
         return []
+
+
 
 class Union(SetExpression):
     """
@@ -1055,12 +1075,16 @@ class Union(SetExpression):
     def setOpSQL(self, queryGenerator):
         return SQLFragment(" UNION ")
 
+
+
 class Intersect(SetExpression):
     """
     An INTERSECT construct used inside a SELECT.
     """
     def setOpSQL(self, queryGenerator):
         return SQLFragment(" INTERSECT ")
+
+
 
 class Except(SetExpression):
     """
@@ -1073,6 +1097,8 @@ class Except(SetExpression):
             return SQLFragment(" MINUS ")
         else:
             raise NotImplementedError("Unsupported dialect")
+
+
 
 class Select(_Statement):
     """
@@ -1112,6 +1138,7 @@ class Select(_Statement):
         if isinstance(self.From, Select):
             if self.From.As is None:
                 self.From.As = ""
+
 
     def __eq__(self, other):
         """
@@ -1220,6 +1247,7 @@ class Select(_Statement):
             for column in self.columns.columns:
                 yield column
 
+
     def tables(self):
         """
         Determine the tables used by the result columns.
@@ -1236,6 +1264,7 @@ class Select(_Statement):
                 tables.add(table.model)
             return [TableSyntax(table) for table in tables]
         
+
 
 def _commaJoined(stmts):
     first = True
@@ -1645,6 +1674,7 @@ class Savepoint(_LockingStatement):
         return SQLFragment('savepoint %s' % (self.name,))
 
 
+
 class RollbackToSavepoint(_LockingStatement):
     """
     An SQL 'rollback to savepoint' statement.
@@ -1656,6 +1686,7 @@ class RollbackToSavepoint(_LockingStatement):
 
     def _toSQL(self, queryGenerator):
         return SQLFragment('rollback to savepoint %s' % (self.name,))
+
 
 
 class ReleaseSavepoint(_LockingStatement):
@@ -1803,4 +1834,3 @@ utcNowSQL = NamedValue("CURRENT_TIMESTAMP at time zone 'UTC'")
 # (Although this is a special keyword in a CREATE statement, in an INSERT it
 # behaves like an expression to the best of my knowledge.)
 default = NamedValue('default')
-

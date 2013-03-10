@@ -1,7 +1,7 @@
 # -*- test-case-name: twext.web2.test.test_http_headers -*-
 ##
 # Copyright (c) 2008 Twisted Matrix Laboratories.
-# Copyright (c) 2010-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,7 @@
 # SOFTWARE.
 #
 ##
+from __future__ import print_function
 
 """
 HTTP header representation, parsing, and serialization.
@@ -33,8 +34,8 @@ import base64
 import re
 
 def dashCapitalize(s):
-    ''' Capitalize a string, making sure to treat - as a word seperator '''
-    return '-'.join([ x.capitalize() for x in s.split('-')])
+    ''' Capitalize a string, making sure to treat - as a word separator '''
+    return '-'.join([x.capitalize() for x in s.split('-')])
 
 # datetime parsing and formatting
 weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -50,11 +51,14 @@ header_case_mapping = {}
 
 def casemappingify(d):
     global header_case_mapping
-    newd = dict([(key.lower(),key) for key in d.keys()])
+    newd = dict([(key.lower(), key) for key in d.keys()])
     header_case_mapping.update(newd)
 
+
+
 def lowerify(d):
-    return dict([(key.lower(),value) for key,value in d.items()])
+    return dict([(key.lower(), value) for key, value in d.items()])
+
 
 
 class HeaderHandler(object):
@@ -77,6 +81,7 @@ class HeaderHandler(object):
         if generators:
             self.HTTPGenerators.update(generators)
 
+
     def parse(self, name, header):
         """
         Parse the given header based on its given name.
@@ -96,14 +101,15 @@ class HeaderHandler(object):
 
         try:
             for p in parser:
-                # print "Parsing %s: %s(%s)" % (name, repr(p), repr(h))
+                # print("Parsing %s: %s(%s)" % (name, repr(p), repr(h)))
                 header = p(header)
                 # if isinstance(h, types.GeneratorType):
                 #     h=list(h)
         except ValueError:
-            header=None
+            header = None
 
         return header
+
 
     def generate(self, name, header):
         """
@@ -120,14 +126,15 @@ class HeaderHandler(object):
         generator = self.HTTPGenerators.get(name, None)
 
         if generator is None:
-            # print self.generators
+            # print(self.generators)
             raise ValueError("No header generator for header '%s', either add one or use setHeaderRaw." % (name,))
 
         for g in generator:
             header = g(header)
 
-        #self._raw_headers[name] = h
+        # self._raw_headers[name] = h
         return header
+
 
     def updateParsers(self, parsers):
         """Update en masse the parser maps.
@@ -137,6 +144,7 @@ class HeaderHandler(object):
         """
         casemappingify(parsers)
         self.HTTPParsers.update(lowerify(parsers))
+
 
     def addParser(self, name, value):
         """Add an individual parser chain for the given header.
@@ -149,6 +157,7 @@ class HeaderHandler(object):
         """
         self.updateParsers({name: value})
 
+
     def updateGenerators(self, generators):
         """Update en masse the generator maps.
 
@@ -157,6 +166,7 @@ class HeaderHandler(object):
         """
         casemappingify(generators)
         self.HTTPGenerators.update(lowerify(generators))
+
 
     def addGenerators(self, name, value):
         """Add an individual generator chain for the given header.
@@ -169,6 +179,7 @@ class HeaderHandler(object):
         """
         self.updateGenerators({name: value})
 
+
     def update(self, parsers, generators):
         """Conveniently update parsers and generators all at once.
         """
@@ -179,7 +190,7 @@ class HeaderHandler(object):
 DefaultHTTPHandler = HeaderHandler()
 
 
-## HTTP DateTime parser
+# # HTTP DateTime parser
 def parseDateTime(dateString):
     """Convert an HTTP date string (one of three formats) to seconds since epoch."""
     parts = dateString.split()
@@ -187,7 +198,7 @@ def parseDateTime(dateString):
     if not parts[0][0:3].lower() in weekdayname_lower:
         # Weekday is stupid. Might have been omitted.
         try:
-            return parseDateTime("Sun, "+dateString)
+            return parseDateTime("Sun, " + dateString)
         except ValueError:
             # Guess not.
             pass
@@ -209,7 +220,7 @@ def parseDateTime(dateString):
         # Two digit year, yucko.
         day, month, year = parts[1].split('-')
         time = parts[2]
-        year=int(year)
+        year = int(year)
         if year < 69:
             year = year + 2000
         elif year < 100:
@@ -231,15 +242,17 @@ def parseDateTime(dateString):
     return int(timegm((year, month, day, hour, min, sec)))
 
 
+
 ##### HTTP tokenizer
 class Token(str):
-    __slots__=[]
+    __slots__ = []
     tokens = {}
     def __new__(self, char):
         token = Token.tokens.get(char)
         if token is None:
             Token.tokens[char] = token = str.__new__(self, char)
         return token
+
 
     def __repr__(self):
         return "Token(%s)" % str.__repr__(self)
@@ -265,8 +278,8 @@ def tokenize(header, foldCase=True):
     Takes a raw header value (list of strings), and
     Returns a generator of strings and Token class instances.
     """
-    tokens=http_tokens
-    ctls=http_ctls
+    tokens = http_tokens
+    ctls = http_ctls
 
     string = ",".join(header)
     start = 0
@@ -280,15 +293,15 @@ def tokenize(header, foldCase=True):
         if quoted:
             if qpair:
                 qpair = False
-                qstring = qstring+string[start:cur-1]+x
-                start = cur+1
+                qstring = qstring + string[start:cur - 1] + x
+                start = cur + 1
             elif x == '\\':
                 qpair = True
             elif x == '"':
                 quoted = False
-                yield qstring+string[start:cur]
-                qstring=None
-                start = cur+1
+                yield qstring + string[start:cur]
+                qstring = None
+                start = cur + 1
         elif x in tokens:
             if start != cur:
                 if foldCase:
@@ -296,7 +309,7 @@ def tokenize(header, foldCase=True):
                 else:
                     yield string[start:cur]
 
-            start = cur+1
+            start = cur + 1
             if x == '"':
                 quoted = True
                 qstring = ""
@@ -315,18 +328,20 @@ def tokenize(header, foldCase=True):
                 inSpaces = False
 
             inSpaces = False
-        cur = cur+1
+        cur = cur + 1
 
     if qpair:
-        raise ValueError, "Missing character after '\\'"
+        raise ValueError("Missing character after '\\'")
     if quoted:
-        raise ValueError, "Missing end quote"
+        raise ValueError("Missing end quote")
 
     if start != cur:
         if foldCase:
             yield string[start:cur].lower()
         else:
             yield string[start:cur]
+
+
 
 def split(seq, delim):
     """The same as str.split but works on arbitrary sequences.
@@ -350,6 +365,7 @@ def split(seq, delim):
 #         return -1
 
 
+
 def filterTokens(seq):
     """Filter out instances of Token, leaving only a list of strings.
 
@@ -361,30 +377,38 @@ def filterTokens(seq):
     hurt anything, in any case.
     """
 
-    l=[]
+    l = []
     for x in seq:
         if not isinstance(x, Token):
             l.append(x)
     return l
 
+
+
 ##### parser utilities:
 def checkSingleToken(tokens):
     if len(tokens) != 1:
-        raise ValueError, "Expected single token, not %s." % (tokens,)
+        raise ValueError("Expected single token, not %s." % (tokens,))
     return tokens[0]
+
+
 
 def parseKeyValue(val):
     if len(val) == 1:
-        return val[0],None
+        return val[0], None
     elif len(val) == 3 and val[1] == Token('='):
-        return val[0],val[2]
-    raise ValueError, "Expected key or key=value, but got %s." % (val,)
+        return val[0], val[2]
+    raise ValueError("Expected key or key=value, but got %s." % (val,))
+
+
 
 def parseArgs(field):
-    args=split(field, Token(';'))
+    args = split(field, Token(';'))
     val = args.next()
     args = [parseKeyValue(arg) for arg in args]
-    return val,args
+    return val, args
+
+
 
 def listParser(fun):
     """Return a function which applies 'fun' to every element in the
@@ -397,10 +421,14 @@ def listParser(fun):
 
     return listParserHelper
 
+
+
 def last(seq):
     """Return seq[-1]"""
 
     return seq[-1]
+
+
 
 ##### Generation utilities
 def quoteString(s):
@@ -413,6 +441,8 @@ def quoteString(s):
     """
     return '"%s"' % s.replace('\\', '\\\\').replace('"', '\\"')
 
+
+
 def listGenerator(fun):
     """Return a function which applies 'fun' to every element in
     the given list, then joins the result with generateList"""
@@ -421,8 +451,12 @@ def listGenerator(fun):
 
     return listGeneratorHelper
 
+
+
 def generateList(seq):
     return ", ".join(seq)
+
+
 
 def singleHeader(item):
     return [item]
@@ -456,8 +490,10 @@ def generateKeyValues(parameters):
     return ";".join(l)
 
 
+
 class MimeType(object):
-    def fromString(klass, mimeTypeString):
+
+    def fromString(cls, mimeTypeString):
         """Generate a MimeType object from the given string.
 
         @param mimeTypeString: The mimetype to parse
@@ -483,27 +519,82 @@ class MimeType(object):
         if kwargs:
             self.params.update(kwargs)
 
+
     def __eq__(self, other):
-        if not isinstance(other, MimeType): return NotImplemented
+        if not isinstance(other, MimeType):
+            return NotImplemented
         return (self.mediaType == other.mediaType and
                 self.mediaSubtype == other.mediaSubtype and
                 self.params == other.params)
 
+
     def __ne__(self, other):
         return not self.__eq__(other)
+
 
     def __repr__(self):
         return "MimeType(%r, %r, %r)" % (self.mediaType, self.mediaSubtype, self.params)
 
+
     def __hash__(self):
-        return hash(self.mediaType)^hash(self.mediaSubtype)^hash(tuple(self.params.iteritems()))
+        return hash(self.mediaType) ^ hash(self.mediaSubtype) ^ hash(tuple(self.params.iteritems()))
+
+
+
+class MimeDisposition(object):
+
+    def fromString(cls, dispositionString):
+        """Generate a MimeDisposition object from the given string.
+
+        @param dispositionString: The disposition to parse
+
+        @return: L{MimeDisposition}
+        """
+        return DefaultHTTPHandler.parse('content-disposition', [dispositionString])
+
+    fromString = classmethod(fromString)
+
+    def __init__(self, dispositionType, params={}, **kwargs):
+        """
+        @type mediaType: C{str}
+
+        @type mediaSubtype: C{str}
+
+        @type params: C{dict}
+        """
+        self.dispositionType = dispositionType
+        self.params = dict(params)
+
+        if kwargs:
+            self.params.update(kwargs)
+
+
+    def __eq__(self, other):
+        if not isinstance(other, MimeDisposition):
+            return NotImplemented
+        return (self.dispositionType == other.dispositionType and
+                self.params == other.params)
+
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
+    def __repr__(self):
+        return "MimeDisposition(%r, %r)" % (self.dispositionType, self.params)
+
+
+    def __hash__(self):
+        return hash(self.dispositionType) ^ hash(tuple(self.params.iteritems()))
+
+
 
 ##### Specific header parsers.
 def parseAccept(field):
-    type,args = parseArgs(field)
+    atype, args = parseArgs(field)
 
-    if len(type) != 3 or type[1] != Token('/'):
-        raise ValueError, "MIME Type "+str(type)+" invalid."
+    if len(atype) != 3 or atype[1] != Token('/'):
+        raise ValueError("MIME Type " + str(atype) + " invalid.")
 
     # okay, this spec is screwy. A 'q' parameter is used as the separator
     # between MIME parameters and (as yet undefined) additional HTTP
@@ -512,43 +603,49 @@ def parseAccept(field):
     num = 0
     for arg in args:
         if arg[0] == 'q':
-            mimeparams=tuple(args[0:num])
-            params=args[num:]
+            mimeparams = tuple(args[0:num])
+            params = args[num:]
             break
         num = num + 1
     else:
-        mimeparams=tuple(args)
-        params=[]
+        mimeparams = tuple(args)
+        params = []
 
     # Default values for parameters:
     qval = 1.0
 
     # Parse accept parameters:
     for param in params:
-        if param[0] =='q':
+        if param[0] == 'q':
             qval = float(param[1])
         else:
             # Warn? ignored parameter.
             pass
 
-    ret = MimeType(type[0],type[2],mimeparams),qval
+    ret = MimeType(atype[0], atype[2], mimeparams), qval
     return ret
 
-def parseAcceptQvalue(field):
-    type,args=parseArgs(field)
 
-    type = checkSingleToken(type)
+
+def parseAcceptQvalue(field):
+    atype, args = parseArgs(field)
+
+    atype = checkSingleToken(atype)
 
     qvalue = 1.0 # Default qvalue is 1
     for arg in args:
         if arg[0] == 'q':
             qvalue = float(arg[1])
-    return type,qvalue
+    return atype, qvalue
+
+
 
 def addDefaultCharset(charsets):
     if charsets.get('*') is None and charsets.get('iso-8859-1') is None:
         charsets['iso-8859-1'] = 1.0
     return charsets
+
+
 
 def addDefaultEncoding(encodings):
     if encodings.get('*') is None and encodings.get('identity') is None:
@@ -558,25 +655,45 @@ def addDefaultEncoding(encodings):
     return encodings
 
 
+
 def parseContentType(header):
     # Case folding is disabled for this header, because of use of
     # Content-Type: multipart/form-data; boundary=CaSeFuLsTuFf
-    # So, we need to explicitly .lower() the type/subtype and arg keys.
+    # So, we need to explicitly .lower() the ctype and arg keys.
 
-    type,args = parseArgs(header)
+    ctype, args = parseArgs(header)
 
-    if len(type) != 3 or type[1] != Token('/'):
-        raise ValueError, "MIME Type "+str(type)+" invalid."
+    if len(ctype) != 3 or ctype[1] != Token('/'):
+        raise ValueError("MIME Type " + str(ctype) + " invalid.")
 
     args = [(kv[0].lower(), kv[1]) for kv in args]
 
-    return MimeType(type[0].lower(), type[2].lower(), tuple(args))
+    return MimeType(ctype[0].lower(), ctype[2].lower(), tuple(args))
+
+
+
+def parseContentDisposition(header):
+    # Case folding is disabled for this header, because of use of
+    # So, we need to explicitly .lower() the dtype and arg keys.
+
+    dtype, args = parseArgs(header)
+
+    if len(dtype) != 1:
+        raise ValueError("Content-Disposition " + str(dtype) + " invalid.")
+
+    args = [(kv[0].lower(), kv[1]) for kv in args]
+
+    return MimeDisposition(dtype[0].lower(), tuple(args))
+
+
 
 def parseContentMD5(header):
     try:
         return base64.decodestring(header)
-    except Exception,e:
+    except Exception, e:
         raise ValueError(e)
+
+
 
 def parseContentRange(header):
     """Parse a content-range header into (kind, start, end, realLength).
@@ -589,7 +706,7 @@ def parseContentRange(header):
         raise ValueError("a range of type %r is not supported")
     startend, realLength = other.split("/")
     if startend.strip() == '*':
-        start,end=None,None
+        start, end = None, None
     else:
         start, end = map(int, startend.split("-"))
     if realLength == "*":
@@ -598,11 +715,15 @@ def parseContentRange(header):
         realLength = int(realLength)
     return (kind, start, end, realLength)
 
-def parseExpect(field):
-    type,args=parseArgs(field)
 
-    type=parseKeyValue(type)
-    return (type[0], (lambda *args:args)(type[1], *args))
+
+def parseExpect(field):
+    etype, args = parseArgs(field)
+
+    etype = parseKeyValue(etype)
+    return (etype[0], (lambda *args: args)(etype[1], *args))
+
+
 
 def parseExpires(header):
     # """HTTP/1.1 clients and caches MUST treat other invalid date formats,
@@ -613,6 +734,8 @@ def parseExpires(header):
     except ValueError:
         return 0
 
+
+
 def parseIfModifiedSince(header):
     # Ancient versions of netscape and *current* versions of MSIE send
     #   If-Modified-Since: Thu, 05 Aug 2004 12:57:27 GMT; length=123
@@ -622,30 +745,34 @@ def parseIfModifiedSince(header):
     # So, we'll just strip off everything after a ';'.
     return parseDateTime(header.split(';', 1)[0])
 
+
+
 def parseIfRange(headers):
     try:
         return ETag.parse(tokenize(headers))
     except ValueError:
         return parseDateTime(last(headers))
 
-def parseRange(range):
-    range = list(range)
-    if len(range) < 3 or range[1] != Token('='):
-        raise ValueError("Invalid range header format: %s" %(range,))
 
-    type=range[0]
-    if type != 'bytes':
-        raise ValueError("Unknown range unit: %s." % (type,))
-    rangeset=split(range[2:], Token(','))
+
+def parseRange(crange):
+    crange = list(crange)
+    if len(crange) < 3 or crange[1] != Token('='):
+        raise ValueError("Invalid range header format: %s" % (crange,))
+
+    rtype = crange[0]
+    if rtype != 'bytes':
+        raise ValueError("Unknown range unit: %s." % (rtype,))
+    rangeset = split(crange[2:], Token(','))
     ranges = []
 
     for byterangespec in rangeset:
         if len(byterangespec) != 1:
-            raise ValueError("Invalid range header format: %s" % (range,))
-        start,end=byterangespec[0].split('-')
+            raise ValueError("Invalid range header format: %s" % (crange,))
+        start, end = byterangespec[0].split('-')
 
         if not start and not end:
-            raise ValueError("Invalid range header format: %s" % (range,))
+            raise ValueError("Invalid range header format: %s" % (crange,))
 
         if start:
             start = int(start)
@@ -658,9 +785,11 @@ def parseRange(range):
             end = None
 
         if start and end and start > end:
-            raise ValueError("Invalid range header, start > end: %s" % (range,))
-        ranges.append((start,end))
-    return type,ranges
+            raise ValueError("Invalid range header, start > end: %s" % (crange,))
+        ranges.append((start, end))
+    return rtype, ranges
+
+
 
 def parseRetryAfter(header):
     try:
@@ -671,6 +800,8 @@ def parseRetryAfter(header):
         return parseDateTime(header)
 
 # WWW-Authenticate and Authorization
+
+
 
 def parseWWWAuthenticate(tokenized):
     headers = []
@@ -715,35 +846,52 @@ def parseWWWAuthenticate(tokenized):
 
     return headers
 
+
+
 def parseAuthorization(header):
     scheme, rest = header.split(' ', 1)
     # this header isn't tokenized because it may eat characters
     # in the unquoted base64 encoded credentials
     return scheme.lower(), rest
 
+
+
+def parsePrefer(field):
+    etype, args = parseArgs(field)
+    etype = parseKeyValue(etype)
+    return (etype[0], etype[1], args)
+
+
+
 #### Header generators
 def generateAccept(accept):
-    mimeType,q = accept
+    mimeType, q = accept
 
-    out="%s/%s"%(mimeType.mediaType, mimeType.mediaSubtype)
+    out = "%s/%s" % (mimeType.mediaType, mimeType.mediaSubtype)
     if mimeType.params:
-        out+=';'+generateKeyValues(mimeType.params.iteritems())
+        out += ';' + generateKeyValues(mimeType.params.iteritems())
 
     if q != 1.0:
-        out+=(';q=%.3f' % (q,)).rstrip('0').rstrip('.')
+        out += (';q=%.3f' % (q,)).rstrip('0').rstrip('.')
 
     return out
+
+
 
 def removeDefaultEncoding(seq):
     for item in seq:
         if item[0] != 'identity' or item[1] != .0001:
             yield item
 
+
+
 def generateAcceptQvalue(keyvalue):
     if keyvalue[1] == 1.0:
         return "%s" % keyvalue[0:1]
     else:
         return ("%s;q=%.3f" % keyvalue).rstrip('0').rstrip('.')
+
+
 
 def parseCacheControl(kv):
     k, v = parseKeyValue(kv)
@@ -763,6 +911,8 @@ def parseCacheControl(kv):
             v = [field.strip().lower() for field in v.split(',')]
     return k, v
 
+
+
 def generateCacheControl((k, v)):
     if v is None:
         return str(k)
@@ -771,32 +921,38 @@ def generateCacheControl((k, v)):
             # quoted list of values
             v = quoteString(generateList(
                 [header_case_mapping.get(name) or dashCapitalize(name) for name in v]))
-        return '%s=%s' % (k,v)
+        return '%s=%s' % (k, v)
+
+
 
 def generateContentRange(tup):
-    """tup is (type, start, end, len)
-    len can be None.
+    """tup is (rtype, start, end, rlen)
+    rlen can be None.
     """
-    type, start, end, len = tup
-    if len == None:
-        len = '*'
+    rtype, start, end, rlen = tup
+    if rlen == None:
+        rlen = '*'
     else:
-        len = int(len)
+        rlen = int(rlen)
     if start == None and end == None:
         startend = '*'
     else:
         startend = '%d-%d' % (start, end)
 
-    return '%s %s/%s' % (type, startend, len)
+    return '%s %s/%s' % (rtype, startend, rlen)
+
+
 
 def generateDateTime(secSinceEpoch):
     """Convert seconds since epoch to HTTP datetime string."""
-    year, month, day, hh, mm, ss, wd, y, z = time.gmtime(secSinceEpoch)
+    year, month, day, hh, mm, ss, wd, _ignore_y, _ignore_z = time.gmtime(secSinceEpoch)
     s = "%s, %02d %3s %4d %02d:%02d:%02d GMT" % (
         weekdayname[wd],
         day, monthname[month], year,
         hh, mm, ss)
     return s
+
+
 
 def generateExpect(item):
     if item[1][0] is None:
@@ -804,33 +960,49 @@ def generateExpect(item):
     else:
         out = '%s=%s' % (item[0], item[1][0])
     if len(item[1]) > 1:
-        out += ';'+generateKeyValues(item[1][1:])
+        out += ';' + generateKeyValues(item[1][1:])
     return out
 
-def generateRange(range):
+
+
+def generateRange(crange):
     def noneOr(s):
         if s is None:
             return ''
         return s
 
-    type,ranges=range
+    rtype, ranges = crange
 
-    if type != 'bytes':
-        raise ValueError("Unknown range unit: "+type+".")
+    if rtype != 'bytes':
+        raise ValueError("Unknown range unit: " + rtype + ".")
 
-    return (type+'='+
+    return (rtype + '=' +
             ','.join(['%s-%s' % (noneOr(startend[0]), noneOr(startend[1]))
                       for startend in ranges]))
+
+
 
 def generateRetryAfter(when):
     # always generate delta seconds format
     return str(int(when - time.time()))
 
+
+
 def generateContentType(mimeType):
-    out="%s/%s"%(mimeType.mediaType, mimeType.mediaSubtype)
+    out = "%s/%s" % (mimeType.mediaType, mimeType.mediaSubtype)
     if mimeType.params:
-        out+=';'+generateKeyValues(mimeType.params.iteritems())
+        out += ';' + generateKeyValues(mimeType.params.iteritems())
     return out
+
+
+
+def generateContentDisposition(disposition):
+    out = disposition.dispositionType
+    if disposition.params:
+        out += ';' + generateKeyValues(disposition.params.iteritems())
+    return out
+
+
 
 def generateIfRange(dateOrETag):
     if isinstance(dateOrETag, ETag):
@@ -839,6 +1011,8 @@ def generateIfRange(dateOrETag):
         return generateDateTime(dateOrETag)
 
 # WWW-Authenticate and Authorization
+
+
 
 def generateWWWAuthenticate(headers):
     _generated = []
@@ -850,7 +1024,7 @@ def generateWWWAuthenticate(headers):
 
         try:
             l = []
-            for k,v in dict(challenge).iteritems():
+            for k, v in dict(challenge).iteritems():
                 l.append("%s=%s" % (k, quoteString(v)))
 
             _generated.append("%s %s" % (scheme, ", ".join(l)))
@@ -859,8 +1033,23 @@ def generateWWWAuthenticate(headers):
 
     return _generated
 
+
+
 def generateAuthorization(seq):
     return [' '.join(seq)]
+
+
+
+def generatePrefer(items):
+    key, value, args = items
+    if value is None:
+        out = '%s' % (key,)
+    else:
+        out = '%s=%s' % (key, value)
+    if args:
+        out += ';' + generateKeyValues(args)
+    return out
+
 
 
 ####
@@ -868,6 +1057,7 @@ class ETag(object):
     def __init__(self, tag, weak=False):
         self.tag = str(tag)
         self.weak = weak
+
 
     def match(self, other, strongCompare):
         # Sec 13.3.
@@ -885,17 +1075,21 @@ class ETag(object):
             return False
         return True
 
+
     def __eq__(self, other):
         return isinstance(other, ETag) and other.tag == self.tag and other.weak == self.weak
+
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
+
     def __repr__(self):
         return "Etag(%r, weak=%r)" % (self.tag, self.weak)
 
+
     def parse(tokens):
-        tokens=tuple(tokens)
+        tokens = tuple(tokens)
         if len(tokens) == 1 and not isinstance(tokens[0], Token):
             return ETag(tokens[0])
 
@@ -905,56 +1099,72 @@ class ETag(object):
 
         raise ValueError("Invalid ETag.")
 
-    parse=staticmethod(parse)
+    parse = staticmethod(parse)
 
     def generate(self):
         if self.weak:
-            return 'W/'+quoteString(self.tag)
+            return 'W/' + quoteString(self.tag)
         else:
             return quoteString(self.tag)
 
+
+
 def parseStarOrETag(tokens):
-    tokens=tuple(tokens)
+    tokens = tuple(tokens)
     if tokens == ('*',):
         return '*'
     else:
         return ETag.parse(tokens)
 
+
+
 def generateStarOrETag(etag):
-    if etag=='*':
+    if etag == '*':
         return etag
     else:
         return etag.generate()
+
+
 
 #### Cookies. Blech!
 class Cookie(object):
     # __slots__ = ['name', 'value', 'path', 'domain', 'ports', 'expires', 'discard', 'secure', 'comment', 'commenturl', 'version']
 
     def __init__(self, name, value, path=None, domain=None, ports=None, expires=None, discard=False, secure=False, comment=None, commenturl=None, version=0):
-        self.name=name
-        self.value=value
-        self.path=path
-        self.domain=domain
-        self.ports=ports
-        self.expires=expires
-        self.discard=discard
-        self.secure=secure
-        self.comment=comment
-        self.commenturl=commenturl
-        self.version=version
+        self.name = name
+        self.value = value
+        self.path = path
+        self.domain = domain
+        self.ports = ports
+        self.expires = expires
+        self.discard = discard
+        self.secure = secure
+        self.comment = comment
+        self.commenturl = commenturl
+        self.version = version
+
 
     def __repr__(self):
-        s="Cookie(%r=%r" % (self.name, self.value)
-        if self.path is not None: s+=", path=%r" % (self.path,)
-        if self.domain is not None: s+=", domain=%r" % (self.domain,)
-        if self.ports is not None: s+=", ports=%r" % (self.ports,)
-        if self.expires is not None: s+=", expires=%r" % (self.expires,)
-        if self.secure is not False: s+=", secure=%r" % (self.secure,)
-        if self.comment is not None: s+=", comment=%r" % (self.comment,)
-        if self.commenturl is not None: s+=", commenturl=%r" % (self.commenturl,)
-        if self.version != 0: s+=", version=%r" % (self.version,)
-        s+=")"
+        s = "Cookie(%r=%r" % (self.name, self.value)
+        if self.path is not None:
+            s += ", path=%r" % (self.path,)
+        if self.domain is not None:
+            s += ", domain=%r" % (self.domain,)
+        if self.ports is not None:
+            s += ", ports=%r" % (self.ports,)
+        if self.expires is not None:
+            s += ", expires=%r" % (self.expires,)
+        if self.secure is not False:
+            s += ", secure=%r" % (self.secure,)
+        if self.comment is not None:
+            s += ", comment=%r" % (self.comment,)
+        if self.commenturl is not None:
+            s += ", commenturl=%r" % (self.commenturl,)
+        if self.version != 0:
+            s += ", version=%r" % (self.version,)
+        s += ")"
         return s
+
 
     def __eq__(self, other):
         return (isinstance(other, Cookie) and
@@ -967,8 +1177,10 @@ class Cookie(object):
                 other.commenturl == self.commenturl and
                 other.version == self.version)
 
+
     def __ne__(self, other):
         return not self.__eq__(other)
+
 
 
 def parseCookie(headers):
@@ -987,7 +1199,7 @@ def parseCookie(headers):
     header = ';'.join(headers)
     if header[0:8].lower() == "$version":
         # RFC2965 cookie
-        h=tokenize([header], foldCase=False)
+        h = tokenize([header], foldCase=False)
         r_cookies = split(h, Token(','))
         for r_cookie in r_cookies:
             last_cookie = None
@@ -1000,20 +1212,20 @@ def parseCookie(headers):
                     (name,), = nameval
                     value = None
 
-                name=name.lower()
+                name = name.lower()
                 if name == '$version':
                     continue
                 if name[0] == '$':
                     if last_cookie is not None:
                         if name == '$path':
-                            last_cookie.path=value
+                            last_cookie.path = value
                         elif name == '$domain':
-                            last_cookie.domain=value
+                            last_cookie.domain = value
                         elif name == '$port':
                             if value is None:
                                 last_cookie.ports = ()
                             else:
-                                last_cookie.ports=tuple([int(s) for s in value.split(',')])
+                                last_cookie.ports = tuple([int(s) for s in value.split(',')])
                 else:
                     last_cookie = Cookie(name, value, version=1)
                     cookies.append(last_cookie)
@@ -1024,18 +1236,20 @@ def parseCookie(headers):
         # however.
         r_cookies = header.split(';')
         for r_cookie in r_cookies:
-            name,value = r_cookie.split('=', 1)
-            name=name.strip(' \t')
-            value=value.strip(' \t')
+            name, value = r_cookie.split('=', 1)
+            name = name.strip(' \t')
+            value = value.strip(' \t')
 
             cookies.append(Cookie(name, value))
 
     return cookies
 
-cookie_validname = "[^"+re.escape(http_tokens+http_ctls)+"]*$"
+cookie_validname = "[^" + re.escape(http_tokens + http_ctls) + "]*$"
 cookie_validname_re = re.compile(cookie_validname)
-cookie_validvalue = cookie_validname+'|"([^"]|\\\\")*"$'
+cookie_validvalue = cookie_validname + '|"([^"]|\\\\")*"$'
 cookie_validvalue_re = re.compile(cookie_validvalue)
+
+
 
 def generateCookie(cookies):
     # There's a fundamental problem with the two cookie specifications.
@@ -1094,7 +1308,7 @@ def generateCookie(cookies):
                 if cookie_validname_re.match(cookie.name) is None:
                     continue
 
-                value=cookie.value
+                value = cookie.value
                 if cookie_validvalue_re.match(cookie.value) is None:
                     value = quoteString(value)
 
@@ -1114,6 +1328,8 @@ def generateCookie(cookies):
                     str_cookies.append("$Port=%s" % quoteString(",".join([str(x) for x in cookie.ports])))
         return ';'.join(str_cookies)
 
+
+
 def parseSetCookie(headers):
     setCookies = []
     for header in headers:
@@ -1122,15 +1338,15 @@ def parseSetCookie(headers):
             l = []
 
             for part in parts:
-                namevalue = part.split('=',1)
+                namevalue = part.split('=', 1)
                 if len(namevalue) == 1:
-                    name=namevalue[0]
-                    value=None
+                    name = namevalue[0]
+                    value = None
                 else:
-                    name,value=namevalue
-                    value=value.strip(' \t')
+                    name, value = namevalue
+                    value = value.strip(' \t')
 
-                name=name.strip(' \t')
+                name = name.strip(' \t')
 
                 l.append((name, value))
 
@@ -1140,6 +1356,8 @@ def parseSetCookie(headers):
             # but not the rest of Set-Cookies.
             pass
     return setCookies
+
+
 
 def parseSetCookie2(toks):
     outCookies = []
@@ -1152,6 +1370,8 @@ def parseSetCookie2(toks):
             pass
     return outCookies
 
+
+
 def makeCookieFromList(tup, netscapeFormat):
     name, value = tup[0]
     if name is None or value is None:
@@ -1161,7 +1381,7 @@ def makeCookieFromList(tup, netscapeFormat):
     cookie = Cookie(name, value)
     hadMaxAge = False
 
-    for name,value in tup[1:]:
+    for name, value in tup[1:]:
         name = name.lower()
 
         if value is None:
@@ -1195,6 +1415,7 @@ def makeCookieFromList(tup, netscapeFormat):
     return cookie
 
 
+
 def generateSetCookie(cookies):
     setCookies = []
     for cookie in cookies:
@@ -1210,6 +1431,8 @@ def generateSetCookie(cookies):
 
         setCookies.append('; '.join(out))
     return setCookies
+
+
 
 def generateSetCookie2(cookies):
     setCookies = []
@@ -1238,10 +1461,14 @@ def generateSetCookie2(cookies):
         setCookies.append('; '.join(out))
     return setCookies
 
+
+
 def parseDepth(depth):
     if depth not in ("0", "1", "infinity"):
         raise ValueError("Invalid depth header value: %s" % (depth,))
     return depth
+
+
 
 def parseOverWrite(overwrite):
     if overwrite == "F":
@@ -1250,11 +1477,15 @@ def parseOverWrite(overwrite):
         return True
     raise ValueError("Invalid overwrite header value: %s" % (overwrite,))
 
+
+
 def generateOverWrite(overwrite):
     if overwrite:
         return "T"
     else:
         return "F"
+
+
 
 def parseBrief(brief):
     # We accept upper or lower case
@@ -1263,6 +1494,8 @@ def parseBrief(brief):
     elif brief.upper() == "T":
         return True
     raise ValueError("Invalid brief header value: %s" % (brief,))
+
+
 
 def generateBrief(brief):
     # MS definition uses lower case
@@ -1308,12 +1541,15 @@ def generateBrief(brief):
 
 #     return accepts.get('*')
 
+
+
 # Headers object
 class __RecalcNeeded(object):
     def __repr__(self):
         return "<RecalcNeeded>"
 
 _RecalcNeeded = __RecalcNeeded()
+
 
 class Headers(object):
     """
@@ -1333,9 +1569,11 @@ class Headers(object):
             for key, value in rawHeaders.iteritems():
                 self.setRawHeaders(key, value)
 
+
     def _setRawHeaders(self, headers):
         self._raw_headers = headers
         self._headers = {}
+
 
     def _toParsed(self, name):
         r = self._raw_headers.get(name, None)
@@ -1344,6 +1582,7 @@ class Headers(object):
             self._headers[name] = h
         return h
 
+
     def _toRaw(self, name):
         h = self._headers.get(name, None)
         r = self.handler.generate(name, h)
@@ -1351,20 +1590,23 @@ class Headers(object):
             self._raw_headers[name] = r
         return r
 
+
     def hasHeader(self, name):
         """Does a header with the given name exist?"""
-        name=name.lower()
-        return self._raw_headers.has_key(name)
+        name = name.lower()
+        return name in self._raw_headers
+
 
     def getRawHeaders(self, name, default=None):
         """Returns a list of headers matching the given name as the raw string given."""
 
-        name=name.lower()
+        name = name.lower()
         raw_header = self._raw_headers.get(name, default)
         if raw_header is not _RecalcNeeded:
             return raw_header
 
         return self._toRaw(name)
+
 
     def getHeader(self, name, default=None):
         """Ret9urns the parsed representation of the given header.
@@ -1374,29 +1616,32 @@ class Headers(object):
 
         If the header doesn't exist, return default (or None if not specified)
         """
-        name=name.lower()
+        name = name.lower()
         parsed = self._headers.get(name, default)
         if parsed is not _RecalcNeeded:
             return parsed
         return self._toParsed(name)
+
 
     def setRawHeaders(self, name, value):
         """Sets the raw representation of the given header.
         Value should be a list of strings, each being one header of the
         given name.
         """
-        name=name.lower()
+        name = name.lower()
         self._raw_headers[name] = value
         self._headers[name] = _RecalcNeeded
+
 
     def setHeader(self, name, value):
         """Sets the parsed representation of the given header.
         Value should be a list of objects whose exact form depends
         on the header in question.
         """
-        name=name.lower()
+        name = name.lower()
         self._raw_headers[name] = _RecalcNeeded
         self._headers[name] = value
+
 
     def addRawHeader(self, name, value):
         """
@@ -1404,7 +1649,7 @@ class Headers(object):
         If it exists, add it as a separate header to output; do not
         replace anything.
         """
-        name=name.lower()
+        name = name.lower()
         raw_header = self._raw_headers.get(name)
         if raw_header is None:
             # No header yet
@@ -1416,35 +1661,41 @@ class Headers(object):
         raw_header.append(value)
         self._headers[name] = _RecalcNeeded
 
+
     def removeHeader(self, name):
         """Removes the header named."""
 
-        name=name.lower()
-        if self._raw_headers.has_key(name):
+        name = name.lower()
+        if name in self._raw_headers:
             del self._raw_headers[name]
             del self._headers[name]
 
+
     def __repr__(self):
-        return '<Headers: Raw: %s Parsed: %s>'% (self._raw_headers, self._headers)
+        return '<Headers: Raw: %s Parsed: %s>' % (self._raw_headers, self._headers)
+
 
     def canonicalNameCaps(self, name):
         """Return the name with the canonical capitalization, if known,
         otherwise, Caps-After-Dashes"""
         return header_case_mapping.get(name) or dashCapitalize(name)
 
+
     def getAllRawHeaders(self):
         """Return an iterator of key,value pairs of all headers
         contained in this object, as strings. The keys are capitalized
         in canonical capitalization."""
-        for k,v in self._raw_headers.iteritems():
+        for k, v in self._raw_headers.iteritems():
             if v is _RecalcNeeded:
                 v = self._toRaw(k)
             yield self.canonicalNameCaps(k), v
+
 
     def makeImmutable(self):
         """Make this header set immutable. All mutating operations will
         raise an exception."""
         self.setHeader = self.setRawHeaders = self.removeHeader = self._mutateRaise
+
 
     def _mutateRaise(self, *args):
         raise AttributeError("This header object is immutable as the headers have already been sent.")
@@ -1462,24 +1713,24 @@ iteritems = lambda x: x.iteritems()
 
 
 parser_general_headers = {
-    'Cache-Control':(tokenize, listParser(parseCacheControl), dict),
-    'Connection':(tokenize,filterTokens),
-    'Date':(last,parseDateTime),
-#    'Pragma':tokenize
-#    'Trailer':tokenize
-    'Transfer-Encoding':(tokenize,filterTokens),
-#    'Upgrade':tokenize
-#    'Via':tokenize,stripComment
-#    'Warning':tokenize
+    'Cache-Control': (tokenize, listParser(parseCacheControl), dict),
+    'Connection': (tokenize, filterTokens),
+    'Date': (last, parseDateTime),
+#    'Pragma': tokenize
+#    'Trailer': tokenize
+    'Transfer-Encoding': (tokenize, filterTokens),
+#    'Upgrade': tokenize
+#    'Via': tokenize,stripComment
+#    'Warning': tokenize
 }
 
 generator_general_headers = {
-    'Cache-Control':(iteritems, listGenerator(generateCacheControl), singleHeader),
-    'Connection':(generateList,singleHeader),
-    'Date':(generateDateTime,singleHeader),
+    'Cache-Control': (iteritems, listGenerator(generateCacheControl), singleHeader),
+    'Connection': (generateList, singleHeader),
+    'Date': (generateDateTime, singleHeader),
 #    'Pragma':
 #    'Trailer':
-    'Transfer-Encoding':(generateList,singleHeader),
+    'Transfer-Encoding': (generateList, singleHeader),
 #    'Upgrade':
 #    'Via':
 #    'Warning':
@@ -1488,104 +1739,106 @@ generator_general_headers = {
 parser_request_headers = {
     'Accept': (tokenize, listParser(parseAccept), dict),
     'Accept-Charset': (tokenize, listParser(parseAcceptQvalue), dict, addDefaultCharset),
-    'Accept-Encoding':(tokenize, listParser(parseAcceptQvalue), dict, addDefaultEncoding),
-    'Accept-Language':(tokenize, listParser(parseAcceptQvalue), dict),
+    'Accept-Encoding': (tokenize, listParser(parseAcceptQvalue), dict, addDefaultEncoding),
+    'Accept-Language': (tokenize, listParser(parseAcceptQvalue), dict),
     'Authorization': (last, parseAuthorization),
-    'Cookie':(parseCookie,),
-    'Expect':(tokenize, listParser(parseExpect), dict),
-    'From':(last,),
-    'Host':(last,),
-    'If-Match':(tokenize, listParser(parseStarOrETag), list),
-    'If-Modified-Since':(last, parseIfModifiedSince),
-    'If-None-Match':(tokenize, listParser(parseStarOrETag), list),
-    'If-Range':(parseIfRange,),
-    'If-Unmodified-Since':(last,parseDateTime),
-    'Max-Forwards':(last,int),
-    'Prefer':(tokenize, listParser(parseExpect), dict),     # Prefer like Expect
-#    'Proxy-Authorization':str, # what is "credentials"
-    'Range':(tokenize, parseRange),
-    'Referer':(last,str), # TODO: URI object?
-    'TE':(tokenize, listParser(parseAcceptQvalue), dict),
-    'User-Agent':(last,str),
+    'Cookie': (parseCookie,),
+    'Expect': (tokenize, listParser(parseExpect), dict),
+    'From': (last,),
+    'Host': (last,),
+    'If-Match': (tokenize, listParser(parseStarOrETag), list),
+    'If-Modified-Since': (last, parseIfModifiedSince),
+    'If-None-Match': (tokenize, listParser(parseStarOrETag), list),
+    'If-Range': (parseIfRange,),
+    'If-Unmodified-Since': (last, parseDateTime),
+    'Max-Forwards': (last, int),
+    'Prefer': (tokenize, listParser(parsePrefer), list),
+#    'Proxy-Authorization': str, # what is "credentials"
+    'Range': (tokenize, parseRange),
+    'Referer': (last, str), # TODO: URI object?
+    'TE': (tokenize, listParser(parseAcceptQvalue), dict),
+    'User-Agent': (last, str),
 }
 
 generator_request_headers = {
-    'Accept': (iteritems,listGenerator(generateAccept),singleHeader),
-    'Accept-Charset': (iteritems, listGenerator(generateAcceptQvalue),singleHeader),
-    'Accept-Encoding': (iteritems, removeDefaultEncoding, listGenerator(generateAcceptQvalue),singleHeader),
-    'Accept-Language': (iteritems, listGenerator(generateAcceptQvalue),singleHeader),
+    'Accept': (iteritems, listGenerator(generateAccept), singleHeader),
+    'Accept-Charset': (iteritems, listGenerator(generateAcceptQvalue), singleHeader),
+    'Accept-Encoding': (iteritems, removeDefaultEncoding, listGenerator(generateAcceptQvalue), singleHeader),
+    'Accept-Language': (iteritems, listGenerator(generateAcceptQvalue), singleHeader),
     'Authorization': (generateAuthorization,), # what is "credentials"
-    'Cookie':(generateCookie,singleHeader),
-    'Expect':(iteritems, listGenerator(generateExpect), singleHeader),
-    'From':(str,singleHeader),
-    'Host':(str,singleHeader),
-    'If-Match':(listGenerator(generateStarOrETag), singleHeader),
-    'If-Modified-Since':(generateDateTime,singleHeader),
-    'If-None-Match':(listGenerator(generateStarOrETag), singleHeader),
-    'If-Range':(generateIfRange, singleHeader),
-    'If-Unmodified-Since':(generateDateTime,singleHeader),
-    'Max-Forwards':(str, singleHeader),
-    'Prefer':(iteritems, listGenerator(generateExpect), singleHeader),      # Prefer like Expect
-#    'Proxy-Authorization':str, # what is "credentials"
-    'Range':(generateRange,singleHeader),
-    'Referer':(str,singleHeader),
-    'TE': (iteritems, listGenerator(generateAcceptQvalue),singleHeader),
-    'User-Agent':(str,singleHeader),
+    'Cookie': (generateCookie, singleHeader),
+    'Expect': (iteritems, listGenerator(generateExpect), singleHeader),
+    'From': (str, singleHeader),
+    'Host': (str, singleHeader),
+    'If-Match': (listGenerator(generateStarOrETag), singleHeader),
+    'If-Modified-Since': (generateDateTime, singleHeader),
+    'If-None-Match': (listGenerator(generateStarOrETag), singleHeader),
+    'If-Range': (generateIfRange, singleHeader),
+    'If-Unmodified-Since': (generateDateTime, singleHeader),
+    'Max-Forwards': (str, singleHeader),
+    'Prefer': (listGenerator(generatePrefer), singleHeader),
+#    'Proxy-Authorization': str, # what is "credentials"
+    'Range': (generateRange, singleHeader),
+    'Referer': (str, singleHeader),
+    'TE': (iteritems, listGenerator(generateAcceptQvalue), singleHeader),
+    'User-Agent': (str, singleHeader),
 }
 
 parser_response_headers = {
-    'Accept-Ranges':(tokenize, filterTokens),
-    'Age':(last,int),
-    'ETag':(tokenize, ETag.parse),
-    'Location':(last,), # TODO: URI object?
+    'Accept-Ranges': (tokenize, filterTokens),
+    'Age': (last, int),
+    'ETag': (tokenize, ETag.parse),
+    'Location': (last,), # TODO: URI object?
 #    'Proxy-Authenticate'
-    'Retry-After':(last, parseRetryAfter),
-    'Server':(last,),
-    'Set-Cookie':(parseSetCookie,),
-    'Set-Cookie2':(tokenize, parseSetCookie2),
-    'Vary':(tokenize, filterTokens),
+    'Retry-After': (last, parseRetryAfter),
+    'Server': (last,),
+    'Set-Cookie': (parseSetCookie,),
+    'Set-Cookie2': (tokenize, parseSetCookie2),
+    'Vary': (tokenize, filterTokens),
     'WWW-Authenticate': (lambda h: tokenize(h, foldCase=False),
                          parseWWWAuthenticate,)
 }
 
 generator_response_headers = {
-    'Accept-Ranges':(generateList, singleHeader),
-    'Age':(str, singleHeader),
-    'ETag':(ETag.generate, singleHeader),
-    'Location':(str, singleHeader),
+    'Accept-Ranges': (generateList, singleHeader),
+    'Age': (str, singleHeader),
+    'ETag': (ETag.generate, singleHeader),
+    'Location': (str, singleHeader),
 #    'Proxy-Authenticate'
-    'Retry-After':(generateRetryAfter, singleHeader),
-    'Server':(str, singleHeader),
-    'Set-Cookie':(generateSetCookie,),
-    'Set-Cookie2':(generateSetCookie2,),
-    'Vary':(generateList, singleHeader),
-    'WWW-Authenticate':(generateWWWAuthenticate,)
+    'Retry-After': (generateRetryAfter, singleHeader),
+    'Server': (str, singleHeader),
+    'Set-Cookie': (generateSetCookie,),
+    'Set-Cookie2': (generateSetCookie2,),
+    'Vary': (generateList, singleHeader),
+    'WWW-Authenticate': (generateWWWAuthenticate,)
 }
 
 parser_entity_headers = {
-    'Allow':(lambda str:tokenize(str, foldCase=False), filterTokens),
-    'Content-Encoding':(tokenize, filterTokens),
-    'Content-Language':(tokenize, filterTokens),
-    'Content-Length':(last, int),
-    'Content-Location':(last,), # TODO: URI object?
-    'Content-MD5':(last, parseContentMD5),
-    'Content-Range':(last, parseContentRange),
-    'Content-Type':(lambda str:tokenize(str, foldCase=False), parseContentType),
-    'Expires':(last, parseExpires),
-    'Last-Modified':(last, parseDateTime),
+    'Allow': (lambda hdr: tokenize(hdr, foldCase=False), filterTokens),
+    'Content-Disposition': (lambda hdr: tokenize(hdr, foldCase=False), parseContentDisposition),
+    'Content-Encoding': (tokenize, filterTokens),
+    'Content-Language': (tokenize, filterTokens),
+    'Content-Length': (last, int),
+    'Content-Location': (last,), # TODO: URI object?
+    'Content-MD5': (last, parseContentMD5),
+    'Content-Range': (last, parseContentRange),
+    'Content-Type': (lambda hdr: tokenize(hdr, foldCase=False), parseContentType),
+    'Expires': (last, parseExpires),
+    'Last-Modified': (last, parseDateTime),
     }
 
 generator_entity_headers = {
-    'Allow':(generateList, singleHeader),
-    'Content-Encoding':(generateList, singleHeader),
-    'Content-Language':(generateList, singleHeader),
-    'Content-Length':(str, singleHeader),
-    'Content-Location':(str, singleHeader),
-    'Content-MD5':(base64.encodestring, lambda x: x.strip("\n"), singleHeader),
-    'Content-Range':(generateContentRange, singleHeader),
-    'Content-Type':(generateContentType, singleHeader),
-    'Expires':(generateDateTime, singleHeader),
-    'Last-Modified':(generateDateTime, singleHeader),
+    'Allow': (generateList, singleHeader),
+    'Content-Disposition': (generateContentDisposition, singleHeader),
+    'Content-Encoding': (generateList, singleHeader),
+    'Content-Language': (generateList, singleHeader),
+    'Content-Length': (str, singleHeader),
+    'Content-Location': (str, singleHeader),
+    'Content-MD5': (base64.encodestring, lambda x: x.strip("\n"), singleHeader),
+    'Content-Range': (generateContentRange, singleHeader),
+    'Content-Type': (generateContentType, singleHeader),
+    'Expires': (generateDateTime, singleHeader),
+    'Last-Modified': (generateDateTime, singleHeader),
     }
 
 parser_dav_headers = {
@@ -1593,11 +1846,11 @@ parser_dav_headers = {
     'DAV'         : (tokenize, list),
     'Depth'       : (last, parseDepth),
     'Destination' : (last,), # TODO: URI object?
-   #'If'          : (),
-   #'Lock-Token'  : (),
+   # 'If'          : (),
+   # 'Lock-Token'  : (),
     'Overwrite'   : (last, parseOverWrite),
-   #'Status-URI'  : (),
-   #'Timeout'     : (),
+   # 'Status-URI'  : (),
+   # 'Timeout'     : (),
 }
 
 generator_dav_headers = {
@@ -1605,11 +1858,11 @@ generator_dav_headers = {
     'DAV'         : (generateList, singleHeader),
     'Depth'       : (singleHeader),
     'Destination' : (singleHeader),
-   #'If'          : (),
-   #'Lock-Token'  : (),
+   # 'If'          : (),
+   # 'Lock-Token'  : (),
     'Overwrite'   : (),
-   #'Status-URI'  : (),
-   #'Timeout'     : (),
+   # 'Status-URI'  : (),
+   # 'Timeout'     : (),
 }
 
 DefaultHTTPHandler.updateParsers(parser_general_headers)

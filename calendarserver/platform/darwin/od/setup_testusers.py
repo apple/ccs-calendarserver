@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import os
 import sys
@@ -23,12 +24,12 @@ from getopt import getopt, GetoptError
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] local_user local_password" % (name,)
-    print ""
-    print " Configures local directory for test users"
-    print ""
-    print "options:"
-    print " -h --help: print this help and exit"
+    print("usage: %s [options] local_user local_password" % (name,))
+    print("")
+    print(" Configures local directory for test users")
+    print("")
+    print("options:")
+    print(" -h --help: print this help and exit")
     if e:
         sys.exit(1)
     else:
@@ -65,7 +66,7 @@ def createRecord(node, recordType, recordName, attrs):
         attrs,
         None)
     if error:
-        print error
+        print(error)
         raise ODError(error)
     return record
 
@@ -90,7 +91,7 @@ def main():
     nodeName = "/Local/Default"
     node, error = odframework.ODNode.nodeWithSession_name_error_(session, nodeName, None)
     if error:
-        print error
+        print(error)
         raise ODError(error)
 
     result, error = node.setCredentialsWithRecordType_recordName_password_error_(
@@ -100,12 +101,12 @@ def main():
         None
     )
     if error:
-        print "Unable to authenticate with directory %s: %s" % (nodeName, error)
+        print("Unable to authenticate with directory %s: %s" % (nodeName, error))
         raise ODError(error)
 
-    print "Successfully authenticated with directory %s" % (nodeName,)
+    print("Successfully authenticated with directory %s" % (nodeName,))
 
-    print "Creating users within %s:" % (nodeName,)
+    print("Creating users within %s:" % (nodeName,))
     for i in xrange(99):
         j = i+1
         recordName = "user%02d" % (j,)
@@ -120,20 +121,20 @@ def main():
 
         record = lookupRecordName(node, dsattributes.kDSStdRecordTypeUsers, recordName)
         if record is None:
-            print "Creating user %s" % (recordName,)
+            print("Creating user %s" % (recordName,))
             try:
                 record = createRecord(node, dsattributes.kDSStdRecordTypeUsers, recordName, attrs)
-                print "Successfully created user %s" % (recordName,)
+                print("Successfully created user %s" % (recordName,))
                 result, error = record.changePassword_toPassword_error_(
                     None, password, None)
                 if error or not result:
-                    print "Failed to set password for %s: %s" % (recordName, error)
+                    print("Failed to set password for %s: %s" % (recordName, error))
                 else:
-                    print "Successfully set password for %s" % (recordName,)
+                    print("Successfully set password for %s" % (recordName,))
             except ODError, e:
-                print "Failed to create user %s: %s" % (recordName, e)
+                print("Failed to create user %s: %s" % (recordName, e))
         else:
-            print "User %s already exists" % (recordName,)
+            print("User %s already exists" % (recordName,))
 
 
 class ODError(Exception):

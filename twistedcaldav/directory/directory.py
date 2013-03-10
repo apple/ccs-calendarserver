@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test -*-
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,14 +28,15 @@ __all__ = [
     "UnknownRecordTypeError",
 ]
 
+import cPickle as pickle
 import datetime
+import grp
+import itertools
 import os
+import pwd
 import signal
 import sys
 import types
-import pwd, grp
-import cPickle as pickle
-import itertools
 
 
 from zope.interface import implements
@@ -51,7 +52,7 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName, normalizeUUID
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
-from twistedcaldav import servers
+from twistedcaldav.scheduling.ischedule.localservers import Servers
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav import memcachepool
 from twisted.python.filepath import FilePath
@@ -80,7 +81,9 @@ class DirectoryService(LoggingMixIn):
 
     searchContext_location = "location"
     searchContext_attendee = "attendee"
-    
+
+    aggregateService = None
+
     def _generatedGUID(self):
         if not hasattr(self, "_guid"):
             realmName = self.realmName
@@ -105,6 +108,7 @@ class DirectoryService(LoggingMixIn):
 
     def setRealm(self, realmName):
         self.realmName = realmName
+
 
     def available(self):
         """
@@ -144,9 +148,9 @@ class DirectoryService(LoggingMixIn):
         try:
             from twistedcaldav.authkerb import NegotiateCredentials
         except ImportError:
-            NegotiateCredentials=None
-        
-        if NegotiateCredentials and isinstance(credentials.credentials, 
+            NegotiateCredentials = None
+
+        if NegotiateCredentials and isinstance(credentials.credentials,
                                                NegotiateCredentials):
             # If we get here with Kerberos, then authentication has already succeeded
             return (
@@ -164,19 +168,23 @@ class DirectoryService(LoggingMixIn):
                     credentials.authzPrincipal,
                 )
             else:
-                raise UnauthorizedLogin("Incorrect credentials for %s" % (credentials.credentials.username,)) 
+                raise UnauthorizedLogin("Incorrect credentials for %s" % (credentials.credentials.username,))
+
 
     def recordTypes(self):
         raise NotImplementedError("Subclass must implement recordTypes()")
 
+
     def listRecords(self, recordType):
         raise NotImplementedError("Subclass must implement listRecords()")
+
 
     def recordWithShortName(self, recordType, shortName):
         for record in self.listRecords(recordType):
             if shortName in record.shortNames:
                 return record
         return None
+
 
     def recordWithUID(self, uid):
         uid = normalizeUUID(uid)
@@ -185,6 +193,7 @@ class DirectoryService(LoggingMixIn):
                 return record
         return None
 
+
     def recordWithGUID(self, guid):
         guid = normalizeUUID(guid)
         for record in self.allRecords():
@@ -192,11 +201,13 @@ class DirectoryService(LoggingMixIn):
                 return record
         return None
 
+
     def recordWithAuthID(self, authID):
         for record in self.allRecords():
             if authID in record.authIDs:
                 return record
         return None
+
 
     def recordWithCalendarUserAddress(self, address):
         address = normalizeCUAddr(address)
@@ -213,6 +224,7 @@ class DirectoryService(LoggingMixIn):
 
         return record if record and record.enabledForCalendaring else None
 
+
     def recordWithCachedGroupsAlias(self, recordType, alias):
         """
         @param recordType: the type of the record to look up.
@@ -225,10 +237,12 @@ class DirectoryService(LoggingMixIn):
         # The default implementation uses guid
         return succeed(self.recordWithGUID(alias))
 
+
     def allRecords(self):
         for recordType in self.recordTypes():
             for record in self.listRecords(recordType):
                 yield record
+
 
     def recordsMatchingFieldsWithCUType(self, fields, operand="or",
         cuType=None):
@@ -239,6 +253,7 @@ class DirectoryService(LoggingMixIn):
 
         return self.recordsMatchingFields(fields, operand=operand,
             recordType=recordType)
+
 
     def recordTypesForSearchContext(self, context):
         """
@@ -339,12 +354,12 @@ class DirectoryService(LoggingMixIn):
                 return False
             elif type(fieldValue) in types.StringTypes:
                 fieldValue = (fieldValue,)
-            
+
             for testValue in fieldValue:
                 if caseless:
                     testValue = testValue.lower()
                     value = value.lower()
-    
+
                 if matchType == 'starts-with':
                     if testValue.startswith(value):
                         return True
@@ -357,7 +372,7 @@ class DirectoryService(LoggingMixIn):
                 else: # exact
                     if testValue == value:
                         return True
-                    
+
             return False
 
         def recordMatches(record):
@@ -404,6 +419,7 @@ class DirectoryService(LoggingMixIn):
 
         return succeed(yieldMatches(recordType))
 
+
     def getGroups(self, guids):
         """
         This implementation returns all groups, not just the ones specified
@@ -411,11 +427,14 @@ class DirectoryService(LoggingMixIn):
         """
         return succeed(self.listRecords(self.recordType_groups))
 
+
     def getResourceInfo(self):
         return ()
 
+
     def isAvailable(self):
         return True
+
 
     def getParams(self, params, defaults, ignore=None):
         """ Checks configuration parameters for unexpected/ignored keys, and
@@ -441,6 +460,7 @@ class DirectoryService(LoggingMixIn):
             raise DirectoryConfigurationError("Invalid directory service parameter(s): %s" % (", ".join(list(keys)),))
         return result
 
+
     def parseResourceInfo(self, plist, guid, recordType, shortname):
         """
         Parse ResourceInfo plist and extract information that the server needs.
@@ -459,6 +479,7 @@ class DirectoryService(LoggingMixIn):
             autoaccept = wpframework.get("AutoAcceptsInvitation", False)
             proxy = wpframework.get("CalendaringDelegate", None)
             read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
+            autoAcceptGroup = wpframework.get("AutoAcceptGroup", "")
         except (ExpatError, AttributeError), e:
             self.log_error(
                 "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s): %s\n%s" %
@@ -466,7 +487,7 @@ class DirectoryService(LoggingMixIn):
             )
             raise ValueError("Invalid ResourceInfo")
 
-        return (autoaccept, proxy, read_only_proxy,)
+        return (autoaccept, proxy, read_only_proxy, autoAcceptGroup)
 
 
     def getExternalProxyAssignments(self):
@@ -503,6 +524,7 @@ class DirectoryService(LoggingMixIn):
         """
         raise NotImplementedError("Subclass must implement createRecord")
 
+
     def updateRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
         uid=None, password=None, **kwargs):
@@ -511,11 +533,13 @@ class DirectoryService(LoggingMixIn):
         """
         raise NotImplementedError("Subclass must implement updateRecord")
 
+
     def destroyRecord(self, recordType, guid=None):
         """
         Remove a directory record from the directory
         """
         raise NotImplementedError("Subclass must implement destroyRecord")
+
 
     def createRecords(self, data):
         """
@@ -555,11 +579,13 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
         self.expireSeconds = expireSeconds
         self.lockSeconds = lockSeconds
 
+
     def setGroupsFor(self, guid, memberships):
         self.log_debug("set groups-for %s : %s" % (guid, memberships))
         return self.set("groups-for:%s" %
             (str(guid)), memberships,
             expireTime=self.expireSeconds)
+
 
     def getGroupsFor(self, guid):
         self.log_debug("get groups-for %s" % (guid,))
@@ -572,13 +598,16 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
         d.addCallback(_value)
         return d
 
+
     def deleteGroupsFor(self, guid):
         self.log_debug("delete groups-for %s" % (guid,))
         return self.delete("groups-for:%s" % (str(guid),))
 
+
     def setPopulatedMarker(self):
         self.log_debug("set group-cacher-populated")
         return self.set("group-cacher-populated", str(datetime.datetime.now()))
+
 
     @inlineCallbacks
     def isPopulated(self):
@@ -586,13 +615,16 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
         value = (yield self.get("group-cacher-populated"))
         returnValue(value is not None)
 
+
     def acquireLock(self):
         self.log_debug("add group-cacher-lock")
         return self.add("group-cacher-lock", "1", expireTime=self.lockSeconds)
 
+
     def releaseLock(self):
         self.log_debug("delete group-cacher-lock")
         return self.delete("group-cacher-lock")
+
 
 
 class GroupMembershipCacheUpdater(LoggingMixIn):
@@ -668,7 +700,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             seen.add(guid)
             for member in groups[guid]:
                 members.add(member)
-                if groups.has_key(member): # it's a group then
+                if member in groups: # it's a group then
                     self.expandedMembers(groups, member, members=members,
                                          seen=seen)
         return members
@@ -922,9 +954,6 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
 
 
 
-
-
-
 class GroupMembershipCacherOptions(Options):
     optParameters = [[
         "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
@@ -934,6 +963,7 @@ class GroupMembershipCacherOptions(Options):
         super(GroupMembershipCacherOptions, self).__init__(*args, **kwargs)
 
         self.overrides = {}
+
 
     def _coerceOption(self, configDict, key, value):
         """
@@ -958,6 +988,7 @@ class GroupMembershipCacherOptions(Options):
                 value = None
 
         return value
+
 
     def _setOverride(self, configDict, path, value, overrideDict):
         """
@@ -1043,14 +1074,17 @@ class GroupMembershipCacherService(service.Service, LoggingMixIn):
         else:
             self.updateMethod = self.updater.updateCache
 
+
     def startService(self):
         self.previousHandler = signal.signal(signal.SIGHUP, self.sighupHandler)
         self.log_warn("Starting group membership cacher service")
         service.Service.startService(self)
         return self.update()
 
+
     def sighupHandler(self, num, frame):
         self.reactor.callFromThread(self.update)
+
 
     def stopService(self):
         signal.signal(signal.SIGHUP, self.previousHandler)
@@ -1059,6 +1093,7 @@ class GroupMembershipCacherService(service.Service, LoggingMixIn):
         if self.nextUpdate is not None:
             self.nextUpdate.cancel()
             self.nextUpdate = None
+
 
     @inlineCallbacks
     def update(self):
@@ -1098,6 +1133,8 @@ class GroupMembershipCacherService(service.Service, LoggingMixIn):
                 self.nextUpdate = self.reactor.callLater(self.updateSeconds,
                     self.update)
         returnValue(False)
+
+
 
 class GroupMembershipCacherServiceMaker(LoggingMixIn):
     """
@@ -1156,6 +1193,8 @@ class GroupMembershipCacherServiceMaker(LoggingMixIn):
 
         return cacherService
 
+
+
 def diffAssignments(old, new):
     """
     Compare two proxy assignment lists and return their differences in the form of
@@ -1185,6 +1224,7 @@ def diffAssignments(old, new):
     return changed, removed
 
 
+
 class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)
 
@@ -1201,12 +1241,14 @@ class DirectoryRecord(LoggingMixIn):
             self.partitionID,
         )
 
+
     def __init__(
         self, service, recordType, guid=None,
         shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
         calendarUserAddresses=set(),
         autoSchedule=False, autoScheduleMode=None,
+        autoAcceptGroup="",
         enabledForCalendaring=None,
         enabledForAddressBooks=None,
         uid=None,
@@ -1216,7 +1258,7 @@ class DirectoryRecord(LoggingMixIn):
     ):
         assert service.realmName is not None
         assert recordType
-        assert shortNames and isinstance(shortNames, tuple) 
+        assert shortNames and isinstance(shortNames, tuple)
 
         guid = normalizeUUID(guid)
 
@@ -1226,28 +1268,28 @@ class DirectoryRecord(LoggingMixIn):
         if fullName is None:
             fullName = ""
 
-        self.service                = service
-        self.recordType             = recordType
-        self.guid                   = guid
-        self.uid                    = uid
-        self.enabled                = False
-        self.serverID               = ""
-        self.partitionID            = ""
-        self.shortNames             = shortNames
-        self.authIDs                = authIDs
-        self.fullName               = fullName
-        self.firstName              = firstName
-        self.lastName               = lastName
-        self.emailAddresses         = emailAddresses
-        self.enabledForCalendaring  = enabledForCalendaring
-        self.autoSchedule           = autoSchedule
-        self.autoScheduleMode       = autoScheduleMode
+        self.service = service
+        self.recordType = recordType
+        self.guid = guid
+        self.uid = uid
+        self.enabled = False
+        self.serverID = ""
+        self.partitionID = ""
+        self.shortNames = shortNames
+        self.authIDs = authIDs
+        self.fullName = fullName
+        self.firstName = firstName
+        self.lastName = lastName
+        self.emailAddresses = emailAddresses
+        self.enabledForCalendaring = enabledForCalendaring
+        self.autoSchedule = autoSchedule
+        self.autoScheduleMode = autoScheduleMode
+        self.autoAcceptGroup = autoAcceptGroup
         self.enabledForAddressBooks = enabledForAddressBooks
-        self.enabledForLogin        = enabledForLogin
-        self.extProxies             = extProxies
-        self.extReadOnlyProxies     = extReadOnlyProxies
-        self.extras                 = kwargs
-
+        self.enabledForLogin = enabledForLogin
+        self.extProxies = extProxies
+        self.extReadOnlyProxies = extReadOnlyProxies
+        self.extras = kwargs
 
 
     def get_calendarUserAddresses(self):
@@ -1280,6 +1322,7 @@ class DirectoryRecord(LoggingMixIn):
                 return diff
         return 0
 
+
     def __hash__(self):
         h = hash(self.__class__.__name__)
         for attr in ("service", "recordType", "shortNames", "guid",
@@ -1287,6 +1330,7 @@ class DirectoryRecord(LoggingMixIn):
             h = (h + hash(getattr(self, attr))) & sys.maxint
 
         return h
+
 
     def cacheToken(self):
         """
@@ -1303,8 +1347,9 @@ class DirectoryRecord(LoggingMixIn):
             self.enabledForCalendaring,
         ))
 
+
     def addAugmentInformation(self, augment):
-        
+
         if augment:
             self.enabled = augment.enabled
             self.serverID = augment.serverID
@@ -1313,6 +1358,7 @@ class DirectoryRecord(LoggingMixIn):
             self.enabledForAddressBooks = augment.enabledForAddressBooks
             self.autoSchedule = augment.autoSchedule
             self.autoScheduleMode = augment.autoScheduleMode
+            self.autoAcceptGroup = augment.autoAcceptGroup
             self.enabledForLogin = augment.enabledForLogin
 
             if (self.enabledForCalendaring or self.enabledForAddressBooks) and self.recordType == self.service.recordType_groups:
@@ -1350,6 +1396,7 @@ class DirectoryRecord(LoggingMixIn):
                                % (username,))
                 self.enabledForAddressBooks = False
 
+
     def isLoginEnabled(self):
         """
         Returns True if the user should be allowed to log in, based on the
@@ -1357,6 +1404,7 @@ class DirectoryRecord(LoggingMixIn):
         DirectoryService implementation.
         """
         return self.enabledForLogin
+
 
     def members(self):
         return ()
@@ -1393,6 +1441,7 @@ class DirectoryRecord(LoggingMixIn):
         """
         return self.service.groupMembershipCache.getGroupsFor(self.cachedGroupsAlias())
 
+
     def cachedGroupsAlias(self):
         """
         The GroupMembershipCache uses keys based on this value.  Normally it's
@@ -1404,12 +1453,14 @@ class DirectoryRecord(LoggingMixIn):
         """
         return self.guid
 
+
     def externalProxies(self):
         """
         Return the set of proxies defined in the directory service, as opposed
         to assignments in the proxy DB itself.
         """
         return set(self.extProxies)
+
 
     def externalReadOnlyProxies(self):
         """
@@ -1418,11 +1469,13 @@ class DirectoryRecord(LoggingMixIn):
         """
         return set(self.extReadOnlyProxies)
 
+
     def memberGUIDs(self):
         """
         Return the set of GUIDs that are members of this group
         """
         return set()
+
 
     def verifyCredentials(self, credentials):
         return False
@@ -1438,6 +1491,7 @@ class DirectoryRecord(LoggingMixIn):
     def getCUType(self):
         return self._cuTypes.get(self.recordType, "UNKNOWN")
 
+
     @classmethod
     def fromCUType(cls, cuType):
         for key, val in cls._cuTypes.iteritems():
@@ -1445,71 +1499,104 @@ class DirectoryRecord(LoggingMixIn):
                 return key
         return None
 
+
     def serverURI(self):
         """
         URL of the server hosting this record. Return None if hosted on this server.
         """
         if config.Servers.Enabled and self.serverID:
-            return servers.Servers.getServerURIById(self.serverID)
+            return Servers.getServerURIById(self.serverID)
         else:
             return None
-    
+
+
     def server(self):
         """
         Server hosting this record. Return None if hosted on this server.
         """
         if config.Servers.Enabled and self.serverID:
-            return servers.Servers.getServerById(self.serverID)
+            return Servers.getServerById(self.serverID)
         else:
             return None
-    
+
+
     def partitionURI(self):
         """
         URL of the server hosting this record. Return None if hosted on this server.
         """
         if config.Servers.Enabled and self.serverID:
-            s = servers.Servers.getServerById(self.serverID)
+            s = Servers.getServerById(self.serverID)
             if s:
                 return s.getPartitionURIForId(self.partitionID)
         return None
-    
+
+
     def locallyHosted(self):
         """
         Hosted on this server/partition instance.
         """
-        
+
         if config.Servers.Enabled and self.serverID:
-            s = servers.Servers.getServerById(self.serverID)
+            s = Servers.getServerById(self.serverID)
             if s:
                 return s.thisServer and (not s.isPartitioned() or not self.partitionID or self.partitionID == config.ServerPartitionID)
         return True
+
 
     def effectivePartitionID(self):
         """
         Record partition ID taking into account whether the server is partitioned.
         """
         if config.Servers.Enabled and self.serverID:
-            s = servers.Servers.getServerById(self.serverID)
+            s = Servers.getServerById(self.serverID)
             if s and s.isPartitioned():
                 return self.partitionID
         return ""
-        
+
+
     def thisServer(self):
         if config.Servers.Enabled and self.serverID:
-            s = servers.Servers.getServerById(self.serverID)
+            s = Servers.getServerById(self.serverID)
             if s:
                 return s.thisServer
         return True
-        
+
+
+    def autoAcceptMembers(self):
+        """
+        Return the list of GUIDs for which this record will automatically accept
+        invites from (assuming no conflicts).  This list is based on the group
+        assigned to record.autoAcceptGroup.  Cache the expanded group membership
+        within the record.
+
+        @return: the list of members of the autoAcceptGroup, or an empty list if
+            not assigned
+        @rtype: C{list} of GUID C{str}
+        """
+        if not hasattr(self, "_cachedAutoAcceptMembers"):
+            self._cachedAutoAcceptMembers = []
+            if self.autoAcceptGroup:
+                service = self.service.aggregateService or self.service
+                groupRecord = service.recordWithGUID(self.autoAcceptGroup)
+                if groupRecord is not None:
+                    self._cachedAutoAcceptMembers = [m.guid for m in groupRecord.expandedMembers()]
+
+        return self._cachedAutoAcceptMembers
+
+
 class DirectoryError(RuntimeError):
     """
     Generic directory error.
     """
 
+
+
 class DirectoryConfigurationError(DirectoryError):
     """
     Invalid directory configuration.
     """
+
+
 
 class UnknownRecordTypeError(DirectoryError):
     """
@@ -1527,4 +1614,3 @@ try:
     DirectoryRecord.CheckSACL = CheckSACL
 except ImportError:
     DirectoryRecord.CheckSACL = None
-

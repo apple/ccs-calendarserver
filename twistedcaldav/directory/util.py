@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_util -*-
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,6 +64,8 @@ def normalizeUUID(value):
         return value
 
 
+TRANSACTION_KEY = '_newStoreTransaction'
+
 def transactionFromRequest(request, newStore):
     """
     Return the associated transaction from the given HTTP request, creating a
@@ -85,7 +87,6 @@ def transactionFromRequest(request, newStore):
     @rtype: L{ITransaction} (and possibly L{ICalendarTransaction} and
         L{IAddressBookTransaction} as well.
     """
-    TRANSACTION_KEY = '_newStoreTransaction'
     transaction = getattr(request, TRANSACTION_KEY, None)
     if transaction is None:
         transaction = newStore.newTransaction(repr(request))

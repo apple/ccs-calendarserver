@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 Interactive shell for terminals.
@@ -56,8 +57,8 @@ from calendarserver.tools.shell.cmd import Commands, UsageError as CommandUsageE
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         ShellOptions().opt_help()
     except SystemExit:
@@ -89,7 +90,28 @@ class ShellOptions(Options):
         super(ShellOptions, self).__init__()
 
 
+
 class ShellService(Service, object):
+    """
+    A L{ShellService} collects all the information that a shell needs to run;
+    when run, it invokes the shell on stdin/stdout.
+
+    @ivar store: the calendar / addressbook store.
+    @type store: L{txdav.idav.IDataStore}
+
+    @ivar directory: the directory service, to look up principals' names
+    @type directory: L{twistedcaldav.directory.idirectory.IDirectoryService}
+
+    @ivar options: the command-line options used to create this shell service
+    @type options: L{ShellOptions}
+
+    @ivar reactor: the reactor under which this service is running
+    @type reactor: L{IReactorTCP}, L{IReactorTime}, L{IReactorThreads} etc
+
+    @ivar config: the configuration associated with this shell service.
+    @type config: L{twistedcaldav.config.Config}
+    """
+
     def __init__(self, store, directory, options, reactor, config):
         super(ShellService, self).__init__()
         self.store      = store
@@ -99,6 +121,7 @@ class ShellService(Service, object):
         self.config     = config
         self.terminalFD = None
         self.protocol   = None
+
 
     def startService(self):
         """
@@ -114,6 +137,7 @@ class ShellService(Service, object):
         self.protocol = ServerProtocol(lambda: ShellProtocol(self))
         StandardIO(self.protocol)
 
+
     def stopService(self):
         """
         Stop the service.
@@ -123,9 +147,13 @@ class ShellService(Service, object):
         os.write(self.terminalFD, "\r\x1bc\r")
 
 
+
 class ShellProtocol(ReceiveLineProtocol):
     """
     Data store shell protocol.
+
+    @ivar service: a service representing the running shell
+    @type service: L{ShellService}
     """
 
     # FIXME:
@@ -313,7 +341,7 @@ class ShellProtocol(ReceiveLineProtocol):
 
         if tokens:
             cmd = tokens.pop(0)
-            #print "Arguments: %r" % (tokens,)
+            #print("Arguments: %r" % (tokens,))
 
             m = getattr(self.commands, "cmd_%s" % (cmd,), None)
             if m:
@@ -383,6 +411,6 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         directory = getDirectory()
         return ShellService(store, directory, options, reactor, config)
 
-    print "Initializing shell..."
+    print("Initializing shell...")
 
     utilityMain(options["config"], makeService, reactor)

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,6 +52,9 @@ class FakeSocket(object):
         else:
             raise SocketError(ENOTCONN, "Transport endpoint not connected")
 
+
+    def getsockname(self):
+        return ("4.3.2.1", 4321)
 
 
 class InheritedPortForTesting(sendfdport.InheritedPort):

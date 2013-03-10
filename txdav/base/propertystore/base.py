@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ __all__ = [
 from twext.python.log import LoggingMixIn
 from txdav.xml import element as davxml
 from txdav.xml.base import encodeXMLName
-from twext.web2.dav.resource import TwistedGETContentMD5,\
+from twext.web2.dav.resource import TwistedGETContentMD5, \
     TwistedQuotaRootProperty
 
 from txdav.idav import IPropertyStore, IPropertyName
@@ -48,11 +48,13 @@ class PropertyName(LoggingMixIn):
         if (index is -1 or not len(sname) > index or not sname[0] == "{"):
             raise TypeError("Invalid sname: %r" % (sname,))
 
-        return PropertyName(sname[1:index], sname[index+1:])
+        return PropertyName(sname[1:index], sname[index + 1:])
+
 
     @staticmethod
     def fromElement(element):
         return PropertyName(element.namespace, element.name)
+
 
     def __init__(self, namespace, name):
         self.namespace = namespace
@@ -89,8 +91,10 @@ class PropertyName(LoggingMixIn):
             self.toString(),
         )
 
+
     def toString(self):
         return encodeXMLName(self.namespace, self.name)
+
 
 
 class AbstractPropertyStore(LoggingMixIn, DictMixin):
@@ -109,16 +113,22 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
         PropertyName.fromElement(TwistedQuotaRootProperty),
     ))
 
-    def __init__(self, defaultUser):
+    def __init__(self, defaultUser, shareeUser=None):
         """
         Instantiate the property store for a user. The default is the default user
         (owner) property to read in the case of global or shadowable properties.
+        The sharee user is a user sharing the user to read for per-user properties.
 
-        @param defaultuser: the default user uid
-        @type defaultuser: C{str}
+        @param defaultUser: the default user uid
+        @type defaultUser: C{str}
+
+        @param shareeUser: the per user uid or None if the same as defaultUser
+        @type shareeUser: C{str}
         """
-        
-        self._perUser = self._defaultUser = defaultUser
+
+        assert(defaultUser is not None or shareeUser is not None)
+        self._defaultUser = shareeUser if defaultUser is None else defaultUser
+        self._perUser = defaultUser if shareeUser is None else shareeUser
         self._shadowableKeys = set(AbstractPropertyStore._defaultShadowableKeys)
         self._globalKeys = set(AbstractPropertyStore._defaultGlobalKeys)
 
@@ -126,12 +136,19 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
     def __str__(self):
         return "<%s>" % (self.__class__.__name__)
 
+
+    def _setDefaultUserUID(self, uid):
+        self._defaultUser = uid
+
+
     def _setPerUserUID(self, uid):
         self._perUser = uid
+
 
     def setSpecialProperties(self, shadowableKeys, globalKeys):
         self._shadowableKeys.update(shadowableKeys)
         self._globalKeys.update(globalKeys)
+
 
     #
     # Subclasses must override these
@@ -140,30 +157,37 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
     def _getitem_uid(self, key, uid):
         raise NotImplementedError()
 
+
     def _setitem_uid(self, key, value, uid):
         raise NotImplementedError()
+
 
     def _delitem_uid(self, key, uid):
         raise NotImplementedError()
 
+
     def _keys_uid(self, uid):
         raise NotImplementedError()
-    
+
+
     def _removeResource(self):
         raise NotImplementedError()
+
 
     def flush(self):
         raise NotImplementedError()
 
+
     def abort(self):
         raise NotImplementedError()
+
 
     #
     # Required UserDict implementations
     #
 
     def __getitem__(self, key):
-        # Handle per-user behavior 
+        # Handle per-user behavior
         if self.isShadowableProperty(key):
             try:
                 result = self._getitem_uid(key, self._perUser)
@@ -175,22 +199,25 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
         else:
             return self._getitem_uid(key, self._perUser)
 
+
     def __setitem__(self, key, value):
-        # Handle per-user behavior 
+        # Handle per-user behavior
         if self.isGlobalProperty(key):
             return self._setitem_uid(key, value, self._defaultUser)
         else:
             return self._setitem_uid(key, value, self._perUser)
 
+
     def __delitem__(self, key):
-        # Handle per-user behavior 
+        # Handle per-user behavior
         if self.isGlobalProperty(key):
             self._delitem_uid(key, self._defaultUser)
         else:
             self._delitem_uid(key, self._perUser)
 
+
     def keys(self):
-        
+
         userkeys = list(self._keys_uid(self._perUser))
         if self._defaultUser != self._perUser:
             defaultkeys = self._keys_uid(self._defaultUser)
@@ -199,6 +226,7 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
                     userkeys.append(key)
         return tuple(userkeys)
 
+
     def update(self, other):
         # FIXME: direct tests.
         # FIXME: support positional signature (although since strings aren't
@@ -206,12 +234,15 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
         for key in other:
             self[key] = other[key]
 
+
     # Per-user property handling
     def isShadowableProperty(self, key):
         return key in self._shadowableKeys
-    
+
+
     def isGlobalProperty(self, key):
         return key in self._globalKeys
+
 
     def copyAllProperties(self, other):
         """
@@ -219,7 +250,9 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
         independently of the UID. Each underlying store will need to implement this.
         """
         pass
-        
+
+
+
 # FIXME: Actually, we should replace this with calls to IPropertyName()
 def validKey(key):
     # Used by implementations to verify that keys are valid

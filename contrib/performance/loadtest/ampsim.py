@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -63,6 +63,8 @@ class Configure(Command):
     Configure this worker process with the text of an XML property list.
     """
     arguments = [("plist", String())]
+    # Pass OSError exceptions through, presenting the exception message to the user.
+    errors = {OSError: 'OSError'}
 
 
 
@@ -185,5 +187,4 @@ class Manager(AMP):
         #self.output.write(pformat(event)+"\n")
         msg(**event)
         return {}
-
 

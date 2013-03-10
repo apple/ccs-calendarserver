@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_export -*-
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,8 +31,9 @@ Please also note that this is not an appropriate tool for backups, as there is
 data associated with users and calendars beyond the iCalendar as visible to the
 owner of that calendar, including DAV properties, information about sharing, and
 per-user data such as alarms.
-
 """
+
+from __future__ import print_function
 
 import os
 import sys
@@ -53,8 +54,8 @@ from calendarserver.tap.util import directoryFromConfig
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         ExportOptions().opt_help()
     except SystemExit:
@@ -85,8 +86,13 @@ class ExportOptions(Options):
 
     synopsis = description
 
-    optParameters = [['config', 'f', DEFAULT_CONFIG_FILE,
-                      "Specify caldavd.plist configuration path."]]
+    optFlags = [
+        ['debug', 'D', "Debug logging."],
+    ]
+
+    optParameters = [
+        ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
+    ]
 
     def __init__(self):
         super(ExportOptions, self).__init__()
@@ -285,9 +291,9 @@ class ExporterService(Service, object):
 
     def __init__(self, store, options, output, reactor, config):
         super(ExporterService, self).__init__()
-        self.store   = store
+        self.store = store
         self.options = options
-        self.output  = output
+        self.output = output
         self.reactor = reactor
         self.config = config
         self._directory = None
@@ -366,8 +372,9 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
                      (e))
         sys.exit(1)
 
+
     def makeService(store):
         from twistedcaldav.config import config
         return ExporterService(store, options, output, reactor, config)
 
-    utilityMain(options["config"], makeService, reactor)
+    utilityMain(options["config"], makeService, reactor, verbose=options["debug"])

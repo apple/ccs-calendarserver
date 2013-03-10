@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2006-2011 Apple Inc. All rights reserved.
+Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ limitations under the License.
     <password>location%02d</password>
     <name>Room %02d</name>
   </location>
-  <resource repeat="10">
+  <resource repeat="20">
     <uid>resource%02d</uid>
     <guid>resource%02d</guid>
     <password>resource%02d</password>

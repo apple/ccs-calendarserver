@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_proxyprincipalmembers -*-
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -374,7 +374,9 @@ class CalendarUserProxyPrincipalResource (
         for uid in members:
             p = self.pcollection.principalForUID(uid)
             if p:
-                found.append(p)
+                # Only principals enabledForLogin can be a delegate
+                if p.record.enabledForLogin:
+                    found.append(p)
                 # Make sure any outstanding deletion timer entries for
                 # existing principals are removed
                 yield self._index().refreshPrincipal(uid)

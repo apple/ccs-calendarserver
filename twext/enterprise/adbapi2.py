@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.enterprise.test.test_adbapi2 -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ improvement.
 """
 
 import sys
+import weakref
 
 from cStringIO import StringIO
 from cPickle import dumps, loads
@@ -143,7 +144,7 @@ class _ConnectedTxn(object):
 
     def __init__(self, pool, threadHolder, connection, cursor):
         self._pool       = pool
-        self._completed  = True
+        self._completed  = "idle"
         self._cursor     = cursor
         self._connection = connection
         self._holder     = threadHolder
@@ -324,7 +325,7 @@ class _ConnectedTxn(object):
             committed or aborted.
         """
         if not self._completed:
-            self._completed = True
+            self._completed = "ended"
             def reallySomething():
                 """
                 Do the database work and set appropriate flags.  Executed in the
@@ -338,7 +339,7 @@ class _ConnectedTxn(object):
             self._pool._repoolAfter(self, result)
             return result
         else:
-            raise AlreadyFinishedError()
+            raise AlreadyFinishedError(self._completed)
 
 
     def commit(self):
@@ -347,11 +348,6 @@ class _ConnectedTxn(object):
 
     def abort(self):
         return self._end(self._connection.rollback).addErrback(log.err)
-
-
-    def __del__(self):
-        if not self._completed:
-            self.abort()
 
 
     def reset(self):
@@ -371,7 +367,7 @@ class _ConnectedTxn(object):
         Release the thread and database connection associated with this
         transaction.
         """
-        self._completed = True
+        self._completed = "released"
         self._stopped   = True
         holder          = self._holder
         self._holder    = None
@@ -393,16 +389,17 @@ class _NoTxn(object):
     """
     implements(IAsyncTransaction)
 
-    def __init__(self, pool):
+    def __init__(self, pool, reason):
         self.paramstyle = pool.paramstyle
         self.dialect = pool.dialect
+        self.reason = reason
 
 
     def _everything(self, *a, **kw):
         """
         Everything fails with a L{ConnectionError}.
         """
-        return fail(ConnectionError())
+        return fail(ConnectionError(self.reason))
 
 
     execSQL = _everything
@@ -491,7 +488,7 @@ class _HookableOperation(object):
 
 
     @inlineCallbacks
-    def runHooks(self, ignored):
+    def runHooks(self, ignored=None):
         """
         Callback for C{commit} and C{abort} Deferreds.
         """
@@ -516,8 +513,25 @@ class _CommitAndAbortHooks(object):
     # covered by txdav's test suite.
 
     def __init__(self):
+        self._preCommit = _HookableOperation()
         self._commit = _HookableOperation()
         self._abort = _HookableOperation()
+
+
+    def _commitWithHooks(self, doCommit):
+        """
+        Run pre-hooks, commit, the real DB commit, and then post-hooks.
+        """
+        pre = self._preCommit.runHooks()
+        def ok(ignored):
+            return doCommit().addCallback(self._commit.runHooks)
+        def failed(why):
+            return self.abort().addCallback(lambda ignored: why)
+        return pre.addCallbacks(ok, failed)
+
+
+    def preCommit(self, operation):
+        return self._preCommit.addHook(operation)
 
 
     def postCommit(self, operation):
@@ -648,9 +662,10 @@ class _SingleTxn(_CommitAndAbortHooks,
             # We're in the process of executing a block of commands.  Wait until
             # they're done.  (Commit will be repeated in _checkNextBlock.)
             return self._blockedQueue.commit()
-        self._markComplete()
-        return (super(_SingleTxn, self).commit()
-                .addCallback(self._commit.runHooks))
+        def reallyCommit():
+            self._markComplete()
+            return super(_SingleTxn, self).commit()
+        return self._commitWithHooks(reallyCommit)
 
 
     def abort(self):
@@ -667,7 +682,10 @@ class _SingleTxn(_CommitAndAbortHooks,
         Stop waiting for a free transaction and fail.
         """
         self._pool._waiting.remove(self)
-        self._unspoolOnto(_NoTxn(self._pool))
+        self._completed = True
+        self._unspoolOnto(_NoTxn(self._pool,
+                                 "connection pool shut down while txn "
+                                 "waiting for database connection."))
 
 
     def _checkComplete(self):
@@ -698,6 +716,19 @@ class _SingleTxn(_CommitAndAbortHooks,
             # FIXME: test the case where it's ready immediately.
             self._checkNextBlock()
         return block
+
+
+    def __del__(self):
+        """
+        When garbage collected, a L{_SingleTxn} recycles itself.
+        """
+        try:
+            if not self._completed:
+                self.abort()
+        except AlreadyFinishedError:
+            # The underlying transaction might already be completed without us
+            # knowing; for example if the service shuts down.
+            pass
 
 
 
@@ -988,7 +1019,7 @@ class ConnectionPool(Service, object):
         if self._stopping:
             # FIXME: should be wrapping a _SingleTxn around this to get
             # .commandBlock()
-            return _NoTxn(self)
+            return _NoTxn(self, "txn created while DB pool shutting down")
         if self._free:
             basetxn = self._free.pop(0)
             self._busy.append(basetxn)
@@ -1139,8 +1170,10 @@ class FailsafeException(Exception):
 
 
 
-quashErrors = {
-    FailsafeException: "SOMETHING_UNKNOWN"
+_quashErrors = {
+    FailsafeException: "SOMETHING_UNKNOWN",
+    AlreadyFinishedError: "ALREADY_FINISHED",
+    ConnectionError: "CONNECTION_ERROR",
 }
 
 
@@ -1156,12 +1189,13 @@ def failsafeResponder(command):
             try:
                 val = yield inner(*a, **k)
             except:
-                # FIXME: if this were a general thing, it should probably allow
-                # known errors through; look at the command's 'errors' attribute
-                # before collapsing into FailsafeException.
-                log.err(Failure(),
-                        "shared database connection pool encountered error")
-                raise FailsafeException()
+                f = Failure()
+                if f.type in command.errors:
+                    returnValue(f)
+                else:
+                    log.err(Failure(),
+                            "shared database connection pool encountered error")
+                    raise FailsafeException()
             else:
                 returnValue(val)
         return command.responder(innerinner)
@@ -1174,7 +1208,7 @@ class StartTxn(Command):
     Start a transaction, identified with an ID generated by the client.
     """
     arguments = txnarg()
-    errors = quashErrors
+    errors = _quashErrors
 
 
 
@@ -1187,7 +1221,7 @@ class ExecSQL(Command):
                  ('args', Pickle()),
                  ('blockID', String()),
                  ('reportZeroRowCount', Boolean())] + txnarg()
-    errors = quashErrors
+    errors = _quashErrors
 
 
 
@@ -1196,7 +1230,7 @@ class StartBlock(Command):
     Create a new SQL command block.
     """
     arguments = [("blockID", String())] + txnarg()
-    errors = quashErrors
+    errors = _quashErrors
 
 
 
@@ -1205,7 +1239,7 @@ class EndBlock(Command):
     Create a new SQL command block.
     """
     arguments = [("blockID", String())] + txnarg()
-    errors = quashErrors
+    errors = _quashErrors
 
 
 
@@ -1217,7 +1251,7 @@ class Row(Command):
 
     arguments = [('queryID', String()),
                  ('row', Pickle())]
-    errors = quashErrors
+    errors = _quashErrors
 
 
 
@@ -1230,19 +1264,19 @@ class QueryComplete(Command):
                  ('norows', Boolean()),
                  ('derived', Pickle()),
                  ('noneResult', Boolean())]
-    errors = quashErrors
+    errors = _quashErrors
 
 
 
 class Commit(Command):
     arguments = txnarg()
-    errors = quashErrors
+    errors = _quashErrors
 
 
 
 class Abort(Command):
     arguments = txnarg()
-    errors = quashErrors
+    errors = _quashErrors
 
 
 
@@ -1372,7 +1406,7 @@ class ConnectionPoolClient(AMP):
         # See DEFAULT_PARAM_STYLE FIXME above.
         super(ConnectionPoolClient, self).__init__()
         self._nextID    = count().next
-        self._txns      = {}
+        self._txns      = weakref.WeakValueDictionary()
         self._queries   = {}
         self.dialect    = dialect
         self.paramstyle = paramstyle
@@ -1550,12 +1584,13 @@ class _NetTransaction(_CommitAndAbortHooks):
 
 
     def commit(self):
-        self._committing = True
-        def done(whatever):
-            self._committed = True
-            return whatever
-        return (self._complete(Commit).addBoth(done)
-                .addCallback(self._commit.runHooks))
+        def reallyCommit():
+            self._committing = True
+            def done(whatever):
+                self._committed = True
+                return whatever
+            return self._complete(Commit).addBoth(done)
+        return self._commitWithHooks(reallyCommit)
 
 
     def abort(self):
@@ -1571,6 +1606,15 @@ class _NetTransaction(_CommitAndAbortHooks):
         )
         return _NetCommandBlock(self, blockID)
 
+
+    def __del__(self):
+        """
+        When a L{_NetTransaction} is garabage collected, it aborts itself.
+        """
+        if not self._completed:
+            def shush(f):
+                f.trap(ConnectionError, AlreadyFinishedError)
+            self.abort().addErrback(shush)
 
 
 class _NetCommandBlock(object):

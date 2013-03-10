@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,23 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-
+from __future__ import print_function
 
 """
 Common utility functions for a file based datastore.
 """
 
-from twext.python.log import LoggingMixIn
-from twext.enterprise.ienterprise import AlreadyFinishedError
-from txdav.idav import IDataStoreObject
-from txdav.base.propertystore.base import PropertyName
-
-from txdav.xml.rfc2518 import GETContentType
-from twext.web2.dav.resource import TwistedGETContentMD5
+from zope.interface.declarations import implements
 
 from twisted.python import hashlib
 
-from zope.interface.declarations import implements
+from twext.python.log import LoggingMixIn
+from twext.enterprise.ienterprise import AlreadyFinishedError
+from twext.web2.dav.resource import TwistedGETContentMD5
+from txdav.idav import IDataStoreObject
+from txdav.base.propertystore.base import PropertyName
+from txdav.xml.element import GETContentType
+
+
 
 def isValidName(name):
     """
@@ -102,12 +103,12 @@ class _CommitTracker(object):
 
     def __del__(self):
         if not self.done and self.info:
-            print '**** UNCOMMITTED TRANSACTION (%s) BEING GARBAGE COLLECTED ****' % (
+            print("**** UNCOMMITTED TRANSACTION (%s) BEING GARBAGE COLLECTED ****") % (
                 self.name,
             )
             for info in self.info:
-                print '   ', info
-            print '---- END OF OPERATIONS'
+                print("   "), info
+            print("---- END OF OPERATIONS")
 
 
 
@@ -136,6 +137,7 @@ class DataStoreTransaction(LoggingMixIn):
     def store(self):
         return self._dataStore
 
+
     def addOperation(self, operation, name):
         self._operations.append(operation)
         self._tracker.info.append(name)
@@ -148,7 +150,7 @@ class DataStoreTransaction(LoggingMixIn):
         terminated.
 
         @param mode: The manner of the termination of this transaction.
-        
+
         @type mode: C{str}
 
         @raise AlreadyFinishedError: This transaction has already been

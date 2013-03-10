@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import sys, pickle
 
@@ -41,7 +42,7 @@ def main():
     try:
         options.parseOptions(sys.argv[1:])
     except UsageError, e:
-        print e
+        print(e)
         return 1
 
     fname = options['filename']

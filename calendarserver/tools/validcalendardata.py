@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 This tool takes data from stdin and validates it as iCalendar data suitable
-for the server. 
+for the server.
 """
 
 from calendarserver.tools.cmdline import utilityMain
@@ -25,15 +26,15 @@ from twisted.application.service import Service
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
 from twistedcaldav.config import config
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, InvalidICalendarDataError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 import os
 import sys
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         ValidOptions().opt_help()
     except SystemExit:
@@ -62,6 +63,8 @@ class ValidOptions(Options):
 
     optFlags = [
         ['verbose', 'v', "Verbose logging."],
+        ['debug', 'D', "Debug logging."],
+        ['parse-only', 'p', "Only validate parsing of the data."],
     ]
 
     optParameters = [
@@ -91,7 +94,8 @@ class ValidOptions(Options):
         if self.outputName == '-':
             return sys.stdout
         else:
-            return open(self.outputName, 'wb')
+            return open(self.outputName, "wb")
+
 
     def opt_input(self, filename):
         """
@@ -109,7 +113,7 @@ class ValidOptions(Options):
         if self.inputName == '-':
             return sys.stdin
         else:
-            return open(os.path.expanduser(self.inputName), 'rb')
+            return open(os.path.expanduser(self.inputName), "rb")
 
 
 
@@ -122,10 +126,10 @@ class ValidService(Service, object):
 
     def __init__(self, store, options, output, input, reactor, config):
         super(ValidService, self).__init__()
-        self.store   = store
+        self.store = store
         self.options = options
-        self.output  = output
-        self.input  = input
+        self.output = output
+        self.input = input
         self.reactor = reactor
         self.config = config
         self._directory = None
@@ -136,20 +140,50 @@ class ValidService(Service, object):
         Start the service.
         """
         super(ValidService, self).startService()
-        result, message = self.validCalendarData()
-        
-        if result:
-            print "Calendar data OK"
+        if self.options["parse-only"]:
+            result, message = self.parseCalendarData()
         else:
-            print message
+            result, message = self.validCalendarData()
+
+        if result:
+            print("Calendar data OK")
+        else:
+            print(message)
         self.reactor.stop()
+
+
+    def parseCalendarData(self):
+        """
+        Check the calendar data for valid iCalendar data.
+        """
+
+        result = True
+        message = ""
+        try:
+            component = Component.fromString(self.input.read())
+
+            # Do underlying iCalendar library validation with data fix
+            fixed, unfixed = component._pycalendar.validate(doFix=True)
+
+            if unfixed:
+                raise InvalidICalendarDataError("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
+            if fixed:
+                print("Calendar data had fixable problems:\n  %s" % ("\n  ".join(fixed),))
+
+        except ValueError, e:
+            result = False
+            message = str(e)
+            if message.startswith(errorPrefix):
+                message = message[len(errorPrefix):]
+
+        return (result, message,)
 
 
     def validCalendarData(self):
         """
         Check the calendar data for valid iCalendar data.
         """
-    
+
         result = True
         message = ""
         truncated = False
@@ -167,8 +201,9 @@ class ValidService(Service, object):
                 message = message[len(errorPrefix):]
             if truncated:
                 message = "Calendar data RRULE truncated\n" + message
-    
+
         return (result, message,)
+
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
@@ -189,9 +224,14 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     except IOError, e:
         stderr.write("Unable to open input file for reading: %s\n" % (e))
         sys.exit(1)
+
+
     def makeService(store):
         return ValidService(store, options, output, input, reactor, config)
-    utilityMain(options['config'], makeService, reactor)
 
-if __name__ == '__main__':
+    utilityMain(options["config"], makeService, reactor, verbose=options["debug"])
+
+
+
+if __name__ == "__main__":
     main()

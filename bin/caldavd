@@ -2,7 +2,7 @@
 # -*- sh-basic-offset: 2 -*-
 
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -120,6 +120,8 @@ done;
 shift $((${OPTIND} - 1));
 
 if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
+
+export PYTHONHASHSEED=random
 
 export PYTHONPATH
 

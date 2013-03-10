@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2009-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from gzip import GzipFile
 import collections
@@ -319,7 +320,7 @@ class CalendarServerLogAnalyzer(object):
                 try:
                     self.parseLine(line)
                 except:
-                    print "Could not parse line:\n%s" % (line,)
+                    print("Could not parse line:\n%s" % (line,))
                     continue
         
                 # Filter method
@@ -480,7 +481,7 @@ class CalendarServerLogAnalyzer(object):
                 self.userInteractionAnalysis(adjustedMethod)
 
         except Exception:
-            print "Failed to process line:\n%s" % (line,)
+            print("Failed to process line:\n%s" % (line,))
             raise
     
         # Average various items
@@ -942,85 +943,85 @@ class CalendarServerLogAnalyzer(object):
 
         self.printInfo(doTabs)
         
-        print "Load Analysis"
+        print("Load Analysis")
         self.printHourlyTotals(doTabs, summary)
         
         if not summary:
-            print "Client Analysis"
+            print("Client Analysis")
             self.printClientTotals(doTabs)
             
-            print "Protocol Analysis Count"
+            print("Protocol Analysis Count")
             self.printHourlyByXXXDetails(
                 self.hourlyByOKMethodCount if self.separate401s else self.hourlyByMethodCount,
                 doTabs,
             )
             
-            print "Protocol Analysis Average Response Time (ms)"
+            print("Protocol Analysis Average Response Time (ms)")
             self.printHourlyByXXXDetails(
                 self.averagedHourlyByOKMethodTime if self.separate401s else self.averagedHourlyByMethodTime,
                 doTabs,
                 showAverages=True,
             )
             
-            print "Protocol Analysis Total Response Time (ms)"
+            print("Protocol Analysis Total Response Time (ms)")
             self.printHourlyByXXXDetails(
                 self.hourlyByOKMethodTime if self.separate401s else self.hourlyByMethodTime,
                 doTabs,
                 showFloatPercent=True,
             )
             
-            print "Status Code Analysis"
+            print("Status Code Analysis")
             self.printHourlyByXXXDetails(self.hourlyByStatus, doTabs)
             
-            print "Protocol Analysis by Status"
+            print("Protocol Analysis by Status")
             self.printXXXMethodDetails(self.statusByMethodCount, doTabs, False)
             
-            print "Cache Analysis"
+            print("Cache Analysis")
             self.printHourlyCacheDetails(doTabs)
             
             if len(self.hourlyPropfindByResponseCount):
-                print "PROPFIND Calendar response count distribution"
+                print("PROPFIND Calendar response count distribution")
                 self.printHourlyByXXXDetails(self.hourlyPropfindByResponseCount, doTabs)
             
             if len(self.averagedHourlyByRecipientCount):
-                print "Average Recipient Counts"
+                print("Average Recipient Counts")
                 self.printHourlyByXXXDetails(self.averagedHourlyByRecipientCount, doTabs, showTotals=False)
                 
-            print "Queue Depth vs Response Time"
+            print("Queue Depth vs Response Time")
             self.printQueueDepthResponseTime(doTabs)
             
-            print "Instance Count Distribution"
+            print("Instance Count Distribution")
             self.printInstanceCount(doTabs)
     
-            print "Protocol Analysis by Client"
+            print("Protocol Analysis by Client")
             self.printXXXMethodDetails(self.clientIDByMethodCount, doTabs)
             
             if len(self.requestSizeByBucket):
-                print "Request size distribution"
+                print("Request size distribution")
                 self.printHourlyByXXXDetails(self.requestSizeByBucket, doTabs)
             
             if len(self.responseSizeByBucket):
-                print "Response size distribution (excluding GET Dropbox)"
+                print("Response size distribution (excluding GET Dropbox)")
                 self.printHourlyByXXXDetails(self.responseSizeByBucket, doTabs)
             
             if len(self.averageResponseCountByMethod):
-                print "Average response count by method"
+                print("Average response count by method")
                 self.printResponseCounts(doTabs)
             
             if len(self.requestTimeByBucket):
-                print "Response time distribution"
+                print("Response time distribution")
                 self.printHourlyByXXXDetails(self.requestTimeByBucket, doTabs)
             
-            print "URI Counts"
+            print("URI Counts")
             self.printURICounts(doTabs)
     
-            #print "User Interaction Counts"
+            #print("User Interaction Counts")
             #self.printUserInteractionCounts(doTabs)
     
-            print "User Weights (top 100)"
+            print("User Weights (top 100)")
             self.printUserWeights(doTabs)
     
-            #print "User Response times"
+            #print("User Response times")
             #self.printUserResponseTimes(doTabs)
 
     def printInfo(self, doTabs):
@@ -1037,7 +1038,7 @@ class CalendarServerLogAnalyzer(object):
         table.addRow(("Lines Analyzed:", sum(self.linesRead.values()),))
     
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
     
     def getHourFromIndex(self, index):
         
@@ -1112,7 +1113,7 @@ class CalendarServerLogAnalyzer(object):
         )
     
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
     
     def printClientTotals(self, doTabs):
         
@@ -1145,7 +1146,7 @@ class CalendarServerLogAnalyzer(object):
         ))
     
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
     
     def printHourlyByXXXDetails(self, hourlyByXXX, doTabs, showTotals=True, showAverages=False, showFloatPercent=False):
     
@@ -1235,7 +1236,7 @@ class CalendarServerLogAnalyzer(object):
             table.addFooter(row)
     
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
     
     def printHourlyCacheDetails(self, doTabs):
     
@@ -1326,7 +1327,7 @@ class CalendarServerLogAnalyzer(object):
         table.addFooter(row)
     
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
     
     def printQueueDepthResponseTime(self, doTabs):
         
@@ -1347,7 +1348,7 @@ class CalendarServerLogAnalyzer(object):
             ))
     
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
     
     def printXXXMethodDetails(self, data, doTabs, verticalTotals=True):
     
@@ -1383,7 +1384,7 @@ class CalendarServerLogAnalyzer(object):
         table.addFooter(row)
     
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
 
     def printInstanceCount(self, doTabs):
     
@@ -1412,7 +1413,7 @@ class CalendarServerLogAnalyzer(object):
             ))
    
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
 
     def printURICounts(self, doTabs):
     
@@ -1435,7 +1436,7 @@ class CalendarServerLogAnalyzer(object):
             ))
    
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
 
     def printUserWeights(self, doTabs):
     
@@ -1458,7 +1459,7 @@ class CalendarServerLogAnalyzer(object):
             ))
    
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
 
     def printResponseCounts(self, doTabs):
     
@@ -1480,7 +1481,7 @@ class CalendarServerLogAnalyzer(object):
         table.addFooter(("Total:", self.averageResponseCountByMethod[" TOTAL"],))
    
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
 
     def printUserResponseTimes(self, doTabs):
     
@@ -1508,7 +1509,7 @@ class CalendarServerLogAnalyzer(object):
             ))
    
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
 
     def printUserInteractionCounts(self, doTabs):
         table = tables.Table()
@@ -1524,7 +1525,7 @@ class CalendarServerLogAnalyzer(object):
             # Chop off the "(a):" part.
             table.addRow((k[4:], v, safePercent(float(v), total)))
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
 
 
 class TablePrinter(object):
@@ -1583,7 +1584,7 @@ class TablePrinter(object):
             table.addFooter(row)
     
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
                     
 class Differ(TablePrinter):
     
@@ -1595,24 +1596,24 @@ class Differ(TablePrinter):
         
         self.printInfo(doTabs)
 
-        print "Load Analysis Differences"
+        print("Load Analysis Differences")
         #self.printLoadAnalysisDetails(doTabs)
         self.printHourlyTotals(doTabs)
 
         if not summary:
-            print "Client Differences"
+            print("Client Differences")
             self.printClientTotals(doTabs)
     
-            print "Protocol Count Differences"
+            print("Protocol Count Differences")
             self.printMethodCountDetails(doTabs)
     
-            print "Average Response Time Differences"
+            print("Average Response Time Differences")
             self.printMethodTimingDetails("clientByMethodAveragedTime", doTabs)
     
-            print "Total Response Time Differences"
+            print("Total Response Time Differences")
             self.printMethodTimingDetails("clientByMethodTotalTime", doTabs)
             
-            print "Average Response Count Differences"
+            print("Average Response Count Differences")
             self.printResponseCountDetails(doTabs)
 
     def printInfo(self, doTabs):
@@ -1626,7 +1627,7 @@ class Differ(TablePrinter):
             table.addRow(("Filtered to user:", self.analyzers[0].filterByUser,))
     
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
     
     def printLoadAnalysisDetails(self, doTabs):
         
@@ -1781,7 +1782,7 @@ class Differ(TablePrinter):
         table.addFooter(ftr, columnFormats=fmt)
     
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
     
     def printClientTotals(self, doTabs):
         
@@ -1863,7 +1864,7 @@ class Differ(TablePrinter):
         table.addFooter(footer)
     
         table.printTabDelimitedData() if doTabs else table.printTable()
-        print ""
+        print("")
     
     def printMethodCountDetails(self, doTabs):
         
@@ -1953,9 +1954,9 @@ class Differ(TablePrinter):
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print """Usage: protocolanalysis [options] [FILE]
+    print("""Usage: protocolanalysis [options] [FILE]
 Options:
     -h            Print this help and exit
     --hours       Range of hours (local time) to analyze [0:23]
@@ -1976,7 +1977,7 @@ Description:
     tabulated statistics. It can also display statistics about the
     differences between two logs.
 
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)
@@ -2053,7 +2054,7 @@ if __name__ == "__main__":
                 logs.extend(glob.iglob(arg))
             else:
                 if not os.path.exists(arg):
-                    print "Path does not exist: '%s'. Ignoring." % (arg,)
+                    print("Path does not exist: '%s'. Ignoring." % (arg,))
                     continue
                 logs.append(arg)
            
@@ -2061,7 +2062,7 @@ if __name__ == "__main__":
         for log in logs:
             if diffMode or not analyzers:
                 analyzers.append(CalendarServerLogAnalyzer(startHour, endHour, utcoffset, resolution, filterByUser, filterByClient))
-            print "Analyzing: %s" % (log,)
+            print("Analyzing: %s" % (log,))
             analyzers[-1].analyzeLogFile(log)
 
         if diffMode and len(analyzers) > 1:
@@ -2074,12 +2075,12 @@ if __name__ == "__main__":
                     again = raw_input("Repeat analysis [y/n]:")
                     if again.lower()[0] == "n":
                         break
-                    print "\n\n\n"
+                    print("\n\n\n")
                     for arg in args:
-                        print "Analyzing: %s" % (arg,)
+                        print("Analyzing: %s" % (arg,))
                         analyzers[0].analyzeLogFile(arg)
                     analyzers[0].printAll(doTabDelimited, summary)
                 
     except Exception, e:
-        print traceback.print_exc()
+        print(traceback.print_exc())
         sys.exit(str(e))

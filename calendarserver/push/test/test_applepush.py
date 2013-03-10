@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # limitations under the License.
 ##
 
+import json
 import struct
 import time
 from calendarserver.push.applepush import (
@@ -37,12 +38,10 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
     def test_ApplePushNotifierService(self):
 
         settings = {
-            "Service" : "calendarserver.push.applepush.ApplePushNotifierService",
             "Enabled" : True,
             "SubscriptionURL" : "apn",
             "SubscriptionPurgeSeconds" : 24 * 60 * 60,
             "SubscriptionPurgeIntervalSeconds" : 24 * 60 * 60,
-            "DataHost" : "calendars.example.com",
             "ProviderHost" : "gateway.push.apple.com",
             "ProviderPort" : 2195,
             "FeedbackHost" : "feedback.push.apple.com",
@@ -95,9 +94,9 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         yield txn.addAPNSubscription(token, key2, timestamp2, uid, userAgent, ipAddr)
 
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid))
-        self.assertTrue([token, key1, timestamp1] in subscriptions)
-        self.assertTrue([token, key2, timestamp2] in subscriptions)
-        self.assertTrue([token2, key1, timestamp1] in subscriptions)
+        self.assertTrue([token, key1, timestamp1, userAgent, ipAddr] in subscriptions)
+        self.assertTrue([token, key2, timestamp2, userAgent, ipAddr] in subscriptions)
+        self.assertTrue([token2, key1, timestamp1, userAgent, ipAddr] in subscriptions)
 
         # Verify an update to a subscription with a different uid takes on
         # the new uid
@@ -105,10 +104,10 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         uid2 = "D8FFB335-9D36-4CE8-A3B9-D1859E38C0DA"
         yield txn.addAPNSubscription(token, key2, timestamp3, uid2, userAgent, ipAddr)
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid))
-        self.assertTrue([token, key1, timestamp1] in subscriptions)
-        self.assertFalse([token, key2, timestamp3] in subscriptions)
+        self.assertTrue([token, key1, timestamp1, userAgent, ipAddr] in subscriptions)
+        self.assertFalse([token, key2, timestamp3, userAgent, ipAddr] in subscriptions)
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid2))
-        self.assertTrue([token, key2, timestamp3] in subscriptions)
+        self.assertTrue([token, key2, timestamp3, userAgent, ipAddr] in subscriptions)
         # Change it back
         yield txn.addAPNSubscription(token, key2, timestamp2, uid, userAgent, ipAddr)
 
@@ -117,7 +116,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Set up the service
         clock = Clock()
         service = (yield ApplePushNotifierService.makeService(settings,
-            self.store, "localhost", testConnectorClass=TestConnector, reactor=clock))
+            self.store, testConnectorClass=TestConnector, reactor=clock))
         self.assertEquals(set(service.providers.keys()), set(["CalDAV","CardDAV"]))
         self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV","CardDAV"]))
 
@@ -125,11 +124,13 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # case by doing it prior to startService()
 
         # Notification arrives from calendar server
-        yield service.enqueue("update", "CalDAV|user01/calendar")
+        dataChangedTimestamp = 1354815999
+        yield service.enqueue("/CalDAV/calendars.example.com/user01/calendar/",
+            dataChangedTimestamp=dataChangedTimestamp)
 
         # The notifications should be in the queue
-        self.assertTrue((token, key1) in service.providers["CalDAV"].queue)
-        self.assertTrue((token2, key1) in service.providers["CalDAV"].queue)
+        self.assertTrue(((token, key1), dataChangedTimestamp) in service.providers["CalDAV"].queue)
+        self.assertTrue(((token2, key1), dataChangedTimestamp) in service.providers["CalDAV"].queue)
 
         # Start the service, making the connection which should service the
         # queue
@@ -141,14 +142,17 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Verify data sent to APN
         providerConnector = service.providers["CalDAV"].testConnector
         rawData = providerConnector.transport.data
-        self.assertEquals(len(rawData), 103)
+        self.assertEquals(len(rawData), 183)
         data = struct.unpack("!BIIH32sH", rawData[:45])
         self.assertEquals(data[0], 1) # command
         self.assertEquals(data[4].encode("hex"), token.replace(" ", "")) # token
         payloadLength = data[5]
         payload = struct.unpack("%ds" % (payloadLength,),
             rawData[45:])
-        self.assertEquals(payload[0], '{"key" : "%s"}' % (key1,))
+        payload = json.loads(payload[0])
+        self.assertEquals(payload["key"], u"/CalDAV/calendars.example.com/user01/calendar/")
+        self.assertEquals(payload["dataChangedTimestamp"], dataChangedTimestamp)
+        self.assertTrue(payload.has_key("pushRequestSubmittedTimestamp"))
         # Verify token history is updated
         self.assertTrue(token in [t for (i, t) in providerConnector.service.protocol.history.history])
         self.assertTrue(token2 in [t for (i, t) in providerConnector.service.protocol.history.history])
@@ -161,13 +165,13 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Reset sent data
         providerConnector.transport.data = None
         # Send notification while service is connected
-        yield service.enqueue("update", "CalDAV|user01/calendar")
+        yield service.enqueue("/CalDAV/calendars.example.com/user01/calendar/")
         clock.advance(1) # so that first push is sent
-        self.assertEquals(len(providerConnector.transport.data), 103)
+        self.assertEquals(len(providerConnector.transport.data), 183)
         # Reset sent data
         providerConnector.transport.data = None
         clock.advance(3) # so that second push is sent
-        self.assertEquals(len(providerConnector.transport.data), 103)
+        self.assertEquals(len(providerConnector.transport.data), 183)
 
 
         def errorTestFunction(status, identifier):

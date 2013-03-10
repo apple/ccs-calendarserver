@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import sys
 
@@ -68,7 +69,7 @@ def main():
     p = ttest_1samp(second, fmean)[1]
     if p >= 0.95:
         # rejected the null hypothesis
-        print sys.argv[1], 'mean of', fmean, 'differs from', sys.argv[2], 'mean of', smean, '(%2.0f%%)' % (p * 100,)
+        print(sys.argv[1], 'mean of', fmean, 'differs from', sys.argv[2], 'mean of', smean, '(%2.0f%%)' % (p * 100,))
     else:
         # failed to reject the null hypothesis
-        print 'cannot prove means (%s, %s) differ (%2.0f%%)' % (fmean, smean, p * 100,)
+        print('cannot prove means (%s, %s) differ (%2.0f%%)' % (fmean, smean, p * 100,))

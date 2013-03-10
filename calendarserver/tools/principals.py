@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import sys
 import os
@@ -49,47 +50,49 @@ __all__ = [
 def usage(e=None):
     if e:
         if isinstance(e, UnknownRecordTypeError):
-            print "Valid record types:"
+            print("Valid record types:")
             for recordType in config.directory.recordTypes():
-                print "    %s" % (recordType,)
+                print("    %s" % (recordType,))
 
-        print e
-        print ""
+        print(e)
+        print("")
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] action_flags principal [principal ...]" % (name,)
-    print "       %s [options] --list-principal-types" % (name,)
-    print "       %s [options] --list-principals type" % (name,)
-    print ""
-    print "  Performs the given actions against the giving principals."
-    print ""
-    print "  Principals are identified by one of the following:"
-    print "    Type and shortname (eg.: users:wsanchez)"
-    #print "    A principal path (eg.: /principals/users/wsanchez/)"
-    print "    A GUID (eg.: E415DBA7-40B5-49F5-A7CC-ACC81E4DEC79)"
-    print ""
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
-    print "  -v --verbose: print debugging information"
-    print ""
-    print "actions:"
-    print "  --search <search-string>: search for matching principals"
-    print "  --list-principal-types: list all of the known principal types"
-    print "  --list-principals type: list all principals of the given type"
-    print "  --read-property=property: read DAV property (eg.: {DAV:}group-member-set)"
-    print "  --list-read-proxies: list proxies with read-only access"
-    print "  --list-write-proxies: list proxies with read-write access"
-    print "  --list-proxies: list all proxies"
-    print "  --add-read-proxy=principal: add a read-only proxy"
-    print "  --add-write-proxy=principal: add a read-write proxy"
-    print "  --remove-proxy=principal: remove a proxy"
-    print "  --set-auto-schedule={true|false}: set auto-accept state"
-    print "  --get-auto-schedule: read auto-schedule state"
-    print "  --set-auto-schedule-mode={default|none|accept-always|decline-always|accept-if-free|decline-if-busy|automatic}: set auto-schedule mode"
-    print "  --get-auto-schedule-mode: read auto-schedule mode"
-    print "  --add {locations|resources} 'full name' [record name] [GUID]: add a principal"
-    print "  --remove: remove a principal"
+    print("usage: %s [options] action_flags principal [principal ...]" % (name,))
+    print("       %s [options] --list-principal-types" % (name,))
+    print("       %s [options] --list-principals type" % (name,))
+    print("")
+    print("  Performs the given actions against the giving principals.")
+    print("")
+    print("  Principals are identified by one of the following:")
+    print("    Type and shortname (eg.: users:wsanchez)")
+    #print("    A principal path (eg.: /principals/users/wsanchez/)")
+    print("    A GUID (eg.: E415DBA7-40B5-49F5-A7CC-ACC81E4DEC79)")
+    print("")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -f --config <path>: Specify caldavd.plist configuration path")
+    print("  -v --verbose: print debugging information")
+    print("")
+    print("actions:")
+    print("  --search <search-string>: search for matching principals")
+    print("  --list-principal-types: list all of the known principal types")
+    print("  --list-principals type: list all principals of the given type")
+    print("  --read-property=property: read DAV property (eg.: {DAV:}group-member-set)")
+    print("  --list-read-proxies: list proxies with read-only access")
+    print("  --list-write-proxies: list proxies with read-write access")
+    print("  --list-proxies: list all proxies")
+    print("  --add-read-proxy=principal: add a read-only proxy")
+    print("  --add-write-proxy=principal: add a read-write proxy")
+    print("  --remove-proxy=principal: remove a proxy")
+    print("  --set-auto-schedule={true|false}: set auto-accept state")
+    print("  --get-auto-schedule: read auto-schedule state")
+    print("  --set-auto-schedule-mode={default|none|accept-always|decline-always|accept-if-free|decline-if-busy|automatic}: set auto-schedule mode")
+    print("  --get-auto-schedule-mode: read auto-schedule mode")
+    print("  --set-auto-accept-group=principal: set auto-accept-group")
+    print("  --get-auto-accept-group: read auto-accept-group")
+    print("  --add {locations|resources} 'full name' [record name] [GUID]: add a principal")
+    print("  --remove: remove a principal")
 
     if e:
         sys.exit(64)
@@ -118,6 +121,8 @@ def main():
                 "get-auto-schedule",
                 "set-auto-schedule-mode=",
                 "get-auto-schedule-mode",
+                "set-auto-accept-group=",
+                "get-auto-accept-group",
                 "verbose",
             ],
         )
@@ -223,6 +228,18 @@ def main():
         elif opt in ("", "--get-auto-schedule-mode"):
             principalActions.append((action_getAutoScheduleMode,))
 
+        elif opt in ("", "--set-auto-accept-group"):
+            try:
+                principalForPrincipalID(arg, checkOnly=True)
+            except ValueError, e:
+                abort(e)
+
+            principalActions.append((action_setAutoAcceptGroup, arg))
+
+        elif opt in ("", "--get-auto-accept-group"):
+            principalActions.append((action_getAutoAcceptGroup,))
+
+
         else:
             raise NotImplementedError(opt)
 
@@ -282,7 +299,7 @@ def main():
             usage("Too many arguments")
 
         for recordType in config.directory.recordTypes():
-            print recordType
+            print(recordType)
 
         return
 
@@ -291,13 +308,13 @@ def main():
         try:
             addType = matchStrings(addType, ["locations", "resources"])
         except ValueError, e:
-            print e
+            print(e)
             return
 
         try:
             fullName, shortName, guid = parseCreationArgs(args)
         except ValueError, e:
-            print e
+            print(e)
             return
 
         if shortName is not None:
@@ -313,7 +330,7 @@ def main():
             listPrincipals = matchStrings(listPrincipals, ["users", "groups",
                 "locations", "resources"])
         except ValueError, e:
-            print e
+            print(e)
             return
 
         if args:
@@ -324,7 +341,7 @@ def main():
             if records:
                 printRecordList(records)
             else:
-                print "No records of type %s" % (listPrincipals,)
+                print("No records of type %s" % (listPrincipals,))
         except UnknownRecordTypeError, e:
             usage(e)
 
@@ -374,7 +391,7 @@ def runPrincipalActions(principalIDs, actions):
             # Performs requested actions
             for action in actions:
                 (yield action[0](principal, *action[1:]))
-                print ""
+                print("")
 
     finally:
         #
@@ -393,25 +410,25 @@ def runSearch(searchTerm):
         records = list((yield config.directory.recordsMatchingTokens(searchTerm.strip().split())))
         if records:
             records.sort(key=operator.attrgetter('fullName'))
-            print "%d matches found:" % (len(records),)
+            print("%d matches found:" % (len(records),))
             for record in records:
-                print "\n%s (%s)" % (record.fullName,
+                print("\n%s (%s)" % (record.fullName,
                     { "users"     : "User",
                       "groups"    : "Group",
                       "locations" : "Place",
                       "resources" : "Resource",
                     }.get(record.recordType),
-                )
-                print "   GUID: %s" % (record.guid,)
-                print "   Record name(s): %s" % (", ".join(record.shortNames),)
+                ))
+                print("   GUID: %s" % (record.guid,))
+                print("   Record name(s): %s" % (", ".join(record.shortNames),))
                 if record.authIDs:
-                    print "   Auth ID(s): %s" % (", ".join(record.authIDs),)
+                    print("   Auth ID(s): %s" % (", ".join(record.authIDs),))
                 if record.emailAddresses:
-                    print "   Email(s): %s" % (", ".join(record.emailAddresses),)
+                    print("   Email(s): %s" % (", ".join(record.emailAddresses),))
         else:
-            print "No matches found"
+            print("No matches found")
 
-        print ""
+        print("")
 
     finally:
         #
@@ -425,9 +442,9 @@ def runAddPrincipal(addType, guid, shortNames, fullName):
         try:
             yield updateRecord(True, config.directory, addType, guid=guid,
                 shortNames=shortNames, fullName=fullName)
-            print "Added '%s'" % (fullName,)
+            print("Added '%s'" % (fullName,))
         except DirectoryError, e:
-            print e
+            print(e)
 
     finally:
         #
@@ -507,32 +524,32 @@ def action_removePrincipal(principal):
     guid = record.guid
 
     config.directory.destroyRecord(record.recordType, guid=guid)
-    print "Removed '%s' %s %s" % (fullName, shortName, guid)
+    print("Removed '%s' %s %s" % (fullName, shortName, guid))
 
 
 @inlineCallbacks
 def action_readProperty(resource, qname):
     property = (yield resource.readProperty(qname, None))
-    print "%r on %s:" % (encodeXMLName(*qname), resource)
-    print ""
-    print property.toxml()
+    print("%r on %s:" % (encodeXMLName(*qname), resource))
+    print("")
+    print(property.toxml())
 
 @inlineCallbacks
 def action_listProxies(principal, *proxyTypes):
     for proxyType in proxyTypes:
         subPrincipal = proxySubprincipal(principal, proxyType)
         if subPrincipal is None:
-            print "No %s proxies for %s" % (proxyType,
-                prettyPrincipal(principal))
+            print("No %s proxies for %s" % (proxyType,
+                prettyPrincipal(principal)))
             continue
 
         membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
 
         if membersProperty.children:
-            print "%s proxies for %s:" % (
+            print("%s proxies for %s:" % (
                 {"read": "Read-only", "write": "Read/write"}[proxyType],
                 prettyPrincipal(principal)
-            )
+            ))
             records = []
             for member in membersProperty.children:
                 proxyPrincipal = principalForPrincipalID(str(member),
@@ -542,15 +559,15 @@ def action_listProxies(principal, *proxyTypes):
             printRecordList(records)
             print
         else:
-            print "No %s proxies for %s" % (proxyType,
-                prettyPrincipal(principal))
+            print("No %s proxies for %s" % (proxyType,
+                prettyPrincipal(principal)))
 
 @inlineCallbacks
 def action_addProxy(principal, proxyType, *proxyIDs):
     for proxyID in proxyIDs:
         proxyPrincipal = principalForPrincipalID(proxyID)
         if proxyPrincipal is None:
-            print "Invalid principal ID: %s" % (proxyID,)
+            print("Invalid principal ID: %s" % (proxyID,))
         else:
             (yield action_addProxyPrincipal(principal, proxyType, proxyPrincipal))
 
@@ -558,13 +575,13 @@ def action_addProxy(principal, proxyType, *proxyIDs):
 def action_addProxyPrincipal(principal, proxyType, proxyPrincipal):
     try:
         (yield addProxy(principal, proxyType, proxyPrincipal))
-        print "Added %s as a %s proxy for %s" % (
+        print("Added %s as a %s proxy for %s" % (
             prettyPrincipal(proxyPrincipal), proxyType,
-            prettyPrincipal(principal))
+            prettyPrincipal(principal)))
     except ProxyError, e:
-        print "Error:", e
+        print("Error:", e)
     except ProxyWarning, e:
-        print e
+        print(e)
 
 @inlineCallbacks
 def addProxy(principal, proxyType, proxyPrincipal):
@@ -655,7 +672,7 @@ def action_removeProxy(principal, *proxyIDs, **kwargs):
     for proxyID in proxyIDs:
         proxyPrincipal = principalForPrincipalID(proxyID)
         if proxyPrincipal is None:
-            print "Invalid principal ID: %s" % (proxyID,)
+            print("Invalid principal ID: %s" % (proxyID,))
         else:
             (yield action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs))
 
@@ -664,13 +681,13 @@ def action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs):
     try:
         removed = (yield removeProxy(principal, proxyPrincipal, **kwargs))
         if removed:
-            print "Removed %s as a proxy for %s" % (
+            print("Removed %s as a proxy for %s" % (
                 prettyPrincipal(proxyPrincipal),
-                prettyPrincipal(principal))
+                prettyPrincipal(principal)))
     except ProxyError, e:
-        print "Error:", e
+        print("Error:", e)
     except ProxyWarning, e:
-        print e
+        print(e)
 
 
 @inlineCallbacks
@@ -709,16 +726,16 @@ def removeProxy(principal, proxyPrincipal, **kwargs):
 @inlineCallbacks
 def action_setAutoSchedule(principal, autoSchedule):
     if principal.record.recordType == "groups":
-        print "Enabling auto-schedule for %s is not allowed." % (principal,)
+        print("Enabling auto-schedule for %s is not allowed." % (principal,))
 
     elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
-        print "Enabling auto-schedule for %s is not allowed." % (principal,)
+        print("Enabling auto-schedule for %s is not allowed." % (principal,))
 
     else:
-        print "Setting auto-schedule to %s for %s" % (
+        print("Setting auto-schedule to %s for %s" % (
             { True: "true", False: "false" }[autoSchedule],
             prettyPrincipal(principal),
-        )
+        ))
 
         (yield updateRecord(False, config.directory,
             principal.record.recordType,
@@ -731,24 +748,24 @@ def action_setAutoSchedule(principal, autoSchedule):
 
 def action_getAutoSchedule(principal):
     autoSchedule = principal.getAutoSchedule()
-    print "Auto-schedule for %s is %s" % (
+    print("Auto-schedule for %s is %s" % (
         prettyPrincipal(principal),
         { True: "true", False: "false" }[autoSchedule],
-    )
+    ))
 
 @inlineCallbacks
 def action_setAutoScheduleMode(principal, autoScheduleMode):
     if principal.record.recordType == "groups":
-        print "Setting auto-schedule mode for %s is not allowed." % (principal,)
+        print("Setting auto-schedule mode for %s is not allowed." % (principal,))
 
     elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
-        print "Setting auto-schedule mode for %s is not allowed." % (principal,)
+        print("Setting auto-schedule mode for %s is not allowed." % (principal,))
 
     else:
-        print "Setting auto-schedule mode to %s for %s" % (
+        print("Setting auto-schedule mode to %s for %s" % (
             autoScheduleMode,
             prettyPrincipal(principal),
-        )
+        ))
 
         (yield updateRecord(False, config.directory,
             principal.record.recordType,
@@ -763,10 +780,53 @@ def action_getAutoScheduleMode(principal):
     autoScheduleMode = principal.getAutoScheduleMode()
     if not autoScheduleMode:
         autoScheduleMode = "automatic"
-    print "Auto-schedule mode for %s is %s" % (
+    print("Auto-schedule mode for %s is %s" % (
         prettyPrincipal(principal),
         autoScheduleMode,
-    )
+    ))
+
+@inlineCallbacks
+def action_setAutoAcceptGroup(principal, autoAcceptGroup):
+    if principal.record.recordType == "groups":
+        print("Setting auto-accept-group for %s is not allowed." % (principal,))
+
+    elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
+        print("Setting auto-accept-group for %s is not allowed." % (principal,))
+
+    else:
+        groupPrincipal = principalForPrincipalID(autoAcceptGroup)
+        if groupPrincipal is None or groupPrincipal.record.recordType != "groups":
+            print("Invalid principal ID: %s" % (autoAcceptGroup,))
+        else:
+            print("Setting auto-accept-group to %s for %s" % (
+                prettyPrincipal(groupPrincipal),
+                prettyPrincipal(principal),
+            ))
+
+            (yield updateRecord(False, config.directory,
+                principal.record.recordType,
+                guid=principal.record.guid,
+                shortNames=principal.record.shortNames,
+                fullName=principal.record.fullName,
+                autoAcceptGroup=groupPrincipal.record.guid,
+                **principal.record.extras
+            ))
+
+def action_getAutoAcceptGroup(principal):
+    autoAcceptGroup = principal.getAutoAcceptGroup()
+    if autoAcceptGroup:
+        record = config.directory.recordWithGUID(autoAcceptGroup)
+        if record is not None:
+            groupPrincipal = config.directory.principalCollection.principalForUID(record.uid)
+            if groupPrincipal is not None:
+                print("Auto-accept-group for %s is %s" % (
+                    prettyPrincipal(principal),
+                    prettyPrincipal(groupPrincipal),
+                ))
+                return
+        print("Invalid auto-accept-group assigned: %s" % (autoAcceptGroup,))
+    else:
+        print("No auto-accept-group assigned to %s" % (prettyPrincipal(principal),))
 
 
 def abort(msg, status=1):
@@ -835,10 +895,10 @@ def printRecordList(records):
         for record in records]
     results.sort()
     format = "%-22s %-17s %s"
-    print format % ("Full name", "Record name", "UUID")
-    print format % ("---------", "-----------", "----")
+    print(format % ("Full name", "Record name", "UUID"))
+    print(format % ("---------", "-----------", "----"))
     for fullName, shortName, guid in results:
-        print format % (fullName, shortName, guid)
+        print(format % (fullName, shortName, guid))
 
 def prettyPrincipal(principal):
     record = principal.record
@@ -856,17 +916,32 @@ def updateRecord(create, directory, recordType, **kwargs):
     matching the guid in kwargs.
     """
 
+    assignAutoSchedule = False
     if kwargs.has_key("autoSchedule"):
+        assignAutoSchedule = True
         autoSchedule = kwargs["autoSchedule"]
         del kwargs["autoSchedule"]
-    else:
+    elif create:
+        assignAutoSchedule = True
         autoSchedule = recordType in ("locations", "resources")
 
+    assignAutoScheduleMode = False
     if kwargs.has_key("autoScheduleMode"):
+        assignAutoScheduleMode = True
         autoScheduleMode = kwargs["autoScheduleMode"]
         del kwargs["autoScheduleMode"]
-    else:
+    elif create:
+        assignAutoScheduleMode = True
         autoScheduleMode = None
+
+    assignAutoAcceptGroup = False
+    if kwargs.has_key("autoAcceptGroup"):
+        assignAutoAcceptGroup = True
+        autoAcceptGroup = kwargs["autoAcceptGroup"]
+        del kwargs["autoAcceptGroup"]
+    elif create:
+        assignAutoAcceptGroup = True
+        autoAcceptGroup = None
 
     for key, value in kwargs.items():
         if isinstance(value, unicode):
@@ -890,8 +965,13 @@ def updateRecord(create, directory, recordType, **kwargs):
 
     augmentService = directory.serviceForRecordType(recordType).augmentService
     augmentRecord = (yield augmentService.getAugmentRecord(kwargs['guid'], recordType))
-    augmentRecord.autoSchedule = autoSchedule
-    augmentRecord.autoScheduleMode = autoScheduleMode
+
+    if assignAutoSchedule:
+        augmentRecord.autoSchedule = autoSchedule
+    if assignAutoScheduleMode:
+        augmentRecord.autoScheduleMode = autoScheduleMode
+    if assignAutoAcceptGroup:
+        augmentRecord.autoAcceptGroup = autoAcceptGroup
     (yield augmentService.addAugmentRecords([augmentRecord]))
     try:
         directory.updateRecord(recordType, **kwargs)

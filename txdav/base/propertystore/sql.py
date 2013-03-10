@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.base.propertystore.test.test_sql -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@ from twext.enterprise.dal.syntax import (
     Select, Parameter, Update, Insert, TableSyntax, Delete)
 
 from txdav.xml.parser import WebDAVDocument
+from txdav.common.icommondatastore import AllRetriesFailed
+from twext.python.log import LoggingMixIn
 from txdav.common.datastore.sql_tables import schema
 from txdav.base.propertystore.base import (AbstractPropertyStore,
                                            PropertyName, validKey)
@@ -39,7 +41,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 prop = schema.RESOURCE_PROPERTY
 
-class PropertyStore(AbstractPropertyStore):
+class PropertyStore(AbstractPropertyStore, LoggingMixIn):
 
     _cacher = Memcacher("SQL.props", pickle=True, key_normalization=False)
 
@@ -73,13 +75,13 @@ class PropertyStore(AbstractPropertyStore):
 
     @classmethod
     @inlineCallbacks
-    def load(cls, defaultuser, txn, resourceID, created=False, notifyCallback=None):
+    def load(cls, defaultuser, shareUser, txn, resourceID, created=False, notifyCallback=None):
         """
         @param notifyCallback: a callable used to trigger notifications when the
             property store changes.
         """
         self = cls.__new__(cls)
-        super(PropertyStore, self).__init__(defaultuser)
+        super(PropertyStore, self).__init__(defaultuser, shareUser)
         self._txn = txn
         self._resourceID = resourceID
         self._cached = {}
@@ -255,7 +257,10 @@ class PropertyStore(AbstractPropertyStore):
         if hasattr(self, "_notifyCallback") and self._notifyCallback is not None:
             self._notifyCallback()
 
-        self._txn.subtransaction(trySetItem)
+        def justLogIt(f):
+            f.trap(AllRetriesFailed)
+            self.log_error("setting a property failed; probably nothing.")
+        self._txn.subtransaction(trySetItem).addErrback(justLogIt)
 
 
 

@@ -1,249 +1,301 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR ORGANIZATION
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# Calendar Server Localization
+# Copyright (c) 2008-2012 Apple Inc. All rights reserved.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2008-10-24 15:03+PDT\n"
+"POT-Creation-Date: 2012-09-28 10:13-0700\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: pygettext.py 1.5\n"
 
-
-#: localization.py:171
+#: twistedcaldav/localization.py:178
 msgid "All day"
 msgstr ""
 
-#: localization.py:177
+#: twistedcaldav/localization.py:205
+#, python-format
 msgid "%(startTime)s to %(endTime)s"
 msgstr ""
 
-#: localization.py:191
+#: twistedcaldav/localization.py:220
+#, python-format
 msgid "%(dayName)s, %(monthName)s %(dayNumber)d, %(yearNumber)d"
 msgstr ""
 
-#: localization.py:207
+#: twistedcaldav/localization.py:236
 msgid "AM"
 msgstr ""
 
-#: localization.py:207
+#: twistedcaldav/localization.py:236
 msgid "PM"
 msgstr ""
 
-#: localization.py:213
+#: twistedcaldav/localization.py:242
+#, python-format
 msgid "%(hour12Number)d:%(minuteNumber)02d %(ampm)s"
 msgstr ""
 
-#: localization.py:236
+#: twistedcaldav/localization.py:266
+msgid "1 day"
+msgstr ""
+
+#: twistedcaldav/localization.py:268
+#, python-format
+msgid "%(dayCount)d days"
+msgstr ""
+
+#: twistedcaldav/localization.py:276
+msgid "1 hour"
+msgstr ""
+
+#: twistedcaldav/localization.py:278
+#, python-format
+msgid "%(hourCount)d hours"
+msgstr ""
+
+#: twistedcaldav/localization.py:282
+msgid "1 minute"
+msgstr ""
+
+#: twistedcaldav/localization.py:284
+#, python-format
+msgid "%(minuteCount)d minutes"
+msgstr ""
+
+#: twistedcaldav/localization.py:288
+msgid "1 second"
+msgstr ""
+
+#: twistedcaldav/localization.py:290
+#, python-format
+msgid "%(secondCount)d seconds"
+msgstr ""
+
+#: twistedcaldav/localization.py:302
 msgid "Monday"
 msgstr ""
 
-#: localization.py:237
+#: twistedcaldav/localization.py:303
 msgid "Tuesday"
 msgstr ""
 
-#: localization.py:238
+#: twistedcaldav/localization.py:304
 msgid "Wednesday"
 msgstr ""
 
-#: localization.py:239
+#: twistedcaldav/localization.py:305
 msgid "Thursday"
 msgstr ""
 
-#: localization.py:240
+#: twistedcaldav/localization.py:306
 msgid "Friday"
 msgstr ""
 
-#: localization.py:241
+#: twistedcaldav/localization.py:307
 msgid "Saturday"
 msgstr ""
 
-#: localization.py:242
+#: twistedcaldav/localization.py:308
 msgid "Sunday"
 msgstr ""
 
-#: localization.py:246
+#: twistedcaldav/localization.py:312
 msgid "Mon"
 msgstr ""
 
-#: localization.py:247
+#: twistedcaldav/localization.py:313
 msgid "Tue"
 msgstr ""
 
-#: localization.py:248
+#: twistedcaldav/localization.py:314
 msgid "Wed"
 msgstr ""
 
-#: localization.py:249
+#: twistedcaldav/localization.py:315
 msgid "Thu"
 msgstr ""
 
-#: localization.py:250
+#: twistedcaldav/localization.py:316
 msgid "Fri"
 msgstr ""
 
-#: localization.py:251
+#: twistedcaldav/localization.py:317
 msgid "Sun"
 msgstr ""
 
-#: localization.py:252
+#: twistedcaldav/localization.py:318
 msgid "Sat"
 msgstr ""
 
-#: localization.py:257
+#: twistedcaldav/localization.py:323
 msgid "January"
 msgstr ""
 
-#: localization.py:258
+#: twistedcaldav/localization.py:324
 msgid "February"
 msgstr ""
 
-#: localization.py:259
+#: twistedcaldav/localization.py:325
 msgid "March"
 msgstr ""
 
-#: localization.py:260
+#: twistedcaldav/localization.py:326
 msgid "April"
 msgstr ""
 
-#: localization.py:261 localization.py:277
+#: twistedcaldav/localization.py:327
 msgid "May"
 msgstr ""
 
-#: localization.py:262
+#: twistedcaldav/localization.py:328
 msgid "June"
 msgstr ""
 
-#: localization.py:263
+#: twistedcaldav/localization.py:329
 msgid "July"
 msgstr ""
 
-#: localization.py:264
+#: twistedcaldav/localization.py:330
 msgid "August"
 msgstr ""
 
-#: localization.py:265
+#: twistedcaldav/localization.py:331
 msgid "September"
 msgstr ""
 
-#: localization.py:266
+#: twistedcaldav/localization.py:332
 msgid "October"
 msgstr ""
 
-#: localization.py:267
+#: twistedcaldav/localization.py:333
 msgid "November"
 msgstr ""
 
-#: localization.py:268
+#: twistedcaldav/localization.py:334
 msgid "December"
 msgstr ""
 
-#: localization.py:273
-msgid "Jan"
+#: twistedcaldav/localization.py:339
+msgid "JAN"
 msgstr ""
 
-#: localization.py:274
-msgid "Feb"
+#: twistedcaldav/localization.py:340
+msgid "FEB"
 msgstr ""
 
-#: localization.py:275
-msgid "Mar"
+#: twistedcaldav/localization.py:341
+msgid "MAR"
 msgstr ""
 
-#: localization.py:276
-msgid "Apr"
+#: twistedcaldav/localization.py:342
+msgid "APR"
 msgstr ""
 
-#: localization.py:278
-msgid "Jun"
+#: twistedcaldav/localization.py:343
+msgid "MAY"
 msgstr ""
 
-#: localization.py:279
-msgid "Jul"
+#: twistedcaldav/localization.py:344
+msgid "JUN"
 msgstr ""
 
-#: localization.py:280
-msgid "Aug"
+#: twistedcaldav/localization.py:345
+msgid "JUL"
 msgstr ""
 
-#: localization.py:281
-msgid "Sep"
+#: twistedcaldav/localization.py:346
+msgid "AUG"
 msgstr ""
 
-#: localization.py:282
-msgid "Oct"
+#: twistedcaldav/localization.py:347
+msgid "SEP"
 msgstr ""
 
-#: localization.py:283
-msgid "Nov"
+#: twistedcaldav/localization.py:348
+msgid "OCT"
 msgstr ""
 
-#: localization.py:284
-msgid "Dec"
+#: twistedcaldav/localization.py:349
+msgid "NOV"
 msgstr ""
 
-#: mail.py:726 mail.py:755 mail.py:792
-msgid "Event cancelled"
+#: twistedcaldav/localization.py:350
+msgid "DEC"
 msgstr ""
 
-#: mail.py:727
+#: twistedcaldav/mail.py:267
+#, python-format
+msgid "Event canceled: %(summary)s"
+msgstr ""
+
+#: twistedcaldav/mail.py:269
+#, python-format
 msgid "Event invitation: %(summary)s"
 msgstr ""
 
-#: mail.py:736
+#: twistedcaldav/mail.py:271
+#, python-format
+msgid "Event update: %(summary)s"
+msgstr ""
+
+#: twistedcaldav/mail.py:273
+#, python-format
+msgid "Event reply: %(summary)s"
+msgstr ""
+
+#: twistedcaldav/mail.py:276
+msgid "Event Canceled"
+msgstr ""
+
+#: twistedcaldav/mail.py:279
 msgid "Event Invitation"
 msgstr ""
 
-#: mail.py:737
+#: twistedcaldav/mail.py:281
+msgid "Event Update"
+msgstr ""
+
+#: twistedcaldav/mail.py:283
+msgid "Event Reply"
+msgstr ""
+
+#: twistedcaldav/mail.py:286
 msgid "Date"
 msgstr ""
 
-#: mail.py:738
+#: twistedcaldav/mail.py:287
 msgid "Time"
 msgstr ""
 
-#: mail.py:739
+#: twistedcaldav/mail.py:288
+msgid "Duration"
+msgstr ""
+
+#: twistedcaldav/mail.py:289
+msgid "Occurs"
+msgstr ""
+
+#: twistedcaldav/mail.py:290
 msgid "Description"
 msgstr ""
 
-#: mail.py:740
+#: twistedcaldav/mail.py:291
+msgid "URL"
+msgstr ""
+
+#: twistedcaldav/mail.py:292
 msgid "Organizer"
 msgstr ""
 
-#: mail.py:741
+#: twistedcaldav/mail.py:293
 msgid "Attendees"
 msgstr ""
 
-#: mail.py:742
+#: twistedcaldav/mail.py:294
 msgid "Location"
 msgstr ""
 
-
-msgid "1 day"
-msgstr
-
-msgid "%(dayCount)d days"
-msgstr
-
-msgid "1 hour"
-
-msgid "%(hourCount)d hours"
-msgstr
-
-msgid "1 minute"
-msgstr
-
-msgid "%(minuteCount)d minutes"
-msgstr
-
-msgid "1 second"
-msgstr
-
-msgid "%(secondCount)d seconds"
-msgstr
-
+#: twistedcaldav/mail.py:1656
+msgid "(Repeating)"
+msgstr ""

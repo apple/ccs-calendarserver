@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,33 +18,34 @@
 Tests for L{txdav.common.datastore.upgrade.migrate}.
 """
 
-import copy
-
+from twext.enterprise.adbapi2 import Pickle
+from twext.enterprise.dal.syntax import Delete
 from twext.python.filepath import CachingFilePath
 from twext.web2.http_headers import MimeType
-from twext.enterprise.adbapi2 import Pickle
 
-from twisted.python.modules import getModule
 from twisted.application.service import Service, MultiService
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol
 from twisted.protocols.amp import AMP, Command, String
+from twisted.python.modules import getModule
 from twisted.python.reflect import qual, namedAny
 from twisted.trial.unittest import TestCase
 
+from twistedcaldav.config import config
 
 from txdav.caldav.datastore.test.common import CommonTests
 from txdav.carddav.datastore.test.common import CommonTests as ABCommonTests
 from txdav.common.datastore.file import CommonDataStore
-
+from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.test.util import SQLStoreBuilder
 from txdav.common.datastore.test.util import theStoreBuilder, \
     populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s, \
     populateAddressBooksFrom, resetAddressBookMD5s, deriveValue, \
     withSpecialValue
-
-from txdav.common.datastore.test.util import SQLStoreBuilder
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService, \
     StoreSpawnerService, swapAMP
+
+import copy
 
 
 
@@ -53,6 +54,7 @@ class CreateStore(Command):
     Create a store in a subprocess.
     """
     arguments = [('delegateTo', String())]
+
 
 
 class PickleConfig(Command):
@@ -156,7 +158,8 @@ class HomeMigrationTests(TestCase):
         class StubService(Service, object):
             def startService(self):
                 super(StubService, self).startService()
-                subStarted.callback(None)
+                if not subStarted.called:
+                    subStarted.callback(None)
         from twisted.python import log
         def justOnce(evt):
             if evt.get('isError') and not hasattr(subStarted, 'result'):
@@ -316,6 +319,19 @@ class HomeMigrationTests(TestCase):
         as well.
         """
 
+        # Need to tweak config and settings to setup dropbox to work
+        self.patch(config, "EnableDropBox", True)
+        self.patch(config, "EnableManagedAttachments", False)
+        self.sqlStore.enableManagedAttachments = False
+
+        txn = self.sqlStore.newTransaction()
+        cs = schema.CALENDARSERVER
+        yield Delete(
+            From=cs,
+            Where=cs.NAME == "MANAGED-ATTACHMENTS"
+        ).on(txn)
+        yield txn.commit()
+
         txn = self.fileStore.newTransaction()
         committed = []
         def maybeCommit():
@@ -408,4 +424,3 @@ class ParallelHomeMigrationTests(HomeMigrationTests):
             self.fileStore, self.sqlStore, self.stubService,
             parallel=2, spawner=StubSpawner()
         )
-

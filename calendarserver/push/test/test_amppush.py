@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,29 +14,18 @@
 # limitations under the License.
 ##
 
-from calendarserver.push.amppush import AMPPushNotifierService, AMPPushNotifierProtocol
+from calendarserver.push.amppush import AMPPushMaster, AMPPushNotifierProtocol
 from calendarserver.push.amppush import NotificationForID
 from twistedcaldav.test.util import TestCase
-from twisted.internet.defer import inlineCallbacks
 from twisted.internet.task import Clock
 
-class AMPPushNotifierServiceTests(TestCase):
+class AMPPushMasterTests(TestCase):
 
-    @inlineCallbacks
-    def test_AMPPushNotifierService(self):
-
-        settings = {
-            "Service" : "calendarserver.push.amppush.AMPPushNotifierService",
-            "Enabled" : True,
-            "Port" : 62311,
-            "EnableStaggering" : True,
-            "StaggerSeconds" : 3,
-        }
+    def test_AMPPushMaster(self):
 
         # Set up the service
         clock = Clock()
-        service = (yield AMPPushNotifierService.makeService(settings,
-            None, "localhost", reactor=clock))
+        service = AMPPushMaster(None, None, 0, True, 3, reactor=clock)
 
         self.assertEquals(service.subscribers, [])
 
@@ -67,27 +56,28 @@ class AMPPushNotifierServiceTests(TestCase):
         self.assertTrue(client3.subscribedToID("/CalDAV/localhost/user02/"))
         self.assertTrue(client3.subscribedToID("/CalDAV/localhost/user03/"))
 
-        service.enqueue("update", "CalDAV|user01")
+        dataChangedTimestamp = 1354815999
+        service.enqueue("/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
         self.assertEquals(len(client1.history), 0)
         self.assertEquals(len(client2.history), 0)
         self.assertEquals(len(client3.history), 0)
         clock.advance(1)
-        self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/'})])
+        self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp': 1354815999})])
         self.assertEquals(len(client2.history), 0)
         self.assertEquals(len(client3.history), 0)
         clock.advance(3)
-        self.assertEquals(client2.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/'})])
+        self.assertEquals(client2.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp': 1354815999})])
         self.assertEquals(len(client3.history), 0)
         clock.advance(3)
-        self.assertEquals(client3.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/'})])
+        self.assertEquals(client3.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp': 1354815999})])
 
         client1.reset()
         client2.reset()
         client2.unsubscribe("token2", "/CalDAV/localhost/user01/")
-        service.enqueue("update", "CalDAV|user01")
+        service.enqueue("/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
         self.assertEquals(len(client1.history), 0)
         clock.advance(1)
-        self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/'})])
+        self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp' : 1354815999})])
         self.assertEquals(len(client2.history), 0)
         clock.advance(3)
         self.assertEquals(len(client2.history), 0)
@@ -97,9 +87,9 @@ class AMPPushNotifierServiceTests(TestCase):
         client1.reset()
         client2.reset()
         client2.subscribe("token2", "/CalDAV/localhost/user01/")
-        service.enqueue("update", "CalDAV|user01")
-        self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/'})])
-        self.assertEquals(client2.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/'})])
+        service.enqueue("/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
+        self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp' : 1354815999})])
+        self.assertEquals(client2.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp' : 1354815999})])
 
 
 class TestProtocol(AMPPushNotifierProtocol):

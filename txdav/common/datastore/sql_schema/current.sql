@@ -1,7 +1,7 @@
 -- -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
 
 ----
--- Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+-- Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -35,7 +35,13 @@ create table NODE_INFO (
   PORT      integer not null,
   TIME      timestamp not null default timezone('UTC', CURRENT_TIMESTAMP),
 
-  primary key(HOSTNAME, PORT)
+  primary key (HOSTNAME, PORT)
+);
+
+-- Unique named locks.  This table should always be empty, but rows are
+-- temporarily created in order to prevent undesirable concurrency.
+create table NAMED_LOCK (
+    LOCK_NAME varchar(255) primary key
 );
 
 
@@ -46,7 +52,7 @@ create table NODE_INFO (
 create table CALENDAR_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   OWNER_UID        varchar(255) not null unique,                                 -- implicit index
-  DATAVERSION	   integer      default 0 not null
+  DATAVERSION      integer      default 0 not null
 );
 
 ----------------------------
@@ -80,24 +86,6 @@ create table CALENDAR_METADATA (
   MODIFIED              timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
-
-------------------------
--- Sharing Invitation --
-------------------------
-
-create table INVITE (
-    INVITE_UID         varchar(255) not null,
-    NAME               varchar(255) not null,
-    RECIPIENT_ADDRESS  varchar(255) not null,
-    HOME_RESOURCE_ID   integer      not null,
-    RESOURCE_ID        integer      not null
-
-    -- Need primary key on (INVITE_UID, NAME, RECIPIENT_ADDRESS)?
-);
-
-create index INVITE_INVITE_UID on INVITE(INVITE_UID);
-create index INVITE_RESOURCE_ID on INVITE(RESOURCE_ID);
-create index INVITE_HOME_RESOURCE_ID on INVITE(HOME_RESOURCE_ID);
 
 ---------------------------
 -- Sharing Notifications --
@@ -133,15 +121,9 @@ create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
 create table CALENDAR_BIND (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
   CALENDAR_RESOURCE_ID      integer      not null references CALENDAR on delete cascade,
-
-  -- An invitation which hasn't been accepted yet will not yet have a resource
-  -- name, so this field may be null.
-
-  CALENDAR_RESOURCE_NAME    varchar(255),
+  CALENDAR_RESOURCE_NAME    varchar(255) not null,
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
-  SEEN_BY_OWNER             boolean      not null,
-  SEEN_BY_SHAREE            boolean      not null,
   MESSAGE                   text,
 
   primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID), -- implicit index
@@ -189,7 +171,6 @@ create table CALENDAR_OBJECT (
   ATTACHMENTS_MODE     integer      default 0 not null, -- enum CALENDAR_OBJECT_ATTACHMENTS_MODE
   DROPBOX_ID           varchar(255),
   ORGANIZER            varchar(255),
-  ORGANIZER_OBJECT     integer      references CALENDAR_OBJECT,
   RECURRANCE_MIN       date,        -- minimum date that recurrences have been expanded to.
   RECURRANCE_MAX       date,        -- maximum date that recurrences have been expanded to.
   ACCESS               integer      default 0 not null,
@@ -201,7 +182,7 @@ create table CALENDAR_OBJECT (
   CREATED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED             timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
-  unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
+  unique (CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 
   -- since the 'inbox' is a 'calendar resource' for the purpose of storing
   -- calendar objects, this constraint has to be selectively enforced by the
@@ -216,8 +197,8 @@ create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_AND_ICALENDAR_UID on
 create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_RECURRANCE_MAX on
   CALENDAR_OBJECT(CALENDAR_RESOURCE_ID, RECURRANCE_MAX);
 
-create index CALENDAR_OBJECT_ORGANIZER_OBJECT on
-  CALENDAR_OBJECT(ORGANIZER_OBJECT);
+create index CALENDAR_OBJECT_ICALENDAR_UID on
+  CALENDAR_OBJECT(ICALENDAR_UID);
 
 create index CALENDAR_OBJECT_DROPBOX_ID on
   CALENDAR_OBJECT(DROPBOX_ID);
@@ -302,25 +283,38 @@ create table TRANSPARENCY (
 create index TRANSPARENCY_TIME_RANGE_INSTANCE_ID on
   TRANSPARENCY(TIME_RANGE_INSTANCE_ID);
 
+
 ----------------
 -- Attachment --
 ----------------
 
+create sequence ATTACHMENT_ID_SEQ;
+
 create table ATTACHMENT (
-  CALENDAR_HOME_RESOURCE_ID   integer       not null references CALENDAR_HOME,
-  DROPBOX_ID                  varchar(255)  not null,
-  CONTENT_TYPE                varchar(255)  not null,
-  SIZE                        integer       not null,
-  MD5                         char(32)      not null,
+  ATTACHMENT_ID               integer           primary key default nextval('ATTACHMENT_ID_SEQ'), -- implicit index
+  CALENDAR_HOME_RESOURCE_ID   integer           not null references CALENDAR_HOME,
+  DROPBOX_ID                  varchar(255),
+  CONTENT_TYPE                varchar(255)      not null,
+  SIZE                        integer           not null,
+  MD5                         char(32)          not null,
   CREATED                     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                    timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  PATH                        varchar(1024) not null,
-
-  primary key(DROPBOX_ID, PATH) --implicit index
+  PATH                        varchar(1024)     not null
 );
 
 create index ATTACHMENT_CALENDAR_HOME_RESOURCE_ID on
   ATTACHMENT(CALENDAR_HOME_RESOURCE_ID);
+
+-- Many-to-many relationship between attachments and calendar objects
+create table ATTACHMENT_CALENDAR_OBJECT (
+  ATTACHMENT_ID                  integer      not null references ATTACHMENT on delete cascade,
+  MANAGED_ID                     varchar(255) not null,
+  CALENDAR_OBJECT_RESOURCE_ID    integer      not null references CALENDAR_OBJECT on delete cascade,
+
+  primary key (ATTACHMENT_ID, CALENDAR_OBJECT_RESOURCE_ID), -- implicit index
+  unique (MANAGED_ID, CALENDAR_OBJECT_RESOURCE_ID) --implicit index
+);
+
 
 -----------------------
 -- Resource Property --
@@ -332,7 +326,7 @@ create table RESOURCE_PROPERTY (
   VALUE       text         not null, -- FIXME: xml?
   VIEWER_UID  varchar(255),
 
-  primary key(RESOURCE_ID, NAME, VIEWER_UID) -- implicit index
+  primary key (RESOURCE_ID, NAME, VIEWER_UID) -- implicit index
 );
 
 
@@ -343,7 +337,7 @@ create table RESOURCE_PROPERTY (
 create table ADDRESSBOOK_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   OWNER_UID        varchar(255) not null unique,                                -- implicit index
-  DATAVERSION	   integer      default 0 not null
+  DATAVERSION      integer      default 0 not null
 );
 
 -------------------------------
@@ -386,19 +380,13 @@ create table ADDRESSBOOK_METADATA (
 create table ADDRESSBOOK_BIND (
   ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
   ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK on delete cascade,
-
-  -- An invitation which hasn't been accepted yet will not yet have a resource
-  -- name, so this field may be null.
-
-  ADDRESSBOOK_RESOURCE_NAME    varchar(255),
+  ADDRESSBOOK_RESOURCE_NAME    varchar(255) not null,
   BIND_MODE                    integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                  integer      not null, -- enum CALENDAR_BIND_STATUS
-  SEEN_BY_OWNER                boolean      not null,
-  SEEN_BY_SHAREE               boolean      not null,
   MESSAGE                      text,                  -- FIXME: xml?
 
-  primary key(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
-  unique(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
+  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
+  unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
 create index ADDRESSBOOK_BIND_RESOURCE_ID on
@@ -414,8 +402,8 @@ create table ADDRESSBOOK_OBJECT (
   CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
-  unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
-  unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
+  unique (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
+  unique (ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
 );
 
 ---------------
@@ -497,11 +485,77 @@ create table APN_SUBSCRIPTIONS (
   USER_AGENT                    varchar(255) default null,
   IP_ADDR                       varchar(255) default null,
 
-  primary key(TOKEN, RESOURCE_KEY) -- implicit index
+  primary key (TOKEN, RESOURCE_KEY) -- implicit index
 );
 
 create index APN_SUBSCRIPTIONS_RESOURCE_KEY
    on APN_SUBSCRIPTIONS(RESOURCE_KEY);
+
+-----------------
+-- IMIP Tokens --
+-----------------
+
+create table IMIP_TOKENS (
+  TOKEN                         varchar(255) not null,
+  ORGANIZER                     varchar(255) not null,
+  ATTENDEE                      varchar(255) not null,
+  ICALUID                       varchar(255) not null,
+  ACCESSED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+
+  primary key (ORGANIZER, ATTENDEE, ICALUID) -- implicit index
+);
+
+create index IMIP_TOKENS_TOKEN
+   on IMIP_TOKENS(TOKEN);
+
+----------------
+-- Work Items --
+----------------
+
+create sequence WORKITEM_SEQ;
+
+---------------------------
+-- IMIP Inivitation Work --
+---------------------------
+
+create table IMIP_INVITATION_WORK (
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  FROM_ADDR                     varchar(255) not null,
+  TO_ADDR                       varchar(255) not null,
+  ICALENDAR_TEXT                text         not null
+);
+
+-----------------------
+-- IMIP Polling Work --
+-----------------------
+
+create table IMIP_POLLING_WORK (
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
+);
+
+---------------------
+-- IMIP Reply Work --
+---------------------
+
+create table IMIP_REPLY_WORK (
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  ORGANIZER                     varchar(255) not null,
+  ATTENDEE                      varchar(255) not null,
+  ICALENDAR_TEXT                text         not null
+);
+
+------------------------
+-- Push Notifications --
+------------------------
+
+create table PUSH_NOTIFICATION_WORK (
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  PUSH_ID                       varchar(255) not null
+);
 
 
 --------------------
@@ -513,6 +567,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '12');
+insert into CALENDARSERVER values ('VERSION', '17');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

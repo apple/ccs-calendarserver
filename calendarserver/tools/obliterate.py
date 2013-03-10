@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_calverify -*-
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 This tool scans wipes out user data without using slow store object apis
@@ -26,7 +27,7 @@ have access to it as they are not enabled on the server.
 """
 
 from calendarserver.tools.cmdline import utilityMain
-from twext.enterprise.dal.syntax import Parameter, Delete, Select, Union,\
+from twext.enterprise.dal.syntax import Parameter, Delete, Select, Union, \
     CompoundComparison, ExpressionSyntax, Count
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -43,8 +44,8 @@ VERSION = "1"
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         ObliterateOptions().opt_help()
     except SystemExit:
@@ -81,6 +82,7 @@ class ObliterateOptions(Options):
 
     optFlags = [
         ['verbose', 'v', "Verbose logging."],
+        ['debug', 'D', "Debug logging."],
         ['fix-props', 'p', "Fix orphaned resource properties only."],
         ['dry-run', 'n', "Do not make any changes."],
     ]
@@ -116,6 +118,7 @@ class ObliterateOptions(Options):
             return open(self.outputName, 'wb')
 
 
+
 # Need to patch this in if not present in actual server code
 def NotIn(self, subselect):
     # Can't be Select.__contains__ because __contains__ gets __nonzero__
@@ -124,6 +127,7 @@ def NotIn(self, subselect):
 
 if not hasattr(ExpressionSyntax, "NotIn"):
     ExpressionSyntax.NotIn = NotIn
+
 
 
 class ObliterateService(Service, object):
@@ -184,10 +188,10 @@ class ObliterateService(Service, object):
         """
         Obliterate orphaned data in RESOURCE_PROPERTIES table.
         """
-        
+
         # Get list of distinct resource_property resource_ids to delete
         self.txn = self.store.newTransaction()
-        
+
         ch = schema.CALENDAR_HOME
         ca = schema.CALENDAR
         co = schema.CALENDAR_OBJECT
@@ -313,7 +317,7 @@ class ObliterateService(Service, object):
 
         # Get the resource-id for the home
         ch = schema.CALENDAR_HOME
-        kwds = { "UUID" : uuid }
+        kwds = {"UUID" : uuid}
         rows = (yield Select(
             [ch.RESOURCE_ID, ],
             From=ch,
@@ -363,7 +367,7 @@ class ObliterateService(Service, object):
         ch = schema.CALENDAR_HOME
         cb = schema.CALENDAR_BIND
         co = schema.CALENDAR_OBJECT
-        kwds = { "UUID" : uuid }
+        kwds = {"UUID" : uuid}
         rows = (yield Select(
             [
                 Count(co.RESOURCE_ID),
@@ -385,7 +389,7 @@ class ObliterateService(Service, object):
 
         # Get list of binds and bind mode
         cb = schema.CALENDAR_BIND
-        kwds = { "resourceID" : homeID }
+        kwds = {"resourceID" : homeID}
         rows = (yield Select(
             [cb.CALENDAR_RESOURCE_ID, cb.BIND_MODE, ],
             From=cb,
@@ -449,7 +453,7 @@ class ObliterateService(Service, object):
     def removeRevisionsForHomeResourceID(self, resourceID):
         if not self.options["dry-run"]:
             rev = schema.CALENDAR_OBJECT_REVISIONS
-            kwds = { "ResourceID" : resourceID }
+            kwds = {"ResourceID" : resourceID}
             yield Delete(
                 From=rev,
                 Where=(
@@ -462,7 +466,7 @@ class ObliterateService(Service, object):
     def removeRevisionsForCalendarResourceID(self, resourceID):
         if not self.options["dry-run"]:
             rev = schema.CALENDAR_OBJECT_REVISIONS
-            kwds = { "ResourceID" : resourceID }
+            kwds = {"ResourceID" : resourceID}
             yield Delete(
                 From=rev,
                 Where=(
@@ -475,7 +479,7 @@ class ObliterateService(Service, object):
     def removePropertiesForResourceID(self, resourceID):
         if not self.options["dry-run"]:
             props = schema.RESOURCE_PROPERTY
-            kwds = { "ResourceID" : resourceID }
+            kwds = {"ResourceID" : resourceID}
             yield Delete(
                 From=props,
                 Where=(
@@ -489,7 +493,7 @@ class ObliterateService(Service, object):
 
         # Get NOTIFICATION_HOME.RESOURCE_ID
         nh = schema.NOTIFICATION_HOME
-        kwds = { "UUID" : uuid }
+        kwds = {"UUID" : uuid}
         rows = (yield Select(
             [nh.RESOURCE_ID, ],
             From=nh,
@@ -504,7 +508,7 @@ class ObliterateService(Service, object):
             # Delete NOTIFICATION rows
             if not self.options["dry-run"]:
                 no = schema.NOTIFICATION
-                kwds = { "ResourceID" : resourceID }
+                kwds = {"ResourceID" : resourceID}
                 yield Delete(
                     From=no,
                     Where=(
@@ -514,7 +518,7 @@ class ObliterateService(Service, object):
 
             # Delete NOTIFICATION_HOME (will cascade to NOTIFICATION_OBJECT_REVISIONS)
             if not self.options["dry-run"]:
-                kwds = { "UUID" : uuid }
+                kwds = {"UUID" : uuid}
                 yield Delete(
                     From=nh,
                     Where=(
@@ -528,7 +532,7 @@ class ObliterateService(Service, object):
 
         # Get ATTACHMENT paths
         at = schema.ATTACHMENT
-        kwds = { "resourceID" : resourceID }
+        kwds = {"resourceID" : resourceID}
         rows = (yield Select(
             [at.PATH, ],
             From=at,
@@ -543,14 +547,14 @@ class ObliterateService(Service, object):
             # Delete ATTACHMENT rows
             if not self.options["dry-run"]:
                 at = schema.ATTACHMENT
-                kwds = { "resourceID" : resourceID }
+                kwds = {"resourceID" : resourceID}
                 yield Delete(
                     From=at,
                     Where=(
                         at.CALENDAR_HOME_RESOURCE_ID == Parameter("resourceID")
                     ),
                 ).on(self.txn, **kwds)
-        
+
         returnValue(len(rows) if rows else 0)
 
 
@@ -558,7 +562,7 @@ class ObliterateService(Service, object):
     def removeHomeForResourceID(self, resourceID):
         if not self.options["dry-run"]:
             ch = schema.CALENDAR_HOME
-            kwds = { "ResourceID" : resourceID }
+            kwds = {"ResourceID" : resourceID}
             yield Delete(
                 From=ch,
                 Where=(
@@ -589,12 +593,13 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         stderr.write("Unable to open output file for writing: %s\n" % (e))
         sys.exit(1)
 
+
     def makeService(store):
         from twistedcaldav.config import config
         config.TransactionTimeoutSeconds = 0
         return ObliterateService(store, options, output, reactor, config)
 
-    utilityMain(options['config'], makeService, reactor)
+    utilityMain(options['config'], makeService, reactor, verbose=options["debug"])
 
 if __name__ == '__main__':
     main()

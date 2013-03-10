@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,15 +18,19 @@
 Shared main-point between utilities.
 """
 
-import os, sys
-
 from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
 from calendarserver.tools.util import loadConfig, autoDisableMemcached
+
+from twext.python.log import StandardIOObserver
+
 from twistedcaldav.config import ConfigurationError
 
-# TODO: direct unit tests for this function.
+import os
+import sys
 
-def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVServiceMaker):
+# TODO: direct unit tests for these functions.
+
+def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVServiceMaker, patchConfig=None, onShutdown=None, verbose=False):
     """
     Shared main-point for utilities.
 
@@ -48,14 +52,27 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         provides L{ICalendarStore} and/or L{IAddressbookStore} and returns an
         L{IService}.
 
+    @param patchConfig: a 1-argument callable which takes a config object
+        and makes and changes necessary for the tool.
+
+    @param onShutdown: a 0-argument callable which will run on shutdown.
+
     @param reactor: if specified, the L{IReactorTime} / L{IReactorThreads} /
         L{IReactorTCP} (etc) provider to use.  If C{None}, the default reactor
         will be imported and used.
     """
+
+    # Install std i/o observer
+    if verbose:
+        observer = StandardIOObserver()
+        observer.start()
+
     if reactor is None:
         from twisted.internet import reactor
     try:
         config = loadConfig(configFileName)
+        if patchConfig is not None:
+            patchConfig(config)
 
         # If we don't have permission to access the DataRoot directory, we
         # can't proceed.  If this fails it should raise OSError which we
@@ -73,6 +90,8 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
 
         reactor.addSystemEventTrigger("during", "startup", service.startService)
         reactor.addSystemEventTrigger("before", "shutdown", service.stopService)
+        if onShutdown is not None:
+            reactor.addSystemEventTrigger("before", "shutdown", onShutdown)
 
     except (ConfigurationError, OSError), e:
         sys.stderr.write("Error: %s\n" % (e,))

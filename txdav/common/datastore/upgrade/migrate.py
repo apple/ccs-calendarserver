@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.common.datastore.upgrade.test.test_migrate -*-
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -223,6 +223,9 @@ class UpgradeHelperProcess(AMP):
                 lambda fileHome:
                 self.upgrader.migrateOneHome(fileTxn, homeType, fileHome)
             )
+            .addCallbacks(lambda ignored: fileTxn.commit(),
+                          lambda err: fileTxn.abort()
+                                      .addCallback(lambda ign: err))
             .addCallback(lambda ignored: {})
         )
 
@@ -343,7 +346,6 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                 "%s home %r already existed not migrating" % (
                     homeType, uid))
             yield sqlTxn.abort()
-            yield fileTxn.commit()
             returnValue(None)
         try:
             if sqlHome is None:
@@ -351,11 +353,9 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             yield migrateFunc(fileHome, sqlHome, merge=self.merge)
         except:
             f = Failure()
-            yield fileTxn.abort()
             yield sqlTxn.abort()
             f.raiseException()
         else:
-            yield fileTxn.commit()
             yield sqlTxn.commit()
             # Remove file home after migration. FIXME: instead, this should be a
             # public remove...HomeWithUID() API for de-provisioning.  (If we had
@@ -402,27 +402,20 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             )
             self.log_warn("Upgrade helpers ready.")
             parallelizer = Parallelizer(drivers)
+        else:
+            parallelizer = None
 
         self.log_warn("Beginning filesystem -> database upgrade.")
+
         for homeType, eachFunc in [
-                ("calendar", self.fileStore.eachCalendarHome),
-                ("addressbook", self.fileStore.eachAddressbookHome),
+                ("calendar", self.fileStore.withEachCalendarHomeDo),
+                ("addressbook", self.fileStore.withEachAddressbookHomeDo),
             ]:
-            for fileTxn, fileHome in eachFunc():
-                uid = fileHome.uid()
-                self.log_warn("Migrating %s UID %r" % (homeType, uid))
-                if parallel:
-                    # No-op transaction here: make sure everything's unlocked
-                    # before asking the subprocess to handle it.
-                    yield fileTxn.commit()
-                    @inlineCallbacks
-                    def doOneUpgrade(driver, fileUID=uid, homeType=homeType):
-                        yield driver.oneUpgrade(fileUID, homeType)
-                        self.log_warn("Completed migration of %s uid %r" %
-                                      (homeType, fileUID))
-                    yield parallelizer.do(doOneUpgrade)
-                else:
-                    yield self.migrateOneHome(fileTxn, homeType, fileHome)
+            yield eachFunc(
+                lambda txn, home: self._upgradeAction(
+                    txn, home, homeType, parallel, parallelizer
+                )
+            )
 
         if parallel:
             yield parallelizer.done()
@@ -456,6 +449,23 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         if wrapped is not None:
             # see http://twistedmatrix.com/trac/ticket/4649
             reactor.callLater(0, wrapped.setServiceParent, self.parent)
+
+
+    @inlineCallbacks
+    def _upgradeAction(self, fileTxn, fileHome, homeType, parallel,
+                       parallelizer):
+        uid = fileHome.uid()
+        self.log_warn("Migrating %s UID %r" % (homeType, uid))
+        if parallel:
+            @inlineCallbacks
+            def doOneUpgrade(driver, fileUID=uid, homeType=homeType):
+                yield driver.oneUpgrade(fileUID, homeType)
+                self.log_warn("Completed migration of %s uid %r" %
+                              (homeType, fileUID))
+            yield parallelizer.do(doOneUpgrade)
+        else:
+            yield self.migrateOneHome(fileTxn, homeType, fileHome)
+
 
 
     def startService(self):

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ class PushScheduler(LoggingMixIn):
         self.callback = callback
         self.staggerSeconds = staggerSeconds
 
-    def schedule(self, tokens, key):
+    def schedule(self, tokens, key, dataChangedTimestamp):
         """
         Schedules a batch of notifications for the given tokens, staggered
         with self.staggerSeconds between each one.  Duplicates are ignored,
@@ -129,9 +129,12 @@ class PushScheduler(LoggingMixIn):
         one will not be scheduled for that pair.
 
         @param tokens: The device tokens to schedule notifications for
-        @type tokens: List of strings
+        @type tokens: List of C{str}
         @param key: The key to use for this batch of notifications
-        @type key: String
+        @type key: C{str}
+        @param dataChangedTimestamp: Timestamp (epoch seconds) for the data change
+            which triggered this notification
+        @type key: C{int}
         """
         scheduleTime = 0.0
         for token in tokens:
@@ -141,20 +144,28 @@ class PushScheduler(LoggingMixIn):
                     (internalKey,))
             else:
                 self.outstanding[internalKey] = self.reactor.callLater(
-                    scheduleTime, self.send, token, key)
+                    scheduleTime, self.send, token, key, dataChangedTimestamp)
                 self.log_debug("PushScheduler scheduled: %s in %.0f sec" %
                     (internalKey, scheduleTime))
                 scheduleTime += self.staggerSeconds
 
-    def send(self, token, key):
+    def send(self, token, key, dataChangedTimestamp):
         """
         This method is what actually gets scheduled.  Its job is to remove
         its corresponding entry from the outstanding dict and call the
         callback.
+
+        @param token: The device token to send a notification to
+        @type token: C{str}
+        @param key: The notification key
+        @type key: C{str}
+        @param dataChangedTimestamp: Timestamp (epoch seconds) for the data change
+            which triggered this notification
+        @type key: C{int}
         """
-        self.log_debug("PushScheduler fired for %s %s" % (token, key))
+        self.log_debug("PushScheduler fired for %s %s %d" % (token, key, dataChangedTimestamp))
         del self.outstanding[(token, key)]
-        return self.callback(token, key)
+        return self.callback(token, key, dataChangedTimestamp)
 
     def stop(self):
         """

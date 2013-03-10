@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,41 +27,50 @@ from pycalendar.period import PyCalendarPeriod
 from pycalendar.timezone import PyCalendarTimezone
 
 class TooManyInstancesError(Exception):
+
     def __init__(self):
         Exception.__init__(self)
         self.max_allowed = config.MaxAllowedInstances
 
+
     def __repr__(self):
         return "<%s max:%s>" % (self.__class__.__name__, self.max_allowed)
 
+
+
 class InvalidOverriddenInstanceError(Exception):
+
     def __init__(self, rid):
         Exception.__init__(self)
         self.rid = rid
 
+
     def __repr__(self):
         return "<%s invalid:%s>" % (self.__class__.__name__, self.rid)
 
+
+
 class Instance(object):
-    
-    def __init__(self, component, start = None, end = None, rid = None, overridden = False, future = False):
+
+    def __init__(self, component, start=None, end=None, rid=None, overridden=False, future=False):
         self.component = component
         self.start = component.getStartDateUTC() if start is None else start
         self.end = component.getEndDateUTC() if end is None else end
         self.rid = self.start if rid is None else rid
         self.overridden = overridden
         self.future = future
-        
+
+
     def getAlarmTriggers(self):
         """
         Get the set of alarm triggers for this instance.
         @return: a set containing the UTC datetime's of each trigger in each alarm
         """
         triggers = set()
-        
+
         for alarm in [x for x in self.component.subcomponents() if x.name() == "VALARM"]:
-            (trigger, related, repeat, duration)  = alarm.getTriggerDetails()
-            
+            (trigger, related, repeat, duration) = alarm.getTriggerDetails()
+
             # Handle relative vs absolute triggers
             if isinstance(trigger, PyCalendarDateTime):
                 # Absolute trigger
@@ -70,35 +79,44 @@ class Instance(object):
                 # Relative trigger
                 start = (self.start if related else self.end) + trigger
             triggers.add(start)
-            
+
             # Handle repeats
             if repeat > 0:
                 tstart = start.duplicate()
-                for _ignore in xrange(1, repeat+1):
+                for _ignore in xrange(1, repeat + 1):
                     tstart += duration
                     triggers.add(tstart)
-        
+
         return triggers
-    
+
+
     def isMasterInstance(self):
         return not self.overridden and self.start == self.component.getStartDateUTC()
 
+
+
 class InstanceList(object):
-    
+
     def __init__(self, ignoreInvalidInstances=False, normalizeFunction=normalizeForIndex):
         self.instances = {}
         self.limit = None
         self.lowerLimit = None
         self.ignoreInvalidInstances = ignoreInvalidInstances
         self.normalizeFunction = normalizeFunction
-        
+
+        self.adjustedLowerLimit = None
+        self.adjustedUpperLimit = None
+
+
     def __iter__(self):
         # Return keys in sorted order via iterator
         for i in sorted(self.instances.keys()):
             yield i
 
+
     def __getitem__(self, key):
         return self.instances[key]
+
 
     def expandTimeRanges(self, componentSet, limit, lowerLimit=None):
         """
@@ -111,7 +129,7 @@ class InstanceList(object):
                 and type, forming a proper recurring set.
         @param limit: L{PyCalendarDateTime} value representing the end of the expansion.
         """
-        
+
         # Look at each component type
         got_master = False
         overrides = []
@@ -142,7 +160,7 @@ class InstanceList(object):
                     # AVAILABLE components are just like VEVENT components
                     self._addMasterEventComponent(component, lowerLimit, limit)
                     got_master = True
-            
+
         for component in overrides:
             if component.name() == "VEVENT":
                 self._addOverrideEventComponent(component, lowerLimit, limit, got_master)
@@ -155,6 +173,7 @@ class InstanceList(object):
                 # AVAILABLE components are just like VEVENT components
                 self._addOverrideEventComponent(component, lowerLimit, limit, got_master)
 
+
     def addInstance(self, instance):
         """
         Add the supplied instance to the map.
@@ -162,10 +181,33 @@ class InstanceList(object):
         """
 
         self.instances[str(instance.rid)] = instance
-        
+
         # Check for too many instances
         if config.MaxAllowedInstances and len(self.instances) > config.MaxAllowedInstances:
             raise TooManyInstancesError()
+
+
+    def _setupLimits(self, dt, lowerLimit, upperLimit):
+        """
+        Change the limits to account for testing against DATE only values. The lower limit
+        is simply truncated to its date value. The upper limit is truncated to one day past
+        the date value.
+        """
+
+        if self.adjustedUpperLimit is None:
+            if dt.isDateOnly():
+                if lowerLimit:
+                    self.adjustedLowerLimit = lowerLimit.duplicate()
+                    self.adjustedLowerLimit.setDateOnly(True)
+                self.adjustedUpperLimit = upperLimit.duplicate()
+                self.adjustedUpperLimit.setDateOnly(True)
+                self.adjustedUpperLimit.offsetDay(1)
+            else:
+                self.adjustedLowerLimit = lowerLimit
+                self.adjustedUpperLimit = upperLimit
+
+        return (self.adjustedLowerLimit, self.adjustedUpperLimit,)
+
 
     def _getMasterEventDetails(self, component):
         """
@@ -189,40 +231,45 @@ class InstanceList(object):
             end = start + duration
         else:
             duration = differenceDateTime(start, end)
-        
+
         return (rulestart, start, end, duration,)
 
-    def _addMasterEventComponent(self, component, lowerLimit, upperlimit):
+
+    def _addMasterEventComponent(self, component, lowerLimit, upperLimit):
         """
         Add the specified master VEVENT Component to the instance list, expanding it
         within the supplied time range.
         @param component: the Component to expand
         @param limit: the end L{PyCalendarDateTime} for expansion
         """
-        
+
         details = self._getMasterEventDetails(component)
         if details is None:
             return
         rulestart, start, end, duration = details
 
-        self._addMasterComponent(component, lowerLimit, upperlimit, rulestart, start, end, duration)
+        lowerLimit, upperLimit = self._setupLimits(start, lowerLimit, upperLimit)
+        self._addMasterComponent(component, lowerLimit, upperLimit, rulestart, start, end, duration)
 
-    def _addOverrideEventComponent(self, component, lowerLimit, upperlimit, got_master):
+
+    def _addOverrideEventComponent(self, component, lowerLimit, upperLimit, got_master):
         """
-        Add the specified overridden VEVENT Component to the instance list, replacing 
+        Add the specified overridden VEVENT Component to the instance list, replacing
         the one generated by the master component.
         @param component: the overridden Component.
         @param got_master: whether a master component has already been expanded.
         """
-        
+
         #TODO: This does not take into account THISANDPRIOR - only THISANDFUTURE
-        
+
         details = self._getMasterEventDetails(component)
         if details is None:
             return
         _ignore_rulestart, start, end, _ignore_duration = details
 
-        self._addOverrideComponent(component, lowerLimit, upperlimit, start, end, got_master)
+        lowerLimit, upperLimit = self._setupLimits(start, lowerLimit, upperLimit)
+        self._addOverrideComponent(component, lowerLimit, upperLimit, start, end, got_master)
+
 
     def _getMasterToDoDetails(self, component):
         """
@@ -243,12 +290,12 @@ class InstanceList(object):
                 end = dtdue
             else:
                 end = dtstart
-        
+
         # DUE case
         elif dtdue is not None:
             rulestart = component.propertyValue("DUE")
             start = end = dtdue
-        
+
         # Fall back to COMPLETED or CREATED - cannot be recurring
         else:
             rulestart = None
@@ -269,7 +316,8 @@ class InstanceList(object):
 
         return (rulestart, start, end, duration,)
 
-    def _addMasterToDoComponent(self, component, lowerLimit, upperlimit):
+
+    def _addMasterToDoComponent(self, component, lowerLimit, upperLimit):
         """
         Add the specified master VTODO Component to the instance list, expanding it
         within the supplied time range.
@@ -281,27 +329,31 @@ class InstanceList(object):
             return
         rulestart, start, end, duration = details
 
-        self._addMasterComponent(component, lowerLimit, upperlimit, rulestart, start, end, duration)
+        lowerLimit, upperLimit = self._setupLimits(start, lowerLimit, upperLimit)
+        self._addMasterComponent(component, lowerLimit, upperLimit, rulestart, start, end, duration)
 
-    def _addOverrideToDoComponent(self, component, lowerLimit, upperlimit, got_master):
+
+    def _addOverrideToDoComponent(self, component, lowerLimit, upperLimit, got_master):
         """
-        Add the specified overridden VTODO Component to the instance list, replacing 
+        Add the specified overridden VTODO Component to the instance list, replacing
         the one generated by the master component.
         @param component: the overridden Component.
         @param got_master: whether a master component has already been expanded.
         """
-        
+
         #TODO: This does not take into account THISANDPRIOR - only THISANDFUTURE
-        
+
         details = self._getMasterToDoDetails(component)
         if details is None:
             return
         _ignore_rulestart, start, end, _ignore_duration = details
 
-        self._addOverrideComponent(component, lowerLimit, upperlimit, start, end, got_master)
+        lowerLimit, upperLimit = self._setupLimits(start, lowerLimit, upperLimit)
+        self._addOverrideComponent(component, lowerLimit, upperLimit, start, end, got_master)
+
 
     def _addMasterComponent(self, component, lowerLimit, upperlimit, rulestart, start, end, duration):
-        
+
         rrules = component.getRecurrenceSet()
         if rrules is not None and rulestart is not None:
             # Do recurrence set expansion
@@ -310,7 +362,7 @@ class InstanceList(object):
             # than the master DTSTART, and if we exclude those, the associated
             # overridden instances will cause an InvalidOverriddenInstance.
             limited = rrules.expand(rulestart,
-                PyCalendarPeriod(PyCalendarDateTime(1900,1,1), upperlimit), expanded)
+                PyCalendarPeriod(PyCalendarDateTime(1900, 1, 1), upperlimit), expanded)
             for startDate in expanded:
                 startDate = self.normalizeFunction(startDate)
                 endDate = startDate + duration
@@ -331,13 +383,16 @@ class InstanceList(object):
                     self.lowerLimit = lowerLimit
             else:
                 self.limit = upperlimit
-    
+
+        self.master_cancelled = component.propertyValue("STATUS") == "CANCELLED"
+
+
     def _addOverrideComponent(self, component, lowerLimit, upperlimit, start, end, got_master):
 
         # Get the recurrence override info
         rid = component.getRecurrenceIDUTC()
         range = component.getRange()
-        
+
         # Now add this instance, effectively overriding the one with the matching R-ID
         start = self.normalizeFunction(start)
         end = self.normalizeFunction(end)
@@ -350,48 +405,53 @@ class InstanceList(object):
             return
 
         # Make sure override RECURRENCE-ID is a valid instance of the master
+        cancelled = component.propertyValue("STATUS") == "CANCELLED"
         if got_master:
             if str(rid) not in self.instances and rid < upperlimit and (lowerLimit is None or rid >= lowerLimit):
-                if self.ignoreInvalidInstances:
+                if self.master_cancelled or cancelled:
+                    # Ignore invalid overrides when either the master or override is cancelled
+                    pass
+                elif self.ignoreInvalidInstances:
                     return
                 else:
                     raise InvalidOverriddenInstanceError(str(rid))
-        
+
         self.addInstance(Instance(component, start, end, rid, True, range))
-        
+
         # Handle THISANDFUTURE if present
         if range:
             # Iterate over all the instances after this one, replacing those
             # with a version based on this override component
-            
+
             # We need to account for a time shift in the overridden component by
             # applying that shift to the future instances as well
             timeShift = (start != rid)
             if timeShift:
                 offsetTime = start - rid
                 newDuration = end - start
-        
+
             # First get sorted instance keys greater than the current components R-ID
             for key in sorted(x for x in self.instances.keys() if x > str(rid)):
                 oldinstance = self.instances[key]
-                
+
                 # Do not override instance that is already overridden
                 if oldinstance.overridden:
                     continue
-                
+
                 # Determine the start/end of the new instance
                 originalStart = oldinstance.rid
                 start = oldinstance.start
                 end = oldinstance.end
-                
+
                 if timeShift:
                     start += offsetTime
                     end = start + newDuration
-                
+
                 # Now replacing existing entry with the new one
                 self.addInstance(Instance(component, start, end, originalStart, False, False))
 
-    def _addFreeBusyComponent(self, component, lowerLimit, upperlimit):
+
+    def _addFreeBusyComponent(self, component, lowerLimit, upperLimit):
         """
         Add the specified master VFREEBUSY Component to the instance list, expanding it
         within the supplied time range.
@@ -402,15 +462,18 @@ class InstanceList(object):
         start = component.getStartDateUTC()
         end = component.getEndDateUTC()
         if end is None and start is not None:
-            raise ValueError("VFREEBUSY component must have both DTSTART and DTEND: %r" % (component, ))
+            raise ValueError("VFREEBUSY component must have both DTSTART and DTEND: %r" % (component,))
+
+        if start:
+            lowerLimit, upperLimit = self._setupLimits(start, lowerLimit, upperLimit)
 
         # If the free busy is beyond the end of the range we want, ignore it
-        if start is not None and start >= upperlimit:
+        if start is not None and start >= upperLimit:
             return
 
         # If the free busy is before the start of the range we want, ignore it
         if lowerLimit is not None and end is not None and end < lowerLimit:
-            return            
+            return
 
         # Now look at each FREEBUSY property
         for fb in component.properties("FREEBUSY"):
@@ -419,13 +482,14 @@ class InstanceList(object):
             for period in fb.value():
                 # Ignore if period starts after limit
                 period = period.getValue()
-                if period.getStart() >= upperlimit:
+                if period.getStart() >= upperLimit:
                     continue
                 start = self.normalizeFunction(period.getStart())
                 end = self.normalizeFunction(period.getEnd())
                 self.addInstance(Instance(component, start, end))
 
-    def _addAvailabilityComponent(self, component, lowerLimit, upperlimit):
+
+    def _addAvailabilityComponent(self, component, lowerLimit, upperLimit):
         """
         Add the specified master VAVAILABILITY Component to the instance list, expanding it
         within the supplied time range. VAVAILABILITY components are not recurring, they have an
@@ -437,7 +501,11 @@ class InstanceList(object):
         """
 
         start = component.getStartDateUTC()
-        if start is not None and start >= upperlimit:
+
+        if start:
+            lowerLimit, upperLimit = self._setupLimits(start, lowerLimit, upperLimit)
+
+        if start is not None and start >= upperLimit:
             # If the availability is beyond the end of the range we want, ignore it
             return
         if start is None:
@@ -447,7 +515,7 @@ class InstanceList(object):
         end = component.getEndDateUTC()
         if lowerLimit is not None and end is not None and end < lowerLimit:
             # If the availability is before the start of the range we want, ignore it
-            return            
+            return
         if end is None:
             end = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
         end = self.normalizeFunction(end)

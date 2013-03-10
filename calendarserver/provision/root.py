@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.provision.test.test_root -*-
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -208,31 +208,6 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         for filter in self.contentFilters:
             request.addResponseFilter(filter[0], atEnd=filter[1])
 
-        # Examine headers for our special internal authorization, used for
-        # POSTing to /inbox between workers and mail gateway sidecar.
-        if not hasattr(request, "checkedInternalAuthHeader"):
-            request.checkedInternalAuthHeader = True
-            headerName = config.Scheduling.iMIP.Header
-            secrets = request.headers.getRawHeaders(headerName, None)
-            secretVerified = False
-            if secrets is not None:
-                log.debug("Internal authentication header (%s) detected" %
-                    (headerName,))
-                for secret in secrets:
-                    if secret == config.Scheduling.iMIP.Password:
-                        secretVerified = True
-                        break
-
-            if secretVerified:
-                log.debug("Internal authentication header (%s) verified" %
-                    (headerName,))
-                guid = config.Scheduling.iMIP.GUID
-                log.debug("Internal principal %s being assigned to authnUser and authzUser" % (guid,))
-                request.authzUser = request.authnUser = davxml.Principal(
-                    davxml.HRef.fromString("/principals/__uids__/%s/" % (guid,))
-                )
-
-
         # Examine cookies for wiki auth token; if there, ask the paired wiki
         # server for the corresponding record name.  If that maps to a
         # principal, assign that to authnuser.
@@ -383,14 +358,6 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                             responsecode.FORBIDDEN,
                             "Your client software (%s) is not allowed to access this service." % (agent,)
                         ))
-
-        # Look for forwarding
-        remote_ip = request.headers.getRawHeaders('x-forwarded-for')
-        if remote_ip and len(remote_ip) == 1:
-            request.forwarded_for = remote_ip[0]
-            if not hasattr(request, "extendedLogItems"):
-                request.extendedLogItems = {}
-            request.extendedLogItems["xff"] = remote_ip[0]
 
         if config.EnableResponseCache and request.method == "PROPFIND" and not getattr(request, "notInCache", False) and len(segments) > 1:
             try:

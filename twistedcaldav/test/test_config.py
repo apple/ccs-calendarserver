@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,18 +41,6 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
   <dict>
     <key>some.namespace</key>
     <string>debug</string>
-  </dict>
-
-  <key>Notifications</key>
-  <dict>
-    <key>Services</key>
-    <dict>
-      <key>XMPPNotifier</key>
-      <dict>
-          <key>Password</key>
-          <string>xmpp</string>
-      </dict>
-    </dict>
   </dict>
 
   <key>Scheduling</key>
@@ -168,26 +156,20 @@ class ConfigTests(TestCase):
         self.assertEquals(config.HTTPPort, 8008)
 
     def testPreserveAcrossReload(self):
-        self.assertEquals(config.Scheduling.iMIP.Password, "")
         self.assertEquals(config.Scheduling.iMIP.Sending.Password, "")
         self.assertEquals(config.Scheduling.iMIP.Receiving.Password, "")
-        self.assertEquals(config.Notifications.Services.XMPPNotifier.Password, "")
 
         config.load(self.testConfig)
 
-        self.assertEquals(config.Scheduling.iMIP.Password, "imip")
         self.assertEquals(config.Scheduling.iMIP.Sending.Password, "sending")
         self.assertEquals(config.Scheduling.iMIP.Receiving.Password, "receiving")
-        self.assertEquals(config.Notifications.Services.XMPPNotifier.Password, "xmpp")
 
         writePlist({}, self.testConfig)
 
         config.reload()
 
-        self.assertEquals(config.Scheduling.iMIP.Password, "imip")
         self.assertEquals(config.Scheduling.iMIP.Sending.Password, "sending")
         self.assertEquals(config.Scheduling.iMIP.Receiving.Password, "receiving")
-        self.assertEquals(config.Notifications.Services.XMPPNotifier.Password, "xmpp")
 
     def testSetAttr(self):
         self.assertNotIn("BindAddresses", config.__dict__)

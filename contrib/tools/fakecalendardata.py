@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import datetime
 import getopt
@@ -116,9 +117,9 @@ def argPath(path):
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print """Usage: fakecalendardata [options]
+    print("""Usage: fakecalendardata [options]
 Options:
     -h          Print this help and exit
     -a          Percentage of events that should include attendees
@@ -133,7 +134,7 @@ Arguments: None
 Description:
 This utility will generate fake iCalendar data either into a single .ics
 file or into multiple .ics files.
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)
@@ -206,7 +207,7 @@ if __name__ == "__main__":
 
     vevents = []
     for count, (recurring, attendees, date, hour) in enumerate(eventTypes):
-        #print recurring, attendees, date, hour
+        #print(recurring, attendees, date, hour)
         vevents.append(makeVEVENT(recurring, attendees, date, hour, count+1))
 
-    print calendar_template % {"VEVENTS" : "".join(vevents)}
+    print(calendar_template % {"VEVENTS" : "".join(vevents)})

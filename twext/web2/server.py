@@ -1,7 +1,7 @@
 # -*- test-case-name: twext.web2.test.test_server -*-
 ##
 # Copyright (c) 2001-2008 Twisted Matrix Laboratories.
-# Copyright (c) 2010-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,7 @@
 # SOFTWARE.
 #
 ##
+from __future__ import print_function
 
 """
 This is a web-server which integrates with the twisted.internet
@@ -297,7 +298,7 @@ class Request(http.Request):
         else:
             self.prepath = []
             self.postpath = path
-        #print "_parseURL", self.uri, (self.uri, self.scheme, self.host, self.path, self.params, self.querystring)
+        #print("_parseURL", self.uri, (self.uri, self.scheme, self.host, self.path, self.params, self.querystring))
 
     def _schemeFromPort(self, port):
         """

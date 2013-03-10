@@ -1,7 +1,7 @@
 # -*- sh-basic-offset: 2 -*-
 
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -93,16 +93,34 @@ init_build () {
 
   patches="${caldav}/lib-patches";
 
-  # Find a command that can hash up a string for us
-  if type -t openssl > /dev/null; then
-    hash="md5";
-    hash () { openssl dgst -md5 "$@"; }
-  elif type -t md5 > /dev/null; then
-    hash="md5";
+  # Find some hashing commands
+  # sha1() = sha1 hash, if available
+  # md5()  = md5 hash, if available
+  # hash() = default hash function
+  # $hash  = name of the type of hash used by hash()
+
+  hash="";
+
+  if type -ft openssl > /dev/null; then
+    if [ -z "${hash}" ]; then hash="md5"; fi;
+    md5 () { "$(type -p openssl)" dgst -md5 "$@"; }
+  elif type -ft md5 > /dev/null; then
+    if [ -z "${hash}" ]; then hash="md5"; fi;
+    md5 () { "$(type -p md5)" "$@"; }
+  elif type -ft md5sum > /dev/null; then
+    if [ -z "${hash}" ]; then hash="md5"; fi;
+    md5 () { "$(type -p md5sum)" "$@"; }
+  fi;
+
+  if type -ft shasum > /dev/null; then
+    if [ -z "${hash}" ]; then hash="sha1"; fi;
+    sha1 () { "$(type -p shasum)" "$@"; }
+  fi;
+
+  if [ "${hash}" == "sha1" ]; then
+    hash () { sha1 "$@"; }
+  elif [ "${hash}" == "md5" ]; then
     hash () { md5 "$@"; }
-  elif type -t md5sum > /dev/null; then
-    hash="md5";
-    hash () { md5sum "$@"; }
   elif type -t cksum > /dev/null; then
     hash="hash";
     hash () { cksum "$@" | cut -f 1 -d " "; }
@@ -110,7 +128,6 @@ init_build () {
     hash="hash";
     hash () { sum "$@" | cut -f 1 -d " "; }
   else
-    hash="";
     hash () { echo "INTERNAL ERROR: No hash function."; exit 1; }
   fi;
 
@@ -173,12 +190,14 @@ apply_patches () {
 www_get () {
   if ! "${do_get}"; then return 0; fi;
 
-  local md5="";
+  local  md5="";
+  local sha1="";
 
   OPTIND=1;
-  while getopts "m:" option; do
+  while getopts "m:s:" option; do
     case "${option}" in
-      'm') md5="${OPTARG}"; ;;
+      'm')  md5="${OPTARG}"; ;;
+      's') sha1="${OPTARG}"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -211,21 +230,32 @@ www_get () {
       check_hash () {
         local file="$1"; shift;
 
-        if [ "${hash}" == "md5" ]; then
-          local sum="$(hash "${file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
-          if [ -n "${md5}" ]; then
-            echo "Checking MD5 sum for ${name}...";
-            if [ "${md5}" != "${sum}" ]; then
-              echo "ERROR: MD5 sum for downloaded file is wrong: ${sum} != ${md5}";
-              return 1;
-            fi;
-          else
-            echo "MD5 sum for ${name} is ${sum}";
+        local sum="$(md5 "${file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
+        if [ -n "${md5}" ]; then
+          echo "Checking MD5 sum for ${name}...";
+          if [ "${md5}" != "${sum}" ]; then
+            echo "ERROR: MD5 sum for downloaded file is wrong: ${sum} != ${md5}";
+            return 1;
           fi;
+        else
+          echo "MD5 sum for ${name} is ${sum}";
+        fi;
+
+        local sum="$(sha1 "${file}" | perl -pe 's|^.*([0-9a-f]{40}).*$|\1|')";
+        if [ -n "${sha1}" ]; then
+          echo "Checking SHA1 sum for ${name}...";
+          if [ "${sha1}" != "${sum}" ]; then
+            echo "ERROR: SHA1 sum for downloaded file is wrong: ${sum} != ${sha1}";
+            return 1;
+          fi;
+        else
+          echo "SHA1 sum for ${name} is ${sum}";
         fi;
       }
 
       if [ ! -f "${cache_file}" ]; then
+        echo "No cache file: ${cache_file}";
+
         echo "Downloading ${name}...";
 
         local pkg_host="static.calendarserver.org";
@@ -234,7 +264,7 @@ www_get () {
         #
         # Try getting a copy from calendarserver.org.
         #
-        local tmp="$(mktemp "/tmp/${cache_basename}.XXXXX")";
+        local tmp="$(mktemp "/tmp/${cache_basename}.XXXXXX")";
         curl -L "http://${pkg_host}${pkg_path}/${cache_basename}" -o "${tmp}" || true;
         echo "";
         if [ ! -s "${tmp}" ] || grep '<title>404 Not Found</title>' "${tmp}" > /dev/null; then
@@ -264,7 +294,7 @@ www_get () {
 
           if egrep "^${pkg_host}" "${HOME}/.ssh/known_hosts" > /dev/null 2>&1; then
             echo "Copying cache file up to ${pkg_host}.";
-            if ! scp "${tmp}" "${pkg_host}:/www/hosts/${pkg_host}${pkg_path}/${cache_basename}"; then
+            if ! scp "${tmp}" "${pkg_host}:/var/www/static${pkg_path}/${cache_basename}"; then
               echo "Failed to copy cache file up to ${pkg_host}.";
             fi;
             echo ""
@@ -356,8 +386,10 @@ svn_get () {
       svn checkout -r "${revision}" "${uri}@${revision}" "${path}";
     }
 
-    if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ] \
-        && [ -n "${hash}" ]; then
+    if [ "${revision}" != "HEAD" ] && \
+       [ -n "${cache_deps}" ] && \
+       [ -n "${hash}" ] \
+    ; then
       local cacheid="${name}-$(echo "${uri}" | hash)";
       local cache_file="${cache_deps}/${cacheid}@r${revision}.tgz";
 
@@ -441,10 +473,10 @@ py_dependency () {
   local revision="0";     # Revision (if svn)
   local get_type="www";   # Protocol to use
   local  version="";      # Minimum version required
-  local   f_hash="";      # Checksum
+  local   f_hash="";      # Checksum flag
 
   OPTIND=1;
-  while getopts "ofi:er:v:m:" option; do
+  while getopts "ofi:er:v:m:s:" option; do
     case "${option}" in
       'o') optional="true"; ;;
       'f') override="true"; ;;
@@ -452,6 +484,7 @@ py_dependency () {
       'r') get_type="svn"; revision="${OPTARG}"; ;;
       'v')  version="-v ${OPTARG}"; ;;
       'm')   f_hash="-m ${OPTARG}"; ;;
+      's')   f_hash="-s ${OPTARG}"; ;;
       'i')
         if [ -z "${OPTARG}" ]; then
           inplace=".";
@@ -535,9 +568,10 @@ c_dependency () {
   local f_hash="";
 
   OPTIND=1;
-  while getopts "m:" option; do
+  while getopts "m:s:" option; do
     case "${option}" in
       'm') f_hash="-m ${OPTARG}"; ;;
+      's') f_hash="-s ${OPTARG}"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -686,11 +720,10 @@ dependencies () {
     "setuptools" "setuptools" "${st}" \
     "$pypi/s/setuptools/${st}.tar.gz";
 
-  local zv="3.3.0";
-  local zi="zope.interface-${zv}";
-  py_dependency -m "93668855e37b4691c5c956665c33392c" \
+  local zi="zope.interface-4.0.3";
+  py_dependency -v "3.6.0" -m "1ddd308f2c83703accd1696158c300eb" \
     "Zope Interface" "zope.interface" "${zi}" \
-    "http://www.zope.org/Products/ZopeInterface/${zv}/${zi}.tar.gz";
+    "http://pypi.python.org/packages/source/z/zope.interface/${zi}.tar.gz";
 
   local po="pyOpenSSL-0.10";
   py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
@@ -701,12 +734,6 @@ dependencies () {
     py_dependency -r 9409 \
       "PyKerberos" "kerberos" "PyKerberos" \
       "${svn_uri_base}/PyKerberos/trunk";
-  fi;
-
-  if [ "$(uname -s)" == "Darwin" ]; then
-    py_dependency -r 6656 \
-      "PyOpenDirectory" "opendirectory" "PyOpenDirectory" \
-      "${svn_uri_base}/PyOpenDirectory/trunk";
   fi;
 
   py_dependency -v 0.5 -r 1038 \
@@ -727,14 +754,19 @@ dependencies () {
 
   # Maintenance note: next time the Twisted dependency gets updated, check out
   # twext/patches.py.
-  py_dependency -v 12 -r HEAD \
-    "Twisted" "twisted" "Twisted" \
-    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-12.0.0";
+  py_dependency -v 12.2 -m "6e289825f3bf5591cfd670874cc0862d" \
+    "Twisted" "twisted" "Twisted-12.3.0" \
+    "${pypi}/T/Twisted/Twisted-12.3.0.tar.bz2";
 
   local du="python-dateutil-1.5";
   py_dependency -m "35f3732db3f2cc4afdc68a8533b60a52" \
     "dateutil" "dateutil" "${du}" \
     "http://www.labix.org/download/python-dateutil/${du}.tar.gz";
+
+  local ps="psutil-0.6.1";
+  py_dependency -m "3cfcbfb8525f6e4c70110e44a85e907e" \
+    "psutil" "psutil" "${ps}" \
+    "http://psutil.googlecode.com/files/${ps}.tar.gz";
 
   local lv="2.3.13";
   local ld="python-ldap-${lv}";
@@ -743,9 +775,9 @@ dependencies () {
     "${pypi}/p/python-ldap/${ld}.tar.gz";
 
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 212 \
+  py_dependency -fe -i "src" -r 10554 \
     "pycalendar" "pycalendar" "pycalendar" \
-    "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
+    "${svn_uri_base}/PyCalendar/trunk";
 
   #
   # Tool dependencies.  The code itself doesn't depend on these, but
@@ -754,14 +786,14 @@ dependencies () {
 
   local sv="0.1.2";
   local sq="sqlparse-${sv}";
-  py_dependency -o -v "${sv}" -m "aa9852ad81822723adcd9f96838de14e" \
+  py_dependency -o -v "${sv}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
     "SQLParse" "sqlparse" "${sq}" \
     "http://python-sqlparse.googlecode.com/files/${sq}.tar.gz";
 
-  local v="0.5.0";
+  local v="0.6.1";
   local n="pyflakes";
   local p="${n}-${v}";
-  py_dependency -o -v "${v}" -m "568dab27c42e5822787aa8a603898672" \
+  py_dependency -o -v "${v}" -m "00debd2280b962e915dfee552a675915" \
     "Pyflakes" "${n}" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
  

@@ -1,6 +1,6 @@
 # -*- test-case-name: contrib.performance.loadtest.test_population -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 ##
+from __future__ import print_function
 
 """
 Tools for generating a population of CalendarServer users based on
@@ -336,10 +337,10 @@ class SimpleStatistics(StatisticsBase):
     def eventReceived(self, event):
         self._times.append(event['duration'])
         if len(self._times) == 200:
-            print 'mean:', mean(self._times)
-            print 'median:', median(self._times)
-            print 'stddev:', stddev(self._times)
-            print 'mad:', mad(self._times)
+            print('mean:', mean(self._times))
+            print('median:', median(self._times))
+            print('stddev:', stddev(self._times))
+            print('mad:', mad(self._times))
             del self._times[:100]
 
 

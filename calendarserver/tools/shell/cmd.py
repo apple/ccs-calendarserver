@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ from txdav.common.icommondatastore import NotFoundError
 from calendarserver.version import version
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.tables import Table
-from calendarserver.tools.purge import purgeUID
+from calendarserver.tools.purge import PurgePrincipalService
 from calendarserver.tools.shell.vfs import Folder, RootFolder
 from calendarserver.tools.shell.directory import findRecords, summarizeRecords, recordInfo
 
@@ -47,6 +47,7 @@ class UsageError(Exception):
     """
     Usage error.
     """
+
 
 
 class UnknownArguments(UsageError):
@@ -58,6 +59,7 @@ class UnknownArguments(UsageError):
         self.arguments = arguments
 
 
+
 class InsufficientArguments(UsageError):
     """
     Insufficient arguments.
@@ -66,11 +68,19 @@ class InsufficientArguments(UsageError):
         UsageError.__init__(self, "Insufficient arguments.")
 
 
+
 class CommandsBase(object):
+    """
+    Base class for commands.
+
+    @ivar protocol: a protocol for parsing the incoming command line.
+    @type protocol: L{calendarserver.tools.shell.terminal.ShellProtocol}
+    """
     def __init__(self, protocol):
         self.protocol = protocol
 
         self.wd = RootFolder(protocol.service)
+
 
     @property
     def terminal(self):
@@ -79,6 +89,7 @@ class CommandsBase(object):
     #
     # Utilities
     #
+
 
     def documentationForCommand(self, command):
         """
@@ -125,6 +136,7 @@ class CommandsBase(object):
             else:
                 return succeed(None)
 
+
     @inlineCallbacks
     def getTargets(self, tokens, wdFallback=False):
         """
@@ -147,6 +159,7 @@ class CommandsBase(object):
                 returnValue((self.wd,))
             else:
                 returnValue(())
+
 
     def directoryRecordWithID(self, id):
         """
@@ -171,6 +184,7 @@ class CommandsBase(object):
 
         return record
 
+
     def commands(self, showHidden=False):
         """
         @return: an iterable of C{(name, method)} tuples, where
@@ -182,6 +196,7 @@ class CommandsBase(object):
                 m = getattr(self, attr)
                 if showHidden or not hasattr(m, "hidden"):
                     yield (attr[4:], m)
+
 
     @staticmethod
     def complete(word, items):
@@ -201,6 +216,7 @@ class CommandsBase(object):
             if item.startswith(word):
                 yield item[len(word):]
 
+
     def complete_commands(self, word):
         """
         @return: an iterable of command name completions.
@@ -218,6 +234,7 @@ class CommandsBase(object):
             completions = complete(True)
 
         return completions
+
 
     @inlineCallbacks
     def complete_files(self, tokens, filter=None):
@@ -237,7 +254,7 @@ class CommandsBase(object):
                 word = token
             else:
                 base = (yield self.wd.locate(token[:i].split("/")))
-                word = token[i+1:]
+                word = token[i + 1:]
 
         else:
             base = self.wd
@@ -253,6 +270,7 @@ class CommandsBase(object):
             returnValue(files)
         else:
             returnValue(self.complete(word, files))
+
 
 
 class Commands(CommandsBase):
@@ -317,6 +335,7 @@ class Commands(CommandsBase):
 
             for info in sorted(result):
                 self.terminal.write(format % (info))
+
 
     def complete_help(self, tokens):
         if len(tokens) == 0:
@@ -450,7 +469,7 @@ class Commands(CommandsBase):
         if not isinstance(wd, Folder):
             raise NotFoundError("Not a folder: %s" % (wd,))
 
-       #log.msg("wd -> %s" % (wd,))
+        #log.msg("wd -> %s" % (wd,))
         self.wd = wd
 
 
@@ -458,7 +477,7 @@ class Commands(CommandsBase):
     def complete_cd(self, tokens):
         returnValue((yield self.complete_files(
             tokens,
-            filter = lambda item: True #issubclass(item[0], Folder)
+            filter=lambda item: True #issubclass(item[0], Folder)
         )))
 
 
@@ -541,7 +560,7 @@ class Commands(CommandsBase):
 
         implicit = True
 
-        for option, value in options:
+        for option, _ignore_value in options:
             if option == "--no-implicit":
                 # Not in docstring; this is really dangerous.
                 implicit = False
@@ -628,7 +647,7 @@ class Commands(CommandsBase):
 
         usage: purge_principals principal_id [principal_id ...]
         """
-        dryRun     = True
+        dryRun = True
         completely = False
         doimplicit = True
 
@@ -658,12 +677,15 @@ class Commands(CommandsBase):
 
         total = 0
         for record in records:
-            count, assignments = (yield purgeUID(
-                record.uid, directory, rootResource,
-                verbose    = False,
-                dryrun     = dryRun,
-                completely = completely,
-                doimplicit = doimplicit,
+            count, _ignore_assignments = (yield PurgePrincipalService.purgeUIDs(
+                self.protocol.service.store,
+                directory,
+                rootResource,
+                (record.uid,),
+                verbose=False,
+                dryrun=dryRun,
+                completely=completely,
+                doimplicit=doimplicit,
             ))
             total += count
 
@@ -694,7 +716,7 @@ class Commands(CommandsBase):
         if len(tokens) < 3:
             raise InsufficientArguments()
 
-        mode        = tokens.pop(0)
+        mode = tokens.pop(0)
         principalID = tokens.pop(0)
 
         record = self.directoryRecordWithID(principalID)
@@ -711,7 +733,7 @@ class Commands(CommandsBase):
         else:
             raise UsageError("Unknown mode: %s" % (mode,))
 
-        for target in targets:
+        for _ignore_target in targets:
             raise NotImplementedError()
 
     cmd_share.hidden = "incomplete"
@@ -735,9 +757,9 @@ class Commands(CommandsBase):
             from twext.enterprise.dal import syntax
 
             localVariables = dict(
-                self   = self,
-                store  = self.protocol.service.store,
-                schema = schema,
+                self=self,
+                store=self.protocol.service.store,
+                schema=schema,
             )
 
             # FIXME: Use syntax.__all__, which needs to be defined
@@ -746,6 +768,7 @@ class Commands(CommandsBase):
                     localVariables[key] = value
 
             class Handler(object):
+
                 def addOutput(innerSelf, bytes, async=False):
                     """
                     This is a delegate method, called by ManholeInterpreter.
@@ -835,3 +858,11 @@ class Commands(CommandsBase):
         self.protocol.reloadCommands()
 
     cmd_reload.hidden = "test tool"
+
+    def cmd_xyzzy(self, tokens):
+        """
+        """
+        self.terminal.write("Nothing happens.")
+        self.terminal.nextLine()
+        
+    cmd_sql.hidden = ""

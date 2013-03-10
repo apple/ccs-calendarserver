@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.cmdline import utilityMain
@@ -33,14 +34,15 @@ log = Logger()
 def usage(e=None):
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] [user ...]" % (name,)
-    print ""
-    print "  Display Apple Push Notification subscriptions"
-    print ""
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
-    print ""
+    print("usage: %s [options] [user ...]" % (name,))
+    print("")
+    print("  Display Apple Push Notification subscriptions")
+    print("")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -f --config <path>: Specify caldavd.plist configuration path")
+    print("  -D --debug: debug logging")
+    print("")
 
     if e:
         sys.stderr.write("%s\n" % (e,))
@@ -49,10 +51,12 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 class WorkerService(Service):
 
     def __init__(self, store):
         self._store = store
+
 
     def rootResource(self):
         try:
@@ -90,6 +94,7 @@ class WorkerService(Service):
             reactor.stop()
 
 
+
 class DisplayAPNSubscriptions(WorkerService):
 
     users = []
@@ -101,13 +106,15 @@ class DisplayAPNSubscriptions(WorkerService):
             self.users)
 
 
+
 def main():
 
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "f:h", [
+            sys.argv[1:], "Df:h", [
                 "config=",
                 "help",
+                "debug",
             ],
         )
     except GetoptError, e:
@@ -117,6 +124,7 @@ def main():
     # Get configuration
     #
     configFileName = None
+    debug = False
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
@@ -125,20 +133,22 @@ def main():
         elif opt in ("-f", "--config"):
             configFileName = arg
 
+        if opt in ("-d", "--debug"):
+            debug = True
+
         else:
             raise NotImplementedError(opt)
 
     if not args:
         usage("Not enough arguments")
 
-
     DisplayAPNSubscriptions.users = args
 
     utilityMain(
         configFileName,
         DisplayAPNSubscriptions,
+        verbose=debug,
     )
-
 
 
 
@@ -148,17 +158,17 @@ def displayAPNSubscriptions(store, directory, root, users):
         print
         record = directory.recordWithShortName("users", user)
         if record is not None:
-            print "User %s (%s)..." % (user, record.uid)
+            print("User %s (%s)..." % (user, record.uid))
             txn = store.newTransaction(label="Display APN Subscriptions")
             subscriptions = (yield txn.apnSubscriptionsBySubscriber(record.uid))
             (yield txn.commit())
             if subscriptions:
-                byKey = { }
-                for token, key, timestamp in subscriptions:
-                    byKey.setdefault(key, []).append((token, timestamp))
+                byKey = {}
+                for token, key, timestamp, userAgent, ipAddr in subscriptions:
+                    byKey.setdefault(key, []).append((token, timestamp, userAgent, ipAddr))
                 for key, tokens in byKey.iteritems():
                     print
-                    protocol, host, path = key.strip("/").split("/", 2)
+                    protocol, _ignore_host, path = key.strip("/").split("/", 2)
                     resource = {
                         "CalDAV" : "calendar",
                         "CardDAV" : "addressbook",
@@ -171,14 +181,20 @@ def displayAPNSubscriptions(store, directory, root, users):
                     record = directory.recordWithUID(uid)
                     user = record.shortNames[0]
                     if collection:
-                        print "...is subscribed to a share from %s's %s home" % (user, resource),
+                        print("...is subscribed to a share from %s's %s home" % (user, resource),)
                     else:
-                        print "...is subscribed to %s's %s home" % (user, resource),
-                        # print "   (key: %s)\n" % (key,)
-                    print "with %d device(s):" % (len(tokens),)
-                    for token, timestamp in tokens:
-                        print " %s  %ss ago" % (token, int(time.time()) - timestamp)
+                        print("...is subscribed to %s's %s home" % (user, resource),)
+                        # print("   (key: %s)\n" % (key,))
+                    print("with %d device(s):" % (len(tokens),))
+                    for token, timestamp, userAgent, ipAddr in tokens:
+                        print(" %s\n   '%s' from %s\n   %s" % (
+                            token, userAgent, ipAddr,
+                            time.strftime(
+                                "on %a, %d %b %Y at %H:%M:%S %z(%Z)",
+                                time.localtime(timestamp)
+                            )
+                        ))
             else:
-                print " ...is not subscribed to anything."
+                print(" ...is not subscribed to anything.")
         else:
-            print "User %s not found" % (user,)
+            print("User %s not found" % (user,))

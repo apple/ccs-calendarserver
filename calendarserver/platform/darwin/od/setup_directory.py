@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import os
 import sys
@@ -204,12 +205,12 @@ localGroups = [
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] local_user local_password odmaster_user odmaster_password" % (name,)
-    print ""
-    print " Configures local and OD master directories for testing"
-    print ""
-    print "options:"
-    print " -h --help: print this help and exit"
+    print("usage: %s [options] local_user local_password odmaster_user odmaster_password" % (name,))
+    print("")
+    print(" Configures local and OD master directories for testing")
+    print("")
+    print("options:")
+    print(" -h --help: print this help and exit")
     if e:
         sys.exit(1)
     else:
@@ -246,7 +247,7 @@ def createRecord(node, recordType, recordName, attrs):
         attrs,
         None)
     if error:
-        print error
+        print(error)
         raise ODError(error)
     return record
 
@@ -295,7 +296,7 @@ def main():
 
         node, error = odframework.ODNode.nodeWithSession_name_error_(session, nodeName, None)
         if error:
-            print error
+            print(error)
             raise ODError(error)
 
         result, error = node.setCredentialsWithRecordType_recordName_password_error_(
@@ -305,45 +306,45 @@ def main():
             None
         )
         if error:
-            print "Unable to authenticate with directory %s: %s" % (nodeName, error)
+            print("Unable to authenticate with directory %s: %s" % (nodeName, error))
             raise ODError(error)
 
-        print "Successfully authenticated with directory %s" % (nodeName,)
+        print("Successfully authenticated with directory %s" % (nodeName,))
 
-        print "Creating users within %s:" % (nodeName,)
+        print("Creating users within %s:" % (nodeName,))
         for recordName, attrs in users:
             record = lookupRecordName(node, dsattributes.kDSStdRecordTypeUsers, recordName)
             if record is None:
-                print "Creating user %s" % (recordName,)
+                print("Creating user %s" % (recordName,))
                 try:
                     record = createRecord(node, dsattributes.kDSStdRecordTypeUsers, recordName, attrs)
-                    print "Successfully created user %s" % (recordName,)
+                    print("Successfully created user %s" % (recordName,))
                     result, error = record.changePassword_toPassword_error_(
                         None, "password", None)
                     if error or not result:
-                        print "Failed to set password for %s: %s" % (recordName, error)
+                        print("Failed to set password for %s: %s" % (recordName, error))
                     else:
-                        print "Successfully set password for %s" % (recordName,)
+                        print("Successfully set password for %s" % (recordName,))
                 except ODError, e:
-                    print "Failed to create user %s: %s" % (recordName, e)
+                    print("Failed to create user %s: %s" % (recordName, e))
             else:
-                print "User %s already exists" % (recordName,)
+                print("User %s already exists" % (recordName,))
 
             if record is not None:
                 userRecords.append(record)
 
-        print "Creating groups within %s:" % (nodeName,)
+        print("Creating groups within %s:" % (nodeName,))
         for recordName, attrs in groups:
             record = lookupRecordName(node, dsattributes.kDSStdRecordTypeGroups, recordName)
             if record is None:
-                print "Creating group %s" % (recordName,)
+                print("Creating group %s" % (recordName,))
                 try:
                     record = createRecord(node, dsattributes.kDSStdRecordTypeGroups, recordName, attrs)
-                    print "Successfully created group %s" % (recordName,)
+                    print("Successfully created group %s" % (recordName,))
                 except ODError, e:
-                    print "Failed to create group %s: %s" % (recordName, e)
+                    print("Failed to create group %s: %s" % (recordName, e))
             else:
-                print "Group %s already exists" % (recordName,)
+                print("Group %s already exists" % (recordName,))
 
         print
 
@@ -359,18 +360,18 @@ def main():
         for saclGroupName in saclGroupNames:
             saclGroupRecord = lookupRecordName(node, dsattributes.kDSStdRecordTypeGroups, saclGroupName)
             if saclGroupRecord:
-                print "Populating %s SACL group:" % (saclGroupName,)
+                print("Populating %s SACL group:" % (saclGroupName,))
                 for userRecord in userRecords:
                     details, error = userRecord.recordDetailsForAttributes_error_(None, None)
                     recordName = details.get(dsattributes.kDSNAttrRecordName, [None])[0]
                     result, error = saclGroupRecord.isMemberRecord_error_(userRecord, None)
                     if result:
-                        print "%s is already in the %s SACL group" % (recordName, saclGroupName)
+                        print("%s is already in the %s SACL group" % (recordName, saclGroupName))
                     else:
                         result, error = saclGroupRecord.addMemberRecord_error_(userRecord, None)
-                        print "Adding %s to the %s SACL group" % (recordName, saclGroupName)
+                        print("Adding %s to the %s SACL group" % (recordName, saclGroupName))
 
-            print
+            print("")
 
 class ODError(Exception):
     def __init__(self, error):

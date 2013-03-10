@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.carddav.datastore.test.test_file -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@ from twext.web2.http_headers import MimeType
 
 from twisted.python import hashlib
 
-from twistedcaldav.sharing import InvitesDatabase
 from twistedcaldav.vcard import Component as VComponent, InvalidVCardDataError
 from txdav.carddav.datastore.index_file import AddressBookIndex as OldIndex
 
@@ -43,8 +42,8 @@ from txdav.carddav.datastore.util import validateAddressBookComponent
 from txdav.carddav.iaddressbookstore import IAddressBook, IAddressBookObject
 from txdav.carddav.iaddressbookstore import IAddressBookHome
 
-from txdav.common.datastore.file import CommonDataStore, CommonHome,\
-    CommonStoreTransaction, CommonHomeChild, CommonObjectResource,\
+from txdav.common.datastore.file import CommonDataStore, CommonHome, \
+    CommonStoreTransaction, CommonHomeChild, CommonObjectResource, \
     CommonStubResource
 from txdav.common.icommondatastore import NoSuchObjectResourceError, InternalDataStoreError
 from txdav.base.datastore.file import hidden, writeOperation
@@ -108,11 +107,10 @@ class AddressBook(CommonHomeChild):
         will eventually have on disk.
         @type realName: C{str}
         """
-        
+
         super(AddressBook, self).__init__(name, addressbookHome, owned, realName=realName)
 
         self._index = Index(self)
-        self._invites = Invites(self)
         self._objectResourceClass = AddressBookObject
 
     @property
@@ -238,7 +236,7 @@ class AddressBookObject(CommonObjectResource):
 
         if unfixed:
             self.log_error("Address data at %s had unfixable problems:\n  %s" % (self._path.path, "\n  ".join(unfixed),))
-        
+
         if fixed:
             self.log_error("Address data at %s had fixable problems:\n  %s" % (self._path.path, "\n  ".join(fixed),))
 
@@ -270,7 +268,7 @@ class AddressBookObject(CommonObjectResource):
                 "File corruption detected (improper start) in file: %s"
                 % (self._path.path,)
             )
-        
+
         self._objectText = text
         return text
 
@@ -332,12 +330,3 @@ class Index(object):
             yield addressbookObject
 
 
-class Invites(object):
-    #
-    # OK, here's where we get ugly.
-    # The index code needs to be rewritten also, but in the meantime...
-    #
-    def __init__(self, addressbook):
-        self.addressbook = addressbook
-        stubResource = AddressBookStubResource(addressbook)
-        self._oldInvites = InvitesDatabase(stubResource)

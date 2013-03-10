@@ -12,7 +12,7 @@ For general information about the server, see:
 Copyright and License
 =====================
 
-Copyright (c) 2005-2010 Apple Inc.  All rights reserved.
+Copyright (c) 2005-2013 Apple Inc.  All rights reserved.
 
 This software is licensed under the Apache License, Version 2.0.  The
 Apache License is a well-established open source license, enabling
@@ -110,3 +110,4 @@ The server should then start up and bind to port 8008 for HTTP and
 8443 for HTTPS.  You should then be able to connect to the server
 using your web browser (eg. Safari, Firefox) or with a CalDAV client
 (eg. iCal).
+

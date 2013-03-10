@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2007-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import stat
 import grp
 
 from os.path import dirname, abspath
+from collections import namedtuple
 
 from zope.interface import implements
 
@@ -46,7 +47,7 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.plistlib import writePlist #@UnresolvedImport
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
-from twistedcaldav.config import config, ConfigDict
+from twistedcaldav.config import config, ConfigDict, ConfigurationError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
@@ -58,7 +59,7 @@ from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tap.caldav import (
     CalDAVOptions, CalDAVServiceMaker, CalDAVService, GroupOwnedUNIXServer,
     DelayedStartupProcessMonitor, DelayedStartupLineLogger, TwistdSlaveProcess,
-    _CONTROL_SERVICE_NAME
+    _CONTROL_SERVICE_NAME, getSystemIDs
 )
 from calendarserver.provision.root import RootResource
 from StringIO import StringIO
@@ -230,11 +231,16 @@ class CalDAVOptionsTest (TestCase):
         argv = [
             "-f", myConfigFile,
             "-o", "PIDFile=/dev/null",
+            "-o", "umask=63",
+            # integers in plists & calendarserver command line are always
+            # decimal; umask is traditionally in octal.
         ]
 
         self.config.parseOptions(argv)
 
         self.assertEquals(self.config.parent["pidfile"], "/dev/null")
+        self.assertEquals(self.config.parent["umask"], 0077)
+
 
     def test_specifyConfigFile(self):
         """
@@ -314,13 +320,13 @@ class BaseServiceMakerTests(TestCase):
             "type": "twistedcaldav.directory.augment.AugmentXMLDB"
         }
 
-        self.config.UseDatabase    = False
-        self.config.ServerRoot     = self.mktemp()
-        self.config.ConfigRoot     = "config"
-        self.config.ProcessType    = "Single"
-        self.config.SSLPrivateKey  = pemFile
+        self.config.UseDatabase = False
+        self.config.ServerRoot = self.mktemp()
+        self.config.ConfigRoot = "config"
+        self.config.ProcessType = "Single"
+        self.config.SSLPrivateKey = pemFile
         self.config.SSLCertificate = pemFile
-        self.config.EnableSSL      = True
+        self.config.EnableSSL = True
         self.config.Memcached.Pools.Default.ClientEnabled = False
         self.config.Memcached.Pools.Default.ServerEnabled = False
         self.config.DirectoryAddressBook.Enabled = False
@@ -374,9 +380,10 @@ class BaseServiceMakerTests(TestCase):
                 # NOTE: in a database 'single' configuration, PostgresService
                 # will prevent the HTTP services from actually getting added to
                 # the hierarchy until the hierarchy has started.
-                lambda x: hasattr(x, 'args')
+                # 'underlyingSite' assigned in caldav.py
+                lambda x: hasattr(x, 'underlyingSite')
             ):
-            return listeningService.args[1].protocolArgs['requestFactory']
+            return listeningService.underlyingSite
         raise RuntimeError("No site found.")
 
 
@@ -537,7 +544,8 @@ class SlaveServiceTest(BaseServiceMakerTests):
         Test that the Slave service has sub services with the
         default TCP and SSL configuration
         """
-        service = self.makeService()
+        # Note: the listeners are bundled within a MultiService named "ConnectionService"
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         expectedSubServices = dict((
             (MaxAcceptTCPServer, self.config["HTTPPort"]),
@@ -563,7 +571,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         Test that the configuration of the SSLServer reflect the config file's
         SSL Private Key and SSL Certificate
         """
-        service = self.makeService()
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         sslService = None
         for s in service.services:
@@ -592,7 +600,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         del self.config["SSLPort"]
         self.writeConfig()
 
-        service = self.makeService()
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         self.assertNotIn(
             internet.SSLServer,
@@ -607,7 +615,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         del self.config["HTTPPort"]
         self.writeConfig()
 
-        service = self.makeService()
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         self.assertNotIn(
             internet.TCPServer,
@@ -621,7 +629,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         self.config.BindAddresses = ["127.0.0.1"]
         self.writeConfig()
 
-        service = self.makeService()
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         for s in service.services:
             if isinstance(s, (internet.TCPServer, internet.SSLServer)):
@@ -639,7 +647,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         ]
 
         self.writeConfig()
-        service = self.makeService()
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         tcpServers = []
         sslServers = []
@@ -671,7 +679,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         """
         self.config.ListenBacklog = 1024
         self.writeConfig()
-        service = self.makeService()
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         for s in service.services:
             if isinstance(s, (internet.TCPServer, internet.SSLServer)):
@@ -748,7 +756,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         enabled.
         """
 
-        self.config.Authentication.Basic.Enabled    = False
+        self.config.Authentication.Basic.Enabled = False
         self.config.Authentication.Kerberos.Enabled = False
 
         self.writeConfig()
@@ -1021,13 +1029,13 @@ class DelayedStartupProcessMonitorTests(TestCase):
 
         # Most arguments here will be ignored, so these are bogus values.
         slave = TwistdSlaveProcess(
-            twistd        = "bleh",
-            tapname       = "caldav",
-            configFile    = "/does/not/exist",
-            id            = 10,
-            interfaces    = '127.0.0.1',
-            inheritFDs    = [3, 7],
-            inheritSSLFDs = [19, 25],
+            twistd="bleh",
+            tapname="caldav",
+            configFile="/does/not/exist",
+            id=10,
+            interfaces='127.0.0.1',
+            inheritFDs=[3, 7],
+            inheritSSLFDs=[19, 25],
         )
 
         dspm.addProcessObject(slave, {})
@@ -1074,12 +1082,12 @@ class DelayedStartupProcessMonitorTests(TestCase):
         dspm = DelayedStartupProcessMonitor(imps)
         # Most arguments here will be ignored, so these are bogus values.
         slave = TwistdSlaveProcess(
-            twistd     = "bleh",
-            tapname    = "caldav",
-            configFile = "/does/not/exist",
-            id         = 10,
-            interfaces = '127.0.0.1',
-            metaSocket = FakeDispatcher().addSocket()
+            twistd="bleh",
+            tapname="caldav",
+            configFile="/does/not/exist",
+            id=10,
+            interfaces='127.0.0.1',
+            metaSocket=FakeDispatcher().addSocket()
         )
 
         dspm.addProcessObject(slave, {})
@@ -1087,7 +1095,7 @@ class DelayedStartupProcessMonitorTests(TestCase):
         oneProcessTransport = imps.waitForOneProcess()
         self.assertIn("MetaFD=4", oneProcessTransport.args)
         self.assertEquals(
-            oneProcessTransport.args[oneProcessTransport.args.index("MetaFD=4")-1],
+            oneProcessTransport.args[oneProcessTransport.args.index("MetaFD=4") - 1],
             '-o',
             "MetaFD argument was not passed as an option"
         )
@@ -1108,12 +1116,12 @@ class DelayedStartupProcessMonitorTests(TestCase):
         sampleCounter = range(0, 5)
         for counter in sampleCounter:
             slave = TwistdSlaveProcess(
-                twistd     = "bleh",
-                tapname    = "caldav",
-                configFile = "/does/not/exist",
-                id         = counter * 10,
-                interfaces = '127.0.0.1',
-                metaSocket = FakeDispatcher().addSocket()
+                twistd="bleh",
+                tapname="caldav",
+                configFile="/does/not/exist",
+                id=counter * 10,
+                interfaces='127.0.0.1',
+                metaSocket=FakeDispatcher().addSocket()
             )
             dspm.addProcessObject(slave, {"SAMPLE_ENV_COUNTER": str(counter)})
         dspm.startService()
@@ -1132,7 +1140,7 @@ class FakeFD(object):
     def __init__(self, n):
         self.fd = n
 
-    
+
     def fileno(self):
         return self.fd
 
@@ -1191,3 +1199,73 @@ class ReExecServiceTests(TestCase):
         self.assertEquals(output.count("START"), 2)
         self.assertEquals(output.count("STOP"), 2)
 
+
+class SystemIDsTests(TestCase):
+    """
+    Verifies the behavior of calendarserver.tap.caldav.getSystemIDs
+    """
+
+    def _wrappedFunction(self):
+        """
+        Return a copy of the getSystemIDs function with test implementations
+        of the ID lookup functions swapped into the namespace.
+        """
+
+        def _getpwnam(name):
+            if name == "exists":
+                Getpwnam = namedtuple("Getpwnam", ("pw_uid"))
+                return Getpwnam(42)
+            else:
+                raise KeyError(name)
+
+        def _getgrnam(name):
+            if name == "exists":
+                Getgrnam = namedtuple("Getgrnam", ("gr_gid"))
+                return Getgrnam(43)
+            else:
+                raise KeyError(name)
+
+        def _getuid():
+            return 44
+
+        def _getgid():
+            return 45
+
+        return type(getSystemIDs)(getSystemIDs.func_code,
+            {
+                "getpwnam" : _getpwnam,
+                "getgrnam" : _getgrnam,
+                "getuid" : _getuid,
+                "getgid" : _getgid,
+                "KeyError" : KeyError,
+                "ConfigurationError" : ConfigurationError,
+            }
+        )
+
+    def test_getSystemIDs_UserNameNotFound(self):
+        """
+        If userName is passed in but is not found on the system, raise a
+        ConfigurationError
+        """
+        self.assertRaises(ConfigurationError, self._wrappedFunction(),
+            "nonexistent", "exists")
+
+    def test_getSystemIDs_GroupNameNotFound(self):
+        """
+        If groupName is passed in but is not found on the system, raise a
+        ConfigurationError
+        """
+        self.assertRaises(ConfigurationError, self._wrappedFunction(),
+            "exists", "nonexistent")
+
+    def test_getSystemIDs_NamesNotSpecified(self):
+        """
+        If names are not provided, use the IDs of the process
+        """
+        self.assertEquals(self._wrappedFunction()("", ""), (44, 45))
+
+    def test_getSystemIDs_NamesSpecified(self):
+        """
+        If names are provided, use the IDs corresponding to those names
+        """
+        self.assertEquals(self._wrappedFunction()("exists", "exists"), (42, 43))

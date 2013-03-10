@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.carddav.datastore,txdav.carddav.datastore.test.test_sql.AddressBookSQLStorageTests -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -330,7 +330,7 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(("update", "CardDAV|home1") in self.notifierFactory.history)
+        self.assertTrue("CardDAV|home1" in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -379,12 +379,12 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_2"),
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_empty")
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_1",
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_2",
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_empty"
             ]
         )
 
@@ -515,8 +515,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_1",
             ]
         )
 
@@ -664,7 +664,7 @@ class CommonTests(CommonCommonTests):
             set(c.name() for c in addressbooks),
             set(home1_addressbookNames)
         )
-        
+
         for c in addressbooks:
             self.assertTrue(c.properties() is not None)
 
@@ -705,8 +705,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_1",
             ]
         )
 
@@ -821,8 +821,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_1",
             ]
         )
 
@@ -910,7 +910,7 @@ class CommonTests(CommonCommonTests):
             self.assertNotEquals(vcard1_text, vcard1_text_withDifferentNote)
             newComponent = VComponent.fromString(vcard1_text_withDifferentNote)
             yield obj.setComponent(newComponent)
-    
+
             # Putting everything into a separate transaction to account for any
             # caching that may take place.
             yield self.commit()
@@ -951,34 +951,5 @@ class CommonTests(CommonCommonTests):
                 (yield addressbook2.addressbookObjectWithName(resourceName)), None)
             self.assertIdentical(
                 (yield addressbook2.addressbookObjectWithUID(obj.uid())), None)
-
-
-    @inlineCallbacks
-    def test_eachAddressbookHome(self):
-        """
-        L{IAddressbookTransaction.eachAddressbookHome} returns an iterator that
-        yields 2-tuples of (transaction, home).
-        """
-        # create some additional addressbook homes
-        additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
-        txn = self.transactionUnderTest()
-        for name in additionalUIDs:
-            yield txn.addressbookHomeWithUID(name, create=True)
-        yield self.commit()
-        foundUIDs = set([])
-        lastTxn = None
-        for txn, home in (yield self.storeUnderTest().eachAddressbookHome()):
-            self.addCleanup(txn.commit)
-            foundUIDs.add(home.uid())
-            self.assertNotIdentical(lastTxn, txn)
-            lastTxn = txn
-        requiredUIDs = set([
-            uid for uid in self.requirements
-            if self.requirements[uid] is not None
-        ])
-        additionalUIDs.add("home_bad")
-        expectedUIDs = additionalUIDs.union(requiredUIDs)
-        self.assertEquals(foundUIDs, expectedUIDs)
-
 
 

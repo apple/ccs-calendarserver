@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,18 +45,18 @@ from twext.python.log import Logger
 log = Logger()
 
 class StoreAddressObjectResource(object):
-    
+
     class UIDReservation(object):
-        
+
         def __init__(self, index, uid, uri):
             self.reserved = False
             self.index = index
             self.uid = uid
             self.uri = uri
-            
+
         @inlineCallbacks
         def reserve(self):
-            
+
             # Lets use a deferred for this and loop a few times if we cannot reserve so that we give
             # time to whoever has the reservation to finish and release it.
             failure_count = 0
@@ -68,21 +68,22 @@ class StoreAddressObjectResource(object):
                 except ReservationError:
                     self.reserved = False
                 failure_count += 1
-                
+
                 pause = Deferred()
                 def _timedDeferred():
                     pause.callback(True)
                 reactor.callLater(0.5, _timedDeferred) #@UndefinedVariable
                 yield pause
-            
+
             if self.uri and not self.reserved:
                 raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use." % (self.uri,)))
-        
+
         @inlineCallbacks
         def unreserve(self):
             if self.reserved:
                 yield self.index.unreserveUID(self.uid)
                 self.reserved = False
+
 
     def __init__(
         self,
@@ -90,12 +91,12 @@ class StoreAddressObjectResource(object):
         source=None, source_uri=None, sourceparent=None, sourceadbk=False, deletesource=False,
         destination=None, destination_uri=None, destinationparent=None, destinationadbk=True,
         vcard=None,
-        indexdestination = True,
+        indexdestination=True,
         returnData=False,
    ):
         """
         Function that does common PUT/COPY/MOVE behavior.
-        
+
         @param request:           the L{twext.web2.server.Request} for the current HTTP request.
         @param source:            the L{CalDAVResource} for the source resource to copy from, or None if source data
             is to be read from the request.
@@ -110,7 +111,7 @@ class StoreAddressObjectResource(object):
         @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
         @param returnData:         True if the caller wants the actual data written to the store returned
         """
-        
+
         # Check that all arguments are valid
         try:
             assert destination is not None and destinationparent is not None and destination_uri is not None
@@ -131,7 +132,7 @@ class StoreAddressObjectResource(object):
             log.err("vcard=%s\n" % (vcard,))
             log.err("deletesource=%s\n" % (deletesource,))
             raise
-    
+
         self.request = request
         self.sourceadbk = sourceadbk
         self.destinationadbk = destinationadbk
@@ -146,7 +147,7 @@ class StoreAddressObjectResource(object):
         self.deletesource = deletesource
         self.indexdestination = indexdestination
         self.returnData = returnData
-        
+
         self.access = None
 
 
@@ -161,7 +162,7 @@ class StoreAddressObjectResource(object):
             result, message = self.validResourceName()
             if not result:
                 log.err(message)
-                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Resource name not allowed"))
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, message))
 
             # Valid collection size check on the destination parent resource
             result, message = (yield self.validCollectionSize())
@@ -182,9 +183,9 @@ class StoreAddressObjectResource(object):
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (carddav_namespace, "supported-address-data"),
-                            "Invalid content-type",
+                            message,
                         ))
-                
+
                     # At this point we need the calendar data to do more tests
                     self.vcard = (yield self.source.vCard())
                 else:
@@ -198,7 +199,7 @@ class StoreAddressObjectResource(object):
                             (carddav_namespace, "valid-address-data"),
                             "Could not parse vCard",
                         ))
-                        
+
                 # Valid vcard data check
                 result, message = self.validAddressDataCheck()
                 if not result:
@@ -206,9 +207,9 @@ class StoreAddressObjectResource(object):
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (carddav_namespace, "valid-address-data"),
-                        description=message
+                        message
                     ))
-                    
+
                 # Valid vcard data for CalDAV check
                 result, message = self.validCardDAVDataCheck()
                 if not result:
@@ -216,7 +217,7 @@ class StoreAddressObjectResource(object):
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (carddav_namespace, "valid-addressbook-object-resource"),
-                        "Invalid vCard data",
+                        message,
                     ))
 
                 # Must have a valid UID at this point
@@ -244,12 +245,13 @@ class StoreAddressObjectResource(object):
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (carddav_namespace, "max-resource-size"),
-                    "Address data too large",
+                    message,
                 ))
 
             # Check access
             returnValue(None)
-    
+
+
     def validResourceName(self):
         """
         Make sure that the resource name for the new resource is valid.
@@ -259,10 +261,11 @@ class StoreAddressObjectResource(object):
         filename = self.destination.name()
         if filename.startswith("."):
             result = False
-            message = "File name %s not allowed in vcard collection" % (filename,)
+            message = "Resource name %s not allowed in vcard collection" % (filename,)
 
         return result, message
-        
+
+
     def validContentType(self):
         """
         Make sure that the content-type of the source resource is text/vcard.
@@ -276,7 +279,8 @@ class StoreAddressObjectResource(object):
             message = "MIME type %s not allowed in vcard collection" % (content_type,)
 
         return result, message
-        
+
+
     @inlineCallbacks
     def validCollectionSize(self):
         """
@@ -291,7 +295,8 @@ class StoreAddressObjectResource(object):
                 message = "Too many resources in collection %s" % (self.destinationparent,)
 
         returnValue((result, message,))
-        
+
+
     def validAddressDataCheck(self):
         """
         Check that the calendar data is valid iCalendar.
@@ -309,9 +314,10 @@ class StoreAddressObjectResource(object):
             except ValueError, e:
                 result = False
                 message = "Invalid vcard data: %s" % (e,)
-        
+
         return result, message
-    
+
+
     def validCardDAVDataCheck(self):
         """
         Check that the vcard data is valid vCard.
@@ -325,9 +331,10 @@ class StoreAddressObjectResource(object):
         except ValueError, e:
             result = False
             message = "vCard data does not conform to CardDAV requirements: %s" % (e,)
-        
+
         return result, message
-    
+
+
     def validSizeCheck(self):
         """
         Make sure that the content-type of the source resource is text/vcard.
@@ -373,7 +380,7 @@ class StoreAddressObjectResource(object):
             # the other PUT tries to reserve and fails but no index entry exists yet.
             if rname is None:
                 rname = "<<Unknown Resource>>"
-            
+
             result = False
             message = "Address book resource %s already exists with same UID %s" % (rname, uid)
         else:
@@ -384,7 +391,7 @@ class StoreAddressObjectResource(object):
                     rname = self.destination.name()
                     result = False
                     message = "Cannot overwrite vcard resource %s with different UID %s" % (rname, olduid)
-        
+
         returnValue((result, message, rname))
 
 
@@ -408,8 +415,9 @@ class StoreAddressObjectResource(object):
             self.destination.newStoreProperties().update(sourceProperties)
         else:
             response = (yield self.doStorePut())
-    
+
         returnValue(response)
+
 
     @inlineCallbacks
     def doStorePut(self):
@@ -418,12 +426,14 @@ class StoreAddressObjectResource(object):
         response = (yield self.destination.storeStream(stream))
         returnValue(response)
 
+
     @inlineCallbacks
     def doSourceDelete(self):
         # Delete the source resource
         yield self.source.storeRemove(self.request, False, self.source_uri)
         log.debug("Source removed %s" % (self.source,))
         returnValue(None)
+
 
     @inlineCallbacks
     def run(self):
@@ -435,12 +445,12 @@ class StoreAddressObjectResource(object):
 
         try:
             reservation = None
-            
+
             # Handle all validation operations here.
             yield self.fullValidation()
 
             # Reservation and UID conflict checking is next.
-            if self.destinationadbk:    
+            if self.destinationadbk:
                 # Reserve UID
                 self.destination_index = self.destinationparent.index()
                 reservation = StoreAddressObjectResource.UIDReservation(
@@ -448,7 +458,7 @@ class StoreAddressObjectResource(object):
                 )
                 if self.indexdestination:
                     yield reservation.reserve()
-            
+
                 # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
                 # try to write the same vcard data to two different resource URIs.
                 result, message, rname = yield self.noUIDConflict(self.uid)
@@ -466,15 +476,106 @@ class StoreAddressObjectResource(object):
                         ),
                         "UID already used in another resource",
                     ))
-            
+
             # Do the actual put or copy
             response = (yield self.doStore())
-            
+
             if reservation:
                 yield reservation.unreserve()
-    
+
             returnValue(response)
-    
+
+        except Exception, err:
+
+            if reservation:
+                yield reservation.unreserve()
+
+            raise err
+
+
+    @inlineCallbacks
+    def moveValidation(self):
+        """
+        Do full validation of source and destination calendar data.
+        """
+
+        # Valid resource name check
+        result, message = self.validResourceName()
+        if not result:
+            log.err(message)
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, message))
+
+        # Valid collection size check on the destination parent resource
+        result, message = (yield self.validCollectionSize())
+        if not result:
+            log.err(message)
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                customxml.MaxResources(),
+                message,
+            ))
+
+        returnValue(None)
+
+
+    @inlineCallbacks
+    def doStoreMove(self):
+
+        # Do move
+        response = (yield self.source.storeMove(self.request, self.destinationparent, self.destination._name))
+        returnValue(response)
+
+
+    @inlineCallbacks
+    def move(self):
+        """
+        Function that does common MOVE behavior.
+
+        @return: a Deferred with a status response result.
+        """
+
+        try:
+            reservation = None
+
+            # Handle all validation operations here.
+            yield self.moveValidation()
+
+            # Reservation and UID conflict checking is next.
+
+            # Reserve UID
+            self.destination_index = self.destinationparent.index()
+            reservation = StoreAddressObjectResource.UIDReservation(
+                self.destination_index, self.source.uid(), self.destination_uri
+            )
+            if self.indexdestination:
+                yield reservation.reserve()
+
+            # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
+            # try to write the same vcard data to two different resource URIs.
+            result, message, rname = yield self.noUIDConflict(self.source.uid())
+            if not result:
+                log.err(message)
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    NoUIDConflict(
+                        davxml.HRef.fromString(
+                            joinURL(
+                                parentForURL(self.destination_uri),
+                                rname.encode("utf-8")
+                            )
+                        )
+                    ),
+                    "UID already used in another resource",
+                ))
+
+            # Do the actual put or copy
+            response = (yield self.doStoreMove())
+
+            if reservation:
+                yield reservation.unreserve()
+
+            returnValue(response)
+
         except Exception, err:
 
             if reservation:

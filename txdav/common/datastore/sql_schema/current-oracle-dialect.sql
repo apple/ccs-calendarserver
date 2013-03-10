@@ -1,6 +1,20 @@
 create sequence RESOURCE_ID_SEQ;
 create sequence INSTANCE_ID_SEQ;
+create sequence ATTACHMENT_ID_SEQ;
 create sequence REVISION_SEQ;
+create sequence WORKITEM_SEQ;
+create table NODE_INFO (
+    "HOSTNAME" nvarchar2(255),
+    "PID" integer not null,
+    "PORT" integer not null,
+    "TIME" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null, 
+    primary key("HOSTNAME", "PORT")
+);
+
+create table NAMED_LOCK (
+    "LOCK_NAME" nvarchar2(255) primary key
+);
+
 create table CALENDAR_HOME (
     "RESOURCE_ID" integer primary key,
     "OWNER_UID" nvarchar2(255) unique,
@@ -23,14 +37,6 @@ create table CALENDAR_METADATA (
     "SUPPORTED_COMPONENTS" nvarchar2(255) default null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
-);
-
-create table INVITE (
-    "INVITE_UID" nvarchar2(255),
-    "NAME" nvarchar2(255),
-    "RECIPIENT_ADDRESS" nvarchar2(255),
-    "HOME_RESOURCE_ID" integer not null,
-    "RESOURCE_ID" integer not null
 );
 
 create table NOTIFICATION_HOME (
@@ -56,8 +62,6 @@ create table CALENDAR_BIND (
     "CALENDAR_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
-    "SEEN_BY_OWNER" integer not null,
-    "SEEN_BY_SHAREE" integer not null,
     "MESSAGE" nclob, 
     primary key("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
     unique("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
@@ -91,7 +95,6 @@ create table CALENDAR_OBJECT (
     "ATTACHMENTS_MODE" integer default 0 not null,
     "DROPBOX_ID" nvarchar2(255),
     "ORGANIZER" nvarchar2(255),
-    "ORGANIZER_OBJECT" integer references CALENDAR_OBJECT,
     "RECURRANCE_MIN" date,
     "RECURRANCE_MAX" date,
     "ACCESS" integer default 0 not null,
@@ -151,6 +154,7 @@ create table TRANSPARENCY (
 );
 
 create table ATTACHMENT (
+    "ATTACHMENT_ID" integer primary key,
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
     "DROPBOX_ID" nvarchar2(255),
     "CONTENT_TYPE" nvarchar2(255),
@@ -158,8 +162,15 @@ create table ATTACHMENT (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "PATH" nvarchar2(1024), 
-    primary key("DROPBOX_ID", "PATH")
+    "PATH" nvarchar2(1024)
+);
+
+create table ATTACHMENT_CALENDAR_OBJECT (
+    "ATTACHMENT_ID" integer not null references ATTACHMENT on delete cascade,
+    "MANAGED_ID" nvarchar2(255),
+    "CALENDAR_OBJECT_RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade, 
+    primary key("ATTACHMENT_ID", "CALENDAR_OBJECT_RESOURCE_ID"), 
+    unique("MANAGED_ID", "CALENDAR_OBJECT_RESOURCE_ID")
 );
 
 create table RESOURCE_PROPERTY (
@@ -199,8 +210,6 @@ create table ADDRESSBOOK_BIND (
     "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
-    "SEEN_BY_OWNER" integer not null,
-    "SEEN_BY_SHAREE" integer not null,
     "MESSAGE" nclob, 
     primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_ID"), 
     unique("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
@@ -249,10 +258,46 @@ create table APN_SUBSCRIPTIONS (
     "TOKEN" nvarchar2(255),
     "RESOURCE_KEY" nvarchar2(255),
     "MODIFIED" integer not null,
-    "SUBSCRIBER_GUID" nvarchar2(255), 
+    "SUBSCRIBER_GUID" nvarchar2(255),
     "USER_AGENT" nvarchar2(255) default null,
-    "IP_ADDR" nvarchar2(255) default null,
+    "IP_ADDR" nvarchar2(255) default null, 
     primary key("TOKEN", "RESOURCE_KEY")
+);
+
+create table IMIP_TOKENS (
+    "TOKEN" nvarchar2(255),
+    "ORGANIZER" nvarchar2(255),
+    "ATTENDEE" nvarchar2(255),
+    "ICALUID" nvarchar2(255),
+    "ACCESSED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
+    primary key("ORGANIZER", "ATTENDEE", "ICALUID")
+);
+
+create table IMIP_INVITATION_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "FROM_ADDR" nvarchar2(255),
+    "TO_ADDR" nvarchar2(255),
+    "ICALENDAR_TEXT" nclob
+);
+
+create table IMIP_POLLING_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+);
+
+create table IMIP_REPLY_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "ORGANIZER" nvarchar2(255),
+    "ATTENDEE" nvarchar2(255),
+    "ICALENDAR_TEXT" nclob
+);
+
+create table PUSH_NOTIFICATION_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "PUSH_ID" nvarchar2(255)
 );
 
 create table CALENDARSERVER (
@@ -260,21 +305,9 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '10');
-insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '2');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '17');
+insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
-create index INVITE_INVITE_UID_9b0902ff on INVITE (
-    INVITE_UID
-);
-
-create index INVITE_RESOURCE_ID_b36ddc23 on INVITE (
-    RESOURCE_ID
-);
-
-create index INVITE_HOME_RESOURCE__e9bdf77e on INVITE (
-    HOME_RESOURCE_ID
-);
-
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
     NOTIFICATION_HOME_RESOURCE_ID
 );
@@ -293,8 +326,8 @@ create index CALENDAR_OBJECT_CALEN_96e83b73 on CALENDAR_OBJECT (
     RECURRANCE_MAX
 );
 
-create index CALENDAR_OBJECT_ORGAN_7ce24750 on CALENDAR_OBJECT (
-    ORGANIZER_OBJECT
+create index CALENDAR_OBJECT_ICALE_82e731d5 on CALENDAR_OBJECT (
+    ICALENDAR_UID
 );
 
 create index CALENDAR_OBJECT_DROPB_de041d80 on CALENDAR_OBJECT (
@@ -358,5 +391,9 @@ create index NOTIFICATION_OBJECT_R_036a9cee on NOTIFICATION_OBJECT_REVISIONS (
 
 create index APN_SUBSCRIPTIONS_RES_9610d78e on APN_SUBSCRIPTIONS (
     RESOURCE_KEY
+);
+
+create index IMIP_TOKENS_TOKEN_e94b918f on IMIP_TOKENS (
+    TOKEN
 );
 

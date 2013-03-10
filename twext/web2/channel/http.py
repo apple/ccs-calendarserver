@@ -1,7 +1,7 @@
 # -*- test-case-name: twext.web2.test.test_http -*-
 ##
 # Copyright (c) 2001-2004 Twisted Matrix Laboratories.
-# Copyright (c) 2008-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2008-2013 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,7 @@ from cStringIO import StringIO
 from zope.interface import implements
 
 from twisted.internet import interfaces, protocol, reactor
+from twisted.internet.defer import succeed, Deferred
 from twisted.protocols import policies, basic
 
 from twext.python.log import Logger
@@ -75,26 +76,11 @@ class OverloadedLoggingServerProtocol (protocol.Protocol):
         self.transport.loseConnection()
 
 
-
 class SSLRedirectRequest(Request):
     """
     An L{SSLRedirectRequest} prevents processing if the request is over plain
     HTTP; instead, it redirects to HTTPS.
-
-    If the request is already secured, it instead sets the
-    Strict-Transport-Security header as documented by the U{HTTP Strict
-    Transport Security specification
-    <http://tools.ietf.org/html/draft-ietf-websec-strict-transport-sec-02>}.
-
-    @ivar maxAge: the number of seconds that a client must wait after receiving
-        an HTTPS response, before they may attempt to make an HTTP request
-        again.
-
-    @type maxAge: C{int}
     """
-
-    maxAge = 600
-
     def process(self):
         ignored, secure = self.chanRequest.getHostInfo()
         if not secure:
@@ -114,15 +100,6 @@ class SSLRedirectRequest(Request):
         else:
             return super(SSLRedirectRequest, self).process()
 
-
-    def writeResponse(self, response):
-        """
-        Response filter to add HSTS header.
-        """
-        response.headers.addRawHeader("Strict-Transport-Security",
-                                      "max-age={max_age:d}"
-                                      .format(max_age=self.maxAge))
-        return super(SSLRedirectRequest, self).writeResponse(response)
 
 # >%
 
@@ -636,11 +613,7 @@ class HTTPChannelRequest(HTTPParser):
                 self._cleanup()
 
     def getHostInfo(self):
-        t=self.channel.transport
-        secure = interfaces.ISSLTransport(t, None) is not None
-        host = t.getHost()
-        host.host = _cachedGetHostByAddr(host.host)
-        return host, secure
+        return self.channel._host, self.channel._secure
 
     def getRemoteHost(self):
         return self.channel.transport.getPeer()
@@ -782,6 +755,9 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
         self.requests = []
         
     def connectionMade(self):
+        self._secure = interfaces.ISSLTransport(self.transport, None) is not None
+        address = self.transport.getHost()
+        self._host = _cachedGetHostByAddr(address.host)
         self.setTimeout(self.inputTimeOut)
         self.factory.addConnectedChannel(self)
     
@@ -1019,6 +995,7 @@ class HTTPFactory(protocol.ServerFactory):
         self.protocolArgs = kwargs
         self.protocolArgs['requestFactory'] = requestFactory
         self.connectedChannels = set()
+        self.allConnectionsClosedDeferred = None
 
 
     def buildProtocol(self, addr):
@@ -1044,13 +1021,30 @@ class HTTPFactory(protocol.ServerFactory):
         """
         Remove a connected channel from the set of currently connected channels
         and decrease the outstanding request count.
+        If someone is waiting for all the requests to be completed,
+        self.allConnectionsClosedDeferred will be non-None; fire that callback
+        when the number of outstanding requests hits zero.
         """
         self.connectedChannels.remove(channel)
 
+        if self.allConnectionsClosedDeferred is not None:
+            if self.outstandingRequests == 0:
+                self.allConnectionsClosedDeferred.callback(None)
 
     @property
     def outstandingRequests(self):
         return len(self.connectedChannels)
+
+
+    def allConnectionsClosed(self):
+        """
+        Return a Deferred that will fire when all outstanding requests have completed.
+        @return: A Deferred with a result of None
+        """
+        if self.outstandingRequests == 0:
+            return succeed(None)
+        self.allConnectionsClosedDeferred = Deferred()
+        return self.allConnectionsClosedDeferred
 
 
 
@@ -1201,7 +1195,7 @@ class LimitingHTTPFactory(HTTPFactory):
 
     def removeConnectedChannel(self, channel):
         """
-        Override L{HTTPFactory.addConnectedChannel} to resume listening on the
+        Override L{HTTPFactory.removeConnectedChannel} to resume listening on the
         socket when there are too many outstanding channels.
         """
         HTTPFactory.removeConnectedChannel(self, channel)

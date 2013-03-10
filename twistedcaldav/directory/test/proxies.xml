@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -57,6 +57,12 @@ limitations under the License.
     <proxies>
       <member>8A985493-EE2C-4665-94CF-4DFEA3A89500</member>
       <member>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2</member>
+    </proxies>
+  </record>
+  <record>
+    <guid>FC465590-E9E9-4746-ACE8-6C756A49FE4D</guid>
+    <proxies>
+      <member>EC465590-E9E9-4746-ACE8-6C756A49FE4D</member>
     </proxies>
   </record>
 </proxies>

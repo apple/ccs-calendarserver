@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,6 +56,41 @@ __all__ = [
 
 
 
+class AttachmentStoreFailed(Exception):
+    """
+    Unable to store an attachment.
+    """
+
+
+
+class AttachmentStoreValidManagedID(Exception):
+    """
+    Specified attachment managed-id is not valid.
+    """
+
+
+
+class AttachmentRemoveFailed(Exception):
+    """
+    Unable to remove an attachment.
+    """
+
+
+
+class AttachmentMigrationFailed(Exception):
+    """
+    Unable to migrate an attachment.
+    """
+
+
+
+class AttachmentDropboxNotAllowed(Exception):
+    """
+    Dropbox attachments no longer allowed.
+    """
+
+
+
 class QuotaExceeded(Exception):
     """
     The quota for a particular user has been exceeded.
@@ -72,6 +107,7 @@ class TimeRangeLowerLimit(Exception):
         self.limit = lowerLimit
 
 
+
 class TimeRangeUpperLimit(Exception):
     """
     A request for time-range information too far in the future cannot be satisfied.
@@ -79,6 +115,7 @@ class TimeRangeUpperLimit(Exception):
 
     def __init__(self, upperLimit):
         self.limit = upperLimit
+
 
 
 class ICalendarTransaction(ICommonTransaction):
@@ -104,15 +141,42 @@ class ICalendarStore(IDataStore):
     API root for calendar data storage.
     """
 
-    def eachCalendarHome(self):
+    def withEachCalendarHomeDo(action, batchSize=None):
         """
-        Enumerate all calendar homes in this store, with each one in an
-        accompanying transaction.
+        Execute a given action with each calendar home present in this store,
+        in serial, committing after each batch of homes of a given size.
 
-        @return: an iterator of 2-tuples of C{(transaction, calendar home)}
-            where C{transaction} is an L{ITransaction} provider and C{calendar
-            home} is an L{ICalendarHome} provider.
+        @note: This does not execute an action with each directory principal
+            for which there might be a calendar home; it works only on calendar
+            homes which have already been provisioned.  To execute an action on
+            every possible calendar user, you will need to inspect the
+            directory API instead.
+
+        @note: The list of calendar homes is loaded incrementally, so this will
+            not necessarily present a consistent snapshot of the entire
+            database at a particular moment.  (If this behavior is desired,
+            pass a C{batchSize} greater than the number of homes in the
+            database.)
+
+        @param action: a 2-argument callable, taking an L{ICalendarTransaction}
+            and an L{ICalendarHome}, and returning a L{Deferred} that fires
+            with C{None} when complete.  Note that C{action} should not commit
+            or abort the given L{ICalendarTransaction}.  If C{action} completes
+            normally, then it will be called again with the next
+            L{ICalendarHome}.  If it raises an exception or returns a
+            L{Deferred} that fails, processing will stop and the L{Deferred}
+            returned from C{withEachCalendarHomeDo} will fail with that same
+            L{Failure}.
+        @type action: L{callable}
+
+        @param batchSize: The maximum count of calendar homes to include in a
+            single transaction.
+        @type batchSize: L{int}
+
+        @return: a L{Deferred} which fires with L{None} when all homes have
+            completed processing, or fails with the traceback.
         """
+
 
 
 #
@@ -134,6 +198,7 @@ class ICalendarHome(INotifier, IDataStoreObject):
         @return: a string.
         """
 
+
     def calendars():
         """
         Retrieve calendars contained in this calendar home.
@@ -141,12 +206,14 @@ class ICalendarHome(INotifier, IDataStoreObject):
         @return: an iterable of L{ICalendar}s.
         """
 
+
     def loadCalendars():
         """
         Pre-load all calendars Depth:1.
 
         @return: an iterable of L{ICalendar}s.
         """
+
 
     def calendarWithName(name):
         """
@@ -184,6 +251,7 @@ class ICalendarHome(INotifier, IDataStoreObject):
         @raise CalendarAlreadyExistsError: if a calendar with the
             given C{name} already exists.
         """
+
 
     def removeCalendarWithName(name):
         """
@@ -244,6 +312,18 @@ class ICalendarHome(INotifier, IDataStoreObject):
         """
 
 
+    def objectResourceWithID(rid):
+        """
+        Return the calendar object resource with the specified ID, assumed to be a child of
+        a calendar collection within this home.
+
+        @param rid: resource id of object to find
+        @type rid: C{int}
+
+        @return: L{ICalendar} or C{None} if not found
+        """
+
+
 
 class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
     """
@@ -260,6 +340,19 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         Change the name of this calendar.
         """
 
+    def displayName():
+        """
+        Get the display name of this calendar.
+
+        @return: a unicode string.
+        """
+
+    def setDisplayName(name):
+        """
+        Set the display name of this calendar.
+
+        @param name: a C{unicode}.
+        """
 
     def ownerCalendarHome():
         """
@@ -275,12 +368,14 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         @return: an L{ICalendarHome}.
         """
 
+
     def calendarObjects():
         """
         Retrieve the calendar objects contained in this calendar.
 
         @return: an iterable of L{ICalendarObject}s.
         """
+
 
     def calendarObjectWithName(name):
         """
@@ -292,6 +387,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
             object exists.
         """
 
+
     def calendarObjectWithUID(uid):
         """
         Retrieve the calendar object with the given C{uid} contained
@@ -302,6 +398,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         @return: a L{Deferred} firing an L{ICalendarObject} or C{None} if no
             such calendar object exists.
         """
+
 
     def createCalendarObjectWithName(name, component):
         """
@@ -320,6 +417,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
             a calendar object.
         """
 
+
     def removeCalendarObjectWithName(name):
         """
         Remove the calendar object with the given C{name} from this
@@ -329,6 +427,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         @raise NoSuchCalendarObjectError: if no such calendar object
             exists.
         """
+
 
     def removeCalendarObjectWithUID(uid):
         """
@@ -340,12 +439,14 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
             not exist.
         """
 
+
     def syncToken():
         """
         Retrieve the current sync token for this calendar.
 
         @return: a string containing a sync token.
         """
+
 
     def calendarObjectsInTimeRange(start, end, timeZone):
         """
@@ -358,6 +459,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         @param timeZone: a L{PyCalendarTimezone}.
         @return: an iterable of L{ICalendarObject}s.
         """
+
 
     def calendarObjectsSinceToken(token):
         """
@@ -408,7 +510,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         C{txn.calendarHomeWithUID("alice") ...
         .calendarWithName("calendar").viewerCalendarHome()} will return Alice's
         home, whereas C{txn.calendarHomeWithUID("bob") ...
-        .sharedChildWithName("alice's calendar").viewerCalendarHome()} will
+        .childWithName("alice's calendar").viewerCalendarHome()} will
         return Bob's calendar home.
 
         @return: (synchronously) the calendar home of the user into which this
@@ -416,10 +518,6 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         @rtype: L{ICalendarHome}
         """
         # TODO: implement this for the file store.
-
-        # TODO: implement home-child- retrieval APIs to retrieve shared items
-        # from the store; the example in the docstring ought to be
-        # calendarWithName not sharedChildWithName.
 
 
 
@@ -437,6 +535,7 @@ class ICalendarObject(IDataStoreObject):
         @rtype: L{ICalendar}
         """
 
+
     def setComponent(component):
         """
         Rewrite this calendar object to match the given C{component}.
@@ -449,6 +548,7 @@ class ICalendarObject(IDataStoreObject):
             a calendar object.
         """
 
+
     def component():
         """
         Retrieve the calendar component for this calendar object.
@@ -460,12 +560,14 @@ class ICalendarObject(IDataStoreObject):
         @return: a C{VCALENDAR} L{VComponent}.
         """
 
+
     def uid():
         """
         Retrieve the UID for this calendar object.
 
         @return: a string containing a UID.
         """
+
 
     def componentType():
         """
@@ -489,6 +591,68 @@ class ICalendarObject(IDataStoreObject):
 
         @return: a URI string.
         """
+
+
+    #
+    # New managed attachment APIs that supersede dropbox
+    #
+
+    def addAttachment(pathpattern, rids, content_type, filename, stream):
+        """
+        Add a managed attachment to the calendar data.
+
+        @param pathpattern: URI template for the attachment property value.
+        @type pathpattern: C{str}
+        @param rids: set of RECURRENCE-ID values (not adjusted for UTC or TZID offset) to add the
+            new attachment to. The server must create necessary overrides if none already exist.
+        @type rids: C{iterable}
+        @param content_type: content-type information for the attachment data.
+        @type content_type: L{MimeType}
+        @param filename: display file name to use for the attachment.
+        @type filename: C{str}
+        @param stream: stream from which attachment data can be retrieved.
+        @type stream: L{IStream}
+
+        @raise: if anything goes wrong...
+        """
+
+
+    def updateAttachment(pathpattern, managed_id, content_type, filename, stream):
+        """
+        Update an existing managed attachment in the calendar data.
+
+        @param pathpattern: URI template for the attachment property value.
+        @type pathpattern: C{str}
+        @param managed_id: the identifier of the attachment to update.
+        @type managed_id: C{str}
+        @param content_type: content-type information for the attachment data.
+        @type content_type: L{MimeType}
+        @param filename: display file name to use for the attachment.
+        @type filename: C{str}
+        @param stream: stream from which attachment data can be retrieved.
+        @type stream: L{IStream}
+
+        @raise: if anything goes wrong...
+        """
+
+
+    def removeAttachment(rids, managed_id):
+        """
+        Remove an existing managed attachment from the calendar data.
+
+        @param rids: set of RECURRENCE-ID values (not adjusted for UTC or TZID offset) to remove the
+            attachment from. The server must create necessary overrides if none already exist.
+        @type rids: C{iterable}
+        @param managed_id: the identifier of the attachment to remove.
+        @type managed_id: C{str}
+
+        @raise: if anything goes wrong...
+        """
+
+    #
+    # The following APIs are for the older Dropbox protocol, which is now deprecated in favor of
+    # managed attachments
+    #
 
     def dropboxID():
         """
@@ -622,5 +786,3 @@ class IAttachment(IDataStoreObject):
             that the stream is complete to its C{connectionLost} method.
         @type protocol: L{IProtocol}
         """
-
-

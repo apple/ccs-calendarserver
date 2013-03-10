@@ -9,7 +9,7 @@
 # For the replace command the handler returns
 # 0 = don't care/ cert replaced, 2 = an error occurred.
 #
-# Copyright (c) 2011-2012 Apple Inc.  All Rights Reserved.
+# Copyright (c) 2011-2013 Apple Inc.  All Rights Reserved.
 #
 # IMPORTANT NOTE:  This file is licensed only for use on Apple-labeled
 # computers and is subject to the terms and conditions of the Apple

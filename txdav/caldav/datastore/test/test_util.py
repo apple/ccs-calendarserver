@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ END:VEVENT
 END:VCALENDAR
 """)
 
-        self.assertEquals( (yield dropboxIDFromCalendarObject(resource)), "12345-67890.dropbox")
+        self.assertEquals((yield dropboxIDFromCalendarObject(resource)), "12345-67890.dropbox")
 
 
     @inlineCallbacks
@@ -305,10 +305,12 @@ class StorageTransportTests(TestCase):
                 return self._name
 
         for filename, result in test_files:
-            item = StorageTransportBase(FakeAttachment(filename), None)
+            item = StorageTransportBase(FakeAttachment(filename), None, None)
             self.assertEquals(item._contentType, result)
-            item = StorageTransportBase(FakeAttachment(filename), result)
+            self.assertEquals(item._dispositionName, None)
+            item = StorageTransportBase(FakeAttachment(filename), result, filename)
             self.assertEquals(item._contentType, result)
+            self.assertEquals(item._dispositionName, filename)
 
 
 

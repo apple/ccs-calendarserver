@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-    Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+    Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -257,55 +257,6 @@
 						</dict>
 					</dict>
 
-					<!-- This profile invites new attendees to existing events.
-					     This profile should no longer be used - use RealisticInviter instead. -->
-					<dict>
-						<key>class</key>
-						<string>contrib.performance.loadtest.profiles.Inviter</string>
-
-						<key>params</key>
-						<dict>
-							<key>enabled</key>
-							<false/>
-
-							<!-- Define the frequency at which new invitations will be sent out. -->
-							<key>sendInvitationDistribution</key>
-							<dict>
-								<key>type</key>
-								<string>contrib.performance.stats.NormalDistribution</string>
-								<key>params</key>
-								<dict>
-									<!-- mu gives the mean of the normal distribution (in seconds). -->
-									<key>mu</key>
-									<integer>60</integer>
-
-									<!-- and sigma gives its standard deviation. -->
-									<key>sigma</key>
-									<integer>5</integer>
-								</dict>
-							</dict>
-
-							<!-- Define the distribution of who will be invited to an event. Each
-								set of credentials loaded by the load tester has an index; samples from this
-								distribution will be added to that index to arrive at the index of some other
-								credentials, which will be the target of the invitation. -->
-							<key>inviteeDistanceDistribution</key>
-							<dict>
-								<key>type</key>
-								<string>contrib.performance.stats.UniformIntegerDistribution</string>
-								<key>params</key>
-								<dict>
-									<!-- The minimum value (inclusive) of the uniform distribution. -->
-									<key>min</key>
-									<integer>-100</integer>
-									<!-- The maximum value (exclusive) of the uniform distribution. -->
-									<key>max</key>
-									<integer>101</integer>
-								</dict>
-							</dict>
-						</dict>
-					</dict>
-
 					<!-- This profile invites some number of new attendees to new events. -->
 					<dict>
 						<key>class</key>
@@ -352,10 +303,10 @@
 								<dict>
 									<!-- The minimum value (inclusive) of the uniform distribution. -->
 									<key>min</key>
-									<integer>-100</integer>
+									<integer>0</integer>
 									<!-- The maximum value (exclusive) of the uniform distribution. -->
 									<key>max</key>
-									<integer>101</integer>
+									<integer>99</integer>
 								</dict>
 							</dict>
 
@@ -385,7 +336,7 @@
 									<integer>6</integer>
 									<!-- maximum -->
 									<key>maximum</key>
-									<real>100</real>
+									<real>60</real>
 								</dict>
 							</dict>
 

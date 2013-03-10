@@ -1,5 +1,6 @@
+# -*- test-case-name: calendarserver.tools.shell.test.test_vfs -*-
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,6 +57,7 @@ class ListEntry(object):
     """
     Information about a C{File} as returned by C{File.list()}.
     """
+
     def __init__(self, parent, Class, Name, **fields):
         self.parent    = parent # The class implementing list()
         self.fileClass = Class
@@ -64,8 +66,10 @@ class ListEntry(object):
 
         fields["Name"] = Name
 
+
     def __str__(self):
         return self.toString()
+
 
     def __repr__(self):
         fields = self.fields.copy()
@@ -83,14 +87,17 @@ class ListEntry(object):
             fields,
         )
 
+
     def isFolder(self):
         return issubclass(self.fileClass, Folder)
+
 
     def toString(self):
         if self.isFolder():
             return "%s/" % (self.fileName,)
         else:
             return self.fileName
+
 
     @property
     def fieldNames(self):
@@ -101,9 +108,11 @@ class ListEntry(object):
                 else:
                     self._fieldNames = ("Name",) + tuple(self.parent.list.fieldNames)
             else:
-                self._fieldNames = ["Name"] + sorted(n for n in self.fields if n != "Name")
+                self._fieldNames = ["Name"] + sorted(n for n in self.fields
+                                                     if n != "Name")
 
         return self._fieldNames
+
 
     def toFields(self):
         try:
@@ -113,6 +122,7 @@ class ListEntry(object):
                 "Field %s is not in %r, defined by %s"
                 % (e, self.fields.keys(), self.parent.__name__)
             )
+
 
 
 class File(object):
@@ -217,7 +227,8 @@ class RootFolder(Folder):
     """
     Root of virtual data hierarchy.
 
-    Hierarchy:
+    Hierarchy::
+
       /                    RootFolder
         uids/              UIDsFolder
           <uid>/           PrincipalHomeFolder
@@ -256,16 +267,29 @@ class UIDsFolder(Folder):
 
     @inlineCallbacks
     def list(self):
-        result = set()
+        results = {}
 
         # FIXME: This should be the merged total of calendar homes and address book homes.
         # FIXME: Merge in directory UIDs also?
-        # FIXME: Add directory info (eg. name) to listing
+        # FIXME: Add directory info (eg. name) to list entry
 
-        for txn, home in (yield self.service.store.eachCalendarHome()):
-            result.add(ListEntry(self, PrincipalHomeFolder, home.uid()))
+        def addResult(ignoredTxn, home):
+            uid = home.uid()
 
-        returnValue(result)
+            record = self.service.directory.recordWithUID(uid)
+            if record:
+                info = {
+                    "Record Type": record.recordType,
+                    "Short Name" : record.shortNames[0],
+                    "Full Name"  : record.fullName,
+                }
+            else:
+                info = {}
+
+            results[uid] = ListEntry(self, PrincipalHomeFolder, uid, **info)
+        yield self.service.store.withEachCalendarHomeDo(addResult)
+        yield self.service.store.withEachAddressbookHomeDo(addResult)
+        returnValue(results.itervalues())
 
 
 
@@ -358,67 +382,76 @@ class PrincipalHomeFolder(Folder):
         if not hasattr(self, "_didInitChildren"):
             txn = self.service.store.newTransaction()
 
-            if (
-                self.record is not None and
-                self.service.config.EnableCalDAV and 
-                self.record.enabledForCalendaring
-            ):
-                create = True
-            else:
-                create = False
+            try:
+                if (
+                    self.record is not None and
+                    self.service.config.EnableCalDAV and 
+                    self.record.enabledForCalendaring
+                ):
+                    create = True
+                else:
+                    create = False
 
-            # Try assuming it exists
-            home = (yield txn.calendarHomeWithUID(self.uid, create=False))
-
-            if home is None and create:
-                # Doesn't exist, so create it in a different
-                # transaction, to avoid having to commit the live
-                # transaction.
-                txnTemp = self.service.store.newTransaction()
-                home = (yield txnTemp.calendarHomeWithUID(self.uid, create=True))
-                (yield txnTemp.commit())
-
-                # Fetch the home again. This time we expect it to be there.
+                # Try assuming it exists
                 home = (yield txn.calendarHomeWithUID(self.uid, create=False))
-                assert home
 
-            if home:
-                self._children["calendars"] = CalendarHomeFolder(
-                    self.service,
-                    self.path + ("calendars",),
-                    home,
-                    self.record,
-                )
+                if home is None and create:
+                    # Doesn't exist, so create it in a different
+                    # transaction, to avoid having to commit the live
+                    # transaction.
+                    txnTemp = self.service.store.newTransaction()
+                    try:
+                        home = (yield txnTemp.calendarHomeWithUID(self.uid, create=True))
+                        (yield txnTemp.commit())
 
-            if (
-                self.record is not None and
-                self.service.config.EnableCardDAV and 
-                self.record.enabledForAddressBooks
-            ):
-                create = True
-            else:
-                create = False
+                        # Fetch the home again. This time we expect it to be there.
+                        home = (yield txn.calendarHomeWithUID(self.uid, create=False))
+                        assert home
+                    finally:
+                        (yield txn.abort())
 
-            # Again, assume it exists
-            home = (yield txn.addressbookHomeWithUID(self.uid))
+                if home:
+                    self._children["calendars"] = CalendarHomeFolder(
+                        self.service,
+                        self.path + ("calendars",),
+                        home,
+                        self.record,
+                    )
 
-            if not home and create:
-                # Repeat the above dance.
-                txnTemp = self.service.store.newTransaction()
-                home = (yield txnTemp.addressbookHomeWithUID(self.uid, create=True))
-                (yield txnTemp.commit())
+                if (
+                    self.record is not None and
+                    self.service.config.EnableCardDAV and 
+                    self.record.enabledForAddressBooks
+                ):
+                    create = True
+                else:
+                    create = False
 
-                # Fetch the home again. This time we expect it to be there.
-                home = (yield txn.addressbookHomeWithUID(self.uid, create=False))
-                assert home
+                # Again, assume it exists
+                home = (yield txn.addressbookHomeWithUID(self.uid))
 
-            if home:
-                self._children["addressbooks"] = AddressBookHomeFolder(
-                    self.service,
-                    self.path + ("addressbooks",),
-                    home,
-                    self.record,
-                )
+                if not home and create:
+                    # Repeat the above dance.
+                    txnTemp = self.service.store.newTransaction()
+                    try:
+                        home = (yield txnTemp.addressbookHomeWithUID(self.uid, create=True))
+                        (yield txnTemp.commit())
+
+                        # Fetch the home again. This time we expect it to be there.
+                        home = (yield txn.addressbookHomeWithUID(self.uid, create=False))
+                        assert home
+                    finally:
+                        (yield txn.abort())
+
+                if home:
+                    self._children["addressbooks"] = AddressBookHomeFolder(
+                        self.service,
+                        self.path + ("addressbooks",),
+                        home,
+                        self.record,
+                    )
+            finally:
+                (yield txn.abort())
 
         self._didInitChildren = True
 
@@ -462,7 +495,18 @@ class CalendarHomeFolder(Folder):
     @inlineCallbacks
     def list(self):
         calendars = (yield self.home.calendars())
-        returnValue((ListEntry(self, CalendarFolder, c.name()) for c in calendars))
+        result = []
+        for calendar in calendars:
+            displayName = calendar.displayName()
+            if displayName is None:
+                displayName = "(unset)"
+
+            info = {
+                "Display Name": displayName,
+                "Sync Token"  : (yield calendar.syncToken()),
+            }
+            result.append(ListEntry(self, CalendarFolder, calendar.name(), **info))
+        returnValue(result)
 
     @inlineCallbacks
     def describe(self):

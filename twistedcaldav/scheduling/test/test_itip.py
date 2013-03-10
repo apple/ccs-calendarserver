@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
@@ -26,8 +27,212 @@ class iTIPProcessing (twistedcaldav.test.util.TestCase):
     iCalendar support tests
     """
 
+    def test_processReply(self):
+        """
+        Test iTIPProcessing.processReply
+        """
+
+        data = (
+            (
+                "1.1 Simple Reply - non recurring",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "1.2 Simple Reply - recurring no overrides",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "1.3 Simple Reply - recurring with missing master",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071114T000000Z
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071114T000000Z
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071114T000000Z
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "1.4 Simple Reply - recurring with missing master, invalid override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071114T000000Z
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                None,
+                False,
+            ),
+        )
+
+        for title, calendar_txt, itip_txt, changed_txt, expected in data:
+            calendar = Component.fromString(calendar_txt)
+            itip = Component.fromString(itip_txt)
+            if expected:
+                changed = Component.fromString(changed_txt)
+
+            result, _ignore = iTipProcessing.processReply(itip, calendar)
+            self.assertEqual(result, expected, msg="Result mismatch: %s" % (title,))
+            if expected:
+                self.assertEqual(changed, calendar, msg="Calendar mismatch: %s" % (title,))
+
+
     def test_update_attendee_partstat(self):
-        
+
         data = (
             (
                 "#1.1 Simple component, accepted",
@@ -867,9 +1072,9 @@ END:VCALENDAR
             reply_success, reply_processed = iTipProcessing.processReply(itipmsg, calendar)
 #            if not description.startswith("#3.1"):
 #                continue
-#            print description
-#            print str(calendar)
-#            print str(result)
+#            print(description)
+#            print(str(calendar))
+#            print(str(result))
             self.assertEqual(
                 str(calendar).replace("\r", "").replace("\n ", ""),
                 str(result).replace("\n ", ""),
@@ -888,7 +1093,7 @@ END:VCALENDAR
                     msg=description
                 )
                 self.assertEqual(
-                    tuple(sorted(list(reply_rids), key=lambda x:x[0])),
+                    tuple(sorted(list(reply_rids), key=lambda x: x[0])),
                     rids,
                     msg=description
                 )
@@ -899,11 +1104,12 @@ END:VCALENDAR
                     msg=description
                 )
 
+
     def test_sequenceComparison(self):
         """
         Test iTIPProcessing.sequenceComparison
         """
-        
+
         data = (
             (
                 "1.1 Simple Update - SEQUENCE change",
@@ -1385,14 +1591,15 @@ END:VCALENDAR
                 True,
             ),
         )
-        
+
         for title, calendar_txt, itip_txt, expected in data:
             calendar = Component.fromString(calendar_txt)
             itip = Component.fromString(itip_txt)
 
             result = iTipProcessing.sequenceComparison(itip, calendar)
             self.assertEqual(result, expected, msg="Result mismatch: %s" % (title,))
-            
+
+
 
 class iTIPGenerator (twistedcaldav.test.util.TestCase):
     """
@@ -1401,7 +1608,7 @@ class iTIPGenerator (twistedcaldav.test.util.TestCase):
     data_dir = os.path.join(os.path.dirname(__file__), "data")
 
     def test_request(self):
-        
+
         data = (
             # Simple component, no Attendees - no filtering
             (
@@ -1571,7 +1778,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 END:VCALENDAR
 """,
                 ("mailto:user3@example.com",)
-            ),        
+            ),
 
             # Recurring component with one instance, master with one attendee, instance without attendee - filtering match
             (
@@ -1704,7 +1911,7 @@ END:VCALENDAR
                 ("mailto:user3@example.com",)
             ),
         )
-        
+
         for original, filtered, attendees in data:
             component = Component.fromString(original)
             itipped = iTipGenerator.generateAttendeeRequest(component, attendees, None)
@@ -1712,8 +1919,9 @@ END:VCALENDAR
             itipped = "".join([line for line in itipped.splitlines(True) if not line.startswith("DTSTAMP:")])
             self.assertEqual(filtered, itipped)
 
+
     def test_cancel(self):
-        
+
         data = (
             # Simple component, with two attendees - cancel one
             (
@@ -1810,7 +2018,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 ("mailto:user2@example.com",),
-                (PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), ),
+                (PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),),
             ),
 
             # Recurring component with one instance, each with one attendee - cancel instance
@@ -1851,7 +2059,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 ("mailto:user2@example.com",),
-                (PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), ),
+                (PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),),
             ),
 
             # Recurring component with one instance, each with one attendee - cancel master
@@ -1892,7 +2100,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 ("mailto:user2@example.com",),
-                (None, ),
+                (None,),
             ),
 
             # Recurring component - cancel non-existent instance
@@ -1912,17 +2120,18 @@ END:VCALENDAR
 """,
                 "",
                 ("mailto:user2@example.com",),
-                (PyCalendarDateTime(2008, 12, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), ),
+                (PyCalendarDateTime(2008, 12, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),),
             ),
 
         )
-        
+
         for original, filtered, attendees, instances in data:
             component = Component.fromString(original)
             itipped = iTipGenerator.generateCancel(component, attendees, instances)
             itipped = str(itipped).replace("\r", "") if itipped else ""
             itipped = "".join([line for line in itipped.splitlines(True) if not line.startswith("DTSTAMP:")])
             self.assertEqual(filtered, itipped)
+
 
     def test_missingAttendee(self):
         """

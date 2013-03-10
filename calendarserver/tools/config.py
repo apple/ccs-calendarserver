@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 This tool reads the Calendar Server configuration file and emits the
@@ -31,16 +32,16 @@ from calendarserver.tools.util import loadConfig
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] config_key" % (name,)
-    print ""
-    print "Print the value of the given config key."
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -f --config: Specify caldavd.plist configuration path"
+    print("usage: %s [options] config_key" % (name,))
+    print("")
+    print("Print the value of the given config key.")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -f --config: Specify caldavd.plist configuration path")
 
     if e:
         sys.exit(64)

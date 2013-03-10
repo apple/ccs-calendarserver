@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.base.propertystore.test.test_appledouble -*- ##
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,32 +25,32 @@ from txdav.base.propertystore.xattr import PropertyStore as XattrPropStore
 # http://www.opensource.apple.com/source/Libc/Libc-391/darwin/copyfile.c
 
 # File header format: magic, version, unused, number of entries
-AS_HEADER_FORMAT=">LL16sh"
-AS_HEADER_LENGTH=26
+AS_HEADER_FORMAT = ">LL16sh"
+AS_HEADER_LENGTH = 26
 
 # The flag words for AppleDouble
-AS_MAGIC=0x00051607
-AS_VERSION=0x00020000
+AS_MAGIC = 0x00051607
+AS_VERSION = 0x00020000
 
 # Entry header format: id, offset, length
-AS_ENTRY_FORMAT=">lll"
-AS_ENTRY_LENGTH=12
+AS_ENTRY_FORMAT = ">lll"
+AS_ENTRY_LENGTH = 12
 
 # The id values
-AS_DATAFORK=1
-AS_RESOURCEFORK=2
-AS_REALNAME=3
-AS_COMMENT=4
-AS_ICONBW=5
-AS_ICONCOLOR=6
-AS_DATESINFO=8
-AS_FINDERINFO=9
-AS_MACFILEINFO=10
-AS_PRODOSFILEINFO=11
-AS_MSDOSFILEINFO=12
-AS_SHORTNAME=13
-AS_AFPFILEINFO=14
-AS_DIECTORYID=15
+AS_DATAFORK = 1
+AS_RESOURCEFORK = 2
+AS_REALNAME = 3
+AS_COMMENT = 4
+AS_ICONBW = 5
+AS_ICONCOLOR = 6
+AS_DATESINFO = 8
+AS_FINDERINFO = 9
+AS_MACFILEINFO = 10
+AS_PRODOSFILEINFO = 11
+AS_MSDOSFILEINFO = 12
+AS_SHORTNAME = 13
+AS_AFPFILEINFO = 14
+AS_DIECTORYID = 15
 
 FINDER_INFO_LENGTH = 32
 XATTR_OFFSET = FINDER_INFO_LENGTH + 2
@@ -93,7 +93,7 @@ def attrsFromFile(fileobj, debugFile=None):
         raise ValueError("AppleDouble file contains no forks")
 
     # Get each entry
-    headers = [fileobj.read(AS_ENTRY_LENGTH) for _ignore in xrange(nentry)]
+    headers = [fileobj.read(AS_ENTRY_LENGTH) for _ignore_count in xrange(nentry)]
     for hdr in headers:
         try:
             restype, offset, length = struct.unpack(AS_ENTRY_FORMAT, hdr)
@@ -109,9 +109,9 @@ def attrsFromFile(fileobj, debugFile=None):
             # Get the xattr header
             fileobj.seek(offset + XATTR_OFFSET)
             data = fileobj.read(length - XATTR_OFFSET)
-            if len(data) != length-XATTR_OFFSET:
+            if len(data) != length - XATTR_OFFSET:
                 raise ValueError("Short read: expected %d bytes got %d" %
-                                 (length-XATTR_OFFSET, len(data)))
+                                 (length - XATTR_OFFSET, len(data)))
             magic, _ignore_tag, total_size, data_start, data_length, \
             _ignore_reserved1, _ignore_reserved2, _ignore_reserved3, \
             flags, num_attrs = struct.unpack(XATTR_HEADER,
@@ -138,7 +138,7 @@ def attrsFromFile(fileobj, debugFile=None):
                 xattr_name = data[
                     XATTR_ENTRY_LENGTH:
                     XATTR_ENTRY_LENGTH + xattr_name_len
-                    -1 # strip NULL terminator
+                    - 1 # strip NULL terminator
                 ]
                 fileobj.seek(xattr_offset)
                 xattr_value = fileobj.read(xattr_length)
@@ -184,9 +184,6 @@ class PropertyStore(XattrPropStore):
     @property
     def attrs(self):
         try:
-            return attrsFromFile(self.path.sibling("._"+self.path.basename()).open())
+            return attrsFromFile(self.path.sibling("._" + self.path.basename()).open())
         except IOError:
             return {}
-
-
-

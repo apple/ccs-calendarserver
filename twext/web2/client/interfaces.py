@@ -1,7 +1,7 @@
 # -*- test-case-name: twext.web2.test.test_client -*-
 ##
 # Copyright (c) 2007 Twisted Matrix Laboratories.
-# Copyright (c) 2010-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal

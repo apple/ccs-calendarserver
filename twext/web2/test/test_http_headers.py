@@ -6,7 +6,8 @@ Tests for L{twext.web2.http_headers}.
 """
 
 from twisted.trial import unittest
-import random, time
+import random
+import time
 
 from twext.web2 import http_headers
 from twext.web2.http_headers import Cookie, HeaderHandler, quoteString, generateKeyValues
@@ -17,8 +18,11 @@ class parsedvalue:
     def __init__(self, raw):
         self.raw = raw
 
+
     def __eq__(self, other):
         return isinstance(other, parsedvalue) and other.raw == self.raw
+
+
 
 class HeadersAPITest(unittest.TestCase):
     """Make sure the public API exists and works."""
@@ -34,6 +38,7 @@ class HeadersAPITest(unittest.TestCase):
         h.removeHeader("test")
         self.assertEquals(h.getRawHeaders("test"), None)
 
+
     def testParsed(self):
         parsed = parsedvalue(("value1", "value2"))
         h = http_headers.Headers(handler=HeaderHandler(parsers={}, generators={}))
@@ -46,17 +51,19 @@ class HeadersAPITest(unittest.TestCase):
         h.removeHeader("test")
         self.assertEquals(h.getHeader("test"), None)
 
+
     def testParsedAndRaw(self):
         def parse(raw):
             return parsedvalue(raw)
+
 
         def generate(parsed):
             return parsed.raw
 
         rawvalue = ("value1", "value2")
         rawvalue2 = ("value3", "value4")
-        handler = HeaderHandler(parsers={'test':(parse,)},
-                                generators={'test':(generate,)})
+        handler = HeaderHandler(parsers={'test': (parse,)},
+                                generators={'test': (generate,)})
 
         h = http_headers.Headers(handler=handler)
         h.setRawHeaders("test", rawvalue)
@@ -74,6 +81,7 @@ class HeadersAPITest(unittest.TestCase):
                                  handler=handler)
         self.assertEquals(h.getRawHeaders("test"), rawvalue2)
 
+
     def testImmutable(self):
         h = http_headers.Headers(handler=HeaderHandler(parsers={}, generators={}))
 
@@ -82,11 +90,13 @@ class HeadersAPITest(unittest.TestCase):
         self.assertRaises(AttributeError, h.setHeader, "test", 1)
         self.assertRaises(AttributeError, h.removeHeader, "test")
 
+
+
 class TokenizerTest(unittest.TestCase):
     """Test header list parsing functions."""
 
     def testParse(self):
-        parser = lambda val: list(http_headers.tokenize([val,]))
+        parser = lambda val: list(http_headers.tokenize([val, ]))
         Token = http_headers.Token
         tests = (('foo,bar', ['foo', Token(','), 'bar']),
                  ('FOO,BAR', ['foo', Token(','), 'bar']),
@@ -97,16 +107,20 @@ class TokenizerTest(unittest.TestCase):
 
         raiseTests = ('"open quote', '"ending \\', "control character: \x127", "\x00", "\x1f")
 
-        for test,result in tests:
+        for test, result in tests:
             self.assertEquals(parser(test), result)
         for test in raiseTests:
             self.assertRaises(ValueError, parser, test)
 
+
     def testGenerate(self):
         pass
 
+
     def testRoundtrip(self):
         pass
+
+
 
 def atSpecifiedTime(when, func):
     def inner(*a, **kw):
@@ -118,17 +132,22 @@ def atSpecifiedTime(when, func):
             time.time = orig
     return util.mergeFunctionMetadata(func, inner)
 
+
+
 def parseHeader(name, val):
     head = http_headers.Headers(handler=http_headers.DefaultHTTPHandler)
-    head.setRawHeaders(name,val)
+    head.setRawHeaders(name, val)
     return head.getHeader(name)
 parseHeader = atSpecifiedTime(999999990, parseHeader) # Sun, 09 Sep 2001 01:46:30 GMT
+
+
 
 def generateHeader(name, val):
     head = http_headers.Headers(handler=http_headers.DefaultHTTPHandler)
     head.setHeader(name, val)
     return head.getRawHeaders(name)
 generateHeader = atSpecifiedTime(999999990, generateHeader) # Sun, 09 Sep 2001 01:46:30 GMT
+
 
 
 class HeaderParsingTestBase(unittest.TestCase):
@@ -163,11 +182,10 @@ class HeaderParsingTestBase(unittest.TestCase):
             elif len(row) == 3:
                 rawHeaderInput, parsedHeaderData, requiredGeneratedElements = row
 
-
             assert isinstance(requiredGeneratedElements, list)
 
             # parser
-            parsed = parseHeader(headername, [rawHeaderInput,])
+            parsed = parseHeader(headername, [rawHeaderInput, ])
             self.assertEquals(parsed, parsedHeaderData)
 
             regeneratedHeaderValue = generateHeader(headername, parsed)
@@ -193,33 +211,35 @@ class HeaderParsingTestBase(unittest.TestCase):
             parsed = parseHeader(headername, val)
             self.assertEquals(parsed, None)
 
+
+
 class GeneralHeaderParsingTests(HeaderParsingTestBase):
     def testCacheControl(self):
         table = (
             ("no-cache",
-             {'no-cache':None}),
+             {'no-cache': None}),
             ("no-cache, no-store, max-age=5, max-stale=3, min-fresh=5, no-transform, only-if-cached, blahblah-extension-thingy",
              {'no-cache': None,
               'no-store': None,
-              'max-age':5,
-              'max-stale':3,
-              'min-fresh':5,
-              'no-transform':None,
-              'only-if-cached':None,
-              'blahblah-extension-thingy':None}),
+              'max-age': 5,
+              'max-stale': 3,
+              'min-fresh': 5,
+              'no-transform': None,
+              'only-if-cached': None,
+              'blahblah-extension-thingy': None}),
             ("max-stale",
-             {'max-stale':None}),
+             {'max-stale': None}),
             ("public, private, no-cache, no-store, no-transform, must-revalidate, proxy-revalidate, max-age=5, s-maxage=10, blahblah-extension-thingy",
-             {'public':None,
-              'private':None,
-              'no-cache':None,
-              'no-store':None,
-              'no-transform':None,
-              'must-revalidate':None,
-              'proxy-revalidate':None,
-              'max-age':5,
-              's-maxage':10,
-              'blahblah-extension-thingy':None}),
+             {'public': None,
+              'private': None,
+              'no-cache': None,
+              'no-store': None,
+              'no-transform': None,
+              'must-revalidate': None,
+              'proxy-revalidate': None,
+              'max-age': 5,
+              's-maxage': 10,
+              'blahblah-extension-thingy': None}),
             ('private="Set-Cookie, Set-Cookie2", no-cache="PROXY-AUTHENTICATE"',
              {'private': ['set-cookie', 'set-cookie2'],
               'no-cache': ['proxy-authenticate']},
@@ -227,12 +247,14 @@ class GeneralHeaderParsingTests(HeaderParsingTestBase):
             )
         self.runRoundtripTest("Cache-Control", table)
 
+
     def testConnection(self):
         table = (
-            ("close", ['close',]),
+            ("close", ['close', ]),
             ("close, foo-bar", ['close', 'foo-bar'])
             )
         self.runRoundtripTest("Connection", table)
+
 
     def testDate(self):
         # Don't need major tests since the datetime parser has its own tests
@@ -243,6 +265,7 @@ class GeneralHeaderParsingTests(HeaderParsingTestBase):
 
 #     def testTrailer(self):
 #         fail
+
 
     def testTransferEncoding(self):
         table = (
@@ -260,8 +283,10 @@ class GeneralHeaderParsingTests(HeaderParsingTestBase):
 #     def testWarning(self):
 #         fail
 
+
+
 class RequestHeaderParsingTests(HeaderParsingTestBase):
-    #FIXME test ordering too.
+    # FIXME test ordering too.
     def testAccept(self):
         table = (
             ("audio/*;q=0.2, audio/basic",
@@ -307,6 +332,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             )
         self.runRoundtripTest("Accept-Charset", table)
 
+
     def testAcceptEncoding(self):
         table = (
             ("compress, gzip",
@@ -319,10 +345,11 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
              {'compress': 0.5, 'gzip': 1.0, 'identity': 0.0001},
              ["compress;q=0.5", "gzip"]),
             ("gzip;q=1.0, identity;q=0.5, *;q=0",
-             {'gzip': 1.0, 'identity': 0.5, '*':0},
+             {'gzip': 1.0, 'identity': 0.5, '*': 0},
              ["gzip", "identity;q=0.5", "*;q=0"]),
             )
         self.runRoundtripTest("Accept-Encoding", table)
+
 
     def testAcceptLanguage(self):
         table = (
@@ -332,6 +359,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
              {'*': 1}),
             )
         self.runRoundtripTest("Accept-Language", table)
+
 
     def testAuthorization(self):
         table = (
@@ -344,6 +372,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             )
 
         self.runRoundtripTest("Authorization", table)
+
 
     def testCookie(self):
         table = (
@@ -358,12 +387,12 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             )
         self.runRoundtripTest("Cookie", table)
 
-        #newstyle RFC2965 Cookie
+        # newstyle RFC2965 Cookie
         table2 = (
             ('$Version="1";'
              'name="value";$Path="/foo";$Domain="www.local";$Port="80,8000";'
              'name2="value"',
-             [Cookie('name', 'value', path='/foo', domain='www.local', ports=(80,8000), version=1), Cookie('name2', 'value', version=1)]),
+             [Cookie('name', 'value', path='/foo', domain='www.local', ports=(80, 8000), version=1), Cookie('name2', 'value', version=1)]),
             ('$Version="1";'
              'name="value";$Port',
              [Cookie('name', 'value', ports=(), version=1)]),
@@ -386,8 +415,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
              '$Version="1";name="qq\\"qq";name2="value2"'),
             )
         for row in table3:
-            self.assertEquals(generateHeader("Cookie", row[0]), [row[1],])
-
+            self.assertEquals(generateHeader("Cookie", row[0]), [row[1], ])
 
 
     def testSetCookie(self):
@@ -400,29 +428,46 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             )
         self.runRoundtripTest("Set-Cookie", table)
 
+
     def testSetCookie2(self):
         table = (
             ('name="value"; Comment="YadaYada"; CommentURL="http://frobnotz/"; Discard; Domain="blah.blah"; Max-Age=10; Path="/foo"; Port="80,8080"; Secure; Version="1"',
-             [Cookie("name", "value", comment="YadaYada", commenturl="http://frobnotz/", discard=True, domain="blah.blah", expires=1000000000, path="/foo", ports=(80,8080), secure=True, version=1)]),
+             [Cookie("name", "value", comment="YadaYada", commenturl="http://frobnotz/", discard=True, domain="blah.blah", expires=1000000000, path="/foo", ports=(80, 8080), secure=True, version=1)]),
             )
         self.runRoundtripTest("Set-Cookie2", table)
+
 
     def testExpect(self):
         table = (
             ("100-continue",
-             {"100-continue":(None,)}),
+             {"100-continue": (None,)}),
             ('foobar=twiddle',
-             {'foobar':('twiddle',)}),
+             {'foobar': ('twiddle',)}),
             ("foo=bar;a=b;c",
-             {'foo':('bar',('a', 'b'), ('c', None))})
+             {'foo': ('bar', ('a', 'b'), ('c', None))})
             )
         self.runRoundtripTest("Expect", table)
+
+
+    def testPrefer(self):
+        table = (
+            ("wait",
+             [("wait", None, [])]),
+            ("return = representation",
+             [("return", "representation", [])]),
+            ("return =minimal;arg1;arg2=val2",
+             [("return", "minimal", [("arg1", None), ("arg2", "val2")])]),
+            )
+        self.runRoundtripTest("Prefer", table)
+
 
     def testFrom(self):
         self.runRoundtripTest("From", (("webmaster@w3.org", "webmaster@w3.org"),))
 
+
     def testHost(self):
         self.runRoundtripTest("Host", (("www.w3.org", "www.w3.org"),))
+
 
     def testIfMatch(self):
         table = (
@@ -433,6 +478,8 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             ('*', ['*']),
             )
         self.runRoundtripTest("If-Match", table)
+
+
     def testIfModifiedSince(self):
         # Don't need major tests since the datetime parser has its own test
         # Just test stupid ; length= brokenness.
@@ -442,6 +489,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             )
 
         self.runRoundtripTest("If-Modified-Since", table)
+
 
     def testIfNoneMatch(self):
         table = (
@@ -456,6 +504,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             )
         self.runRoundtripTest("If-None-Match", table)
 
+
     def testIfRange(self):
         table = (
             ('"xyzzy"', http_headers.ETag('xyzzy')),
@@ -465,8 +514,10 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             )
         self.runRoundtripTest("If-Range", table)
 
+
     def testIfUnmodifiedSince(self):
         self.runRoundtripTest("If-Unmodified-Since", (("Sun, 09 Sep 2001 01:46:40 GMT", 1000000000),))
+
 
     def testMaxForwards(self):
         self.runRoundtripTest("Max-Forwards", (("15", 15),))
@@ -475,13 +526,14 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
 #     def testProxyAuthorize(self):
 #         fail
 
+
     def testRange(self):
         table = (
-            ("bytes=0-499", ('bytes', [(0,499),])),
-            ("bytes=500-999", ('bytes', [(500,999),])),
-            ("bytes=-500",('bytes', [(None,500),])),
-            ("bytes=9500-",('bytes', [(9500, None),])),
-            ("bytes=0-0,-1", ('bytes', [(0,0),(None,1)])),
+            ("bytes=0-499", ('bytes', [(0, 499), ])),
+            ("bytes=500-999", ('bytes', [(500, 999), ])),
+            ("bytes=-500", ('bytes', [(None, 500), ])),
+            ("bytes=9500-", ('bytes', [(9500, None), ])),
+            ("bytes=0-0,-1", ('bytes', [(0, 0), (None, 1)])),
             )
         self.runRoundtripTest("Range", table)
 
@@ -493,22 +545,26 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
 
     def testTE(self):
         table = (
-            ("deflate", {'deflate':1}),
+            ("deflate", {'deflate': 1}),
             ("", {}),
-            ("trailers, deflate;q=0.5", {'trailers':1, 'deflate':0.5}),
+            ("trailers, deflate;q=0.5", {'trailers': 1, 'deflate': 0.5}),
             )
         self.runRoundtripTest("TE", table)
 
+
     def testUserAgent(self):
         self.runRoundtripTest("User-Agent", (("CERN-LineMode/2.15 libwww/2.17b3", "CERN-LineMode/2.15 libwww/2.17b3"),))
+
 
 
 class ResponseHeaderParsingTests(HeaderParsingTestBase):
     def testAcceptRanges(self):
         self.runRoundtripTest("Accept-Ranges", (("bytes", ["bytes"]), ("none", ["none"])))
 
+
     def testAge(self):
         self.runRoundtripTest("Age", (("15", 15),))
+
 
     def testETag(self):
         table = (
@@ -518,6 +574,7 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
             )
         self.runRoundtripTest("ETag", table)
 
+
     def testLocation(self):
         self.runRoundtripTest("Location", (("http://www.w3.org/pub/WWW/People.htm",
                                            "http://www.w3.org/pub/WWW/People.htm"),))
@@ -526,16 +583,19 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
 #     def testProxyAuthenticate(self):
 #         fail
 
+
     def testRetryAfter(self):
         # time() is always 999999990 when being tested.
         table = (
             ("Sun, 09 Sep 2001 01:46:40 GMT", 1000000000, ["10"]),
-            ("120", 999999990+120),
+            ("120", 999999990 + 120),
             )
         self.runRoundtripTest("Retry-After", table)
 
+
     def testServer(self):
         self.runRoundtripTest("Server", (("CERN/3.0 libwww/2.17", "CERN/3.0 libwww/2.17"),))
+
 
     def testVary(self):
         table = (
@@ -544,11 +604,12 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
             )
         self.runRoundtripTest("Vary", table)
 
+
     def testWWWAuthenticate(self):
         digest = ('Digest realm="digest realm", nonce="bAr", qop="auth"',
-                  [('Digest', {'realm': 'digest realm', 'nonce': 'bAr', 
+                  [('Digest', {'realm': 'digest realm', 'nonce': 'bAr',
                                'qop': 'auth'})],
-                  ['Digest', 'realm="digest realm"', 
+                  ['Digest', 'realm="digest realm"',
                    'nonce="bAr"', 'qop="auth"'])
 
         basic = ('Basic realm="foo"',
@@ -558,29 +619,29 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
                 [('NTLM', {})], ['NTLM', ''])
 
         negotiate = ('Negotiate SomeGssAPIData',
-                     [('Negotiate', 'SomeGssAPIData')], 
+                     [('Negotiate', 'SomeGssAPIData')],
                      ['Negotiate', 'SomeGssAPIData'])
 
         table = (digest,
                  basic,
-                 (digest[0]+', '+basic[0],
+                 (digest[0] + ', ' + basic[0],
                   digest[1] + basic[1],
                   [digest[2], basic[2]]),
                  ntlm,
                  negotiate,
-                 (ntlm[0]+', '+basic[0],
+                 (ntlm[0] + ', ' + basic[0],
                   ntlm[1] + basic[1],
                   [ntlm[2], basic[2]]),
-                 (digest[0]+', '+negotiate[0],
+                 (digest[0] + ', ' + negotiate[0],
                   digest[1] + negotiate[1],
                   [digest[2], negotiate[2]]),
-                 (negotiate[0]+', '+negotiate[0],
+                 (negotiate[0] + ', ' + negotiate[0],
                   negotiate[1] + negotiate[1],
                   [negotiate[2] + negotiate[2]]),
-                 (ntlm[0]+', '+ntlm[0],
+                 (ntlm[0] + ', ' + ntlm[0],
                   ntlm[1] + ntlm[1],
                   [ntlm[2], ntlm[2]]),
-                 (basic[0]+', '+ntlm[0],
+                 (basic[0] + ', ' + ntlm[0],
                   basic[1] + ntlm[1],
                   [basic[2], ntlm[2]]),
                  )
@@ -593,7 +654,7 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
         for row in table:
             rawHeaderInput, parsedHeaderData, requiredGeneratedElements = row
 
-            parsed = parseHeader(headername, [rawHeaderInput,])
+            parsed = parseHeader(headername, [rawHeaderInput, ])
             self.assertEquals(parsed, parsedHeaderData)
 
             regeneratedHeaderValue = generateHeader(headername, parsed)
@@ -617,6 +678,7 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
         self.assertEquals(parsed, reparsed)
 
 
+
 class EntityHeaderParsingTests(HeaderParsingTestBase):
     def testAllow(self):
         # Allow is a silly case-sensitive header unlike all the rest
@@ -626,31 +688,37 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
             )
         self.runRoundtripTest("Allow", table)
 
+
     def testContentEncoding(self):
         table = (
-            ("gzip", ['gzip',]),
+            ("gzip", ['gzip', ]),
             )
         self.runRoundtripTest("Content-Encoding", table)
 
+
     def testContentLanguage(self):
         table = (
-            ("da", ['da',]),
+            ("da", ['da', ]),
             ("mi, en", ['mi', 'en']),
             )
         self.runRoundtripTest("Content-Language", table)
 
+
     def testContentLength(self):
         self.runRoundtripTest("Content-Length", (("15", 15),))
         self.invalidParseTest("Content-Length", ("asdf",))
+
 
     def testContentLocation(self):
         self.runRoundtripTest("Content-Location",
                               (("http://www.w3.org/pub/WWW/People.htm",
                                 "http://www.w3.org/pub/WWW/People.htm"),))
 
+
     def testContentMD5(self):
         self.runRoundtripTest("Content-MD5", (("Q2hlY2sgSW50ZWdyaXR5IQ==", "Check Integrity!"),))
         self.invalidParseTest("Content-MD5", ("sdlaksjdfhlkaj",))
+
 
     def testContentRange(self):
         table = (
@@ -664,12 +732,22 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
             )
         self.runRoundtripTest("Content-Range", table)
 
+
     def testContentType(self):
         table = (
-            ("text/html;charset=iso-8859-4", http_headers.MimeType('text', 'html', (('charset','iso-8859-4'),))),
+            ("text/html;charset=iso-8859-4", http_headers.MimeType('text', 'html', (('charset', 'iso-8859-4'),))),
             ("text/html", http_headers.MimeType('text', 'html')),
             )
         self.runRoundtripTest("Content-Type", table)
+
+
+    def testContentDisposition(self):
+        table = (
+            ("attachment;filename=foo.txt", http_headers.MimeDisposition('attachment', (('filename', 'foo.txt'),))),
+            ("inline", http_headers.MimeDisposition('inline')),
+            )
+        self.runRoundtripTest("Content-Disposition", table)
+
 
     def testExpires(self):
         self.runRoundtripTest("Expires", (("Sun, 09 Sep 2001 01:46:40 GMT", 1000000000),))
@@ -681,6 +759,8 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
     def testLastModified(self):
         # Don't need major tests since the datetime parser has its own test
         self.runRoundtripTest("Last-Modified", (("Sun, 09 Sep 2001 01:46:40 GMT", 1000000000),))
+
+
 
 class DateTimeTest(unittest.TestCase):
     """Test date parsing functions."""
@@ -716,15 +796,18 @@ class DateTimeTest(unittest.TestCase):
     def testGenerate(self):
         self.assertEquals(http_headers.generateDateTime(784111777), 'Sun, 06 Nov 1994 08:49:37 GMT')
 
+
     def testRoundtrip(self):
-        for i in range(2000):
-            time = random.randint(0, 2000000000)
-            timestr = http_headers.generateDateTime(time)
+        for _ignore in range(2000):
+            randomTime = random.randint(0, 2000000000)
+            timestr = http_headers.generateDateTime(randomTime)
             time2 = http_headers.parseDateTime(timestr)
-            self.assertEquals(time, time2)
+            self.assertEquals(randomTime, time2)
+
 
 
 class TestMimeType(unittest.TestCase):
+
     def testEquality(self):
         """Test that various uses of the constructer are equal
         """
@@ -740,6 +823,28 @@ class TestMimeType(unittest.TestCase):
                                            ('key', 'value')))
 
         stringMime = http_headers.MimeType.fromString('text/plain;key=value;param')
+
+        self.assertEquals(kwargMime, dictMime)
+        self.assertEquals(dictMime, tupleMime)
+        self.assertEquals(kwargMime, tupleMime)
+        self.assertEquals(kwargMime, stringMime)
+
+
+
+class TestMimeDisposition(unittest.TestCase):
+
+    def testEquality(self):
+        """Test that various uses of the constructer are equal
+        """
+
+        kwargMime = http_headers.MimeDisposition('attachment',
+                                          key='value')
+        dictMime = http_headers.MimeDisposition('attachment',
+                                         {'key': 'value'})
+        tupleMime = http_headers.MimeDisposition('attachment',
+                                          (('key', 'value'),))
+
+        stringMime = http_headers.MimeDisposition.fromString('attachment;key=value')
 
         self.assertEquals(kwargMime, dictMime)
         self.assertEquals(dictMime, tupleMime)

@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.web2.dav.test.test_prop.PROP.test_PROPFIND -*-
 ##
-# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -8,10 +8,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -33,9 +33,9 @@ from twext.web2.http import HTTPError
 from twext.web2 import responsecode
 from twext.web2.http import StatusResponse
 from txdav.xml import element as davxml
-from twext.web2.dav.http import MultiStatusResponse, statusForFailure,\
+from twext.web2.dav.http import MultiStatusResponse, statusForFailure, \
     ErrorResponse
-from twext.web2.dav.util import normalizeURL, davXMLFromStream
+from twext.web2.dav.util import normalizeURL, davXMLFromStream, parentForURL
 
 from twext.python.log import Logger
 
@@ -52,6 +52,11 @@ def http_PROPFIND(self, request):
     Respond to a PROPFIND request. (RFC 2518, section 8.1)
     """
     if not self.exists():
+        # Return 403 if parent does not allow Bind
+        parentURL = parentForURL(request.uri)
+        parent = (yield request.locateResource(parentURL))
+        yield parent.authorize(request, (davxml.Bind(),))
+
         log.err("Resource not found: %s" % (self,))
         raise HTTPError(responsecode.NOT_FOUND)
 
@@ -110,8 +115,8 @@ def http_PROPFIND(self, request):
 
     # Look for Prefer header first, then try Brief
     prefer = request.headers.getHeader("prefer", {})
-    returnMinimal = "return-minimal" in prefer
-    noRoot = "depth-noroot" in prefer
+    returnMinimal = any([key == "return" and value == "minimal" for key, value, _ignore_args in prefer])
+    noRoot = any([key == "depth-noroot" and value is None for key, value, _ignore_args in prefer])
     if not returnMinimal:
         returnMinimal = request.headers.getHeader("brief", False)
 
@@ -155,7 +160,7 @@ def http_PROPFIND(self, request):
                 except:
                     log.err("Unable to get properties for resource %r" % (resource,))
                     raise
-    
+
                 properties_by_status = {
                     responsecode.OK: [propertyName(p) for p in resource_properties]
                 }
@@ -164,12 +169,12 @@ def http_PROPFIND(self, request):
                     responsecode.OK        : [],
                     responsecode.NOT_FOUND : [],
                 }
-    
+
                 if search_properties is "all":
                     properties_to_enumerate = (yield resource.listAllprop(request))
                 else:
                     properties_to_enumerate = search_properties
-    
+
                 for property in properties_to_enumerate:
                     has = (yield resource.hasProperty(property, request))
                     if has:
@@ -191,17 +196,25 @@ def http_PROPFIND(self, request):
                         properties_by_status[responsecode.NOT_FOUND].append(propertyName(property))
 
             propstats = []
-    
+
             for status in properties_by_status:
                 properties = properties_by_status[status]
-                if not properties: continue
-    
-                xml_status    = davxml.Status.fromResponseCode(status)
+                if not properties:
+                    continue
+
+                xml_status = davxml.Status.fromResponseCode(status)
                 xml_container = davxml.PropertyContainer(*properties)
-                xml_propstat  = davxml.PropertyStatus(xml_container, xml_status)
-    
+                xml_propstat = davxml.PropertyStatus(xml_container, xml_status)
+
                 propstats.append(xml_propstat)
-    
+
+            # Always need to have at least one propstat present (required by Prefer header behavior)
+            if len(propstats) == 0:
+                propstats.append(davxml.PropertyStatus(
+                    davxml.PropertyContainer(),
+                    davxml.Status.fromResponseCode(responsecode.OK)
+                ))
+
             xml_response = davxml.PropertyStatusResponse(davxml.HRef(uri), *propstats)
 
             # This needed for propfind cache tracking of children changes
@@ -210,9 +223,8 @@ def http_PROPFIND(self, request):
                     request.childCacheURIs.append(resource.url())
         else:
             xml_response = davxml.StatusResponse(davxml.HRef(uri), davxml.Status.fromResponseCode(responsecode.FORBIDDEN))
-    
+
         xml_responses.append(xml_response)
-            
 
     if not hasattr(request, "extendedLogItems"):
         request.extendedLogItems = {}
@@ -222,6 +234,7 @@ def http_PROPFIND(self, request):
     # Return response
     #
     returnValue(MultiStatusResponse(xml_responses))
+
 
 
 ##

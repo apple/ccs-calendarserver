@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.base.datastore.test.test_subpostgres -*-
-##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# #
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-##
+# #
 
 """
 Run and manage PostgreSQL as a subprocess.
@@ -69,8 +69,9 @@ class _PostgresMonitor(ProcessProtocol):
             if _MAGIC_READY_COOKIE in line:
                 self.svc.ready()
 
-
     disconnecting = False
+
+
     def connectionMade(self):
         self.lineReceiver.makeConnection(self)
 
@@ -163,7 +164,11 @@ class PostgresService(MultiService):
                  listenAddresses=[], sharedBuffers=30,
                  maxConnections=20, options=[],
                  testMode=False,
-                 uid=None, gid=None):
+                 uid=None, gid=None,
+                 spawnedDBUser="caldav",
+                 importFileName=None,
+                 pgCtl="pg_ctl",
+                 initDB="initdb"):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -173,6 +178,11 @@ class PostgresService(MultiService):
         @param subServiceFactory: a 1-arg callable that will be called with a
             1-arg callable which returns a DB-API cursor.
         @type subServiceFactory: C{callable}
+
+        @param spawnedDBUser: the postgres role
+        @type spawnedDBUser: C{str}
+        @param importFileName: path to SQL file containing previous data to import
+        @type importFileName: C{str}
         """
 
         # FIXME: By default there is very little (4MB) shared memory available,
@@ -190,34 +200,56 @@ class PostgresService(MultiService):
         # completed, our stopService( ) examines the delayedShutdown flag.
         # If True, we wait on the shutdownDeferred to fire before proceeding.
         # The deferred gets fired once database init is complete.
-        self.delayedShutdown = False # set to True when in critical code
-        self.shutdownDeferred = None # the actual deferred
+        self.delayedShutdown = False  # set to True when in critical code
+        self.shutdownDeferred = None  # the actual deferred
 
         # Options from config
         self.databaseName = databaseName
         self.logFile = logFile
-        if socketDir:
-            # Unix socket length path limit
-            self.socketDir = CachingFilePath("%s/ccs_postgres_%s/" %
-                (socketDir, md5(dataStoreDirectory.path).hexdigest()))
-            if len(self.socketDir.path) > 64:
-                socketDir = "/tmp"
-                self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
-                    (md5(dataStoreDirectory.path).hexdigest()))
-            self.host = self.socketDir.path
-        else:
+        if listenAddresses:
             self.socketDir = None
-            self.host = "localhost"
-        self.listenAddresses = listenAddresses
+            self.host, self.port = listenAddresses[0].split(":") if ":" in listenAddresses[0] else (listenAddresses[0], None,)
+            self.listenAddresses = [addr.split(":")[0] for addr in listenAddresses]
+        else:
+            if socketDir:
+                # Unix socket length path limit
+                self.socketDir = CachingFilePath("%s/ccs_postgres_%s/" %
+                    (socketDir, md5(dataStoreDirectory.path).hexdigest()))
+                if len(self.socketDir.path) > 64:
+                    socketDir = "/tmp"
+                    self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
+                        (md5(dataStoreDirectory.path).hexdigest()))
+                self.host = self.socketDir.path
+                self.port = None
+            else:
+                self.socketDir = None
+                self.host = "localhost"
+                self.port = None
+            self.listenAddresses = []
         self.sharedBuffers = sharedBuffers if not testMode else 16
         self.maxConnections = maxConnections if not testMode else 4
         self.options = options
 
         self.uid = uid
         self.gid = gid
+        self.spawnedDBUser = spawnedDBUser
+        self.importFileName = importFileName
         self.schema = schema
         self.monitor = None
         self.openConnections = []
+        self._pgCtl = pgCtl
+        self._initdb = initDB
+
+
+    def pgCtl(self):
+        """
+        Locate the path to pg_ctl.
+        """
+        return which(self._pgCtl)[0]
+
+
+    def initdb(self):
+        return which(self._initdb)[0]
 
 
     def activateDelayedShutdown(self):
@@ -246,12 +278,19 @@ class PostgresService(MultiService):
         if databaseName is None:
             databaseName = self.databaseName
 
-        if self.uid is not None:
+        if self.spawnedDBUser:
+            dsn = "%s:dbname=%s:%s" % (self.host, databaseName, self.spawnedDBUser)
+        elif self.uid is not None:
             dsn = "%s:dbname=%s:%s" % (self.host, databaseName,
                 pwd.getpwuid(self.uid).pw_name)
         else:
             dsn = "%s:dbname=%s" % (self.host, databaseName)
-        return DBAPIConnector(pgdb, postgresPreflight, dsn)
+
+        kwargs = {}
+        if self.port:
+            kwargs["host"] = "%s:%s" % (self.host, self.port,)
+
+        return DBAPIConnector(pgdb, postgresPreflight, dsn, **kwargs)
 
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):
@@ -264,6 +303,8 @@ class PostgresService(MultiService):
     def ready(self):
         """
         Subprocess is ready.  Time to initialize the subservice.
+        If the database has not been created and there is a dump file,
+        then the dump file is imported.
         """
         createDatabaseConn = self.produceConnection(
             'schema creation', 'postgres'
@@ -284,20 +325,29 @@ class PostgresService(MultiService):
                 "create database %s with encoding 'UTF8'" % (self.databaseName)
             )
         except:
-            execSchema = False
+            # database already exists
+            executeSQL = False
         else:
-            execSchema = True
+            # database does not yet exist; if dump file exists, execute it, otherwise
+            # execute schema
+            executeSQL = True
+            sqlToExecute = self.schema
+            if self.importFileName:
+                importFilePath = CachingFilePath(self.importFileName)
+                if importFilePath.exists():
+                    sqlToExecute = importFilePath.getContent()
 
         createDatabaseCursor.close()
         createDatabaseConn.close()
 
-        if execSchema:
+        if executeSQL:
             connection = self.produceConnection()
             cursor = connection.cursor()
-            cursor.execute(self.schema)
+            cursor.execute(sqlToExecute)
             connection.commit()
             connection.close()
 
+        # TODO: anyone know why these two lines are here?
         connection = self.produceConnection()
         cursor = connection.cursor()
 
@@ -314,17 +364,19 @@ class PostgresService(MultiService):
 #        for pipe in self.monitor.transport.pipes.values():
 #            pipe.stopReading()
 #            pipe.stopWriting()
+        pass
 
 
     def unpauseMonitor(self):
         """
         Unpause monitoring.
 
-        @see: L{pauseMonitor} 
+        @see: L{pauseMonitor}
         """
 #        for pipe in self.monitor.transport.pipes.values():
 #            pipe.startReading()
 #            pipe.startWriting()
+        pass
 
 
     def startDatabase(self):
@@ -332,7 +384,7 @@ class PostgresService(MultiService):
         Start the database and initialize the subservice.
         """
         monitor = _PostgresMonitor(self)
-        pg_ctl = which("pg_ctl")[0]
+        pgCtl = self.pgCtl()
         # check consistency of initdb and postgres?
 
         options = []
@@ -341,15 +393,17 @@ class PostgresService(MultiService):
         )
         if self.socketDir:
             options.append("-k '%s'" % (self.socketDir.path,))
+        if self.port:
+            options.append("-c port=%s" % (self.port,))
         options.append("-c shared_buffers=%d" % (self.sharedBuffers,))
         options.append("-c max_connections=%d" % (self.maxConnections,))
         options.append("-c standard_conforming_strings=on")
         options.extend(self.options)
 
         reactor.spawnProcess(
-            monitor, pg_ctl,
+            monitor, pgCtl,
             [
-                pg_ctl,
+                pgCtl,
                 "start",
                 "-l", self.logFile,
                 "-w",
@@ -381,8 +435,9 @@ class PostgresService(MultiService):
         workingDir = self.dataStoreDirectory.child("working")
         env = self.env = os.environ.copy()
         env.update(PGDATA=clusterDir.path,
-                   PGHOST=self.host)
-        initdb = which("initdb")[0]
+                   PGHOST=self.host,
+                   PGUSER=self.spawnedDBUser)
+        initdb = self.initdb()
         if self.socketDir:
             if not self.socketDir.isdir():
                 self.socketDir.createDirectory()
@@ -401,7 +456,7 @@ class PostgresService(MultiService):
             dbInited = Deferred()
             reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
-                initdb, [initdb, "-E", "UTF8"], env, workingDir.path,
+                initdb, [initdb, "-E", "UTF8", "-U", self.spawnedDBUser], env, workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
             def doCreate(result):
@@ -430,9 +485,9 @@ class PostgresService(MultiService):
             # database.  (This also happens in command-line tools.)
             if self.shouldStopDatabase:
                 monitor = _PostgresMonitor()
-                pg_ctl = which("pg_ctl")[0]
-                reactor.spawnProcess(monitor, pg_ctl,
-                    [pg_ctl, '-l', 'logfile', 'stop'],
+                pgCtl = self.pgCtl()
+                reactor.spawnProcess(monitor, pgCtl,
+                    [pgCtl, '-l', 'logfile', 'stop'],
                     self.env,
                     uid=self.uid, gid=self.gid,
                 )

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import random, time
 
@@ -190,10 +191,10 @@ class SQLDuration(_Statistic):
         if byTime:
             header = '%10s %10s %10s %s'
             row = '%10.5f %10.5f %10d %s'
-            print header % ('TOTAL MS', 'PERCALL MS', 'NCALLS', 'STATEMENT')
+            print(header % ('TOTAL MS', 'PERCALL MS', 'NCALLS', 'STATEMENT'))
             for (time, count, statement) in byTime:
                 time = time / NANO * 1000
-                print row % (time, time / count, count, statement)
+                print(row % (time, time / count, count, statement))
 
 
     def transcript(self, samples):
@@ -470,8 +471,8 @@ if __name__ == '__main__':
     
     total = 0
     for k, v in sorted(result.items(), key=lambda x:x[0]):
-        print "%d\t%.5f" % (k, float(v)/result[1])
+        print("%d\t%.5f" % (k, float(v)/result[1]))
         total += k * v
         
-    print "Average: %.2f" % (float(total) / sum(result.values()),)
+    print("Average: %.2f" % (float(total) / sum(result.values()),))
 

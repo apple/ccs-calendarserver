@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -131,6 +131,42 @@ def getWikiAccess(userID, wikiID, method=None):
     Ask the wiki server we're paired with what level of access the userID has
     for the given wikiID.  Possible values are "read", "write", and "admin"
     (which we treat as "write").
+
+    @param userID: the GUID (UUID) of the user's directory record.
+    @type userID: L{bytes} (UTF-8)
+
+    @param wikiID: the short name of the wiki principal's synthetic directory
+        record.  (See L{WikiDirectoryService}).
+    @type wikiID: L{bytes} (UTF-8)
+
+    @return: A string indicating the level of access that the given user has to
+        the given wiki.  Possible values are:
+
+        1. C{b"no-access"} for read-only access
+
+        2. C{b"no-access"} for read/write access
+
+        3. C{b"no-access"} for administrative access (which, for calendaring
+           purposes, should be equialent to read/write)
+
+        4. C{b"no-access"} for a user who is not allowed to see the wiki at
+           all.
+
+    @rtype: L{bytes}
+
+    @raise: L{HTTPError} indicating that there is a problem requesting
+        permission information.  This may be raised with a few different status
+        codes, each indicating a different problem:
+
+        1. L{responsecode.FORBIDDEN}: The user represented by C{userID} did not
+           exist.
+
+        2. L{responsecode.NOT_FOUND}: The wiki represented by C{wikiID} did not
+           exist.
+
+        3. L{responsecode.SERVICE_UNAVAILABLE}: The service that we are
+           checking permissions with is currently offline or responding with an
+           unknown fault.
     """
     wikiConfig = config.Authentication.Wiki
     if method is None:

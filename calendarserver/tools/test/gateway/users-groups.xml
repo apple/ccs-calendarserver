@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,6 +35,15 @@ limitations under the License.
     <members>
       <member type="users">user01</member>
       <member type="users">user02</member>
+    </members>
+  </group>
+  <group>
+    <uid>testgroup2</uid>
+    <guid>f5a6142c-4189-4e9e-90b0-9cd0268b314b</guid>
+    <password>test</password>
+    <name>Group 02</name>
+    <members>
+      <member type="users">user01</member>
     </members>
   </group>
 </accounts>
