@@ -56,6 +56,8 @@ log = Logger()
 
 addSourceProperty = False
 
+
+
 class OpenDirectoryBackingService(DirectoryService):
     """
     Directory backer for L{IDirectoryService}.
@@ -63,11 +65,14 @@ class OpenDirectoryBackingService(DirectoryService):
 
     baseGUID = "BF07A1A2-5BB5-4A4D-A59A-67260EA7E143"
 
+
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.realmName,)
 
+
     def __init__(self, params):
         self._actuallyConfigure(**params)
+
 
     def _actuallyConfigure(
         self, queryPeopleRecords=True,
@@ -239,6 +244,7 @@ class OpenDirectoryBackingService(DirectoryService):
     def createCache(self):
         succeed(None)
 
+
     def _isSystemRecord(self, recordShortName, recordAttributes):
 
         recordType = recordAttributes.get(dsattributes.kDSNAttrRecordType)
@@ -269,6 +275,7 @@ class OpenDirectoryBackingService(DirectoryService):
         """
         Get a dictionary of ABDirectoryQueryResult by enumerating the local directory
         """
+
 
         def generateDSLocalResults():
 
@@ -488,6 +495,7 @@ class OpenDirectoryBackingService(DirectoryService):
         Get vCards for a given addressBookFilter and addressBookQuery
         """
 
+
         def allowedRecordTypes():
             constantProperties = ABDirectoryQueryResult.constantProperties.copy()
 
@@ -628,6 +636,8 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
     @param constantProperties: a mapping of constant properties.  A query on a constant property will return all or None
     @return: (filterProperyNames, expressions) tuple.  expression==True means list all results, expression==False means no results
     """
+
+
     def propFilterListQuery(filterAllOf, propFilters):
 
         def combineExpressionLists(expressionList, allOf, addedExpressions):
@@ -674,6 +684,7 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
             @return: (filterProperyNames, expressions) tuple.  expression==True means list all results, expression==False means no results
             """
 
+
             def definedExpression(defined, allOf):
                 if constant or propFilter.filter_name in ("N" , "FN", "UID", "SOURCE",):
                     return defined     # all records have this property so no records do not have it
@@ -699,7 +710,7 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
                 #end andOrExpression()
 
 
-            def paramFilterElementExpression(propFilterAllOf, paramFilterElement):
+            def paramFilterElementExpression(propFilterAllOf, paramFilterElement): #@UnusedVariable
 
                 params = ABDirectoryQueryResult.vcardPropToParamMap.get(propFilter.filter_name.upper())
                 defined = params and paramFilterElement.filter_name.upper() in params
@@ -718,6 +729,7 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
 
 
             def textMatchElementExpression(propFilterAllOf, textMatchElement):
+
 
                 # pre process text match strings for ds query 
                 def getMatchStrings(propFilter, matchString):
@@ -1115,7 +1127,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
         self.kind = kind.lower()
 
 
-       #generate a vCard here.  May throw an exception
+        #generate a vCard here.  May throw an exception
         self.vCard()
 
 
@@ -1126,6 +1138,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             self.vCard().propertyValue("FN"),
             self.vCard().propertyValue("UID")
         )
+
 
     def __hash__(self):
         s = "".join([
@@ -1165,6 +1178,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
         else:
             return values.encode("utf_8") if isinstance(values, unicode) else values
 
+
     def joinedValuesForAttribute(self, attributeName, separator=",", default_string=""):
         values = self.valuesForAttribute(attributeName, None)
         if not values:
@@ -1201,6 +1215,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                         return False
                 return True
 
+
             def addUniqueProperty(vcard, newProperty, ignoreParams=None, attrType=None, attrValue=None):
                 if isUniqueProperty(vcard, newProperty, ignoreParams):
                     vcard.addProperty(newProperty)
@@ -1208,11 +1223,13 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                     if attrType and attrValue:
                         self.log_info("Ignoring attribute %r with value %r in creating property %r. A duplicate property already exists." % (attrType, attrValue, newProperty,))
 
+
             def addPropertyAndLabel(groupCount, label, propertyName, propertyValue, parameters=None):
                 groupCount[0] += 1
                 groupPrefix = "item%d" % groupCount[0]
                 vcard.addProperty(Property(propertyName, propertyValue, params=parameters, group=groupPrefix))
                 vcard.addProperty(Property("X-ABLabel", label, group=groupPrefix))
+
 
             # for attributes of the form  param:value
             def addPropertiesAndLabelsForPrefixedAttribute(groupCount, propertyPrefix, propertyName, attrType, defaultLabel, nolabelParamTypes=(), labelMap={}, specialParamType=None):
@@ -1724,11 +1741,14 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
 
         return self._vCard
 
+
     def vCardText(self):
         return str(self.vCard())
 
+
     def uri(self):
         return self.vCard().propertyValue("UID") + ".vcf"
+
 
     def hRef(self, parentURI=None):
         return davxml.HRef.fromString(joinURL(parentURI if parentURI else  self._directoryBackedAddressBook.uri, self.uri()))
@@ -1793,7 +1813,8 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
 
         return self._directoryBackedAddressBook.readProperty(property, request)
 
-    def listProperties(self, request):
+
+    def listProperties(self, request): #@UnusedVariable
         qnames = set(self.liveProperties())
 
         # Add dynamic live properties that exist
@@ -1811,6 +1832,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
         yield qnames
 
     listProperties = deferredGenerator(listProperties)
+
 
 # utility
 #remove illegal XML
