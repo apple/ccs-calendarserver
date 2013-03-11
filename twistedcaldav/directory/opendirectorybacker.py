@@ -62,31 +62,31 @@ class OpenDirectoryBackingService(DirectoryService):
     """
 
     baseGUID = "BF07A1A2-5BB5-4A4D-A59A-67260EA7E143"
-    
+
     def __repr__(self):
-        return "<%s %r>" % (self.__class__.__name__, self.realmName, )
+        return "<%s %r>" % (self.__class__.__name__, self.realmName,)
 
     def __init__(self, params):
         self._actuallyConfigure(**params)
 
     def _actuallyConfigure(
-        self, queryPeopleRecords=True, 
-        peopleNode = "/Search/Contacts",
-        queryUserRecords=True, 
-        userNode = "/Search",
-        queryGroupRecords=True, 
-        groupNode = "/Search",
-        maxDSQueryRecords = 0,            # maximum number of records requested for any ds query
-        
-        queryDSLocal = False,             #query in DSLocal -- debug
-        dsLocalCacheTimeout = 30,
-        ignoreSystemRecords = True,
-        
-        fakeETag = True,                  # eTag is not reliable if True 
-                
-        addDSAttrXProperties=False,       # add dsattributes to vcards as "X-" attributes
+        self, queryPeopleRecords=True,
+        peopleNode="/Search/Contacts",
+        queryUserRecords=True,
+        userNode="/Search",
+        queryGroupRecords=True,
+        groupNode="/Search",
+        maxDSQueryRecords=0, # maximum number of records requested for any ds query
+
+        queryDSLocal=False, #query in DSLocal -- debug
+        dsLocalCacheTimeout=30,
+        ignoreSystemRecords=True,
+
+        fakeETag=True, # eTag is not reliable if True 
+
+        addDSAttrXProperties=False, # add dsattributes to vcards as "X-" attributes
         appleInternalServer=False,
-        
+
         additionalAttributes=None,
         allowedAttributes=None,
         searchAttributes=None,
@@ -109,15 +109,15 @@ class OpenDirectoryBackingService(DirectoryService):
         self.peopleNode = None
         self.userDirectory = None
         self.userNode = None
-        
+
 
         # get node to record type map
         def addNodesToNodeRecordTypeMap(nodeList, recordType):
             for node in nodeList if isinstance(nodeList, list) else (nodeList,):
                 if not node in nodeRecordTypeMap:
                     nodeRecordTypeMap[node] = []
-                nodeRecordTypeMap[node] += [recordType,]
-            self.recordTypes += [recordType,]
+                nodeRecordTypeMap[node] += [recordType, ]
+            self.recordTypes += [recordType, ]
 
         nodeRecordTypeMap = {}
         self.recordTypes = []
@@ -127,26 +127,26 @@ class OpenDirectoryBackingService(DirectoryService):
             addNodesToNodeRecordTypeMap(userNode, dsattributes.kDSStdRecordTypeUsers,)
         if queryGroupRecords:
             addNodesToNodeRecordTypeMap(groupNode, dsattributes.kDSStdRecordTypeGroups,)
-        
+
         # get query info
         nodeDirectoryRecordTypeMap = {}
         self.odModule = namedModule(config.OpenDirectoryModule)
         for node in nodeRecordTypeMap:
-            queryInfo = {"recordTypes":nodeRecordTypeMap[node],}
+            queryInfo = {"recordTypes":nodeRecordTypeMap[node], }
             try:
                 queryInfo["directory"] = self.odModule.odInit(node)
             except self.odModule.ODError, e:
                 self.log_error("Open Directory (node=%s) Initialization error: %s" % (node, e))
                 raise
-            
+
             nodeDirectoryRecordTypeMap[node] = queryInfo
-        
+
         self.nodeDirectoryRecordTypeMap = nodeDirectoryRecordTypeMap
-        
-        
+
+
         # calc realm name
         self.realmName = "+".join(nodeDirectoryRecordTypeMap.keys())
-        
+
         self.queryPeopleRecords = queryPeopleRecords
         self.queryUserRecords = queryUserRecords
         self.queryGroupRecords = queryGroupRecords
@@ -157,11 +157,11 @@ class OpenDirectoryBackingService(DirectoryService):
         self.dsLocalCacheTimeout = dsLocalCacheTimeout
 
         self.fakeETag = fakeETag
-                
+
         self.addDSAttrXProperties = addDSAttrXProperties
         self.appleInternalServer = appleInternalServer
-        
-        
+
+
         if searchAttributes is None:
             # this is the intersection of ds default indexed attributes and ABDirectoryQueryResult.vcardPropToDSAttrMap.values()
             # so, not all indexed attributes are below
@@ -183,91 +183,97 @@ class OpenDirectoryBackingService(DirectoryService):
         elif not searchAttributes:
             # if search Attributes is [], don't restrict searching (but no binary)
             searchAttributes = ABDirectoryQueryResult.stringDSAttrNames
-        self.log_debug("self.searchAttributes=%s" % (searchAttributes, ))
-        
+        self.log_debug("self.searchAttributes=%s" % (searchAttributes,))
+
         # calculate search map
         vcardPropToSearchableDSAttrMap = {}
         for prop, dsAttributeList in ABDirectoryQueryResult.vcardPropToDSAttrMap.iteritems():
             dsIndexedAttributeList = [attr for attr in dsAttributeList if attr in searchAttributes]
             if len(dsIndexedAttributeList):
                 vcardPropToSearchableDSAttrMap[prop] = dsIndexedAttributeList
-        
+
         self.vcardPropToSearchableDSAttrMap = vcardPropToSearchableDSAttrMap
-        self.log_debug("self.vcardPropToSearchableDSAttrMap=%s" % (self.vcardPropToSearchableDSAttrMap, ))
- 
+        self.log_debug("self.vcardPropToSearchableDSAttrMap=%s" % (self.vcardPropToSearchableDSAttrMap,))
+
         #get attributes required for needed for valid vCard
         requiredAttributes = [attr for prop in ("UID", "FN", "N") for attr in ABDirectoryQueryResult.vcardPropToDSAttrMap[prop]]
-        requiredAttributes += [dsattributes.kDS1AttrModificationTimestamp, dsattributes.kDS1AttrCreationTimestamp,] # for VCardResult DAVPropertyMixIn
+        requiredAttributes += [dsattributes.kDS1AttrModificationTimestamp, dsattributes.kDS1AttrCreationTimestamp, ] # for VCardResult DAVPropertyMixIn
         self.requiredAttributes = list(set(requiredAttributes))
-        self.log_debug("self.requiredAttributes=%s" % (self.requiredAttributes, ))
-           
+        self.log_debug("self.requiredAttributes=%s" % (self.requiredAttributes,))
+
         # get returned attributes
         #allowedAttributes = [dsattributes.kDS1AttrUniqueID,]
         if allowedAttributes:
-            
+
             returnedAttributes = [attr for attr in ABDirectoryQueryResult.allDSQueryAttributes
                                                     if (isinstance(attr, str) and attr in allowedAttributes) or
                                                        (isinstance(attr, tuple) and attr[0] in allowedAttributes)]
-            self.log_debug("allowedAttributes%s" % (allowedAttributes, ))
+            self.log_debug("allowedAttributes%s" % (allowedAttributes,))
         else:
             returnedAttributes = ABDirectoryQueryResult.allDSQueryAttributes
-            
+
         # add required
         returnedAttributes += self.requiredAttributes
-        
+
         if additionalAttributes:
             returnedAttributes += additionalAttributes
-        
+
         if ignoreSystemRecords:
-            returnedAttributes += [dsattributes.kDS1AttrUniqueID,]
+            returnedAttributes += [dsattributes.kDS1AttrUniqueID, ]
         if not queryDSLocal:
-            returnedAttributes += [dsattributes.kDSNAttrMetaNodeLocation,]
+            returnedAttributes += [dsattributes.kDSNAttrMetaNodeLocation, ]
         if queryGroupRecords:
-            returnedAttributes += [dsattributes.kDSNAttrGroupMembers,]
-        
+            returnedAttributes += [dsattributes.kDSNAttrGroupMembers, ]
+
         #for debugging
-        returnedAttributes += [dsattributes.kDSNAttrRecordType,]
+        returnedAttributes += [dsattributes.kDSNAttrRecordType, ]
 
         self.returnedAttributes = list(set(returnedAttributes))
-        self.log_debug("self.returnedAttributes=%s" % (self.returnedAttributes, ))
-              
-        
+        self.log_debug("self.returnedAttributes=%s" % (self.returnedAttributes,))
+
+
         self._dsLocalResults = {}
         self._nextDSLocalQueryTime = 0
-        
+
 
     def createCache(self):
         succeed(None)
 
     def _isSystemRecord(self, recordShortName, recordAttributes):
-        
+
         recordType = recordAttributes.get(dsattributes.kDSNAttrRecordType)
+        if type(recordType) is list:
+            recordType = recordType[0]
         guid = recordAttributes.get(dsattributes.kDS1AttrGeneratedUID)
+        if type(guid) is list:
+            guid = guid[0]
         if guid and guid.startswith("FFFFEEEE-DDDD-CCCC-BBBB-AAAA"):
-            self.log_info("Ignoring record %s (type %s) with %s %s"  % (recordShortName, recordType, dsattributes.kDS1AttrGeneratedUID, guid,))
+            self.log_info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDS1AttrGeneratedUID, guid,))
             return True
-    
+
         uniqueID = recordAttributes.get(dsattributes.kDS1AttrUniqueID)
+        if type(uniqueID) is list:
+            uniqueID = uniqueID[0]
         if uniqueID and (int(uniqueID) < 500 or (recordType == dsattributes.kDSStdRecordTypeUsers and int(uniqueID) == 1000)):
-            self.log_info("Ignoring record %s (type %s) with %s %s"  % (recordShortName, recordType, dsattributes.kDS1AttrUniqueID, uniqueID,))
+            self.log_info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDS1AttrUniqueID, uniqueID,))
             return True
 
         if recordShortName.startswith("_"):
-            self.log_info("Ignoring record %s (type %s) with %s %s"  % (recordShortName, recordType, dsattributes.kDSNAttrRecordName, recordShortName,))
+            self.log_info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDSNAttrRecordName, recordShortName,))
             return True
-        
+
         return False
 
-  
+
     def _getAllDSLocalResults(self):
         """
         Get a dictionary of ABDirectoryQueryResult by enumerating the local directory
         """
-       
+
         def generateDSLocalResults():
-                        
+
             resultsDictionary = {}
-            
+
             try:
                 localNodeDirectory = self.odModule.odInit("/Local/Default")
                 self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
@@ -283,110 +289,117 @@ class OpenDirectoryBackingService(DirectoryService):
             except self.odModule.ODError, ex:
                 self.log_error("Open Directory (node=%s) error: %s" % ("/Local/Default", str(ex)))
                 raise
-            
+
             for (recordShortName, recordAttributes) in records: #@UnusedVariable
-                
+
                 try:
-                    self.log_info("Inspecting record %s"  % (recordAttributes,))
+                    self.log_info("Inspecting record %s" % (recordAttributes,))
                     if self.ignoreSystemRecords:
                         if self._isSystemRecord(recordShortName, recordAttributes):
                             continue
 
                     result = ABDirectoryQueryResult(self.directoryBackedAddressBook, recordAttributes)
-                    
+
                 except:
                     traceback.print_exc()
                     self.log_info("Could not get vcard for record %s" % (recordShortName,))
-                    
+
                 else:
                     uid = result.vCard().propertyValue("UID")
 
                     if uid in resultsDictionary:
                         self.log_info("Record %s skipped due to duplicate UID: %s" % (recordShortName, uid,))
                         continue
-                        
-                    self.log_debug("VCard text =\n%s" % (result.vCardText(), ))
-                    resultsDictionary[uid] = result                   
 
-    
+                    self.log_debug("VCard text =\n%s" % (result.vCardText(),))
+                    resultsDictionary[uid] = result
+
+
             return resultsDictionary
-        
+
 
         if not self.queryDSLocal:
             return {}
-        
+
         if time.time() > self._nextDSLocalQueryTime:
             self._dsLocalResults = generateDSLocalResults()
             # Add jitter/fuzz factor 
-            self._nextDSLocalQueryTime = time.time() + self.dsLocalCacheTimeout * (random() + 0.5)  * 60
+            self._nextDSLocalQueryTime = time.time() + self.dsLocalCacheTimeout * (random() + 0.5) * 60
 
         return self._dsLocalResults
-    
+
 
     @inlineCallbacks
-    def _getDirectoryQueryResults(self, query=None, attributes=None, maxRecords=0, allowedRecordTypes=None ):
+    def _getDirectoryQueryResults(self, query=None, attributes=None, maxRecords=0, allowedRecordTypes=None):
         """
         Get a list of ABDirectoryQueryResult for the given query with the given attributes.
         query == None gets all records. attribute == None gets ABDirectoryQueryResult.allDSQueryAttributes
         """
         limited = False
-        records = (yield self._queryDirectory(query, attributes, maxRecords, allowedRecordTypes=allowedRecordTypes ))
+        records = (yield self._queryDirectory(query, attributes, maxRecords, allowedRecordTypes=allowedRecordTypes))
         if maxRecords and len(records) >= maxRecords:
             limited = True
-            self.log_debug("Directory address book record limit (= %d) reached." % (maxRecords, ))
+            self.log_debug("Directory address book record limit (= %d) reached." % (maxRecords,))
 
         self.log_debug("Query done. Inspecting %s records" % (len(records),))
 
         resultsDictionary = self._getAllDSLocalResults().copy()
         self.log_debug("Adding %s DSLocal results" % len(resultsDictionary.keys()))
-        
+
         for (recordShortName, recordAttributes) in records: #@UnusedVariable
-            
+
             try:
                 # fix ds strangeness
-                if recordAttributes.get(dsattributes.kDS1AttrLastName, "") == "99":
+                lastName = recordAttributes.get(dsattributes.kDS1AttrLastName)
+                if type(lastName) is list:
+                    lastName = lastName[0]
+                if lastName and lastName == "99":
                     del recordAttributes[dsattributes.kDS1AttrLastName]
-        
+
                 if self.ignoreSystemRecords:
                     if self._isSystemRecord(recordShortName, recordAttributes):
                         continue
-                    
+
                 if not self.queryDSLocal:
                     # skip records in local node which happens for non-complex od queries
                     node = recordAttributes.get(dsattributes.kDSNAttrMetaNodeLocation)
+                    if type(node) is list:
+                        node = node[0]
                     if node and node.startswith("/Local/"):
                         recordType = recordAttributes.get(dsattributes.kDSNAttrRecordType)
-                        self.log_info("Ignoring record %s (type %s) with %s %s"  % (recordShortName, recordType, dsattributes.kDSNAttrMetaNodeLocation, recordAttributes.get(dsattributes.kDSNAttrMetaNodeLocation),))
+                        if type(recordType) is list:
+                            recordType = recordType[0]
+                        self.log_info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDSNAttrMetaNodeLocation, node,))
                         continue
 
-                result = ABDirectoryQueryResult(self.directoryBackedAddressBook, recordAttributes, 
+                result = ABDirectoryQueryResult(self.directoryBackedAddressBook, recordAttributes,
                                      addDSAttrXProperties=self.addDSAttrXProperties,
                                      appleInternalServer=self.appleInternalServer,
                                      )
             except:
                 traceback.print_exc()
                 self.log_info("Could not get vcard for record %s" % (recordShortName,))
-                
+
             else:
                 uid = result.vCard().propertyValue("UID")
 
                 if uid in resultsDictionary:
                     self.log_info("Record skipped due to duplicate UID: %s" % (recordShortName,))
                     continue
-                    
-                self.log_debug("VCard text =\n%s" % (result.vCardText(), ))
-                resultsDictionary[uid] = result                   
-        
+
+                self.log_debug("VCard text =\n%s" % (result.vCardText(),))
+                resultsDictionary[uid] = result
+
         self.log_debug("_getDirectoryQueryResults: %s results (limited=%s)." % (len(resultsDictionary), limited))
-        returnValue((resultsDictionary.values(), limited, ))
+        returnValue((resultsDictionary.values(), limited,))
 
 
-    def _queryDirectory(self, query=None, attributes=None, maxRecords=0, allowedRecordTypes=None ):
-        
+    def _queryDirectory(self, query=None, attributes=None, maxRecords=0, allowedRecordTypes=None):
+
         startTime = time.time()
         if not attributes:
             attributes = self.returnedAttributes
-                    
+
         allResults = []
         for node, queryInfo in self.nodeDirectoryRecordTypeMap.iteritems():
             directory = queryInfo["directory"]
@@ -395,7 +408,7 @@ class OpenDirectoryBackingService(DirectoryService):
                 recordTypes = list(set(recordTypes).intersection(set(allowedRecordTypes)))
                 if not recordTypes:
                     continue
-            
+
             try:
                 if query:
                     if isinstance(query, dsquery.match) and query.value is not "":
@@ -455,64 +468,64 @@ class OpenDirectoryBackingService(DirectoryService):
             except self.odModule.ODError, ex:
                 self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
-            
+
             allResults.extend(results)
-            
+
             if maxRecords:
                 maxRecords -= len(results)
                 if maxRecords <= 0:
                     break
-        
 
-        elaspedTime = time.time()-startTime
-        self.log_info("Timing: Directory query: %.1f ms (%d records, %.2f records/sec)" % (elaspedTime*1000, len(allResults), len(allResults)/elaspedTime))
+
+        elaspedTime = time.time() - startTime
+        self.log_info("Timing: Directory query: %.1f ms (%d records, %.2f records/sec)" % (elaspedTime * 1000, len(allResults), len(allResults) / elaspedTime))
         return succeed(allResults)
-    
+
 
     @inlineCallbacks
-    def doAddressBookQuery(self, addressBookFilter, addressBookQuery, maxResults ):
+    def doAddressBookQuery(self, addressBookFilter, addressBookQuery, maxResults):
         """
         Get vCards for a given addressBookFilter and addressBookQuery
         """
-        
+
         def allowedRecordTypes():
             constantProperties = ABDirectoryQueryResult.constantProperties.copy()
-    
+
             # optimization: use KIND as constant to filter record type list
             dsRecordTypeToKindMap = {
                            dsattributes.kDSStdRecordTypeGroups:"group",
                            dsattributes.kDSStdRecordTypeLocations:"location",
                            dsattributes.kDSStdRecordTypeResources:"device",
                            }
-            
+
             allowedRecordTypes = []
             for recordType in set(self.recordTypes):
                 kind = dsRecordTypeToKindMap.get(recordType, "individual")
                 constantProperties["KIND"] = kind
-           
-                filterPropertyNames, dsFilter  = dsFilterFromAddressBookFilter( addressBookFilter,  #@UnusedVariable
-                                                                                         self.vcardPropToSearchableDSAttrMap,
-                                                                                         constantProperties=constantProperties );
-                if not dsFilter is False:
-                    allowedRecordTypes += [recordType,]
-            return set(allowedRecordTypes)
-        
 
-        filterPropertyNames, dsFilter  = dsFilterFromAddressBookFilter( addressBookFilter, 
+                filterPropertyNames, dsFilter = dsFilterFromAddressBookFilter(addressBookFilter, #@UnusedVariable
+                                                                                         self.vcardPropToSearchableDSAttrMap,
+                                                                                         constantProperties=constantProperties);
+                if not dsFilter is False:
+                    allowedRecordTypes += [recordType, ]
+            return set(allowedRecordTypes)
+
+
+        filterPropertyNames, dsFilter = dsFilterFromAddressBookFilter(addressBookFilter,
                                                                                  self.vcardPropToSearchableDSAttrMap,
-                                                                                 constantProperties=ABDirectoryQueryResult.constantProperties );
+                                                                                 constantProperties=ABDirectoryQueryResult.constantProperties);
         self.log_debug("doAddressBookQuery: query=%s, propertyNames=%s" % (dsFilter if isinstance(dsFilter, bool) else dsFilter.generate(), filterPropertyNames,))
 
         results = []
         limited = False
         if dsFilter:
-            
+
             if dsFilter is True:
                 dsFilter = None  # None means get all records hereafter
-            
+
             # calculate minimum attributes needed for this query
-            etagRequested, queryPropNames = propertiesInAddressBookQuery( addressBookQuery )
-        
+            etagRequested, queryPropNames = propertiesInAddressBookQuery(addressBookQuery)
+
             if (etagRequested and not self.fakeETag) or not queryPropNames:
                 queryAttributes = self.returnedAttributes
             elif queryPropNames:
@@ -522,9 +535,9 @@ class OpenDirectoryBackingService(DirectoryService):
                     attributes = ABDirectoryQueryResult.vcardPropToDSAttrMap.get(prop)
                     if attributes:
                         queryAttributes += attributes
-                        
-                queryAttributes =  list(set(queryAttributes + self.requiredAttributes).intersection(self.returnedAttributes))
-            
+
+                queryAttributes = list(set(queryAttributes + self.requiredAttributes).intersection(self.returnedAttributes))
+
             self.log_debug("doAddressBookQuery: etagRequested=%s, queryPropNames=%s, queryAttributes=%s" % (etagRequested, queryPropNames, queryAttributes,))
 
             '''
@@ -543,66 +556,66 @@ class OpenDirectoryBackingService(DirectoryService):
             # keep trying query till we get results based on filter.  Especially when doing "all results" query
             while True:
                 dsQueryResults, dsQueryLimited = (yield self._getDirectoryQueryResults(dsFilter, queryAttributes, maxRecords, allowedRecordTypes=allowedRecordTypes()))
-                
+
                 filteredResults = []
                 for dsQueryResult in dsQueryResults:
                     if addressBookFilter.match(dsQueryResult.vCard()):
                         filteredResults.append(dsQueryResult)
                     else:
                         self.log_debug("doAddressBookQuery: result did not match filter: %s (%s)" % (dsQueryResult.vCard().propertyValue("FN"), dsQueryResult.vCard().propertyValue("UID"),))
-                
+
                 #no more results    
                 if not dsQueryLimited:
                     break;
-                
+
                 # more than requested results
                 if maxResults and len(filteredResults) >= maxResults:
                     break
-                
+
                 # more than max report results
                 if len(filteredResults) >= config.MaxQueryWithDataResults:
                     break
-                
+
                 # more than self limit
                 if self.maxDSQueryRecords and maxRecords >= self.maxDSQueryRecords:
                     break
-                
+
                 # try again with 2x
                 maxRecords *= 2
                 if self.maxDSQueryRecords and maxRecords > self.maxDSQueryRecords:
                     maxRecords = self.maxDSQueryRecords
-                
-            
+
+
             results = filteredResults
             limited = maxResults and len(results) >= maxResults
-                        
+
         #if self.sortResults:
         #    results = sorted(list(results), key=lambda result:result.vCard().propertyValue("UID"))
 
         self.log_debug("doAddressBookQuery: %s results (limited=%s)." % (len(results), limited))
-        returnValue((results, limited,))        
+        returnValue((results, limited,))
 
 
 #utility
-def propertiesInAddressBookQuery( addressBookQuery ):
+def propertiesInAddressBookQuery(addressBookQuery):
     """
     Get the vCard properties requested by a given query
     """
-    
+
     etagRequested = False
-    propertyNames = [] 
+    propertyNames = []
     if addressBookQuery.qname() == ("DAV:", "prop"):
-    
-        for property in addressBookQuery.children:                
+
+        for property in addressBookQuery.children:
             if isinstance(property, carddavxml.AddressData):
                 for addressProperty in property.children:
                     if isinstance(addressProperty, carddavxml.Property):
-                        propertyNames += [addressProperty.attributes["name"],]
-                    
+                        propertyNames += [addressProperty.attributes["name"], ]
+
             elif property.qname() == ("DAV:", "getetag"):
                 # for a real etag == md5(vCard), we need all attributes
                 etagRequested = True
-    
+
     return (etagRequested, propertyNames if len(propertyNames) else None)
 
 
@@ -651,7 +664,7 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
                         expressionList += addedExpressions
             #log.debug("propFilterListQuery(): out expressionList=%s (%s)" % (expressionList, explen(expressionList)))
             return expressionList
-            
+
 
         def propFilterExpression(filterAllOf, propFilter):
             """
@@ -660,8 +673,8 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
             @param propFilter: the L{PropertyFilter} element.
             @return: (filterProperyNames, expressions) tuple.  expression==True means list all results, expression==False means no results
             """
-            
-            def definedExpression( defined, allOf ):
+
+            def definedExpression(defined, allOf):
                 if constant or propFilter.filter_name in ("N" , "FN", "UID", "SOURCE",):
                     return defined     # all records have this property so no records do not have it
                 else:
@@ -670,46 +683,46 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
                         return andOrExpression(allOf, matchList)
                     else:
                         if len(matchList) > 1:
-                            expr = dsquery.expression( dsquery.expression.OR, matchList )
+                            expr = dsquery.expression(dsquery.expression.OR, matchList)
                         else:
                             expr = matchList[0]
-                        return [dsquery.expression( dsquery.expression.NOT, expr),]
+                        return [dsquery.expression(dsquery.expression.NOT, expr), ]
                 #end definedExpression()
 
 
             def andOrExpression(propFilterAllOf, matchList):
                 if propFilterAllOf and len(matchList) > 1:
                     # add OR expression because parent will AND
-                    return [dsquery.expression( dsquery.expression.OR, matchList),]
+                    return [dsquery.expression(dsquery.expression.OR, matchList), ]
                 else:
                     return matchList
                 #end andOrExpression()
-                
+
 
             def paramFilterElementExpression(propFilterAllOf, paramFilterElement):
 
                 params = ABDirectoryQueryResult.vcardPropToParamMap.get(propFilter.filter_name.upper())
                 defined = params and paramFilterElement.filter_name.upper() in params
-                
+
                 #defined test
                 if defined != paramFilterElement.defined:
                     return False
-                
+
                 #parameter value text match
                 if defined and paramFilterElement.filters:
                     paramValues = params[paramFilterElement.filter_name.upper()]
                     if paramValues and paramFilterElement.filters[0].text.upper() not in paramValues:
                         return False
-                
+
                 return True
 
-            
-            def textMatchElementExpression( propFilterAllOf, textMatchElement ):
+
+            def textMatchElementExpression(propFilterAllOf, textMatchElement):
 
                 # pre process text match strings for ds query 
-                def getMatchStrings( propFilter, matchString ):
-                                        
-                    if propFilter.filter_name in ("REV" , "BDAY", ):
+                def getMatchStrings(propFilter, matchString):
+
+                    if propFilter.filter_name in ("REV" , "BDAY",):
                         rawString = matchString
                         matchString = ""
                         for c in rawString:
@@ -717,32 +730,32 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
                                 matchString += c
                     elif propFilter.filter_name == "GEO":
                         matchString = ",".join(matchString.split(";"))
-                    
-                    if propFilter.filter_name in ("N" , "ADR", "ORG", ):
+
+                    if propFilter.filter_name in ("N" , "ADR", "ORG",):
                         # for structured properties, change into multiple strings for ds query
                         if propFilter.filter_name == "ADR":
                             #split by newline and comma
-                            rawStrings = ",".join( matchString.split("\n") ).split(",")
+                            rawStrings = ",".join(matchString.split("\n")).split(",")
                         else:
                             #split by space
                             rawStrings = matchString.split(" ")
-                        
+
                         # remove empty strings
                         matchStrings = []
                         for oneString in rawStrings:
                             if len(oneString):
-                                matchStrings += [oneString,]
+                                matchStrings += [oneString, ]
                         return matchStrings
-                    
+
                     elif len(matchString):
-                        return [matchString,]
+                        return [matchString, ]
                     else:
                         return []
                     # end getMatchStrings
 
                 if constant:
                     #FIXME: match is not implemented in twisteddaldav.query.addressbookqueryfilter.TextMatch so use _match for now
-                    return textMatchElement._match([constant,])
+                    return textMatchElement._match([constant, ])
                 else:
 
                     matchStrings = getMatchStrings(propFilter, textMatchElement.text)
@@ -753,68 +766,68 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
                             return definedExpression(False, propFilterAllOf)
                         # else fall through to attribute exists case below
                     else:
-                        
+
                         # special case UID's formed from node and record name
                         if propFilter.filter_name == "UID":
                             matchString = matchStrings[0]
                             seperatorIndex = matchString.find(ABDirectoryQueryResult.uidSeparator)
                             if seperatorIndex > 1:
                                 recordNameStart = seperatorIndex + len(ABDirectoryQueryResult.uidSeparator)
-                                
-                                if recordNameStart < len(matchString)-1:
+
+                                if recordNameStart < len(matchString) - 1:
                                     try:
                                         recordNameQualifier = matchString[recordNameStart:].decode("base64").decode("utf8")
                                     except Exception, e:
                                         log.debug("Could not decode UID string %r in %r: %r" % (matchString[recordNameStart:], matchString, e,))
                                     else:
                                         if textMatchElement.negate:
-                                            return [dsquery.expression(dsquery.expression.NOT, dsquery.match(dsattributes.kDSNAttrRecordName, recordNameQualifier, dsattributes.eDSExact)),]
+                                            return [dsquery.expression(dsquery.expression.NOT, dsquery.match(dsattributes.kDSNAttrRecordName, recordNameQualifier, dsattributes.eDSExact)), ]
                                         else:
-                                            return [dsquery.match(dsattributes.kDSNAttrRecordName, recordNameQualifier, dsattributes.eDSExact),]
-                        
+                                            return [dsquery.match(dsattributes.kDSNAttrRecordName, recordNameQualifier, dsattributes.eDSExact), ]
+
                         # use match_type where possible depending on property/attribute mapping
                         # FIXME: case-sensitive negate will not work.  This should return all all records in that case
                         matchType = dsattributes.eDSContains
-                        if propFilter.filter_name in ("NICKNAME" , "TITLE" , "NOTE" , "UID", "URL", "N", "ADR", "ORG", "REV",  "LABEL", ):
+                        if propFilter.filter_name in ("NICKNAME" , "TITLE" , "NOTE" , "UID", "URL", "N", "ADR", "ORG", "REV", "LABEL",):
                             if textMatchElement.match_type == "equals":
                                     matchType = dsattributes.eDSExact
                             elif textMatchElement.match_type == "starts-with":
                                     matchType = dsattributes.eDSStartsWith
                             elif textMatchElement.match_type == "ends-with":
                                     matchType = dsattributes.eDSEndsWith
-                        
+
                         matchList = []
                         for matchString in matchStrings:
                             matchList += [dsquery.match(attrName, matchString, matchType) for attrName in searchableAttributes]
-                        
+
                         matchList = list(set(matchList))
 
                         if textMatchElement.negate:
                             if len(matchList) > 1:
-                                expr = dsquery.expression( dsquery.expression.OR, matchList )
+                                expr = dsquery.expression(dsquery.expression.OR, matchList)
                             else:
                                 expr = matchList[0]
-                            return [dsquery.expression( dsquery.expression.NOT, expr),]
+                            return [dsquery.expression(dsquery.expression.NOT, expr), ]
                         else:
                             return andOrExpression(propFilterAllOf, matchList)
 
                 # attribute exists search
                 return definedExpression(True, propFilterAllOf)
                 #end textMatchElementExpression()
-                
+
 
             # searchablePropFilterAttrNames are attributes to be used by this propfilter's expression
             searchableAttributes = vcardPropToSearchableAttrMap.get(propFilter.filter_name, [])
             if isinstance(searchableAttributes, str):
-                searchableAttributes = [searchableAttributes,]
+                searchableAttributes = [searchableAttributes, ]
             searchablePropFilterAttrNames = list(searchableAttributes)
-            
+
             constant = constantProperties.get(propFilter.filter_name)
             if not searchablePropFilterAttrNames and not constant:
                 # not allAttrNames means propFilter.filter_name is not mapped
                 # return None to try to match all items if this is the only property filter
                 return None
-            
+
             #create a textMatchElement for the IsNotDefined qualifier
             if isinstance(propFilter.qualifier, addressbookqueryfilter.IsNotDefined):
                 textMatchElement = addressbookqueryfilter.TextMatch(carddavxml.TextMatch.fromString(""))
@@ -837,12 +850,12 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
                 propFilterExpressions = combineExpressionLists(propFilterExpressions, propFilterAllOf, propFilterExpression)
                 if isinstance(propFilterExpressions, bool) and propFilterAllOf != propFilterExpression:
                     break
-                
+
             if isinstance(propFilterExpressions, list):
                 propFilterExpressions = list(set(propFilterExpressions))
                 if propFilterExpressions and (filterAllOf != propFilterAllOf):
                     propFilterExpressions = [dsquery.expression(dsquery.expression.AND if propFilterAllOf else dsquery.expression.OR , propFilterExpressions)]
-            
+
             return propFilterExpressions
             #end propFilterExpression
 
@@ -855,14 +868,14 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
         """
         expressions = None
         for propFilter in propFilters:
-            
+
             propExpressions = propFilterExpression(filterAllOf, propFilter)
             expressions = combineExpressionLists(expressions, filterAllOf, propExpressions)
-        
+
             # early loop exit
             if isinstance(expressions, bool) and filterAllOf != expressions:
                 break
-            
+
         # convert to needsAllRecords to return
         if isinstance(expressions, list):
             expressions = list(set(expressions))
@@ -877,13 +890,13 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
         else:
             # True or False
             expr = expressions
-            
+
         properties = [propFilter.filter_name for propFilter in propFilters]
 
         return (list(set(properties)), expr)
-    
+
     # Lets assume we have a valid filter from the outset
-    
+
     # Top-level filter contains zero or more prop-filters
     if addressBookFilter:
         filterAllOf = addressBookFilter.filter_test == "allof"
@@ -892,9 +905,9 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
         else:
             return ([], not filterAllOf)
     else:
-        return ([], False)    
-    
-                        
+        return ([], False)
+
+
 
 class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
     """
@@ -905,10 +918,10 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
     # will be used to translate vCard queries to od queries
 
     vcardPropToDSAttrMap = {
-                             
+
         "FN" : [
-               dsattributes.kDS1AttrFirstName, 
-               dsattributes.kDS1AttrLastName, 
+               dsattributes.kDS1AttrFirstName,
+               dsattributes.kDS1AttrLastName,
                dsattributes.kDS1AttrMiddleName,
                dsattributes.kDSNAttrNamePrefix,
                dsattributes.kDSNAttrNameSuffix,
@@ -916,8 +929,8 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                dsattributes.kDSNAttrRecordName,
                ],
         "N" : [
-               dsattributes.kDS1AttrFirstName, 
-               dsattributes.kDS1AttrLastName, 
+               dsattributes.kDS1AttrFirstName,
+               dsattributes.kDS1AttrLastName,
                dsattributes.kDS1AttrMiddleName,
                dsattributes.kDSNAttrNamePrefix,
                dsattributes.kDSNAttrNameSuffix,
@@ -1000,13 +1013,13 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                 ],
          "X-ABRELATEDNAMES" :  [
                 dsattributes.kDSNAttrRelationships,
-                ],  
+                ],
          "SOURCE" : [
                 dsattributes.kDS1AttrGeneratedUID,
                 dsattributes.kDSNAttrRecordName,
                 ],
     }
-    
+
     allDSQueryAttributes = list(set([attr for lookupAttributes in vcardPropToDSAttrMap.values()
                                       for attr in lookupAttributes]))
     binaryDSAttrNames = [attr[0] for attr in allDSQueryAttributes
@@ -1014,7 +1027,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
     stringDSAttrNames = [attr for attr in allDSQueryAttributes
                                 if isinstance(attr, str) ]
     allDSAttrNames = stringDSAttrNames + binaryDSAttrNames
-   
+
     # all possible generated parameters.
     vcardPropToParamMap = {
         "PHOTO": { "ENCODING": ("B",), "TYPE": ("JPEG",), },
@@ -1034,7 +1047,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
 
     uidSeparator = "-cf07a1a2-"
 
-    
+
     constantProperties = {
         # 3.6.3 PRODID Type Definition
         "PRODID": vCardProductID,
@@ -1042,16 +1055,16 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
         "VERSION": "3.0",
         }
 
-    
-    def __init__(self, directoryBackedAddressBook, recordAttributes, 
-                 kind=None, 
-                 additionalVCardProps=None, 
-                 addDSAttrXProperties=False, 
-                 appleInternalServer=False, 
+
+    def __init__(self, directoryBackedAddressBook, recordAttributes,
+                 kind=None,
+                 additionalVCardProps=None,
+                 addDSAttrXProperties=False,
+                 appleInternalServer=False,
                  ):
 
         self.log_debug("directoryBackedAddressBook=%s, attributes=%s, additionalVCardProps=%s" % (directoryBackedAddressBook, recordAttributes, additionalVCardProps,))
-        
+
         constantProperties = ABDirectoryQueryResult.constantProperties.copy()
         if additionalVCardProps:
             for key, value in additionalVCardProps.iteritems():
@@ -1068,7 +1081,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
 
         self._directoryBackedAddressBook = directoryBackedAddressBook
         self._vCard = None
-        
+
         #clean attributes
         self.attributes = {}
         for key, values in recordAttributes.items():
@@ -1079,16 +1092,16 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                     self.attributes[key] = removeControlChars(values).decode("utf8")
             else:
                 self.attributes[key] = values
-                
+
         # find or create guid 
         guid = self.firstValueForAttribute(dsattributes.kDS1AttrGeneratedUID)
         if not guid:
             nameUUIDStr = "".join(self.firstValueForAttribute(dsattributes.kDSNAttrRecordName).encode("base64").split("\n"))
-            guid =  ABDirectoryQueryResult.uidSeparator.join(["00000000", nameUUIDStr,])
+            guid = ABDirectoryQueryResult.uidSeparator.join(["00000000", nameUUIDStr, ])
             #guid =  ABDirectoryQueryResult.uidSeparator.join(["d9a8e41b", nameUUIDStr,])
-            
+
             self.attributes[dsattributes.kDS1AttrGeneratedUID] = guid
-        
+
         if not kind:
             dsRecordTypeToKindMap = {
                            #dsattributes.kDSStdRecordTypePeople:"individual",
@@ -1104,7 +1117,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
 
        #generate a vCard here.  May throw an exception
         self.vCard()
-        
+
 
 
     def __repr__(self):
@@ -1113,7 +1126,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             self.vCard().propertyValue("FN"),
             self.vCard().propertyValue("UID")
         )
-    
+
     def __hash__(self):
         s = "".join([
               "%s:%s" % (attribute, self.valuesForAttribute(attribute),)
@@ -1121,29 +1134,29 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
               ])
         return hash(s)
 
-    
-    def hasAttribute(self, attributeName ):
+
+    def hasAttribute(self, attributeName):
         return self.valuesForAttribute(attributeName, None) is not None
 
 
-    def valuesForAttribute(self, attributeName, default_values=[] ):
+    def valuesForAttribute(self, attributeName, default_values=[]):
         values = self.attributes.get(attributeName)
         if (values is None):
             return default_values
         elif not isinstance(values, list):
-            values = [values, ] 
-        
+            values = [values, ]
+
         # ds templates often return empty attribute values
         #     get rid of them here
         nonEmptyValues = [(value.encode("utf-8") if isinstance(value, unicode) else value) for value in values if len(value) > 0 ]
-        
+
         if len(nonEmptyValues) > 0:
             return nonEmptyValues
         else:
             return default_values
-        
 
-    def firstValueForAttribute(self, attributeName, default_value="" ):
+
+    def firstValueForAttribute(self, attributeName, default_value=""):
         values = self.attributes.get(attributeName)
         if values is None:
             return default_value
@@ -1152,32 +1165,32 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
         else:
             return values.encode("utf_8") if isinstance(values, unicode) else values
 
-    def joinedValuesForAttribute(self, attributeName, separator=",", default_string="" ):
+    def joinedValuesForAttribute(self, attributeName, separator=",", default_string=""):
         values = self.valuesForAttribute(attributeName, None)
         if not values:
             return default_string
         else:
             return separator.join(values)
-            
 
-    def isoDateStringForDateAttribute(self, attributeName, default_string="" ):
+
+    def isoDateStringForDateAttribute(self, attributeName, default_string=""):
         modDate = self.firstValueForAttribute(attributeName, default_string)
         revDate = None
         if modDate:
             if len(modDate) >= len("YYYYMMDD") and modDate[:8].isdigit():
-                revDate = "%s-%s-%s" % (modDate[:4],modDate[4:6],modDate[6:8], )
+                revDate = "%s-%s-%s" % (modDate[:4], modDate[4:6], modDate[6:8],)
             if len(modDate) >= len("YYYYMMDDHHMMSS") and modDate[8:14].isdigit():
-                revDate += "T%s:%s:%sZ" % (modDate[8:10],modDate[10:12],modDate[12:14], )
+                revDate += "T%s:%s:%sZ" % (modDate[8:10], modDate[10:12], modDate[12:14],)
         return revDate
 
-    
-                
+
+
     def vCard(self):
-        
-        
+
+
         def generateVCard():
-            
-            def isUniqueProperty(vcard, newProperty, ignoreParams = None):
+
+            def isUniqueProperty(vcard, newProperty, ignoreParams=None):
                 existingProperties = vcard.properties(newProperty.name())
                 for existingProperty in existingProperties:
                     if ignoreParams:
@@ -1188,14 +1201,14 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                         return False
                 return True
 
-            def addUniqueProperty(vcard, newProperty, ignoreParams = None, attrType = None, attrValue = None):
+            def addUniqueProperty(vcard, newProperty, ignoreParams=None, attrType=None, attrValue=None):
                 if isUniqueProperty(vcard, newProperty, ignoreParams):
                     vcard.addProperty(newProperty)
                 else:
                     if attrType and attrValue:
-                        self.log_info("Ignoring attribute %r with value %r in creating property %r. A duplicate property already exists." % (attrType, attrValue, newProperty, ))
-                            
-            def addPropertyAndLabel(groupCount, label, propertyName, propertyValue, parameters = None ):
+                        self.log_info("Ignoring attribute %r with value %r in creating property %r. A duplicate property already exists." % (attrType, attrValue, newProperty,))
+
+            def addPropertyAndLabel(groupCount, label, propertyName, propertyValue, parameters=None):
                 groupCount[0] += 1
                 groupPrefix = "item%d" % groupCount[0]
                 vcard.addProperty(Property(propertyName, propertyValue, params=parameters, group=groupPrefix))
@@ -1215,22 +1228,22 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                                     defaultLabel = splitValue[1]
 
                         colonIndex = attrValue.find(":")
-                        if (colonIndex > len(attrValue)-2):
+                        if (colonIndex > len(attrValue) - 2):
                             raise ValueError("Nothing after colon.")
 
-                        propertyValue = attrValue[colonIndex+1:]
+                        propertyValue = attrValue[colonIndex + 1:]
                         labelString = attrValue[:colonIndex] if colonIndex > 0 else defaultLabel
                         paramTypeString = labelString.upper()
-                        
+
                         if specialParamType:
                             parameters = { specialParamType: (paramTypeString,) }
                             if preferred:
                                 parameters["TYPE"] = ("PREF",)
                         else:
                             # add PREF to first prop's parameters
-                            paramTypeStrings = [paramTypeString,]
+                            paramTypeStrings = [paramTypeString, ]
                             if preferred and "PREF" != paramTypeString:
-                                paramTypeStrings += ["PREF",]
+                                paramTypeStrings += ["PREF", ]
                             parameters = { "TYPE": paramTypeStrings, }
 
                         #special case for IMHandles which the param is the last part of the property like X-AIM or X-JABBER 
@@ -1239,7 +1252,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
 
                         # only add label prop if needed
                         if paramTypeString in nolabelParamTypes:
-                            addUniqueProperty(vcard, Property(propertyName, attrValue[colonIndex+1:], params=parameters), None, attrValue, attrType)
+                            addUniqueProperty(vcard, Property(propertyName, attrValue[colonIndex + 1:], params=parameters), None, attrValue, attrType)
                         else:
                             # use special localizable addressbook labels where possible
                             localizedABLabelString = labelMap.get(labelString, labelString)
@@ -1251,22 +1264,22 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                         self.log_debug("addPropertiesAndLabelsForPrefixedAttribute(): groupCount=%r, propertyPrefix=%r, propertyName=%r, nolabelParamTypes=%r, labelMap=%r, attrType=%r" % (groupCount[0], propertyPrefix, propertyName, nolabelParamTypes, labelMap, attrType,))
                         self.log_error("addPropertiesAndLabelsForPrefixedAttribute(): Trouble parsing attribute %s, with value \"%s\".  Error = %s" % (attrType, attrValue, e,))
 
-            
+
             # create vCard
             vcard = Component("VCARD")
             groupCount = [0]
-            
+
             # add constant properties - properties that are the same regardless of the record attributes
             for key, value in self.constantProperties.items():
                 vcard.addProperty(Property(key, value))
-                
+
             # 3.1 IDENTIFICATION TYPES http://tools.ietf.org/html/rfc2426#section-3.1
             # 3.1.1 FN Type Definition
             # dsattributes.kDS1AttrDistinguishedName,      # Users distinguished or real name
             #
             # full name is required but this is set in OpenDiretoryBackingRecord.__init__
             #vcard.addProperty(Property("FN", self.firstValueForAttribute(dsattributes.kDS1AttrDistinguishedName)))
-            
+
             # 3.1.2 N Type Definition
             # dsattributes.kDS1AttrFirstName,           # Used for first name of user or person record.
             # dsattributes.kDS1AttrLastName,            # Used for the last name of user or person record.
@@ -1279,60 +1292,60 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                                                         #      ie. Mr., Ms., Mrs., Dr., etc.
                                                         #      Usually found in user or people records (kDSStdRecordTypeUsers or 
                                                         #      dsattributes.kDSStdRecordTypePeople).
-                                                        
+
             # name is required, so make sure we have one
             # vcard says: Each name attribute can be a string or a list of strings.
             if not self.hasAttribute(dsattributes.kDS1AttrFirstName) and not self.hasAttribute(dsattributes.kDS1AttrLastName):
                 familyName = self.firstValueForAttribute(dsattributes.kDS1AttrDistinguishedName)
             else:
                 familyName = self.valuesForAttribute(dsattributes.kDS1AttrLastName, "")
-            
+
             nameObject = N(
-                first = self.valuesForAttribute(dsattributes.kDS1AttrFirstName, ""),
-                last = familyName, 
-                middle = self.valuesForAttribute(dsattributes.kDS1AttrMiddleName, ""),
-                prefix = self.valuesForAttribute(dsattributes.kDSNAttrNamePrefix, ""),
-                suffix = self.valuesForAttribute(dsattributes.kDSNAttrNameSuffix, ""),
+                first=self.valuesForAttribute(dsattributes.kDS1AttrFirstName, ""),
+                last=familyName,
+                middle=self.valuesForAttribute(dsattributes.kDS1AttrMiddleName, ""),
+                prefix=self.valuesForAttribute(dsattributes.kDSNAttrNamePrefix, ""),
+                suffix=self.valuesForAttribute(dsattributes.kDSNAttrNameSuffix, ""),
             )
             vcard.addProperty(Property("N", nameObject))
-            
+
             # set full name to Name with contiguous spaces stripped
             # it turns out that Address Book.app ignores FN and creates it fresh from N in ABRecord
             # so no reason to have FN distinct from N
-            vcard.addProperty(Property("FN", nameObject.getFullName() ))
-            
+            vcard.addProperty(Property("FN", nameObject.getFullName()))
+
             # 3.1.3 NICKNAME Type Definition
             # dsattributes.kDSNAttrNickName,            # Represents the nickname of a user or person.
                                                         #    Usually found in user or people records (kDSStdRecordTypeUsers or 
                                                         #    dsattributes.kDSStdRecordTypePeople).
             for nickname in self.valuesForAttribute(dsattributes.kDSNAttrNickName):
                 addUniqueProperty(vcard, Property("NICKNAME", nickname), None, dsattributes.kDSNAttrNickName, nickname)
-            
+
             # 3.1.4 PHOTO Type Definition
             # dsattributes.kDSNAttrJPEGPhoto,           # Used to store binary picture data in JPEG format. 
                                                         #      Usually found in user, people or group records (kDSStdRecordTypeUsers, 
                                                         #      dsattributes.kDSStdRecordTypePeople,dsattributes.kDSStdRecordTypeGroups).
             # pyOpenDirectory always returns binary-encoded string                                       
-                                                        
+
             for photo in self.valuesForAttribute(dsattributes.kDSNAttrJPEGPhoto):
                 photo = "".join("".join(photo.split("\r")).split("\n")) #get rid of line folding: for PHOTO
-                addUniqueProperty(vcard, Property("PHOTO", photo, params={"ENCODING": ["b",], "TYPE": ["JPEG",],}), None, dsattributes.kDSNAttrJPEGPhoto, photo)
-    
-    
+                addUniqueProperty(vcard, Property("PHOTO", photo, params={"ENCODING": ["b", ], "TYPE": ["JPEG", ], }), None, dsattributes.kDSNAttrJPEGPhoto, photo)
+
+
             # 3.1.5 BDAY Type Definition
             # dsattributes.kDS1AttrBirthday,            # Single-valued attribute that defines the user's birthday.
                                                         #      Format is x.208 standard YYYYMMDDHHMMSSZ which we will require as GMT time.
                                                         #                               012345678901234
-            
+
             birthdate = self.isoDateStringForDateAttribute(dsattributes.kDS1AttrBirthday)
             if birthdate:
                 vcard.addProperty(Property("BDAY", PyCalendarDateTime.parseText(birthdate, fullISO=True)))
-    
-    
+
+
             # 3.2 Delivery Addressing Types http://tools.ietf.org/html/rfc2426#section-3.2
             #
             # 3.2.1 ADR Type Definition
-    
+
             #address
             # vcard says: Each address attribute can be a string or a list of strings.
             extended = self.valuesForAttribute(dsattributes.kDSNAttrBuilding, "")
@@ -1341,37 +1354,37 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             region = self.valuesForAttribute(dsattributes.kDSNAttrState, "")
             code = self.valuesForAttribute(dsattributes.kDSNAttrPostalCode, "")
             country = self.valuesForAttribute(dsattributes.kDSNAttrCountry, "")
-            
+
             if len(extended) > 0 or len(street) > 0 or len(city) > 0 or len(region) > 0 or len(code) > 0 or len(country) > 0:
                 vcard.addProperty(Property("ADR",
                     Adr(
                         #pobox = box,
-                        extended = extended,
-                        street = street,
-                        locality = city,
-                        region = region,
-                        postalcode = code,
-                        country = country,
+                        extended=extended,
+                        street=street,
+                        locality=city,
+                        region=region,
+                        postalcode=code,
+                        country=country,
                     ),
-                    params = {"TYPE": ["WORK", "PREF", "POSTAL", "PARCEL",],}
+                    params={"TYPE": ["WORK", "PREF", "POSTAL", "PARCEL", ], }
                 ))
-    
-    
+
+
             # 3.2.2 LABEL Type Definition
-            
+
             # dsattributes.kDSNAttrPostalAddress,           # The postal address usually excluding postal code.
             # dsattributes.kDSNAttrPostalAddressContacts,   # multi-valued attribute that defines a record's alternate postal addresses .
                                                             #      found in user records (kDSStdRecordTypeUsers) and resource records (kDSStdRecordTypeResources).
             # dsattributes.kDSNAttrAddressLine1,            # Line one of multiple lines of address data for a user.
             # dsattributes.kDSNAttrAddressLine2,            # Line two of multiple lines of address data for a user.
             # dsattributes.kDSNAttrAddressLine3,            # Line three of multiple lines of address data for a user.
-            
+
             for label in self.valuesForAttribute(dsattributes.kDSNAttrPostalAddress):
-                addUniqueProperty(vcard, Property("LABEL", label, params={"TYPE": ["POSTAL", "PARCEL",]}), None, dsattributes.kDSNAttrPostalAddress, label)
-                
+                addUniqueProperty(vcard, Property("LABEL", label, params={"TYPE": ["POSTAL", "PARCEL", ]}), None, dsattributes.kDSNAttrPostalAddress, label)
+
             for label in self.valuesForAttribute(dsattributes.kDSNAttrPostalAddressContacts):
-                addUniqueProperty(vcard, Property("LABEL", label, params={"TYPE": ["POSTAL", "PARCEL",]}), None, dsattributes.kDSNAttrPostalAddressContacts, label)
-                
+                addUniqueProperty(vcard, Property("LABEL", label, params={"TYPE": ["POSTAL", "PARCEL", ]}), None, dsattributes.kDSNAttrPostalAddressContacts, label)
+
             address = self.joinedValuesForAttribute(dsattributes.kDSNAttrAddressLine1)
             addressLine2 = self.joinedValuesForAttribute(dsattributes.kDSNAttrAddressLine2)
             if len(addressLine2) > 0:
@@ -1379,14 +1392,14 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             addressLine3 = self.joinedValuesForAttribute(dsattributes.kDSNAttrAddressLine3)
             if len(addressLine3) > 0:
                 address += "\n" + addressLine3
-            
+
             if len(address) > 0:
-                vcard.addProperty(Property("LABEL", address, params={"TYPE": ["POSTAL", "PARCEL",]}))
-    
+                vcard.addProperty(Property("LABEL", address, params={"TYPE": ["POSTAL", "PARCEL", ]}))
+
             # 3.3 TELECOMMUNICATIONS ADDRESSING TYPES http://tools.ietf.org/html/rfc2426#section-3.3
             # 3.3.1 TEL Type Definition
             #          TEL;TYPE=work,voice,pref,msg:+1-213-555-1234
-    
+
             # dsattributes.kDSNAttrPhoneNumber,         # Telephone number of a user.
             # dsattributes.kDSNAttrMobileNumber,        # Represents the mobile numbers of a user or person.
                                                         #      Usually found in user or people records (kDSStdRecordTypeUsers or 
@@ -1401,61 +1414,61 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             # dsattributes.kDSNAttrPhoneContacts,       # multi-valued attribute that defines a record's custom phone numbers .
                                                         #      found in user records (kDSStdRecordTypeUsers). 
                                                         #      Example: home fax:408-555-4444
-            
-            params = {"TYPE": ["WORK", "PREF", "VOICE",],}
+
+            params = {"TYPE": ["WORK", "PREF", "VOICE", ], }
             for phone in self.valuesForAttribute(dsattributes.kDSNAttrPhoneNumber):
                 addUniqueProperty(vcard, Property("TEL", phone, params=params), (("TYPE", "PREF"),), phone, dsattributes.kDSNAttrPhoneNumber)
-                params = {"TYPE": ["WORK", "VOICE",],}
-    
-            params = { "TYPE": ["WORK", "PREF", "CELL",], }
+                params = {"TYPE": ["WORK", "VOICE", ], }
+
+            params = { "TYPE": ["WORK", "PREF", "CELL", ], }
             for phone in self.valuesForAttribute(dsattributes.kDSNAttrMobileNumber):
                 addUniqueProperty(vcard, Property("TEL", phone, params=params), (("TYPE", "PREF"),), phone, dsattributes.kDSNAttrMobileNumber)
-                params = { "TYPE": ["WORK", "CELL",], }
-    
-            params = { "TYPE": ["WORK", "PREF", "FAX",], }
+                params = { "TYPE": ["WORK", "CELL", ], }
+
+            params = { "TYPE": ["WORK", "PREF", "FAX", ], }
             for phone in self.valuesForAttribute(dsattributes.kDSNAttrFaxNumber):
                 addUniqueProperty(vcard, Property("TEL", phone, params=params), (("TYPE", "PREF"),), phone, dsattributes.kDSNAttrFaxNumber)
-                params = { "TYPE": ["WORK", "FAX",], }
-    
-            params = { "TYPE": ["WORK", "PREF", "PAGER",], }
+                params = { "TYPE": ["WORK", "FAX", ], }
+
+            params = { "TYPE": ["WORK", "PREF", "PAGER", ], }
             for phone in self.valuesForAttribute(dsattributes.kDSNAttrPagerNumber):
                 addUniqueProperty(vcard, Property("TEL", phone, params=params), (("TYPE", "PREF"),), phone, dsattributes.kDSNAttrPagerNumber)
-                params = { "TYPE": ["WORK", "PAGER",], }
-    
-            params = { "TYPE": ["HOME", "PREF", "VOICE",], }
+                params = { "TYPE": ["WORK", "PAGER", ], }
+
+            params = { "TYPE": ["HOME", "PREF", "VOICE", ], }
             for phone in self.valuesForAttribute(dsattributes.kDSNAttrHomePhoneNumber):
                 addUniqueProperty(vcard, Property("TEL", phone, params=params), (("TYPE", "PREF"),), phone, dsattributes.kDSNAttrHomePhoneNumber)
-                params = { "TYPE": ["HOME", "VOICE",], }
-                    
+                params = { "TYPE": ["HOME", "VOICE", ], }
+
             addPropertiesAndLabelsForPrefixedAttribute(groupCount=groupCount, propertyPrefix=None, propertyName="TEL", defaultLabel="work",
                                                         nolabelParamTypes=("VOICE", "CELL", "FAX", "PAGER",),
-                                                        attrType=dsattributes.kDSNAttrPhoneContacts, )
+                                                        attrType=dsattributes.kDSNAttrPhoneContacts,)
 
             """
             # EXTEND:  Use this attribute
             # dsattributes.kDSNAttrAreaCode,            # Area code of a user's phone number.
             """
-    
+
             # 3.3.2 EMAIL Type Definition
             # dsattributes.kDSNAttrEMailAddress,        # Email address of usually a user record.
-    
+
             # setup some params
-            preferredWorkParams = { "TYPE": ["WORK", "PREF", "INTERNET",], }
-            workParams = { "TYPE": ["WORK", "INTERNET",], }
+            preferredWorkParams = { "TYPE": ["WORK", "PREF", "INTERNET", ], }
+            workParams = { "TYPE": ["WORK", "INTERNET", ], }
             params = preferredWorkParams
             for emailAddress in self.valuesForAttribute(dsattributes.kDSNAttrEMailAddress):
                 addUniqueProperty(vcard, Property("EMAIL", emailAddress, params=params), (("TYPE", "PREF"),), emailAddress, dsattributes.kDSNAttrEMailAddress)
                 params = workParams
-                
+
             # dsattributes.kDSNAttrEMailContacts,       # multi-valued attribute that defines a record's custom email addresses .
                                                         #    found in user records (kDSStdRecordTypeUsers). 
                                                         #      Example: home:johndoe@mymail.com
-    
+
             # check to see if parameters type are open ended. Could be any string
             addPropertiesAndLabelsForPrefixedAttribute(groupCount=groupCount, propertyPrefix=None, propertyName="EMAIL", defaultLabel="work",
-                                                        nolabelParamTypes=("WORK", "HOME",), 
-                                                        attrType=dsattributes.kDSNAttrEMailContacts, )
-    
+                                                        nolabelParamTypes=("WORK", "HOME",),
+                                                        attrType=dsattributes.kDSNAttrEMailContacts,)
+
             """
             # UNIMPLEMENTED:
             # 3.3.3 MAILER Type Definition
@@ -1481,7 +1494,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             # 3.5.1 TITLE Type Definition
             for jobTitle in self.valuesForAttribute(dsattributes.kDSNAttrJobTitle):
                 addUniqueProperty(vcard, Property("TITLE", jobTitle), None, dsattributes.kDSNAttrJobTitle, jobTitle)
-    
+
             """
             # UNIMPLEMENTED:
             # 3.5.2 ROLE Type Definition
@@ -1495,8 +1508,8 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             department = self.joinedValuesForAttribute(dsattributes.kDSNAttrDepartment)
             extra = self.joinedValuesForAttribute(dsattributes.kDSNAttrOrganizationInfo)
             if len(company) > 0 or len(department) > 0:
-                vcard.addProperty(Property("ORG", (company, department, extra, ),))
-            
+                vcard.addProperty(Property("ORG", (company, department, extra,),))
+
             # 3.6 EXPLANATORY TYPES http://tools.ietf.org/html/rfc2426#section-3.6
             """
             # UNIMPLEMENTED:
@@ -1508,17 +1521,17 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             notes = self.valuesForAttribute(dsattributes.kDS1AttrComment, []) + self.valuesForAttribute(dsattributes.kDS1AttrNote, []);
             if len(notes):
                 vcard.addProperty(Property("NOTE", "\n".join(notes),))
-    
+
             # 3.6.3 PRODID Type Definition
             #vcard.addProperty(Property("PRODID", vCardProductID + "//BUILD %s" % twistedcaldav.__version__))
             #vcard.addProperty(Property("PRODID", vCardProductID))
             # ADDED WITH CONTSTANT PROPERTIES
-            
+
             # 3.6.4 REV Type Definition
             revDate = self.isoDateStringForDateAttribute(dsattributes.kDS1AttrModificationTimestamp)
             if revDate:
                 vcard.addProperty(Property("REV", PyCalendarDateTime.parseText(revDate, fullISO=True)))
-            
+
             """
             # UNIMPLEMENTED:
             # 3.6.5 SORT-STRING Type Definition
@@ -1528,31 +1541,31 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             # dsattributes.kDS1AttrGeneratedUID,        # Used for 36 character (128 bit) unique ID. Usually found in user, 
                                                         #      group, and computer records. An example value is "A579E95E-CDFE-4EBC-B7E7-F2158562170F".
                                                         #      The standard format contains 32 hex characters and four hyphen characters.
-                                                        
+
             vcard.addProperty(Property("UID", self.firstValueForAttribute(dsattributes.kDS1AttrGeneratedUID)))
-    
-    
+
+
             # 3.6.8 URL Type Definition 
             # dsattributes.kDSNAttrURL,                 # List of URLs.
             # dsattributes.kDS1AttrWeblogURI,           # Single-valued attribute that defines the URI of a user's weblog.
                                                         #     Usually found in user records (kDSStdRecordTypeUsers). 
                                                         #      Example: http://example.com/blog/jsmith
             for url in self.valuesForAttribute(dsattributes.kDS1AttrWeblogURI):
-                addPropertyAndLabel(groupCount, "weblog", "URL", url, parameters = {"TYPE": ["WEBLOG",]})
-    
+                addPropertyAndLabel(groupCount, "weblog", "URL", url, parameters={"TYPE": ["WEBLOG", ]})
+
             for url in self.valuesForAttribute(dsattributes.kDSNAttrURL):
-                addPropertyAndLabel(groupCount, "_$!<HomePage>!$_", "URL", url, parameters = {"TYPE": ["HOMEPAGE",]})
-    
-    
+                addPropertyAndLabel(groupCount, "_$!<HomePage>!$_", "URL", url, parameters={"TYPE": ["HOMEPAGE", ]})
+
+
             # 3.6.9 VERSION Type Definition
             # ALREADY ADDED
-    
+
             # 3.7 SECURITY TYPES http://tools.ietf.org/html/rfc2426#section-3.7
             # 3.7.1 CLASS Type Definition
             # ALREADY ADDED
-            
+
             # 3.7.2 KEY Type Definition
-            
+
             # dsattributes.kDSNAttrPGPPublicKey,        # Pretty Good Privacy public encryption key.
             # dsattributes.kDS1AttrUserCertificate,     # Attribute containing the binary of the user's certificate.
                                                         #       Usually found in user records. The certificate is data which identifies a user.
@@ -1566,19 +1579,19 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                                                         #       This data is attested to by a known party, and can be independently verified 
                                                         #       by a third party. SMIME certificates are often used for signed or encrypted
                                                         #       emails.
-    
+
             for key in self.valuesForAttribute(dsattributes.kDSNAttrPGPPublicKey):
-                addUniqueProperty(vcard, Property("KEY", key, params = {"ENCODING": ["b",], "TYPE": ["PGPPublicKey",]}), None, dsattributes.kDSNAttrPGPPublicKey, key)
-    
+                addUniqueProperty(vcard, Property("KEY", key, params={"ENCODING": ["b", ], "TYPE": ["PGPPublicKey", ]}), None, dsattributes.kDSNAttrPGPPublicKey, key)
+
             for key in self.valuesForAttribute(dsattributes.kDS1AttrUserCertificate):
-                addUniqueProperty(vcard, Property("KEY", key, params = {"ENCODING": ["b",], "TYPE": ["UserCertificate",]}), None, dsattributes.kDS1AttrUserCertificate, key)
-    
+                addUniqueProperty(vcard, Property("KEY", key, params={"ENCODING": ["b", ], "TYPE": ["UserCertificate", ]}), None, dsattributes.kDS1AttrUserCertificate, key)
+
             for key in self.valuesForAttribute(dsattributes.kDS1AttrUserPKCS12Data):
-                addUniqueProperty(vcard, Property("KEY", key, params = {"ENCODING": ["b",], "TYPE": ["UserPKCS12Data",]}), None, dsattributes.kDS1AttrUserPKCS12Data, key)
-    
+                addUniqueProperty(vcard, Property("KEY", key, params={"ENCODING": ["b", ], "TYPE": ["UserPKCS12Data", ]}), None, dsattributes.kDS1AttrUserPKCS12Data, key)
+
             for key in self.valuesForAttribute(dsattributes.kDS1AttrUserSMIMECertificate):
-                addUniqueProperty(vcard, Property("KEY", key, params = {"ENCODING": ["b",], "TYPE": ["UserSMIMECertificate",]}), None, dsattributes.kDS1AttrUserSMIMECertificate, key)
-    
+                addUniqueProperty(vcard, Property("KEY", key, params={"ENCODING": ["b", ], "TYPE": ["UserSMIMECertificate", ]}), None, dsattributes.kDS1AttrUserSMIMECertificate, key)
+
             """
             X- attributes, Address Book support
             """
@@ -1588,21 +1601,21 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                                                         #      Values should be prefixed with the appropriate IM type
                                                         #       ie. AIM:, Jabber:, MSN:, Yahoo:, or ICQ:
                                                         #       Usually found in user records (kDSStdRecordTypeUsers).
-            imNolabelParamTypes=("AIM", "FACEBOOK", "GAGU-GAGU", "GOOGLE TALK", "ICQ", "JABBER", "MSN", "QQ", "SKYPE", "YAHOO",)
+            imNolabelParamTypes = ("AIM", "FACEBOOK", "GAGU-GAGU", "GOOGLE TALK", "ICQ", "JABBER", "MSN", "QQ", "SKYPE", "YAHOO",)
             addPropertiesAndLabelsForPrefixedAttribute(groupCount=groupCount, propertyPrefix="X-", propertyName=None, defaultLabel="aim",
-                                                        nolabelParamTypes=imNolabelParamTypes, 
+                                                        nolabelParamTypes=imNolabelParamTypes,
                                                         attrType=dsattributes.kDSNAttrIMHandle,)
-            
-            
+
+
 
             # IMPP
             # Address Book's implementation of http://tools.ietf.org/html/rfc6350#section-6.4.3
             # adding IMPP property allows ab query report search on one property
             addPropertiesAndLabelsForPrefixedAttribute(groupCount=groupCount, propertyPrefix=None, propertyName="IMPP", defaultLabel="aim",
-                                                        specialParamType = "X-SERVICE-TYPE",
-                                                        nolabelParamTypes=imNolabelParamTypes, 
+                                                        specialParamType="X-SERVICE-TYPE",
+                                                        nolabelParamTypes=imNolabelParamTypes,
                                                         attrType=dsattributes.kDSNAttrIMHandle,)
-                    
+
             # X-ABRELATEDNAMES
             # dsattributes.kDSNAttrRelationships,       #      multi-valued attribute that defines the relationship to the record type .
                                                         #      found in user records (kDSStdRecordTypeUsers). 
@@ -1619,9 +1632,9 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                                                             "PARTNER":"_$!<Partner>!$_",
                                                             "ASSISTANT":"_$!<Assistant>!$_",
                                                             "MANAGER":"_$!<Manager>!$_", },
-                                                        attrType=dsattributes.kDSNAttrRelationships, )
-            
-            
+                                                        attrType=dsattributes.kDSNAttrRelationships,)
+
+
             # special case for Apple
             if self.appleInternalServer:
                 for manager in self.valuesForAttribute("dsAttrTypeNative:appleManager"):
@@ -1632,17 +1645,17 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                         managerValue = "%s %s" % (splitManager[0], splitManager[1])
                     else:
                         managerValue = manager
-                    addPropertyAndLabel( groupCount, "_$!<Manager>!$_", "X-ABRELATEDNAMES", managerValue, parameters={ "TYPE": ["MANAGER",]} )
-            
- 
+                    addPropertyAndLabel(groupCount, "_$!<Manager>!$_", "X-ABRELATEDNAMES", managerValue, parameters={ "TYPE": ["MANAGER", ]})
+
+
             # add apple-defined group vcard properties if record type is group
             if self.kind == "group":
                 vcard.addProperty(Property("X-ADDRESSBOOKSERVER-KIND", "group"))
-            
+
             # add members
             for memberguid in self.valuesForAttribute(dsattributes.kDSNAttrGroupMembers):
                 vcard.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", "urn:uuid:" + memberguid))
-    
+
             """
             # UNIMPLEMENTED: X- attributes
             
@@ -1663,15 +1676,15 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             dsattributes.kDSNAttrMIME,                  # Data contained in this attribute type is a fully qualified MIME Type. 
             
             """
-            
+
             # 2.1.4 SOURCE Type http://tools.ietf.org/html/rfc2426#section-2.1.4
             #    If the SOURCE type is present, then its value provides information
             #    how to find the source for the vCard.
-            
+
             # add the source, so that if the SOURCE is copied out and preserved, the client can refresh information
             # However, client should really do a ab-query report matching UID on /directory/ not a multiget.
             uri = joinURL(self._directoryBackedAddressBook.uri, vcard.propertyValue("UID") + ".vcf")
-            
+
             # seems like this should be in some standard place.
             if config.EnableSSL and config.SSLPort:
                 if config.SSLPort == 443:
@@ -1680,18 +1693,18 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                     source = "https://%s:%s%s" % (config.ServerHostName, config.SSLPort, uri)
             else:
                 if config.HTTPPort == 80:
-                    source = "http://%s%s" % (config.ServerHostName, uri) 
+                    source = "http://%s%s" % (config.ServerHostName, uri)
                 else:
                     source = "http://%s:%s%s" % (config.ServerHostName, config.HTTPPort, uri)
             vcard.addProperty(Property("SOURCE", source))
-                       
+
             #  in 4.0 spec: 
             # 6.1.4.  KIND http://tools.ietf.org/html/rfc6350#section-6.1.4
             # 
             # see also: http://www.iana.org/assignments/vcard-elements/vcard-elements.xml
             #
             vcard.addProperty(Property("KIND", self.kind))
-            
+
             # one more X- related to kind
             if self.kind == "org":
                 vcard.addProperty(Property("X-ABShowAs", "COMPANY"))
@@ -1701,40 +1714,40 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             if self.addDSAttrXProperties:
                 for attribute in self.originalAttributes:
                     for value in self.valuesForAttribute(attribute):
-                        vcard.addProperty(Property("X-"+"-".join(attribute.split(":")), removeControlChars(value)))
-    
+                        vcard.addProperty(Property("X-" + "-".join(attribute.split(":")), removeControlChars(value)))
+
             return vcard
 
-        
+
         if not self._vCard:
             self._vCard = generateVCard()
-        
+
         return self._vCard
-    
+
     def vCardText(self):
         return str(self.vCard())
-    
+
     def uri(self):
         return self.vCard().propertyValue("UID") + ".vcf"
-        
+
     def hRef(self, parentURI=None):
         return davxml.HRef.fromString(joinURL(parentURI if parentURI else  self._directoryBackedAddressBook.uri, self.uri()))
- 
-                       
+
+
     def readProperty(self, property, request):
-        
+
         if type(property) is tuple:
             qname = property
         else:
             qname = property.qname()
         namespace, name = qname
-                
+
         if namespace == dav_namespace:
             if name == "resourcetype":
                 result = davxml.ResourceType.empty #@UndefinedVariable
                 return result
             elif name == "getetag":
-                result = davxml.GETETag( ETag(hashlib.md5(self.vCardText()).hexdigest()).generate() )
+                result = davxml.GETETag(ETag(hashlib.md5(self.vCardText()).hexdigest()).generate())
                 return result
             elif name == "getcontenttype":
                 mimeType = MimeType('text', 'vcard', {})
@@ -1785,8 +1798,8 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
 
         # Add dynamic live properties that exist
         dynamicLiveProperties = (
-            (dav_namespace, "quota-available-bytes"     ),
-            (dav_namespace, "quota-used-bytes"          ),
+            (dav_namespace, "quota-available-bytes"),
+            (dav_namespace, "quota-used-bytes"),
         )
         for dqname in dynamicLiveProperties:
             qnames.remove(dqname)
@@ -1796,12 +1809,12 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                 qnames.add(qname)
 
         yield qnames
-        
+
     listProperties = deferredGenerator(listProperties)
-    
+
 # utility
 #remove illegal XML
-def removeControlChars( utf8String ):
+def removeControlChars(utf8String):
     result = ''.join([c for c in utf8String if c not in "\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0c\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"])
     return result
 

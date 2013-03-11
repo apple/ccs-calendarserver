@@ -245,7 +245,7 @@ directoryAddressBookBackingServiceDefaultParams = {
         "authMethod": "LDAP",
         "rdnSchema": {
             "base": "dc=example,dc=com",
-            "queryTypes": ("people", ),
+            "queryTypes": ("people",),
             "people": {
                 "rdn": "ou=People",
                 "attr": "uid", # used only to synthesize email address
@@ -547,8 +547,8 @@ DEFAULT_CONFIG = {
         "Enabled" : True,
         "Seconds" : 60, # How often to check memory sizes (in seconds)
         "Bytes"   : 2 * 1024 * 1024 * 1024, # Memory limit (RSS in bytes)
-        "ResidentOnly" : True,  # True: only take into account resident memory;
-                                # False: include virtual memory
+        "ResidentOnly" : True, # True: only take into account resident memory;
+                              # False: include virtual memory
     },
 
     #
@@ -681,7 +681,7 @@ DEFAULT_CONFIG = {
             "Enabled"          : False, # iSchedule protocol
             "AddressPatterns"  : [], # Reg-ex patterns to match iSchedule-able calendar user addresses
             "RemoteServers"    : "remoteservers.xml", # iSchedule server configurations
-            "SerialNumber"     : 1,  # Capabilities serial number
+            "SerialNumber"     : 1, # Capabilities serial number
             "DNSDebug"         : "", # File where a fake Bind zone exists for creating fake DNS results
             "DKIM"             : {      # DKIM options
                 "Enabled"               : True, # DKIM signing/verification enabled
@@ -992,7 +992,7 @@ DEFAULT_CONFIG = {
     # DirectoryService.framework)
     # "calendarserver.platform.darwin.od.opendirectory" is the new PyObjC
     # version which uses OpenDirectory.framework
-    "OpenDirectoryModule": "opendirectory",
+    "OpenDirectoryModule": "calendarserver.platform.darwin.od.opendirectory",
 
     # The RootResource uses a twext property store. Specify the class here
     "RootResourcePropStoreClass": "twext.web2.dav.xattrprops.xattrPropertyStore",
