@@ -57,7 +57,7 @@ from twext.web2.dav.http import ErrorResponse
 from twext.web2.http_headers import MimeType, ETag
 from twext.web2.stream import MemoryStream
 
-from twistedcaldav import caldavxml, customxml, carddavxml, mkcolxml
+from twistedcaldav import caldavxml, customxml, carddavxml
 from twistedcaldav.cache import PropfindCacheMixin, DisabledCacheNotifier, \
     CacheStoreNotifier
 from twistedcaldav.caldavxml import caldav_namespace
@@ -2731,7 +2731,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
 
 
 
-class AddressBookHomeResource (CommonHomeResource, CalDAVComplianceMixIn):
+class AddressBookHomeResource (CommonHomeResource):
     """
     Address book home collection resource.
     """
@@ -2739,16 +2739,10 @@ class AddressBookHomeResource (CommonHomeResource, CalDAVComplianceMixIn):
 
     def __init__(self, *args, **kw):
         super(AddressBookHomeResource, self).__init__(*args, **kw)
+        # get some Access header items
         self.http_MKCOL = None
         self.http_MKCALENDAR = None
-
-
-    def davComplianceClasses(self):
-        result = super(CalDAVComplianceMixIn, self).davComplianceClasses()
-        if mkcolxml.mkcol_compliance in result:
-            list(result).remove(mkcolxml.mkcol_compliance)
-        return tuple(result)
-
+        
 
     @classmethod
     @inlineCallbacks

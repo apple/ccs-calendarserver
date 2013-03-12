@@ -33,14 +33,13 @@ from twext.web2.http_headers import ETag, MimeType
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
-from twistedcaldav import mkcolxml
 from twistedcaldav.config import config
 from twistedcaldav.directory.idirectory import IDirectoryService
 
-from twistedcaldav.directory.common import CommonUIDProvisioningResource, \
+from twistedcaldav.directory.common import CommonUIDProvisioningResource,\
     uidsResourceName, CommonHomeTypeProvisioningResource
 
-from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource, \
+from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource,\
     DAVResourceWithChildrenMixin
 from twistedcaldav.resource import AddressBookHomeResource
 
@@ -52,12 +51,10 @@ log = Logger()
 # FIXME: copied from resource.py to avoid circular dependency
 class CalDAVComplianceMixIn(object):
     def davComplianceClasses(self):
-        result = tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses()) \
+        return (
+            tuple(super(CalDAVComplianceMixIn, self).davComplianceClasses())
             + config.CalDAVComplianceClasses
-        if mkcolxml.mkcol_compliance in result:
-            list(result).remove(mkcolxml.mkcol_compliance)
-        return tuple(result)
-
+        )
 
 class DirectoryAddressBookProvisioningResource (
     ReadOnlyResourceMixIn,
@@ -132,7 +129,7 @@ class DirectoryAddressBookHomeProvisioningResource (
     ##
     # DAV
     ##
-
+    
     def isCollection(self):
         return True
 
@@ -186,7 +183,7 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
     ##
     # DAV
     ##
-
+    
     def isCollection(self):
         return True
 
