@@ -45,7 +45,8 @@ class RenderMixin(object):
         @return: A tuple of HTTP methods that are allowed to be invoked on this resource.
         """
         if not hasattr(self, "_allowed_methods"):
-            self._allowed_methods = tuple([name[5:] for name in dir(self) if name.startswith('http_')])
+            self._allowed_methods = tuple([name[5:] for name in dir(self) 
+                if name.startswith('http_') and getattr(self, name) is not None])
         return self._allowed_methods
 
     def checkPreconditions(self, request):
@@ -189,7 +190,7 @@ class Resource(RenderMixin):
         of this resource which matches one or more of the given C{segments} in
         sequence, and a list of remaining segments.
         """
-        w = getattr(self, 'child_%s' % (segments[0], ), None)
+        w = getattr(self, 'child_%s' % (segments[0],), None)
 
         if w:
             r = iweb.IResource(w, None)
@@ -227,12 +228,12 @@ class Resource(RenderMixin):
             resource (e.g. C{/foo/}) specify C{path} as C{""}.
         @param child: an object adaptable to L{iweb.IResource}.
         """
-        setattr(self, 'child_%s' % (path, ), child)
+        setattr(self, 'child_%s' % (path,), child)
 
     def http_GET(self, request):
         if self.addSlash and request.prepath[-1] != '':
             # If this is a directory-ish resource...
-            return http.RedirectResponse(request.unparseURL(path=request.path+'/'))
+            return http.RedirectResponse(request.unparseURL(path=request.path + '/'))
 
         return super(Resource, self).http_GET(request)
 
@@ -287,7 +288,7 @@ class RedirectResource(LeafResource):
         default to the corresponding component of the URL of the request being
         redirected.
         """
-        self._args   = args
+        self._args = args
         self._kwargs = kwargs
 
     def renderHTTP(self, request):
@@ -302,7 +303,7 @@ class WrapperResource(object):
     implements(iweb.IResource)
 
     def __init__(self, resource):
-        self.resource=resource
+        self.resource = resource
 
     def hook(self, request):
         """

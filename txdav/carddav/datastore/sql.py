@@ -395,7 +395,8 @@ class AddressBook(CommonHomeChild, SharingMixIn):
             #raise HomeChildNameAlreadyExistsError
             pass
         else:
-            raise HomeChildNameNotAllowedError
+            #raise HomeChildNameNotAllowedError
+            raise HTTPError(FORBIDDEN)
 
 
     @inlineCallbacks
