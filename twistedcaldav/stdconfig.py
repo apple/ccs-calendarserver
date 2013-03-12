@@ -153,6 +153,7 @@ DEFAULT_SERVICE_PARAMS = {
         },
         "resourceSchema": {
             "resourceInfoAttr": None, # contains location/resource info
+            "autoAcceptGroupAttr": None, # auto accept group
         },
         "partitionSchema": {
             "serverIdAttr": None, # maps to augments server-id
