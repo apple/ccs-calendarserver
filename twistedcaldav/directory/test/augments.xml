@@ -186,4 +186,10 @@ limitations under the License.
     <enable-calendar>true</enable-calendar>
     <enable-login>true</enable-login>
   </record>
+  <record>
+    <uid>00599DAF-3E75-42DD-9DB7-52617E79943F</uid>
+    <enable>true</enable>
+    <enable-calendar>false</enable-calendar>
+    <enable-login>false</enable-login>
+  </record>
 </augments>
