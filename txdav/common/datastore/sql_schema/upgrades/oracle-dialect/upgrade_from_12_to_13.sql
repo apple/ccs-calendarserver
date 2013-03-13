@@ -22,13 +22,24 @@
 
 create sequence ATTACHMENT_ID_SEQ;
 
+alter table ATTACHMENT
+ drop primary key;
 
+-- not needed; DROPBOX_ID becomes nullable after dropping primary key above
+-- alter table ATTACHMENT
+--  modify (DROPBOX_ID null);
+
+-- We want ATTACHMENT_ID as a pkey, but can't yet since it needs unique values,
+-- and oracle can't set a default column value from a sequence
 alter table ATTACHMENT
- drop primary key ("DROPBOX_ID", "PATH");
+ add ("ATTACHMENT_ID" integer);
+
+-- fill in ATTACHMENT_ID with unique values from the sequence
+update ATTACHMENT set ATTACHMENT_ID = ATTACHMENT_ID_SEQ.nextval;
+
+-- now set ATTACHMENT_ID as primary key, which implies unique and not null
 alter table ATTACHMENT
- modify (DROPBOX_ID null);
-alter table ATTACHMENT
- add ("ATTACHMENT_ID" integer primary key);
+ add primary key(ATTACHMENT_ID);
 
 create table ATTACHMENT_CALENDAR_OBJECT (
     "ATTACHMENT_ID" integer not null references ATTACHMENT on delete cascade,
