@@ -32,7 +32,7 @@ log = Logger()
 
 class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
-    group = "PUSH_ID"
+    group = property(lambda self: self.pushID)
 
     @inlineCallbacks
     def doWork(self):
