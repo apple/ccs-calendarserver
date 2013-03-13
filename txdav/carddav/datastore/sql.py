@@ -54,8 +54,7 @@ from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
     _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema, \
     _BIND_MODE_OWN, _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, \
     _BIND_STATUS_DECLINED, _BIND_STATUS_INVITED
-from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
-    InternalDataStoreError
+from txdav.common.icommondatastore import InternalDataStoreError
 from txdav.xml.rfc2518 import ResourceType
 
 from zope.interface.declarations import implements
@@ -98,6 +97,7 @@ class AddressBookHome(CommonHome):
         home = cls._homeSchema
         return Select([home.RESOURCE_ID, home.HOME_RESOURCE_ID],
                       From=home, Where=home.OWNER_UID == Parameter("ownerUID"))
+
 
     @inlineCallbacks
     def initFromStore(self, no_cache=False):
@@ -253,6 +253,7 @@ class AddressBookHome(CommonHome):
         ownerHome = yield self._txn.homeWithResourceID(self._homeType, resourceID)
         returnValue(ownerHome)
 
+
     @classproperty
     def _syncTokenQuery(cls): #@NoSelf
         """
@@ -262,7 +263,7 @@ class AddressBookHome(CommonHome):
         bind = cls._bindSchema
         return Select(
             [Max(rev.REVISION)],
-            # active address books
+            # active shared address books
             From=Select(
                 [rev.REVISION],
                 From=rev,
@@ -276,13 +277,13 @@ class AddressBookHome(CommonHome):
                     )
                 ),
                 SetExpression=Union(
-                    # deleted address books
+                    # deleted shared address books
                     Select(
                         [rev.REVISION],
                         From=rev,
                         Where=(rev.HOME_RESOURCE_ID == Parameter("resourceID")).And(rev.RESOURCE_ID == None),
                         SetExpression=Union(
-                            # owned address book
+                            # owned address book: owned address book cannot be deleted: See AddressBook.remove()
                             Select(
                                 [rev.REVISION],
                                 From=rev,
@@ -443,7 +444,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
             yield self.unshare()  # storebridge should already have done this
 
-            # don't delete, as that will keep showing the same home synctoken/etag
+            # don't delete. Note that revision table is NOT queried for removes
             #yield self._deletedSyncToken()
             yield self._updateRevision(self.name())
 
