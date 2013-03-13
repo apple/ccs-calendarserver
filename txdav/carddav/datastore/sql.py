@@ -297,6 +297,40 @@ class AddressBookHome(CommonHome):
         )
 
 
+    @classproperty
+    def _changesQuery(cls): #@NoSelf
+        rev = cls._revisionsSchema
+        return Select(
+            [rev.RESOURCE_NAME, rev.DELETED],
+            From=rev,
+            Where=(rev.REVISION > Parameter("token")).And(
+                rev.HOME_RESOURCE_ID == Parameter("resourceID")).And(
+                rev.RESOURCE_ID == rev.HOME_RESOURCE_ID)
+        )
+
+    @inlineCallbacks
+    def changesSinceToken(self, token):
+        """
+        return list of (path, name, wasdeleted) of changes since token
+        Subclasses may override
+        """
+        results = [
+            (
+                self.addressbook().name(),
+                name if name else "",
+                wasdeleted
+            )
+            for name, wasdeleted in (
+                yield self._changesQuery.on(
+                    self._txn,
+                    resourceID=self._resourceID,
+                    token=token
+                )
+            )
+        ]
+        returnValue(results)
+
+
 AddressBookHome._register(EADDRESSBOOKTYPE)
 
 

@@ -1738,35 +1738,52 @@ class CommonHome(LoggingMixIn):
     def _changesQuery(cls): #@NoSelf
         bind = cls._bindSchema
         rev = cls._revisionsSchema
-        return Select([bind.RESOURCE_NAME, rev.COLLECTION_NAME,
-                       rev.RESOURCE_NAME, rev.DELETED],
-                      From=rev.join(
-                          bind,
-                          (bind.HOME_RESOURCE_ID ==
-                           Parameter("resourceID")).And(
-                               rev.RESOURCE_ID ==
-                               bind.RESOURCE_ID),
-                          'left outer'),
-                      Where=(rev.REVISION > Parameter("token")).And(
-                          rev.HOME_RESOURCE_ID ==
-                          Parameter("resourceID")))
+        return Select(
+            [bind.RESOURCE_NAME,
+             rev.COLLECTION_NAME,
+             rev.RESOURCE_NAME,
+             rev.DELETED],
+            From=rev.join(
+                bind,
+                (
+                    bind.HOME_RESOURCE_ID == Parameter("resourceID")).And(
+                    rev.RESOURCE_ID == bind.RESOURCE_ID
+                ), 'left outer'
+            ),
+            Where=(rev.REVISION > Parameter("token")).And(
+                rev.HOME_RESOURCE_ID ==
+                Parameter("resourceID")
+            )
+        )
 
 
     @inlineCallbacks
-    def resourceNamesSinceToken(self, token, depth): #@UnusedVariable
-
+    def changesSinceToken(self, token):
+        """
+        return list of (path, name, wasdeleted) of changes since token
+        Subclasses may override
+        """
         results = [
             (
                 path if path else (collection if collection else ""),
                 name if name else "",
                 wasdeleted
             )
-            for path, collection, name, wasdeleted in
-            (yield self._changesQuery.on(self._txn,
-                                         resourceID=self._resourceID,
-                                         token=token))
+            for path, collection, name, wasdeleted in (
+                yield self._changesQuery.on(
+                    self._txn,
+                    resourceID=self._resourceID,
+                    token=token
+                )
+            )
         ]
+        returnValue(results)
 
+
+    @inlineCallbacks
+    def resourceNamesSinceToken(self, token, depth): #@UnusedVariable
+
+        results = yield self.changesSinceToken(token)
         deleted = []
         deleted_collections = set()
         changed_collections = set()
@@ -1785,30 +1802,24 @@ class CommonHome(LoggingMixIn):
                     changed_collections.add(path)
 
         # Now deal with shared collections
-        bind = self._bindSchema
         rev = self._revisionsSchema
-        shares = yield self.children()
-        for share in shares:
+        for share in (yield self.children()):
             if not share.owned():
                 sharetoken = 0 if share.name() in changed_collections else token
-                shareID = (yield Select(
-                    [bind.RESOURCE_ID], From=bind,
-                    Where=(bind.RESOURCE_NAME == share.name()).And(
-                        bind.HOME_RESOURCE_ID == self._resourceID).And(
-                            bind.BIND_MODE != _BIND_MODE_OWN)
-                ).on(self._txn))[0][0]
                 results = [
                     (
                         share.name(),
                         name if name else "",
                         wasdeleted
                     )
-                    for name, wasdeleted in
-                    (yield Select([rev.RESOURCE_NAME, rev.DELETED],
-                                     From=rev,
-                                    Where=(rev.REVISION > sharetoken).And(
-                                    rev.RESOURCE_ID == shareID)).on(self._txn))
-                    if name
+                    for name, wasdeleted in (
+                        yield Select(
+                            [rev.RESOURCE_NAME, rev.DELETED],
+                            From=rev,
+                            Where=(rev.REVISION > sharetoken).And(
+                                    rev.RESOURCE_ID == share._resourceID)
+                        ).on(self._txn)
+                    ) if name
                 ]
 
                 for path, name, wasdeleted in results:
