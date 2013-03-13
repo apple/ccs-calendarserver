@@ -56,7 +56,7 @@ class OpenDirectoryService(CachingDirectoryService):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
 
-    def __init__(self, params):
+    def __init__(self, params, odModule=None):
         """
         @param params: a dictionary containing the following keys:
 
@@ -95,7 +95,9 @@ class OpenDirectoryService(CachingDirectoryService):
         super(OpenDirectoryService, self).__init__(params['cacheTimeout'],
                                                    params['negativeCaching'])
 
-        self.odModule = namedModule(config.OpenDirectoryModule)
+        if odModule is None:
+            odModule = namedModule(config.OpenDirectoryModule)
+        self.odModule = odModule
 
         try:
             directory = self.odModule.odInit(params['node'])
@@ -1452,7 +1454,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
                     self.shortNames[0],
                     challenge,
                     response,
-                    credentials.originalMethod if credentials.originalMethod else credentials.method
+                    credentials.method
                 ):
                     try:
                         cache = self.digestcache
@@ -1470,7 +1472,8 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
     Challenge: %s
     Response:  %s
     Method:    %s
-""" % (self.nodeName, self.shortNames[0], challenge, response, credentials.originalMethod if credentials.originalMethod else credentials.method))
+""" % (self.nodeName, self.shortNames[0], challenge, response,
+       credentials.method))
 
             except self.service.odModule.ODError, e:
                 self.log_error(
