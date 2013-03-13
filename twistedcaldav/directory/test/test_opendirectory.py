@@ -106,7 +106,8 @@ else:
             )
 
             digestFields = {}
-            digested = DigestedCredentials("user", "GET", "example.com", digestFields, None)
+            digested = DigestedCredentials("user", "GET", "example.com",
+                                           digestFields)
 
             self.assertFalse(record.verifyCredentials(digested))
 
@@ -148,7 +149,8 @@ else:
 
             record.digestcache = {}
             record.digestcache["/"] = response
-            digested = DigestedCredentials("user", "GET", "example.com", digestFields, None)
+            digested = DigestedCredentials("user", "GET", "example.com",
+                                           digestFields)
 
             self.assertTrue(record.verifyCredentials(digested))
 
