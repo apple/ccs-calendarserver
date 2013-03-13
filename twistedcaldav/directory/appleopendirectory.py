@@ -59,14 +59,19 @@ class OpenDirectoryService(CachingDirectoryService):
     def __init__(self, params):
         """
         @param params: a dictionary containing the following keys:
-            node: an OpenDirectory node name to bind to.
-            restrictEnabledRecords: C{True} if a group in the
-              directory is to be used to determine which calendar
-              users are enabled.
-            restrictToGroup: C{str} guid or name of group used to
-              restrict enabled users.
-            cacheTimeout: C{int} number of minutes before cache is invalidated.
-            negativeCache: C{False} cache the fact that a record wasn't found
+
+            - node: an OpenDirectory node name to bind to.
+
+            - restrictEnabledRecords: C{True} if a group in the directory is to
+              be used to determine which calendar users are enabled.
+
+            - restrictToGroup: C{str} guid or name of group used to restrict
+              enabled users.
+
+            - cacheTimeout: C{int} number of minutes before cache is
+              invalidated.
+
+            - negativeCache: C{False} cache the fact that a record wasn't found
         """
         defaults = {
             'node' : '/Search',
