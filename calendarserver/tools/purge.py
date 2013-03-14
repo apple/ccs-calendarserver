@@ -792,9 +792,13 @@ class PurgePrincipalService(WorkerService):
             # FIXME: probably want a more elegant way to accomplish this,
             # since it requires the aggregate directory to examine these first:
             record = DirectoryRecord(self.directory, "users", uid, shortNames=(uid,), enabledForCalendaring=True)
-            record.enabled = True
             self.directory._tmpRecords["shortNames"][uid] = record
             self.directory._tmpRecords["uids"][uid] = record
+
+        # Override augments settings for this record
+        record.enabled = True
+        record.enabledForCalendaring = True
+        record.enabledForAddressBooks = True
 
         cua = "urn:uuid:%s" % (uid,)
 
