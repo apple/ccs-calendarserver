@@ -448,7 +448,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
             #yield self._deletedSyncToken()
             yield self._updateRevision(self.name())
 
-            self.properties()._removeResource()
+            yield self.properties()._removeResource()
             yield self._loadPropertyStore()
             self.properties()[
                 PropertyName.fromElement(ResourceType)

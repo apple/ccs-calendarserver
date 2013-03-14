@@ -49,7 +49,7 @@ while getopts 'hvrt:s:d:' option; do
     '?') usage; ;;
     'h') usage -; exit 0; ;;
     't')   cdt="${OPTARG}"; serverinfo="${OPTARG}/scripts/server/serverinfo.xml"; ;;
-    'd')   subdir="--subdir ${OPTARG} "; ;;
+    'd')   subdir="${OPTARG}"; ;;
     's')   serverinfo="${OPTARG}"; ;;
     'r')   printres="--always-print-request --always-print-response"; ;;
     'v')   verbose="v"; ;;
@@ -68,5 +68,5 @@ fi;
 
 source "${wd}/support/shell.sh";
 
-cd "${cdt}" && "${python}" testcaldav.py --print-details-onfail ${printres} -s "${serverinfo}" "${subdir}""$@";
+cd "${cdt}" && "${python}" testcaldav.py --print-details-onfail ${printres} -s "${serverinfo}" --subdir "${subdir}" "$@";
 

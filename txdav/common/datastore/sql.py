@@ -3307,7 +3307,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         yield self._deletedSyncToken()
         yield self._deleteQuery.on(self._txn, NoSuchHomeChildError,
                                    resourceID=self._resourceID)
-        self.properties()._removeResource()
+        yield self.properties()._removeResource()
 
         # Set to non-existent state
         self._resourceID = None
@@ -4187,7 +4187,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     def remove(self):
         yield self._deleteQuery.on(self._txn, NoSuchObjectResourceError,
                                    resourceID=self._resourceID)
-        self.properties()._removeResource()
+        yield self.properties()._removeResource()
 
         # Set to non-existent state
         self._resourceID = None
