@@ -30,7 +30,7 @@ import xml
 
 from twext.python.plistlib import readPlistFromString, writePlistToString
 from twistedcaldav.config import config, ConfigDict, ConfigurationError, mergeData
-from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE, DEFAULT_CONFIG
+from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 WRITABLE_CONFIG_KEYS = [
     "EnableSSL",
     "RedirectHTTPToHTTPS",
