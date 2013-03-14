@@ -1366,9 +1366,19 @@ def _updateNotifications(configDict, reloading=False):
             ):
                 if not service[protocol]["Topic"]:
                     certPath = service[protocol]["CertificatePath"]
-                    if certPath and os.path.exists(certPath):
-                        topic = getAPNTopicFromCertificate(certPath)
-                        service[protocol]["Topic"] = topic
+                    if certPath:
+                        if os.path.exists(certPath):
+                            topic = getAPNTopicFromCertificate(certPath)
+                            service[protocol]["Topic"] = topic
+                        else:
+                            log.error("APNS certificate not found: %s" %
+                                (certPath,))
+                    else:
+                        log.error("APNS certificate path not specified")
+
+                if not service[protocol]["Topic"]:
+                    log.error("APNS cannot proceed; disabling APNS")
+                    service["Enabled"] = False
 
                 # If we already have the cert passphrase, don't fetch it again
                 if service[protocol]["Passphrase"]:
@@ -1379,13 +1389,13 @@ def _updateNotifications(configDict, reloading=False):
                 try:
                     passphrase = getPasswordFromKeychain(accountName)
                     service[protocol]["Passphrase"] = passphrase
-                    log.info("%s APN certificate passphrase retreived from keychain" % (protocol,))
+                    log.info("%s APNS certificate passphrase retreived from keychain" % (protocol,))
                 except KeychainAccessError:
                     # The system doesn't support keychain
                     pass
                 except KeychainPasswordNotFound:
                     # The password doesn't exist in the keychain.
-                    log.info("%s APN certificate passphrase not found in keychain" % (protocol,))
+                    log.info("%s APNS certificate passphrase not found in keychain" % (protocol,))
 
 
 
