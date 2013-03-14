@@ -71,7 +71,7 @@ class AMPPushForwarder(LoggingMixIn):
         controlSocket.addFactory(PUSH_ROUTE, AMPPushForwardingFactory(self))
 
     @inlineCallbacks
-    def enqueue(self, id, dataChangedTimestamp=None):
+    def enqueue(self, transaction, id, dataChangedTimestamp=None):
         if dataChangedTimestamp is None:
             dataChangedTimestamp = int(time.time())
         for protocol in self.protocols:
@@ -92,7 +92,7 @@ class AMPPushMasterListeningProtocol(amp.AMP, LoggingMixIn):
     def enqueueFromWorker(self, id, dataChangedTimestamp=None):
         if dataChangedTimestamp is None:
             dataChangedTimestamp = int(time.time())
-        self.master.enqueue(id, dataChangedTimestamp=dataChangedTimestamp)
+        self.master.enqueue(None, id, dataChangedTimestamp=dataChangedTimestamp)
         return {"status" : "OK"}
  
 
@@ -145,7 +145,7 @@ class AMPPushMaster(LoggingMixIn):
         self.log_debug("Removed subscriber")
         self.subscribers.remove(p)
 
-    def enqueue(self, pushKey, dataChangedTimestamp=None):
+    def enqueue(self, transaction, pushKey, dataChangedTimestamp=None):
         """
         Sends an AMP push notification to any clients subscribing to this pushKey.
 

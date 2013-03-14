@@ -30,7 +30,7 @@ class StubService(object):
     def reset(self):
         self.history = []
 
-    def enqueue(self, id):
+    def enqueue(self, transaction, id):
         self.history.append(id)
         return(succeed(None))
 
@@ -40,7 +40,7 @@ class PushDistributorTests(TestCase):
     def test_enqueue(self):
         stub = StubService()
         dist = PushDistributor([stub])
-        yield dist.enqueue("testing")
+        yield dist.enqueue(None, "testing")
         self.assertEquals(stub.history, ["testing"])
 
     def test_getPubSubAPSConfiguration(self):
@@ -82,7 +82,7 @@ class StubDistributor(object):
     def reset(self):
         self.history = []
 
-    def enqueue(self, pushID):
+    def enqueue(self, transaction, pushID):
         self.history.append(pushID)
 
 class PushNotificationWorkTests(TestCase):
