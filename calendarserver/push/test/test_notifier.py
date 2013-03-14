@@ -117,6 +117,13 @@ class PushNotificationWorkTests(TestCase):
         wp = (yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
         ))
+        # Enqueue a different pushID to ensure those are not grouped with
+        # the others:
+        wp = (yield txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/baz/",
+        ))
+
         yield txn.commit()
         yield wp.whenExecuted()
-        self.assertEquals(pushDistributor.history, ["/CalDAV/localhost/bar/"])
+        self.assertEquals(pushDistributor.history,
+            ["/CalDAV/localhost/bar/", "/CalDAV/localhost/baz/"])
