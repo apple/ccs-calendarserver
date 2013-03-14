@@ -960,18 +960,18 @@ END:VCARD
                 adjustedReadWriteGroupIDs = readWriteGroupIDs
             returnValue((tuple(adjustedReadOnlyGroupIDs), tuple(adjustedReadWriteGroupIDs)))
 
-    ''' unused
+    #FIXME: Unused
     @inlineCallbacks
     def readOnlyGroupIDs(self):
         returnValue((yield self.accessControlGroupIDs())[0])
-    '''
+
 
     @inlineCallbacks
     def readWriteGroupIDs(self):
         returnValue((yield self.accessControlGroupIDs())[1])
 
 
-    ''' unused: may be good for future caching
+    #FIXME: Unused:  Use for caching access
     @inlineCallbacks
     def accessControlObjectIDs(self):
         readOnlyIDs = set()
@@ -1004,21 +1004,24 @@ END:VCARD
         returnValue(tuple(readOnlyIDs), tuple(readWriteIDs))
 
 
+    #FIXME: Unused:  Use for caching access
     @inlineCallbacks
     def readOnlyObjectIDs(self):
         returnValue((yield self.accessControlObjectIDs())[1])
 
 
+    #FIXME: Unused:  Use for caching access
     @inlineCallbacks
     def readWriteObjectIDs(self):
         returnValue((yield self.accessControlObjectIDs())[1])
 
 
+    #FIXME: Unused:  Use for caching access
     @inlineCallbacks
     def allObjectIDs(self):
         readOnlyIDs, readWriteIDs = yield self.accessControlObjectIDs()
         returnValue((readOnlyIDs + readWriteIDs))
-    '''
+
 
     @inlineCallbacks
     def updateShare(self, shareeView, mode=None, status=None, message=None, name=None):
