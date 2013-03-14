@@ -353,7 +353,7 @@ class TransactionStatsCollector(object):
             toFile.write("\n")
             toFile.write("SQL: %s\n" % (sql,))
             toFile.write("Rows: %s\n" % (rows,))
-            toFile.write("Time (ms): %.3f\n" % (t,))
+            toFile.write("Time (ms): %.3f\n" % (t * 1000.0,))
         toFile.write("***\n\n")
 
         if self.logFileName:
