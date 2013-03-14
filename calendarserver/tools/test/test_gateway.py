@@ -29,10 +29,10 @@ from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tools.util import getDirectory
 
 
-class GatewayTestCase(TestCase):
+class RunCommandTestCase(TestCase):
 
     def setUp(self):
-        super(GatewayTestCase, self).setUp()
+        super(RunCommandTestCase, self).setUp()
 
         testRoot = os.path.join(os.path.dirname(__file__), "gateway")
         templateName = os.path.join(testRoot, "caldavd.plist")
@@ -42,6 +42,7 @@ class GatewayTestCase(TestCase):
 
         newConfig = template % {
             "ServerRoot" : os.path.abspath(config.ServerRoot),
+            "WritablePlist" : os.path.join(os.path.abspath(config.ConfigRoot), "caldavd-writable.plist"),
         }
         configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
         configFilePath.setContent(newConfig)
@@ -71,7 +72,8 @@ class GatewayTestCase(TestCase):
         return d
 
     @inlineCallbacks
-    def runCommand(self, command, error=False):
+    def runCommand(self, command, error=False,
+        script="calendarserver_command_gateway"):
         """
         Run the given command by feeding it as standard input to
         calendarserver_command_gateway in a subprocess.
@@ -82,9 +84,9 @@ class GatewayTestCase(TestCase):
 
         sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         python = sys.executable
-        gateway = os.path.join(sourceRoot, "bin", "calendarserver_command_gateway")
+        script = os.path.join(sourceRoot, "bin", script)
 
-        args = [python, gateway, "-f", self.configFileName]
+        args = [python, script, "-f", self.configFileName]
         if error:
             args.append("--error")
 
@@ -100,6 +102,9 @@ class GatewayTestCase(TestCase):
             raise
 
         returnValue(plist)
+
+
+class GatewayTestCase(RunCommandTestCase):
 
     @inlineCallbacks
     def test_getLocationList(self):
@@ -285,6 +290,7 @@ class GatewayTestCase(TestCase):
         self.assertEquals(results["result"]["RetainDays"], 42)
         results = yield self.runCommand(command_purgeOldEventsNoDays)
         self.assertEquals(results["result"]["RetainDays"], 365)
+
 
 
 command_addReadProxy = """<?xml version="1.0" encoding="UTF-8"?>

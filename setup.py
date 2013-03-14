@@ -132,7 +132,7 @@ def doSetup():
                              "bin/calendarserver_backup",
                              "bin/calendarserver_bootstrap_database",
                              "bin/calendarserver_command_gateway",
-                            #"bin/calendarserver_config", # Used by run script.
+                             "bin/calendarserver_config",
                             #"bin/calendarserver_dbinspect",
                             #"bin/calendarserver_dkimtool",
                              "bin/calendarserver_export",
