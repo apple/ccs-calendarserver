@@ -88,7 +88,7 @@ class SharedResourceMixin(object):
                 )
 
             # See if this property is on the shared calendar
-            isShared = yield self.isShared(request)
+            isShared = self.isShared(request)
             if isShared:
                 yield self.validateInvites(request)
                 invitations = yield self._allInvitations()
@@ -146,7 +146,7 @@ class SharedResourceMixin(object):
 
     @inlineCallbacks
     def changeUserInviteState(self, request, inviteUID, shareeUID, state, summary=None):
-        shared = (yield self.isShared(request))
+        shared = self.isShared(request)
         if not shared:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -241,13 +241,24 @@ class SharedResourceMixin(object):
         returnValue(response)
 
 
-    @inlineCallbacks
-    def isShared(self, request):
+    def isShared(self, request): #@UnusedVariable
         """
-        Return True if this is an owner shared calendar collection.
+        Return True if this is an owner shared resource
+        Similar to self.isSpecialCollection() but also allows groups
         """
-        returnValue((yield self.isSpecialCollection(customxml.SharedOwner)) or
-                    bool((yield self._allInvitations()))) # same as, len(SharedAs() + InvitedAs())
+
+        if not self.isCollection() and not self.isGroup():
+            return False
+
+        try:
+            resourcetype = self.resourceType()
+        except HTTPError, e:
+            assert e.response.code == responsecode.NOT_FOUND, (
+                "Unexpected response code: %s" % (e.response.code,)
+            )
+            return False
+
+        return bool(resourcetype.childrenOfType(customxml.SharedOwner))
 
 
     def setShare(self, share):
@@ -614,6 +625,7 @@ class SharedResourceMixin(object):
 
         returnValue(self._invitations)
 
+
     @inlineCallbacks
     def _invitationForShareeUID(self, shareeUID):
         """
@@ -639,7 +651,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def inviteSingleUserToShare(self, userid, cn, ace, summary, request):
+    def inviteSingleUserToShare(self, userid, cn, ace, summary, request):  #@UnusedVariable
 
         # We currently only handle local users
         sharee = self.principalForCalendarUserAddress(userid)
@@ -664,7 +676,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def uninviteSingleUserFromShare(self, userid, aces, request):
+    def uninviteSingleUserFromShare(self, userid, aces, request):  #@UnusedVariable
         # Cancel invites - we'll just use whatever userid we are given
 
         sharee = self.principalForCalendarUserAddress(userid)
@@ -709,7 +721,7 @@ class SharedResourceMixin(object):
         returnValue(True)
 
 
-    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request):
+    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request):  #@UnusedVariable
 
         # Just update existing
         return self.inviteSingleUserToShare(userid, commonName, aceNEW, summary, request)
@@ -904,7 +916,7 @@ class SharedResourceMixin(object):
         numRecords = (yield self.validateInvites(request))
 
         # Set the sharing state on the collection
-        shared = (yield self.isShared(request))
+        shared = self.isShared(request)
         if shared and numRecords == 0:
             yield self.downgradeFromShare(request)
         elif not shared and numRecords != 0:
