@@ -33,7 +33,7 @@ class ConfigurationError(RuntimeError):
 class ConfigDict(dict):
     """
     Dictionary which can be accessed using attribute syntax, because
-    that reads an writes nicer in code.  For example:
+    that reads and writes nicer in code.  For example:
       C{config.Thingo.Tiny.Tweak}
     instead of:
       C{config["Thingo"]["Tiny"]["Tweak"]}
@@ -211,7 +211,7 @@ class Config(object):
         self.reset()
 
     def updateDefaults(self, items):
-        _mergeData(self._provider.getDefaults(), items)
+        mergeData(self._provider.getDefaults(), items)
         self.update(items)
 
     def update(self, items=None, reloading=False):
@@ -225,7 +225,7 @@ class Config(object):
         # Call hooks
         for hook in self._preUpdateHooks:
             hook(self._data, items, reloading=reloading)
-        _mergeData(self._data, items)
+        mergeData(self._data, items)
         for hook in self._postUpdateHooks:
             hook(self._data, reloading=reloading)
 
@@ -234,7 +234,7 @@ class Config(object):
 
     def load(self, configFile):
         self._provider.setConfigFileName(configFile)
-        configDict = ConfigDict(self._provider.loadConfig())
+        configDict = self._provider.loadConfig()
         if not self._provider.hasErrors():
             self.update(configDict)
         else:
@@ -242,7 +242,7 @@ class Config(object):
                                      % (self._provider.getConfigFileName(),))
 
     def reload(self):
-        configDict = ConfigDict(self._provider.loadConfig())
+        configDict = self._provider.loadConfig()
         if not self._provider.hasErrors():
             if self._beforeResetHook:
                 # Give the beforeResetHook a chance to stash away values we want
@@ -263,7 +263,15 @@ class Config(object):
         self._data = ConfigDict(copy.deepcopy(self._provider.getDefaults()))
         self._dirty = True
 
-def _mergeData(oldData, newData):
+def mergeData(oldData, newData):
+    """
+    Merge two ConfigDict objects; oldData will be updated with all the keys
+    and values from newData
+    @param oldData: the object to modify
+    @type oldData: ConfigDict
+    @param newData: the object to copy data from
+    @type newData: ConfigDict
+    """
     for key, value in newData.iteritems():
         if isinstance(value, (dict,)):
             if key in oldData:
@@ -271,7 +279,7 @@ def _mergeData(oldData, newData):
                     "%r in %r is not a ConfigDict" % (oldData[key], oldData)
             else:
                 oldData[key] = {}
-            _mergeData(oldData[key], value)
+            mergeData(oldData[key], value)
         else:
             oldData[key] = value
 

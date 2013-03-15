@@ -29,8 +29,8 @@ from twext.python.log import Logger, InvalidLogLevelError
 from twext.python.log import clearLogLevels, setLogLevelForNamespace
 
 from twistedcaldav import caldavxml, customxml, carddavxml, mkcolxml
-from twistedcaldav.config import ConfigProvider, ConfigurationError
-from twistedcaldav.config import config, _mergeData, fullServerPath
+from twistedcaldav.config import ConfigProvider, ConfigurationError, ConfigDict
+from twistedcaldav.config import config, mergeData, fullServerPath
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 
@@ -41,7 +41,7 @@ from calendarserver.push.util import getAPNTopicFromCertificate
 log = Logger()
 
 if platform.isMacOSX():
-    DEFAULT_CONFIG_FILE = "/Library/Server/Calendar and Contacts/Config/caldavd.plist"
+    DEFAULT_CONFIG_FILE = "/Applications/Server.app/Contents/ServerRoot/private/etc/caldavd/caldavd-apple.plist"
 else:
     DEFAULT_CONFIG_FILE = "/etc/caldavd/caldavd.plist"
 
@@ -153,6 +153,7 @@ DEFAULT_SERVICE_PARAMS = {
         },
         "resourceSchema": {
             "resourceInfoAttr": None, # contains location/resource info
+            "autoAcceptGroupAttr": None, # auto accept group
         },
         "partitionSchema": {
             "serverIdAttr": None, # maps to augments server-id
@@ -1010,7 +1011,10 @@ DEFAULT_CONFIG = {
     # America/Los_Angeles.
     "DefaultTimezone" : "",
 
+    # These two aren't relative to ConfigRoot:
     "Includes": [], # Other plists to parse after this one
+    "WritableConfigFile" : "", # which config file calendarserver_config should
+        # write to for changes; empty string means the main config file.
 }
 
 
@@ -1038,15 +1042,19 @@ class PListConfigProvider(ConfigProvider):
         configDict = {}
         if self._configFileName:
             configDict = self._parseConfigFromFile(self._configFileName)
+        configDict = ConfigDict(configDict)
         # Now check for Includes and parse and add each of those
         if "Includes" in configDict:
-            configRoot = os.path.join(configDict.ServerRoot, configDict.ConfigRoot)
             for include in configDict.Includes:
-                path = _expandPath(fullServerPath(configRoot, include))
-                additionalDict = self._parseConfigFromFile(path)
-                if additionalDict:
-                    log.info("Adding configuration from file: '%s'" % (path,))
-                    configDict.update(additionalDict)
+                # Includes are not relative to ConfigRoot
+                path = _expandPath(include)
+                if os.path.exists(path):
+                    additionalDict = ConfigDict(self._parseConfigFromFile(path))
+                    if additionalDict:
+                        log.info("Adding configuration from file: '%s'" % (path,))
+                        mergeData(configDict, additionalDict)
+                else:
+                    log.warn("Missing configuration file: '%s'" % (path,))
         return configDict
 
 
@@ -1061,7 +1069,6 @@ class PListConfigProvider(ConfigProvider):
         else:
             configDict = _cleanup(configDict, self._defaults)
         return configDict
-
 
 
 def _expandPath(path):
@@ -1102,7 +1109,6 @@ def _updateDataStore(configDict, reloading=False):
     Post-update configuration hook for making all configured paths relative to
     their respective root directories rather than the current working directory.
     """
-
     # Remove possible trailing slash from ServerRoot
     try:
         configDict["ServerRoot"] = configDict["ServerRoot"].rstrip("/")
@@ -1165,7 +1171,7 @@ def _preUpdateDirectoryService(configDict, items, reloading=False):
         if dsType == configDict.DirectoryService.type:
             oldParams = configDict.DirectoryService.params
             newParams = items.DirectoryService.get("params", {})
-            _mergeData(oldParams, newParams)
+            mergeData(oldParams, newParams)
         else:
             if dsType in DEFAULT_SERVICE_PARAMS:
                 configDict.DirectoryService.params = copy.deepcopy(DEFAULT_SERVICE_PARAMS[dsType])
@@ -1195,7 +1201,7 @@ def _preUpdateResourceService(configDict, items, reloading=False):
         if dsType == configDict.ResourceService.type:
             oldParams = configDict.ResourceService.params
             newParams = items.ResourceService.get("params", {})
-            _mergeData(oldParams, newParams)
+            mergeData(oldParams, newParams)
         else:
             if dsType in DEFAULT_RESOURCE_PARAMS:
                 configDict.ResourceService.params = copy.deepcopy(DEFAULT_RESOURCE_PARAMS[dsType])
@@ -1227,7 +1233,7 @@ def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items, rel
         if dsType == configDict.DirectoryAddressBook.type:
             oldParams = configDict.DirectoryAddressBook.params
             newParams = items["DirectoryAddressBook"].get("params", {})
-            _mergeData(oldParams, newParams)
+            mergeData(oldParams, newParams)
         else:
             if dsType in directoryAddressBookBackingServiceDefaultParams:
                 configDict.DirectoryAddressBook.params = copy.deepcopy(directoryAddressBookBackingServiceDefaultParams[dsType])
@@ -1238,7 +1244,7 @@ def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items, rel
         if param not in directoryAddressBookBackingServiceDefaultParams[dsType]:
             raise ConfigurationError("Parameter %s is not supported by service %s" % (param, dsType))
 
-    _mergeData(configDict, items)
+    mergeData(configDict, items)
 
     for param in tuple(configDict.DirectoryAddressBook.params):
         if param not in directoryAddressBookBackingServiceDefaultParams[configDict.DirectoryAddressBook.type]:
@@ -1401,9 +1407,19 @@ def _updateNotifications(configDict, reloading=False):
             ):
                 if not service[protocol]["Topic"]:
                     certPath = service[protocol]["CertificatePath"]
-                    if certPath and os.path.exists(certPath):
-                        topic = getAPNTopicFromCertificate(certPath)
-                        service[protocol]["Topic"] = topic
+                    if certPath:
+                        if os.path.exists(certPath):
+                            topic = getAPNTopicFromCertificate(certPath)
+                            service[protocol]["Topic"] = topic
+                        else:
+                            log.error("APNS certificate not found: %s" %
+                                (certPath,))
+                    else:
+                        log.error("APNS certificate path not specified")
+
+                if not service[protocol]["Topic"]:
+                    log.error("APNS cannot proceed; disabling APNS")
+                    service["Enabled"] = False
 
                 # If we already have the cert passphrase, don't fetch it again
                 if service[protocol]["Passphrase"]:
@@ -1414,13 +1430,13 @@ def _updateNotifications(configDict, reloading=False):
                 try:
                     passphrase = getPasswordFromKeychain(accountName)
                     service[protocol]["Passphrase"] = passphrase
-                    log.info("%s APN certificate passphrase retreived from keychain" % (protocol,))
+                    log.info("%s APNS certificate passphrase retreived from keychain" % (protocol,))
                 except KeychainAccessError:
                     # The system doesn't support keychain
                     pass
                 except KeychainPasswordNotFound:
                     # The password doesn't exist in the keychain.
-                    log.info("%s APN certificate passphrase not found in keychain" % (protocol,))
+                    log.info("%s APNS certificate passphrase not found in keychain" % (protocol,))
 
 
 

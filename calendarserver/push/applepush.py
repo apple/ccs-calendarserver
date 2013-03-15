@@ -176,7 +176,7 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
 
 
     @inlineCallbacks
-    def enqueue(self, pushKey, dataChangedTimestamp=None):
+    def enqueue(self, transaction, pushKey, dataChangedTimestamp=None):
         """
         Sends an Apple Push Notification to any device token subscribed to
         this pushKey.
@@ -207,9 +207,7 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
         if provider is not None:
 
             # Look up subscriptions for this key
-            txn = self.store.newTransaction()
-            subscriptions = (yield txn.apnSubscriptionsByKey(pushKey))
-            yield txn.commit()
+            subscriptions = (yield transaction.apnSubscriptionsByKey(pushKey))
 
             numSubscriptions = len(subscriptions)
             if numSubscriptions > 0:

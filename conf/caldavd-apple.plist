@@ -522,5 +522,13 @@
     <key>OpenDirectoryModule</key>
     <string>calendarserver.platform.darwin.od.opendirectory</string>
 
+    <key>Includes</key>
+    <array>
+        <string>/Library/Server/Calendar and Contacts/Config/caldavd-system.plist</string>
+        <string>/Library/Server/Calendar and Contacts/Config/caldavd-user.plist</string>
+    </array>
+    <key>WritableConfigFile</key>
+    <string>/Library/Server/Calendar and Contacts/Config/caldavd-system.plist</string>
+
   </dict>
 </plist>

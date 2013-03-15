@@ -32,7 +32,7 @@ log = Logger()
 
 class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
-    group = "PUSH_ID"
+    group = property(lambda self: self.pushID)
 
     @inlineCallbacks
     def doWork(self):
@@ -44,7 +44,7 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
         pushDistributor = self.transaction._pushDistributor
         if pushDistributor is not None:
-            yield pushDistributor.enqueue(self.pushID)
+            yield pushDistributor.enqueue(self.transaction, self.pushID)
 
 
 
@@ -204,12 +204,15 @@ class PushDistributor(object):
         self.observers = observers 
 
     @inlineCallbacks
-    def enqueue(self, pushKey):
+    def enqueue(self, transaction, pushKey):
         """
         Pass along enqueued pushKey to any observers
+
+        @param transaction: a transaction to use, if needed
+        @type transaction: L{CommonStoreTransaction}
 
         @param pushKey: the push key to distribute to the observers
         @type pushKey: C{str}
         """
         for observer in self.observers:
-            yield observer.enqueue(pushKey)
+            yield observer.enqueue(transaction, pushKey)

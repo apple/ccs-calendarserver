@@ -27,7 +27,7 @@ alter table CALENDAR_BIND
 alter table CALENDAR_BIND
  drop column SEEN_BY_SHAREE;
 alter table CALENDAR_BIND
- modify (ADDRESSBOOK_RESOURCE_NAME not null);
+ modify (CALENDAR_RESOURCE_NAME not null);
  
 alter table ADDRESSBOOK_BIND
  drop column SEEN_BY_OWNER;

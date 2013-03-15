@@ -21,6 +21,7 @@ import datetime
 from calendarserver.tap.util import FakeRequest
 import email.utils
 from twext.enterprise.dal.record import fromTable
+from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.queue import WorkItem
 from twext.python.log import Logger, LoggingMixIn
 from twisted.application import service
@@ -78,11 +79,15 @@ class IMIPReplyWork(WorkItem, fromTable(schema.IMIP_REPLY_WORK)):
 
 class IMIPPollingWork(WorkItem, fromTable(schema.IMIP_POLLING_WORK)):
 
-    # FIXME: delete all other polling work items
     # FIXME: purge all old tokens here
+    group = "imip_polling"
 
     @inlineCallbacks
     def doWork(self):
+
+        # Delete all other work items
+        yield Delete(From=self.table, Where=None).on(self.transaction)
+
         mailRetriever = self.transaction._mailRetriever
         if mailRetriever is not None:
             try:

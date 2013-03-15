@@ -19,6 +19,7 @@ try:
 except ImportError:
     pass
 else:
+    from collections import defaultdict
     from twisted.trial.unittest import SkipTest
     from twisted.internet.defer import inlineCallbacks
     from twisted.python.runtime import platform
@@ -28,6 +29,23 @@ else:
     from twistedcaldav.directory.directory import DirectoryService
     from twistedcaldav.directory.appleopendirectory import OpenDirectoryRecord
     from calendarserver.platform.darwin.od import dsattributes
+    from txdav.common.datastore.test.util import deriveValue, withSpecialValue
+
+    class DigestAuthModule(object):
+        """
+        Stand-in for either configurable OD module, that verifies the response
+        according to its '.response' attribute, set by the test.
+        """
+        class ODError(Exception):
+            pass
+
+        def odInit(self, node):
+            return self
+
+        def authenticateUserDigest(self, directory, node, user, challenge,
+                                   response, method):
+            val = (response == self.response)
+            return val
 
     # Wonky hack to prevent unclean reactor shutdowns
     class DummyReactor(object):
@@ -60,7 +78,8 @@ else:
                     {
                         "node" : "/Search",
                         "augmentService": augment.AugmentXMLDB(xmlFiles=()),
-                    }
+                    },
+                    odModule=deriveValue(self, "odModule", lambda self: None)
                 )
             except ImportError, e:
                 raise SkipTest("OpenDirectory module is not available: %s" % (e,))
@@ -87,6 +106,8 @@ else:
             )
             self.assertEquals(record.fullName, "")
 
+
+        @withSpecialValue("odModule", DigestAuthModule())
         def test_invalidODDigest(self):
             record = OpenDirectoryRecord(
                 service               = self.service(),
@@ -105,11 +126,16 @@ else:
                 extReadOnlyProxies    = [],
             )
 
-            digestFields = {}
-            digested = DigestedCredentials("user", "GET", "example.com", digestFields, None)
+            digestFields = defaultdict(lambda: "...")
+            digested = DigestedCredentials("user", "GET", "example.com",
+                                           digestFields)
+            od = deriveValue(self, "odModule", lambda x: None)
+            od.response = "invalid"
 
             self.assertFalse(record.verifyCredentials(digested))
 
+
+        @withSpecialValue("odModule", DigestAuthModule())
         def test_validODDigest(self):
             record = OpenDirectoryRecord(
                 service               = self.service(),
@@ -136,8 +162,8 @@ else:
                 "response":"123",
                 "algorithm":"md5",
             }
-
-            response = (
+            od = deriveValue(self, "odModule", lambda self: None)
+            od.response = (
                 'Digest username="%(username)s", '
                 'realm="%(realm)s", '
                 'nonce="%(nonce)s", '
@@ -146,9 +172,8 @@ else:
                 'algorithm=%(algorithm)s'
             ) % digestFields
 
-            record.digestcache = {}
-            record.digestcache["/"] = response
-            digested = DigestedCredentials("user", "GET", "example.com", digestFields, None)
+            digested = DigestedCredentials("user", "GET", "example.com",
+                                           digestFields)
 
             self.assertTrue(record.verifyCredentials(digested))
 
@@ -469,5 +494,6 @@ else:
                     "node" : "/Search",
                     "recordTypes" : (DirectoryService.recordType_users, DirectoryService.recordType_groups),
                     "augmentService" : augment.AugmentXMLDB(xmlFiles=()),
-                }
+                },
+                odModule=deriveValue(self, "odModule", lambda x: None)
             )
