@@ -220,6 +220,8 @@ class GroupMembershipTests (TestCase):
         self.assertEquals(
             groups,
             {
+                '00599DAF-3E75-42DD-9DB7-52617E79943F':
+                    set(['46D9D716-CBEE-490F-907A-66FA6C3767FF']),
                 '9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1':
                     set(['8B4288F6-CC82-491D-8EF9-642EF4F3E7D0']),
                 'admin':
@@ -250,6 +252,8 @@ class GroupMembershipTests (TestCase):
         self.assertEquals(
             aliases,
             {
+                '00599DAF-3E75-42DD-9DB7-52617E79943F':
+                    '00599DAF-3E75-42DD-9DB7-52617E79943F',
                 '9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1':
                     '9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1',
                  'admin': 'admin',
@@ -286,7 +290,7 @@ class GroupMembershipTests (TestCase):
 
         # Allow an update by unlocking the cache
         yield cache.releaseLock()
-        self.assertEquals((False, 8, 8), (yield updater.updateCache()))
+        self.assertEquals((False, 9, 9), (yield updater.updateCache()))
 
         # Verify cache is populated:
         self.assertTrue((yield cache.isPopulated()))
@@ -382,7 +386,7 @@ class GroupMembershipTests (TestCase):
         # that wsanchez is only a proxy for gemini (since that assignment does not involve groups)
         self.directoryService.xmlFile = dirTest.child("accounts-modified.xml")
         self.directoryService._alwaysStat = True
-        self.assertEquals((False, 7, 1), (yield updater.updateCache()))
+        self.assertEquals((False, 8, 1), (yield updater.updateCache()))
         delegate = self._getPrincipalByShortName(DirectoryService.recordType_users, "wsanchez")
         proxyFor = (yield delegate.proxyFor(True))
         self.assertEquals(
@@ -689,8 +693,8 @@ class GroupMembershipTests (TestCase):
         self.assertFalse((yield cache.isPopulated()))
         fast, numMembers, numChanged = (yield updater.updateCache(fast=True))
         self.assertEquals(fast, False)
-        self.assertEquals(numMembers, 8)
-        self.assertEquals(numChanged, 8)
+        self.assertEquals(numMembers, 9)
+        self.assertEquals(numChanged, 9)
         self.assertTrue(snapshotFile.exists())
         self.assertTrue((yield cache.isPopulated()))
 
@@ -708,7 +712,7 @@ class GroupMembershipTests (TestCase):
         # Try an update which faults in from the directory (fast=False)
         fast, numMembers, numChanged = (yield updater.updateCache(fast=False))
         self.assertEquals(fast, False)
-        self.assertEquals(numMembers, 8)
+        self.assertEquals(numMembers, 9)
         self.assertEquals(numChanged, 0)
 
         # Verify the snapshot contains the pickled dictionary we expect
@@ -716,6 +720,10 @@ class GroupMembershipTests (TestCase):
         self.assertEquals(
             members,
             {
+                "46D9D716-CBEE-490F-907A-66FA6C3767FF":
+                    set([
+                        u"00599DAF-3E75-42DD-9DB7-52617E79943F",
+                    ]),
                 "5A985493-EE2C-4665-94CF-4DFEA3A89500":
                     set([
                         u"non_calendar_group",

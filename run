@@ -190,20 +190,15 @@ run_main () {
 
   # If we've been asked to read a configuration key, just read it and exit.
   if [ -n "${read_key}" ]; then
-    "${caldav}/bin/calendarserver_config" "${read_key}";
+    value="$("${caldav}/bin/calendarserver_config" "${read_key}")";
+    IFS="="; set ${value}; echo "$2"; unset IFS;
     exit $?;
   fi;
 
   if "${kill}" || "${restart}"; then
-    # mimic logic of 'fullServerPath' from twistedcaldav/config.py to find the pid file
     pidfile="$("${caldav}/bin/calendarserver_config" "PIDFile")";
-    serverroot="$("${caldav}/bin/calendarserver_config" "ServerRoot")";
-    runroot="$("${caldav}/bin/calendarserver_config" "RunRoot")";
-    # examine first character of $pidfile
-    if ( [ "${pidfile:0:1}" == "/" ] || [ "${pidfile:0:1}" == "." ]; ) then
-        pidfile=$pidfile;
-        else pidfile=${serverroot}/${runroot}/${pidfile};
-    fi
+    # Split key and value on "=" and just grab the value
+    IFS="="; set ${pidfile}; pidfile="$2"; unset IFS;
     if [ ! -r "${pidfile}" ]; then
       echo "Unreadable PID file: ${pidfile}";
       exit 1

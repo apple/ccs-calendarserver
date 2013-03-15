@@ -1134,7 +1134,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Determine attachment mode (ignore inbox's) - NB we have to do this
             # after setting up other properties as UID at least is needed
             self._attachment = _ATTACHMENTS_MODE_NONE
-            if self._dropboxID is None:
+            if not self._dropboxID:
                 if self._parentCollection.name() != "inbox":
                     if component.hasPropertyInAnyComponent("X-APPLE-DROPBOX"):
                         self._attachment = _ATTACHMENTS_MODE_WRITE
@@ -1554,7 +1554,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         for managed_id in added:
             changed[managed_id] = newattached[managed_id]
 
-        if self._dropboxID is None:
+        if not self._dropboxID:
             self._dropboxID = str(uuid.uuid4())
         changes = yield self._addingManagedIDs(self._txn, self._parentCollection, self._dropboxID, changed, component.resourceUID())
 
@@ -1686,7 +1686,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             raise AttachmentStoreFailed
         yield t.loseConnection()
 
-        if self._dropboxID is None:
+        if not self._dropboxID:
             self._dropboxID = str(uuid.uuid4())
         attachment._objectDropboxID = self._dropboxID
 
@@ -2091,7 +2091,7 @@ class Attachment(object):
         @return: C{True} if this attachment exists, C{False} otherwise.
         """
         att = schema.ATTACHMENT
-        if self._dropboxID is not None:
+        if self._dropboxID:
             where = (att.DROPBOX_ID == self._dropboxID).And(
                    att.PATH == self._name)
         else:

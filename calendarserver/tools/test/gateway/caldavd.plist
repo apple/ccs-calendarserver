@@ -34,6 +34,14 @@
     <key>ServerHostName</key>
     <string></string> <!-- The hostname clients use when connecting -->
 
+    <!-- Enable Calendars -->
+    <key>EnableCalDAV</key>
+    <true/>
+
+    <!-- Enable AddressBooks -->
+    <key>EnableCardDAV</key>
+    <true/>
+
     <!-- HTTP port [0 = disable HTTP] -->
     <key>HTTPPort</key>
     <integer>8008</integer>
@@ -87,7 +95,7 @@
 
     <!-- Configuration root -->
     <key>ConfigRoot</key>
-    <string>/etc/caldavd</string>
+    <string>config</string>
 
     <!-- Log root -->
     <key>LogRoot</key>
@@ -496,65 +504,31 @@
 
       <key>Services</key>
       <dict>
-        <key>SimpleLineNotifier</key>
+
+        <key>APNS</key>
         <dict>
-          <!-- Simple line notification service (for testing) -->
-          <key>Service</key>
-          <string>twistedcaldav.notify.SimpleLineNotifierService</string>
           <key>Enabled</key>
           <false/>
-          <key>Port</key>
-          <integer>62308</integer>
-        </dict>
-
-        <key>XMPPNotifier</key>
-        <dict>
-          <!-- XMPP notification service -->
-          <key>Service</key>
-          <string>twistedcaldav.notify.XMPPNotifierService</string>
-          <key>Enabled</key>
-          <false/>
-
-          <!-- XMPP host and port to contact -->
-          <key>Host</key>
-          <string>xmpp.host.name</string>
-          <key>Port</key>
-          <integer>5222</integer>
-
-          <!-- Jabber ID and password for the server -->
-          <key>JID</key>
-          <string>jid@xmpp.host.name/resource</string>
-          <key>Password</key>
-          <string>password_goes_here</string>
-
-          <!-- PubSub service address -->
-          <key>ServiceAddress</key>
-          <string>pubsub.xmpp.host.name</string>
-
-          <key>NodeConfiguration</key>
+          <key>EnableStaggering</key>
+          <true/>
+          <key>StaggerSeconds</key>
+          <integer>5</integer>
+          <key>CalDAV</key>
           <dict>
-            <key>pubsub#deliver_payloads</key>
-            <string>1</string>
-            <key>pubsub#persist_items</key>
-            <string>1</string>
+            <key>CertificatePath</key>
+            <string>/example/calendar.cer</string>
+            <key>PrivateKeyPath</key>
+            <string>/example/calendar.pem</string>
           </dict>
-
-          <!-- Sends a presence notification to XMPP server at this interval (prevents disconnect) -->
-          <key>KeepAliveSeconds</key>
-          <integer>120</integer>
-
-          <!-- Sends a pubsub publish to a particular heartbeat node at this interval -->
-          <key>HeartbeatMinutes</key>
-          <integer>30</integer>
-
-          <!-- List of glob-like expressions defining which XMPP JIDs can converse with the server (for debugging) -->
-          <key>AllowedJIDs</key>
-          <array>
-            <!--
-            <string>*.example.com</string>
-             -->
-          </array>
+          <key>CardDAV</key>
+          <dict>
+            <key>CertificatePath</key>
+            <string>/example/contacts.cer</string>
+            <key>PrivateKeyPath</key>
+            <string>/example/contacts.pem</string>
+          </dict>
         </dict>
+
       </dict>
     </dict>
 
@@ -763,6 +737,13 @@
       <string>English</string>
     </dict>
 
+
+    <key>Includes</key>
+    <array>
+        <string>%(WritablePlist)s</string>
+    </array>
+    <key>WritableConfigFile</key>
+    <string>%(WritablePlist)s</string>
 
   </dict>
 </plist>

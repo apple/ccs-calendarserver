@@ -124,6 +124,21 @@ limitations under the License.
     <name>Occasional Delegate</name>
     <email-address>occasional@example.com</email-address>
   </user>
+    <user>
+    <uid>delegateviagroup</uid>
+    <guid>46D9D716-CBEE-490F-907A-66FA6C3767FF</guid>
+    <password>a</password>
+    <name>Delegate Via Group</name>
+    <email-address>delegateviagroup@example.com</email-address>
+  </user>
+  <group>
+    <uid>delegategroup</uid>
+    <guid>00599DAF-3E75-42DD-9DB7-52617E79943F</guid>
+    <name>Delegate Group</name>
+    <members>
+      <member type="users">delegateviagroup</member>
+    </members>
+  </group>
   <user repeat="2">
     <uid>user%02d</uid>
     <guid>user%02d</guid>

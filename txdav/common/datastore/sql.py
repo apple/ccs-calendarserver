@@ -50,7 +50,7 @@ from twisted.application.service import Service
 
 from txdav.base.datastore.util import QueryCacher
 
-from twext.internet.decorate import memoizedKey
+from twext.internet.decorate import memoizedKey, Memoizable
 
 from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 
@@ -352,7 +352,7 @@ class TransactionStatsCollector(object):
             toFile.write("\n")
             toFile.write("SQL: %s\n" % (sql,))
             toFile.write("Rows: %s\n" % (rows,))
-            toFile.write("Time (ms): %.3f\n" % (t,))
+            toFile.write("Time (ms): %.3f\n" % (t * 1000.0,))
         toFile.write("***\n\n")
 
         if self.logFileName:
@@ -740,6 +740,7 @@ class CommonStoreTransaction(object):
                        imip.ICALUID: Parameter("icaluid"),
                       })
 
+
     @inlineCallbacks
     def imipCreateToken(self, organizer, attendee, icaluid, token=None):
         if not (organizer and attendee and icaluid):
@@ -759,16 +760,19 @@ class CommonStoreTransaction(object):
 
     # Lookup IMIP organizer+attendee+icaluid for token
 
+
     @classproperty
     def _selectIMIPTokenByTokenQuery(cls): #@NoSelf
         imip = schema.IMIP_TOKENS
         return Select([imip.ORGANIZER, imip.ATTENDEE, imip.ICALUID], From=imip,
                       Where=(imip.TOKEN == Parameter("token")))
 
+
     def imipLookupByToken(self, token):
         return self._selectIMIPTokenByTokenQuery.on(self, token=token)
 
     # Lookup IMIP token for organizer+attendee+icaluid
+
 
     @classproperty
     def _selectIMIPTokenQuery(cls): #@NoSelf
@@ -777,6 +781,7 @@ class CommonStoreTransaction(object):
                       Where=(imip.ORGANIZER == Parameter("organizer")).And(
                              imip.ATTENDEE == Parameter("attendee")).And(
                              imip.ICALUID == Parameter("icaluid")))
+
 
     @classproperty
     def _updateIMIPTokenQuery(cls): #@NoSelf
@@ -800,24 +805,26 @@ class CommonStoreTransaction(object):
             token = None
         returnValue(token)
 
-    # Remove IMIP token
 
+    # Remove IMIP token
     @classproperty
     def _removeIMIPTokenQuery(cls): #@NoSelf
         imip = schema.IMIP_TOKENS
         return Delete(From=imip,
                       Where=(imip.TOKEN == Parameter("token")))
 
+
     def imipRemoveToken(self, token):
         return self._removeIMIPTokenQuery.on(self, token=token)
 
-    # Purge old IMIP tokens
 
+    # Purge old IMIP tokens
     @classproperty
     def _purgeOldIMIPTokensQuery(cls): #@NoSelf
         imip = schema.IMIP_TOKENS
         return Delete(From=imip,
                       Where=(imip.ACCESSED < Parameter("olderThan")))
+
 
     def purgeOldIMIPTokens(self, olderThan):
         """
@@ -1605,6 +1612,7 @@ class CommonHome(LoggingMixIn):
         results = (yield self._childClass.loadAllObjects(self))
         for result in results:
             self._children[result.name()] = result
+            self._children[result._resourceID] = result
         self._childrenLoaded = True
         returnValue(results)
 
@@ -1617,7 +1625,7 @@ class CommonHome(LoggingMixIn):
         """
 
         if self._childrenLoaded:
-            return succeed(self._children.keys())
+            return succeed([k for k in self._children.keys() if isinstance(k, str)])
         else:
             return self._childClass.listObjects(self)
 
@@ -2140,6 +2148,7 @@ class CommonHome(LoggingMixIn):
         ownerHomeRows = yield self._childClass._ownerHomeWithResourceID.on(self._txn, resourceID=resourceID)
         ownerHome = yield self._txn.homeWithResourceID(self._homeType, ownerHomeRows[0][0])
         returnValue(ownerHome)
+
 
 
 class _SharedSyncLogic(object):
@@ -2867,7 +2876,7 @@ class SharingMixIn(object):
         )
 
 
-class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase, SharingMixIn):
+class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
     """
     Common ancestor class of AddressBooks and Calendars.
     """
@@ -2910,6 +2919,19 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         self._syncTokenRevision = None
         self._notifiers = notifiers
         self._index = None  # Derived classes need to set this
+
+
+    def memoMe(self, key, memo):
+        """
+        Add this object to the memo dictionary in whatever fashion is appropriate.
+
+        @param key: key used for lookup
+        @type key: C{object} (typically C{str} or C{int})
+        @param memo: the dict to store to
+        @type memo: C{dict}
+        """
+        memo[self._name] = self
+        memo[self._resourceID] = self
 
 
     @classmethod

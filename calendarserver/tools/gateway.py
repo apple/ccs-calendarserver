@@ -465,7 +465,6 @@ class Runner(object):
         respond(command, {'EventsRemoved' : eventCount, "RetainDays" : retainDays})
 
 
-
 @inlineCallbacks
 def respondWithProxies(directory, command, principal, proxyType):
     proxies = []
@@ -508,21 +507,13 @@ def respondWithRecordsOfType(directory, command, recordType):
     respond(command, result)
 
 
-
 def respond(command, result):
     sys.stdout.write(writePlistToString({'command' : command['command'], 'result' : result}))
 
 
-
 def respondWithError(msg, status=1):
     sys.stdout.write(writePlistToString({'error' : msg, }))
-    """
-    try:
-        reactor.stop()
-    except RuntimeError:
-        pass
-    sys.exit(status)
-    """
+
 
 if __name__ == "__main__":
     main()
