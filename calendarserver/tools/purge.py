@@ -882,6 +882,8 @@ class PurgePrincipalService(WorkerService):
                                 perresource_request.authnUser = perresource_request.authzUser = davxml.Principal( 
                                         davxml.HRef.fromString("/principals/__uids__/%s/" % (uid,))
                                 )
+                                perresource_request._rememberResource(collection,
+                                    "/calendars/__uids__/%s/%s/" % (uid, collName))
 
                                 childResource = (yield collection.getChild(childName))
 
