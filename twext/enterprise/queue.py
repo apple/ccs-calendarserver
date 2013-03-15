@@ -1197,8 +1197,6 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
         return self.choosePerformer(onlyLocally=True).performWork(table, workID)
 
 
-
-
     def allWorkItemTypes(self):
         """
         Load all the L{WorkItem} types that this node can process and return
@@ -1208,7 +1206,14 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
         """
         # TODO: For completeness, this may need to involve a plugin query to
         # make sure that all WorkItem subclasses are imported first.
-        return WorkItem.__subclasses__()
+        for workItemSubclass in WorkItem.__subclasses__():
+            # TODO: It might be a good idea to offload this table-filtering to
+            # SchemaSyntax.__contains__, adding in some more structure-
+            # comparison of similarly-named tables.  For now a name check is
+            # sufficient.
+            if workItemSubclass.table.model.name in set([x.model.name for x in
+                                                         self.schema]):
+                yield workItemSubclass
 
 
     def totalNumberOfNodes(self):

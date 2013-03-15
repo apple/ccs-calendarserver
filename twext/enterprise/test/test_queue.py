@@ -337,7 +337,7 @@ class PeerConnectionPoolUnitTests(TestCase):
 
 
     @inlineCallbacks
-    def FIXME_test_notBeforeWhenCheckingForLostWork(self):
+    def test_notBeforeWhenCheckingForLostWork(self):
         """
         L{PeerConnectionPool._periodicLostWorkCheck} should execute any
         outstanding work items, but only those that are expired.
