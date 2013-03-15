@@ -1684,8 +1684,10 @@ class CommonHome(LoggingMixIn):
         if child is None:
             raise NoSuchHomeChildError()
 
+        resourceID = child._resourceID
         yield child.remove()
         self._children.pop(name, None)
+        self._children.pop(resourceID, None)
 
 
     @classproperty
@@ -2566,29 +2568,24 @@ class SharingMixIn(object):
         if status is None:
             status = _BIND_STATUS_ACCEPTED
 
-        @inlineCallbacks
-        def doInsert(subt):
-            newName = str(uuid4())
+        child = yield shareeHome.childWithID(self._resourceID)
+        if child:
+            bindName = yield self.updateShare(
+                child, mode=mode, status=status,
+                message=message
+            )
+        else:
+            bindName = str(uuid4())
             yield self._bindInsertQuery.on(
-                subt, homeID=shareeHome._resourceID,
-                resourceID=self._resourceID, name=newName,
+                self._txn, homeID=shareeHome._resourceID,
+                resourceID=self._resourceID, name=bindName,
                 mode=mode, bindStatus=status, message=message
             )
-            returnValue(newName)
-        try:
-            sharedName = yield self._txn.subtransaction(doInsert)
-        except AllRetriesFailed:
-            # FIXME: catch more specific exception
-            sharedName = (yield self._updateBindQuery.on(
-                self._txn,
-                mode=mode, status=status, message=message,
-                resourceID=self._resourceID, homeID=shareeHome._resourceID
-            ))[0][0]
 
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
 
-        returnValue(sharedName)
+        returnValue(bindName)
 
 
     @classmethod
@@ -2655,9 +2652,12 @@ class SharingMixIn(object):
                 shareeView._bindStatus = columnMap[bind.BIND_STATUS]
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
                     yield shareeView._initSyncToken()
+                    shareeView._home._children[shareeView._name] = shareeView
+                    shareeView._home._children[shareeView._resourceID] = shareeView
                 elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
                     shareeView._deletedSyncToken(sharedRemoval=True)
                     shareeView._home._children.pop(shareeView._name, None)
+                    shareeView._home._children.pop(shareeView._resourceID, None)
 
             if message is not None:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
@@ -2705,6 +2705,7 @@ class SharingMixIn(object):
             if not shareeChild.owned() and shareeChild._resourceID == self._resourceID:
                 shareeChild._deletedSyncToken(sharedRemoval=True)
                 shareeHome._children.pop(shareeChild._name, None)
+                shareeHome._children.pop(shareeChild._resourceID, None)
 
                 # Must send notification to ensure cache invalidation occurs
                 yield self.notifyChanged()
@@ -2761,17 +2762,11 @@ class SharingMixIn(object):
             self._txn, resourceID=self._resourceID,
         )
 
-        cls = self._home._childClass # for ease of grepping...
         result = []
-        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
-            # TODO: this could all be issued in parallel; no need to serialize
-            # the loop.
-            new = cls(
-                home=(yield self._txn.homeWithResourceID(self._home._homeType, homeID)),
-                name=resourceName, resourceID=self._resourceID,
-                mode=bindMode, status=bindStatus,
-                message=bindMessage, ownerHome=self._home
-            )
+        for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
+            home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
+            new = yield home.objectWithShareUID(bindName)
+
             yield new.initFromStore()
             result.append(new)
         returnValue(result)
@@ -2795,19 +2790,11 @@ class SharingMixIn(object):
         rows = yield self._unacceptedBindForResourceID.on(
             self._txn, resourceID=self._resourceID,
         )
-        cls = self._home._childClass # for ease of grepping...
 
         result = []
-        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in rows: #@UnusedVariable
-            # TODO: this could all be issued in parallel; no need to serialize
-            # the loop.
-            new = cls(
-                home=(yield self._txn.homeWithResourceID(self._home._homeType, homeID)),
-                name=resourceName, resourceID=self._resourceID,
-                mode=bindMode, status=bindStatus,
-                message=bindMessage, ownerHome=self._home
-            )
-            yield new.initFromStore()
+        for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in rows: #@UnusedVariable
+            home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
+            new = yield home.invitedObjectWithShareUID(bindName)
             result.append(new)
 
         returnValue(result)
@@ -2999,7 +2986,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
         # Create the actual objects merging in properties
         for items in dataRows:
-            bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = items[:6] #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = items[:6] #@UnusedVariable
             metadata = items[6:]
 
             if bindStatus == _BIND_MODE_OWN:
@@ -3010,7 +2997,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
             child = cls(
                 home=home,
-                name=resourceName, resourceID=resourceID,
+                name=bindName, resourceID=resourceID,
                 mode=bindMode, status=bindStatus,
                 message=bindMessage, ownerHome=ownerHome
             )
@@ -3062,7 +3049,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
+        bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = rows[0] #@UnusedVariable
         if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
             returnValue(None)
 
@@ -3083,7 +3070,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
     @classmethod
     @inlineCallbacks
-    def objectWithID(cls, home, resourceID):
+    def objectWithID(cls, home, resourceID, accepted=True):
         """
         Retrieve the child with the given C{resourceID} contained in the given
         C{home}.
@@ -3098,22 +3085,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
-
-        if bindMode == _BIND_MODE_OWN:
-            ownerHome = home
+        bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = rows[0] #@UnusedVariable
+        if accepted:
+            returnValue((yield home.objectWithShareUID(bindName)))
         else:
-            ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
-                            home._txn, resourceID=resourceID))[0][0]
-            ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
-        child = cls(
-            home=home,
-            name=resourceName, resourceID=resourceID,
-            mode=bindMode, status=bindStatus,
-            message=bindMessage, ownerHome=ownerHome,
-        )
-        yield child.initFromStore()
-        returnValue(child)
+            returnValue((yield home.invitedObjectWithShareUID(bindName)))
 
 
     @classproperty

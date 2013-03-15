@@ -772,40 +772,44 @@ END:VCARD
         bindRows = yield cls._bindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
         if bindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = bindRows[0] #@UnusedVariable
-            if (bindStatus == _BIND_STATUS_ACCEPTED) == bool(accepted):
-                # alt:
-                # returnValue((yield cls.objectWithID(home, resourceID)))
-                ownerHome = yield home.ownerHomeWithChildID(resourceID)
-                if accepted:
-                    returnValue((yield home.childWithName(ownerHome.shareeAddressBookName())))
-                else:
-                    returnValue((yield cls.objectWithName(home, ownerHome.shareeAddressBookName(), accepted=False)))
+            if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
+                returnValue(None)
+
+            # alt:
+            # returnValue((yield cls.objectWithID(home, resourceID)))
+            ownerHome = yield home.ownerHomeWithChildID(resourceID)
+            if accepted:
+                returnValue((yield home.childWithName(ownerHome.shareeAddressBookName())))
+            else:
+                returnValue((yield cls.objectWithName(home, ownerHome.shareeAddressBookName(), accepted=False)))
 
         groupBindRows = yield AddressBookObject._bindForNameAndHomeID.on(
             home._txn, name=name, homeID=home._resourceID
         )
         if groupBindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0] #@UnusedVariable
-            if (bindStatus == _BIND_STATUS_ACCEPTED) == bool(accepted):
-                ownerAddressBookID = yield AddressBookObject.ownerAddressBookFromGroupID(home._txn, resourceID)
-                # alt:
-                # addressbook = yield cls.objectWithID(home, ownerAddressBookID)
-                ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
-                addressbook = yield home.childWithName(ownerHome.shareeAddressBookName())
-                if not addressbook:
-                    addressbook = yield cls.objectWithName(home, ownerHome.shareeAddressBookName(), accepted=False)
+            if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
+                returnValue(None)
 
-                if accepted:
-                    returnValue((yield addressbook.objectResourceWithID(resourceID)))
-                else:
-                    returnValue((yield AddressBookObject.objectWithID(addressbook, resourceID))) # avoids object cache
+            ownerAddressBookID = yield AddressBookObject.ownerAddressBookFromGroupID(home._txn, resourceID)
+            # alt:
+            # addressbook = yield cls.objectWithID(home, ownerAddressBookID)
+            ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
+            addressbook = yield home.childWithName(ownerHome.shareeAddressBookName())
+            if not addressbook:
+                addressbook = yield cls.objectWithName(home, ownerHome.shareeAddressBookName(), accepted=False)
+
+            if accepted:
+                returnValue((yield addressbook.objectResourceWithID(resourceID)))
+            else:
+                returnValue((yield AddressBookObject.objectWithID(addressbook, resourceID))) # avoids object cache
 
         returnValue(None)
 
 
     @classmethod
     @inlineCallbacks
-    def objectWithID(cls, home, resourceID):
+    def objectWithID(cls, home, resourceID, accepted=True):
         """
         Retrieve the child with the given C{resourceID} contained in the given
         C{home}.
@@ -823,26 +827,31 @@ END:VCARD
         )
         if bindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = bindRows[0] #@UnusedVariable
+            if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
+                returnValue(None)
+
             ownerHome = yield home.ownerHomeWithChildID(resourceID)
-            if bindStatus == _BIND_STATUS_ACCEPTED:
+            if accepted:
                 returnValue((yield home.childWithName(ownerHome.shareeAddressBookName())))
             else:
                 returnValue((yield cls.objectWithName(home, ownerHome.shareeAddressBookName(), accepted=False)))
 
-        result = None
         groupBindRows = yield AddressBookObject._bindWithHomeIDAndAddressBookID.on(
                     home._txn, homeID=home._resourceID, addressbookID=resourceID
         )
         if groupBindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0] #@UnusedVariable
+            if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
+                returnValue(None)
+
             ownerAddressBookID = yield AddressBookObject.ownerAddressBookFromGroupID(home._txn, resourceID)
             ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
-            result = yield home.childWithName(ownerHome.shareeAddressBookName())
-            if not result:
-                result = yield cls.objectWithName(home, ownerHome.shareeAddressBookName(), accepted=False)
-            assert result
+            if accepted:
+                returnValue((yield home.childWithName(ownerHome.shareeAddressBookName())))
+            else:
+                returnValue((yield cls.objectWithName(home, ownerHome.shareeAddressBookName(), accepted=False)))
 
-        returnValue(result)
+        returnValue(None)
 
 
     def shareUID(self):
@@ -1085,10 +1094,13 @@ END:VCARD
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
                     if 0 == previouslyAcceptedBindCount:
                         yield shareeView._initSyncToken()
+                        shareeView._home._children[shareeView._name] = shareeView
+                        shareeView._home._children[shareeView._resourceID] = shareeView
                 elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
                     if 1 == previouslyAcceptedBindCount:
                         shareeView._deletedSyncToken(sharedRemoval=True)
                         shareeView._home._children.pop(shareeView._name, None)
+                        shareeView._home._children.pop(shareeView._resourceID, None)
 
 
             if message is not None:
@@ -1128,17 +1140,9 @@ END:VCARD
         )
 
         result = []
-        cls = self._home._childClass # for ease of grepping...
         for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in bindRows: #@UnusedVariable
             home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
-            new = cls(
-                home=home,
-                name=self.shareeAddressBookName(), resourceID=self._resourceID,
-                mode=bindMode, status=bindStatus,
-                message=bindMessage, ownerHome=self._home,
-                bindName=bindName
-            )
-            yield new.initFromStore()
+            new = yield home.childWithName(self.shareeAddressBookName())
             result.append(new)
 
         returnValue(result)
@@ -1164,17 +1168,9 @@ END:VCARD
         bindRows = yield self._unacceptedBindForResourceID.on(
             self._txn, resourceID=self._resourceID
         )
-        cls = self._home._childClass # for ease of grepping...
         for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in bindRows: #@UnusedVariable
             home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
-            new = cls(
-                home=home,
-                name=self.shareeAddressBookName(), resourceID=self._resourceID,
-                mode=bindMode, status=bindStatus,
-                message=bindMessage, ownerHome=self._home,
-                bindName=bindName
-            )
-            yield new.initFromStore()
+            new = yield self.objectWithName(home, self.shareeAddressBookName(), accepted=False)
             result.append(new)
 
         returnValue(result)
@@ -1202,7 +1198,8 @@ END:VCARD
             )))
             if acceptedBindCount == 1:
                 sharedAddressBook._deletedSyncToken(sharedRemoval=True)
-                shareeHome._children.pop(self.shareeAddressBookName(), None)
+                shareeHome._children.pop(self.sharedAddressBook.name(), None)
+                shareeHome._children.pop(self.sharedAddressBook._resourceID, None)
             elif not sharedAddressBook.fullyShared():
                 #FIXME: remove objects for this group only using self.removeObjectResource
                 self._objectNames = None
@@ -2085,6 +2082,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             if acceptedBindCount == 1:
                 sharedAddressBook._deletedSyncToken(sharedRemoval=True)
                 shareeHome._children.pop(self._addressbook.shareeAddressBookName(), None)
+                shareeHome._children.pop(self._addressbook._resourceID, None)
 
             # Must send notification to ensure cache invalidation occurs
             yield self.notifyChanged()
@@ -2172,10 +2170,13 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
                     if 0 == previouslyAcceptedBindCount:
                         yield shareeView._addressbook._initSyncToken()
+                        shareeView._home._children[shareeView._addressbook._name] = shareeView._addressbook
+                        shareeView._home._children[shareeView._addressbook._resourceID] = shareeView._addressbook
                 elif shareeView._bindStatus != _BIND_STATUS_INVITED:
                     if 1 == previouslyAcceptedBindCount:
                         shareeView._addressbook._deletedSyncToken(sharedRemoval=True)
                         shareeView._home._children.pop(shareeView._addressbook._name, None)
+                        shareeView._home._children.pop(shareeView._addressbook._resourceID, None)
 
             if message is not None:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
