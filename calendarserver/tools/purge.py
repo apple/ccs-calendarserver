@@ -876,75 +876,95 @@ class PurgePrincipalService(WorkerService):
 
                         for childName in childNames:
 
-                            childResource = (yield collection.getChild(childName))
-                            # Allways delete inbox items
-                            if self.completely or collName == "inbox":
-                                action = self.CANCELEVENT_SHOULD_DELETE
-                            else:
-                                event = (yield childResource.iCalendar())
-                                event = perUserFilter.filter(event)
-                                action = self._cancelEvent(event, self.when, cua)
-
-                            uri = "/calendars/__uids__/%s/%s/%s" % (uid, collName, childName)
-                            request.path = uri
-                            if action == self.CANCELEVENT_MODIFIED:
-                                count += 1
-                                request._rememberResource(childResource, uri)
-                                storer = StoreCalendarObjectResource(
-                                    request=request,
-                                    destination=childResource,
-                                    destination_uri=uri,
-                                    destinationcal=True,
-                                    destinationparent=collection,
-                                    calendar=str(event),
+                            try:
+                                perresource_request = FakeRequest(self.root, None, None)
+                                perresource_request.checkedSACL = True
+                                perresource_request.authnUser = perresource_request.authzUser = davxml.Principal( 
+                                        davxml.HRef.fromString("/principals/__uids__/%s/" % (uid,))
                                 )
-                                if self.verbose:
-                                    if self.dryrun:
-                                        print("Would modify: %s" % (uri,))
-                                    else:
-                                        print("Modifying: %s" % (uri,))
-                                if not self.dryrun:
-                                    result = (yield storer.run())
 
-                            elif action == self.CANCELEVENT_SHOULD_DELETE:
-                                incrementCount = self.dryrun
-                                request._rememberResource(childResource, uri)
-                                if self.verbose:
-                                    if self.dryrun:
-                                        print("Would delete: %s" % (uri,))
-                                    else:
-                                        print("Deleting: %s" % (uri,))
-                                if not self.dryrun:
-                                    retry = False
-                                    try:
-                                        result = (yield childResource.storeRemove(request, self.doimplicit, uri))
-                                        if result != NO_CONTENT:
-                                            print("Error deleting %s/%s/%s: %s" % (uid,
-                                                collName, childName, result))
-                                            retry = True
+                                childResource = (yield collection.getChild(childName))
+
+                                # Allways delete inbox items
+                                if self.completely or collName == "inbox":
+                                    action = self.CANCELEVENT_SHOULD_DELETE
+                                else:
+                                    event = (yield childResource.iCalendar())
+                                    event = perUserFilter.filter(event)
+                                    action = self._cancelEvent(event, self.when, cua)
+
+                                uri = "/calendars/__uids__/%s/%s/%s" % (uid, collName, childName)
+                                perresource_request.path = uri
+                                if action == self.CANCELEVENT_MODIFIED:
+                                    perresource_request._rememberResource(childResource, uri)
+                                    storer = StoreCalendarObjectResource(
+                                        request=perresource_request,
+                                        destination=childResource,
+                                        destination_uri=uri,
+                                        destinationcal=True,
+                                        destinationparent=collection,
+                                        calendar=str(event),
+                                    )
+                                    if self.verbose:
+                                        if self.dryrun:
+                                            print("Would modify: %s" % (uri,))
                                         else:
-                                            incrementCount = True
+                                            print("Modifying: %s" % (uri,))
+                                    if not self.dryrun:
+                                        result = (yield storer.run())
+                                    count += 1
 
-                                    except Exception, e:
-                                        print("Exception deleting %s/%s/%s: %s" % (uid,
-                                            collName, childName, str(e)))
-                                        retry = True
-
-                                    if retry and self.doimplicit:
-                                        # Try again with implicit scheduling off
-                                        print("Retrying deletion of %s/%s/%s with implicit scheduling turned off" % (uid, collName, childName))
+                                elif action == self.CANCELEVENT_SHOULD_DELETE:
+                                    incrementCount = self.dryrun
+                                    perresource_request._rememberResource(childResource, uri)
+                                    if self.verbose:
+                                        if self.dryrun:
+                                            print("Would delete: %s" % (uri,))
+                                        else:
+                                            print("Deleting: %s" % (uri,))
+                                    if not self.dryrun:
+                                        retry = False
                                         try:
-                                            result = (yield childResource.storeRemove(request, False, uri))
+                                            result = (yield childResource.storeRemove(perresource_request, self.doimplicit, uri))
                                             if result != NO_CONTENT:
                                                 print("Error deleting %s/%s/%s: %s" % (uid,
                                                     collName, childName, result))
+                                                retry = True
                                             else:
                                                 incrementCount = True
-                                        except Exception, e:
-                                            print("Still couldn't delete %s/%s/%s even with implicit scheduling turned off: %s" % (uid, collName, childName, str(e)))
 
-                                if incrementCount:
-                                    count += 1
+                                        except Exception, e:
+                                            print("Exception deleting %s/%s/%s: %s" % (uid,
+                                                collName, childName, str(e)))
+                                            retry = True
+
+                                        if retry and self.doimplicit:
+                                            # Try again with implicit scheduling off
+                                            print("Retrying deletion of %s/%s/%s with implicit scheduling turned off" % (uid, collName, childName))
+                                            try:
+                                                result = (yield childResource.storeRemove(perresource_request, False, uri))
+                                                if result != NO_CONTENT:
+                                                    print("Error deleting %s/%s/%s: %s" % (uid,
+                                                        collName, childName, result))
+                                                else:
+                                                    incrementCount = True
+                                            except Exception, e:
+                                                print("Still couldn't delete %s/%s/%s even with implicit scheduling turned off: %s" % (uid, collName, childName, str(e)))
+
+                                    if incrementCount:
+                                        count += 1
+                                txn = getattr(perresource_request, "_newStoreTransaction", None)
+                                # Commit
+                                if txn is not None:
+                                    (yield txn.commit())
+
+                            except Exception, e:
+                                # Abort
+                                txn = getattr(perresource_request, "_newStoreTransaction", None)
+                                if txn is not None:
+                                    (yield txn.abort())
+                                raise e
+
 
             txn = getattr(request, "_newStoreTransaction", None)
             # Commit
