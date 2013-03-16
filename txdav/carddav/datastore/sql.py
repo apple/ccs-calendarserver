@@ -25,11 +25,11 @@ __all__ = [
     "AddressBookObject",
 ]
 
+from uuid import uuid4
+
 from twext.enterprise.dal.syntax import Delete, Insert, Len, Parameter, \
     Update, Union, Max, Select, utcNowSQL
-
 from twext.python.clsprop import classproperty
-
 from twext.web2.http import HTTPError
 from twext.web2.http_headers import MimeType
 from twext.web2.responsecode import FORBIDDEN
@@ -54,7 +54,8 @@ from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
     _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema, \
     _BIND_MODE_OWN, _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, \
     _BIND_STATUS_DECLINED, _BIND_STATUS_INVITED
-from txdav.common.icommondatastore import InternalDataStoreError
+from txdav.common.icommondatastore import InternalDataStoreError, \
+    AllRetriesFailed
 from txdav.xml.rfc2518 import ResourceType
 
 from zope.interface.declarations import implements
@@ -1285,9 +1286,6 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             elif self.shareUID():
                 raise SharedGroupDeleteNotAllowedError
 
-        aboMembers = schema.ABO_MEMBERS
-        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
-
         if not self.owned() and not self._addressbook.fullyShared():
             # convert delete in sharee shared group address book to remove of memberships
             # that make this object visible to the sharee
@@ -1304,6 +1302,9 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
         else:
             # delete members table rows for this object,...
+            aboMembers = schema.ABO_MEMBERS
+            aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
+
             groupIDRows = yield Delete(
                 aboMembers,
                 Where=aboMembers.MEMBER_ID == self._resourceID,
@@ -2103,6 +2104,64 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
         returnValue(deletedBindName)
 
+
+    @inlineCallbacks
+    def shareWith(self, shareeHome, mode, status=None, message=None):
+        """
+        Share this (owned) L{AddressBookObject} with another home.
+
+        @param shareeHome: The home of the sharee.
+        @type shareeHome: L{CommonHome}
+
+        @param mode: The sharing mode; L{_BIND_MODE_READ} or
+            L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
+        @type mode: L{str}
+
+        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
+            L{_BIND_STATUS_ACCEPTED}
+        @type mode: L{str}
+
+        @param message: The proposed message to go along with the share, which
+            will be used as the default display name.
+        @type mode: L{str}
+
+        @return: the name of the shared group in the sharee home.
+        @rtype: L{str}
+        """
+
+        if status is None:
+            status = _BIND_STATUS_ACCEPTED
+
+        @inlineCallbacks
+        def doInsert(subt):
+            newName = str(uuid4())
+            yield self._bindInsertQuery.on(
+                subt, homeID=shareeHome._resourceID,
+                resourceID=self._resourceID, name=newName,
+                mode=mode, bindStatus=status, message=message
+            )
+            returnValue(newName)
+        try:
+            bindName = yield self._txn.subtransaction(doInsert)
+        except AllRetriesFailed:
+            # FIXME: catch more specific exception
+            groupBindRows = yield self._bindForResourceIDAndHomeID.on(
+                self._txn, resourceID=self._resourceID, homeID=shareeHome._resourceID
+            )
+            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0] #@UnusedVariable
+            if bindStatus == _BIND_STATUS_ACCEPTED:
+                group = yield shareeHome.objectForShareUID(bindName)
+            else:
+                group = yield shareeHome.invitedObjectForShareUID(bindName)
+            bindName = yield self.updateShare(
+                group, mode=mode, status=status,
+                message=message
+            )
+
+        # Must send notification to ensure cache invalidation occurs
+        yield self.notifyChanged()
+
+        returnValue(bindName)
 
     @inlineCallbacks
     #TODO:  This is almost the same as AddressBook.updateShare(): combine

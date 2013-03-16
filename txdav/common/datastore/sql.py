@@ -2473,6 +2473,15 @@ class SharingMixIn(object):
         })
 
 
+    @classmethod
+    def _updateBindColumnsQuery(cls, columnMap):
+        bind = cls._bindSchema
+        return Update(columnMap,
+                      Where=(bind.RESOURCE_ID == Parameter("resourceID"))
+                      .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+                      Return=bind.RESOURCE_NAME)
+
+
     @classproperty
     def _updateBindQuery(cls): #@NoSelf
         bind = cls._bindSchema
@@ -2480,6 +2489,17 @@ class SharingMixIn(object):
                     {bind.BIND_MODE: Parameter("mode"),
                      bind.BIND_STATUS: Parameter("status"),
                      bind.MESSAGE: Parameter("message")})
+
+
+    @classproperty
+    def _deleteBindWithResourceIDAndHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return Delete(
+            From=bind,
+            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
+                  .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+            Return=bind.RESOURCE_NAME,
+        )
 
 
     @classmethod
@@ -2577,33 +2597,31 @@ class SharingMixIn(object):
         if status is None:
             status = _BIND_STATUS_ACCEPTED
 
-        child = yield shareeHome.childWithID(self._resourceID)
-        if child:
+        @inlineCallbacks
+        def doInsert(subt):
+            newName = str(uuid4())
+            yield self._bindInsertQuery.on(
+                subt, homeID=shareeHome._resourceID,
+                resourceID=self._resourceID, name=newName,
+                mode=mode, bindStatus=status, message=message
+            )
+            returnValue(newName)
+        try:
+            bindName = yield self._txn.subtransaction(doInsert)
+        except AllRetriesFailed:
+            # FIXME: catch more specific exception
+            child = yield shareeHome.childWithID(self._resourceID)
+            if not child:
+                child = yield shareeHome.objectWithID(shareeHome, self._resourceID, accepted=False)
             bindName = yield self.updateShare(
                 child, mode=mode, status=status,
                 message=message
-            )
-        else:
-            bindName = str(uuid4())
-            yield self._bindInsertQuery.on(
-                self._txn, homeID=shareeHome._resourceID,
-                resourceID=self._resourceID, name=bindName,
-                mode=mode, bindStatus=status, message=message
             )
 
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
 
         returnValue(bindName)
-
-
-    @classmethod
-    def _updateBindColumnsQuery(cls, columnMap):
-        bind = cls._bindSchema
-        return Update(columnMap,
-                      Where=(bind.RESOURCE_ID == Parameter("resourceID"))
-                      .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
-                      Return=bind.RESOURCE_NAME)
 
 
     @inlineCallbacks
@@ -2682,17 +2700,6 @@ class SharingMixIn(object):
             yield self.notifyChanged()
 
         returnValue(shareeView._name)
-
-
-    @classproperty
-    def _deleteBindWithResourceIDAndHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return Delete(
-            From=bind,
-            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
-                  .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
-            Return=bind.RESOURCE_NAME,
-        )
 
 
     @inlineCallbacks
@@ -2921,7 +2928,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         self._index = None  # Derived classes need to set this
 
 
-    def memoMe(self, key, memo):
+    def memoMe(self, key, memo): #@UnusedVariable
         """
         Add this object to the memo dictionary in whatever fashion is appropriate.
 
@@ -3107,7 +3114,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = rows[0] #@UnusedVariable
+        bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = rows[0] #@UnusedVariable]
+        if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
+            returnValue(None)
+
         if accepted:
             returnValue((yield home.objectWithShareUID(bindName)))
         else:
