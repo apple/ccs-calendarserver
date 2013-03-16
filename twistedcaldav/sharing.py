@@ -122,6 +122,7 @@ class SharedResourceMixin(object):
         Set the resource-type property on this resource to indicate that this
         is the owner's version of a resource which has been shared.
         """
+        #FIXME: generate resource type dynamically
         # Change resourcetype
         rtype = self.resourceType()
         rtype = element.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
@@ -131,8 +132,10 @@ class SharedResourceMixin(object):
     @inlineCallbacks
     def downgradeFromShare(self, request):
 
-        # Change resource type (note this might be called after deleting a resource
+        # Restore resource type (note this might be called after deleting a resource
         # so we have to cope with that)
+        #FIXME: generate resource type dynamically
+        #self.removeDeadProperty((dav_namespace, "resourcetype"))
         rtype = self.resourceType()
         rtype = element.ResourceType(*([child for child in rtype.children if child != customxml.SharedOwner()]))
         self.writeDeadProperty(rtype)
@@ -246,9 +249,11 @@ class SharedResourceMixin(object):
         Return True if this is an owner shared resource
         Similar to self.isSpecialCollection() but also allows groups
         """
-
         if not self.isCollection() and not self.isGroup():
             return False
+
+        #FIXME: don't use dead properties, try:
+        # returnValue(bool(yield self._allInvitations()))
 
         try:
             resourcetype = self.resourceType()

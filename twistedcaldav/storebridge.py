@@ -142,7 +142,6 @@ class _NewStorePropertiesWrapper(object):
                 self._newPropertyStore.keys()]
 
 
-
 def requiresPermissions(*permissions, **kw):
     """
     A decorator to wrap http_ methods in, to indicate that they should not be
@@ -1254,6 +1253,13 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             yield self.movedCalendar(request, defaultCalendarType,
                                destination, destinationURI)
         returnValue(result)
+
+
+    def resourceType(self,):
+        if self.hasDeadProperty((dav_namespace, "resourcetype")):
+            return super(CalendarCollectionResource, self).resourceType()
+        else:
+            return caldavxml.ResourceType.calendar
 
 
 
@@ -2818,6 +2824,13 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         Addressbooks may not be renamed.
         """
         return FORBIDDEN
+
+
+    def resourceType(self,):
+        if self.hasDeadProperty((dav_namespace, "resourcetype")):
+            return super(AddressBookCollectionResource, self).resourceType()
+        else:
+            return carddavxml.ResourceType.addressbook
 
 
 
