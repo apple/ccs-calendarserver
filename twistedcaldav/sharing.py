@@ -1153,7 +1153,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         shareeStoreObject = yield self._newStoreHome.objectWithShareUID(shareUID)
         if shareeStoreObject:
             share = yield self._shareForStoreObject(shareeStoreObject, request)
-            if share and share.uid() == shareUID:
+            if share:
                 returnValue(share)
 
         # find direct shares

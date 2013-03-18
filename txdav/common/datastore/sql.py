@@ -111,6 +111,8 @@ NotifierPrefixes = {
     EADDRESSBOOKTYPE : "CardDAV",
 }
 
+
+
 class CommonDataStore(Service, object):
     """
     Shared logic for SQL-based data stores, between calendar and addressbook
@@ -2451,6 +2453,8 @@ class _SharedSyncLogic(object):
         Maybe notify changed.  (Overridden in NotificationCollection.)
         """
 
+
+
 class SharingMixIn(object):
     """
     Common class for CommonHomeChild and AddressBookObject
@@ -2881,6 +2885,7 @@ class SharingMixIn(object):
             "_created",
             "_modified",
         )
+
 
 
 class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
@@ -5119,6 +5124,7 @@ def _normalizeColumnUUIDs(txn, column):
             for pkeycol, pkeypart in zip(pkeyparts, pkey):
                 where = where.And(pkeycol == pkeypart)
             yield Update({column: after}, Where=where).on(txn)
+
 
 
 class _AndNothing(object):
