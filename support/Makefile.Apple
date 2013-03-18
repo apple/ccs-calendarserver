@@ -36,7 +36,6 @@ Cruft += .dependencies
 Extra_Environment += PATH="$(SIPP)/usr/bin:$$PATH"
 
 CALDAVDSUBDIR = /caldavd
-WEBAPPSSUBDIR = /apache2/webapps
 
 PYTHON = $(USRBINDIR)/python
 PY_HOME = $(SIPP)$(SHAREDIR)$(CALDAVDSUBDIR)
@@ -86,9 +85,6 @@ install:: build
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist"
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(WEBAPPSSUBDIR)"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/com.apple.webapp.contacts.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(WEBAPPSSUBDIR)/com.apple.webapp.contacts.plist"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/com.apple.webapp.contactsssl.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(WEBAPPSSUBDIR)/com.apple.webapp.contactsssl.plist"
 	$(_v) chmod -R ugo+r "$(DSTROOT)$(PY_HOME)"
 	$(_v) for f in $$(find "$(DSTROOT)$(SIPP)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
 
@@ -116,10 +112,6 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip"
 	$(_v) $(INSTALL_FILE) "$(Sources)/calendarserver/tools/changeip_calendar.py" "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip/changeip_calendar.py"
 	$(_v) chmod ugo+x "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip/changeip_calendar.py"
-	@echo "Installing certificate update scripts..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/certupdate"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/certupdate/calendarcertupdate.py" "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/certupdate/calendarcertupdate.py"
-	$(_v) chmod ugo+x "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/certupdate/calendarcertupdate.py"
 
 install::
 	@echo "Installing CalDAVTester package..."
