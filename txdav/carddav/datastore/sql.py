@@ -187,7 +187,9 @@ class AddressBookHome(CommonHome):
 
         yield Delete(
             From=rp,
-            Where=rp.RESOURCE_ID == self._resourceID,
+            Where=(rp.RESOURCE_ID == self._resourceID).Or(
+                rp.RESOURCE_ID == self._homeResourceID
+            )
         ).on(self._txn)
 
         yield self._cacher.delete(str(self._ownerUID))
