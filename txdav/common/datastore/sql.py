@@ -3006,16 +3006,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         dataRows = (yield cls._childrenAndMetadataForHomeID.on(home._txn, homeID=home._resourceID))
 
         if dataRows:
-
-            # Get property stores for all these child resources (if any found)
-            propertyStores = (yield PropertyStore.forMultipleResources(
-                home.uid(), home._txn,
-                cls._bindSchema.RESOURCE_ID, cls._bindSchema.HOME_RESOURCE_ID,
-                home._resourceID
-            ))
+            # Get property stores for all these child resources
             childResourceIDs = [dataRow[2] for dataRow in dataRows]
+            propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
+                home.uid(), home._txn, childResourceIDs
+            )
             revisions = (yield cls._revisionsForResourceIDs(childResourceIDs).on(home._txn, resourceIDs=childResourceIDs))
-            #revisions = (yield cls._revisionsForHomeID.on(home._txn, homeID=home._resourceID))
             revisions = dict(revisions)
 
         # Create the actual objects merging in properties

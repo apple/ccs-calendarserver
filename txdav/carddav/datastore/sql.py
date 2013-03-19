@@ -632,14 +632,10 @@ END:VCARD
 
         if ownerHomeToDataRowMap:
             # Get property stores for all these child resources (if any found)
-            #FIXME: this does not load address books that are not fully owned.
-            propertyStores = (yield PropertyStore.forMultipleResources(
-                home.uid(), home._txn,
-                cls._bindSchema.RESOURCE_ID, cls._bindSchema.HOME_RESOURCE_ID,
-                home._resourceID
-            ))
-
             childResourceIDs = [ownerHome._resourceID for ownerHome in ownerHomeToDataRowMap]
+            propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
+                home.uid(), home._txn, childResourceIDs
+            )
             revisions = yield cls._revisionsForResourceIDs(childResourceIDs).on(home._txn, resourceIDs=childResourceIDs)
             revisions = dict(revisions)
 
@@ -661,10 +657,9 @@ END:VCARD
                     setattr(child, attr, value)
                 child._syncTokenRevision = revisions[child._resourceID]
                 propstore = propertyStores.get(child._resourceID, None)
-                if propstore:
-                    # We have to re-adjust the property store object to account for possible shared
-                    # collections as previously we loaded them all as if they were owned
-                    propstore._setDefaultUserUID(ownerHome.uid())
+                # We have to re-adjust the property store object to account for possible shared
+                # collections as previously we loaded them all as if they were owned
+                propstore._setDefaultUserUID(ownerHome.uid())
                 yield child._loadPropertyStore(None)
                 results.append(child)
 
