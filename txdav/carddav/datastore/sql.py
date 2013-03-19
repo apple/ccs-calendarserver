@@ -590,31 +590,6 @@ END:VCARD
         else:
             returnValue((yield super(AddressBook, self).bumpModified()))
 
-    '''
-    @classproperty
-    def _revisionsForHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        rev = cls._revisionsSchema
-        return Select(
-            [rev.RESOURCE_ID, Max(rev.REVISION)],
-            From=rev.join(bind, rev.RESOURCE_ID == bind.RESOURCE_ID, 'left'),
-            Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")).
-                And((rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
-            GroupBy=rev.RESOURCE_ID
-        )
-    '''
-
-
-    @classmethod
-    def _revisionsForResourceIDs(cls, resourceIDs):
-        rev = cls._revisionsSchema
-        return Select(
-            [rev.RESOURCE_ID, Max(rev.REVISION)],
-            From=rev,
-            Where=rev.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))),
-            GroupBy=rev.RESOURCE_ID
-        )
-
 
     @classmethod
     @inlineCallbacks

@@ -2887,6 +2887,34 @@ class SharingMixIn(object):
         )
 
 
+    @classproperty
+    def _childrenAndMetadataForHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        child = cls._homeChildSchema
+        childMetaData = cls._homeChildMetaDataSchema
+        columns = cls._bindColumns() + cls.metadataColumns()
+        return Select(columns,
+                     From=child.join(
+                         bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                         'left outer').join(
+                         childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
+                         'left outer'),
+                     Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
+                           ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+
+
+    @classmethod
+    def _revisionsForResourceIDs(cls, resourceIDs):
+        rev = cls._revisionsSchema
+        return Select(
+            [rev.RESOURCE_ID, Max(rev.REVISION)],
+            From=rev,
+            Where=rev.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))).
+                    And((rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
+            GroupBy=rev.RESOURCE_ID
+        )
+
+
 
 class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
     """
@@ -2962,35 +2990,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         returnValue(names)
 
 
-    @classproperty
-    def _childrenAndMetadataForHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        child = cls._homeChildSchema
-        childMetaData = cls._homeChildMetaDataSchema
-        columns = cls._bindColumns() + cls.metadataColumns()
-        return Select(columns,
-                     From=child.join(
-                         bind, child.RESOURCE_ID == bind.RESOURCE_ID,
-                         'left outer').join(
-                         childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
-                         'left outer'),
-                     Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
-                           ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
-
-
-    @classproperty
-    def _revisionsForHomeID(cls): #@NoSelf
-            bind = cls._bindSchema
-            rev = cls._revisionsSchema
-            return Select(
-                [rev.RESOURCE_ID, Max(rev.REVISION)],
-                From=rev.join(bind, rev.RESOURCE_ID == bind.RESOURCE_ID, 'left'),
-                Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")).
-                    And((rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
-                GroupBy=rev.RESOURCE_ID
-            )
-
-
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, home):
@@ -3014,8 +3013,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 cls._bindSchema.RESOURCE_ID, cls._bindSchema.HOME_RESOURCE_ID,
                 home._resourceID
             ))
-
-            revisions = (yield cls._revisionsForHomeID.on(home._txn, homeID=home._resourceID))
+            childResourceIDs = [dataRow[2] for dataRow in dataRows]
+            revisions = (yield cls._revisionsForResourceIDs(childResourceIDs).on(home._txn, resourceIDs=childResourceIDs))
+            #revisions = (yield cls._revisionsForHomeID.on(home._txn, homeID=home._resourceID))
             revisions = dict(revisions)
 
         # Create the actual objects merging in properties
