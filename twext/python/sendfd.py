@@ -15,7 +15,7 @@
 # limitations under the License.
 ##
 
-from struct import pack, unpack
+from struct import pack, unpack, calcsize
 from socket import SOL_SOCKET
 
 from twext.python.sendmsg import sendmsg, recvmsg, SCM_RIGHTS
@@ -62,5 +62,10 @@ def recvfd(socketfd):
     # cmsg_level and cmsg_type really need to be SOL_SOCKET / SCM_RIGHTS, but
     # since those are the *only* standard values, there's not much point in
     # checking.
-    [unpackedFD] = unpack("i", packedFD)
+    unpackedFD = 0
+    int_size = calcsize("i")
+    if len(packedFD) > int_size:       # [ar]happens on 64 bit architecture (FreeBSD)
+        [unpackedFD] = unpack("i", packedFD[0:int_size])
+    else:
+        [unpackedFD] = unpack("i", packedFD)
     return (unpackedFD, data)
