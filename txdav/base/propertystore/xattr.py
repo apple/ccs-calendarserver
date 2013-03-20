@@ -47,7 +47,7 @@ from txdav.idav import PropertyStoreError
 # expose.  Its value is 93.
 #
 
-if sys.platform in ("darwin", "freebsd8"):
+if sys.platform in ("darwin", "freebsd8", "freebsd9"):
     _ERRNO_NO_ATTR = getattr(errno, "ENOATTR", 93)
 else:
     _ERRNO_NO_ATTR = errno.ENODATA
