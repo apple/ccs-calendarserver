@@ -85,6 +85,8 @@ class AddressBookHome(CommonHome):
         self._homeResourceID = None
         self._addressbook = None
 
+    def __repr__(self):
+        return '<%s: %s("%s")>' % (self.__class__.__name__, self._resourceID, self.name())
 
     addressbooks = CommonHome.children
     listAddressbooks = CommonHome.listChildren
@@ -360,6 +362,8 @@ class AddressBook(CommonHomeChild, SharingMixIn):
         self._index = PostgresLegacyABIndexEmulator(self)
         self._bindName = bindName
 
+    def __repr__(self):
+        return '<%s: %s("%s")>' % (self.__class__.__name__, self._resourceID, self.name())
 
     def getCreated(self):
         return self.ownerHome()._created
@@ -675,7 +679,6 @@ END:VCARD
     @classmethod
     @inlineCallbacks
     def objectWithName(cls, home, name, accepted=True):
-        # replaces objectWithName()
         """
         Retrieve the child with the given C{name} contained in the given
         C{home}.
@@ -687,10 +690,8 @@ END:VCARD
         @return: an L{CommonHomeChild} or C{None} if no such child
             exists.
         """
-        if accepted:
-            addressbook = yield home.addressbook()
-            if name == addressbook.name():
-                returnValue(addressbook)
+        if accepted and name == home.addressbook().name():
+            returnValue(home.addressbook())
 
         #all shared address books now
         rows = None
@@ -708,7 +709,7 @@ END:VCARD
             ownerHome = yield home._txn.addressbookHomeWithUID(name)
             if ownerHome:
                 # see if address book resource id in bind table
-                ownerAddressBook = yield ownerHome.addressbook()
+                ownerAddressBook = ownerHome.addressbook()
                 rows = yield cls._bindForResourceIDAndHomeID.on(
                     home._txn, resourceID=ownerAddressBook._resourceID, homeID=home._resourceID
                 )
@@ -743,7 +744,7 @@ END:VCARD
             returnValue(None)
 
         ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
-        ownerAddressBook = yield ownerHome.addressbook()
+        ownerAddressBook = ownerHome.addressbook()
         child = cls(
                 home=home,
                 name=ownerAddressBook.shareeAddressBookName(), resourceID=ownerAddressBookID,
