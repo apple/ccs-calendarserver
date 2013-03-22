@@ -547,8 +547,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
 
     def _fullySharedAddressBookGroupRow(self): #@NoSelf
-
-        returnValue([
+        return [
             self._resourceID, # obj.ADDRESSBOOK_RESOURCE_ID,
             self._resourceID, # obj.RESOURCE_ID,
             self._fullySharedAddressBookGroupName(), # obj.RESOURCE_NAME, shared name is UID and thus avoids collisions
@@ -558,7 +557,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
             "1", # Len(obj.TEXT), unused
             self._created, # obj.CREATED,
             self._modified, # obj.CREATED,
-        ])
+        ]
 
 
     def _fullySharedAddressBookGroupName(self):
