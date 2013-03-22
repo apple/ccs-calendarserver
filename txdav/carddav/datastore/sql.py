@@ -478,29 +478,57 @@ class AddressBook(CommonHomeChild, SharingMixIn):
         raise HTTPError(FORBIDDEN)
 
 
+    @classmethod
+    def _objectResourceNamesWithResourceIDsQuery(cls, resourceIDs):
+        """
+        DAL statement to retrieve addressbook object name with given resourceIDs
+        """
+        obj = cls._objectSchema
+        return Select([obj.RESOURCE_NAME], From=obj,
+                      Where=obj.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))),)
+
+
     @inlineCallbacks
     def listObjectResources(self):
+        if self._objectNames is None:
+            if self.owned() or self.fullyShared():
+                rows = yield self._objectResourceNamesQuery.on(
+                    self._txn, resourceID=self._resourceID)
+            else:
+                acceptedGroupIDs = yield self.acceptedGroupIDs()
+                allowedObjectIDs = yield self.expandGroupIDs(self._txn, acceptedGroupIDs)
+                rows = (yield self._objectResourceNamesWithResourceIDsQuery(allowedObjectIDs).on(
+                    self._txn, resourceIDs=allowedObjectIDs
+                ))
+            objectNames = [row[0] for row in rows]
 
-        result = yield super(AddressBook, self).listObjectResources()
-        if not self.owned() and not self.fullyShared():
-            groupForSharedAB = yield self._groupForEntireAB_Name()
-            if not groupForSharedAB in result:
-                result.append(groupForSharedAB)
-        returnValue(result)
+            # account for fully-shared address book group
+            if self.fullyShared():
+                groupForSharedAB = yield self._groupForEntireAB_Name()
+                if not groupForSharedAB in objectNames:
+                    objectNames.append(groupForSharedAB)
+            self._objectNames = sorted(objectNames)
+
+        returnValue(self._objectNames)
 
 
     @inlineCallbacks
     def countObjectResources(self):
         if self._objectNames is None:
-            rows = yield self._objectCountQuery.on(
-                self._txn, resourceID=self._resourceID
-            )
-            count = rows[0][0]
+            if self.owned() or self.fullyShared():
+                rows = yield self._objectCountQuery.on(
+                    self._txn, resourceID=self._resourceID
+                )
+                count = rows[0][0]
+            else:
+                acceptedGroupIDs = yield self.acceptedGroupIDs()
+                count = len((yield self.expandGroupIDs(self._txn, acceptedGroupIDs)))
 
-            #add in group for shared address book
-            if not self.owned() and not self.fullyShared():
+            # account for fully-shared address book group
+            if self.fullyShared():
                 count += 1
             returnValue(count)
+
         returnValue(len(self._objectNames))
 
 
@@ -883,7 +911,6 @@ END:VCARD
             home._txn, homeID=home._resourceID
         )))
         for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in rows:  #@UnusedVariable
-            assert bindMode != _BIND_MODE_OWN
             ownerHome = yield home._txn.homeWithResourceID(home._homeType, homeID)
             names |= set([ownerHome.shareeAddressBookName()])
         returnValue(tuple(names))
@@ -1246,6 +1273,9 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         self._bindName = None
         super(AddressBookObject, self).__init__(addressbook, name, uid, resourceID)
 
+
+    def __repr__(self):
+        return '<%s: %s("%s")>' % (self.__class__.__name__, self._resourceID, self.name())
 
     @property
     def _addressbook(self):
