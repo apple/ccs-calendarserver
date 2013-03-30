@@ -634,15 +634,18 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("%s %s starting %s process..." % (self.description, version, config.ProcessType))
 
         try:
-            from setproctitle import setproctitle
+            from setproctitle import setproctitle, getproctitle
         except ImportError:
             pass
         else:
+            origTitle = getproctitle()
             if config.LogID:
                 logID = " #%s" % (config.LogID,)
             else:
                 logID = ""
-            setproctitle("CalendarServer %s [%s%s]" % (version, config.ProcessType, logID))
+            if config.ProcessType is not "Utility":
+                origTitle = ""
+            setproctitle("CalendarServer %s [%s%s] %s" % (version, config.ProcessType, logID, origTitle))
 
         serviceMethod = getattr(self, "makeService_%s" % (config.ProcessType,), None)
 
