@@ -704,7 +704,7 @@ class StoreCalendarObjectResource(object):
                     prop.setParameter("CN", authz.displayName())
                     for candidate in authz.calendarUserAddresses():
                         if candidate.startswith("mailto:"):
-                            prop.setParameter("EMAIL", candidate)
+                            prop.setParameter("EMAIL", candidate[7:])
                             break
                     self.calendar.replacePropertyInAllComponents(prop)
                 else:
