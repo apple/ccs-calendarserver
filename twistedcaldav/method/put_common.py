@@ -203,6 +203,7 @@ class StoreCalendarObjectResource(object):
         self.access = None
         self.hasPrivateComments = False
         self.isScheduleResource = False
+        self.dataChanged = False
 
 
     @inlineCallbacks
@@ -364,6 +365,9 @@ class StoreCalendarObjectResource(object):
 
             # Check that moves to shared calendars are OK
             yield self.validCopyMoveOperation()
+
+            # Check location/resource organizer requirement
+            yield self.validLocationResourceOrganizer()
 
             # Check access
             if self.destinationcal and config.EnablePrivateEvents:
@@ -662,6 +666,53 @@ class StoreCalendarObjectResource(object):
 
 
     @inlineCallbacks
+    def validLocationResourceOrganizer(self):
+        """
+        If the calendar owner is a location or resource, check whether an ORGANIZER property is required.
+        """
+
+        if not self.internal_request:
+            originatorPrincipal = (yield self.destination.ownerPrincipal(self.request))
+            cutype = originatorPrincipal.getCUType() if originatorPrincipal is not None else "INDIVIDUAL"
+            organizer = self.calendar.getOrganizer()
+
+            # Check for an allowed change
+            if organizer is None and (
+                cutype == "ROOM" and not config.Scheduling.Options.AllowLocationWithoutOrganizer or
+                cutype == "RESOURCE" and not config.Scheduling.Options.AllowResourceWithoutOrganizer):
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (calendarserver_namespace, "valid-organizer"),
+                    "Organizer required in calendar data",
+                ))
+
+            # Check for tracking the modifier
+            if organizer is None and (
+                cutype == "ROOM" and config.Scheduling.Options.TrackUnscheduledLocationData or
+                cutype == "RESOURCE" and config.Scheduling.Options.TrackUnscheduledResourceData):
+
+                # Find current principal
+                authz = None
+                authz_principal = self.destinationparent.currentPrincipal(self.request).children[0]
+                if isinstance(authz_principal, davxml.HRef):
+                    principalURL = str(authz_principal)
+                    if principalURL:
+                        authz = (yield self.request.locateResource(principalURL))
+
+                if authz is not None:
+                    prop = Property("X-CALENDARSERVER-MODIFIED-BY", "urn:uuid:%s" % (authz.record.guid,))
+                    prop.setParameter("CN", authz.displayName())
+                    for candidate in authz.calendarUserAddresses():
+                        if candidate.startswith("mailto:"):
+                            prop.setParameter("EMAIL", candidate)
+                            break
+                    self.calendar.replacePropertyInAllComponents(prop)
+                else:
+                    self.calendar.removeAllPropertiesWithName("X-CALENDARSERVER-MODIFIED-BY")
+                self.dataChanged = True
+
+
+    @inlineCallbacks
     def preservePrivateComments(self):
         # Check for private comments on the old resource and the new resource and re-insert
         # ones that are lost.
@@ -769,7 +820,6 @@ class StoreCalendarObjectResource(object):
         """
 
         # Only relevant if calendar is sharee collection
-        changed = False
         if self.destinationparent.isShareeCollection():
 
             # Get all X-APPLE-DROPBOX's and ATTACH's that are http URIs
@@ -813,59 +863,52 @@ class StoreCalendarObjectResource(object):
                     uri = uriNormalize(xdropbox.value())
                     if uri:
                         xdropbox.setValue(uri)
-                        changed = True
+                        self.dataChanged = True
                 for attachment in attachments:
                     uri = uriNormalize(attachment.value())
                     if uri:
                         attachment.setValue(uri)
-                        changed = True
-
-        returnValue(changed)
+                        self.dataChanged = True
 
 
     def processAlarms(self):
         """
         Remove duplicate alarms. Add a default alarm if required.
-
-        @return: indicate whether a change was made
-        @rtype: C{bool}
         """
 
         # Remove duplicate alarms
-        changed = False
-        if config.RemoveDuplicateAlarms:
-            changed = self.calendar.hasDuplicateAlarms(doFix=True)
+        if config.RemoveDuplicateAlarms and self.calendar.hasDuplicateAlarms(doFix=True):
+            self.dataChanged = True
 
         # Only if feature enabled
         if not config.EnableDefaultAlarms:
-            return changed
+            return
 
         # Check that we are creating and this is not the inbox
         if not self.destinationcal or self.destination.exists() or self.isiTIP:
-            return changed
+            return
 
         # Never add default alarms to calendar data in shared calendars
         if self.destinationparent.isShareeCollection():
-            return changed
+            return
 
         # Add default alarm for VEVENT and VTODO only
         mtype = self.calendar.mainType().upper()
         if self.calendar.mainType().upper() not in ("VEVENT", "VTODO"):
-            return changed
+            return
         vevent = mtype == "VEVENT"
 
         # Check timed or all-day
         start, _ignore_end = self.calendar.mainComponent(allow_multiple=True).getEffectiveStartEnd()
         if start is None:
             # Yes VTODOs might have no DTSTART or DUE - in this case we do not add a default
-            return changed
+            return
         timed = not start.isDateOnly()
 
         # See if default exists and add using appropriate logic
         alarm = self.destinationparent.getDefaultAlarm(vevent, timed)
-        if alarm:
-            changed = self.calendar.addAlarms(alarm)
-        return changed
+        if alarm and self.calendar.addAlarms(alarm):
+            self.dataChanged = True
 
 
     @inlineCallbacks
@@ -1221,14 +1264,14 @@ class StoreCalendarObjectResource(object):
             yield self.replaceMissingToDoProperties()
 
             # Handle sharing dropbox normalization
-            dropboxChanged = (yield self.dropboxPathNormalization())
+            yield self.dropboxPathNormalization()
 
             # Pre-process managed attachments
             if not self.internal_request and not self.attachmentProcessingDone:
                 managed_copied, managed_removed = (yield self.destination.preProcessManagedAttachments(self.calendar))
 
             # Default/duplicate alarms
-            alarmChanged = self.processAlarms()
+            self.processAlarms()
 
             # Do scheduling
             implicit_result = (yield self.doImplicitScheduling())
@@ -1276,7 +1319,7 @@ class StoreCalendarObjectResource(object):
                 yield self.destination.postProcessManagedAttachments(managed_copied, managed_removed)
 
             # Must not set ETag in response if data changed
-            if did_implicit_action or dropboxChanged or alarmChanged:
+            if did_implicit_action or self.dataChanged:
                 def _removeEtag(request, response):
                     response.headers.removeHeader('etag')
                     return response

@@ -694,6 +694,10 @@ DEFAULT_CONFIG = {
             "AllowGroupAsOrganizer"               : False, # Allow groups to be Organizers
             "AllowLocationAsOrganizer"            : False, # Allow locations to be Organizers
             "AllowResourceAsOrganizer"            : False, # Allow resources to be Organizers
+            "AllowLocationWithoutOrganizer"       : True, # Allow locations to have events without an Organizer
+            "AllowResourceWithoutOrganizer"       : True, # Allow resources to have events without an Organizer
+            "TrackUnscheduledLocationData"        : True, # Track who the last modifier of an unscheduled location event is
+            "TrackUnscheduledResourceData"        : True, # Track who the last modifier of an unscheduled resource event is
             "LimitFreeBusyAttendees"              : 30, # Maximum number of attendees to request freebusy for
             "AttendeeRefreshBatch"                : 5, # Number of attendees to do batched refreshes: 0 - no batching
             "AttendeeRefreshBatchDelaySeconds"    : 5, # Time after an iTIP REPLY for first batched attendee refresh
@@ -1033,6 +1037,7 @@ class PListConfigProvider(ConfigProvider):
         else:
             configDict = _cleanup(configDict, self._defaults)
         return configDict
+
 
 
 def _expandPath(path):
