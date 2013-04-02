@@ -7432,6 +7432,165 @@ END:VCALENDAR
             "base64-aHR0cDovL2V4YW1wbGUuY29tL3ByaW5jaXBhbHMvdXNlcnMvYnV6")
 
 
+    def test_normalizeCalendarUserAddressesAndLocationChange(self):
+        """
+        Ensure http(s) and /path CUA values are tucked away into the property
+        using CALENDARSERVER-OLD-CUA parameter.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+DTSTART:20071114T000000Z
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20071114T000000Z
+ATTENDEE:/principals/users/foo
+ATTENDEE:http://example.com/principals/users/bar
+ATTENDEE;CN=Buzz;CUTYPE=ROOM:http://example.com/principals/locations/buzz
+LOCATION:Buzz
+DTSTAMP:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data)
+
+
+        def lookupFunction(cuaddr, ignored1, ignored2):
+            return {
+                "/principals/users/foo" : (
+                    "Foo",
+                    "foo",
+                    ("urn:uuid:foo",)
+                ),
+                "http://example.com/principals/users/bar" : (
+                    "Bar",
+                    "bar",
+                    ("urn:uuid:bar",)
+                ),
+                "http://example.com/principals/locations/buzz" : (
+                    "{Restricted} Buzz",
+                    "buzz",
+                    ("urn:uuid:buzz",)
+                ),
+            }[cuaddr]
+
+        component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
+
+        # Location value changed
+        prop = component.mainComponent().getProperty("LOCATION")
+        self.assertEquals(prop.value(), "{Restricted} Buzz")
+        prop = component.getAttendeeProperty(("urn:uuid:buzz",))
+        self.assertEquals("urn:uuid:buzz", prop.value())
+        self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
+
+
+    def test_normalizeCalendarUserAddressesAndLocationNoChange(self):
+        """
+        Ensure http(s) and /path CUA values are tucked away into the property
+        using CALENDARSERVER-OLD-CUA parameter.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+DTSTART:20071114T000000Z
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20071114T000000Z
+ATTENDEE:/principals/users/foo
+ATTENDEE:http://example.com/principals/users/bar
+ATTENDEE;CN=Buzz;CUTYPE=ROOM:http://example.com/principals/locations/buzz
+LOCATION:Fuzz
+DTSTAMP:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data)
+
+
+        def lookupFunction(cuaddr, ignored1, ignored2):
+            return {
+                "/principals/users/foo" : (
+                    "Foo",
+                    "foo",
+                    ("urn:uuid:foo",)
+                ),
+                "http://example.com/principals/users/bar" : (
+                    "Bar",
+                    "bar",
+                    ("urn:uuid:bar",)
+                ),
+                "http://example.com/principals/locations/buzz" : (
+                    "{Restricted} Buzz",
+                    "buzz",
+                    ("urn:uuid:buzz",)
+                ),
+            }[cuaddr]
+
+        component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
+
+        # Location value changed
+        prop = component.mainComponent().getProperty("LOCATION")
+        self.assertEquals(prop.value(), "Fuzz")
+        prop = component.getAttendeeProperty(("urn:uuid:buzz",))
+        self.assertEquals("urn:uuid:buzz", prop.value())
+        self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
+
+
+    def test_normalizeCalendarUserAddressesAndLocationNoChangeOtherCUType(self):
+        """
+        Ensure http(s) and /path CUA values are tucked away into the property
+        using CALENDARSERVER-OLD-CUA parameter.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+DTSTART:20071114T000000Z
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20071114T000000Z
+ATTENDEE:/principals/users/foo
+ATTENDEE:http://example.com/principals/users/bar
+ATTENDEE;CN=Buzz;CUTYPE=RESOURCE:http://example.com/principals/locations/buzz
+LOCATION:Buzz
+DTSTAMP:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data)
+
+
+        def lookupFunction(cuaddr, ignored1, ignored2):
+            return {
+                "/principals/users/foo" : (
+                    "Foo",
+                    "foo",
+                    ("urn:uuid:foo",)
+                ),
+                "http://example.com/principals/users/bar" : (
+                    "Bar",
+                    "bar",
+                    ("urn:uuid:bar",)
+                ),
+                "http://example.com/principals/locations/buzz" : (
+                    "{Restricted} Buzz",
+                    "buzz",
+                    ("urn:uuid:buzz",)
+                ),
+            }[cuaddr]
+
+        component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
+
+        # Location value changed
+        prop = component.mainComponent().getProperty("LOCATION")
+        self.assertEquals(prop.value(), "Buzz")
+        prop = component.getAttendeeProperty(("urn:uuid:buzz",))
+        self.assertEquals("urn:uuid:buzz", prop.value())
+        self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
+
+
     def test_serializationCaching(self):
 
         data = """BEGIN:VCALENDAR

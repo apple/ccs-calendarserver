@@ -2979,8 +2979,7 @@ END:VCALENDAR
                 # Check that we can lookup this calendar user address - if not
                 # we cannot do anything with it
                 cuaddr = normalizeCUAddr(prop.value())
-                name, guid, cuaddrs = lookupFunction(cuaddr, principalFunction,
-                    config)
+                name, guid, cuaddrs = lookupFunction(cuaddr, principalFunction, config)
                 if guid is None:
                     continue
 
@@ -2988,6 +2987,11 @@ END:VCALENDAR
                 oldemail = prop.parameterValue("EMAIL")
                 if oldemail:
                     oldemail = "mailto:%s" % (oldemail,)
+
+                # Get any CN parameter
+                oldCN = prop.parameterValue("CN")
+
+                cutype = prop.parameterValue("CUTYPE")
 
                 if toUUID:
                     # Store the original CUA if http(s) or /path:
@@ -3049,9 +3053,17 @@ END:VCALENDAR
                     if newaddr:
                         prop.setValue(newaddr)
 
-                # Always re-write the CN parameter
+                # Re-write the CN parameter
                 if name:
-                    prop.setParameter("CN", name)
+                    if name != oldCN:
+                        prop.setParameter("CN", name)
+
+                        # Also adjust any previously matching location property
+                        if cutype == "ROOM":
+                            location = component.getProperty("LOCATION")
+                            if location is not None:
+                                if location.value() == oldCN:
+                                    location.setValue(name)
                 else:
                     prop.removeParameter("CN")
 
