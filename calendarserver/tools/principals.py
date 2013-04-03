@@ -23,24 +23,22 @@ import operator
 import signal
 from getopt import getopt, GetoptError
 from uuid import UUID
-from pwd import getpwnam
-from grp import getgrnam
 
-from twisted.python.util import switchUID
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.xml import element as davxml
 
-from twext.python.log import clearLogLevels
-from twext.python.log import StandardIOObserver
-
 from txdav.xml.base import decodeXMLName, encodeXMLName
 
-from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.config import config
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
 
-from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached,  booleanArgument, checkDirectory
+from calendarserver.tools.util import booleanArgument 
 from twistedcaldav.directory.augment import allowedAutoScheduleModes
+from calendarserver.tools.cmdline import utilityMain
+
+# FIXME: Move WorkerService to a util module?
+from calendarserver.tools.purge import WorkerService
 
 __all__ = [
     "principalForPrincipalID", "proxySubprincipal", "addProxy", "removeProxy",
@@ -98,6 +96,22 @@ def usage(e=None):
         sys.exit(64)
     else:
         sys.exit(0)
+
+
+class PrincipalService(WorkerService):
+    """
+    """
+
+    params = []
+
+    @inlineCallbacks
+    def doWork(self):
+        """
+        """
+        rootResource = self.rootResource()
+        directory = rootResource.getDirectory()
+        yield self.command(rootResource, directory, self._store, *self.params) 
+
 
 def main():
     try:
@@ -243,53 +257,6 @@ def main():
         else:
             raise NotImplementedError(opt)
 
-    #
-    # Get configuration
-    #
-    try:
-        loadConfig(configFileName)
-
-        # Do this first, because modifying the config object will cause
-        # some logging activity at whatever log level the plist says
-        clearLogLevels()
-
-
-        config.DefaultLogLevel = "debug" if verbose else "error"
-
-        #
-        # Send logging output to stdout
-        #
-        observer = StandardIOObserver()
-        observer.start()
-
-        # Create the DataRoot directory before shedding privileges
-        if config.DataRoot.startswith(config.ServerRoot + os.sep):
-            checkDirectory(
-                config.DataRoot,
-                "Data root",
-                access=os.W_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
-
-        # Shed privileges
-        if config.UserName and config.GroupName and os.getuid() == 0:
-            uid = getpwnam(config.UserName).pw_uid
-            gid = getgrnam(config.GroupName).gr_gid
-            switchUID(uid, uid, gid)
-
-        os.umask(config.umask)
-
-        # Configure memcached client settings prior to setting up resource
-        # hierarchy (in getDirectory)
-        setupMemcached(config)
-
-        try:
-            config.directory = getDirectory()
-        except DirectoryError, e:
-            abort(e)
-
-    except ConfigurationError, e:
-        abort(e)
 
     #
     # List principals
@@ -366,16 +333,13 @@ def main():
 
         params = (runPrincipalActions, args, principalActions)
 
-    #
-    # Start the reactor
-    #
-    reactor.callLater(0, *params)
-    reactor.run()
 
+    PrincipalService.params = params
+    utilityMain(configFileName, PrincipalService, verbose=verbose)
 
 
 @inlineCallbacks
-def runPrincipalActions(principalIDs, actions):
+def runPrincipalActions(rootResource, directory, store, principalIDs, actions):
     try:
         for principalID in principalIDs:
             # Resolve the given principal IDs to principals
@@ -390,7 +354,8 @@ def runPrincipalActions(principalIDs, actions):
 
             # Performs requested actions
             for action in actions:
-                (yield action[0](principal, *action[1:]))
+                (yield action[0](rootResource, directory, store, principal,
+                    *action[1:]))
                 print("")
 
     finally:
@@ -400,14 +365,14 @@ def runPrincipalActions(principalIDs, actions):
         reactor.stop()
 
 @inlineCallbacks
-def runSearch(searchTerm):
+def runSearch(rootResource, directory, store, searchTerm):
 
     try:
         fields = []
         for fieldName in ("fullName", "firstName", "lastName", "emailAddresses"):
             fields.append((fieldName, searchTerm, True, "contains"))
 
-        records = list((yield config.directory.recordsMatchingTokens(searchTerm.strip().split())))
+        records = list((yield directory.recordsMatchingTokens(searchTerm.strip().split())))
         if records:
             records.sort(key=operator.attrgetter('fullName'))
             print("%d matches found:" % (len(records),))
@@ -517,25 +482,25 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
 def proxySubprincipal(principal, proxyType):
     return principal.getChild("calendar-proxy-" + proxyType)
 
-def action_removePrincipal(principal):
+def action_removePrincipal(rootResource, directory, store, principal):
     record = principal.record
     fullName = record.fullName
     shortName = record.shortNames[0]
     guid = record.guid
 
-    config.directory.destroyRecord(record.recordType, guid=guid)
+    directory.destroyRecord(record.recordType, guid=guid)
     print("Removed '%s' %s %s" % (fullName, shortName, guid))
 
 
 @inlineCallbacks
-def action_readProperty(resource, qname):
+def action_readProperty(rootResource, directory, store, resource, qname):
     property = (yield resource.readProperty(qname, None))
     print("%r on %s:" % (encodeXMLName(*qname), resource))
     print("")
     print(property.toxml())
 
 @inlineCallbacks
-def action_listProxies(principal, *proxyTypes):
+def action_listProxies(rootResource, directory, store, principal, *proxyTypes):
     for proxyType in proxyTypes:
         subPrincipal = proxySubprincipal(principal, proxyType)
         if subPrincipal is None:
@@ -553,7 +518,7 @@ def action_listProxies(principal, *proxyTypes):
             records = []
             for member in membersProperty.children:
                 proxyPrincipal = principalForPrincipalID(str(member),
-                    directory=config.directory)
+                    directory=directory)
                 records.append(proxyPrincipal.record)
 
             printRecordList(records)
@@ -563,7 +528,7 @@ def action_listProxies(principal, *proxyTypes):
                 prettyPrincipal(principal)))
 
 @inlineCallbacks
-def action_addProxy(principal, proxyType, *proxyIDs):
+def action_addProxy(rootResource, directory, store, principal, proxyType, *proxyIDs):
     for proxyID in proxyIDs:
         proxyPrincipal = principalForPrincipalID(proxyID)
         if proxyPrincipal is None:
@@ -572,7 +537,7 @@ def action_addProxy(principal, proxyType, *proxyIDs):
             (yield action_addProxyPrincipal(principal, proxyType, proxyPrincipal))
 
 @inlineCallbacks
-def action_addProxyPrincipal(principal, proxyType, proxyPrincipal):
+def action_addProxyPrincipal(rootResource, directory, store, principal, proxyType, proxyPrincipal):
     try:
         (yield addProxy(principal, proxyType, proxyPrincipal))
         print("Added %s as a %s proxy for %s" % (
@@ -668,7 +633,7 @@ def getProxies(principal, directory=None):
 
 
 @inlineCallbacks
-def action_removeProxy(principal, *proxyIDs, **kwargs):
+def action_removeProxy(rootResource, directory, store, principal, *proxyIDs, **kwargs):
     for proxyID in proxyIDs:
         proxyPrincipal = principalForPrincipalID(proxyID)
         if proxyPrincipal is None:
@@ -677,7 +642,7 @@ def action_removeProxy(principal, *proxyIDs, **kwargs):
             (yield action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs))
 
 @inlineCallbacks
-def action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs):
+def action_removeProxyPrincipal(rootResource, directory, store, principal, proxyPrincipal, **kwargs):
     try:
         removed = (yield removeProxy(principal, proxyPrincipal, **kwargs))
         if removed:
@@ -724,7 +689,7 @@ def removeProxy(principal, proxyPrincipal, **kwargs):
 
 
 @inlineCallbacks
-def action_setAutoSchedule(principal, autoSchedule):
+def action_setAutoSchedule(rootResource, directory, store, principal, autoSchedule):
     if principal.record.recordType == "groups":
         print("Enabling auto-schedule for %s is not allowed." % (principal,))
 
@@ -737,7 +702,7 @@ def action_setAutoSchedule(principal, autoSchedule):
             prettyPrincipal(principal),
         ))
 
-        (yield updateRecord(False, config.directory,
+        (yield updateRecord(False, directory,
             principal.record.recordType,
             guid=principal.record.guid,
             shortNames=principal.record.shortNames,
@@ -746,7 +711,7 @@ def action_setAutoSchedule(principal, autoSchedule):
             **principal.record.extras
         ))
 
-def action_getAutoSchedule(principal):
+def action_getAutoSchedule(rootResource, directory, store, principal):
     autoSchedule = principal.getAutoSchedule()
     print("Auto-schedule for %s is %s" % (
         prettyPrincipal(principal),
@@ -754,7 +719,7 @@ def action_getAutoSchedule(principal):
     ))
 
 @inlineCallbacks
-def action_setAutoScheduleMode(principal, autoScheduleMode):
+def action_setAutoScheduleMode(rootResource, directory, store, principal, autoScheduleMode):
     if principal.record.recordType == "groups":
         print("Setting auto-schedule mode for %s is not allowed." % (principal,))
 
@@ -767,7 +732,7 @@ def action_setAutoScheduleMode(principal, autoScheduleMode):
             prettyPrincipal(principal),
         ))
 
-        (yield updateRecord(False, config.directory,
+        (yield updateRecord(False, directory,
             principal.record.recordType,
             guid=principal.record.guid,
             shortNames=principal.record.shortNames,
@@ -776,7 +741,7 @@ def action_setAutoScheduleMode(principal, autoScheduleMode):
             **principal.record.extras
         ))
 
-def action_getAutoScheduleMode(principal):
+def action_getAutoScheduleMode(rootResource, directory, store, principal):
     autoScheduleMode = principal.getAutoScheduleMode()
     if not autoScheduleMode:
         autoScheduleMode = "automatic"
@@ -786,7 +751,7 @@ def action_getAutoScheduleMode(principal):
     ))
 
 @inlineCallbacks
-def action_setAutoAcceptGroup(principal, autoAcceptGroup):
+def action_setAutoAcceptGroup(rootResource, directory, store, principal, autoAcceptGroup):
     if principal.record.recordType == "groups":
         print("Setting auto-accept-group for %s is not allowed." % (principal,))
 
@@ -803,7 +768,7 @@ def action_setAutoAcceptGroup(principal, autoAcceptGroup):
                 prettyPrincipal(principal),
             ))
 
-            (yield updateRecord(False, config.directory,
+            (yield updateRecord(False, directory,
                 principal.record.recordType,
                 guid=principal.record.guid,
                 shortNames=principal.record.shortNames,
@@ -812,12 +777,12 @@ def action_setAutoAcceptGroup(principal, autoAcceptGroup):
                 **principal.record.extras
             ))
 
-def action_getAutoAcceptGroup(principal):
+def action_getAutoAcceptGroup(rootResource, directory, store, principal):
     autoAcceptGroup = principal.getAutoAcceptGroup()
     if autoAcceptGroup:
-        record = config.directory.recordWithGUID(autoAcceptGroup)
+        record = directory.recordWithGUID(autoAcceptGroup)
         if record is not None:
-            groupPrincipal = config.directory.principalCollection.principalForUID(record.uid)
+            groupPrincipal = directory.principalCollection.principalForUID(record.uid)
             if groupPrincipal is not None:
                 print("Auto-accept-group for %s is %s" % (
                     prettyPrincipal(principal),
