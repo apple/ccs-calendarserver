@@ -20,6 +20,7 @@ PUT/COPY/MOVE common behavior.
 
 __all__ = ["StoreAddressObjectResource"]
 
+import sys
 import types
 
 from twisted.internet import reactor
@@ -485,12 +486,18 @@ class StoreAddressObjectResource(object):
 
             returnValue(response)
 
-        except Exception, err:
+        except Exception:
+
+            # Grab the current exception state here so we can use it in a re-raise - we need this because
+            # an inlineCallback might be called and that raises an exception when it returns, wiping out the
+            # original exception "context".
+            ex = sys.exc_info()
 
             if reservation:
                 yield reservation.unreserve()
 
-            raise err
+            # Re-raise using original exception state
+            raise ex[0], ex[1], ex[2]
 
 
     @inlineCallbacks
@@ -576,9 +583,15 @@ class StoreAddressObjectResource(object):
 
             returnValue(response)
 
-        except Exception, err:
+        except Exception:
+
+            # Grab the current exception state here so we can use it in a re-raise - we need this because
+            # an inlineCallback might be called and that raises an exception when it returns, wiping out the
+            # original exception "context".
+            ex = sys.exc_info()
 
             if reservation:
                 yield reservation.unreserve()
 
-            raise err
+            # Re-raise using original exception state
+            raise ex[0], ex[1], ex[2]

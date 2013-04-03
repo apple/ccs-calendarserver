@@ -21,6 +21,7 @@ PUT/COPY/MOVE common behavior.
 
 __all__ = ["StoreCalendarObjectResource"]
 
+import sys
 import types
 import uuid
 from urlparse import urlparse, urlunparse
@@ -1334,6 +1335,11 @@ class StoreCalendarObjectResource(object):
 
         except Exception, err:
 
+            # Grab the current exception state here so we can use it in a re-raise - we need this because
+            # an inlineCallback might be called and that raises an exception when it returns, wiping out the
+            # original exception "context".
+            ex = sys.exc_info()
+
             if reservation:
                 yield reservation.unreserve()
 
@@ -1356,7 +1362,8 @@ class StoreCalendarObjectResource(object):
                     "Invalid Managed-ID parameter in calendar data",
                 ))
             else:
-                raise err
+                # Re-raise using original exception state
+                raise ex[0], ex[1], ex[2]
 
 
     @inlineCallbacks
@@ -1452,6 +1459,11 @@ class StoreCalendarObjectResource(object):
 
         except Exception, err:
 
+            # Grab the current exception state here so we can use it in a re-raise - we need this because
+            # an inlineCallback might be called and that raises an exception when it returns, wiping out the
+            # original exception "context".
+            ex = sys.exc_info()
+
             if reservation:
                 yield reservation.unreserve()
 
@@ -1474,4 +1486,5 @@ class StoreCalendarObjectResource(object):
                     "Invalid Managed-ID parameter in calendar data",
                 ))
             else:
-                raise err
+                # Re-raise using original exception state
+                raise ex[0], ex[1], ex[2]
