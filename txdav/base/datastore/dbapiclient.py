@@ -39,7 +39,7 @@ try:
     # however, process-global; after the first call to connect(), all
     # subsequent connections inherit this encoding even if the environment
     # variable changes.) -glyph
-    os.environ['NLS_LANG'] = '.UTF8'
+    os.environ['NLS_LANG'] = '.AL32UTF8'
     import cx_Oracle
 except ImportError:
     cx_Oracle = None
