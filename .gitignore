@@ -1,3 +1,6 @@
 *.pyc
 *.so
 dropin.cache
+
+/build/
+/data/
