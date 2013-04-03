@@ -39,10 +39,6 @@ from calendarserver.tools.util import (
     action_removeProxyPrincipal
 )
 from twistedcaldav.directory.augment import allowedAutoScheduleModes
-from calendarserver.tools.cmdline import utilityMain
-
-# FIXME: Move WorkerService to a util module?
-from calendarserver.tools.purge import WorkerService
 
 from calendarserver.tools.cmdline import utilityMain, WorkerService
 
@@ -476,6 +472,8 @@ def action_addProxy(rootResource, directory, store, principal, proxyType, *proxy
         else:
             (yield action_addProxyPrincipal(rootResource, directory, store, 
                 principal, proxyType, proxyPrincipal))
+
+
 
 
 
