@@ -22,7 +22,7 @@ import cgi
 
 from functools import partial
 
-from twisted.trial.unittest import TestCase
+from twistedcaldav.test.util import TestCase
 
 from twisted.web.microdom import parseString, getElementsByTagName
 from twisted.web.domhelpers import gatherTextNodes
@@ -66,7 +66,7 @@ class RenderingTests(TestCase):
 
     def setUp(self):
         self.expectedSearches = {}
-        self.resource = WebAdminResource(self.mktemp(), None, self)
+        self.resource = WebAdminResource(self.mktemp(), None, self, None)
 
 
     @inlineCallbacks

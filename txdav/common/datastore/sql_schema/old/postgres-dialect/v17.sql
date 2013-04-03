@@ -557,15 +557,6 @@ create table PUSH_NOTIFICATION_WORK (
   PUSH_ID                       varchar(255) not null
 );
 
------------------
--- GroupCacher --
------------------
-
-create table GROUP_CACHER_POLLING_WORK (
-  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
-);
-
 
 --------------------
 -- Schema Version --
@@ -576,6 +567,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '18');
+insert into CALENDARSERVER values ('VERSION', '17');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');
