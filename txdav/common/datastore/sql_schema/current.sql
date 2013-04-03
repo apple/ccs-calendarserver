@@ -557,6 +557,15 @@ create table PUSH_NOTIFICATION_WORK (
   PUSH_ID                       varchar(255) not null
 );
 
+-----------------
+-- GroupCacher --
+-----------------
+
+create table GROUP_CACHER_POLLING_WORK (
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
+);
+
 
 --------------------
 -- Schema Version --

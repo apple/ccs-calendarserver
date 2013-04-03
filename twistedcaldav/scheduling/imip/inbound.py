@@ -120,22 +120,25 @@ class MailRetriever(service.Service):
         self.point = GAIEndpoint(self.reactor, settings.Server,
             settings.Port, contextFactory=contextFactory)
 
-    def startService(self):
-        return self.scheduleNextPoll(seconds=0)
-
 
     def fetchMail(self):
         return self.point.connect(self.factory(self.settings, self.mailReceiver))
+
 
     @inlineCallbacks
     def scheduleNextPoll(self, seconds=None):
         if seconds is None:
             seconds = self.settings["PollingSeconds"]
-        txn = self.store.newTransaction()
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-        yield txn.enqueue(IMIPPollingWork, notBefore=notBefore)
-        yield txn.commit()
+        yield scheduleNextMailPoll(self.store, seconds)
+        
 
+@inlineCallbacks
+def scheduleNextMailPoll(store, seconds):
+    txn = store.newTransaction()
+    notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
+    log.debug("Scheduling next mail poll: %s" % (notBefore,))
+    yield txn.enqueue(IMIPPollingWork, notBefore=notBefore)
+    yield txn.commit()
 
 
 class MailReceiver(object):
