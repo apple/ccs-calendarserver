@@ -594,7 +594,8 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
         @param principalUID: the UID of the principal to remove.
         """
-
+        # FIXME: This method doesn't appear to be used anywhere.  Still needed?
+        
         if delay:
             # We are going to remove the principal only after <delay> seconds
             # has passed since we first chose to remove it, to protect against

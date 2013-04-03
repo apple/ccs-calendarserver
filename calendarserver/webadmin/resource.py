@@ -28,7 +28,7 @@ import cgi
 import operator
 import urlparse
 
-from calendarserver.tools.principals import (
+from calendarserver.tools.util import (
     principalForPrincipalID, proxySubprincipal, action_addProxyPrincipal,
     action_removeProxyPrincipal
 )
@@ -569,9 +569,10 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
     Web administration HTTP resource.
     """
 
-    def __init__(self, path, root, directory, principalCollections=()):
+    def __init__(self, path, root, directory, store, principalCollections=()):
         self.root = root
         self.directory = directory
+        self.store = store
         super(WebAdminResource, self).__init__(path,
             principalCollections=principalCollections)
 
@@ -642,16 +643,18 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         # Update the proxies if specified.
         for proxyId in removeProxies:
             proxy = self.getResourceById(request, proxyId)
-            (yield action_removeProxyPrincipal(principal, proxy,
-                                               proxyTypes=["read", "write"]))
+            (yield action_removeProxyPrincipal(self.root, self.directory, self.store,
+                principal, proxy, proxyTypes=["read", "write"]))
 
         for proxyId in makeReadProxies:
             proxy = self.getResourceById(request, proxyId)
-            (yield action_addProxyPrincipal(principal, "read", proxy))
+            (yield action_addProxyPrincipal(self.root, self.directory, self.store,
+                principal, "read", proxy))
 
         for proxyId in makeWriteProxies:
             proxy = self.getResourceById(request, proxyId)
-            (yield action_addProxyPrincipal(principal, "write", proxy))
+            (yield action_addProxyPrincipal(self.root, self.directory, self.store,
+                principal, "write", proxy))
 
 
     @inlineCallbacks

@@ -31,21 +31,27 @@ from time import sleep
 import socket
 from pwd import getpwnam
 from grp import getgrnam
+from uuid import UUID
+
+from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+
 
 from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twext.python.log import Logger
+from twisted.internet.defer import inlineCallbacks, returnValue
 
+from txdav.xml import element as davxml
 
 from calendarserver.provision.root import RootResource
 
 from twistedcaldav import memcachepool
-from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
 from calendarserver.push.notifier import NotifierFactory
-from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 from txdav.common.datastore.file import CommonDataStore
 
@@ -309,6 +315,179 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
             "Insufficient permissions for server on %s directory: %s"
             % (description, dirpath)
         )
+
+
+
+def principalForPrincipalID(principalID, checkOnly=False, directory=None):
+    
+    # Allow a directory parameter to be passed in, but default to config.directory
+    # But config.directory isn't set right away, so only use it when we're doing more 
+    # than checking.
+    if not checkOnly and not directory:
+        directory = config.directory
+
+    if principalID.startswith("/"):
+        segments = principalID.strip("/").split("/")
+        if (len(segments) == 3 and
+            segments[0] == "principals" and segments[1] == "__uids__"):
+            uid = segments[2]
+        else:
+            raise ValueError("Can't resolve all paths yet")
+
+        if checkOnly:
+            return None
+
+        return directory.principalCollection.principalForUID(uid)
+
+
+    if principalID.startswith("("):
+        try:
+            i = principalID.index(")")
+
+            if checkOnly:
+                return None
+
+            recordType = principalID[1:i]
+            shortName = principalID[i+1:]
+
+            if not recordType or not shortName or "(" in recordType:
+                raise ValueError()
+
+            return directory.principalCollection.principalForShortName(recordType, shortName)
+
+        except ValueError:
+            pass
+
+    if ":" in principalID:
+        if checkOnly:
+            return None
+
+        recordType, shortName = principalID.split(":", 1)
+
+        return directory.principalCollection.principalForShortName(recordType, shortName)
+
+    try:
+        UUID(principalID)
+
+        if checkOnly:
+            return None
+
+        x = directory.principalCollection.principalForUID(principalID)
+        return x
+    except ValueError:
+        pass
+
+    raise ValueError("Invalid principal identifier: %s" % (principalID,))
+
+def proxySubprincipal(principal, proxyType):
+    return principal.getChild("calendar-proxy-" + proxyType)
+
+@inlineCallbacks
+def action_addProxyPrincipal(rootResource, directory, store, principal, proxyType, proxyPrincipal):
+    try:
+        (yield addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipal))
+        print("Added %s as a %s proxy for %s" % (
+            prettyPrincipal(proxyPrincipal), proxyType,
+            prettyPrincipal(principal)))
+    except ProxyError, e:
+        print("Error:", e)
+    except ProxyWarning, e:
+        print(e)
+
+@inlineCallbacks
+def action_removeProxyPrincipal(rootResource, directory, store, principal, proxyPrincipal, **kwargs):
+    try:
+        removed = (yield removeProxy(rootResource, directory, store,
+            principal, proxyPrincipal, **kwargs))
+        if removed:
+            print("Removed %s as a proxy for %s" % (
+                prettyPrincipal(proxyPrincipal),
+                prettyPrincipal(principal)))
+    except ProxyError, e:
+        print("Error:", e)
+    except ProxyWarning, e:
+        print(e)
+
+@inlineCallbacks
+def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipal):
+    proxyURL = proxyPrincipal.url()
+
+    subPrincipal = proxySubprincipal(principal, proxyType)
+    if subPrincipal is None:
+        raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
+            prettyPrincipal(principal)))
+
+    membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+
+    for memberURL in membersProperty.children:
+        if str(memberURL) == proxyURL:
+            raise ProxyWarning("%s is already a %s proxy for %s" % (
+                prettyPrincipal(proxyPrincipal), proxyType,
+                prettyPrincipal(principal)))
+
+    else:
+        memberURLs = list(membersProperty.children)
+        memberURLs.append(davxml.HRef(proxyURL))
+        membersProperty = davxml.GroupMemberSet(*memberURLs)
+        (yield subPrincipal.writeProperty(membersProperty, None))
+
+    proxyTypes = ["read", "write"]
+    proxyTypes.remove(proxyType)
+
+    (yield action_removeProxyPrincipal(rootResource, directory, store,
+        principal, proxyPrincipal, proxyTypes=proxyTypes))
+
+    yield scheduleNextGroupCachingUpdate(store, 0)
+
+@inlineCallbacks
+def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwargs):
+    removed = False
+    proxyTypes = kwargs.get("proxyTypes", ("read", "write"))
+    for proxyType in proxyTypes:
+        proxyURL = proxyPrincipal.url()
+
+        subPrincipal = proxySubprincipal(principal, proxyType)
+        if subPrincipal is None:
+            raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
+                prettyPrincipal(principal)))
+
+        membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+
+        memberURLs = [
+            m for m in membersProperty.children
+            if str(m) != proxyURL
+        ]
+
+        if len(memberURLs) == len(membersProperty.children):
+            # No change
+            continue
+        else:
+            removed = True
+
+        membersProperty = davxml.GroupMemberSet(*memberURLs)
+        (yield subPrincipal.writeProperty(membersProperty, None))
+
+    if removed:
+        yield scheduleNextGroupCachingUpdate(store, 0)
+    returnValue(removed)
+
+
+
+def prettyPrincipal(principal):
+    record = principal.record
+    return "\"%s\" (%s:%s)" % (record.fullName, record.recordType,
+        record.shortNames[0])
+
+class ProxyError(Exception):
+    """
+    Raised when proxy assignments cannot be performed
+    """
+
+class ProxyWarning(Exception):
+    """
+    Raised for harmless proxy assignment failures such as trying to add a
+    duplicate or remove a non-existent assignment.
+    """
 
 
 

@@ -78,6 +78,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import UpgradeFileSystemFormatService, PostDBImportService
 
 from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
+from calendarserver.tap.util import directoryFromConfig
 
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
@@ -1054,9 +1055,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                 if observers:
                     pushDistributor = PushDistributor(observers)
 
+            directory = result.rootResource.getDirectory()
+            
             # Optionally set up mail retrieval
             if config.Scheduling.iMIP.Enabled:
-                directory = result.rootResource.getDirectory()
                 mailRetriever = MailRetriever(store, directory,
                     config.Scheduling.iMIP.Receiving)
                 mailRetriever.setServiceParent(result)
@@ -1445,7 +1447,41 @@ class CalDAVServiceMaker (LoggingMixIn):
             spawner.setServiceParent(multi)
             if config.UseMetaFD:
                 cl.setServiceParent(multi)
+
+            directory = directoryFromConfig(config)
+            rootResource = getRootResource(config, store, [])
+
+            # Optionally set up mail retrieval
+            if config.Scheduling.iMIP.Enabled:
+                mailRetriever = MailRetriever(store, directory,
+                    config.Scheduling.iMIP.Receiving)
+                mailRetriever.setServiceParent(multi)
+            else:
+                mailRetriever = None
+
+            # Optionally set up group cacher
+            if config.GroupCaching.Enabled:
+                groupCacher = GroupMembershipCacheUpdater(
+                    calendaruserproxy.ProxyDBService,
+                    directory,
+                    config.GroupCaching.UpdateSeconds,
+                    config.GroupCaching.ExpireSeconds,
+                    namespace=config.GroupCaching.MemcachedPool,
+                    useExternalProxies=config.GroupCaching.UseExternalProxies
+                    )
+            else:
+                groupCacher = None
+
+            def decorateTransaction(txn):
+                txn._pushDistributor = None
+                txn._rootResource = rootResource
+                txn._mailRetriever = mailRetriever
+                txn._groupCacher = groupCacher
+
+            store.callWithNewTransactions(decorateTransaction)
+
             return multi
+
         ssvc = self.storageService(spawnerSvcCreator, uid, gid)
         ssvc.setServiceParent(s)
         return s

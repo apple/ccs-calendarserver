@@ -1,94 +1,227 @@
-<?xml version="1.0" encoding="utf-8"?>
-
-<!--
-Copyright (c) 2006-2013 Apple Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
- -->
-
-<!DOCTYPE accounts SYSTEM "accounts.dtd">
-
 <accounts realm="Test Realm">
-  <location repeat="10">
-    <uid>location%02d</uid>
-    <guid>location%02d</guid>
-    <password>location%02d</password>
-    <name>Room %02d</name>
+  <location>
+    <uid>jupiter</uid>
+    <guid>jupiter</guid>
+    <name>Jupiter Conference Room, Building 2, 1st Floor</name>
   </location>
-  <resource repeat="20">
-    <uid>resource%02d</uid>
-    <guid>resource%02d</guid>
-    <password>resource%02d</password>
-    <name>Resource %02d</name>
-  </resource>
+  <location>
+    <uid>uranus</uid>
+    <guid>uranus</guid>
+    <name>Uranus Conference Room, Building 3, 1st Floor</name>
+  </location>
+  <location>
+    <uid>morgensroom</uid>
+    <guid>03DFF660-8BCC-4198-8588-DD77F776F518</guid>
+    <name>Morgen's Room</name>
+  </location>
   <location>
     <uid>mercury</uid>
     <guid>mercury</guid>
-    <password>test</password>
     <name>Mercury Conference Room, Building 1, 2nd Floor</name>
   </location>
   <location>
-    <uid>venus</uid>
-    <guid>venus</guid>
-    <password>test</password>
-    <name>Venus Conference Room, Building 1, 2nd Floor</name>
+    <uid>location09</uid>
+    <guid>location09</guid>
+    <name>Room 09</name>
   </location>
   <location>
-    <uid>Earth</uid>
-    <guid>Earth</guid>
-    <password>test</password>
-    <name>Earth Conference Room, Building 1, 1st Floor</name>
+    <uid>location08</uid>
+    <guid>location08</guid>
+    <name>Room 08</name>
+  </location>
+  <location>
+    <uid>location07</uid>
+    <guid>location07</guid>
+    <name>Room 07</name>
+  </location>
+  <location>
+    <uid>location06</uid>
+    <guid>location06</guid>
+    <name>Room 06</name>
+  </location>
+  <location>
+    <uid>location05</uid>
+    <guid>location05</guid>
+    <name>Room 05</name>
+  </location>
+  <location>
+    <uid>location04</uid>
+    <guid>location04</guid>
+    <name>Room 04</name>
+  </location>
+  <location>
+    <uid>location03</uid>
+    <guid>location03</guid>
+    <name>Room 03</name>
+  </location>
+  <location>
+    <uid>location02</uid>
+    <guid>location02</guid>
+    <name>Room 02</name>
+  </location>
+  <location>
+    <uid>location01</uid>
+    <guid>location01</guid>
+    <name>Room 01</name>
+  </location>
+  <location>
+    <uid>delegatedroom</uid>
+    <guid>delegatedroom</guid>
+    <name>Delegated Conference Room</name>
   </location>
   <location>
     <uid>mars</uid>
     <guid>redplanet</guid>
-    <password>test</password>
     <name>Mars Conference Room, Building 1, 1st Floor</name>
   </location>
   <location>
-    <uid>jupiter</uid>
-    <guid>jupiter</guid>
-    <password>test</password>
-    <name>Jupiter Conference Room, Building 2, 1st Floor</name>
-  </location>
-  <location>
-    <uid>neptune</uid>
-    <guid>neptune</guid>
-    <password>test</password>
-    <name>Neptune Conference Room, Building 2, 1st Floor</name>
+    <uid>sharissroom</uid>
+    <guid>80689D41-DAF8-4189-909C-DB017B271892</guid>
+    <name>Shari's Room</name>
   </location>
   <location>
     <uid>pluto</uid>
     <guid>pluto</guid>
-    <password>test</password>
     <name>Pluto Conference Room, Building 2, 1st Floor</name>
   </location>
   <location>
     <uid>saturn</uid>
     <guid>saturn</guid>
-    <password>test</password>
     <name>Saturn Conference Room, Building 2, 1st Floor</name>
   </location>
   <location>
-    <uid>uranus</uid>
-    <guid>uranus</guid>
-    <password>test</password>
-    <name>Uranus Conference Room, Building 3, 1st Floor</name>
+    <uid>location10</uid>
+    <guid>location10</guid>
+    <name>Room 10</name>
   </location>
   <location>
-    <uid>delegatedroom</uid>
-    <guid>delegatedroom</guid>
-    <password>delegatedroom</password>
-    <name>Delegated Conference Room</name>
+    <uid>neptune</uid>
+    <guid>neptune</guid>
+    <name>Neptune Conference Room, Building 2, 1st Floor</name>
   </location>
+  <location>
+    <uid>Earth</uid>
+    <guid>Earth</guid>
+    <name>Earth Conference Room, Building 1, 1st Floor</name>
+  </location>
+  <location>
+    <uid>venus</uid>
+    <guid>venus</guid>
+    <name>Venus Conference Room, Building 1, 2nd Floor</name>
+  </location>
+  <resource>
+    <uid>sharisotherresource</uid>
+    <guid>CCE95217-A57B-481A-AC3D-FEC9AB6CE3A9</guid>
+    <name>Shari's Other Resource</name>
+  </resource>
+  <resource>
+    <uid>resource15</uid>
+    <guid>resource15</guid>
+    <name>Resource 15</name>
+  </resource>
+  <resource>
+    <uid>resource14</uid>
+    <guid>resource14</guid>
+    <name>Resource 14</name>
+  </resource>
+  <resource>
+    <uid>resource17</uid>
+    <guid>resource17</guid>
+    <name>Resource 17</name>
+  </resource>
+  <resource>
+    <uid>resource16</uid>
+    <guid>resource16</guid>
+    <name>Resource 16</name>
+  </resource>
+  <resource>
+    <uid>resource11</uid>
+    <guid>resource11</guid>
+    <name>Resource 11</name>
+  </resource>
+  <resource>
+    <uid>resource10</uid>
+    <guid>resource10</guid>
+    <name>Resource 10</name>
+  </resource>
+  <resource>
+    <uid>resource13</uid>
+    <guid>resource13</guid>
+    <name>Resource 13</name>
+  </resource>
+  <resource>
+    <uid>resource12</uid>
+    <guid>resource12</guid>
+    <name>Resource 12</name>
+  </resource>
+  <resource>
+    <uid>resource19</uid>
+    <guid>resource19</guid>
+    <name>Resource 19</name>
+  </resource>
+  <resource>
+    <uid>resource18</uid>
+    <guid>resource18</guid>
+    <name>Resource 18</name>
+  </resource>
+  <resource>
+    <uid>sharisresource</uid>
+    <guid>C38BEE7A-36EE-478C-9DCB-CBF4612AFE65</guid>
+    <name>Shari's Resource</name>
+  </resource>
+  <resource>
+    <uid>resource20</uid>
+    <guid>resource20</guid>
+    <name>Resource 20</name>
+  </resource>
+  <resource>
+    <uid>resource06</uid>
+    <guid>resource06</guid>
+    <name>Resource 06</name>
+  </resource>
+  <resource>
+    <uid>resource07</uid>
+    <guid>resource07</guid>
+    <name>Resource 07</name>
+  </resource>
+  <resource>
+    <uid>resource04</uid>
+    <guid>resource04</guid>
+    <name>Resource 04</name>
+  </resource>
+  <resource>
+    <uid>resource05</uid>
+    <guid>resource05</guid>
+    <name>Resource 05</name>
+  </resource>
+  <resource>
+    <uid>resource02</uid>
+    <guid>resource02</guid>
+    <name>Resource 02</name>
+  </resource>
+  <resource>
+    <uid>resource03</uid>
+    <guid>resource03</guid>
+    <name>Resource 03</name>
+  </resource>
+  <resource>
+    <uid>resource01</uid>
+    <guid>resource01</guid>
+    <name>Resource 01</name>
+  </resource>
+  <resource>
+    <uid>sharisotherresource1</uid>
+    <guid>0CE0BF31-5F9E-4801-A489-8C70CF287F5F</guid>
+    <name>Shari's Other Resource1</name>
+  </resource>
+  <resource>
+    <uid>resource08</uid>
+    <guid>resource08</guid>
+    <name>Resource 08</name>
+  </resource>
+  <resource>
+    <uid>resource09</uid>
+    <guid>resource09</guid>
+    <name>Resource 09</name>
+  </resource>
 </accounts>

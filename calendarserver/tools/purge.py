@@ -18,12 +18,10 @@
 from __future__ import print_function
 
 from calendarserver.tap.util import FakeRequest
-from calendarserver.tap.util import getRootResource
 from calendarserver.tools import tables
-from calendarserver.tools.cmdline import utilityMain
-from calendarserver.tools.principals import removeProxy
+from calendarserver.tools.cmdline import utilityMain, WorkerService
+from calendarserver.tools.util import removeProxy
 
-from errno import ENOENT, EACCES
 from getopt import getopt, GetoptError
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -31,19 +29,17 @@ from pycalendar.datetime import PyCalendarDateTime
 from twext.python.log import Logger
 from twext.web2.responsecode import NO_CONTENT
 
-from twisted.application.service import Service
-from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
-from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.directory.directory import DirectoryRecord
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.query import calendarqueryfilter
 
 from txdav.xml import element as davxml
+
 
 import collections
 import os
@@ -54,46 +50,6 @@ log = Logger()
 DEFAULT_BATCH_SIZE = 100
 DEFAULT_RETAIN_DAYS = 365
 
-class WorkerService(Service):
-
-    def __init__(self, store):
-        self._store = store
-
-
-    def rootResource(self):
-        try:
-            rootResource = getRootResource(config, self._store)
-        except OSError, e:
-            if e.errno == ENOENT:
-                # Trying to re-write resources.xml but its parent directory does
-                # not exist.  The server's never been started, so we're missing
-                # state required to do any work.  (Plus, what would be the point
-                # of purging stuff from a server that's completely empty?)
-                raise ConfigurationError(
-                    "It appears that the server has never been started.\n"
-                    "Please start it at least once before purging anything.")
-            elif e.errno == EACCES:
-                # Trying to re-write resources.xml but it is not writable by the
-                # current user.  This most likely means we're in a system
-                # configuration and the user doesn't have sufficient privileges
-                # to do the other things the tool might need to do either.
-                raise ConfigurationError("You must run this tool as root.")
-            else:
-                raise
-        return rootResource
-
-
-    @inlineCallbacks
-    def startService(self):
-        try:
-            yield self.doWork()
-        except ConfigurationError, ce:
-            sys.stderr.write("Error: %s\n" % (str(ce),))
-        except Exception, e:
-            sys.stderr.write("Error: %s\n" % (e,))
-            raise
-        finally:
-            reactor.stop()
 
 
 
@@ -1163,9 +1119,8 @@ class PurgePrincipalService(WorkerService):
             return cls.CANCELEVENT_NOT_MODIFIED
 
 
-    @classmethod
     @inlineCallbacks
-    def _purgeProxyAssignments(cls, principal):
+    def _purgeProxyAssignments(self, principal):
 
         assignments = []
 
@@ -1174,7 +1129,7 @@ class PurgePrincipalService(WorkerService):
             proxyFor = (yield principal.proxyFor(proxyType == "write"))
             for other in proxyFor:
                 assignments.append((principal.record.uid, proxyType, other.record.uid))
-                (yield removeProxy(other, principal))
+                (yield removeProxy(self.root, self.directory, self._store, other, principal))
 
             subPrincipal = principal.getChild("calendar-proxy-" + proxyType)
             proxies = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))

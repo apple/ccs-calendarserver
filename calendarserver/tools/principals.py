@@ -20,30 +20,32 @@ from __future__ import print_function
 import sys
 import os
 import operator
-import signal
 from getopt import getopt, GetoptError
 from uuid import UUID
 
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from txdav.xml import element as davxml
 
 from txdav.xml.base import decodeXMLName, encodeXMLName
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
+from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
 
-from calendarserver.tools.util import booleanArgument 
+from calendarserver.tools.util import (
+    booleanArgument, proxySubprincipal, action_addProxyPrincipal,
+    principalForPrincipalID, prettyPrincipal, ProxyError,
+    action_removeProxyPrincipal
+)
 from twistedcaldav.directory.augment import allowedAutoScheduleModes
 from calendarserver.tools.cmdline import utilityMain
 
 # FIXME: Move WorkerService to a util module?
 from calendarserver.tools.purge import WorkerService
 
-__all__ = [
-    "principalForPrincipalID", "proxySubprincipal", "addProxy", "removeProxy",
-    "ProxyError", "ProxyWarning", "updateRecord"
-]
+from calendarserver.tools.cmdline import utilityMain, WorkerService
+
 
 def usage(e=None):
     if e:
@@ -100,17 +102,22 @@ def usage(e=None):
 
 class PrincipalService(WorkerService):
     """
+    Executes principals-related functions in a context which has access to the store
     """
 
+    function = None
     params = []
 
     @inlineCallbacks
     def doWork(self):
         """
+        Calls the function that's been assigned to "function" and passes the root
+        resource, directory, store, and whatever has been assigned to "params".
         """
-        rootResource = self.rootResource()
-        directory = rootResource.getDirectory()
-        yield self.command(rootResource, directory, self._store, *self.params) 
+        if self.function is not None:
+            rootResource = self.rootResource()
+            directory = rootResource.getDirectory()
+            yield self.function(rootResource, directory, self._store, *self.params) 
 
 
 def main():
@@ -265,10 +272,9 @@ def main():
         if args:
             usage("Too many arguments")
 
-        for recordType in config.directory.recordTypes():
-            print(recordType)
+        function = runListPrincipalTypes
+        params = ()
 
-        return
 
     elif addType:
 
@@ -289,7 +295,8 @@ def main():
         else:
             shortNames = ()
 
-        params = (runAddPrincipal, addType, guid, shortNames, fullName)
+        function = runAddPrincipal
+        params = (addType, guid, shortNames, fullName)
 
 
     elif listPrincipals:
@@ -303,19 +310,13 @@ def main():
         if args:
             usage("Too many arguments")
 
-        try:
-            records = list(config.directory.listRecords(listPrincipals))
-            if records:
-                printRecordList(records)
-            else:
-                print("No records of type %s" % (listPrincipals,))
-        except UnknownRecordTypeError, e:
-            usage(e)
+        function = runListPrincipals
+        params = (listPrincipals,)
 
-        return
 
     elif searchPrincipals:
-        params = (runSearch, searchPrincipals)
+        function = runSearch
+        params = (searchPrincipals,)
 
     else:
         #
@@ -331,156 +332,95 @@ def main():
             except ValueError, e:
                 abort(e)
 
-        params = (runPrincipalActions, args, principalActions)
+        function = runPrincipalActions
+        params = (args, principalActions)
 
 
+    PrincipalService.function = function
     PrincipalService.params = params
     utilityMain(configFileName, PrincipalService, verbose=verbose)
 
 
-@inlineCallbacks
-def runPrincipalActions(rootResource, directory, store, principalIDs, actions):
+def runListPrincipalTypes(service, rootResource, directory, store):
+    for recordType in directory.recordTypes():
+        print(recordType)
+    return succeed(None)
+
+
+def runListPrincipals(service, rootResource, directory, store, listPrincipals):
     try:
-        for principalID in principalIDs:
-            # Resolve the given principal IDs to principals
-            try:
-                principal = principalForPrincipalID(principalID)
-            except ValueError:
-                principal = None
-
-            if principal is None:
-                sys.stderr.write("Invalid principal ID: %s\n" % (principalID,))
-                continue
-
-            # Performs requested actions
-            for action in actions:
-                (yield action[0](rootResource, directory, store, principal,
-                    *action[1:]))
-                print("")
-
-    finally:
-        #
-        # Stop the reactor
-        #
-        reactor.stop()
-
-@inlineCallbacks
-def runSearch(rootResource, directory, store, searchTerm):
-
-    try:
-        fields = []
-        for fieldName in ("fullName", "firstName", "lastName", "emailAddresses"):
-            fields.append((fieldName, searchTerm, True, "contains"))
-
-        records = list((yield directory.recordsMatchingTokens(searchTerm.strip().split())))
+        records = list(directory.listRecords(listPrincipals))
         if records:
-            records.sort(key=operator.attrgetter('fullName'))
-            print("%d matches found:" % (len(records),))
-            for record in records:
-                print("\n%s (%s)" % (record.fullName,
-                    { "users"     : "User",
-                      "groups"    : "Group",
-                      "locations" : "Place",
-                      "resources" : "Resource",
-                    }.get(record.recordType),
-                ))
-                print("   GUID: %s" % (record.guid,))
-                print("   Record name(s): %s" % (", ".join(record.shortNames),))
-                if record.authIDs:
-                    print("   Auth ID(s): %s" % (", ".join(record.authIDs),))
-                if record.emailAddresses:
-                    print("   Email(s): %s" % (", ".join(record.emailAddresses),))
+            printRecordList(records)
         else:
-            print("No matches found")
+            print("No records of type %s" % (listPrincipals,))
+    except UnknownRecordTypeError, e:
+        usage(e)
+    return succeed(None)
 
-        print("")
-
-    finally:
-        #
-        # Stop the reactor
-        #
-        reactor.stop()
 
 @inlineCallbacks
-def runAddPrincipal(addType, guid, shortNames, fullName):
-    try:
+def runPrincipalActions(service, rootResource, directory, store, principalIDs,
+    actions):
+    for principalID in principalIDs:
+        # Resolve the given principal IDs to principals
         try:
-            yield updateRecord(True, config.directory, addType, guid=guid,
-                shortNames=shortNames, fullName=fullName)
-            print("Added '%s'" % (fullName,))
-        except DirectoryError, e:
-            print(e)
-
-    finally:
-        #
-        # Stop the reactor
-        #
-        reactor.stop()
-
-
-def principalForPrincipalID(principalID, checkOnly=False, directory=None):
-    
-    # Allow a directory parameter to be passed in, but default to config.directory
-    # But config.directory isn't set right away, so only use it when we're doing more 
-    # than checking.
-    if not checkOnly and not directory:
-        directory = config.directory
-
-    if principalID.startswith("/"):
-        segments = principalID.strip("/").split("/")
-        if (len(segments) == 3 and
-            segments[0] == "principals" and segments[1] == "__uids__"):
-            uid = segments[2]
-        else:
-            raise ValueError("Can't resolve all paths yet")
-
-        if checkOnly:
-            return None
-
-        return directory.principalCollection.principalForUID(uid)
-
-
-    if principalID.startswith("("):
-        try:
-            i = principalID.index(")")
-
-            if checkOnly:
-                return None
-
-            recordType = principalID[1:i]
-            shortName = principalID[i+1:]
-
-            if not recordType or not shortName or "(" in recordType:
-                raise ValueError()
-
-            return directory.principalCollection.principalForShortName(recordType, shortName)
-
+            principal = principalForPrincipalID(principalID, directory=directory)
         except ValueError:
-            pass
+            principal = None
 
-    if ":" in principalID:
-        if checkOnly:
-            return None
+        if principal is None:
+            sys.stderr.write("Invalid principal ID: %s\n" % (principalID,))
+            continue
 
-        recordType, shortName = principalID.split(":", 1)
+        # Performs requested actions
+        for action in actions:
+            (yield action[0](rootResource, directory, store, principal,
+                *action[1:]))
+            print("")
 
-        return directory.principalCollection.principalForShortName(recordType, shortName)
 
+@inlineCallbacks
+def runSearch(service, rootResource, directory, store, searchTerm):
+
+    fields = []
+    for fieldName in ("fullName", "firstName", "lastName", "emailAddresses"):
+        fields.append((fieldName, searchTerm, True, "contains"))
+
+    records = list((yield directory.recordsMatchingTokens(searchTerm.strip().split())))
+    if records:
+        records.sort(key=operator.attrgetter('fullName'))
+        print("%d matches found:" % (len(records),))
+        for record in records:
+            print("\n%s (%s)" % (record.fullName,
+                { "users"     : "User",
+                  "groups"    : "Group",
+                  "locations" : "Place",
+                  "resources" : "Resource",
+                }.get(record.recordType),
+            ))
+            print("   GUID: %s" % (record.guid,))
+            print("   Record name(s): %s" % (", ".join(record.shortNames),))
+            if record.authIDs:
+                print("   Auth ID(s): %s" % (", ".join(record.authIDs),))
+            if record.emailAddresses:
+                print("   Email(s): %s" % (", ".join(record.emailAddresses),))
+    else:
+        print("No matches found")
+
+    print("")
+
+
+@inlineCallbacks
+def runAddPrincipal(service, rootResource, directory, store, addType, guid,
+    shortNames, fullName):
     try:
-        UUID(principalID)
+        yield updateRecord(True, directory, addType, guid=guid,
+            shortNames=shortNames, fullName=fullName)
+        print("Added '%s'" % (fullName,))
+    except DirectoryError, e:
+        print(e)
 
-        if checkOnly:
-            return None
-
-        x = directory.principalCollection.principalForUID(principalID)
-        return x
-    except ValueError:
-        pass
-
-    raise ValueError("Invalid principal identifier: %s" % (principalID,))
-
-def proxySubprincipal(principal, proxyType):
-    return principal.getChild("calendar-proxy-" + proxyType)
 
 def action_removePrincipal(rootResource, directory, store, principal):
     record = principal.record
@@ -530,57 +470,17 @@ def action_listProxies(rootResource, directory, store, principal, *proxyTypes):
 @inlineCallbacks
 def action_addProxy(rootResource, directory, store, principal, proxyType, *proxyIDs):
     for proxyID in proxyIDs:
-        proxyPrincipal = principalForPrincipalID(proxyID)
+        proxyPrincipal = principalForPrincipalID(proxyID, directory=directory)
         if proxyPrincipal is None:
             print("Invalid principal ID: %s" % (proxyID,))
         else:
-            (yield action_addProxyPrincipal(principal, proxyType, proxyPrincipal))
+            (yield action_addProxyPrincipal(rootResource, directory, store, 
+                principal, proxyType, proxyPrincipal))
 
-@inlineCallbacks
-def action_addProxyPrincipal(rootResource, directory, store, principal, proxyType, proxyPrincipal):
-    try:
-        (yield addProxy(principal, proxyType, proxyPrincipal))
-        print("Added %s as a %s proxy for %s" % (
-            prettyPrincipal(proxyPrincipal), proxyType,
-            prettyPrincipal(principal)))
-    except ProxyError, e:
-        print("Error:", e)
-    except ProxyWarning, e:
-        print(e)
-
-@inlineCallbacks
-def addProxy(principal, proxyType, proxyPrincipal):
-    proxyURL = proxyPrincipal.url()
-
-    subPrincipal = proxySubprincipal(principal, proxyType)
-    if subPrincipal is None:
-        raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
-            prettyPrincipal(principal)))
-
-    membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
-
-    for memberURL in membersProperty.children:
-        if str(memberURL) == proxyURL:
-            raise ProxyWarning("%s is already a %s proxy for %s" % (
-                prettyPrincipal(proxyPrincipal), proxyType,
-                prettyPrincipal(principal)))
-
-    else:
-        memberURLs = list(membersProperty.children)
-        memberURLs.append(davxml.HRef(proxyURL))
-        membersProperty = davxml.GroupMemberSet(*memberURLs)
-        (yield subPrincipal.writeProperty(membersProperty, None))
-
-    proxyTypes = ["read", "write"]
-    proxyTypes.remove(proxyType)
-
-    (yield action_removeProxyPrincipal(principal, proxyPrincipal, proxyTypes=proxyTypes))
-
-    triggerGroupCacherUpdate(config)
 
 
 @inlineCallbacks
-def setProxies(principal, readProxyPrincipals, writeProxyPrincipals, directory=None):
+def setProxies(store, principal, readProxyPrincipals, writeProxyPrincipals, directory=None):
     """
     Set read/write proxies en masse for a principal
     @param principal: DirectoryPrincipalResource
@@ -605,8 +505,9 @@ def setProxies(principal, readProxyPrincipals, writeProxyPrincipals, directory=N
             proxyURL = proxyPrincipal.url()
             memberURLs.append(davxml.HRef(proxyURL))
         membersProperty = davxml.GroupMemberSet(*memberURLs)
-        (yield subPrincipal.writeProperty(membersProperty, None))
-        triggerGroupCacherUpdate(config)
+        yield subPrincipal.writeProperty(membersProperty, None)
+        if store is not None:
+            yield scheduleNextGroupCachingUpdate(store, 0)
 
 
 @inlineCallbacks
@@ -635,57 +536,14 @@ def getProxies(principal, directory=None):
 @inlineCallbacks
 def action_removeProxy(rootResource, directory, store, principal, *proxyIDs, **kwargs):
     for proxyID in proxyIDs:
-        proxyPrincipal = principalForPrincipalID(proxyID)
+        proxyPrincipal = principalForPrincipalID(proxyID, directory=directory)
         if proxyPrincipal is None:
             print("Invalid principal ID: %s" % (proxyID,))
         else:
-            (yield action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs))
-
-@inlineCallbacks
-def action_removeProxyPrincipal(rootResource, directory, store, principal, proxyPrincipal, **kwargs):
-    try:
-        removed = (yield removeProxy(principal, proxyPrincipal, **kwargs))
-        if removed:
-            print("Removed %s as a proxy for %s" % (
-                prettyPrincipal(proxyPrincipal),
-                prettyPrincipal(principal)))
-    except ProxyError, e:
-        print("Error:", e)
-    except ProxyWarning, e:
-        print(e)
+            (yield action_removeProxyPrincipal(rootResource, directory, store,
+                principal, proxyPrincipal, **kwargs))
 
 
-@inlineCallbacks
-def removeProxy(principal, proxyPrincipal, **kwargs):
-    removed = False
-    proxyTypes = kwargs.get("proxyTypes", ("read", "write"))
-    for proxyType in proxyTypes:
-        proxyURL = proxyPrincipal.url()
-
-        subPrincipal = proxySubprincipal(principal, proxyType)
-        if subPrincipal is None:
-            raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
-                prettyPrincipal(principal)))
-
-        membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
-
-        memberURLs = [
-            m for m in membersProperty.children
-            if str(m) != proxyURL
-        ]
-
-        if len(memberURLs) == len(membersProperty.children):
-            # No change
-            continue
-        else:
-            removed = True
-
-        membersProperty = davxml.GroupMemberSet(*memberURLs)
-        (yield subPrincipal.writeProperty(membersProperty, None))
-
-    if removed:
-        triggerGroupCacherUpdate(config)
-    returnValue(removed)
 
 
 @inlineCallbacks
@@ -759,7 +617,7 @@ def action_setAutoAcceptGroup(rootResource, directory, store, principal, autoAcc
         print("Setting auto-accept-group for %s is not allowed." % (principal,))
 
     else:
-        groupPrincipal = principalForPrincipalID(autoAcceptGroup)
+        groupPrincipal = principalForPrincipalID(autoAcceptGroup, directory=directory)
         if groupPrincipal is None or groupPrincipal.record.recordType != "groups":
             print("Invalid principal ID: %s" % (autoAcceptGroup,))
         else:
@@ -802,16 +660,6 @@ def abort(msg, status=1):
         pass
     sys.exit(status)
 
-class ProxyError(Exception):
-    """
-    Raised when proxy assignments cannot be performed
-    """
-
-class ProxyWarning(Exception):
-    """
-    Raised for harmless proxy assignment failures such as trying to add a
-    duplicate or remove a non-existent assignment.
-    """
 
 def parseCreationArgs(args):
     """
@@ -865,10 +713,6 @@ def printRecordList(records):
     for fullName, shortName, guid in results:
         print(format % (fullName, shortName, guid))
 
-def prettyPrincipal(principal):
-    record = principal.record
-    return "\"%s\" (%s:%s)" % (record.fullName, record.recordType,
-        record.shortNames[0])
 
 
 @inlineCallbacks
@@ -947,28 +791,6 @@ def updateRecord(create, directory, recordType, **kwargs):
         pass
 
     returnValue(record)
-
-
-def triggerGroupCacherUpdate(config, killMethod=None):
-    """
-    Look up the pid of the group cacher sidecar and HUP it to trigger an update
-    """
-    if killMethod is None:
-        killMethod = os.kill
-
-    pidFilename = os.path.join(config.RunRoot, "groupcacher.pid")
-    if os.path.exists(pidFilename):
-        pidFile = open(pidFilename, "r")
-        pid = pidFile.read().strip()
-        pidFile.close()
-        try:
-            pid = int(pid)
-        except ValueError:
-            return
-        try:
-            killMethod(pid, signal.SIGHUP)
-        except OSError:
-            pass
 
 
 

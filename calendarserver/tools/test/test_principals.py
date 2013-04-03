@@ -15,7 +15,6 @@
 ##
 
 import os
-import signal
 import sys
 
 from twext.python.filepath import CachingFilePath as FilePath
@@ -31,8 +30,7 @@ from twistedcaldav.test.util import TestCase, CapturingProcessProtocol,\
 
 from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools.principals import (parseCreationArgs, matchStrings,
-    updateRecord, principalForPrincipalID, getProxies, setProxies,
-    triggerGroupCacherUpdate)
+    updateRecord, principalForPrincipalID, getProxies, setProxies)
 
 
 class ManagePrincipalsTestCase(TestCase):
@@ -53,6 +51,9 @@ class ManagePrincipalsTestCase(TestCase):
 
         newConfig = template % {
             "ServerRoot" : os.path.abspath(config.ServerRoot),
+            "DataRoot" : os.path.abspath(config.DataRoot),
+            "DocumentRoot" : os.path.abspath(config.DocumentRoot),
+            "LogRoot" : os.path.abspath(config.LogRoot),
         }
         configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
         configFilePath.setContent(newConfig)
@@ -339,36 +340,13 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertEquals(readProxies, []) # initially empty
         self.assertEquals(writeProxies, []) # initially empty
 
-        (yield setProxies(principal, ["users:user03", "users:user04"], ["users:user05"], directory=directory))
+        (yield setProxies(None, principal, ["users:user03", "users:user04"], ["users:user05"], directory=directory))
         readProxies, writeProxies = (yield getProxies(principal, directory=directory))
         self.assertEquals(set(readProxies), set(["user03", "user04"]))
         self.assertEquals(set(writeProxies), set(["user05"]))
 
         # Using None for a proxy list indicates a no-op
-        (yield setProxies(principal, [], None, directory=directory))
+        (yield setProxies(None, principal, [], None, directory=directory))
         readProxies, writeProxies = (yield getProxies(principal, directory=directory))
         self.assertEquals(readProxies, []) # now empty
         self.assertEquals(set(writeProxies), set(["user05"])) # unchanged
-
-
-    def test_triggerGroupCacherUpdate(self):
-        """
-        Verify triggerGroupCacherUpdate can read a pidfile and send a SIGHUP
-        """
-
-        self.calledArgs = None
-        def killMethod(pid, sig):
-            self.calledArgs = (pid, sig)
-
-        class StubConfig(object):
-            def __init__(self, runRootPath):
-                self.RunRoot = runRootPath
-
-        runRootDir = FilePath(self.mktemp())
-        runRootDir.createDirectory()
-        pidFile = runRootDir.child("groupcacher.pid")
-        pidFile.setContent("1234")
-        testConfig = StubConfig(runRootDir.path)
-        triggerGroupCacherUpdate(testConfig, killMethod=killMethod)
-        self.assertEquals(self.calledArgs, (1234, signal.SIGHUP))
-        runRootDir.remove()

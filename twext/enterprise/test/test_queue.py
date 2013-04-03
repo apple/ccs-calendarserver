@@ -54,7 +54,7 @@ from twext.enterprise.fixtures import buildConnectionPool
 from zope.interface.verify import verifyObject
 from twisted.test.proto_helpers import StringTransport
 
-from twext.enterprise.queue import _BaseQueuer
+from twext.enterprise.queue import _BaseQueuer, NonPerformingQueuer
 import twext.enterprise.queue
 
 class Clock(_Clock):
@@ -653,4 +653,15 @@ class BaseQueuerTests(TestCase):
         self.assertEqual(self.proposal, None)
         queuer.enqueueWork(None, None)
         self.assertNotEqual(self.proposal, None)
+
+
+class NonPerformingQueuerTests(TestCase):
+
+    @inlineCallbacks
+    def test_choosePerformer(self):
+        queuer = NonPerformingQueuer()
+        performer = queuer.choosePerformer()
+        result = (yield performer.performWork(None, None))
+        self.assertEquals(result, None)
+
 
