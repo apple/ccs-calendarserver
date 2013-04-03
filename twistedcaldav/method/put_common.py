@@ -21,42 +21,40 @@ PUT/COPY/MOVE common behavior.
 
 __all__ = ["StoreCalendarObjectResource"]
 
-import sys
-import types
-import uuid
-from urlparse import urlparse, urlunparse
-
-from twisted.internet import reactor
-from twisted.internet.defer import Deferred, inlineCallbacks, succeed
-from twisted.internet.defer import returnValue
-from twisted.python import hashlib
-
-from twext.web2.dav.util import joinURL, parentForURL
+from twext.python.log import Logger
 from twext.web2 import responsecode
-from txdav.xml import element as davxml
-
+from twext.web2.dav.http import ErrorResponse
+from twext.web2.dav.util import joinURL, parentForURL
 from twext.web2.http import HTTPError
 from twext.web2.http import StatusResponse
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 
-from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
+from twisted.internet import reactor
+from twisted.internet.defer import Deferred, inlineCallbacks, succeed
+from twisted.internet.defer import returnValue
+from twisted.python import hashlib
+from twisted.python.failure import Failure
 
-from txdav.caldav.icalendarstore import AttachmentStoreValidManagedID
-from txdav.common.icommondatastore import ReservationError
-
-from twistedcaldav.config import config
-from twistedcaldav.caldavxml import caldav_namespace, NoUIDConflict, MaxInstances, MaxAttendeesPerInstance
 from twistedcaldav import customxml
+from twistedcaldav.caldavxml import caldav_namespace, NoUIDConflict, MaxInstances, MaxAttendeesPerInstance
+from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
-
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.instance import TooManyInstancesError, \
     InvalidOverriddenInstanceError
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
+
+from txdav.caldav.icalendarstore import AttachmentStoreValidManagedID
+from txdav.common.icommondatastore import ReservationError
+from txdav.xml import element as davxml
+
+from urlparse import urlparse, urlunparse
+
+import types
+import uuid
 
 log = Logger()
 
@@ -1338,7 +1336,7 @@ class StoreCalendarObjectResource(object):
             # Grab the current exception state here so we can use it in a re-raise - we need this because
             # an inlineCallback might be called and that raises an exception when it returns, wiping out the
             # original exception "context".
-            ex = sys.exc_info()
+            ex = Failure()
 
             if reservation:
                 yield reservation.unreserve()
@@ -1362,8 +1360,8 @@ class StoreCalendarObjectResource(object):
                     "Invalid Managed-ID parameter in calendar data",
                 ))
             else:
-                # Re-raise using original exception state
-                raise ex[0], ex[1], ex[2]
+                # Return the original failure (exception) state
+                ex.raiseException()
 
 
     @inlineCallbacks
@@ -1462,7 +1460,7 @@ class StoreCalendarObjectResource(object):
             # Grab the current exception state here so we can use it in a re-raise - we need this because
             # an inlineCallback might be called and that raises an exception when it returns, wiping out the
             # original exception "context".
-            ex = sys.exc_info()
+            ex = Failure()
 
             if reservation:
                 yield reservation.unreserve()
@@ -1486,5 +1484,5 @@ class StoreCalendarObjectResource(object):
                     "Invalid Managed-ID parameter in calendar data",
                 ))
             else:
-                # Re-raise using original exception state
-                raise ex[0], ex[1], ex[2]
+                # Return the original failure (exception) state
+                ex.raiseException()

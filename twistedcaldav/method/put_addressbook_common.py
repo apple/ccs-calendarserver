@@ -20,28 +20,28 @@ PUT/COPY/MOVE common behavior.
 
 __all__ = ["StoreAddressObjectResource"]
 
-import sys
-import types
-
-from twisted.internet import reactor
-
-from txdav.common.icommondatastore import ReservationError
-
-from twisted.internet.defer import Deferred, inlineCallbacks
-from twisted.internet.defer import returnValue
+from twext.python.log import Logger
 from twext.web2 import responsecode
-from txdav.xml import element as davxml
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.util import joinURL, parentForURL
 from twext.web2.http import HTTPError
 from twext.web2.http import StatusResponse
 from twext.web2.stream import MemoryStream
 
-from twistedcaldav.config import config
-from twistedcaldav.carddavxml import NoUIDConflict, carddav_namespace
+from twisted.internet import reactor
+from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet.defer import returnValue
+from twisted.python.failure import Failure
+
 from twistedcaldav import customxml
+from twistedcaldav.carddavxml import NoUIDConflict, carddav_namespace
+from twistedcaldav.config import config
 from twistedcaldav.vcard import Component
-from twext.python.log import Logger
+
+from txdav.common.icommondatastore import ReservationError
+from txdav.xml import element as davxml
+
+import types
 
 log = Logger()
 
@@ -491,13 +491,13 @@ class StoreAddressObjectResource(object):
             # Grab the current exception state here so we can use it in a re-raise - we need this because
             # an inlineCallback might be called and that raises an exception when it returns, wiping out the
             # original exception "context".
-            ex = sys.exc_info()
+            ex = Failure()
 
             if reservation:
                 yield reservation.unreserve()
 
-            # Re-raise using original exception state
-            raise ex[0], ex[1], ex[2]
+            # Return the original failure (exception) state
+            ex.raiseException()
 
 
     @inlineCallbacks
@@ -588,10 +588,10 @@ class StoreAddressObjectResource(object):
             # Grab the current exception state here so we can use it in a re-raise - we need this because
             # an inlineCallback might be called and that raises an exception when it returns, wiping out the
             # original exception "context".
-            ex = sys.exc_info()
+            ex = Failure()
 
             if reservation:
                 yield reservation.unreserve()
 
-            # Re-raise using original exception state
-            raise ex[0], ex[1], ex[2]
+            # Return the original failure (exception) state
+            ex.raiseException()
