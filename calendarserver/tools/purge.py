@@ -17,9 +17,9 @@
 ##
 from __future__ import print_function
 
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.tap.util import FakeRequest
 from calendarserver.tools import tables
-from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.tools.util import removeProxy
 
 from getopt import getopt, GetoptError
