@@ -35,6 +35,8 @@ from twistedcaldav.scheduling.caldav.scheduler import CalDAVScheduler
 from twistedcaldav.scheduling.utils import getCalendarObjectForPrincipals
 from twistedcaldav.config import config
 
+import collections
+
 __all__ = [
     "ImplicitScheduler",
 ]
@@ -57,6 +59,32 @@ class ImplicitScheduler(object):
     def __init__(self):
 
         self.return_status = ImplicitScheduler.STATUS_OK
+        self.allowed_to_schedule = True
+
+    NotAllowedExceptionDetails = collections.namedtuple("NotAllowedExceptionDetails", ("type", "args", "kwargs",))
+
+    def setSchedulingNotAllowed(self, ex, *ex_args, **ex_kwargs):
+        """
+        Set indicator that scheduling is not actually allowed. Pass in exception details to raise.
+
+        @param ex: the exception class to raise
+        @type ex: C{class}
+        @param ex_args: the list of arguments for the exception
+        @type ex_args: C{list}
+        """
+
+        self.not_allowed = ImplicitScheduler.NotAllowedExceptionDetails(ex, ex_args, ex_kwargs)
+        self.allowed_to_schedule = False
+
+
+    def testSchedulingAllowed(self):
+        """
+        Called to raise an exception if scheduling is not allowed. This method should be called
+        any time a valid scheduling operation needs to occur.
+        """
+
+        if not self.allowed_to_schedule:
+            raise self.not_allowed.type(*self.not_allowed.args, **self.not_allowed.kwargs)
 
 
     @inlineCallbacks
@@ -545,10 +573,6 @@ class ImplicitScheduler(object):
     @inlineCallbacks
     def doImplicitOrganizer(self):
 
-        # Do access control
-        if not self.internal_request:
-            yield self.doAccessControl(self.organizerPrincipal, True)
-
         self.oldcalendar = None
         self.changed_rids = None
         self.cancelledAttendees = ()
@@ -933,6 +957,13 @@ class ImplicitScheduler(object):
     @inlineCallbacks
     def scheduleWithAttendees(self):
 
+        # First make sure we are allowed to schedule
+        self.testSchedulingAllowed()
+
+        # Do access control
+        if not self.internal_request:
+            yield self.doAccessControl(self.organizerPrincipal, True)
+
         # First process cancelled attendees
         total = (yield self.processCancels())
 
@@ -1051,10 +1082,6 @@ class ImplicitScheduler(object):
 
     @inlineCallbacks
     def doImplicitAttendee(self):
-
-        # Do access control
-        if not self.internal_request:
-            yield self.doAccessControl(self.attendeePrincipal, False)
 
         # Check SCHEDULE-AGENT
         doScheduling = self.checkOrganizerScheduleAgent()
@@ -1283,7 +1310,15 @@ class ImplicitScheduler(object):
         return differ.attendeeMerge(self.attendee)
 
 
+    @inlineCallbacks
     def scheduleWithOrganizer(self, changedRids=None):
+
+        # First make sure we are allowed to schedule
+        self.testSchedulingAllowed()
+
+        # Do access control
+        if not self.internal_request:
+            yield self.doAccessControl(self.attendeePrincipal, False)
 
         if not hasattr(self.request, "extendedLogItems"):
             self.request.extendedLogItems = {}
@@ -1292,10 +1327,18 @@ class ImplicitScheduler(object):
         itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
 
         # Send scheduling message
-        return self.sendToOrganizer("REPLY", itipmsg)
+        yield self.sendToOrganizer("REPLY", itipmsg)
 
 
+    @inlineCallbacks
     def scheduleCancelWithOrganizer(self):
+
+        # First make sure we are allowed to schedule
+        self.testSchedulingAllowed()
+
+        # Do access control
+        if not self.internal_request:
+            yield self.doAccessControl(self.attendeePrincipal, False)
 
         if not hasattr(self.request, "extendedLogItems"):
             self.request.extendedLogItems = {}
@@ -1304,7 +1347,7 @@ class ImplicitScheduler(object):
         itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
 
         # Send scheduling message
-        return self.sendToOrganizer("CANCEL", itipmsg)
+        yield self.sendToOrganizer("CANCEL", itipmsg)
 
 
     def sendToOrganizer(self, action, itipmsg):

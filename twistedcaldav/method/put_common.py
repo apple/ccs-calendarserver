@@ -1038,11 +1038,14 @@ class StoreCalendarObjectResource(object):
                 # Cannot do implicit in sharee's shared calendar
                 isShareeCollection = self.destinationparent.isShareeCollection()
                 if isShareeCollection:
-                    raise HTTPError(ErrorResponse(
-                        responsecode.FORBIDDEN,
-                        (calendarserver_namespace, "sharee-privilege-needed",),
-                        description="Sharee's cannot schedule"
-                    ))
+                    scheduler.setSchedulingNotAllowed(
+                        HTTPError,
+                        ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (calendarserver_namespace, "sharee-privilege-needed",),
+                            description="Sharee's cannot schedule",
+                        ),
+                    )
 
                 new_calendar = (yield scheduler.doImplicitScheduling(self.schedule_tag_match))
                 if new_calendar:
