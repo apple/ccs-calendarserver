@@ -17,8 +17,6 @@
 ##
 from __future__ import print_function
 
-from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
 """
 This tool scans the calendar store to analyze organizer/attendee event
@@ -42,30 +40,39 @@ multiple DBs for inconsistency would be good too.
 
 """
 
-from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain
+
+from calendarserver.tools import tables
 from calendarserver.tools.util import getDirectory
+
 from pycalendar import definitions
 from pycalendar.calendar import PyCalendar
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.exceptions import PyCalendarError
 from pycalendar.period import PyCalendarPeriod
 from pycalendar.timezone import PyCalendarTimezone
+
 from twext.enterprise.dal.syntax import Select, Parameter, Count
+
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import log, usage
 from twisted.python.usage import Options
+
 from twistedcaldav import caldavxml
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import pyCalendarTodatetime
+from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.ical import Component, ignoredComponents, \
     InvalidICalendarDataError, Property
 from twistedcaldav.scheduling.itip import iTipGenerator
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.util import normalizationLookup
+
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
+
 import base64
 import collections
 import sys
@@ -195,7 +202,7 @@ Component.validRecurrenceIDs = new_validRecurrenceIDs
 if not hasattr(Component, "maxAlarmCounts"):
     Component.hasDuplicateAlarms = new_hasDuplicateAlarms
 
-VERSION = "9"
+VERSION = "10"
 
 def printusage(e=None):
     if e:
@@ -228,6 +235,7 @@ Modes of operation:
 --missing           : display orphaned calendar homes - can be used.
                       with either --ical or --mismatch.
 --double            : detect double-bookings.
+--dark-purge        : purge room/resource events with invalid organizer
 
 --nuke PATH|RID     : remove specific calendar resources - can
                       only be used by itself. PATH is the full
@@ -293,6 +301,7 @@ class CalVerifyOptions(Options):
         ['mismatch', 's', "Detect organizer/attendee mismatches."],
         ['missing', 'm', "Show 'orphaned' homes."],
         ['double', 'd', "Detect double-bookings."],
+        ['dark-purge', 'p', "Purge room/resource events with invalid organizer."],
         ['fix', 'x', "Fix problems."],
         ['verbose', 'v', "Verbose logging."],
         ['details', 'V', "Detailed logging."],
@@ -560,6 +569,31 @@ class CalVerifyService(Service, object):
 
     @inlineCallbacks
     def getAllResourceInfoTimeRangeWithUUID(self, start, uuid):
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        ch = schema.CALENDAR_HOME
+        tr = schema.TIME_RANGE
+        kwds = {
+            "Start" : pyCalendarTodatetime(start),
+            "Max"   : pyCalendarTodatetime(PyCalendarDateTime(1900, 1, 1, 0, 0, 0)),
+            "UUID" : uuid,
+        }
+        rows = (yield Select(
+            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN).And(
+                    cb.CALENDAR_RESOURCE_NAME != "inbox")).join(
+                tr, type="left", on=(co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID)),
+            Where=(ch.OWNER_UID == Parameter("UUID")).And((tr.START_DATE >= Parameter("Start")).Or(co.RECURRANCE_MAX <= Parameter("Start"))),
+            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
+        ).on(self.txn, **kwds))
+        returnValue(tuple(rows))
+
+
+    @inlineCallbacks
+    def getAllResourceInfoTimeRangeWithUUIDForAllUID(self, start, uuid):
         co = schema.CALENDAR_OBJECT
         cb = schema.CALENDAR_BIND
         ch = schema.CALENDAR_HOME
@@ -1370,8 +1404,8 @@ class SchedulingMismatchService(CalVerifyService):
             rows = yield self.getAllResourceInfoWithUID(self.options["uid"])
             descriptor = "getAllResourceInfoWithUID"
         elif self.options["uuid"]:
-            rows = yield self.getAllResourceInfoTimeRangeWithUUID(self.start, self.options["uuid"])
-            descriptor = "getAllResourceInfoTimeRangeWithUUID"
+            rows = yield self.getAllResourceInfoTimeRangeWithUUIDForAllUID(self.start, self.options["uuid"])
+            descriptor = "getAllResourceInfoTimeRangeWithUUIDForAllUID"
             self.options["uuid"] = None
         else:
             rows = yield self.getAllResourceInfoTimeRange(self.start)
@@ -2357,6 +2391,227 @@ class DoubleBookingService(CalVerifyService):
 
 
 
+class DarkPurgeService(CalVerifyService):
+    """
+    Service which detects room/resource events that have an invalid organizer.
+    """
+
+    def title(self):
+        return "Dark Purge Service"
+
+
+    @inlineCallbacks
+    def doAction(self):
+
+        self.output.write("\n---- Scanning calendar data ----\n")
+
+        self.tzid = PyCalendarTimezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
+        self.now = PyCalendarDateTime.getNowUTC()
+        self.start = self.options["start"] if "start" in self.options else PyCalendarDateTime.getToday()
+        self.start.setDateOnly(False)
+        self.start.setTimezone(self.tzid)
+        self.fix = self.options["fix"]
+
+        if self.options["verbose"] and self.options["summary"]:
+            ot = time.time()
+
+        # Check loop over uuid
+        UUIDDetails = collections.namedtuple("UUIDDetails", ("uuid", "rname", "purged",))
+        self.uuid_details = []
+        if len(self.options["uuid"]) != 36:
+            self.txn = self.store.newTransaction()
+            if self.options["uuid"]:
+                homes = yield self.getMatchingHomeUIDs(self.options["uuid"])
+            else:
+                homes = yield self.getAllHomeUIDs()
+            yield self.txn.commit()
+            self.txn = None
+            uuids = []
+            if self.options["verbose"]:
+                self.output.write("%d uuids to check\n" % (len(homes,)))
+            for uuid in sorted(homes):
+                record = self.directoryService().recordWithGUID(uuid)
+                if record is not None and record.recordType in (DirectoryService.recordType_locations, DirectoryService.recordType_resources):
+                    uuids.append(uuid)
+        else:
+            uuids = [self.options["uuid"], ]
+        if self.options["verbose"]:
+            self.output.write("%d uuids to scan\n" % (len(uuids,)))
+
+        count = 0
+        for uuid in uuids:
+            self.results = {}
+            self.summary = []
+            self.total = 0
+            count += 1
+
+            record = self.directoryService().recordWithGUID(uuid)
+            if record is None:
+                continue
+            if not record.thisServer() or not record.enabledForCalendaring:
+                continue
+
+            rname = record.fullName
+
+            if len(uuids) > 1 and not self.options["summary"]:
+                self.output.write("\n\n-----------------------------\n")
+
+            self.txn = self.store.newTransaction()
+
+            if self.options["verbose"]:
+                t = time.time()
+            rows = yield self.getAllResourceInfoTimeRangeWithUUID(self.start, uuid)
+            descriptor = "getAllResourceInfoTimeRangeWithUUID"
+
+            yield self.txn.commit()
+            self.txn = None
+
+            if self.options["verbose"]:
+                if not self.options["summary"]:
+                    self.output.write("%s time: %.1fs\n" % (descriptor, time.time() - t,))
+                else:
+                    self.output.write("%s (%d/%d)" % (uuid, count, len(uuids),))
+                    self.output.flush()
+
+            self.total = len(rows)
+            if not self.options["summary"]:
+                self.logResult("UUID to process", uuid)
+                self.logResult("Record name", rname)
+                self.addSummaryBreak()
+                self.logResult("Number of events to process", self.total)
+
+            if rows:
+                if not self.options["summary"]:
+                    self.addSummaryBreak()
+                purged = yield self.darkPurge(rows, uuid)
+            else:
+                purged = False
+
+            self.uuid_details.append(UUIDDetails(uuid, rname, purged))
+
+            if not self.options["summary"]:
+                self.printSummary()
+            else:
+                self.output.write(" - %s\n" % ("Dark Events" if purged else "OK",))
+                self.output.flush()
+
+        if count == 0:
+            self.output.write("Nothing to scan\n")
+
+        if self.options["summary"]:
+            table = tables.Table()
+            table.addHeader(("GUID", "Name", "RID", "UID", "Organizer",))
+            purged = 0
+            for item in sorted(self.uuid_details):
+                if not item.purged:
+                    continue
+                uuid = item.uuid
+                rname = item.rname
+                for detail in item.purged:
+                    table.addRow((
+                        uuid,
+                        rname,
+                        detail.resid,
+                        detail.uid,
+                        detail.organizer,
+                    ))
+                    uuid = ""
+                    rname = ""
+                    purged += 1
+            table.addFooter(("Total", "%d" % (purged,), "", "", "",))
+            self.output.write("\n")
+            table.printTable(os=self.output)
+
+            if self.options["verbose"]:
+                self.output.write("%s time: %.1fs\n" % ("Summary", time.time() - ot,))
+
+
+    @inlineCallbacks
+    def darkPurge(self, rows, uuid):
+        """
+        Check each calendar resource by looking at any ORGANIER property value and verifying it is valid.
+        """
+
+        if not self.options["summary"]:
+            self.output.write("\n---- Checking for dark events ----\n")
+        self.txn = self.store.newTransaction()
+
+        if self.options["verbose"]:
+            t = time.time()
+
+        Details = collections.namedtuple("Details", ("resid", "uid", "organizer",))
+
+        count = 0
+        total = len(rows)
+        details = []
+        fixed = 0
+        rjust = 10
+        for resid in rows:
+            resid = resid[1]
+            caldata = yield self.getCalendar(resid, self.fix)
+            if caldata is None:
+                if self.parseError:
+                    returnValue((False, self.parseError))
+                else:
+                    returnValue((True, "Nothing to scan"))
+
+            cal = Component(None, pycalendar=caldata)
+            uid = cal.resourceUID()
+            organizer = cal.getOrganizer()
+            if organizer is not None:
+                principal = self.directoryService().principalForCalendarUserAddress(organizer)
+                if principal is None or not principal.calendarsEnabled():
+                    details.append(Details(resid, uid, organizer,))
+                    if self.fix:
+                        yield self.removeEvent(resid)
+                        fixed += 1
+
+            if self.options["verbose"] and not self.options["summary"]:
+                if count == 1:
+                    self.output.write("Current".rjust(rjust) + "Total".rjust(rjust) + "Complete".rjust(rjust) + "\n")
+                if divmod(count, 100)[1] == 0:
+                    self.output.write((
+                        "\r" +
+                        ("%s" % count).rjust(rjust) +
+                        ("%s" % total).rjust(rjust) +
+                        ("%d%%" % safePercent(count, total)).rjust(rjust)
+                    ).ljust(80))
+                    self.output.flush()
+
+            # To avoid holding locks on all the rows scanned, commit every 100 resources
+            if divmod(count, 100)[1] == 0:
+                yield self.txn.commit()
+                self.txn = self.store.newTransaction()
+
+        yield self.txn.commit()
+        self.txn = None
+        if self.options["verbose"] and not self.options["summary"]:
+            self.output.write((
+                "\r" +
+                ("%s" % count).rjust(rjust) +
+                ("%s" % total).rjust(rjust) +
+                ("%d%%" % safePercent(count, total)).rjust(rjust)
+            ).ljust(80) + "\n")
+
+        # Print table of results
+        if not self.options["summary"]:
+            self.logResult("Number of dark events", len(details))
+
+        self.results["Dark Events"] = details
+        if self.fix:
+            self.results["Fix dark events"] = fixed
+
+        if self.options["verbose"] and not self.options["summary"]:
+            diff_time = time.time() - t
+            self.output.write("Time: %.2f s  Average: %.1f ms/resource\n" % (
+                diff_time,
+                safePercent(diff_time, total, 1000.0),
+            ))
+
+        returnValue(details)
+
+
+
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     if reactor is None:
@@ -2387,6 +2642,11 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             return SchedulingMismatchService(store, options, output, reactor, config)
         elif options["double"]:
             return DoubleBookingService(store, options, output, reactor, config)
+        elif options["dark-purge"]:
+            return DarkPurgeService(store, options, output, reactor, config)
+        else:
+            printusage("Invalid operation")
+            sys.exit(1)
 
     utilityMain(options['config'], makeService, reactor)
 
