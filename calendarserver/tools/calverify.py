@@ -271,6 +271,19 @@ Options for --double:
 --summary  : report only which GUIDs have double-bookings - no details.
 --days     : number of days ahead to scan [DEFAULT: 365]
 
+Options for --dark-purge:
+
+--uuid     : only scan specified calendar homes. Can be a partial GUID
+             to scan all GUIDs with that as a prefix or "*" for all GUIDS
+             (that are marked as resources or locations in the directory).
+--summary  : report only which GUIDs have double-bookings - no details.
+--no-organizer       : only detect events without an organizer
+--invalid-organizer  : only detect events with an organizer not in the directory
+--disabled-organizer : only detect events with an organizer disabled for calendaring
+
+If none of (--no-organizer, --invalid-organizer, --disabled-organizer) is present, it
+will default to (--invalid-organizer, --disabled-organizer).
+
 CHANGES
 v8: Detects ORGANIZER or ATTENDEE properties with mailto: calendar user
     addresses for users that have valid directory records. Fix is to
@@ -307,7 +320,11 @@ class CalVerifyOptions(Options):
         ['details', 'V', "Detailed logging."],
         ['summary', 'S', "Summary of double-bookings."],
         ['tzid', 't', "Timezone to adjust displayed times to."],
-    ]
+
+        ['no-organizer', '', "Detect dark events without an organizer"],
+        ['invalid-organizer', '', "Detect dark events with an organizer not in the directory"],
+        ['disabled-organizer', '', "Detect dark events with a disabled organizer"],
+]
 
     optParameters = [
         ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
@@ -2403,6 +2420,9 @@ class DarkPurgeService(CalVerifyService):
     @inlineCallbacks
     def doAction(self):
 
+        if not self.options["no-organizer"] and not self.options["invalid-organizer"] and not self.options["disabled-organizer"]:
+            self.options["invalid-organizer"] = self.options["disabled-organizer"] = True
+
         self.output.write("\n---- Scanning calendar data ----\n")
 
         self.tzid = PyCalendarTimezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
@@ -2557,14 +2577,28 @@ class DarkPurgeService(CalVerifyService):
 
             cal = Component(None, pycalendar=caldata)
             uid = cal.resourceUID()
+
+            fail = False
             organizer = cal.getOrganizer()
-            if organizer is not None:
+            if organizer is None:
+                if self.options["no-organizer"]:
+                    fail = True
+            else:
                 principal = self.directoryService().principalForCalendarUserAddress(organizer)
-                if principal is None or not principal.calendarsEnabled():
-                    details.append(Details(resid, uid, organizer,))
-                    if self.fix:
-                        yield self.removeEvent(resid)
-                        fixed += 1
+                if principal is None and organizer.startswith("urn:uuid:"):
+                    principal = self.directoryService().principalCollection.principalForUID(organizer[9:])
+                if principal is None:
+                    if self.options["invalid-organizer"]:
+                        fail = True
+                elif not principal.calendarsEnabled():
+                    if self.options["disabled-organizer"]:
+                        fail = True
+
+            if fail:
+                details.append(Details(resid, uid, organizer,))
+                if self.fix:
+                    yield self.removeEvent(resid)
+                    fixed += 1
 
             if self.options["verbose"] and not self.options["summary"]:
                 if count == 1:

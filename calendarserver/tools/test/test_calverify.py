@@ -2665,6 +2665,9 @@ END:VCALENDAR
             "uuid": self.uuidl1,
             "tzid": "utc",
             "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "no-organizer": False,
+            "invalid-organizer": False,
+            "disabled-organizer": False,
         }
         output = StringIO()
         calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2709,6 +2712,9 @@ END:VCALENDAR
             "uuid": self.uuidl1,
             "tzid": "utc",
             "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "no-organizer": False,
+            "invalid-organizer": False,
+            "disabled-organizer": False,
         }
         output = StringIO()
         calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2734,6 +2740,124 @@ END:VCALENDAR
         yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 2)
+        self.assertEqual(len(calverify.results["Dark Events"]), 0)
+        self.assertTrue("Fix dark events" not in calverify.results)
+        self.assertTrue("Fix remove" not in calverify.results)
+
+
+    @inlineCallbacks
+    def test_fixDarkEventsNoOrganizerOnly(self):
+        """
+        CalVerifyService.doScan with fix for dark events. Make sure it detects
+        as much as it can. Make sure sync-token is changed.
+        """
+
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.commit()
+
+        options = {
+            "ical": False,
+            "badcua": False,
+            "mismatch": False,
+            "nobase64": False,
+            "double": True,
+            "dark-purge": False,
+            "fix": True,
+            "verbose": False,
+            "details": False,
+            "summary": False,
+            "days": 365,
+            "uid": "",
+            "uuid": self.uuidl1,
+            "tzid": "utc",
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "no-organizer": True,
+            "invalid-organizer": False,
+            "disabled-organizer": False,
+        }
+        output = StringIO()
+        calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]))
+        self.assertEqual(
+            sorted([i.uid for i in calverify.results["Dark Events"]]),
+            ["INVITE_NO_ORGANIZER_ICS", ]
+        )
+        self.assertEqual(calverify.results["Number of dark events"], 1)
+        self.assertEqual(calverify.results["Fix dark events"], 1)
+        self.assertTrue("Fix remove" in calverify.results)
+
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
+
+        # Re-scan after changes to make sure there are no errors
+        self.commit()
+        options["fix"] = False
+        options["uuid"] = self.uuidl1
+        calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], 3)
+        self.assertEqual(len(calverify.results["Dark Events"]), 0)
+        self.assertTrue("Fix dark events" not in calverify.results)
+        self.assertTrue("Fix remove" not in calverify.results)
+
+
+    @inlineCallbacks
+    def test_fixDarkEventsAllTypes(self):
+        """
+        CalVerifyService.doScan with fix for dark events. Make sure it detects
+        as much as it can. Make sure sync-token is changed.
+        """
+
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.commit()
+
+        options = {
+            "ical": False,
+            "badcua": False,
+            "mismatch": False,
+            "nobase64": False,
+            "double": True,
+            "dark-purge": False,
+            "fix": True,
+            "verbose": False,
+            "details": False,
+            "summary": False,
+            "days": 365,
+            "uid": "",
+            "uuid": self.uuidl1,
+            "tzid": "utc",
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "no-organizer": True,
+            "invalid-organizer": True,
+            "disabled-organizer": True,
+        }
+        output = StringIO()
+        calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]))
+        self.assertEqual(
+            sorted([i.uid for i in calverify.results["Dark Events"]]),
+            ["INVITE_INVALID_ORGANIZER_1_ICS", "INVITE_INVALID_ORGANIZER_2_ICS", "INVITE_NO_ORGANIZER_ICS", ]
+        )
+        self.assertEqual(calverify.results["Number of dark events"], 3)
+        self.assertEqual(calverify.results["Fix dark events"], 3)
+        self.assertTrue("Fix remove" in calverify.results)
+
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
+
+        # Re-scan after changes to make sure there are no errors
+        self.commit()
+        options["fix"] = False
+        options["uuid"] = self.uuidl1
+        calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], 1)
         self.assertEqual(len(calverify.results["Dark Events"]), 0)
         self.assertTrue("Fix dark events" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)

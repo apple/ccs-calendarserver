@@ -133,8 +133,8 @@ def getDirectory(config=config):
                 return principal.calendarHome()
             return None
 
-        def principalForCalendarUserAddress(self, cua):
-            return self.principalCollection.principalForCalendarUserAddress(cua)
+        def principalForUID(self, uid):
+            return self.principalCollection.principalForUID(uid)
 
 
     # Load augment/proxy db classes now
