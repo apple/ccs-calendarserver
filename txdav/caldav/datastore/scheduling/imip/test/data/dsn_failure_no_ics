@@ -1,0 +1,108 @@
+Return-path: <>
+Received: from elderberry.example.com ([17.128.115.181])
+ by mail4.example.com (Sun Java(tm) System Messaging Server 6.3-6.03 (built Mar
+ 14 2008; 32bit)) with ESMTP id <0K5900HRN6UVQR40@mail4.example.com> for
+ xyzzy@example.com; Thu, 07 Aug 2008 16:06:31 -0700 (PDT)
+Original-recipient: rfc822;xyzzy@example.com
+Received: from relay12.example.com ([17.128.113.53])
+ by elderberry.example.com (Sun Java System Messaging Server 6.2-8.04 (built Feb
+ 28 2007)) with ESMTP id <0K5900H5D6UVQN60@elderberry.example.com> for
+ xyzzy@example.com (ORCPT xyzzy@example.com); Thu, 07 Aug 2008 16:06:31 -0700 (PDT)
+Received: from relay12.example.com (unknown [127.0.0.1])
+	by relay12.example.com (Symantec Mail Security) with ESMTP id E082C464003	for
+ <xyzzy@example.com>; Thu, 07 Aug 2008 16:06:30 -0700 (PDT)
+Received: from mail-out4.example.com (mail-out4.example.com [17.254.13.23])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)	by relay12.example.com (example SCV relay)
+ with ESMTP id B2942420006	for <xyzzy@example.com>; Thu,
+ 07 Aug 2008 16:06:30 -0700 (PDT)
+Received: by mail-out4.example.com (Postfix)	id A18D2374C3E7; Thu,
+ 07 Aug 2008 16:06:30 -0700 (PDT)
+Date: Thu, 07 Aug 2008 16:06:30 -0700 (PDT)
+From: MAILER-DAEMON@mail-out4.example.com (Mail Delivery System)
+Subject: Undelivered Mail Returned to Sender
+To: xyzzy@example.com
+Message-id: <20080807230630.A18D2374C3E7@mail-out4.example.com>
+Auto-submitted: auto-replied
+MIME-version: 1.0
+Content-type: multipart/report; report-type=delivery-status;
+ boundary="4B6C6374C3E5.1218150390/mail-out4.example.com"
+X-AuditID: 11807135-a7df5bb000001321-97-489b7ff6fce0
+X-Brightmail-Tracker: AAAAAA==
+
+This is a MIME-encapsulated message.
+
+--4B6C6374C3E5.1218150390/mail-out4.example.com
+Content-Description: Notification
+Content-Type: text/plain; charset=us-ascii
+
+This is the mail system at host mail-out4.example.com.
+
+I'm sorry to have to inform you that your message could not
+be delivered to one or more recipients. It's attached below.
+
+For further assistance, please send mail to postmaster.
+
+If you do so, please include this problem report. You can
+delete your own text from the attached returned message.
+
+                   The mail system
+
+<thisdoesnotexist@example.com>: host
+    example-smtp-in.l.example.com[209.85.201.27] said: 550-5.1.1 The email account
+    that you tried to reach does not exist. Please 550-5.1.1 try
+    double-checking the recipient's email address for typos 550-5.1.1 or
+    unnecessary spaces. Learn more at                      550 5.1.1
+    http://mail.example.com/support/bin/answer.py?answer=6596 20si599639wfi.11
+    (in reply to RCPT TO command)
+
+--4B6C6374C3E5.1218150390/mail-out4.example.com
+Content-Description: Delivery report
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; mail-out4.example.com
+X-Postfix-Queue-ID: 4B6C6374C3E5
+X-Postfix-Sender: rfc822; xyzzy@example.com
+Arrival-Date: Thu,  7 Aug 2008 16:06:30 -0700 (PDT)
+
+Final-Recipient: rfc822; thisdoesnotexist@example.com
+Original-Recipient: rfc822;thisdoesnotexist@example.com
+Action: failed
+Status: 5.1.1
+Remote-MTA: dns; example-smtp-in.l.example.com
+Diagnostic-Code: smtp; 550-5.1.1 The email account that you tried to reach does
+    not exist. Please 550-5.1.1 try double-checking the recipient's email
+    address for typos 550-5.1.1 or unnecessary spaces. Learn more at
+    550 5.1.1 http://mail.example.com/support/bin/answer.py?answer=6596
+    20si599639wfi.11
+
+--4B6C6374C3E5.1218150390/mail-out4.example.com
+Content-Description: Undelivered Message
+Content-Type: message/rfc822
+
+Received: from relay13.example.com (relay13.example.com [17.128.113.29])
+	by mail-out4.example.com (Postfix) with ESMTP id 4B6C6374C3E5
+	for <thisdoesnotexist@example.com>; Thu,  7 Aug 2008 16:06:30 -0700 (PDT)
+Received: from relay13.example.com (unknown [127.0.0.1])
+	by relay13.example.com (Symantec Mail Security) with ESMTP id 347CD280A3
+	for <thisdoesnotexist@example.com>; Thu,  7 Aug 2008 16:06:30 -0700 (PDT)
+X-AuditID: 1180711d-a2ff7bb000000ece-13-489b7ff6536b
+Received: from plugh.example.com (plugh.example.com [17.224.21.17])
+	(using TLSv1 with cipher AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	by relay13.example.com (example SCV relay) with ESMTP id 1C5C928094
+	for <thisdoesnotexist@example.com>; Thu,  7 Aug 2008 16:06:30 -0700 (PDT)
+Message-Id: <40900559-DAB1-4956-BA87-F88E00CF5104@example.com>
+From: xyzzy <xyzzy@example.com>
+To: thisdoesnotexist@example.com
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Mime-Version: 1.0 (example Message framework v928.1)
+Subject: testing
+Date: Thu, 7 Aug 2008 16:06:29 -0700
+X-Mailer: example Mail (2.928.1)
+X-Brightmail-Tracker: AAAAAA==
+
+asdf
+
+--4B6C6374C3E5.1218150390/mail-out4.example.com--

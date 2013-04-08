@@ -1,0 +1,144 @@
+Return-path: <>
+Received: from hemlock.example.com ([17.128.115.180])
+ by mail4.example.com (Sun Java(tm) System Messaging Server 6.3-6.03 (built Mar
+ 14 2008; 32bit)) with ESMTP id <0K5I00K1J5OSXGB0@mail4.example.com> for
+ xyzzy@example.com; Tue, 12 Aug 2008 12:19:40 -0700 (PDT)
+Original-recipient: rfc822;xyzzy@example.com
+Received: from relay11.example.com ([17.128.113.48])
+ by hemlock.example.com (Sun Java System Messaging Server 6.2-8.04 (built Feb 28
+ 2007)) with ESMTP id <0K5I00KL15OSO0E0@hemlock.example.com> for
+ xyzzy@example.com (ORCPT xyzzy@example.com); Tue,
+ 12 Aug 2008 12:19:40 -0700 (PDT)
+Received: by relay11.example.com (Symantec Mail Security)	id 15BA528084; Tue,
+ 12 Aug 2008 12:19:40 -0700 (PDT)
+Date: Tue, 12 Aug 2008 12:19:40 -0700 (PDT)
+From: MAILER-DAEMON@relay11.example.com (Mail Delivery System)
+Subject: Undelivered Mail Returned to Sender
+To: xyzzy@example.com
+Message-id: <20080812191940.15BA528084@relay11.example.com>
+MIME-version: 1.0
+Content-type: multipart/report; report-type=delivery-status;
+ boundary="EC6672808D.1218568780/relay11.example.com"
+
+This is a MIME-encapsulated message.
+
+--EC6672808D.1218568780/relay11.example.com
+Content-Description: Notification
+Content-Type: text/plain
+
+This is the Symantec Mail Security program at host relay11.example.com.
+
+I'm sorry to have to inform you that your message could not
+be delivered to one or more recipients. It's attached below.
+
+For further assistance, please send mail to <postmaster>
+
+If you do so, please include this problem report. You can
+delete your own text from the attached returned message.
+
+			The Symantec Mail Security program
+
+<nonexistant@example.com>: host elderberry.example.com[17.128.115.181] said: 550
+    5.1.1 unknown or illegal alias: nonexistant@example.com (in reply to RCPT TO
+    command)
+
+--EC6672808D.1218568780/relay11.example.com
+Content-Description: Delivery report
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; relay11.example.com
+X-Symantec-Mail-Security-Queue-ID: EC6672808D
+X-Symantec-Mail-Security-Sender: rfc822; xyzzy@example.com
+Arrival-Date: Tue, 12 Aug 2008 12:19:39 -0700 (PDT)
+
+Final-Recipient: rfc822; nonexistant@example.com
+Action: failed
+Status: 5.0.0
+Diagnostic-Code: X-Symantec-Mail-Security; host
+    elderberry.example.com[17.128.115.181] said: 550 5.1.1 unknown or illegal
+    alias: nonexistant@example.com (in reply to RCPT TO command)
+
+--EC6672808D.1218568780/relay11.example.com
+Content-Description: Undelivered Message
+Content-Type: message/rfc822
+
+Received: from relay11.example.com (unknown [127.0.0.1])
+	by relay11.example.com (Symantec Mail Security) with ESMTP id EC6672808D
+	for <nonexistant@example.com>; Tue, 12 Aug 2008 12:19:39 -0700 (PDT)
+X-AuditID: 11807130-aa391bb000000ead-f9-48a1e24b510f
+Received: from plugh.example.com (plugh.example.com [17.224.21.17])
+	by relay11.example.com (example SCV relay) with SMTP id D58CA2804F
+	for <nonexistant@example.com>; Tue, 12 Aug 2008 12:19:39 -0700 (PDT)
+From: xyzzy@example.com
+Reply-To: user01@example.com
+To: nonexistant@example.com
+Date: Tue, 12 Aug 2008 12:19:39 -0700
+Subject: Event invitation: New Event
+Message-ID: <20080812191939.51369.1538816694.0@plugh.example.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+    boundary="17.224.21.17.269694933.51369.1218568779.859.1"
+X-Brightmail-Tracker: AAAAAA==
+
+
+--17.224.21.17.269694933.51369.1218568779.859.1
+Content-Type: text/plain
+
+You've been invited to the following event:  
+
+Summary: New Event
+Organizer: User 01 <mailto:user01@example.com>
+Starts:      Tuesday, August 12, 2008 09:45 AM (UTC)
+Ends:        Tuesday, August 12, 2008 10:45 AM (UTC)
+Duration:    1 hour
+Description: 
+
+ To accept or decline this invitation, click the link below.
+
+--17.224.21.17.269694933.51369.1218568779.859.1
+Content-Type: text/calendar; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+PRODID:-//example Inc.//iCal 3.0//EN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C
+DTSTART;TZID=US/Pacific:20080812T094500
+DTEND;TZID=US/Pacific:20080812T104500
+ATTENDEE;CUTYPE=INDIVIDUAL;CN=User 01;PARTSTAT=ACCEPTED:mailto:user01@exam
+ ple.com
+ATTENDEE;CUTYPE=INDIVIDUAL;RSVP=TRUE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-A
+ CTION;CN=nonexistant@example.com:mailto:nonexistant@example.com
+CREATED:20080812T191857Z
+DTSTAMP:20080812T191932Z
+ORGANIZER;CN=User 01:mailto:xyzzy+8e16b897-d544-4217-88e9-a363d08
+ 46f6c@example.com
+SEQUENCE:2
+SUMMARY:New Event
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+
+--17.224.21.17.269694933.51369.1218568779.859.1--
+
+--EC6672808D.1218568780/relay11.example.com--
