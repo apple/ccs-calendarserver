@@ -1427,8 +1427,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             from twisted.internet import reactor
             pool = PeerConnectionPool(reactor, store.newTransaction,
                                       7654, schema)
-            store.queuer = pool
-
+            store.queuer = store.queuer.transferProposalCallbacks(pool)
             controlSocket.addFactory(_QUEUE_ROUTE,
                                      pool.workerListenerFactory())
             # TODO: now that we have the shared control socket, we should get
