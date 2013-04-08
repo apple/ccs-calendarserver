@@ -526,6 +526,9 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
             def callWithNewTransactions(self, x):
                 pass
         store = NotAStore()
+        def something(proposal):
+            pass
+        store.queuer.callWithNewProposals(something)
         def patch(maker):
             def storageServiceStandIn(createMainService, logObserver,
                                       uid=None, gid=None):
@@ -539,7 +542,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
             return maker
         self.makeService(patch)
         self.assertIsInstance(store.queuer, PeerConnectionPool)
-
+        self.assertIn(something, store.queuer.proposalCallbacks)
 
 
 
