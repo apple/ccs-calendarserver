@@ -635,7 +635,7 @@ class WorkerConnectionPool(object):
         """
         The total load of all currently connected workers.
         """
-        return sum(worker.currentLoad() for worker in self.workers)
+        return sum(worker.currentLoad for worker in self.workers)
 
 
     def _selectLowestLoadWorker(self):
@@ -646,7 +646,7 @@ class WorkerConnectionPool(object):
         @return: a worker connection with the lowest current load.
         @rtype: L{ConnectionFromWorker}
         """
-        return sorted(self.workers[:], key=lambda w: w.currentLoad())[0]
+        return sorted(self.workers[:], key=lambda w: w.currentLoad)[0]
 
 
     def performWork(self, table, workID):
