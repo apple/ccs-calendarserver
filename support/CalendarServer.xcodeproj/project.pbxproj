@@ -1,0 +1,112 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXFileReference section */
+		3519AFAB170E546B0054F087 /* CalendarServer */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CalendarServer; path = ..; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		35E050F7170E534C00D4A7CA = {
+			isa = PBXGroup;
+			children = (
+				3519AFAB170E546B0054F087 /* CalendarServer */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXLegacyTarget section */
+		35E050FC170E534C00D4A7CA /* CalendarServer */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "-f XCode.make $(ACTION)";
+			buildConfigurationList = 35E050FF170E534C00D4A7CA /* Build configuration list for PBXLegacyTarget "CalendarServer" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = "";
+			dependencies = (
+			);
+			name = CalendarServer;
+			passBuildSettingsInEnvironment = 0;
+			productName = CalendarServer;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXProject section */
+		35E050F8170E534C00D4A7CA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0460;
+				ORGANIZATIONNAME = "Mac OS Forge";
+			};
+			buildConfigurationList = 35E050FB170E534C00D4A7CA /* Build configuration list for PBXProject "CalendarServer" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 35E050F7170E534C00D4A7CA;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				35E050FC170E534C00D4A7CA /* CalendarServer */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		35E050FD170E534C00D4A7CA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		35E050FE170E534C00D4A7CA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		35E05100170E534C00D4A7CA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		35E05101170E534C00D4A7CA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		35E050FB170E534C00D4A7CA /* Build configuration list for PBXProject "CalendarServer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				35E050FD170E534C00D4A7CA /* Debug */,
+				35E050FE170E534C00D4A7CA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		35E050FF170E534C00D4A7CA /* Build configuration list for PBXLegacyTarget "CalendarServer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				35E05100170E534C00D4A7CA /* Debug */,
+				35E05101170E534C00D4A7CA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 35E050F8170E534C00D4A7CA /* Project object */;
+}
