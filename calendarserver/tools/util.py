@@ -76,6 +76,8 @@ def loadConfig(configFileName):
 
     return config
 
+
+
 def getDirectory(config=config):
 
     class MyDirectoryService (AggregateDirectoryService):
@@ -93,7 +95,7 @@ def getDirectory(config=config):
                     notifierFactory = None
 
                 # Need a data store
-                _newStore = CommonDataStore(FilePath(config.DocumentRoot), 
+                _newStore = CommonDataStore(FilePath(config.DocumentRoot),
                     notifierFactory, True, False)
                 if notifierFactory is not None:
                     notifierFactory.store = _newStore
@@ -133,9 +135,11 @@ def getDirectory(config=config):
                 return principal.calendarHome()
             return None
 
+        def principalForCalendarUserAddress(self, cua):
+            return self.principalCollection.principalForCalendarUserAddress(cua)
+
         def principalForUID(self, uid):
             return self.principalCollection.principalForUID(uid)
-
 
     # Load augment/proxy db classes now
     if config.AugmentService.type:
@@ -153,7 +157,6 @@ def getDirectory(config=config):
     directory = BaseDirectoryService(config.DirectoryService.params)
     while not directory.isAvailable():
         sleep(5)
-
 
     directories = [directory]
 
@@ -189,33 +192,46 @@ def getDirectory(config=config):
 
     return aggregate
 
+
+
 class DummyDirectoryService (DirectoryService):
     realmName = ""
     baseGUID = "51856FD4-5023-4890-94FE-4356C4AAC3E4"
-    def recordTypes(self): return ()
-    def listRecords(self): return ()
-    def recordWithShortName(self): return None
+    def recordTypes(self):
+        return ()
+
+
+    def listRecords(self):
+        return ()
+
+
+    def recordWithShortName(self):
+        return None
 
 dummyDirectoryRecord = DirectoryRecord(
-    service = DummyDirectoryService(),
-    recordType = "dummy",
-    guid = "8EF0892F-7CB6-4B8E-B294-7C5A5321136A",
-    shortNames = ("dummy",),
-    fullName = "Dummy McDummerson",
-    firstName = "Dummy",
-    lastName = "McDummerson",
+    service=DummyDirectoryService(),
+    recordType="dummy",
+    guid="8EF0892F-7CB6-4B8E-B294-7C5A5321136A",
+    shortNames=("dummy",),
+    fullName="Dummy McDummerson",
+    firstName="Dummy",
+    lastName="McDummerson",
 )
 
 class UsageError (StandardError):
     pass
 
+
+
 def booleanArgument(arg):
-    if   arg in ("true",  "yes", "yup",  "uh-huh", "1", "t", "y"):
+    if   arg in ("true", "yes", "yup", "uh-huh", "1", "t", "y"):
         return True
-    elif arg in ("false", "no",  "nope", "nuh-uh", "0", "f", "n"):
+    elif arg in ("false", "no", "nope", "nuh-uh", "0", "f", "n"):
         return False
     else:
         raise ValueError("Not a boolean: %s" % (arg,))
+
+
 
 def autoDisableMemcached(config):
     """
@@ -235,6 +251,7 @@ def autoDisableMemcached(config):
         config.Memcached.Pools.Default.ClientEnabled = False
 
 
+
 def setupMemcached(config):
     #
     # Connect to memcached
@@ -244,6 +261,7 @@ def setupMemcached(config):
         config.Memcached.MaxClients
     )
     autoDisableMemcached(config)
+
 
 
 def checkDirectory(dirpath, description, access=None, create=None, wait=False):
@@ -319,9 +337,9 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
 
 
 def principalForPrincipalID(principalID, checkOnly=False, directory=None):
-    
+
     # Allow a directory parameter to be passed in, but default to config.directory
-    # But config.directory isn't set right away, so only use it when we're doing more 
+    # But config.directory isn't set right away, so only use it when we're doing more
     # than checking.
     if not checkOnly and not directory:
         directory = config.directory
@@ -339,7 +357,6 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
 
         return directory.principalCollection.principalForUID(uid)
 
-
     if principalID.startswith("("):
         try:
             i = principalID.index(")")
@@ -348,7 +365,7 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
                 return None
 
             recordType = principalID[1:i]
-            shortName = principalID[i+1:]
+            shortName = principalID[i + 1:]
 
             if not recordType or not shortName or "(" in recordType:
                 raise ValueError()
@@ -379,8 +396,12 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
 
     raise ValueError("Invalid principal identifier: %s" % (principalID,))
 
+
+
 def proxySubprincipal(principal, proxyType):
     return principal.getChild("calendar-proxy-" + proxyType)
+
+
 
 @inlineCallbacks
 def action_addProxyPrincipal(rootResource, directory, store, principal, proxyType, proxyPrincipal):
@@ -393,6 +414,8 @@ def action_addProxyPrincipal(rootResource, directory, store, principal, proxyTyp
         print("Error:", e)
     except ProxyWarning, e:
         print(e)
+
+
 
 @inlineCallbacks
 def action_removeProxyPrincipal(rootResource, directory, store, principal, proxyPrincipal, **kwargs):
@@ -407,6 +430,8 @@ def action_removeProxyPrincipal(rootResource, directory, store, principal, proxy
         print("Error:", e)
     except ProxyWarning, e:
         print(e)
+
+
 
 @inlineCallbacks
 def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipal):
@@ -438,6 +463,8 @@ def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipa
         principal, proxyPrincipal, proxyTypes=proxyTypes))
 
     yield scheduleNextGroupCachingUpdate(store, 0)
+
+
 
 @inlineCallbacks
 def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwargs):
@@ -478,16 +505,17 @@ def prettyPrincipal(principal):
     return "\"%s\" (%s:%s)" % (record.fullName, record.recordType,
         record.shortNames[0])
 
+
+
 class ProxyError(Exception):
     """
     Raised when proxy assignments cannot be performed
     """
+
+
 
 class ProxyWarning(Exception):
     """
     Raised for harmless proxy assignment failures such as trying to add a
     duplicate or remove a non-existent assignment.
     """
-
-
-
