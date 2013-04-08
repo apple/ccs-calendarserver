@@ -144,7 +144,7 @@ fi;
 
 echo ""
 echo "Tweaking for B&I...";
-ln -s support/Makefile.Apple "${wc}/Makefile";
+ln -s support/Apple.make "${wc}/Makefile";
 
 version_file="${wc}/SubmissionInfo.xml";
 cat - >> "${version_file}" <<EOF
