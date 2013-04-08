@@ -644,12 +644,12 @@ class CommonCommonTests(object):
 
 
     @inlineCallbacks
-    def calendarObjectUnderTest(self, name="1.ics", txn=None):
+    def calendarObjectUnderTest(self, txn=None, name="1.ics", calendar_name="calendar_1", home="home1"):
         """
         Get the calendar detailed by
-        C{requirements['home1']['calendar_1'][name]}.
+        C{requirements[home][calendar_name][name]}.
         """
-        returnValue((yield (yield self.calendarUnderTest(txn))
+        returnValue((yield (yield self.calendarUnderTest(txn, name=calendar_name, home=home))
                      .calendarObjectWithName(name)))
 
 

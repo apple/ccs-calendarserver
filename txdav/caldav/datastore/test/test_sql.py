@@ -1111,6 +1111,54 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_defaultCalendar(self):
+        """
+        Make sure a default_events calendar is assigned.
+        """
+
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
+        calendar1 = yield home.calendarWithName("calendar_1")
+        yield calendar1.splitCollectionByComponentTypes()
+        yield self.commit()
+
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
+        self.assertEqual(home._default_events, None)
+        self.assertEqual(home._default_tasks, None)
+
+        default_events = yield home.defaultCalendar("VEVENT")
+        self.assertTrue(default_events is not None)
+        self.assertEqual(home._default_events, default_events._resourceID)
+        self.assertEqual(home._default_tasks, None)
+        yield self.commit()
+
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
+        self.assertEqual(home._default_events, default_events._resourceID)
+        self.assertEqual(home._default_tasks, None)
+
+        default_tasks = yield home.defaultCalendar("VTODO")
+        self.assertTrue(default_tasks is not None)
+        self.assertEqual(home._default_events, default_events._resourceID)
+        self.assertEqual(home._default_tasks, default_tasks._resourceID)
+        yield self.commit()
+
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
+        self.assertEqual(home._default_events, default_events._resourceID)
+        self.assertEqual(home._default_tasks, default_tasks._resourceID)
+        yield home.removeCalendarWithName("todos")
+        yield self.commit()
+
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
+        self.assertEqual(home._default_events, default_events._resourceID)
+        self.assertEqual(home._default_tasks, default_tasks._resourceID)
+
+        default_tasks2 = yield home.defaultCalendar("VTODO")
+        self.assertTrue(default_tasks2 is not None)
+        self.assertEqual(home._default_events, default_events._resourceID)
+        self.assertEqual(home._default_tasks, default_tasks2._resourceID)
+        yield self.commit()
+
+
+    @inlineCallbacks
     def test_resourceLock(self):
         """
         Test CommonObjectResource.lock to make sure it locks, raises on missing resource,
@@ -1149,7 +1197,7 @@ END:VCALENDAR
         # FIXME: not sure why, but without this statement here, this portion of the test fails in a funny way.
         # Basically the query in the try block seems to execute twice, failing each time, one of which is caught,
         # and the other not - causing the test to fail. Seems like some state on newTxn is not being initialized?
-        yield self.calendarObjectUnderTest("2.ics", txn=newTxn)
+        yield self.calendarObjectUnderTest(txn=newTxn, name="2.ics")
 
         try:
             yield resource.lock(wait=False, useTxn=newTxn)
@@ -1160,7 +1208,7 @@ END:VCALENDAR
         self.assertTrue(resource._locked)
 
         # Test missing resource
-        resource2 = yield self.calendarObjectUnderTest("2.ics")
+        resource2 = yield self.calendarObjectUnderTest(name="2.ics")
         resource2._resourceID = 123456789
         try:
             yield resource2.lock()
@@ -1300,7 +1348,7 @@ END:VCALENDAR
 
         # Re-add event with re-indexing
         calendar = yield self.calendarUnderTest()
-        calendarObject = yield self.calendarObjectUnderTest("indexing.ics")
+        calendarObject = yield self.calendarObjectUnderTest(name="indexing.ics")
         yield calendarObject.setComponent(component)
         instances2 = yield calendarObject.instances()
         self.assertNotEqual(
@@ -1311,7 +1359,7 @@ END:VCALENDAR
 
         # Re-add event without re-indexing
         calendar = yield self.calendarUnderTest()
-        calendarObject = yield self.calendarObjectUnderTest("indexing.ics")
+        calendarObject = yield self.calendarObjectUnderTest(name="indexing.ics")
         component.noInstanceIndexing = True
         yield calendarObject.setComponent(component)
         instances3 = yield calendarObject.instances()

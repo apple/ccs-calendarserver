@@ -19,7 +19,7 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.internet.task import deferLater
 
 from txdav.caldav.datastore.index_file import Index, MemcachedUIDReserver
-from txdav.common.icommondatastore import ReservationError,\
+from txdav.common.icommondatastore import ReservationError, \
     InternalDataStoreError
 
 from twistedcaldav import caldavxml
@@ -57,6 +57,7 @@ class MinimalCalendarObjectReplacement(object):
                 % (e, self._path.path)
             )
         return component
+
 
 
 class MinimalResourceReplacement(object):
@@ -467,7 +468,7 @@ END:VCALENDAR
             self.assertTrue(self.db.resourceExists(name), msg=description)
 
             # Create fake filter element to match time-range
-            filter =  caldavxml.Filter(
+            filter = caldavxml.Filter(
                   caldavxml.ComponentFilter(
                       caldavxml.ComponentFilter(
                           TimeRange(
@@ -653,7 +654,7 @@ END:VCALENDAR
             self.assertTrue(self.db.resourceExists(name), msg=description)
 
             # Create fake filter element to match time-range
-            filter =  caldavxml.Filter(
+            filter = caldavxml.Filter(
                   caldavxml.ComponentFilter(
                       caldavxml.ComponentFilter(
                           TimeRange(
@@ -1060,7 +1061,7 @@ END:VCALENDAR
             self.assertTrue(self.db.resourceExists(name), msg=description)
 
             # Create fake filter element to match time-range
-            filter =  caldavxml.Filter(
+            filter = caldavxml.Filter(
                   caldavxml.ComponentFilter(
                       caldavxml.ComponentFilter(
                           TimeRange(
@@ -1080,7 +1081,7 @@ END:VCALENDAR
                 for _ignore_name, _ignore_uid, type, test_organizer, float, start, end, fbtype, transp in resources:
                     self.assertEqual(test_organizer, organizer, msg=description)
                     index_results.add((str(float), str(start), str(end), str(fbtype), str(transp),))
-    
+
                 self.assertEqual(set(instances), index_results, msg="%s, user:%s" % (description, useruid,))
 
             self.db.deleteResource(name)
@@ -1141,16 +1142,18 @@ END:VCALENDAR
         self.db.deleteResource("data3.ics")
 
         tests = (
-            (0, (["data1.ics", "data2.ics",], [],)),
-            (1, (["data2.ics",], ["data3.ics",],)),
-            (2, ([], ["data3.ics",],)),
-            (3, ([], ["data3.ics",],)),
+            (0, (["data1.ics", "data2.ics", ], [],)),
+            (1, (["data2.ics", ], ["data3.ics", ],)),
+            (2, ([], ["data3.ics", ],)),
+            (3, ([], ["data3.ics", ],)),
             (4, ([], [],)),
             (5, ([], [],)),
         )
-        
+
         for revision, results in tests:
             self.assertEquals(self.db.whatchanged(revision), results, "Mismatched results for whatchanged with revision %d" % (revision,))
+
+
 
 class MemcacheTests(SQLIndexTests):
     def setUp(self):

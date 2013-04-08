@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twext.enterprise.locking import NamedLock
 
 """
 SQL backend for CalDAV storage.
@@ -48,6 +49,7 @@ from twisted.python import hashlib
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
     pyCalendarTodatetime, parseSQLDateToPyCalendar
 from twistedcaldav.ical import Component, InvalidICalendarDataError, Property
@@ -55,14 +57,16 @@ from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.datastore.util import AttachmentRetrievalTransport
+from txdav.caldav.datastore.util import AttachmentRetrievalTransport, \
+    normalizationLookup
 from txdav.caldav.datastore.util import CalendarObjectBase
 from txdav.caldav.datastore.util import StorageTransportBase
-from txdav.caldav.datastore.util import validateCalendarComponent, \
-    dropboxIDFromCalendarObject
+from txdav.caldav.datastore.util import dropboxIDFromCalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject, \
     IAttachment, AttachmentStoreFailed, AttachmentStoreValidManagedID, \
-    AttachmentMigrationFailed, AttachmentDropboxNotAllowed
+    AttachmentMigrationFailed, AttachmentDropboxNotAllowed, \
+    TooManyAttendeesError, InvalidComponentTypeError, InvalidCalendarAccessError, \
+    InvalidUIDError, UIDExistsError
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -77,7 +81,8 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE, \
     _ATTACHMENTS_MODE_READ
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
-    HomeChildNameNotAllowedError
+    HomeChildNameNotAllowedError, ObjectResourceTooBigError, \
+    InvalidObjectResourceError
 from txdav.xml.rfc2518 import ResourceType
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -302,6 +307,58 @@ class CalendarStoreFeatures(object):
 
 
 
+class CalendarPrincipal(object):
+
+    def __init__(self, uid, cuaddrs):
+        self.principal_uid = uid
+        self.cuaddrs = cuaddrs
+
+
+    def uid(self):
+        return self.principal_uid
+
+
+    def fullName(self):
+        return "%s %s" % (self.principal_uid[:4], self.principal_uid[4:])
+
+
+    def calendarUserAddresses(self):
+        return self.cuaddrs
+
+
+    def canonicalCalendarUserAddress(self):
+        return [cuaddr for cuaddr in self.cuaddrs if cuaddr.startswith("urn:uuid")][0]
+
+
+    def locallyHosted(self):
+        return True
+
+
+    def thisServer(self):
+        return True
+
+
+    def calendarsEnabled(self):
+        return True
+
+
+    def getCUType(self):
+        return "INDIVIDUAL"
+
+
+    def enabledAsOrganizer(self):
+        return True
+
+
+    def canAutoSchedule(self, organizer):
+        return False
+
+
+    def getAutoScheduleMode(self, organizer):
+        return "auto"
+
+
+
 class CalendarHome(CommonHome):
 
     implements(ICalendarHome)
@@ -330,6 +387,42 @@ class CalendarHome(CommonHome):
 
         self._childClass = Calendar
         super(CalendarHome, self).__init__(transaction, ownerUID, notifiers)
+
+
+    @classmethod
+    def metadataColumns(cls):
+        """
+        Return a list of column name for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            cls._homeMetaDataSchema.DEFAULT_EVENTS,
+            cls._homeMetaDataSchema.DEFAULT_TASKS,
+            cls._homeMetaDataSchema.CREATED,
+            cls._homeMetaDataSchema.MODIFIED,
+        )
+
+
+    @classmethod
+    def metadataAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            "_default_events",
+            "_default_tasks",
+            "_created",
+            "_modified",
+        )
 
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
@@ -407,8 +500,7 @@ class CalendarHome(CommonHome):
         for objectResource in objectResources:
             if ok_object and objectResource._resourceID == ok_object._resourceID:
                 continue
-            matched_mode = ("schedule" if objectResource.isScheduleObject
-                            else "calendar")
+            matched_mode = ("schedule" if objectResource.isScheduleObject else "calendar")
             if mode == "schedule" or matched_mode == "schedule":
                 returnValue(True)
 
@@ -528,7 +620,7 @@ class CalendarHome(CommonHome):
         for calendar in calendars:
 
             # Ignore inbox - also shared calendars are not part of .calendars()
-            if calendar.name() == "inbox":
+            if calendar.isInbox():
                 continue
             split_count = yield calendar.splitCollectionByComponentTypes()
             self.log_warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count + 1,))
@@ -549,7 +641,7 @@ class CalendarHome(CommonHome):
             names = set()
             calendars = yield self.calendars()
             for calendar in calendars:
-                if calendar.name() == "inbox":
+                if calendar.isInbox():
                     continue
                 names.add(calendar.name())
                 result = yield calendar.getSupportedComponents()
@@ -566,6 +658,136 @@ class CalendarHome(CommonHome):
 
             yield _requireCalendarWithType("VEVENT", "calendar")
             yield _requireCalendarWithType("VTODO", "tasks")
+
+
+    @inlineCallbacks
+    def pickNewDefaultCalendar(self, tasks=False):
+        """
+        First see if default provisioned calendar exists in the calendar home and pick that. Otherwise
+        pick another from the calendar home.
+        """
+
+        chm = self._homeMetaDataSchema
+        componentType = "VTODO" if tasks else "VEVENT"
+        test_name = "tasks" if tasks else "calendar"
+        attribute_to_test = "_default_tasks" if tasks else "_default_events"
+        column_to_set = chm.DEFAULT_TASKS if tasks else chm.DEFAULT_EVENTS
+
+        defaultCalendar = (yield self.calendarWithName(test_name))
+        if defaultCalendar is None or not defaultCalendar.owned():
+
+            @inlineCallbacks
+            def _findDefault():
+                for calendarName in (yield self.listCalendars()):
+                    calendar = (yield self.calendarWithName(calendarName))
+                    if calendar.isInbox():
+                        continue
+                    if not calendar.owned():
+                        continue
+                    if not calendar.isSupportedComponent(componentType):
+                        continue
+                    break
+                else:
+                    calendar = None
+                returnValue(calendar)
+
+            defaultCalendar = yield _findDefault()
+            if defaultCalendar is None:
+                # Create a default and try and get its name again
+                yield self.ensureDefaultCalendarsExist()
+                defaultCalendar = yield _findDefault()
+                if defaultCalendar is None:
+                    # Failed to even create a default - bad news...
+                    raise RuntimeError("No valid calendars to use as a default %s calendar." % (componentType,))
+
+        setattr(self, attribute_to_test, defaultCalendar._resourceID)
+        yield Update(
+            {column_to_set: defaultCalendar._resourceID},
+            Where=chm.RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
+
+        returnValue(defaultCalendar)
+
+
+    @inlineCallbacks
+    def defaultCalendar(self, componentType):
+        """
+        Find the default calendar for the supplied iCalendar component type. If one does
+        not exist, automatically provision it.
+        """
+
+        # Check any default calendar property first - this will create if none exists
+        attribute_to_test = "_default_tasks" if componentType == "VTODO" else "_default_events"
+        defaultID = getattr(self, attribute_to_test)
+        if defaultID:
+            default = (yield self.childWithID(defaultID))
+        else:
+            default = None
+
+        # Check that default handles the component type
+        if default is not None:
+            if not default.isSupportedComponent(componentType):
+                default = None
+
+        # Must have a default - provision one if not
+        if default is None:
+
+            # Try to find a calendar supporting the required component type. If there are multiple, pick
+            # the one with the oldest created timestamp as that will likely be the initial provision.
+            for calendarName in (yield self.listCalendars()):
+                calendar = (yield self.calendarWithName(calendarName))
+                if calendar.isInbox():
+                    continue
+                if not calendar.owned():
+                    continue
+                if not calendar.isSupportedComponent(componentType):
+                    continue
+                if default is None or calendar.created() < default.created():
+                    default = calendar
+
+            # If none can be found, provision one
+            if default is None:
+                new_name = "%ss" % (componentType.lower()[1:],)
+                default = yield self.createCalendarWithName(new_name)
+                yield default.setSupportedComponents(componentType.upper())
+
+            # Update the metadata
+            chm = self._homeMetaDataSchema
+            column_to_set = chm.DEFAULT_TASKS if componentType == "VTODO" else chm.DEFAULT_EVENTS
+            setattr(self, attribute_to_test, default._resourceID)
+            yield Update(
+                {column_to_set: default._resourceID},
+                Where=chm.RESOURCE_ID == self._resourceID,
+            ).on(self._txn)
+            yield self.invalidateQueryCache()
+
+        returnValue(default)
+
+
+    def isDefaultCalendar(self, calendar):
+        """
+        Is the supplied calendar one of the possible default calendars.
+        """
+        # Not allowed to delete the default calendar
+        return calendar._resourceID in (self._default_events, self._default_tasks)
+
+
+    def principalForUID(self, uid):
+        return CalendarPrincipal(uid, ("urn:uuid:%s" % (uid,), "mailto:%s@example.com" % (uid,),))
+
+
+    def principalForCalendarUserAddress(self, cuaddr):
+        if cuaddr.startswith("mailto:"):
+            uid, domain = cuaddr[7:].split('@')
+            if domain != "example.com":
+                return None
+            return CalendarPrincipal(uid, (cuaddr, "urn:uuid:%s" % (uid,)))
+        elif cuaddr.startswith("urn:uuid:"):
+            uid = cuaddr[9:]
+            return CalendarPrincipal(uid, (cuaddr, "mailto:%s@example.com" % (uid,)))
+        else:
+            return None
 
 
 CalendarHome._register(ECALENDARTYPE)
@@ -672,7 +894,7 @@ class Calendar(CommonHomeChild):
         inbox resources need to store Originator, Recipient etc properties.
         Other calendars do not have object resources with properties.
         """
-        return self._name == "inbox"
+        return not self.isInbox()
 
 
     @inlineCallbacks
@@ -706,6 +928,16 @@ class Calendar(CommonHomeChild):
             return componentType.upper() in self._supportedComponents.split(",")
         else:
             return True
+
+
+    def isInbox(self):
+        """
+        Indicates whether this calendar is an "inbox".
+
+        @return: C{True} if it is an "inbox, C{False} otherwise
+        @rtype: C{bool}
+        """
+        return self.name() == "inbox"
 
 
     def initPropertyStore(self, props):
@@ -976,6 +1208,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         self.hasPrivateComment = metadata.get("hasPrivateComment", False)
         self._dropboxID = None
 
+        # Component caching
+        self._cachedComponent = None
+        self._cachedCommponentPerUser = {}
+
     _allColumns = [
         _objectSchema.RESOURCE_ID,
         _objectSchema.RESOURCE_NAME,
@@ -1024,10 +1260,198 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         return self._calendar
 
 
+    # Stuff from put_common
     @inlineCallbacks
-    def setComponent(self, component, inserting=False):
+    def fullValidation(self, component, inserting, internal):
+        """
+        Do full validation of source and destination calendar data.
+        """
 
-        validateCalendarComponent(self, self._calendar, component, inserting, self._txn._migrating)
+        # Basic validation
+        #TODO: figure out what to do about etag/schedule-tag
+        self.validIfScheduleMatch(False, False, internal)
+
+        # Skip validation on internal requests
+        if not internal:
+
+            # Valid data sizes - do before parsing the data
+            if config.MaxResourceSize:
+                calsize = len(str(component))
+                if calsize > config.MaxResourceSize:
+                    raise ObjectResourceTooBigError()
+
+        # Possible timezone stripping
+        if config.EnableTimezonesByReference:
+            component.stripKnownTimezones()
+
+        # Skip validation on internal requests
+        if not internal:
+
+            # Valid calendar data checks
+            yield self.validCalendarDataCheck(component, inserting)
+
+            # Valid calendar component for check
+            if not self.calendar().isSupportedComponent(component.mainType()):
+                raise InvalidComponentTypeError("Invalid component type %s for calendar: %s" % (component.mainType(), self.calendar(),))
+
+            # Valid attendee list size check
+            yield self.validAttendeeListSizeCheck(component, inserting)
+
+            # Normalize the calendar user addresses once we know we have valid
+            # calendar data
+            component.normalizeCalendarUserAddresses(normalizationLookup, self.calendar().viewerHome().principalForCalendarUserAddress)
+
+        # Check access
+        yield self.validAccess(component, inserting, internal)
+
+
+    def validIfScheduleMatch(self, etag_match, schedule_tag, internal):
+        """
+        Check for If-ScheduleTag-Match header behavior.
+        """
+        # Only when a direct request
+        self.schedule_tag_match = False
+        if not self.calendar().isInbox() and not internal:
+            if schedule_tag:
+                self._validIfScheduleMatch(self.request)
+                self.schedule_tag_match = True
+            elif config.Scheduling.CalDAV.ScheduleTagCompatibility:
+                # Compatibility with old clients. Policy:
+                #
+                # 1. If If-Match header is not present, never do smart merge.
+                # 2. If If-Match is present and the specified ETag is
+                #    considered a "weak" match to the current Schedule-Tag,
+                #    then do smart merge, else reject with a 412.
+                #
+                # Actually by the time we get here the precondition will
+                # already have been tested and found to be OK, so we can just
+                # always do smart merge now if If-Match is present.
+                self.schedule_tag_match = etag_match is not None
+
+
+    def validCalendarDataCheck(self, component, inserting):
+        """
+        Check that the calendar data is valid iCalendar.
+        @return:         tuple: (True/False if the calendar data is valid,
+                                 log message string).
+        """
+
+        # Valid calendar data checks
+        if not isinstance(component, VComponent):
+            raise InvalidObjectResourceError("Wrong type of object: %s" % (type(component),))
+
+        try:
+            component.validCalendarData(validateRecurrences=self._txn._migrating)
+            component.validCalendarForCalDAV(methodAllowed=self.calendar().name() == 'inbox')
+            if self._txn._migrating:
+                component.validOrganizerForScheduling(doFix=True)
+        except InvalidICalendarDataError, e:
+            raise InvalidObjectResourceError(e)
+
+
+    @inlineCallbacks
+    def validAttendeeListSizeCheck(self, component, inserting):
+        """
+        Make sure that the Attendee list length is within bounds. We don't do this check for inbox because we
+        will assume that the limit has been applied on the PUT causing the iTIP message to be created.
+
+        FIXME: The inbox check might not take into account iSchedule stuff from outside. That needs to have
+        the max attendees check applied at the time of delivery.
+        """
+
+        if config.MaxAttendeesPerInstance and not self.calendar().isInbox():
+            uniqueAttendees = set()
+            for attendee in component.getAllAttendeeProperties():
+                uniqueAttendees.add(attendee.value())
+            attendeeListLength = len(uniqueAttendees)
+            if attendeeListLength > config.MaxAttendeesPerInstance:
+
+                # Check to see whether we are increasing the count on an existing resource
+                if not inserting:
+                    oldcalendar = (yield self.componentForUser())
+                    uniqueAttendees = set()
+                    for attendee in oldcalendar.getAllAttendeeProperties():
+                        uniqueAttendees.add(attendee.value())
+                    oldAttendeeListLength = len(uniqueAttendees)
+                else:
+                    oldAttendeeListLength = 0
+
+                if attendeeListLength > oldAttendeeListLength:
+                    raise TooManyAttendeesError("Attendee list size %d is larger than allowed limit %d" % (attendeeListLength, config.MaxAttendeesPerInstance))
+
+
+    def validAccess(self, component, inserting, internal):
+        """
+        Make sure that the X-CALENDARSERVER-ACCESS property is properly dealt with.
+        """
+
+        if component.hasProperty(Component.ACCESS_PROPERTY):
+
+            # Must be a value we know about
+            access = component.accessLevel(default=None)
+            if access is None:
+                raise InvalidCalendarAccessError("Private event access level not allowed")
+
+            # Only DAV:owner is able to set the property to other than PUBLIC
+            if not internal:
+                if self.calendar().viewerHome().uid() != self._txn._authz_uid and access != Component.ACCESS_PUBLIC:
+                    raise InvalidCalendarAccessError("Private event access level change not allowed")
+
+            self.accessMode = access
+        else:
+            # Check whether an access property was present before and write that into the calendar data
+            if not inserting and self.accessMode:
+                old_access = self.accessMode
+                component.addProperty(Property(name=Component.ACCESS_PROPERTY, value=old_access))
+
+
+    @inlineCallbacks
+    def _lockUID(self, component, inserting):
+        """
+        Create a lock on the component's UID and verify, after getting the lock, that the incoming UID
+        meets the requirements of the store.
+        """
+
+        new_uid = component.resourceUID()
+        yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(new_uid).hexdigest(),))
+
+        # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
+        # try to write the same calendar data to two different resource URIs.
+        if not self.calendar().isInbox():
+            # Cannot overwrite a resource with different UID
+            if not inserting:
+                if self._uid != new_uid:
+                    raise InvalidUIDError()
+            else:
+                # New UID must be unique for the owner - no need to do this on an overwrite as we can assume
+                # the store is already consistent in this regard
+                elsewhere = (yield self.calendar().ownerHome().hasCalendarResourceUIDSomewhereElse(new_uid, self, "schedule"))
+                if elsewhere:
+                    raise UIDExistsError()
+
+
+    def setComponent(self, component, inserting=False):
+        """
+        Public api for storing a component. This will do full data validation checks on the specified component.
+        Scheduling will be done automatically.
+        """
+
+        return self._setComponentInternal(component, inserting, False)
+
+
+    @inlineCallbacks
+    def _setComponentInternal(self, component, inserting=False, internal=True):
+        """
+        Setting the component internally to the store itself. This will bypass a whole bunch of data consistency checks
+        on the assumption that those have been done prior to the component data being provided, provided the flag is set.
+        This should always be treated as an api private to the store.
+        """
+
+        # Handle all validation operations here.
+        yield self.fullValidation(component, inserting, internal)
+
+        # UID lock - this will remain active until the end of the current txn
+        yield self._lockUID(component, inserting)
 
         yield self.updateDatabase(component, inserting=inserting)
 
@@ -1056,7 +1480,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         txn = txn if txn is not None else self._txn
 
         # inbox does things slightly differently
-        isInboxItem = self._parentCollection.name() == "inbox"
+        isInboxItem = self.calendar().isInbox()
 
         # In some cases there is no need to remove/rebuild the instance index because we know no time or
         # freebusy related properties have changed (e.g. an attendee reply and refresh). In those cases
@@ -1146,6 +1570,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if not reCreate:
             componentText = str(component)
             self._objectText = componentText
+            self._cachedComponent = component
+            self._cachedCommponentPerUser = {}
+
             organizer = component.getOrganizer()
             if not organizer:
                 organizer = ""
@@ -1163,7 +1590,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # after setting up other properties as UID at least is needed
             self._attachment = _ATTACHMENTS_MODE_NONE
             if self._dropboxID is None:
-                if self._parentCollection.name() != "inbox":
+                if not isInboxItem:
                     if component.hasPropertyInAnyComponent("X-APPLE-DROPBOX"):
                         self._attachment = _ATTACHMENTS_MODE_WRITE
                         self._dropboxID = (yield self.dropboxID())
@@ -1333,29 +1760,56 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         only allowed in good data.
         """
 
-        text = yield self._text()
+        if self._cachedComponent is None:
 
-        try:
-            component = VComponent.fromString(text)
-        except InvalidICalendarDataError, e:
-            # This is a really bad situation, so do raise
-            raise InternalDataStoreError(
-                "Data corruption detected (%s) in id: %s"
-                % (e, self._resourceID)
-            )
+            text = yield self._text()
 
-        # Fix any bogus data we can
-        fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
+            try:
+                component = VComponent.fromString(text)
+            except InvalidICalendarDataError, e:
+                # This is a really bad situation, so do raise
+                raise InternalDataStoreError(
+                    "Data corruption detected (%s) in id: %s"
+                    % (e, self._resourceID)
+                )
 
-        if unfixed:
-            self.log_error("Calendar data id=%s had unfixable problems:\n  %s" %
-                           (self._resourceID, "\n  ".join(unfixed),))
+            # Fix any bogus data we can
+            fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
 
-        if fixed:
-            self.log_error("Calendar data id=%s had fixable problems:\n  %s" %
-                           (self._resourceID, "\n  ".join(fixed),))
+            if unfixed:
+                self.log_error("Calendar data id=%s had unfixable problems:\n  %s" %
+                               (self._resourceID, "\n  ".join(unfixed),))
 
-        returnValue(component)
+            if fixed:
+                self.log_error("Calendar data id=%s had fixable problems:\n  %s" %
+                               (self._resourceID, "\n  ".join(fixed),))
+
+            self._cachedComponent = component
+            self._cachedCommponentPerUser = {}
+
+        returnValue(self._cachedComponent)
+
+
+    @inlineCallbacks
+    def componentForUser(self, user_uuid=None):
+        """
+        Return the iCalendar component filtered for the specified user's per-user data.
+
+        @param user_uuid: the user UUID to filter on
+        @type user_uuid: C{str}
+
+        @return: the filtered calendar component
+        @rtype: L{twistedcaldav.ical.Component}
+        """
+
+        if user_uuid is None:
+            user_uuid = self._parentCollection.viewHome().uid()
+
+        if user_uuid not in self._cachedCommponentPerUser:
+            caldata = yield self.component()
+            filtered = PerUserDataFilter(user_uuid).filter(caldata)
+            self._cachedCommponentPerUser[user_uuid] = filtered
+        returnValue(self._cachedCommponentPerUser[user_uuid])
 
 
     @inlineCallbacks

@@ -20,7 +20,7 @@ Calendar store interfaces
 """
 
 from txdav.common.icommondatastore import ICommonTransaction, \
-    IShareableCollection
+    IShareableCollection, CommonStoreError
 from txdav.idav import IDataStoreObject, IDataStore
 
 from twisted.internet.interfaces import ITransport
@@ -53,6 +53,41 @@ __all__ = [
     "BIND_WRITE",
     "BIND_DIRECT",
 ]
+
+
+
+class InvalidComponentTypeError(CommonStoreError):
+    """
+    Invalid object resource component type for collection.
+    """
+
+
+
+class InvalidCalendarAccessError(CommonStoreError):
+    """
+    Invalid access mode in calendar data.
+    """
+
+
+
+class TooManyAttendeesError(CommonStoreError):
+    """
+    Too many attendees in calendar data.
+    """
+
+
+
+class InvalidUIDError(CommonStoreError):
+    """
+    The UID of the component in a store operation does not match the existing value.
+    """
+
+
+
+class UIDExistsError(CommonStoreError):
+    """
+    The UID of the component in a store operation exists in another calendar belonging to the owner.
+    """
 
 
 

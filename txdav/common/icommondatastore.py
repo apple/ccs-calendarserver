@@ -49,55 +49,84 @@ class CommonStoreError(RuntimeError):
     Store generic error.
     """
 
+
+
 class NameNotAllowedError(CommonStoreError):
     """
     Attempt to create an object with a name that is not allowed.
     """
+
+
 
 class HomeChildNameNotAllowedError(NameNotAllowedError):
     """
     Home child name not allowed.
     """
 
+
+
 class ObjectResourceNameNotAllowedError(NameNotAllowedError):
     """
     Object resource name not allowed.
     """
+
+
 
 class AlreadyExistsError(CommonStoreError):
     """
     Attempt to create an object that already exists.
     """
 
+
+
 class HomeChildNameAlreadyExistsError(AlreadyExistsError):
     """
     Home child already exists.
     """
+
+
 
 class ObjectResourceNameAlreadyExistsError(AlreadyExistsError):
     """
     An object resource with the requested name already exists.
     """
 
+
+
 class ObjectResourceUIDAlreadyExistsError(AlreadyExistsError):
     """
     An object resource with the requested UID already exists.
     """
+
+
+
+class TooManyObjectResourcesError(CommonStoreError):
+    """
+    Home child has maximum allowed count of resources.
+    """
+
+
 
 class NotFoundError(CommonStoreError):
     """
     Requested data not found.
     """
 
+
+
 class NoSuchHomeChildError(NotFoundError):
     """
     The requested home child does not exist.
     """
 
+
+
 class NoSuchObjectResourceError(NotFoundError):
     """
     The requested object resource does not exist.
     """
+
+
 
 class ConcurrentModification(NotFoundError):
     """
@@ -111,15 +140,28 @@ class ConcurrentModification(NotFoundError):
     happen.)
     """
 
+
+
 class InvalidObjectResourceError(CommonStoreError):
     """
     Invalid object resource data.
     """
 
+
+
+class ObjectResourceTooBigError(CommonStoreError):
+    """
+    Object resource data is larger than allowed limit.
+    """
+
+
+
 class InternalDataStoreError(CommonStoreError):
     """
     Uh, oh.
     """
+
+
 
 class AllRetriesFailed(CommonStoreError):
     """
@@ -127,7 +169,10 @@ class AllRetriesFailed(CommonStoreError):
     progress.  Other exceptions will be logged.
     """
 
+
 # Indexing / sync tokens
+
+
 
 class ReservationError(LookupError):
     """
@@ -135,29 +180,42 @@ class ReservationError(LookupError):
     which is not reserved.
     """
 
+
+
 class IndexedSearchException(ValueError):
     pass
+
+
 
 class SyncTokenValidException(ValueError):
     pass
 
+
 # APN Subscriptions
+
+
 
 class InvalidSubscriptionValues(ValueError):
     """
     Invalid APN subscription values passed in.
     """
 
+
 # IMIP Tokens
+
+
 
 class InvalidIMIPTokenValues(ValueError):
     """
     Invalid IMIP token values passed in.
     """
 
+
 #
 # Interfaces
 #
+
+
 
 class ICommonTransaction(ITransaction):
     """
@@ -270,7 +328,6 @@ class ICommonTransaction(ITransaction):
         @type token: C{str}
         """
 
-
     def imipGetToken(organizer, attendee, icaluid):
         """
         Returns the token (if any) corresponding to the given organizer, attendee,
@@ -284,7 +341,6 @@ class ICommonTransaction(ITransaction):
         @type organizer: C{str}
         """
 
-
     def imipRemoveToken(token):
         """
         Removes the entry for the given token.
@@ -293,15 +349,14 @@ class ICommonTransaction(ITransaction):
         @type token: C{str}
         """
 
-
     def purgeOldIMIPTokens(olderThan):
         """
         Removes all tokens whose access time is before olderThan
         """
-        
+
+
 
 class IShareableCollection(Interface):
     """
     A collection resource which may be shared.
     """
-

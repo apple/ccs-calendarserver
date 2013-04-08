@@ -65,7 +65,7 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
-    InvalidIMIPTokenValues
+    InvalidIMIPTokenValues, TooManyObjectResourcesError
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 
@@ -1454,9 +1454,41 @@ class CommonHome(LoggingMixIn):
     @classproperty
     def _metaDataQuery(cls): #@NoSelf
         metadata = cls._homeMetaDataSchema
-        return Select([metadata.CREATED, metadata.MODIFIED],
+        return Select(cls.metadataColumns(),
                       From=metadata,
                       Where=metadata.RESOURCE_ID == Parameter("resourceID"))
+
+
+    @classmethod
+    def metadataColumns(cls):
+        """
+        Return a list of column name for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            cls._homeMetaDataSchema.CREATED,
+            cls._homeMetaDataSchema.MODIFIED,
+        )
+
+
+    @classmethod
+    def metadataAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            "_created",
+            "_modified",
+        )
 
 
     @inlineCallbacks
@@ -1491,7 +1523,8 @@ class CommonHome(LoggingMixIn):
                     # Cache the data
                     yield queryCacher.setAfterCommit(self._txn, cacheKey, data)
 
-            self._created, self._modified = data
+            for attr, value in zip(self.metadataAttributes(), data):
+                setattr(self, attr, value)
 
             yield self._loadPropertyStore()
             returnValue(self)
@@ -1595,6 +1628,14 @@ class CommonHome(LoggingMixIn):
 
     def transaction(self):
         return self._txn
+
+
+    @inlineCallbacks
+    def invalidateQueryCache(self):
+        queryCacher = self._txn._queryCacher
+        if queryCacher is not None:
+            cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
+            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
 
     def name(self):
@@ -2096,10 +2137,7 @@ class CommonHome(LoggingMixIn):
 
         try:
             self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
-            queryCacher = self._txn._queryCacher
-            if queryCacher is not None:
-                cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
-                yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+            yield self.invalidateQueryCache()
 
         except AllRetriesFailed:
             log.debug("CommonHome.bumpModified failed")
@@ -3640,9 +3678,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         create the python object using the metadata then create the actual store
         object with setComponent.
         """
-        if name in self._objects:
-            if self._objects[name]:
-                raise ObjectResourceNameAlreadyExistsError()
+
+        # Create => a new resource name
+        if name in self._objects and self._objects[name]:
+            raise ObjectResourceNameAlreadyExistsError()
+
+        # Apply check to the size of the collection
+        if config.MaxResourcesPerCollection:
+            child_count = (yield self.countObjectResources())
+            if child_count >= config.MaxResourcesPerCollection:
+                raise TooManyObjectResourcesError()
 
         objectResource = (
             yield self._objectResourceClass.create(self, name, component,

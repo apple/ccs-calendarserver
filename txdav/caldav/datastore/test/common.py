@@ -66,6 +66,9 @@ cal2SplitsRoot = homeSplitsRoot.child("calendar_2")
 homeNoSplitsRoot = storePath.child("ho").child("me").child("home_no_splits")
 cal1NoSplitsRoot = homeNoSplitsRoot.child("calendar_1")
 
+homeDefaultsRoot = storePath.child("ho").child("me").child("home_defaults")
+cal1DefaultsRoot = homeDefaultsRoot.child("calendar_1")
+
 calendar1_objectNames = [
     "1.ics",
     "2.ics",
@@ -269,6 +272,12 @@ class CommonTests(CommonCommonTests):
         },
         "home_splits_shared": {
             "calendar_1": {},
+        },
+        "home_defaults": {
+            "calendar_1": {
+                "1.ics": (cal1NoSplitsRoot.child("1.ics").getContent(), metadata1),
+                "3.ics": (cal1NoSplitsRoot.child("3.ics").getContent(), metadata3),
+            },
         },
     }
     md5s = {
@@ -534,7 +543,6 @@ class CommonTests(CommonCommonTests):
         home = yield self.homeUnderTest()
         name = yield home.nodeName()
         self.assertEquals(name, "/CalDAV/example.com/home1/")
-
 
 
     @inlineCallbacks

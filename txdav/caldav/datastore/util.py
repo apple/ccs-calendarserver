@@ -98,6 +98,35 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting, mi
 
 
 
+def normalizationLookup(cuaddr, principalFunction, config):
+    """
+    Lookup function to be passed to ical.normalizeCalendarUserAddresses.
+    Returns a tuple of (Full name, guid, and calendar user address list)
+    for the given cuaddr.  The principalFunction is called to retrieve the
+    principal for the cuaddr.
+    """
+    try:
+        principal = principalFunction(cuaddr)
+    except Exception, e:
+        log.debug("Lookup of %s failed: %s" % (cuaddr, e))
+        principal = None
+
+    if principal is None:
+        return (None, None, None)
+    else:
+        # RFC5545 syntax does not allow backslash escaping in
+        # parameter values. A double-quote is thus not allowed
+        # in a parameter value except as the start/end delimiters.
+        # Single quotes are allowed, so we convert any double-quotes
+        # to single-quotes.
+        return (
+            principal.fullName().replace('"', "'"),
+            principal.uid(),
+            principal.calendarUserAddresses(),
+        )
+
+
+
 @inlineCallbacks
 def dropboxIDFromCalendarObject(calendarObject):
     """

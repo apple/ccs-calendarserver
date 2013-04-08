@@ -310,7 +310,7 @@ def upgrade_to_1(config, spawner, parallel, directory):
         errorOccurred.append(True)
 
 
-    def doProxyDatabaseMoveUpgrade(config, uid=-1, gid=-1):
+    def doProxyDatabaseMoveUpgrade(config, uid= -1, gid= -1):
         # See if the new one is already present
         oldFilename = ".db.calendaruserproxy"
         newFilename = "proxies.sqlite"
@@ -349,7 +349,7 @@ def upgrade_to_1(config, spawner, parallel, directory):
         )
 
 
-    def moveCalendarHome(oldHome, newHome, uid=-1, gid=-1):
+    def moveCalendarHome(oldHome, newHome, uid= -1, gid= -1):
         if os.path.exists(newHome):
             # Both old and new homes exist; stop immediately to let the
             # administrator fix it
@@ -865,7 +865,7 @@ def updateFreeBusySet(value, directory):
 
 
 
-def makeDirsUserGroup(path, uid=-1, gid=-1):
+def makeDirsUserGroup(path, uid= -1, gid= -1):
     parts = path.split("/")
     if parts[0] == "": # absolute path
         parts[0] = "/"
@@ -1089,7 +1089,6 @@ class PostDBImportService(Service, object):
         yield migrateTokensToStore(self.config.DataRoot, self.store)
 
 
-
     @inlineCallbacks
     def processInboxItems(self):
         """
@@ -1259,7 +1258,7 @@ class PostDBImportService(Service, object):
             scheduler = DirectScheduler(request, inboxItem)
             # Process inbox item
             yield scheduler.doSchedulingViaPUT(originator, recipients, calendar,
-                internal_request=False)
+                internal_request=False, noAttendeeRefresh=True)
         else:
             log.warn("Removing invalid inbox item: %s" % (uri,))
 
