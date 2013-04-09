@@ -119,6 +119,8 @@ class ConfigTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["EnableSSL"], True)
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], True)
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/changed.cer")
+        dataRoot = "Data/%s/%s" % (unichr(208), u"\ud83d\udca3")
+        self.assertTrue(results["result"]["DataRoot"].endswith(dataRoot))
 
         # The static plist should still have EnableCalDAV = True
         staticPlist = plistlib.readPlist(self.configFileName)
@@ -204,10 +206,12 @@ command_writeConfig = """<?xml version="1.0" encoding="UTF-8"?>
             <true/>
             <key>Notifications.Services.APNS.CalDAV.CertificatePath</key>
             <string>/example/changed.cer</string>
+            <key>DataRoot</key>
+            <string>Data/%s/%s</string>
         </dict>
 </dict>
 </plist>
-"""
+""" % (unichr(208), u"\ud83d\udca3")
 
 command_bogusCommand = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

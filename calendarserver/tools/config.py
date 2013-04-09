@@ -158,6 +158,7 @@ def main():
         rawInput = sys.stdin.read()
         try:
             plist = readPlistFromString(rawInput)
+            # Note: values in plist will already be unicode
         except xml.parsers.expat.ExpatError, e:
             respondWithError(str(e))
             return
@@ -234,6 +235,10 @@ class Runner(object):
         for keyPath in WRITABLE_CONFIG_KEYS:
             value = getKeyPath(config, keyPath)
             if value is not None:
+                # Note: config contains utf-8 encoded strings, but plistlib
+                # wants unicode, so decode here:
+                if isinstance(value, str):
+                    value = value.decode("utf-8")
                 setKeyPath(result, keyPath, value)
         respond(command, result)
 
@@ -247,6 +252,7 @@ class Runner(object):
         writable = WritableConfig(config, config.WritableConfigFile)
         writable.read()
         valuesToWrite = command.get("Values", {})
+        # Note: values are unicode if they contain non-ascii
         for keyPath, value in flattenDictionary(valuesToWrite):
             if keyPath in WRITABLE_CONFIG_KEYS:
                 writable.set(setKeyPath(ConfigDict(), keyPath, value))
