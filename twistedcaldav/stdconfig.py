@@ -704,7 +704,6 @@ DEFAULT_CONFIG = {
             "AttendeeRefreshBatchIntervalSeconds" : 5, # Time between attendee batch refreshes
             "UIDLockTimeoutSeconds"               : 60, # Time for implicit UID lock timeout
             "UIDLockExpirySeconds"                : 300, # Expiration time for UID lock,
-            "V1Compatibility"                     : False, # Allow /path-based CUAs in scheduling replies
             "PrincipalHostAliases"                : [], # Host names matched in http(s) CUAs
             "TimestampAttendeePartStatChanges"    : True, # Add a time stamp when an Attendee changes their PARTSTAT
 

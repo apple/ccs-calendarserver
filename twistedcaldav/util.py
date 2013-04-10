@@ -464,11 +464,6 @@ def normalizationLookup(cuaddr, principalFunction, config):
         # to single-quotes.
         fullName = rec.fullName.replace('"', "'")
 
-        # TODO: remove V1Compatibility when V1 migration is complete
-        if config.Scheduling.Options.V1Compatibility:
-            # Allow /principals-form CUA
-            cuas = principal.calendarUserAddresses()
-        else:
-            cuas = principal.record.calendarUserAddresses
+        cuas = principal.record.calendarUserAddresses
 
         return (fullName, rec.guid, cuas)
