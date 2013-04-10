@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twisted.python.constants import NamedConstant, Names
 
 """
 Calendar store interfaces
@@ -55,6 +56,39 @@ __all__ = [
 ]
 
 
+class ComponentUpdateState(Names):
+    """
+    These are constants that define what type of component store operation is being done. This is used
+    in the .setComponent() api to determine what type of processing needs to occur.
+
+    NORMAL -                this is an application layer (user) generated store that should do all
+                            validation and implicit scheduling operations.
+
+    ORGANIZER_ITIP_UPDATE - the store is an update to an organizer's data caused by processing an incoming
+                            iTIP message. Some validation and implicit scheduling is not done. Schedule-Tag
+                            is not changed.
+
+    ATTENDEE_ITIP_UPDATE  - the store is an update to an attendee's data caused by processing an incoming
+                            iTIP message. Some validation and implicit scheduling is not done. Schedule-Tag
+                            is changed.
+
+    ATTENDEE_ITIP_REFRESH - the store is an update to an attendee's data caused by processing an incoming
+                            iTIP message. Some validation and implicit scheduling is not done. Schedule-Tag
+                            is changed.
+
+    """
+
+    NORMAL = NamedConstant()
+    ORGANIZER_ITIP_UPDATE = NamedConstant()
+    ATTENDEE_ITIP_UPDATE = NamedConstant()
+    ATTENDEE_ITIP_REFRESH = NamedConstant()
+
+    NORMAL.description = "normal"
+    ORGANIZER_ITIP_UPDATE.description = "organizer-update"
+    ATTENDEE_ITIP_UPDATE.description = "attendee-update"
+    ATTENDEE_ITIP_REFRESH.description = "attendee-refresh"
+
+
 
 class InvalidComponentTypeError(CommonStoreError):
     """
@@ -87,6 +121,27 @@ class InvalidUIDError(CommonStoreError):
 class UIDExistsError(CommonStoreError):
     """
     The UID of the component in a store operation exists in another calendar belonging to the owner.
+    """
+
+
+
+class ResourceDeletedError(CommonStoreError):
+    """
+    The resource was determined to be redundant and was deleted by the server.
+    """
+
+
+
+class AttendeeAllowedError(CommonStoreError):
+    """
+    Attendee is not allowed to make an implicit scheduling change.
+    """
+
+
+
+class InvalidPerUserDataMerge(CommonStoreError):
+    """
+    Per-user data merge failed.
     """
 
 

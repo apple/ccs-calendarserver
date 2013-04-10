@@ -14,7 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from twext.enterprise.locking import NamedLock
+from urlparse import urlparse, urlunparse
+from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 
 """
 SQL backend for CalDAV storage.
@@ -66,7 +69,8 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     IAttachment, AttachmentStoreFailed, AttachmentStoreValidManagedID, \
     AttachmentMigrationFailed, AttachmentDropboxNotAllowed, \
     TooManyAttendeesError, InvalidComponentTypeError, InvalidCalendarAccessError, \
-    InvalidUIDError, UIDExistsError
+    InvalidUIDError, UIDExistsError, ResourceDeletedError, \
+    AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -773,6 +777,52 @@ class CalendarHome(CommonHome):
         return calendar._resourceID in (self._default_events, self._default_tasks)
 
 
+    def getDefaultAlarm(self, vevent, timed):
+        """
+        Return the default alarm (text) for the specified alarm type.
+
+        @param vevent: used for a vevent (C{True}) or vtodo (C{False})
+        @type vevent: C{bool}
+        @param timed: timed ({C{True}) or all-day ({C{False})
+        @type timed: C{bool}
+        @return: the alarm (text)
+        @rtype: C{str}
+        """
+
+        if vevent:
+            propname = caldavxml.DefaultAlarmVEventDateTime if timed else caldavxml.DefaultAlarmVEventDate
+        else:
+            propname = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
+
+        prop = self.properties().get(PropertyName.fromElement(propname))
+
+        return str(prop) if prop is not None else None
+
+
+    def setDefaultAlarm(self, alarm, vevent, timed):
+        """
+        Set default alarm of the specified type.
+
+        @param alarm: the alarm text
+        @type alarm: C{str}
+        @param vevent: used for a vevent (C{True}) or vtodo (C{False})
+        @type vevent: C{bool}
+        @param timed: timed ({C{True}) or all-day ({C{False})
+        @type timed: C{bool}
+        """
+
+        if vevent:
+            prop = caldavxml.DefaultAlarmVEventDateTime if timed else caldavxml.DefaultAlarmVEventDate
+        else:
+            prop = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
+
+        self.properties()[PropertyName.fromElement(prop)] = prop.fromString(alarm)
+
+
+    def principal(self):
+        return self.principalForUID(self.uid())
+
+
     def principalForUID(self, uid):
         return CalendarPrincipal(uid, ("urn:uuid:%s" % (uid,), "mailto:%s@example.com" % (uid,),))
 
@@ -912,11 +962,7 @@ class Calendar(CommonHomeChild):
             Where=(cal.RESOURCE_ID == self._resourceID)
         ).on(self._txn)
         self._supportedComponents = supported_components
-
-        queryCacher = self._txn._queryCacher
-        if queryCacher is not None:
-            cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
-            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+        yield self.invalidateQueryCache()
 
 
     def getSupportedComponents(self):
@@ -928,6 +974,51 @@ class Calendar(CommonHomeChild):
             return componentType.upper() in self._supportedComponents.split(",")
         else:
             return True
+
+
+    def getDefaultAlarm(self, vevent, timed):
+        """
+        Return the default alarm (text) for the specified alarm type.
+
+        @param vevent: used for a vevent (C{True}) or vtodo (C{False})
+        @type vevent: C{bool}
+        @param timed: timed ({C{True}) or all-day ({C{False})
+        @type timed: C{bool}
+        @return: the alarm (text)
+        @rtype: C{str}
+        """
+
+        if vevent:
+            propname = caldavxml.DefaultAlarmVEventDateTime if timed else caldavxml.DefaultAlarmVEventDate
+        else:
+            propname = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
+
+        prop = self.properties().get(PropertyName.fromElement(propname))
+
+        if prop is None:
+            return self.viewerHome().getDefaultAlarm(vevent, timed)
+        else:
+            return str(prop)
+
+
+    def setDefaultAlarm(self, alarm, vevent, timed):
+        """
+        Set default alarm of the specified type.
+
+        @param alarm: the alarm text
+        @type alarm: C{str}
+        @param vevent: used for a vevent (C{True}) or vtodo (C{False})
+        @type vevent: C{bool}
+        @param timed: timed ({C{True}) or all-day ({C{False})
+        @type timed: C{bool}
+        """
+
+        if vevent:
+            prop = caldavxml.DefaultAlarmVEventDateTime if timed else caldavxml.DefaultAlarmVEventDate
+        else:
+            prop = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
+
+        self.properties()[PropertyName.fromElement(prop)] = prop.fromString(alarm)
 
 
     def isInbox(self):
@@ -1262,17 +1353,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     # Stuff from put_common
     @inlineCallbacks
-    def fullValidation(self, component, inserting, internal):
+    def fullValidation(self, component, inserting, update_state):
         """
         Do full validation of source and destination calendar data.
         """
 
         # Basic validation
         #TODO: figure out what to do about etag/schedule-tag
-        self.validIfScheduleMatch(False, False, internal)
+        self.validIfScheduleMatch(False, False, update_state)
 
-        # Skip validation on internal requests
-        if not internal:
+        # Do validation on external requests
+        if update_state == ComponentUpdateState.NORMAL:
 
             # Valid data sizes - do before parsing the data
             if config.MaxResourceSize:
@@ -1284,8 +1375,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if config.EnableTimezonesByReference:
             component.stripKnownTimezones()
 
-        # Skip validation on internal requests
-        if not internal:
+        # Do validation on external requests
+        if update_state == ComponentUpdateState.NORMAL:
 
             # Valid calendar data checks
             yield self.validCalendarDataCheck(component, inserting)
@@ -1302,16 +1393,16 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             component.normalizeCalendarUserAddresses(normalizationLookup, self.calendar().viewerHome().principalForCalendarUserAddress)
 
         # Check access
-        yield self.validAccess(component, inserting, internal)
+        yield self.validAccess(component, inserting, update_state)
 
 
-    def validIfScheduleMatch(self, etag_match, schedule_tag, internal):
+    def validIfScheduleMatch(self, etag_match, schedule_tag, update_state):
         """
         Check for If-ScheduleTag-Match header behavior.
         """
         # Only when a direct request
         self.schedule_tag_match = False
-        if not self.calendar().isInbox() and not internal:
+        if not self.calendar().isInbox() and update_state == ComponentUpdateState.NORMAL:
             if schedule_tag:
                 self._validIfScheduleMatch(self.request)
                 self.schedule_tag_match = True
@@ -1380,7 +1471,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     raise TooManyAttendeesError("Attendee list size %d is larger than allowed limit %d" % (attendeeListLength, config.MaxAttendeesPerInstance))
 
 
-    def validAccess(self, component, inserting, internal):
+    def validAccess(self, component, inserting, update_state):
         """
         Make sure that the X-CALENDARSERVER-ACCESS property is properly dealt with.
         """
@@ -1393,7 +1484,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 raise InvalidCalendarAccessError("Private event access level not allowed")
 
             # Only DAV:owner is able to set the property to other than PUBLIC
-            if not internal:
+            if update_state == ComponentUpdateState.NORMAL:
                 if self.calendar().viewerHome().uid() != self._txn._authz_uid and access != Component.ACCESS_PUBLIC:
                     raise InvalidCalendarAccessError("Private event access level change not allowed")
 
@@ -1403,6 +1494,275 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if not inserting and self.accessMode:
                 old_access = self.accessMode
                 component.addProperty(Property(name=Component.ACCESS_PROPERTY, value=old_access))
+
+
+    @inlineCallbacks
+    def preservePrivateComments(self, component, inserting):
+        """
+        Check for private comments on the old resource and the new resource and re-insert
+        ones that are lost.
+
+        NB Do this before implicit scheduling as we don't want old clients to trigger scheduling when
+        the X- property is missing.
+        """
+        if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
+            old_has_private_comments = not inserting and self.hasPrivateComment
+            new_has_private_comments = component.hasPropertyInAnyComponent((
+                "X-CALENDARSERVER-PRIVATE-COMMENT",
+                "X-CALENDARSERVER-ATTENDEE-COMMENT",
+            ))
+
+            if old_has_private_comments and not new_has_private_comments:
+                # Transfer old comments to new calendar
+                log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
+                old_calendar = (yield self.componentForUser())
+                component.transferProperties(old_calendar, (
+                    "X-CALENDARSERVER-PRIVATE-COMMENT",
+                    "X-CALENDARSERVER-ATTENDEE-COMMENT",
+                ))
+
+            self.hasPrivateComment = new_has_private_comments
+
+
+    @inlineCallbacks
+    def replaceMissingToDoProperties(self, calendar, inserting, update_state):
+        """
+        Recover any lost ORGANIZER or ATTENDEE properties in non-recurring VTODOs.
+        """
+
+        if not inserting and calendar.resourceType() == "VTODO" and not calendar.isRecurring():
+
+            old_calendar = (yield self.componentForUser())
+
+            new_organizer = calendar.getOrganizer()
+            old_organizer = old_calendar.getOrganizerProperty()
+            new_attendees = calendar.getAttendees()
+            old_attendees = tuple(old_calendar.getAllAttendeeProperties())
+
+            new_completed = calendar.mainComponent().hasProperty("COMPLETED")
+            old_completed = old_calendar.mainComponent().hasProperty("COMPLETED")
+
+            if old_organizer and not new_organizer and len(old_attendees) > 0 and len(new_attendees) == 0:
+                # Transfer old organizer and attendees to new calendar
+                log.debug("Organizer and attendee properties were entirely removed by the client. Restoring existing properties.")
+
+                # Get the originator who is the owner of the calendar resource being modified
+                originatorPrincipal = (yield self.calendar().ownerHome().principal())
+                originatorAddresses = originatorPrincipal.calendarUserAddresses()
+
+                for component in calendar.subcomponents():
+                    if component.name() != "VTODO":
+                        continue
+
+                    if not component.hasProperty("DTSTART"):
+                        # Need to put DTSTART back in or we get a date mismatch failure later
+                        for old_component in old_calendar.subcomponents():
+                            if old_component.name() != "VTODO":
+                                continue
+                            if old_component.hasProperty("DTSTART"):
+                                component.addProperty(old_component.getProperty("DTSTART").duplicate())
+                                break
+
+                    # Add organizer back in from previous resource
+                    component.addProperty(old_organizer.duplicate())
+
+                    # Add attendees back in from previous resource
+                    for anAttendee in old_attendees:
+                        anAttendee = anAttendee.duplicate()
+                        if component.hasProperty("COMPLETED") and anAttendee.value() in originatorAddresses:
+                            anAttendee.setParameter("PARTSTAT", "COMPLETED")
+                        component.addProperty(anAttendee)
+
+            elif new_completed ^ old_completed and update_state == ComponentUpdateState.NORMAL:
+                # COMPLETED changed - sync up attendee state
+                # We need this because many VTODO clients are not aware of scheduling,
+                # i.e. they do not adjust any ATTENDEE PARTSTATs. We are going to impose
+                # our own requirement that PARTSTAT is set to COMPLETED when the COMPLETED
+                # property is added.
+
+                # Transfer old organizer and attendees to new calendar
+                log.debug("Sync COMPLETED property change.")
+
+                # Get the originator who is the owner of the calendar resource being modified
+                originatorPrincipal = (yield self.calendar().ownerHome().principal())
+                originatorAddresses = originatorPrincipal.calendarUserAddresses()
+
+                for component in calendar.subcomponents():
+                    if component.name() != "VTODO":
+                        continue
+
+                    # Change owner partstat
+                    for anAttendee in component.properties("ATTENDEE"):
+                        if anAttendee.value() in originatorAddresses:
+                            oldpartstat = anAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
+                            newpartstat = "COMPLETED" if component.hasProperty("COMPLETED") else "IN-PROCESS"
+                            if newpartstat != oldpartstat:
+                                anAttendee.setParameter("PARTSTAT", newpartstat)
+
+
+    @inlineCallbacks
+    def dropboxPathNormalization(self, component):
+        """
+        Make sure sharees only use dropbox paths of the sharer.
+        """
+
+        # Only relevant if calendar is sharee collection
+        if not self.calendar().owned():
+
+            # Get all X-APPLE-DROPBOX's and ATTACH's that are http URIs
+            xdropboxes = component.getAllPropertiesInAnyComponent(
+                "X-APPLE-DROPBOX",
+                depth=1,
+            )
+            attachments = component.getAllPropertiesInAnyComponent(
+                "ATTACH",
+                depth=1,
+            )
+            attachments = [
+                attachment for attachment in attachments
+                if attachment.parameterValue("VALUE", "URI") == "URI" and attachment.value().startswith("http")
+            ]
+
+            if len(xdropboxes) or len(attachments):
+
+                # Determine owner GUID
+                owner = (yield self.calendar().ownerHome()).uid()
+
+                def uriNormalize(uri):
+                    urichanged = False
+                    scheme, netloc, path, params, query, fragment = urlparse(uri)
+                    pathbits = path.split("/")
+                    if len(pathbits) >= 6 and pathbits[4] == "dropbox":
+                        if pathbits[1] != "calendars":
+                            pathbits[1] = "calendars"
+                            urichanged = True
+                        if pathbits[2] != "__uids__":
+                            pathbits[2] = "__uids__"
+                            urichanged = True
+                        if pathbits[3] != owner:
+                            pathbits[3] = owner
+                            urichanged = True
+                        if urichanged:
+                            return urlunparse((scheme, netloc, "/".join(pathbits), params, query, fragment,))
+                    return None
+
+                for xdropbox in xdropboxes:
+                    uri = uriNormalize(xdropbox.value())
+                    if uri:
+                        xdropbox.setValue(uri)
+                        self._componentChanged = True
+                for attachment in attachments:
+                    uri = uriNormalize(attachment.value())
+                    if uri:
+                        attachment.setValue(uri)
+                        self._componentChanged = True
+
+
+    def processAlarms(self, component, inserting):
+        """
+        Remove duplicate alarms. Add a default alarm if required.
+
+        @return: indicate whether a change was made
+        @rtype: C{bool}
+        """
+
+        # Remove duplicate alarms
+        if config.RemoveDuplicateAlarms and component.hasDuplicateAlarms(doFix=True):
+            self._componentChanged = True
+
+        # Only if feature enabled
+        if not config.EnableDefaultAlarms:
+            return
+
+        # Check that we are creating and this is not the inbox
+        if not inserting or self.calendar().isInbox():
+            return
+
+        # Never add default alarms to calendar data in shared calendars
+        if not self.calendar().owned():
+            return
+
+        # Add default alarm for VEVENT and VTODO only
+        mtype = component.mainType().upper()
+        if component.mainType().upper() not in ("VEVENT", "VTODO"):
+            return
+        vevent = mtype == "VEVENT"
+
+        # Check timed or all-day
+        start, _ignore_end = component.mainComponent(allow_multiple=True).getEffectiveStartEnd()
+        if start is None:
+            # Yes VTODOs might have no DTSTART or DUE - in this case we do not add a default
+            return
+        timed = not start.isDateOnly()
+
+        # See if default exists and add using appropriate logic
+        alarm = self.calendar().getDefaultAlarm(vevent, timed)
+        if alarm and component.addAlarms(alarm):
+            self._componentChanged = True
+
+
+    @inlineCallbacks
+    def mergePerUserData(self, component, inserting):
+        """
+        Merge incoming calendar data with other user's per-user data in existing calendar data.
+
+        @param component: incoming calendar data
+        @type component: L{twistedcaldav.ical.Component}
+        """
+        accessUID = self.calendar().viewerHome().uid()
+        oldCal = (yield self.component()) if not inserting else None
+
+        # Duplicate before we do the merge because someone else may "own" the calendar object
+        # and we should not change it. This is not ideal as we may duplicate it unnecessarily
+        # but we currently have no api to let the caller tell us whether it cares about the
+        # whether the calendar data is changed or not.
+        try:
+            component = PerUserDataFilter(accessUID).merge(component.duplicate(), oldCal)
+        except ValueError:
+            log.err("Invalid per-user data merge")
+            raise InvalidPerUserDataMerge("Cannot merge per-user data")
+
+        returnValue(component)
+
+
+    def processScheduleTags(self, component, inserting, update_state):
+
+        # Check for scheduling object resource and write property
+        if self.isScheduleObject:
+            # Need to figure out when to change the schedule tag:
+            #
+            # 1. If this is not an internal request then the resource is being explicitly changed
+            # 2. If it is an internal request for the Organizer, schedule tag never changes
+            # 3. If it is an internal request for an Attendee and the message being processed came
+            #    from the Organizer then the schedule tag changes.
+
+            # Check what kind of processing is going on
+            change_scheduletag = update_state not in (
+                ComponentUpdateState.ORGANIZER_ITIP_UPDATE,
+                ComponentUpdateState.ATTENDEE_ITIP_REFRESH,
+            )
+
+            if change_scheduletag or not self.scheduleTag:
+                self.scheduleTag = str(uuid.uuid4())
+
+            # Handle weak etag compatibility
+            if config.Scheduling.CalDAV.ScheduleTagCompatibility:
+                if change_scheduletag:
+                    # Schedule-Tag change => weak ETag behavior must not happen
+                    etags = ()
+                else:
+                    # Schedule-Tag did not change => add current ETag to list of those that can
+                    # be used in a weak precondition test
+                    etags = self.scheduleEtags
+                    if etags is None:
+                        etags = ()
+                etags += (self._generateEtag(str(component)),)
+                self.scheduleEtags = etags
+            else:
+                self.scheduleEtags = ()
+        else:
+            self.scheduleTag = ""
+            self.scheduleEtags = ()
 
 
     @inlineCallbacks
@@ -1436,24 +1796,76 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         Scheduling will be done automatically.
         """
 
-        return self._setComponentInternal(component, inserting, False)
+        return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL)
 
 
     @inlineCallbacks
-    def _setComponentInternal(self, component, inserting=False, internal=True):
+    def _setComponentInternal(self, component, inserting=False, update_state=ComponentUpdateState.NORMAL):
         """
         Setting the component internally to the store itself. This will bypass a whole bunch of data consistency checks
         on the assumption that those have been done prior to the component data being provided, provided the flag is set.
         This should always be treated as an api private to the store.
         """
 
+        self._componentChanged = False
+
         # Handle all validation operations here.
-        yield self.fullValidation(component, inserting, internal)
+        yield self.fullValidation(component, inserting, update_state)
 
         # UID lock - this will remain active until the end of the current txn
         yield self._lockUID(component, inserting)
 
+        # Preserve private comments
+        yield self.preservePrivateComments(component, inserting)
+
+        # Fix broken VTODOs
+        yield self.replaceMissingToDoProperties(component, inserting, update_state)
+
+        # Handle sharing dropbox normalization
+        yield self.dropboxPathNormalization(component)
+
+        # Pre-process managed attachments
+        if update_state == ComponentUpdateState.NORMAL:
+            managed_copied, managed_removed = (yield self.updatingResourceCheckAttachments(component, inserting))
+
+        # Default/duplicate alarms
+        self.processAlarms(component, inserting)
+
+#        # Do scheduling
+#        implicit_result = (yield self.doImplicitScheduling())
+#        if isinstance(implicit_result, int):
+#            if implicit_result == ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT:
+#                raise ResourceDeletedError("Resource created but immediately deleted by the server.")
+#
+#            elif implicit_result == ImplicitScheduler.STATUS_ORPHANED_EVENT:
+#
+#                # Now forcibly delete the event
+#                if not inserting:
+#                    yield self.storeRemove()
+#                    raise ResourceDeletedError("Resource modified but immediately deleted by the server.")
+#                else:
+#                    raise AttendeeAllowedError("Attendee cannot create event for Organizer: %s" % (implicit_result,))
+#
+#            else:
+#                msg = "Invalid return status code from ImplicitScheduler: %s" % (implicit_result,)
+#                log.err(msg)
+#                raise InvalidObjectResourceError(msg)
+#        else:
+#            self.isScheduleObject, data_changed, did_implicit_action = implicit_result
+
+        # Always do the per-user data merge right before we store
+        component = (yield self.mergePerUserData(component, inserting))
+
+        self.processScheduleTags(component, inserting, update_state)
+
         yield self.updateDatabase(component, inserting=inserting)
+
+        # Post process managed attachments
+        if update_state == ComponentUpdateState.NORMAL:
+            if managed_copied:
+                yield self.copyResourceAttachments(managed_copied)
+            if managed_removed:
+                yield self.removeResourceAttachments(managed_removed)
 
         if inserting:
             yield self._calendar._insertRevision(self._name)
@@ -1461,6 +1873,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self._calendar._updateRevision(self._name)
 
         yield self._calendar.notifyChanged()
+
+        returnValue(self._componentChanged)
+
+
+    def _generateEtag(self, componentText):
+        return hashlib.md5(componentText + (self.scheduleTag if self.scheduleTag else "")).hexdigest()
 
 
     @inlineCallbacks
@@ -1579,7 +1997,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # CALENDAR_OBJECT table update
             self._uid = component.resourceUID()
-            self._md5 = hashlib.md5(componentText + (self._schedule_tag if self._schedule_tag else "")).hexdigest()
+            self._md5 = self._generateEtag(componentText)
             self._size = len(componentText)
 
             # Special - if migrating we need to preserve the original md5
@@ -1803,11 +2221,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
 
         if user_uuid is None:
-            user_uuid = self._parentCollection.viewHome().uid()
+            user_uuid = self._parentCollection.viewerHome().uid()
 
         if user_uuid not in self._cachedCommponentPerUser:
             caldata = yield self.component()
-            filtered = PerUserDataFilter(user_uuid).filter(caldata)
+            filtered = PerUserDataFilter(user_uuid).filter(caldata.duplicate())
             self._cachedCommponentPerUser[user_uuid] = filtered
         returnValue(self._cachedCommponentPerUser[user_uuid])
 
@@ -1994,7 +2412,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def updatingResourceCheckAttachments(self, component):
+    def updatingResourceCheckAttachments(self, component, inserting=False):
         """
         A component is being changed. Check any ATTACH properties that may be present
         to verify they are owned by the organizer/owner of the resource and re-write the managed-ids.
@@ -2012,13 +2430,16 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 newattached[managed_id].append(attachment)
 
         # Retrieve all ATTACH properties with a MANAGED-ID in old data
-        oldcomponent = (yield self.component())
-        oldattached = collections.defaultdict(list)
-        oldattachments = oldcomponent.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
-        for attachment in oldattachments:
-            managed_id = attachment.parameterValue("MANAGED-ID")
-            if managed_id is not None:
-                oldattached[managed_id].append(attachment)
+        if not inserting:
+            oldcomponent = (yield self.component())
+            oldattached = collections.defaultdict(list)
+            oldattachments = oldcomponent.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
+            for attachment in oldattachments:
+                managed_id = attachment.parameterValue("MANAGED-ID")
+                if managed_id is not None:
+                    oldattached[managed_id].append(attachment)
+        else:
+            oldattached = collections.defaultdict(list)
 
         # Punt if no managed attachments
         if len(newattached) + len(oldattached) == 0:

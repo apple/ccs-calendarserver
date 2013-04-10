@@ -28,8 +28,9 @@ from txdav.common.icommondatastore import ObjectResourceTooBigError, \
     InvalidObjectResourceError
 from txdav.caldav.icalendarstore import InvalidComponentTypeError, \
     TooManyAttendeesError, InvalidCalendarAccessError, InvalidUIDError, \
-    UIDExistsError
+    UIDExistsError, ComponentUpdateState
 import sys
+from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 
 class ImplicitRequests (CommonCommonTests, TestCase):
     """
@@ -102,9 +103,10 @@ END:VCALENDAR
 
         calendar_resource1 = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
         calendar1 = (yield calendar_resource1.component())
-        self.assertTrue("urn:uuid:user01" in str(calendar1))
-        self.assertTrue("urn:uuid:user02" in str(calendar1))
-        self.assertTrue("CN=" in str(calendar1))
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertTrue("urn:uuid:user01" in calendar1)
+        self.assertTrue("urn:uuid:user02" in calendar1)
+        self.assertTrue("CN=" in calendar1)
         yield self.commit()
 
 
@@ -388,8 +390,9 @@ END:VCALENDAR
 
         calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
         calendar1 = (yield calendar_resource.component())
-        self.assertTrue("X-CALENDARSERVER-ACCESS:PRIVATE" in str(calendar1))
-        self.assertTrue("SUMMARY:Changed" in str(calendar1))
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertTrue("X-CALENDARSERVER-ACCESS:PRIVATE" in calendar1)
+        self.assertTrue("SUMMARY:Changed" in calendar1)
         yield self.commit()
 
 
@@ -540,4 +543,577 @@ END:VCALENDAR
             self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
         else:
             self.fail("Exception not raised")
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_preservePrivateComments(self):
+        """
+        Test that resource private comments are restored.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+X-CALENDARSERVER-PRIVATE-COMMENT:My Comment
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Changed
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
+        txn = self.transactionUnderTest()
+        txn._authz_uid = "user01"
+        yield calendar_resource.setComponent(calendar)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar1 = (yield calendar_resource.component())
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertTrue("X-CALENDARSERVER-PRIVATE-COMMENT:My Comment" in calendar1)
+        self.assertTrue("SUMMARY:Changed" in calendar1)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_replaceMissingToDoProperties_OrganizerAttendee(self):
+        """
+        Test that missing scheduling properties in VTODOs are recovered.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VTODO
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Changed
+END:VTODO
+END:VCALENDAR
+"""
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
+        txn = self.transactionUnderTest()
+        txn._authz_uid = "user01"
+        yield calendar_resource.setComponent(calendar)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar1 = (yield calendar_resource.component())
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertTrue("ORGANIZER" in calendar1)
+        self.assertTrue("ATTENDEE" in calendar1)
+        self.assertTrue("SUMMARY:Changed" in calendar1)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_replaceMissingToDoProperties_Completed(self):
+        """
+        Test that VTODO completed status is fixed.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VTODO
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Changed
+COMPLETED:20080601T140000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VTODO
+END:VCALENDAR
+"""
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
+        txn = self.transactionUnderTest()
+        txn._authz_uid = "user01"
+        yield calendar_resource.setComponent(calendar)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar1 = (yield calendar_resource.component())
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertTrue("ORGANIZER" in calendar1)
+        self.assertTrue("ATTENDEE" in calendar1)
+        self.assertTrue("SUMMARY:Changed" in calendar1)
+        self.assertTrue("PARTSTAT=COMPLETED" in calendar1)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_dropboxPathNormalization(self):
+        """
+        Test that dropbox paths are normalized.
+        """
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        sharee_home = (yield self.homeUnderTest(name="user02"))
+        shared_name = (yield calendar_collection.shareWith(sharee_home, _BIND_MODE_WRITE,))
+        yield self.commit()
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+X-APPLE-DROPBOX:https://example.com/calendars/users/user02/dropbox/123.dropbox
+ATTACH;VALUE=URI:https://example.com/calendars/users/user02/dropbox/123.dropbox/1.txt
+ATTACH;VALUE=URI:https://example.org/attachments/2.txt
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VTODO
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(name=shared_name, home="user02"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", calendar_name=shared_name, home="user02",))
+        calendar1 = (yield calendar_resource.component())
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertTrue("X-APPLE-DROPBOX:https://example.com/calendars/__uids__/user01/dropbox/123.dropbox" in calendar1)
+        self.assertTrue("ATTACH:https://example.com/calendars/__uids__/user01/dropbox/123.dropbox/1.txt" in calendar1)
+        self.assertTrue("ATTACH:https://example.org/attachments/2.txt" in calendar1)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_processAlarms_DuplicateRemoval(self):
+        """
+        Test that duplicate alarms are removed.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Changed
+BEGIN:VALARM
+X-WR-ALARMUID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+UID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+DESCRIPTION:Event reminder
+TRIGGER:-PT8M
+ACTION:DISPLAY
+END:VALARM
+BEGIN:VALARM
+X-WR-ALARMUID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+UID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+DESCRIPTION:Event reminder
+TRIGGER:-PT8M
+ACTION:DISPLAY
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
+        txn = self.transactionUnderTest()
+        txn._authz_uid = "user01"
+        result = (yield calendar_resource.setComponent(calendar))
+        yield self.commit()
+        self.assertTrue(result)
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar1 = (yield calendar_resource.component())
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertEqual(calendar1.count("BEGIN:VALARM"), 1)
+        self.assertTrue("SUMMARY:Changed" in calendar1)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_processAlarms_AddDefault(self):
+        """
+        Test that default alarms are added.
+        """
+
+        alarm = """BEGIN:VALARM
+X-WR-ALARMUID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+UID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+DESCRIPTION:Event reminder
+TRIGGER:-PT8M
+ACTION:DISPLAY
+END:VALARM
+"""
+
+        home = (yield self.homeUnderTest(name="user01"))
+        home.setDefaultAlarm(alarm, True, True)
+        yield self.commit()
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar1 = (yield calendar_resource.component())
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertEqual(calendar1.count("BEGIN:VALARM"), 1)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_processAlarms_NoDefaultShared(self):
+        """
+        Test that default alarms are not added to shared resources.
+        """
+
+        # Set default alarm for user02
+        alarm = """BEGIN:VALARM
+X-WR-ALARMUID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+UID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+DESCRIPTION:Event reminder
+TRIGGER:-PT8M
+ACTION:DISPLAY
+END:VALARM
+"""
+
+        home = (yield self.homeUnderTest(name="user02"))
+        home.setDefaultAlarm(alarm, True, True)
+        yield self.commit()
+
+        # user01 shares calendar with user02
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        sharee_home = (yield self.homeUnderTest(name="user02"))
+        shared_name = (yield calendar_collection.shareWith(sharee_home, _BIND_MODE_WRITE,))
+        yield self.commit()
+
+        # user02 writes event to shared calendar
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(name=shared_name, home="user02"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", calendar_name=shared_name, home="user02",))
+        calendar1 = (yield calendar_resource.component())
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertEqual(calendar1.count("BEGIN:VALARM"), 0)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_mergePerUserData(self):
+        """
+        Test that per-user data is correctly stored and retrieved.
+        """
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        sharee_home = (yield self.homeUnderTest(name="user02"))
+        shared_name = (yield calendar_collection.shareWith(sharee_home, _BIND_MODE_WRITE,))
+        yield self.commit()
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+BEGIN:VALARM
+X-WR-ALARMUID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+UID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+DESCRIPTION:Event reminder
+TRIGGER:-PT5M
+ACTION:DISPLAY
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+BEGIN:VALARM
+X-WR-ALARMUID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+UID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+DESCRIPTION:Event reminder
+TRIGGER:-PT10M
+ACTION:DISPLAY
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", calendar_name=shared_name, home="user02",))
+        calendar = Component.fromString(data2)
+        yield calendar_resource.setComponent(calendar)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+
+        # Unfiltered view of event
+        calendar1 = (yield calendar_resource.component())
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertTrue("TRIGGER:-PT5M" in calendar1)
+        self.assertTrue("TRIGGER:-PT10M" in calendar1)
+        self.assertEqual(calendar1.count("BEGIN:VALARM"), 2)
+
+        # user01 view of event
+        calendar1 = (yield calendar_resource.componentForUser("user01"))
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertTrue("TRIGGER:-PT5M" in calendar1)
+        self.assertFalse("TRIGGER:-PT10M" in calendar1)
+        self.assertEqual(calendar1.count("BEGIN:VALARM"), 1)
+
+        # user02 view of event
+        calendar1 = (yield calendar_resource.componentForUser("user02"))
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertFalse("TRIGGER:-PT5M" in calendar1)
+        self.assertTrue("TRIGGER:-PT10M" in calendar1)
+        self.assertEqual(calendar1.count("BEGIN:VALARM"), 1)
+
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", calendar_name=shared_name, home="user02",))
+
+        # Unfiltered view of event
+        calendar1 = (yield calendar_resource.component())
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertTrue("TRIGGER:-PT5M" in calendar1)
+        self.assertTrue("TRIGGER:-PT10M" in calendar1)
+        self.assertEqual(calendar1.count("BEGIN:VALARM"), 2)
+
+        # user01 view of event
+        calendar1 = (yield calendar_resource.componentForUser("user01"))
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertTrue("TRIGGER:-PT5M" in calendar1)
+        self.assertFalse("TRIGGER:-PT10M" in calendar1)
+        self.assertEqual(calendar1.count("BEGIN:VALARM"), 1)
+
+        # user02 view of event
+        calendar1 = (yield calendar_resource.componentForUser("user02"))
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertFalse("TRIGGER:-PT5M" in calendar1)
+        self.assertTrue("TRIGGER:-PT10M" in calendar1)
+        self.assertEqual(calendar1.count("BEGIN:VALARM"), 1)
+
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_processScheduleTags(self):
+        """
+        Test that schedule tags are correctly updated.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+X-CALENDARSERVER-PRIVATE-COMMENT:My Comment
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+SUMMARY:Changed #1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar_resource.isScheduleObject = True
+        calendar = Component.fromString(data2)
+        yield calendar_resource.setComponent(calendar)
+        schedule_tag = calendar_resource.scheduleTag
+        yield self.commit()
+
+        data3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+SUMMARY:Changed #2
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data3)
+        yield calendar_resource.setComponent(calendar)
+        self.assertNotEqual(calendar_resource.scheduleTag, schedule_tag)
+        schedule_tag = calendar_resource.scheduleTag
+        yield self.commit()
+
+        data4 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+SUMMARY:Changed #2
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data4)
+        yield calendar_resource._setComponentInternal(calendar, update_state=ComponentUpdateState.ORGANIZER_ITIP_UPDATE)
+        self.assertEqual(calendar_resource.scheduleTag, schedule_tag)
         yield self.commit()

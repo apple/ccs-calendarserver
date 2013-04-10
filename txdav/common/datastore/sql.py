@@ -3366,6 +3366,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
 
+    @inlineCallbacks
+    def invalidateQueryCache(self):
+        queryCacher = self._txn._queryCacher
+        if queryCacher is not None:
+            cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
+            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+
+
     def exists(self):
         """
         An empty resource-id means this object does not yet exist in the DB.
