@@ -2467,14 +2467,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
     _objectTable = None
 
 
-    def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None):
-
-        if home._notifiers:
-            childID = "%s/%s" % (home.uid(), name)
-            notifiers = [notifier.clone(label="collection", id=childID)
-                         for notifier in home._notifiers]
-        else:
-            notifiers = None
+    def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None, ownerName=None):
 
         self._home = home
         self._name = name
@@ -2483,12 +2476,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         self._bindStatus = status
         self._bindMessage = message
         self._ownerHome = home if ownerHome is None else ownerHome
+        self._ownerName = name if ownerName is None else ownerName
         self._created = None
         self._modified = None
         self._objects = {}
         self._objectNames = None
         self._syncTokenRevision = None
-        self._notifiers = notifiers
+
+        if self._ownerHome._notifiers:
+            childID = "%s/%s" % (self._ownerHome.uid(), self._ownerName)
+            self._notifiers = [notifier.clone(label="collection", id=childID)
+                         for notifier in home._notifiers]
+        else:
+            self._notifiers = None
+
         self._index = None  # Derived classes need to set this
 
 
@@ -3000,17 +3001,18 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
             if bindStatus == _BIND_MODE_OWN:
                 ownerHome = home
+                ownerName = resourceName
             else:
                 #TODO: get all ownerHomeIDs at once
-                ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
-                                home._txn, resourceID=resourceID))[0][0]
+                ownerHomeID, ownerName = (yield cls._ownerHomeWithResourceID.on(home._txn, resourceID=resourceID))[0]
                 ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
 
             child = cls(
                 home=home,
                 name=resourceName, resourceID=resourceID,
                 mode=bindMode, status=bindStatus,
-                message=bindMessage, ownerHome=ownerHome
+                message=bindMessage,
+                ownerHome=ownerHome, ownerName=ownerName
             )
             for attr, value in zip(cls.metadataAttributes(), metadata):
                 setattr(child, attr, value)
@@ -3059,15 +3061,15 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
 
         #TODO:  combine with _invitedBindForNameAndHomeID and sort results
-        ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
-                        home._txn, resourceID=resourceID))[0][0]
+        ownerHomeID, ownerName = (yield cls._ownerHomeWithResourceID.on(home._txn, resourceID=resourceID))[0]
         ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
 
         child = cls(
             home=home,
             name=resourceName, resourceID=resourceID,
             mode=bindMode, status=bindStatus,
-            message=bindMessage, ownerHome=ownerHome,
+            message=bindMessage,
+            ownerHome=ownerHome, ownerName=ownerName,
         )
         yield child.initFromStore()
         returnValue(child)
@@ -3114,10 +3116,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 # get ownerHomeID
                 if bindMode == _BIND_MODE_OWN:
                     ownerHomeID = homeID
+                    ownerName = resourceName
                 else:
-                    ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
-                                    home._txn, resourceID=resourceID))[0][0]
+                    ownerHomeID, ownerName = (yield cls._ownerHomeWithResourceID.on(
+                                    home._txn, resourceID=resourceID))[0]
                 rows[0].append(ownerHomeID)
+                rows[0].append(ownerName)
 
             if rows and queryCacher:
                 # Cache the result
@@ -3126,7 +3130,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage, ownerHomeID = rows[0] #@UnusedVariable
+        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage, ownerHomeID, ownerName = rows[0] #@UnusedVariable
 
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
@@ -3137,7 +3141,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             home=home,
             name=name, resourceID=resourceID,
             mode=bindMode, status=bindStatus,
-            message=bindMessage, ownerHome=ownerHome,
+            message=bindMessage,
+            ownerHome=ownerHome, ownerName=ownerName,
         )
         yield child.initFromStore()
         returnValue(child)
@@ -3176,15 +3181,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
+            ownerName = resourceName
         else:
-            ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
-                            home._txn, resourceID=resourceID))[0][0]
+            ownerHomeID, ownerName = (yield cls._ownerHomeWithResourceID.on(home._txn, resourceID=resourceID))[0]
             ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
         child = cls(
             home=home,
             name=resourceName, resourceID=resourceID,
             mode=bindMode, status=bindStatus,
-            message=bindMessage, ownerHome=ownerHome,
+            message=bindMessage,
+            ownerHome=ownerHome, ownerName=ownerName,
         )
         yield child.initFromStore()
         returnValue(child)
@@ -3435,15 +3441,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
     @classproperty
     def _ownerHomeWithResourceID(cls): #@NoSelf
         """
-        DAL query to retrieve the home resource ID of the owner from the bound
+        DAL query to retrieve the home resource ID and resource name of the owner from the bound
         home-child ID.
         """
         bind = cls._bindSchema
-        return Select([bind.HOME_RESOURCE_ID],
-                     From=bind,
-                     Where=(bind.RESOURCE_ID ==
-                            Parameter("resourceID")).And(
-                                bind.BIND_MODE == _BIND_MODE_OWN))
+        return Select(
+            [bind.HOME_RESOURCE_ID, bind.RESOURCE_NAME, ],
+            From=bind,
+            Where=(bind.RESOURCE_ID == Parameter("resourceID")).And(
+                bind.BIND_MODE == _BIND_MODE_OWN)
+        )
 
 
     @inlineCallbacks
@@ -3459,8 +3466,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             # we already know who the owner is.
             returnValue(self._home._resourceID)
         else:
-            rid = (yield self._ownerHomeWithResourceID.on(
-                self._txn, resourceID=self._resourceID))[0][0]
+            rid, _ignore_rname = (yield self._ownerHomeWithResourceID.on(self._txn, resourceID=self._resourceID))[0]
             returnValue(rid)
 
 
