@@ -78,7 +78,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import UpgradeFileSystemFormatService, PostDBImportService
 
 from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
-from calendarserver.tap.util import directoryFromConfig
+from calendarserver.tap.util import directoryFromConfig, checkDirectories
 
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
@@ -108,7 +108,6 @@ from calendarserver.tap.util import storeFromConfig
 from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tap.util import oracleConnectorFromConfig
 from calendarserver.tap.cfgchild import ConfiguredChildSpawner
-from calendarserver.tools.util import checkDirectory
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
@@ -387,8 +386,8 @@ class CalDAVOptions (Options, LoggingMixIn):
         config.updateDefaults(self.overrides)
 
 
-    def checkDirectory(self, dirpath, description, access=None, create=None, wait=False):
-        checkDirectory(dirpath, description, access=access, create=create, wait=wait)
+    def checkDirectories(self, config):
+        checkDirectories(config)
 
 
     def checkConfiguration(self):
@@ -418,58 +417,8 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         self.parent["pidfile"] = config.PIDFile
 
-        #
-        # Verify that server root actually exists
-        #
-        self.checkDirectory(
-            config.ServerRoot,
-            "Server root",
-            # Require write access because one might not allow editing on /
-            access=os.W_OK,
-            wait=True # Wait in a loop until ServerRoot exists
-        )
+        self.checkDirectories(config)
 
-        #
-        # Verify that other root paths are OK
-        #
-        if config.DataRoot.startswith(config.ServerRoot + os.sep):
-            self.checkDirectory(
-                config.DataRoot,
-                "Data root",
-                access=os.W_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
-        if config.DocumentRoot.startswith(config.DataRoot + os.sep):
-            self.checkDirectory(
-                config.DocumentRoot,
-                "Document root",
-                # Don't require write access because one might not allow editing on /
-                access=os.R_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
-        if config.ConfigRoot.startswith(config.ServerRoot + os.sep):
-            self.checkDirectory(
-                config.ConfigRoot,
-                "Config root",
-                access=os.W_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
-
-        if config.LogRoot.startswith(config.ServerRoot + os.sep):
-            self.checkDirectory(
-                config.LogRoot,
-                "Log root",
-                access=os.W_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
-
-        # Always create RunRoot (for pid files, socket files) if it does not exist
-        self.checkDirectory(
-            config.RunRoot,
-            "Run root",
-            access=os.W_OK,
-            create=(0770, config.UserName, config.GroupName),
-        )
 
         #
         # Nuke the file log observer's time format.
