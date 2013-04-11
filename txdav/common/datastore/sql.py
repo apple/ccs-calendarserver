@@ -2483,10 +2483,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         self._objectNames = None
         self._syncTokenRevision = None
 
+        # Always use notifiers based off the owner home so that shared collections use tokens common
+        # to the owner - and thus will be the same for each sharee. Without that, each sharee would have
+        # a different token to subscribe to and thus would each need a separate push - whereas a common
+        # token only requires one push (to multiple subscribers).
         if self._ownerHome._notifiers:
             childID = "%s/%s" % (self._ownerHome.uid(), self._ownerName)
             self._notifiers = [notifier.clone(label="collection", id=childID)
-                         for notifier in home._notifiers]
+                         for notifier in self._ownerHome._notifiers]
         else:
             self._notifiers = None
 

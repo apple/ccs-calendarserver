@@ -1123,7 +1123,7 @@ class CommonTests(CommonCommonTests):
         home = yield self.homeUnderTest(name=OTHER_HOME_UID)
         self.assertEquals(home.notifierID(), "CalDAV|%s" % (OTHER_HOME_UID,))
         calendar = yield home.calendarWithName(self.sharedName)
-        self.assertEquals(calendar.notifierID(), "CalDAV|%s" % (OTHER_HOME_UID,))
+        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
         self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
         yield self.commit()
 
