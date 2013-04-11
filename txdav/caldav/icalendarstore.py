@@ -64,6 +64,8 @@ class ComponentUpdateState(Names):
     NORMAL -                this is an application layer (user) generated store that should do all
                             validation and implicit scheduling operations.
 
+    INBOX  -                the store is updating an inbox item as the result of an iTIP message.
+
     ORGANIZER_ITIP_UPDATE - the store is an update to an organizer's data caused by processing an incoming
                             iTIP message. Some validation and implicit scheduling is not done. Schedule-Tag
                             is not changed.
@@ -76,17 +78,42 @@ class ComponentUpdateState(Names):
                             iTIP message. Some validation and implicit scheduling is not done. Schedule-Tag
                             is changed.
 
+    RAW                   - store the supplied data as-is without any processing or validation. This is used
+                            for unit testing purposes only.
     """
 
     NORMAL = NamedConstant()
+    INBOX = NamedConstant()
     ORGANIZER_ITIP_UPDATE = NamedConstant()
     ATTENDEE_ITIP_UPDATE = NamedConstant()
     ATTENDEE_ITIP_REFRESH = NamedConstant()
+    RAW = NamedConstant()
 
     NORMAL.description = "normal"
+    INBOX.description = "inbox"
     ORGANIZER_ITIP_UPDATE.description = "organizer-update"
     ATTENDEE_ITIP_UPDATE.description = "attendee-update"
     ATTENDEE_ITIP_REFRESH.description = "attendee-refresh"
+    RAW.description = "raw"
+
+
+
+class ComponentRemoveState(Names):
+    """
+    These are constants that define what type of component remove operation is being done. This is used
+    in the .remove() api to determine what type of processing needs to occur.
+
+    NORMAL -                this is an application layer (user) generated remove that should do all
+                            implicit scheduling operations.
+
+    INTERNAL -              remove the resource without implicit scheduling.
+    """
+
+    NORMAL = NamedConstant()
+    INTERNAL = NamedConstant()
+
+    NORMAL.description = "normal"
+    INTERNAL.description = "internal"
 
 
 

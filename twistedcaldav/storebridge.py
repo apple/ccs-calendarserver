@@ -2329,9 +2329,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         # Do delete
 
         try:
-            yield self._newStoreParent.removeObjectResourceWithName(
-                self._newStoreObject.name()
-            )
+            yield self._newStoreObject.remove()
         except NoSuchObjectResourceError:
             raise HTTPError(NOT_FOUND)
 

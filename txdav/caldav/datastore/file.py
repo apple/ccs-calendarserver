@@ -271,8 +271,6 @@ class Calendar(CommonHomeChild):
     calendarObjectWithName = CommonHomeChild.objectResourceWithName
     calendarObjectWithUID = CommonHomeChild.objectResourceWithUID
     createCalendarObjectWithName = CommonHomeChild.createObjectResourceWithName
-    removeCalendarObjectWithName = CommonHomeChild.removeObjectResourceWithName
-    removeCalendarObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
     calendarObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
 
 

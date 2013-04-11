@@ -16,6 +16,7 @@
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.python.log import Logger
+from txdav.caldav.icalendarstore import ComponentRemoveState
 
 log = Logger()
 
@@ -39,7 +40,7 @@ def getCalendarObjectForPrincipals(txn, principal, uid, allow_shared=False):
             # Delete all but the first one
             log.debug("Should only have zero or one scheduling object resource with UID '%s' in calendar home: %s" % (uid, calendar_home,))
             for resource in objectResources[1:]:
-                yield resource._parentCollection.removeObjectResource(resource)
+                yield resource._removeInternal(internal_state=ComponentRemoveState.INTERNAL)
             objectResources = objectResources[:1]
 
         returnValue(objectResources[0] if len(objectResources) == 1 else None)

@@ -824,7 +824,7 @@ class CalVerifyService(Service, object):
             calendar = yield home.childWithID(calendarID)
             calendarObj = yield calendar.objectResourceWithID(resid)
             objname = calendarObj.name()
-            yield calendar.removeObjectResource(calendarObj)
+            yield calendarObj.remove()
             yield self.txn.commit()
             self.txn = self.store.newTransaction()
 

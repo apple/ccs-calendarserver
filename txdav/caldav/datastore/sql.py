@@ -71,7 +71,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     TooManyAttendeesError, InvalidComponentTypeError, InvalidCalendarAccessError, \
     InvalidUIDError, UIDExistsError, ResourceDeletedError, \
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
-    ValidOrganizerError, ShareeAllowedError
+    ValidOrganizerError, ShareeAllowedError, ComponentRemoveState
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -940,9 +940,15 @@ class Calendar(CommonHomeChild):
     calendarObjectWithName = CommonHomeChild.objectResourceWithName
     calendarObjectWithUID = CommonHomeChild.objectResourceWithUID
     createCalendarObjectWithName = CommonHomeChild.createObjectResourceWithName
-    removeCalendarObjectWithName = CommonHomeChild.removeObjectResourceWithName
-    removeCalendarObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
     calendarObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
+
+
+    def _createCalendarObjectWithNameInternal(self, name, component, internal_state, options=None):
+
+        if options is None:
+            options = {}
+        options["internal_state"] = internal_state
+        return super(Calendar, self).createObjectResourceWithName(name, component, options)
 
 
     def calendarObjectsInTimeRange(self, start, end, timeZone):
@@ -1296,17 +1302,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     _objectTable = CALENDAR_OBJECT_TABLE
     _objectSchema = schema.CALENDAR_OBJECT
 
-    def __init__(self, calendar, name, uid, resourceID=None, metadata=None):
+    def __init__(self, calendar, name, uid, resourceID=None, options=None):
 
         super(CalendarObject, self).__init__(calendar, name, uid, resourceID)
 
-        if metadata is None:
-            metadata = {}
-        self.accessMode = metadata.get("accessMode", "")
-        self.isScheduleObject = metadata.get("isScheduleObject", False)
-        self.scheduleTag = metadata.get("scheduleTag", "")
-        self.scheduleEtags = metadata.get("scheduleEtags", "")
-        self.hasPrivateComment = metadata.get("hasPrivateComment", False)
+        if options is None:
+            options = {}
+        self.accessMode = options.get("accessMode", "")
+        self.isScheduleObject = options.get("isScheduleObject", False)
+        self.scheduleTag = options.get("scheduleTag", "")
+        self.scheduleEtags = options.get("scheduleEtags", "")
+        self.hasPrivateComment = options.get("hasPrivateComment", False)
         self._dropboxID = None
 
         # Component caching
@@ -1363,17 +1369,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     # Stuff from put_common
     @inlineCallbacks
-    def fullValidation(self, component, inserting, update_state):
+    def fullValidation(self, component, inserting, internal_state):
         """
         Do full validation of source and destination calendar data.
         """
 
         # Basic validation
         #TODO: figure out what to do about etag/schedule-tag
-        self.validIfScheduleMatch(False, False, update_state)
+        self.validIfScheduleMatch(False, False, internal_state)
 
         # Do validation on external requests
-        if update_state == ComponentUpdateState.NORMAL:
+        if internal_state == ComponentUpdateState.NORMAL:
 
             # Valid data sizes - do before parsing the data
             if config.MaxResourceSize:
@@ -1386,7 +1392,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             component.stripKnownTimezones()
 
         # Do validation on external requests
-        if update_state == ComponentUpdateState.NORMAL:
+        if internal_state == ComponentUpdateState.NORMAL:
 
             # Valid calendar data checks
             yield self.validCalendarDataCheck(component, inserting)
@@ -1403,20 +1409,20 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             component.normalizeCalendarUserAddresses(normalizationLookup, self.calendar().viewerHome().principalForCalendarUserAddress)
 
         # Check location/resource organizer requirement
-        yield self.validLocationResourceOrganizer(component, inserting, update_state)
+        yield self.validLocationResourceOrganizer(component, inserting, internal_state)
 
         # Check access
         if config.EnablePrivateEvents:
-            yield self.validAccess(component, inserting, update_state)
+            yield self.validAccess(component, inserting, internal_state)
 
 
-    def validIfScheduleMatch(self, etag_match, schedule_tag, update_state):
+    def validIfScheduleMatch(self, etag_match, schedule_tag, internal_state):
         """
         Check for If-ScheduleTag-Match header behavior.
         """
         # Only when a direct request
         self.schedule_tag_match = False
-        if not self.calendar().isInbox() and update_state == ComponentUpdateState.NORMAL:
+        if not self.calendar().isInbox() and internal_state == ComponentUpdateState.NORMAL:
             if schedule_tag:
                 self._validIfScheduleMatch(self.request)
                 self.schedule_tag_match = True
@@ -1486,12 +1492,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def validLocationResourceOrganizer(self, component, inserting, update_state):
+    def validLocationResourceOrganizer(self, component, inserting, internal_state):
         """
         If the calendar owner is a location or resource, check whether an ORGANIZER property is required.
         """
 
-        if update_state == ComponentUpdateState.NORMAL:
+        if internal_state == ComponentUpdateState.NORMAL:
             originatorPrincipal = (yield self.calendar().ownerHome().principal())
             cutype = originatorPrincipal.getCUType() if originatorPrincipal is not None else "INDIVIDUAL"
             organizer = component.getOrganizer()
@@ -1522,7 +1528,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 self._componentChanged = True
 
 
-    def validAccess(self, component, inserting, update_state):
+    def validAccess(self, component, inserting, internal_state):
         """
         Make sure that the X-CALENDARSERVER-ACCESS property is properly dealt with.
         """
@@ -1535,7 +1541,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 raise InvalidCalendarAccessError("Private event access level not allowed")
 
             # Only DAV:owner is able to set the property to other than PUBLIC
-            if update_state == ComponentUpdateState.NORMAL:
+            if internal_state == ComponentUpdateState.NORMAL:
                 if self.calendar().viewerHome().uid() != self._txn._authz_uid and access != Component.ACCESS_PUBLIC:
                     raise InvalidCalendarAccessError("Private event access level change not allowed")
 
@@ -1576,7 +1582,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def replaceMissingToDoProperties(self, calendar, inserting, update_state):
+    def replaceMissingToDoProperties(self, calendar, inserting, internal_state):
         """
         Recover any lost ORGANIZER or ATTENDEE properties in non-recurring VTODOs.
         """
@@ -1624,7 +1630,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                             anAttendee.setParameter("PARTSTAT", "COMPLETED")
                         component.addProperty(anAttendee)
 
-            elif new_completed ^ old_completed and update_state == ComponentUpdateState.NORMAL:
+            elif new_completed ^ old_completed and internal_state == ComponentUpdateState.NORMAL:
                 # COMPLETED changed - sync up attendee state
                 # We need this because many VTODO clients are not aware of scheduling,
                 # i.e. they do not adjust any ATTENDEE PARTSTATs. We are going to impose
@@ -1753,9 +1759,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def doImplicitScheduling(self, component, inserting, update_state):
+    def doImplicitScheduling(self, component, inserting, internal_state):
 
-        data_changed = False
+        new_component = None
         did_implicit_action = False
 
         # Do scheduling
@@ -1767,14 +1773,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 self.calendar(),
                 None if inserting else self,
                 component,
-                internal_request=(update_state != ComponentUpdateState.NORMAL),
+                internal_request=(internal_state != ComponentUpdateState.NORMAL),
             ))
 
-            if do_implicit_action and self.allowImplicitSchedule:
+            if do_implicit_action and internal_state == ComponentUpdateState.NORMAL:
 
                 # Cannot do implicit in sharee's shared calendar
-                isShareeCollection = self.destinationparent.isShareeCollection()
-                if isShareeCollection:
+                if not self.calendar().owned():
                     scheduler.setSchedulingNotAllowed(
                         ShareeAllowedError,
                         "Sharee's cannot schedule",
@@ -1785,13 +1790,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     if isinstance(new_calendar, int):
                         returnValue(new_calendar)
                     else:
-                        self.calendar = new_calendar
-                        data_changed = True
+                        new_component = new_calendar
                 did_implicit_action = True
         else:
             is_scheduling_resource = False
 
-        returnValue((is_scheduling_resource, data_changed, did_implicit_action,))
+        returnValue((is_scheduling_resource, new_component, did_implicit_action,))
 
 
     @inlineCallbacks
@@ -1818,7 +1822,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue(component)
 
 
-    def processScheduleTags(self, component, inserting, update_state):
+    def processScheduleTags(self, component, inserting, internal_state):
 
         # Check for scheduling object resource and write property
         if self.isScheduleObject:
@@ -1830,7 +1834,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             #    from the Organizer then the schedule tag changes.
 
             # Check what kind of processing is going on
-            change_scheduletag = update_state not in (
+            change_scheduletag = internal_state not in (
                 ComponentUpdateState.ORGANIZER_ITIP_UPDATE,
                 ComponentUpdateState.ATTENDEE_ITIP_REFRESH,
             )
@@ -1859,14 +1863,15 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def _lockUID(self, component, inserting):
+    def _lockUID(self, component, inserting, internal_state):
         """
         Create a lock on the component's UID and verify, after getting the lock, that the incoming UID
         meets the requirements of the store.
         """
 
         new_uid = component.resourceUID()
-        yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(new_uid).hexdigest(),))
+        if internal_state == ComponentUpdateState.NORMAL:
+            yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(new_uid).hexdigest(),))
 
         # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
         # try to write the same calendar data to two different resource URIs.
@@ -1883,17 +1888,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     raise UIDExistsError()
 
 
-    def setComponent(self, component, inserting=False):
+    def setComponent(self, component, inserting=False, options=None):
         """
         Public api for storing a component. This will do full data validation checks on the specified component.
         Scheduling will be done automatically.
         """
 
-        return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL)
+        return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL if options is None else options.get("internal_state"))
 
 
     @inlineCallbacks
-    def _setComponentInternal(self, component, inserting=False, update_state=ComponentUpdateState.NORMAL):
+    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL):
         """
         Setting the component internally to the store itself. This will bypass a whole bunch of data consistency checks
         on the assumption that those have been done prior to the component data being provided, provided the flag is set.
@@ -1902,59 +1907,64 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         self._componentChanged = False
 
-        # Handle all validation operations here.
-        yield self.fullValidation(component, inserting, update_state)
+        if internal_state != ComponentUpdateState.RAW:
+            # Handle all validation operations here.
+            yield self.fullValidation(component, inserting, internal_state)
 
-        # UID lock - this will remain active until the end of the current txn
-        yield self._lockUID(component, inserting)
+            # UID lock - this will remain active until the end of the current txn
+            yield self._lockUID(component, inserting, internal_state)
 
-        # Preserve private comments
-        yield self.preservePrivateComments(component, inserting)
+            # Preserve private comments
+            yield self.preservePrivateComments(component, inserting)
 
-        # Fix broken VTODOs
-        yield self.replaceMissingToDoProperties(component, inserting, update_state)
+            # Fix broken VTODOs
+            yield self.replaceMissingToDoProperties(component, inserting, internal_state)
 
-        # Handle sharing dropbox normalization
-        yield self.dropboxPathNormalization(component)
+            # Handle sharing dropbox normalization
+            yield self.dropboxPathNormalization(component)
 
-        # Pre-process managed attachments
-        if update_state == ComponentUpdateState.NORMAL:
-            managed_copied, managed_removed = (yield self.updatingResourceCheckAttachments(component, inserting))
+            # Pre-process managed attachments
+            if internal_state == ComponentUpdateState.NORMAL:
+                managed_copied, managed_removed = (yield self.updatingResourceCheckAttachments(component, inserting))
 
-        # Default/duplicate alarms
-        self.processAlarms(component, inserting)
+            # Default/duplicate alarms
+            self.processAlarms(component, inserting)
 
-        # Do scheduling
-        implicit_result = (yield self.doImplicitScheduling())
-        if isinstance(implicit_result, int):
-            if implicit_result == ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT:
-                raise ResourceDeletedError("Resource created but immediately deleted by the server.")
+            # Do scheduling
+            implicit_result = (yield self.doImplicitScheduling(component, inserting, internal_state))
+            if isinstance(implicit_result, int):
+                if implicit_result == ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT:
+                    raise ResourceDeletedError("Resource created but immediately deleted by the server.")
 
-            elif implicit_result == ImplicitScheduler.STATUS_ORPHANED_EVENT:
+                elif implicit_result == ImplicitScheduler.STATUS_ORPHANED_EVENT:
 
-                # Now forcibly delete the event
-                if not inserting:
-                    yield self.storeRemove()
-                    raise ResourceDeletedError("Resource modified but immediately deleted by the server.")
+                    # Now forcibly delete the event
+                    if not inserting:
+                        yield self.storeRemove()
+                        raise ResourceDeletedError("Resource modified but immediately deleted by the server.")
+                    else:
+                        raise AttendeeAllowedError("Attendee cannot create event for Organizer: %s" % (implicit_result,))
+
                 else:
-                    raise AttendeeAllowedError("Attendee cannot create event for Organizer: %s" % (implicit_result,))
-
+                    msg = "Invalid return status code from ImplicitScheduler: %s" % (implicit_result,)
+                    log.err(msg)
+                    raise InvalidObjectResourceError(msg)
             else:
-                msg = "Invalid return status code from ImplicitScheduler: %s" % (implicit_result,)
-                log.err(msg)
-                raise InvalidObjectResourceError(msg)
-        else:
-            self.isScheduleObject, data_changed, did_implicit_action = implicit_result
+                self.isScheduleObject, new_component, did_implicit_action = implicit_result
+                if new_component is not None:
+                    component = new_component
+                if did_implicit_action:
+                    self._componentChanged = True
 
-        # Always do the per-user data merge right before we store
-        component = (yield self.mergePerUserData(component, inserting))
+            # Always do the per-user data merge right before we store
+            component = (yield self.mergePerUserData(component, inserting))
 
-        self.processScheduleTags(component, inserting, update_state)
+            self.processScheduleTags(component, inserting, internal_state)
 
         yield self.updateDatabase(component, inserting=inserting)
 
         # Post process managed attachments
-        if update_state == ComponentUpdateState.NORMAL:
+        if internal_state == ComponentUpdateState.NORMAL:
             if managed_copied:
                 yield self.copyResourceAttachments(managed_copied)
             if managed_removed:
@@ -2323,13 +2333,47 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue(self._cachedCommponentPerUser[user_uuid])
 
 
-    @inlineCallbacks
     def remove(self):
+        return self._removeInternal(internal_state=ComponentRemoveState.NORMAL)
+
+
+    @inlineCallbacks
+    def _removeInternal(self, internal_state=ComponentRemoveState.NORMAL):
+
+        isinbox = self._calendar.isInbox()
+
+        # Do If-Schedule-Tag-Match behavior first
+        # Important: this should only ever be done when storeRemove is called
+        # directly as a result of an HTTP DELETE to ensure the proper If-
+        # header is used in this test.
+        if not isinbox and internal_state == ComponentRemoveState.NORMAL:
+            #TODO: figure out what to do about etag/schedule-tag
+            self.validIfScheduleMatch(False, False, internal_state)
+
+        # Pre-flight scheduling operation
+        scheduler = None
+        if not isinbox and internal_state == ComponentRemoveState.NORMAL:
+            # Get data we need for implicit scheduling
+            calendar = (yield self.componentForUser())
+            scheduler = ImplicitScheduler()
+            do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(
+                self.calendar(),
+                self,
+                calendar,
+                internal_request=(internal_state != ComponentUpdateState.NORMAL),
+            ))
+            if do_implicit_action:
+                yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(calendar.resourceUID()).hexdigest(),))
+
         # Need to also remove attachments
         if self._dropboxID:
             yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
         yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
         yield super(CalendarObject, self).remove()
+
+        # Do scheduling
+        if scheduler is not None:
+            yield scheduler.doImplicitScheduling()
 
 
     @classproperty

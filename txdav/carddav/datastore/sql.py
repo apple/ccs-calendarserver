@@ -41,20 +41,20 @@ from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 from txdav.common.datastore.sql_legacy import PostgresLegacyABIndexEmulator
 
 from txdav.carddav.datastore.util import validateAddressBookComponent
-from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook,\
+from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook, \
     IAddressBookObject
 
-from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
+from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, EADDRESSBOOKTYPE
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Insert
 
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import utcNowSQL
-from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
-    ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE,\
-    ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE,\
-    ADDRESSBOOK_HOME_METADATA_TABLE, ADDRESSBOOK_AND_ADDRESSBOOK_BIND,\
+from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
+    ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE, \
+    ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE, \
+    ADDRESSBOOK_HOME_METADATA_TABLE, ADDRESSBOOK_AND_ADDRESSBOOK_BIND, \
     ADDRESSBOOK_OBJECT_AND_BIND_TABLE, \
     ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, schema
 from txdav.base.propertystore.base import PropertyName
@@ -89,7 +89,6 @@ class AddressBookHome(CommonHome):
 
         self._childClass = AddressBook
         super(AddressBookHome, self).__init__(transaction, ownerUID, notifiers)
-
 
     addressbooks = CommonHome.children
     listAddressbooks = CommonHome.listChildren
@@ -163,7 +162,7 @@ class AddressBook(CommonHomeChild):
     def __init__(self, *args, **kw):
         super(AddressBook, self).__init__(*args, **kw)
         self._index = PostgresLegacyABIndexEmulator(self)
-        
+
 
     @property
     def _addressbookHome(self):
@@ -173,15 +172,12 @@ class AddressBook(CommonHomeChild):
     def resourceType(self):
         return ResourceType.addressbook #@UndefinedVariable
 
-
     ownerAddressBookHome = CommonHomeChild.ownerHome
     addressbookObjects = CommonHomeChild.objectResources
     listAddressbookObjects = CommonHomeChild.listObjectResources
     addressbookObjectWithName = CommonHomeChild.objectResourceWithName
     addressbookObjectWithUID = CommonHomeChild.objectResourceWithUID
     createAddressBookObjectWithName = CommonHomeChild.createObjectResourceWithName
-    removeAddressBookObjectWithName = CommonHomeChild.removeObjectResourceWithName
-    removeAddressBookObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
     addressbookObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
 
 
@@ -211,6 +207,7 @@ class AddressBook(CommonHomeChild):
         return super(AddressBook, self).unshare(EADDRESSBOOKTYPE)
 
 
+
 class AddressBookObject(CommonObjectResource):
 
     implements(IAddressBookObject)
@@ -218,7 +215,7 @@ class AddressBookObject(CommonObjectResource):
     _objectTable = ADDRESSBOOK_OBJECT_TABLE
     _objectSchema = schema.ADDRESSBOOK_OBJECT
 
-    def __init__(self, addressbook, name, uid, resourceID=None, metadata=None):
+    def __init__(self, addressbook, name, uid, resourceID=None, options=None):
 
         super(AddressBookObject, self).__init__(addressbook, name, uid, resourceID)
 
@@ -233,7 +230,7 @@ class AddressBookObject(CommonObjectResource):
 
 
     @inlineCallbacks
-    def setComponent(self, component, inserting=False):
+    def setComponent(self, component, inserting=False, options=None):
 
         validateAddressBookComponent(self, self._addressbook, component, inserting)
 
@@ -247,8 +244,7 @@ class AddressBookObject(CommonObjectResource):
 
 
     @inlineCallbacks
-    def updateDatabase(self, component, expand_until=None, reCreate=False,
-                       inserting=False):
+    def updateDatabase(self, component, expand_until=None, reCreate=False, inserting=False):
         """
         Update the database tables for the new data being written.
 
@@ -265,7 +261,7 @@ class AddressBookObject(CommonObjectResource):
         self._md5 = hashlib.md5(componentText).hexdigest()
         self._size = len(componentText)
 
-        # Special - if migrating we need to preserve the original md5    
+        # Special - if migrating we need to preserve the original md5
         if self._txn._migrating and hasattr(component, "md5"):
             self._md5 = component.md5
 
@@ -315,7 +311,7 @@ class AddressBookObject(CommonObjectResource):
 
         if unfixed:
             self.log_error("Address data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
-        
+
         if fixed:
             self.log_error("Address data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
 

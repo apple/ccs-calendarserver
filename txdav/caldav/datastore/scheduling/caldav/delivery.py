@@ -37,6 +37,7 @@ from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor, Impl
 import hashlib
 import uuid
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import ComponentUpdateState
 
 
 """
@@ -149,7 +150,7 @@ class ScheduleViaCalDAV(DeliveryService):
         if store_inbox:
             # Copy calendar to inbox
             try:
-                yield recipient.inbox.createCalendarObjectWithName(name, self.scheduler.calendar)
+                yield recipient.inbox._createCalendarObjectWithNameInternal(name, self.scheduler.calendar, ComponentUpdateState.INBOX)
             except Exception as e:
                 # FIXME: Bare except
                 log.err("Could not store data in Inbox : %s %s" % (recipient.inbox, e,))

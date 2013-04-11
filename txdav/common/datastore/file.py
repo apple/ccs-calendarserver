@@ -1227,12 +1227,6 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
             raise NoSuchObjectResourceError(name)
 
 
-    @writeOperation
-    def removeObjectResourceWithUID(self, uid):
-        self.removeObjectResourceWithName(
-            self.objectResourceWithUID(uid)._path.basename())
-
-
     def syncToken(self):
 
         try:
@@ -1383,6 +1377,10 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         raise NotImplementedError
 
 
+    def remove(self):
+        self._parentCollection.removeObjectResourceWithName(self._name)
+
+
     def _text(self):
         raise NotImplementedError
 
@@ -1511,7 +1509,6 @@ class NotificationCollection(CommonHomeChild):
     notificationObjects = CommonHomeChild.objectResources
     listNotificationObjects = CommonHomeChild.listObjectResources
     notificationObjectWithName = CommonHomeChild.objectResourceWithName
-    removeNotificationObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
 
     def notificationObjectWithUID(self, uid):
         name = uid + ".xml"

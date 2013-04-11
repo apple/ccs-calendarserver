@@ -313,6 +313,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
+        self.patch(config, "EnablePrivateEvents", True)
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
         calendar = Component.fromString(data1)
         try:
@@ -345,6 +346,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
+        self.patch(config, "EnablePrivateEvents", True)
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
         calendar = Component.fromString(data1)
         txn = self.transactionUnderTest()
@@ -735,9 +737,6 @@ DTEND:20080601T130000Z
 X-APPLE-DROPBOX:https://example.com/calendars/users/user02/dropbox/123.dropbox
 ATTACH;VALUE=URI:https://example.com/calendars/users/user02/dropbox/123.dropbox/1.txt
 ATTACH;VALUE=URI:https://example.org/attachments/2.txt
-ORGANIZER;CN="User 01":mailto:user01@example.com
-ATTENDEE:mailto:user01@example.com
-ATTENDEE:mailto:user02@example.com
 END:VTODO
 END:VCALENDAR
 """
@@ -1040,7 +1039,6 @@ UID:12345-67890-attendee-reply
 DTSTAMP:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-X-CALENDARSERVER-PRIVATE-COMMENT:My Comment
 END:VEVENT
 END:VCALENDAR
 """
@@ -1067,7 +1065,6 @@ END:VCALENDAR
 """
 
         calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
-        calendar_resource.isScheduleObject = True
         calendar = Component.fromString(data2)
         yield calendar_resource.setComponent(calendar)
         schedule_tag = calendar_resource.scheduleTag
@@ -1114,6 +1111,6 @@ END:VCALENDAR
 
         calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
         calendar = Component.fromString(data4)
-        yield calendar_resource._setComponentInternal(calendar, update_state=ComponentUpdateState.ORGANIZER_ITIP_UPDATE)
+        yield calendar_resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.ORGANIZER_ITIP_UPDATE)
         self.assertEqual(calendar_resource.scheduleTag, schedule_tag)
         yield self.commit()

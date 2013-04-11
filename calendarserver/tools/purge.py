@@ -977,7 +977,7 @@ class PurgePrincipalService(WorkerService):
                             else:
                                 print("Deleting: %s" % (uri,))
                         if not self.dryrun:
-                            (yield abColl.removeObjectResourceWithName(cardName))
+                            (yield card.remove())
                         count += 1
                     if self.verbose:
                         abName = abColl.name()

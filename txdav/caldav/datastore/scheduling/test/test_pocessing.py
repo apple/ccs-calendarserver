@@ -14,8 +14,6 @@
 # limitations under the License.
 ##
 
-from twext.web2.test.test_server import SimpleRequest
-
 from twisted.internet.defer import inlineCallbacks
 
 from twistedcaldav.config import config
@@ -73,9 +71,8 @@ ATTENDEE:urn:uuid:user02
 END:VEVENT
 END:VCALENDAR
 """)
-        request = SimpleRequest(self.site, "PUT", "/calendar/1.ics")
         processor = FakeImplicitProcessor()
-        processor.request = request
+        processor.txn = ""
         processor.uid = "12345-67890"
         processor.recipient_calendar = calendar
         yield processor.queueAttendeeUpdate(("urn:uuid:user02", "urn:uuid:user01",))
@@ -101,9 +98,8 @@ ATTENDEE:urn:uuid:user03
 END:VEVENT
 END:VCALENDAR
 """)
-        request = SimpleRequest(self.site, "PUT", "/calendar/1.ics")
         processor = FakeImplicitProcessor()
-        processor.request = request
+        processor.txn = ""
         processor.uid = "12345-67890"
         processor.recipient_calendar = calendar
         yield processor.queueAttendeeUpdate(("urn:uuid:user02", "urn:uuid:user01",))

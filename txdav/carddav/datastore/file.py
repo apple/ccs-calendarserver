@@ -83,8 +83,11 @@ class AddressBookHome(CommonHome):
     def _addressbookStore(self):
         return self._dataStore
 
+
     def createdHome(self):
         self.createAddressBookWithName("addressbook")
+
+
 
 class AddressBook(CommonHomeChild):
     """
@@ -113,9 +116,11 @@ class AddressBook(CommonHomeChild):
         self._index = Index(self)
         self._objectResourceClass = AddressBookObject
 
+
     @property
     def _addressbookHome(self):
         return self._home
+
 
     def resourceType(self):
         return ResourceType.addressbook #@UndefinedVariable
@@ -126,8 +131,6 @@ class AddressBook(CommonHomeChild):
     addressbookObjectWithName = CommonHomeChild.objectResourceWithName
     addressbookObjectWithUID = CommonHomeChild.objectResourceWithUID
     createAddressBookObjectWithName = CommonHomeChild.createObjectResourceWithName
-    removeAddressBookObjectWithName = CommonHomeChild.removeObjectResourceWithName
-    removeAddressBookObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
     addressbookObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
 
 
@@ -142,11 +145,14 @@ class AddressBook(CommonHomeChild):
             ),
         )
 
+
     def contentType(self):
         """
         The content type of Addresbook objects is text/vcard.
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
+
+
 
 class AddressBookObject(CommonObjectResource):
     """
@@ -272,10 +278,12 @@ class AddressBookObject(CommonObjectResource):
         self._objectText = text
         return text
 
+
     def uid(self):
         if not hasattr(self, "_uid"):
             self._uid = self.component().resourceUID()
         return self._uid
+
 
     # IDataStoreObject
     def contentType(self):
@@ -284,6 +292,8 @@ class AddressBookObject(CommonObjectResource):
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
 
+
+
 class AddressBookStubResource(CommonStubResource):
     """
     Just enough resource to keep the addressbook's sql DB classes going.
@@ -291,6 +301,7 @@ class AddressBookStubResource(CommonStubResource):
 
     def isAddressBookCollection(self):
         return True
+
 
     def getChild(self, name):
         addressbookObject = self.resource.addressbookObjectWithName(name)
@@ -305,6 +316,7 @@ class AddressBookStubResource(CommonStubResource):
             return ChildResource(addressbookObject)
         else:
             return None
+
 
 
 class Index(object):
@@ -328,5 +340,3 @@ class Index(object):
             addressbookObject._componentType = componentType
 
             yield addressbookObject
-
-

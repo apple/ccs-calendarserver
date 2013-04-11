@@ -34,6 +34,8 @@ from twisted.trial.unittest import TestCase
 from twext.python.clsprop import classproperty
 from txdav.caldav.datastore.sql import CalendarPrincipal
 import hashlib
+from txdav.caldav.icalendarstore import AttendeeAllowedError
+import sys
 
 class FakeScheduler(object):
     """
@@ -50,11 +52,19 @@ class FakeScheduler(object):
 
 
 
+class FakeCalendarHome(object):
+
+    def principalForUID(self, uid):
+        return CalendarPrincipal(uid, ("urn:uuid:%s" % (uid,), "mailto:%s@example.com" % (uid,),))
+
+
+
 class Implicit (twistedcaldav.test.util.TestCase):
     """
     iCalendar support tests
     """
 
+    @inlineCallbacks
     def test_removed_attendees(self):
 
         data = (
@@ -783,7 +793,11 @@ END:VCALENDAR
             scheduler.oldAttendeesByInstance = scheduler.oldcalendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
             scheduler.oldInstances = set(scheduler.oldcalendar.getComponentInstances())
             scheduler.calendar = Component.fromString(calendar2)
-            scheduler.extractCalendarData()
+
+            scheduler.calendar_home = FakeCalendarHome()
+            scheduler.calendar_owner = "user01"
+
+            yield scheduler.extractCalendarData()
             scheduler.findRemovedAttendees()
             self.assertEqual(scheduler.cancelledAttendees, set(result), msg=description)
 
@@ -819,16 +833,17 @@ END:VCALENDAR
         for excludes, includes, result_count, result_set in data:
             scheduler = ImplicitScheduler()
             scheduler.resource = None
-            scheduler.request = None
             scheduler.calendar = Component.fromString(calendar)
             scheduler.state = "organizer"
             scheduler.action = "modify"
-            scheduler.calendar_owner = None
             scheduler.internal_request = True
             scheduler.except_attendees = excludes
             scheduler.only_refresh_attendees = includes
             scheduler.changed_rids = None
             scheduler.reinvites = None
+
+            scheduler.calendar_home = FakeCalendarHome()
+            scheduler.calendar_owner = "user01"
 
             # Get some useful information from the calendar
             yield scheduler.extractCalendarData()
@@ -969,7 +984,7 @@ UID:12345-67890
 DTSTAMP:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 02":mailto:user02@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
 ATTENDEE:mailto:user01@example.com
 ATTENDEE:mailto:user02@example.com
 END:VEVENT
@@ -984,7 +999,7 @@ UID:12345-67890
 DTSTAMP:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 02":mailto:user02@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
 ATTENDEE:mailto:user01@example.com
 ATTENDEE:mailto:user02@example.com
 END:VEVENT
@@ -1080,12 +1095,8 @@ END:VCALENDAR
 """
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
         calendar = Component.fromString(data)
-
-        scheduler = ImplicitScheduler()
-        doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingPUT(calendar_collection, None, calendar, False))
-        self.assertEqual(doAction, True)
-        self.assertEqual(isScheduleObject, True)
-        yield scheduler.doImplicitScheduling()
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
 
         calendar_collection2 = (yield self.calendarUnderTest(home="user02"))
         items = (yield calendar_collection2.listCalendarObjects())
@@ -1133,22 +1144,12 @@ END:VCALENDAR
 """
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
         calendar = Component.fromString(data1)
-        scheduler = ImplicitScheduler()
-        doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingPUT(calendar_collection, None, calendar, False))
-        self.assertEqual(doAction, True)
-        self.assertEqual(isScheduleObject, True)
-        yield scheduler.doImplicitScheduling()
         yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
         yield self.commit()
 
-        calendar_collection = (yield self.calendarUnderTest(home="user01"))
-        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
-        calendar2 = Component.fromString(data2)
-        scheduler = ImplicitScheduler()
-        doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingPUT(calendar_collection, calendar_resource, calendar2, False))
-        self.assertEqual(doAction, True)
-        self.assertEqual(isScheduleObject, True)
-        yield scheduler.doImplicitScheduling()
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01"))
+        calendar = Component.fromString(data2)
+        yield calendar_resource.setComponent(calendar)
         yield self.commit()
 
         calendar_collection2 = (yield self.calendarUnderTest(home="user02"))
@@ -1198,23 +1199,12 @@ END:VCALENDAR
 """
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
         calendar = Component.fromString(data1)
-        scheduler = ImplicitScheduler()
-        doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingPUT(calendar_collection, None, calendar, False))
-        self.assertEqual(doAction, True)
-        self.assertEqual(isScheduleObject, True)
-        yield scheduler.doImplicitScheduling()
         yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
         yield self.commit()
 
-        calendar_collection = (yield self.calendarUnderTest(home="user01"))
-        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
-        calendar_resource.isScheduleObject = True
-        calendar2 = Component.fromString(data2)
-        scheduler = ImplicitScheduler()
-        doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingDELETE(calendar_collection, calendar_resource, calendar2, False))
-        self.assertEqual(doAction, True)
-        self.assertEqual(isScheduleObject, False)
-        yield scheduler.doImplicitScheduling()
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01"))
+        calendar = Component.fromString(data2)
+        yield calendar_resource.remove()
         yield self.commit()
 
         calendar_collection2 = (yield self.calendarUnderTest(home="user02"))
@@ -1250,13 +1240,18 @@ END:VCALENDAR
 """
         calendar_collection = (yield self.calendarUnderTest(home="user02"))
         calendar = Component.fromString(data)
+        try:
+            yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        except AttendeeAllowedError:
+            pass
+        except:
+            self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
+        else:
+            self.fail("Exception not raised")
+        yield self.commit()
 
-        scheduler = ImplicitScheduler()
-        doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingPUT(calendar_collection, None, calendar, False))
-        self.assertEqual(doAction, True)
-        self.assertEqual(isScheduleObject, True)
-        result = (yield scheduler.doImplicitScheduling())
-        self.assertEqual(result, ImplicitScheduler.STATUS_ORPHANED_EVENT)
+        calendar_collection = (yield self.calendarUnderTest(home="user02"))
+        calendar = Component.fromString(data)
 
         inbox1 = (yield self.calendarUnderTest(name="inbox", home="user01"))
         items = (yield inbox1.listCalendarObjects())
@@ -1299,31 +1294,30 @@ END:VCALENDAR
 """
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
         calendar1 = Component.fromString(data1)
-
-        scheduler = ImplicitScheduler()
-        doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingPUT(calendar_collection, None, calendar1, False))
-        self.assertEqual(doAction, True)
-        self.assertEqual(isScheduleObject, True)
-        yield scheduler.doImplicitScheduling()
         yield calendar_collection.createCalendarObjectWithName("test.ics", calendar1)
+        yield self.commit()
+
+        calendar_resource1 = (yield self.calendarObjectUnderTest(name="test.ics", home="user01"))
+        calendar1 = (yield calendar_resource1.component())
+        self.assertTrue("SCHEDULE-STATUS=1.2" in str(calendar1).replace("\r\n ", ""))
+
+        inbox2 = (yield self.calendarUnderTest(name="inbox", home="user02"))
+        items = (yield inbox2.listCalendarObjects())
+        self.assertEqual(len(items), 1)
         yield self.commit()
 
         calendar_collection2 = (yield self.calendarUnderTest(home="user02"))
         items = (yield calendar_collection2.listCalendarObjects())
         calendar_resource2 = (yield self.calendarObjectUnderTest(name=items[0], home="user02",))
         calendar2 = Component.fromString(data2)
-
-        scheduler = ImplicitScheduler()
-        doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingPUT(calendar_collection2, calendar_resource2, calendar2, False))
-        self.assertEqual(doAction, True)
-        self.assertEqual(isScheduleObject, True)
-        yield scheduler.doImplicitScheduling()
+        yield calendar_resource2.setComponent(calendar2)
+        yield self.commit()
 
         inbox1 = (yield self.calendarUnderTest(name="inbox", home="user01"))
         items = (yield inbox1.listCalendarObjects())
         self.assertEqual(len(items), 1)
-        yield self.commit()
 
         calendar_resource1 = (yield self.calendarObjectUnderTest(name="test.ics", home="user01"))
         calendar1 = (yield calendar_resource1.component())
-        self.assertTrue("PARTSTAT=ACCEPTED" in str(calendar1))
+        self.assertTrue("SCHEDULE-STATUS=2.0" in str(calendar1).replace("\r\n ", ""))
+        self.assertTrue("PARTSTAT=ACCEPTED" in str(calendar1).replace("\r\n ", ""))

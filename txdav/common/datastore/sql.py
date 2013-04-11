@@ -1096,6 +1096,7 @@ class CommonStoreTransaction(object):
         many were removed.
         """
 
+        assert "This needs to be moved into txdav.caldav as it needs to call _removeInternal"
         # Make sure cut off is after any lower limit truncation in the DB
         if config.FreeBusyIndexLowerLimitDays:
             truncateLowerLimit = PyCalendarDateTime.getToday()
@@ -1108,7 +1109,8 @@ class CommonStoreTransaction(object):
         for uid, calendarName, eventName, _ignore_maxDate in results:
             home = (yield self.calendarHomeWithUID(uid))
             calendar = (yield home.childWithName(calendarName))
-            (yield calendar.removeObjectResourceWithName(eventName))
+            resource = (yield calendar.objectResourceWithName(eventName))
+            yield resource._removeInternal()
             count += 1
         returnValue(count)
 
@@ -3690,7 +3692,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
 
     @inlineCallbacks
-    def createObjectResourceWithName(self, name, component, metadata=None):
+    def createObjectResourceWithName(self, name, component, options=None):
         """
         Create a new resource with component data and optional metadata. We
         create the python object using the metadata then create the actual store
@@ -3708,8 +3710,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 raise TooManyObjectResourcesError()
 
         objectResource = (
-            yield self._objectResourceClass.create(self, name, component,
-                                                   metadata)
+            yield self._objectResourceClass.create(self, name, component, options)
         )
         self._objects[objectResource.name()] = objectResource
         self._objects[objectResource.uid()] = objectResource
@@ -3720,31 +3721,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
 
     @inlineCallbacks
-    def removeObjectResourceWithName(self, name):
-
-        child = (yield self.objectResourceWithName(name))
-        if child is None:
-            raise NoSuchObjectResourceError
-        yield self.removeObjectResource(child)
-
-
-    @inlineCallbacks
-    def removeObjectResourceWithUID(self, uid):
-
-        child = (yield self.objectResourceWithUID(uid))
-        if child is None:
-            raise NoSuchObjectResourceError
-        yield self.removeObjectResource(child)
-
-
-    @inlineCallbacks
-    def removeObjectResource(self, child):
-        name = child.name()
-        uid = child.uid()
-        yield child.remove()
-        self._objects.pop(name, None)
-        self._objects.pop(uid, None)
-        yield self._deleteRevision(name)
+    def removedObjectResource(self, child):
+        self._objects.pop(child.name(), None)
+        self._objects.pop(child.uid(), None)
+        yield self._deleteRevision(child.name())
         yield self.notifyChanged()
 
 
@@ -3996,7 +3976,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     BATCH_LOAD_SIZE = 50
 
-    def __init__(self, parent, name, uid, resourceID=None, metadata=None):
+    def __init__(self, parent, name, uid, resourceID=None, options=None):
         self._parentCollection = parent
         self._resourceID = resourceID
         self._name = name
@@ -4140,7 +4120,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     @classmethod
     @inlineCallbacks
-    def create(cls, parent, name, component, metadata):
+    def create(cls, parent, name, component, options=None):
 
         child = (yield cls.objectWithName(parent, name, None))
         if child:
@@ -4149,8 +4129,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
-        objectResource = cls(parent, name, None, None, metadata=metadata)
-        yield objectResource.setComponent(component, inserting=True)
+        objectResource = cls(parent, name, None, None, options=options)
+        yield objectResource.setComponent(component, inserting=True, options=options)
         yield objectResource._loadPropertyStore(created=True)
 
         # Note: setComponent triggers a notification, so we don't need to
@@ -4324,7 +4304,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         self._locked = True
 
 
-    def setComponent(self, component, inserting=False):
+    def setComponent(self, component, inserting=False, options=None):
         raise NotImplementedError
 
 
@@ -4365,6 +4345,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         yield self._deleteQuery.on(self._txn, NoSuchObjectResourceError,
                                    resourceID=self._resourceID)
         self.properties()._removeResource()
+
+        self._parentCollection.removedObjectResource(self)
 
         # Set to non-existent state
         self._resourceID = None

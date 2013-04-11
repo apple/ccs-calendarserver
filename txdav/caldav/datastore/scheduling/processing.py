@@ -42,6 +42,8 @@ from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForPrincipa
 import collections
 import hashlib
 import uuid
+from txdav.caldav.icalendarstore import ComponentUpdateState, \
+    ComponentRemoveState
 
 """
 CalDAV implicit processing.
@@ -952,11 +954,12 @@ class ImplicitProcessor(object):
         """
 
         # Create a new name if one was not provided
+        internal_state = ComponentUpdateState.ORGANIZER_ITIP_UPDATE if self.isOrganizerReceivingMessage() else ComponentUpdateState.ATTENDEE_ITIP_UPDATE
         if resource is None:
             name = "%s-%s.ics" % (hashlib.md5(calendar.resourceUID()).hexdigest(), str(uuid.uuid4())[:8],)
-            newchild = (yield collection.createCalendarObjectWithName(name, calendar))
+            newchild = (yield collection._createCalendarObjectWithNameInternal(name, calendar, internal_state))
         else:
-            yield resource.setComponent(calendar)
+            yield resource._setComponentInternal(calendar, internal_state=internal_state)
             newchild = None
 
         returnValue(newchild)
@@ -975,7 +978,7 @@ class ImplicitProcessor(object):
         @type name: C{str}
         """
 
-        yield resource._parent.removeObjectResource(resource)
+        yield resource._removeInternal(internal_state=ComponentRemoveState.INTERNAL)
 
 
     def resetAttendeePartstat(self, component, cuas, partstat, hadRSVP=False):

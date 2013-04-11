@@ -50,6 +50,7 @@ from twistedcaldav.vcard import Component as ABComponent
 from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
 from txdav.base.datastore.subpostgres import PostgresService
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql import CommonDataStore, current_sql_schema
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.icommondatastore import NoSuchHomeChildError
@@ -415,10 +416,11 @@ def populateCalendarsFrom(requirements, store, migrating=False):
                     calendar = yield home.calendarWithName(calendarName)
                     for objectName in calendarObjNames:
                         objData, metadata = calendarObjNames[objectName]
-                        yield calendar.createCalendarObjectWithName(
+                        yield calendar._createCalendarObjectWithNameInternal(
                             objectName,
                             VComponent.fromString(updateToCurrentYear(objData)),
-                            metadata=metadata,
+                            internal_state=ComponentUpdateState.RAW,
+                            options=metadata,
                         )
     yield populateTxn.commit()
 

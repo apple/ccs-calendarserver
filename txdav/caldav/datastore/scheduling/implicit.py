@@ -401,8 +401,6 @@ class ImplicitScheduler(object):
     def extractCalendarData(self):
 
         # Get the originator who is the owner of the calendar resource being modified
-        self.originatorPrincipal = None
-        self.originator = ""
         self.originatorPrincipal = self.calendar_home.principalForUID(self.calendar_owner)
 
         # Pick the canonical CUA:
