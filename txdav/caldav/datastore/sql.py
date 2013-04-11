@@ -1702,6 +1702,49 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
+    def doImplicitScheduling(self, component, inserting, update_state):
+
+        data_changed = False
+        did_implicit_action = False
+
+        # Do scheduling
+        if not self.calendar().isInbox():
+            scheduler = ImplicitScheduler()
+
+            # PUT
+            do_implicit_action, is_scheduling_resource = (yield scheduler.testImplicitSchedulingPUT(
+                self.calendar(),
+                None if inserting else self,
+                component,
+                internal_request=(update_state != ComponentUpdateState.NORMAL),
+            ))
+
+            if do_implicit_action and self.allowImplicitSchedule:
+
+                # Cannot do implicit in sharee's shared calendar
+                isShareeCollection = self.destinationparent.isShareeCollection()
+                if isShareeCollection:
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (calendarserver_namespace, "sharee-privilege-needed",),
+                        description="Sharee's cannot schedule"
+                    ))
+
+                new_calendar = (yield scheduler.doImplicitScheduling(self.schedule_tag_match))
+                if new_calendar:
+                    if isinstance(new_calendar, int):
+                        returnValue(new_calendar)
+                    else:
+                        self.calendar = new_calendar
+                        data_changed = True
+                did_implicit_action = True
+        else:
+            is_scheduling_resource = False
+
+        returnValue((is_scheduling_resource, data_changed, did_implicit_action,))
+
+
+    @inlineCallbacks
     def mergePerUserData(self, component, inserting):
         """
         Merge incoming calendar data with other user's per-user data in existing calendar data.
@@ -1831,27 +1874,27 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Default/duplicate alarms
         self.processAlarms(component, inserting)
 
-#        # Do scheduling
-#        implicit_result = (yield self.doImplicitScheduling())
-#        if isinstance(implicit_result, int):
-#            if implicit_result == ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT:
-#                raise ResourceDeletedError("Resource created but immediately deleted by the server.")
-#
-#            elif implicit_result == ImplicitScheduler.STATUS_ORPHANED_EVENT:
-#
-#                # Now forcibly delete the event
-#                if not inserting:
-#                    yield self.storeRemove()
-#                    raise ResourceDeletedError("Resource modified but immediately deleted by the server.")
-#                else:
-#                    raise AttendeeAllowedError("Attendee cannot create event for Organizer: %s" % (implicit_result,))
-#
-#            else:
-#                msg = "Invalid return status code from ImplicitScheduler: %s" % (implicit_result,)
-#                log.err(msg)
-#                raise InvalidObjectResourceError(msg)
-#        else:
-#            self.isScheduleObject, data_changed, did_implicit_action = implicit_result
+        # Do scheduling
+        implicit_result = (yield self.doImplicitScheduling())
+        if isinstance(implicit_result, int):
+            if implicit_result == ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT:
+                raise ResourceDeletedError("Resource created but immediately deleted by the server.")
+
+            elif implicit_result == ImplicitScheduler.STATUS_ORPHANED_EVENT:
+
+                # Now forcibly delete the event
+                if not inserting:
+                    yield self.storeRemove()
+                    raise ResourceDeletedError("Resource modified but immediately deleted by the server.")
+                else:
+                    raise AttendeeAllowedError("Attendee cannot create event for Organizer: %s" % (implicit_result,))
+
+            else:
+                msg = "Invalid return status code from ImplicitScheduler: %s" % (implicit_result,)
+                log.err(msg)
+                raise InvalidObjectResourceError(msg)
+        else:
+            self.isScheduleObject, data_changed, did_implicit_action = implicit_result
 
         # Always do the per-user data merge right before we store
         component = (yield self.mergePerUserData(component, inserting))
