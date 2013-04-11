@@ -57,7 +57,7 @@ class AMPPushMasterTests(TestCase):
         self.assertTrue(client3.subscribedToID("/CalDAV/localhost/user03/"))
 
         dataChangedTimestamp = 1354815999
-        service.enqueue("/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
+        service.enqueue(None, "/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
         self.assertEquals(len(client1.history), 0)
         self.assertEquals(len(client2.history), 0)
         self.assertEquals(len(client3.history), 0)
@@ -74,7 +74,7 @@ class AMPPushMasterTests(TestCase):
         client1.reset()
         client2.reset()
         client2.unsubscribe("token2", "/CalDAV/localhost/user01/")
-        service.enqueue("/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
+        service.enqueue(None, "/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
         self.assertEquals(len(client1.history), 0)
         clock.advance(1)
         self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp' : 1354815999})])
@@ -87,9 +87,10 @@ class AMPPushMasterTests(TestCase):
         client1.reset()
         client2.reset()
         client2.subscribe("token2", "/CalDAV/localhost/user01/")
-        service.enqueue("/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
+        service.enqueue(None, "/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
         self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp' : 1354815999})])
         self.assertEquals(client2.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp' : 1354815999})])
+
 
 
 class TestProtocol(AMPPushNotifierProtocol):
@@ -98,8 +99,10 @@ class TestProtocol(AMPPushNotifierProtocol):
         super(TestProtocol, self).__init__(service)
         self.reset()
 
+
     def callRemote(self, cls, **kwds):
         self.history.append((cls, kwds))
+
 
     def reset(self):
         self.history = []

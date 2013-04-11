@@ -105,6 +105,13 @@
     <dict>
         <key>Ctl</key>
         <string>xpg_ctl</string>
+        <key>Options</key>
+        <array>
+        <!-- <string>-c log_statement=all</string> -->
+            <string>-c log_lock_waits=TRUE</string>
+            <string>-c deadlock_timeout=10</string>
+            <string>-c log_line_prefix='%m [%p] '</string>
+        </array>
     </dict>
 
     <!-- Data root -->
@@ -521,6 +528,14 @@
 
     <key>OpenDirectoryModule</key>
     <string>calendarserver.platform.darwin.od.opendirectory</string>
+
+    <key>Includes</key>
+    <array>
+        <string>/Library/Server/Calendar and Contacts/Config/caldavd-system.plist</string>
+        <string>/Library/Server/Calendar and Contacts/Config/caldavd-user.plist</string>
+    </array>
+    <key>WritableConfigFile</key>
+    <string>/Library/Server/Calendar and Contacts/Config/caldavd-system.plist</string>
 
   </dict>
 </plist>

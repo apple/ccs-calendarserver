@@ -87,7 +87,7 @@ from zope.interface import implements
 from twisted.application.service import MultiService
 from twisted.internet.protocol import Factory
 from twisted.internet.defer import (
-    inlineCallbacks, returnValue, Deferred, passthru
+    inlineCallbacks, returnValue, Deferred, passthru, succeed
 )
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.amp import AMP, Command, Integer, Argument, String
@@ -635,7 +635,7 @@ class WorkerConnectionPool(object):
         """
         The total load of all currently connected workers.
         """
-        return sum(worker.currentLoad() for worker in self.workers)
+        return sum(worker.currentLoad for worker in self.workers)
 
 
     def _selectLowestLoadWorker(self):
@@ -646,7 +646,7 @@ class WorkerConnectionPool(object):
         @return: a worker connection with the lowest current load.
         @rtype: L{ConnectionFromWorker}
         """
-        return sorted(self.workers[:], key=lambda w: w.currentLoad())[0]
+        return sorted(self.workers[:], key=lambda w: w.currentLoad)[0]
 
 
     def performWork(self, table, workID):
@@ -862,6 +862,9 @@ class LocalPerformer(object):
         Perform the given work right now.
         """
         return ultimatelyPerform(self.txnFactory, table, workID)
+
+
+
 
 
 
@@ -1197,8 +1200,6 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
         return self.choosePerformer(onlyLocally=True).performWork(table, workID)
 
 
-
-
     def allWorkItemTypes(self):
         """
         Load all the L{WorkItem} types that this node can process and return
@@ -1208,7 +1209,14 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
         """
         # TODO: For completeness, this may need to involve a plugin query to
         # make sure that all WorkItem subclasses are imported first.
-        return WorkItem.__subclasses__()
+        for workItemSubclass in WorkItem.__subclasses__():
+            # TODO: It might be a good idea to offload this table-filtering to
+            # SchemaSyntax.__contains__, adding in some more structure-
+            # comparison of similarly-named tables.  For now a name check is
+            # sufficient.
+            if workItemSubclass.table.model.name in set([x.model.name for x in
+                                                         self.schema]):
+                yield workItemSubclass
 
 
     def totalNumberOfNodes(self):
@@ -1442,3 +1450,40 @@ class LocalQueuer(_BaseQueuer):
         Choose to perform the work locally.
         """
         return LocalPerformer(self.txnFactory)
+
+
+
+class NonPerformer(object):
+    """
+    Implementor of C{performWork} that doesn't actual perform any work.  This
+    is used in the case where you want to be able to enqueue work for someone
+    else to do, but not take on any work yourself (such as a command line tool).
+    """
+    implements(_IWorkPerformer)
+
+    def performWork(self, table, workID):
+        """
+        Don't perform work.
+        """
+        return succeed(None)
+
+
+class NonPerformingQueuer(_BaseQueuer):
+    """
+    When work is enqueued with this queuer, it is never executed locally.
+    It's expected that the polling machinery will find the work and perform it.
+    """
+    implements(IQueuer)
+
+    def __init__(self, reactor=None):
+        super(NonPerformingQueuer, self).__init__()
+        if reactor is None:
+            from twisted.internet import reactor
+        self.reactor = reactor
+
+
+    def choosePerformer(self):
+        """
+        Choose to perform the work locally.
+        """
+        return NonPerformer()

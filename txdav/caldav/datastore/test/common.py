@@ -1118,6 +1118,26 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_sharedNotifierID(self):
+        yield self.test_shareWith()
+        yield self.commit()
+
+        home = yield self.homeUnderTest()
+        self.assertEquals(home.notifierID(), "CalDAV|home1")
+        calendar = yield home.calendarWithName("calendar_1")
+        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
+        self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name=OTHER_HOME_UID)
+        self.assertEquals(home.notifierID(), "CalDAV|%s" % (OTHER_HOME_UID,))
+        calendar = yield home.calendarWithName(self.sharedName)
+        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
+        self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
+        yield self.commit()
+
+
+    @inlineCallbacks
     def test_hasCalendarResourceUIDSomewhereElse(self):
         """
         L{ICalendarHome.hasCalendarResourceUIDSomewhereElse} will determine if

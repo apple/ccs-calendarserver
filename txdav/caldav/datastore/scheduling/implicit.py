@@ -35,6 +35,8 @@ from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForPrincipals
 
+import collections
+
 __all__ = [
     "ImplicitScheduler",
 ]
@@ -58,6 +60,32 @@ class ImplicitScheduler(object):
 
         self.return_status = ImplicitScheduler.STATUS_OK
         self.logItems = {}
+        self.allowed_to_schedule = True
+
+    NotAllowedExceptionDetails = collections.namedtuple("NotAllowedExceptionDetails", ("type", "args", "kwargs",))
+
+    def setSchedulingNotAllowed(self, ex, *ex_args, **ex_kwargs):
+        """
+        Set indicator that scheduling is not actually allowed. Pass in exception details to raise.
+
+        @param ex: the exception class to raise
+        @type ex: C{class}
+        @param ex_args: the list of arguments for the exception
+        @type ex_args: C{list}
+        """
+
+        self.not_allowed = ImplicitScheduler.NotAllowedExceptionDetails(ex, ex_args, ex_kwargs)
+        self.allowed_to_schedule = False
+
+
+    def testSchedulingAllowed(self):
+        """
+        Called to raise an exception if scheduling is not allowed. This method should be called
+        any time a valid scheduling operation needs to occur.
+        """
+
+        if not self.allowed_to_schedule:
+            raise self.not_allowed.type(*self.not_allowed.args, **self.not_allowed.kwargs)
 
 
     @inlineCallbacks
@@ -862,6 +890,9 @@ class ImplicitScheduler(object):
     @inlineCallbacks
     def scheduleWithAttendees(self):
 
+        # First make sure we are allowed to schedule
+        self.testSchedulingAllowed()
+
         # First process cancelled attendees
         total = (yield self.processCancels())
 
@@ -1208,6 +1239,9 @@ class ImplicitScheduler(object):
 
     def scheduleWithOrganizer(self, changedRids=None):
 
+        # First make sure we are allowed to schedule
+        self.testSchedulingAllowed()
+
         self.logItems["itip.reply"] = "reply"
 
         itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
@@ -1217,6 +1251,9 @@ class ImplicitScheduler(object):
 
 
     def scheduleCancelWithOrganizer(self):
+
+        # First make sure we are allowed to schedule
+        self.testSchedulingAllowed()
 
         self.logItems["itip.reply"] = "cancel"
 

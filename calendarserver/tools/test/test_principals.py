@@ -15,7 +15,6 @@
 ##
 
 import os
-import signal
 import sys
 
 from twext.python.filepath import CachingFilePath as FilePath
@@ -26,13 +25,12 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryError
 from twistedcaldav.directory import calendaruserproxy
 
-from twistedcaldav.test.util import TestCase, CapturingProcessProtocol,\
+from twistedcaldav.test.util import TestCase, CapturingProcessProtocol, \
     ErrorOutput
 
 from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools.principals import (parseCreationArgs, matchStrings,
-    updateRecord, principalForPrincipalID, getProxies, setProxies,
-    triggerGroupCacherUpdate)
+    updateRecord, principalForPrincipalID, getProxies, setProxies)
 
 
 class ManagePrincipalsTestCase(TestCase):
@@ -53,6 +51,9 @@ class ManagePrincipalsTestCase(TestCase):
 
         newConfig = template % {
             "ServerRoot" : os.path.abspath(config.ServerRoot),
+            "DataRoot" : os.path.abspath(config.DataRoot),
+            "DocumentRoot" : os.path.abspath(config.DocumentRoot),
+            "LogRoot" : os.path.abspath(config.LogRoot),
         }
         configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
         configFilePath.setContent(newConfig)
@@ -100,10 +101,12 @@ class ManagePrincipalsTestCase(TestCase):
         output = yield deferred
         returnValue(output)
 
+
     @inlineCallbacks
     def test_help(self):
         results = yield self.runCommand("--help")
         self.assertTrue(results.startswith("usage:"))
+
 
     @inlineCallbacks
     def test_principalTypes(self):
@@ -113,11 +116,13 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertTrue("locations" in results)
         self.assertTrue("resources" in results)
 
+
     @inlineCallbacks
     def test_listPrincipals(self):
         results = yield self.runCommand("--list-principals=users")
         for i in xrange(1, 10):
             self.assertTrue("user%02d" % (i,) in results)
+
 
     @inlineCallbacks
     def test_search(self):
@@ -125,6 +130,7 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertTrue("10 matches found" in results)
         for i in xrange(1, 10):
             self.assertTrue("user%02d" % (i,) in results)
+
 
     @inlineCallbacks
     def test_addRemove(self):
@@ -157,6 +163,7 @@ class ManagePrincipalsTestCase(TestCase):
         results = yield self.runCommand("--list-principals=resources")
         self.assertFalse("newresource" in results)
 
+
     def test_parseCreationArgs(self):
 
         self.assertEquals(("full name", None, None),
@@ -181,6 +188,7 @@ class ManagePrincipalsTestCase(TestCase):
             parseCreationArgs, ("full name", "non guid", "non guid")
         )
 
+
     def test_matchStrings(self):
         self.assertEquals("abc", matchStrings("a", ("abc", "def")))
         self.assertEquals("def", matchStrings("de", ("abc", "def")))
@@ -188,6 +196,7 @@ class ManagePrincipalsTestCase(TestCase):
             ValueError,
             matchStrings, "foo", ("abc", "def")
         )
+
 
     @inlineCallbacks
     def test_modifyWriteProxies(self):
@@ -205,6 +214,7 @@ class ManagePrincipalsTestCase(TestCase):
         results = yield self.runCommand("--list-write-proxies",
             "locations:location01")
         self.assertTrue('No write proxies for "Room 01" (locations:location01)' in results)
+
 
     @inlineCallbacks
     def test_modifyReadProxies(self):
@@ -276,11 +286,11 @@ class ManagePrincipalsTestCase(TestCase):
         guid = "EEE28807-A8C5-46C8-A558-A08281C558A7"
 
         (yield updateRecord(True, directory, "locations",
-            guid=guid, fullName="Test Location", shortNames=["testlocation",],)
+            guid=guid, fullName="Test Location", shortNames=["testlocation", ],)
         )
         try:
             (yield updateRecord(True, directory, "locations",
-                guid=guid, fullName="Test Location", shortNames=["testlocation",],)
+                guid=guid, fullName="Test Location", shortNames=["testlocation", ],)
             )
         except DirectoryError:
             # We're expecting an error for trying to create a record with
@@ -295,7 +305,7 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertTrue(record.autoSchedule)
 
         (yield updateRecord(False, directory, "locations",
-            guid=guid, fullName="Changed", shortNames=["testlocation",],)
+            guid=guid, fullName="Changed", shortNames=["testlocation", ],)
         )
         record = directory.recordWithGUID(guid)
         self.assertTrue(record is not None)
@@ -305,11 +315,10 @@ class ManagePrincipalsTestCase(TestCase):
         record = directory.recordWithGUID(guid)
         self.assertTrue(record is None)
 
-
         # Create a user, change autoSchedule
         guid = "F0DE73A8-39D4-4830-8D32-1FA03ABA3470"
         (yield updateRecord(True, directory, "users",
-            guid=guid, fullName="Test User", shortNames=["testuser",],
+            guid=guid, fullName="Test User", shortNames=["testuser", ],
             autoSchedule=True)
         )
         record = directory.recordWithGUID(guid)
@@ -318,7 +327,7 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertTrue(record.autoSchedule)
 
         (yield updateRecord(False, directory, "users",
-            guid=guid, fullName="Test User", shortNames=["testuser",],
+            guid=guid, fullName="Test User", shortNames=["testuser", ],
             autoSchedule=False)
         )
         record = directory.recordWithGUID(guid)
@@ -339,36 +348,13 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertEquals(readProxies, []) # initially empty
         self.assertEquals(writeProxies, []) # initially empty
 
-        (yield setProxies(principal, ["users:user03", "users:user04"], ["users:user05"], directory=directory))
+        (yield setProxies(None, principal, ["users:user03", "users:user04"], ["users:user05"], directory=directory))
         readProxies, writeProxies = (yield getProxies(principal, directory=directory))
         self.assertEquals(set(readProxies), set(["user03", "user04"]))
         self.assertEquals(set(writeProxies), set(["user05"]))
 
         # Using None for a proxy list indicates a no-op
-        (yield setProxies(principal, [], None, directory=directory))
+        (yield setProxies(None, principal, [], None, directory=directory))
         readProxies, writeProxies = (yield getProxies(principal, directory=directory))
         self.assertEquals(readProxies, []) # now empty
         self.assertEquals(set(writeProxies), set(["user05"])) # unchanged
-
-
-    def test_triggerGroupCacherUpdate(self):
-        """
-        Verify triggerGroupCacherUpdate can read a pidfile and send a SIGHUP
-        """
-
-        self.calledArgs = None
-        def killMethod(pid, sig):
-            self.calledArgs = (pid, sig)
-
-        class StubConfig(object):
-            def __init__(self, runRootPath):
-                self.RunRoot = runRootPath
-
-        runRootDir = FilePath(self.mktemp())
-        runRootDir.createDirectory()
-        pidFile = runRootDir.child("groupcacher.pid")
-        pidFile.setContent("1234")
-        testConfig = StubConfig(runRootDir.path)
-        triggerGroupCacherUpdate(testConfig, killMethod=killMethod)
-        self.assertEquals(self.calledArgs, (1234, signal.SIGHUP))
-        runRootDir.remove()

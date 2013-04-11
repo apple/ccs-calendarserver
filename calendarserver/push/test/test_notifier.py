@@ -27,12 +27,16 @@ class StubService(object):
     def __init__(self):
         self.reset()
 
+
     def reset(self):
         self.history = []
 
-    def enqueue(self, id):
+
+    def enqueue(self, transaction, id):
         self.history.append(id)
         return(succeed(None))
+
+
 
 class PushDistributorTests(TestCase):
 
@@ -40,8 +44,9 @@ class PushDistributorTests(TestCase):
     def test_enqueue(self):
         stub = StubService()
         dist = PushDistributor([stub])
-        yield dist.enqueue("testing")
+        yield dist.enqueue(None, "testing")
         self.assertEquals(stub.history, ["testing"])
+
 
     def test_getPubSubAPSConfiguration(self):
         config = ConfigDict({
@@ -67,23 +72,28 @@ class PushDistributorTests(TestCase):
         self.assertEquals(
             result,
             {
-                "SubscriptionRefreshIntervalSeconds": 42, 
-                "SubscriptionURL": "https://calendars.example.com:8443/apns", 
-                "APSBundleID": "test topic", 
+                "SubscriptionRefreshIntervalSeconds": 42,
+                "SubscriptionURL": "https://calendars.example.com:8443/apns",
+                "APSBundleID": "test topic",
                 "APSEnvironment": "prod"
             }
         )
+
 
 
 class StubDistributor(object):
     def __init__(self):
         self.reset()
 
+
     def reset(self):
         self.history = []
 
-    def enqueue(self, pushID):
+
+    def enqueue(self, transaction, pushID):
         self.history.append(pushID)
+
+
 
 class PushNotificationWorkTests(TestCase):
 
@@ -117,6 +127,13 @@ class PushNotificationWorkTests(TestCase):
         wp = (yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
         ))
+        # Enqueue a different pushID to ensure those are not grouped with
+        # the others:
+        wp = (yield txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/baz/",
+        ))
+
         yield txn.commit()
         yield wp.whenExecuted()
-        self.assertEquals(pushDistributor.history, ["/CalDAV/localhost/bar/"])
+        self.assertEquals(pushDistributor.history,
+            ["/CalDAV/localhost/bar/", "/CalDAV/localhost/baz/"])

@@ -34,6 +34,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         yield super(ApplePushNotifierServiceTests, self).setUp()
         self.store = yield buildStore(self, None)
 
+
     @inlineCallbacks
     def test_ApplePushNotifierService(self):
 
@@ -65,7 +66,6 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
             },
         }
 
-
         # Add subscriptions
         txn = self.store.newTransaction()
 
@@ -79,7 +79,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         except InvalidSubscriptionValues:
             pass
 
-        token  = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
+        token = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
         token2 = "3d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
         key1 = "/CalDAV/calendars.example.com/user01/calendar/"
         timestamp1 = 1000
@@ -117,16 +117,18 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         clock = Clock()
         service = (yield ApplePushNotifierService.makeService(settings,
             self.store, testConnectorClass=TestConnector, reactor=clock))
-        self.assertEquals(set(service.providers.keys()), set(["CalDAV","CardDAV"]))
-        self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV","CardDAV"]))
+        self.assertEquals(set(service.providers.keys()), set(["CalDAV", "CardDAV"]))
+        self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV", "CardDAV"]))
 
         # First, enqueue a notification while we have no connection, in this
         # case by doing it prior to startService()
 
         # Notification arrives from calendar server
         dataChangedTimestamp = 1354815999
-        yield service.enqueue("/CalDAV/calendars.example.com/user01/calendar/",
+        txn = self.store.newTransaction()
+        yield service.enqueue(txn, "/CalDAV/calendars.example.com/user01/calendar/",
             dataChangedTimestamp=dataChangedTimestamp)
+        yield txn.commit()
 
         # The notifications should be in the queue
         self.assertTrue(((token, key1), dataChangedTimestamp) in service.providers["CalDAV"].queue)
@@ -152,11 +154,10 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         payload = json.loads(payload[0])
         self.assertEquals(payload["key"], u"/CalDAV/calendars.example.com/user01/calendar/")
         self.assertEquals(payload["dataChangedTimestamp"], dataChangedTimestamp)
-        self.assertTrue(payload.has_key("pushRequestSubmittedTimestamp"))
+        self.assertTrue("pushRequestSubmittedTimestamp" in payload)
         # Verify token history is updated
-        self.assertTrue(token in [t for (i, t) in providerConnector.service.protocol.history.history])
-        self.assertTrue(token2 in [t for (i, t) in providerConnector.service.protocol.history.history])
-
+        self.assertTrue(token in [t for (_ignore_i, t) in providerConnector.service.protocol.history.history])
+        self.assertTrue(token2 in [t for (_ignore_i, t) in providerConnector.service.protocol.history.history])
 
         #
         # Verify staggering behavior
@@ -165,7 +166,9 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Reset sent data
         providerConnector.transport.data = None
         # Send notification while service is connected
-        yield service.enqueue("/CalDAV/calendars.example.com/user01/calendar/")
+        txn = self.store.newTransaction()
+        yield service.enqueue(txn, "/CalDAV/calendars.example.com/user01/calendar/")
+        yield txn.commit()
         clock.advance(1) # so that first push is sent
         self.assertEquals(len(providerConnector.transport.data), 183)
         # Reset sent data
@@ -173,13 +176,13 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         clock.advance(3) # so that second push is sent
         self.assertEquals(len(providerConnector.transport.data), 183)
 
+        history = []
 
         def errorTestFunction(status, identifier):
             history.append((status, identifier))
             return succeed(None)
 
         # Simulate an error
-        history = []
         errorData = struct.pack("!BBI", APNProviderProtocol.COMMAND_ERROR, 1, 2)
         yield providerConnector.receiveData(errorData, fn=errorTestFunction)
         clock.advance(301)
@@ -204,13 +207,11 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Buffer has 1 byte remaining
         self.assertEquals(len(providerConnector.service.protocol.buffer), 1)
 
-
         # Prior to feedback, there are 2 subscriptions
         txn = self.store.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
         yield txn.commit()
         self.assertEquals(len(subscriptions), 2)
-
 
         # Simulate feedback with a single token
         feedbackConnector = service.feedbacks["CalDAV"].testConnector
@@ -294,6 +295,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
 
         service.stopService()
 
+
     def test_validToken(self):
         self.assertTrue(validToken("2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))
         self.assertFalse(validToken("d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))
@@ -359,6 +361,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         )
 
 
+
 class TestConnector(object):
 
     def connect(self, service, factory):
@@ -368,14 +371,17 @@ class TestConnector(object):
         self.transport = StubTransport()
         service.protocol.makeConnection(self.transport)
 
+
     def receiveData(self, data, fn=None):
         return self.service.protocol.dataReceived(data, fn=fn)
+
 
 
 class StubTransport(object):
 
     def __init__(self):
         self.data = None
+
 
     def write(self, data):
         self.data = data

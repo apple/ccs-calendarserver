@@ -70,12 +70,15 @@ from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
 
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
+from twistedcaldav.directory import calendaruserproxy
+from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav import memcachepool
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import UpgradeFileSystemFormatService, PostDBImportService
 
 from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
+from calendarserver.tap.util import directoryFromConfig, checkDirectories
 
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
@@ -105,7 +108,6 @@ from calendarserver.tap.util import storeFromConfig
 from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tap.util import oracleConnectorFromConfig
 from calendarserver.tap.cfgchild import ConfiguredChildSpawner
-from calendarserver.tools.util import checkDirectory
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
@@ -384,8 +386,8 @@ class CalDAVOptions (Options, LoggingMixIn):
         config.updateDefaults(self.overrides)
 
 
-    def checkDirectory(self, dirpath, description, access=None, create=None, wait=False):
-        checkDirectory(dirpath, description, access=access, create=create, wait=wait)
+    def checkDirectories(self, config):
+        checkDirectories(config)
 
 
     def checkConfiguration(self):
@@ -415,58 +417,7 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         self.parent["pidfile"] = config.PIDFile
 
-        #
-        # Verify that server root actually exists
-        #
-        self.checkDirectory(
-            config.ServerRoot,
-            "Server root",
-            # Require write access because one might not allow editing on /
-            access=os.W_OK,
-            wait=True # Wait in a loop until ServerRoot exists
-        )
-
-        #
-        # Verify that other root paths are OK
-        #
-        if config.DataRoot.startswith(config.ServerRoot + os.sep):
-            self.checkDirectory(
-                config.DataRoot,
-                "Data root",
-                access=os.W_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
-        if config.DocumentRoot.startswith(config.DataRoot + os.sep):
-            self.checkDirectory(
-                config.DocumentRoot,
-                "Document root",
-                # Don't require write access because one might not allow editing on /
-                access=os.R_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
-        if config.ConfigRoot.startswith(config.ServerRoot + os.sep):
-            self.checkDirectory(
-                config.ConfigRoot,
-                "Config root",
-                access=os.W_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
-
-        if config.LogRoot.startswith(config.ServerRoot + os.sep):
-            self.checkDirectory(
-                config.LogRoot,
-                "Log root",
-                access=os.W_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
-
-        # Always create RunRoot (for pid files, socket files) if it does not exist
-        self.checkDirectory(
-            config.RunRoot,
-            "Run root",
-            access=os.W_OK,
-            create=(0770, config.UserName, config.GroupName),
-        )
+        self.checkDirectories(config)
 
         #
         # Nuke the file log observer's time format.
@@ -542,27 +493,6 @@ class SlaveSpawnerService(Service):
             )
             self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
 
-        if config.GroupCaching.Enabled and config.GroupCaching.EnableUpdater:
-            self.maker.log_info("Adding group caching service")
-
-            groupMembershipCacherArgv = [
-                sys.executable,
-                sys.argv[0],
-            ]
-            if config.UserName:
-                groupMembershipCacherArgv.extend(("-u", config.UserName))
-            if config.GroupName:
-                groupMembershipCacherArgv.extend(("-g", config.GroupName))
-            groupMembershipCacherArgv.extend((
-                "--reactor=%s" % (config.Twisted.reactor,),
-                "-n", self.maker.groupMembershipCacherTapName,
-                "-f", self.configPath,
-                "-o", "PIDFile=groupcacher.pid",
-            ))
-
-            self.monitor.addProcess("groupcacher", groupMembershipCacherArgv,
-                               env=PARENT_ENVIRONMENT)
-
 
 
 class ReExecService(MultiService, LoggingMixIn):
@@ -621,11 +551,6 @@ class CalDAVServiceMaker (LoggingMixIn):
     description = "Calendar and Contacts Server"
     options = CalDAVOptions
 
-    #
-    # Default tap names
-    #
-    groupMembershipCacherTapName = "caldav_groupcacher"
-
 
     def makeService(self, options):
         """
@@ -634,15 +559,18 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("%s %s starting %s process..." % (self.description, version, config.ProcessType))
 
         try:
-            from setproctitle import setproctitle
+            from setproctitle import setproctitle, getproctitle
         except ImportError:
             pass
         else:
+            origTitle = getproctitle()
             if config.LogID:
                 logID = " #%s" % (config.LogID,)
             else:
                 logID = ""
-            setproctitle("CalendarServer %s [%s%s]" % (version, config.ProcessType, logID))
+            if config.ProcessType is not "Utility":
+                origTitle = ""
+            setproctitle("CalendarServer %s [%s%s] %s" % (version, config.ProcessType, logID, origTitle))
 
         serviceMethod = getattr(self, "makeService_%s" % (config.ProcessType,), None)
 
@@ -771,10 +699,24 @@ class CalDAVServiceMaker (LoggingMixIn):
         else:
             mailRetriever = None
 
+        # Optionally set up group cacher
+        if config.GroupCaching.Enabled:
+            groupCacher = GroupMembershipCacheUpdater(
+                calendaruserproxy.ProxyDBService,
+                directory,
+                config.GroupCaching.UpdateSeconds,
+                config.GroupCaching.ExpireSeconds,
+                namespace=config.GroupCaching.MemcachedPool,
+                useExternalProxies=config.GroupCaching.UseExternalProxies
+                )
+        else:
+            groupCacher = None
+
         def decorateTransaction(txn):
             txn._pushDistributor = pushDistributor
             txn._rootResource = result.rootResource
             txn._mailRetriever = mailRetriever
+            txn._groupCacher = groupCacher
 
         store.callWithNewTransactions(decorateTransaction)
 
@@ -1013,10 +955,34 @@ class CalDAVServiceMaker (LoggingMixIn):
     def makeService_Single(self, options):
         """
         Create a service to be used in a single-process, stand-alone
-        configuration.
+        configuration.  Memcached will be spawned automatically.
         """
         def slaveSvcCreator(pool, store, logObserver):
             result = self.requestProcessingService(options, store, logObserver)
+
+            # Optionally launch memcached.  Note, this is not going through a
+            # ProcessMonitor because there is code elsewhere that needs to
+            # access memcached before startService() gets called, so we're just
+            # directly using Popen to spawn memcached.
+            for name, pool in config.Memcached.Pools.items():
+                if pool.ServerEnabled:
+                    self.log_info(
+                        "Adding memcached service for pool: %s" % (name,)
+                    )
+                    memcachedArgv = [
+                        config.Memcached.memcached,
+                        "-p", str(pool.Port),
+                        "-l", pool.BindAddress,
+                        "-U", "0",
+                    ]
+                    if config.Memcached.MaxMemory is not 0:
+                        memcachedArgv.extend(
+                            ["-m", str(config.Memcached.MaxMemory)]
+                        )
+                    if config.UserName:
+                        memcachedArgv.extend(["-u", config.UserName])
+                    memcachedArgv.extend(config.Memcached.Options)
+                    Popen(memcachedArgv)
 
             # Optionally set up push notifications
             pushDistributor = None
@@ -1037,23 +1003,38 @@ class CalDAVServiceMaker (LoggingMixIn):
                 if observers:
                     pushDistributor = PushDistributor(observers)
 
+            directory = result.rootResource.getDirectory()
+
             # Optionally set up mail retrieval
             if config.Scheduling.iMIP.Enabled:
-                directory = result.rootResource.getDirectory()
                 mailRetriever = MailRetriever(store, directory,
                     config.Scheduling.iMIP.Receiving)
                 mailRetriever.setServiceParent(result)
             else:
                 mailRetriever = None
 
+            # Optionally set up group cacher
+            if config.GroupCaching.Enabled:
+                groupCacher = GroupMembershipCacheUpdater(
+                    calendaruserproxy.ProxyDBService,
+                    directory,
+                    config.GroupCaching.UpdateSeconds,
+                    config.GroupCaching.ExpireSeconds,
+                    namespace=config.GroupCaching.MemcachedPool,
+                    useExternalProxies=config.GroupCaching.UseExternalProxies
+                    )
+            else:
+                groupCacher = None
+
             def decorateTransaction(txn):
                 txn._pushDistributor = pushDistributor
                 txn._rootResource = result.rootResource
                 txn._mailRetriever = mailRetriever
+                txn._groupCacher = groupCacher
 
             store.callWithNewTransactions(decorateTransaction)
 
-            return result 
+            return result
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
 
@@ -1394,6 +1375,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             from twisted.internet import reactor
             pool = PeerConnectionPool(reactor, store.newTransaction,
                                       7654, schema)
+            store.queuer = store.queuer.transferProposalCallbacks(pool)
             controlSocket.addFactory(_QUEUE_ROUTE,
                                      pool.workerListenerFactory())
             # TODO: now that we have the shared control socket, we should get
@@ -1414,7 +1396,41 @@ class CalDAVServiceMaker (LoggingMixIn):
             spawner.setServiceParent(multi)
             if config.UseMetaFD:
                 cl.setServiceParent(multi)
+
+            directory = directoryFromConfig(config)
+            rootResource = getRootResource(config, store, [])
+
+            # Optionally set up mail retrieval
+            if config.Scheduling.iMIP.Enabled:
+                mailRetriever = MailRetriever(store, directory,
+                    config.Scheduling.iMIP.Receiving)
+                mailRetriever.setServiceParent(multi)
+            else:
+                mailRetriever = None
+
+            # Optionally set up group cacher
+            if config.GroupCaching.Enabled:
+                groupCacher = GroupMembershipCacheUpdater(
+                    calendaruserproxy.ProxyDBService,
+                    directory,
+                    config.GroupCaching.UpdateSeconds,
+                    config.GroupCaching.ExpireSeconds,
+                    namespace=config.GroupCaching.MemcachedPool,
+                    useExternalProxies=config.GroupCaching.UseExternalProxies
+                    )
+            else:
+                groupCacher = None
+
+            def decorateTransaction(txn):
+                txn._pushDistributor = None
+                txn._rootResource = rootResource
+                txn._mailRetriever = mailRetriever
+                txn._groupCacher = groupCacher
+
+            store.callWithNewTransactions(decorateTransaction)
+
             return multi
+
         ssvc = self.storageService(spawnerSvcCreator, uid, gid)
         ssvc.setServiceParent(s)
         return s

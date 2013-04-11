@@ -40,6 +40,11 @@ from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import caldav_namespace, Opaque, \
     CalendarFreeBusySet, ScheduleCalendarTransp
 from twistedcaldav.config import config
+# _schedulePrivilegeSet implicitly depends on config being initialized. The
+# following line is wrong because _schedulePrivilegeSet won't actually use the
+# config file, it will pick up stdconfig whenever it is imported, so this works
+# around that for now.
+__import__("twistedcaldav.stdconfig") # FIXME
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import allowedComponents
 from twistedcaldav.resource import CalDAVResource

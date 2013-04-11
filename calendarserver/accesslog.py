@@ -33,6 +33,7 @@ try:
     import psutil
 except ImportError:
     psutil = None
+from sys import platform
 import time
 
 from calendarserver.logAnalysis import getAdjustedMethodName, \
@@ -627,7 +628,7 @@ class SystemMonitor(object):
             self.previous_cpu = cpu_now
 
         # Memory usage
-        if psutil is not None:
+        if psutil is not None and 'freebsd' not in platform:
             mem = psutil.virtual_memory()
             self.items["memory used"] = mem.used
             self.items["memory percent"] = mem.percent

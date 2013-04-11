@@ -56,17 +56,22 @@ class OpenDirectoryService(CachingDirectoryService):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.node)
 
 
-    def __init__(self, params):
+    def __init__(self, params, odModule=None):
         """
         @param params: a dictionary containing the following keys:
-            node: an OpenDirectory node name to bind to.
-            restrictEnabledRecords: C{True} if a group in the
-              directory is to be used to determine which calendar
-              users are enabled.
-            restrictToGroup: C{str} guid or name of group used to
-              restrict enabled users.
-            cacheTimeout: C{int} number of minutes before cache is invalidated.
-            negativeCache: C{False} cache the fact that a record wasn't found
+
+            - node: an OpenDirectory node name to bind to.
+
+            - restrictEnabledRecords: C{True} if a group in the directory is to
+              be used to determine which calendar users are enabled.
+
+            - restrictToGroup: C{str} guid or name of group used to restrict
+              enabled users.
+
+            - cacheTimeout: C{int} number of minutes before cache is
+              invalidated.
+
+            - negativeCache: C{False} cache the fact that a record wasn't found
         """
         defaults = {
             'node' : '/Search',
@@ -90,7 +95,9 @@ class OpenDirectoryService(CachingDirectoryService):
         super(OpenDirectoryService, self).__init__(params['cacheTimeout'],
                                                    params['negativeCaching'])
 
-        self.odModule = namedModule(config.OpenDirectoryModule)
+        if odModule is None:
+            odModule = namedModule(config.OpenDirectoryModule)
+        self.odModule = odModule
 
         try:
             directory = self.odModule.odInit(params['node'])
@@ -1447,7 +1454,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
                     self.shortNames[0],
                     challenge,
                     response,
-                    credentials.originalMethod if credentials.originalMethod else credentials.method
+                    credentials.method
                 ):
                     try:
                         cache = self.digestcache
@@ -1465,7 +1472,8 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
     Challenge: %s
     Response:  %s
     Method:    %s
-""" % (self.nodeName, self.shortNames[0], challenge, response, credentials.originalMethod if credentials.originalMethod else credentials.method))
+""" % (self.nodeName, self.shortNames[0], challenge, response,
+       credentials.method))
 
             except self.service.odModule.ODError, e:
                 self.log_error(

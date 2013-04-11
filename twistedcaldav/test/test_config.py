@@ -17,7 +17,7 @@
 from twext.python.plistlib import writePlist #@UnresolvedImport
 from twext.python.log import logLevelForNamespace
 
-from twistedcaldav.config import config, ConfigDict
+from twistedcaldav.config import config, ConfigDict, mergeData
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider,\
     RELATIVE_PATHS
@@ -370,6 +370,40 @@ class ConfigTests(TestCase):
         # But attr syntax is OK
         configDict._x = "X"
         self.assertEquals(configDict._x, "X")
+
+    def test_mergeData(self):
+        """
+        Verify we don't lose keys which are present in the old but not
+        replaced in the new.
+        """
+        old = ConfigDict({
+            "Scheduling" : ConfigDict({
+                "iMIP" : ConfigDict({
+                    "Enabled" : True,
+                    "Receiving" : ConfigDict({
+                        "Username" : "xyzzy",
+                        "Server" : "example.com",
+                    }),
+                    "Sending" : ConfigDict({
+                        "Username" : "plugh",
+                    }),
+                    "AddressPatterns" : ["mailto:.*"],
+                }),
+            }),
+        })
+        new = ConfigDict({
+            "Scheduling" : ConfigDict({
+                "iMIP" : ConfigDict({
+                    "Enabled" : False,
+                    "Receiving" : ConfigDict({
+                        "Username" : "changed",
+                    }),
+                }),
+            }),
+        })
+        mergeData(old, new)
+        self.assertEquals(old.Scheduling.iMIP.Receiving.Server, "example.com")
+        self.assertEquals(old.Scheduling.iMIP.Sending.Username, "plugh")
 
     def test_SimpleInclude(self):
 

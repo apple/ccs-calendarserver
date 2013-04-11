@@ -19,37 +19,16 @@ from __future__ import print_function
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.cmdline import utilityMain
 from errno import ENOENT, EACCES
-from getopt import getopt, GetoptError
+from argparse import ArgumentParser
 from twext.python.log import Logger
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.config import config, ConfigurationError
-import os
 import sys
 import time
 
 log = Logger()
-
-def usage(e=None):
-
-    name = os.path.basename(sys.argv[0])
-    print("usage: %s [options] [user ...]" % (name,))
-    print("")
-    print("  Display Apple Push Notification subscriptions")
-    print("")
-    print("options:")
-    print("  -h --help: print this help and exit")
-    print("  -f --config <path>: Specify caldavd.plist configuration path")
-    print("  -D --debug: debug logging")
-    print("")
-
-    if e:
-        sys.stderr.write("%s\n" % (e,))
-        sys.exit(64)
-    else:
-        sys.exit(0)
-
 
 
 class WorkerService(Service):
@@ -109,45 +88,18 @@ class DisplayAPNSubscriptions(WorkerService):
 
 def main():
 
-    try:
-        (optargs, args) = getopt(
-            sys.argv[1:], "Df:h", [
-                "config=",
-                "help",
-                "debug",
-            ],
-        )
-    except GetoptError, e:
-        usage(e)
+    parser = ArgumentParser(description='Display Apple Push Notification subscriptions')
+    parser.add_argument('-f', '--config', dest='configFileName', metavar='CONFIGFILE', help='caldavd.plist configuration file path')
+    parser.add_argument('-d', '--debug', action='store_true', help='show debug logging')
+    parser.add_argument('user', help='one or more users to display', nargs='+') # Required
+    args = parser.parse_args()
 
-    #
-    # Get configuration
-    #
-    configFileName = None
-    debug = False
-
-    for opt, arg in optargs:
-        if opt in ("-h", "--help"):
-            usage()
-
-        elif opt in ("-f", "--config"):
-            configFileName = arg
-
-        if opt in ("-d", "--debug"):
-            debug = True
-
-        else:
-            raise NotImplementedError(opt)
-
-    if not args:
-        usage("Not enough arguments")
-
-    DisplayAPNSubscriptions.users = args
+    DisplayAPNSubscriptions.users = args.user
 
     utilityMain(
-        configFileName,
+        args.configFileName,
         DisplayAPNSubscriptions,
-        verbose=debug,
+        verbose=args.debug,
     )
 
 

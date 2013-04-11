@@ -28,7 +28,7 @@ import cgi
 import operator
 import urlparse
 
-from calendarserver.tools.principals import (
+from calendarserver.tools.util import (
     principalForPrincipalID, proxySubprincipal, action_addProxyPrincipal,
     action_removeProxyPrincipal
 )
@@ -107,7 +107,6 @@ class WebAdminPage(Element):
         else:
             returnValue(tag)
 
-
     _searchResults = None
 
     @inlineCallbacks
@@ -156,6 +155,7 @@ class WebAdminPage(Element):
             )
         else:
             return ""
+
 
 
 def searchToSlots(results, tag):
@@ -370,7 +370,6 @@ class DetailsElement(Element):
             tag(selected='selected')
         return tag
 
-
     _matrix = None
 
     @inlineCallbacks
@@ -491,7 +490,6 @@ class DetailsElement(Element):
             result.append(ProxyRow(tag.clone(), idx, readProxy, writeProxy))
         returnValue(result)
 
-
     _proxySearchResults = None
 
     def performProxySearch(self):
@@ -569,38 +567,48 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
     Web administration HTTP resource.
     """
 
-    def __init__(self, path, root, directory, principalCollections=()):
+    def __init__(self, path, root, directory, store, principalCollections=()):
         self.root = root
         self.directory = directory
+        self.store = store
         super(WebAdminResource, self).__init__(path,
             principalCollections=principalCollections)
+
 
     # Only allow administrators to access
     def defaultAccessControlList(self):
         return davxml.ACL(*config.AdminACEs)
 
+
     def etag(self):
         # Can't be calculated here
         return succeed(None)
+
 
     def contentLength(self):
         # Can't be calculated here
         return None
 
+
     def lastModified(self):
         return None
+
 
     def exists(self):
         return True
 
+
     def displayName(self):
         return "Web Admin"
 
+
     def contentType(self):
-        return MimeType.fromString("text/html; charset=utf-8");
+        return MimeType.fromString("text/html; charset=utf-8")
+
 
     def contentEncoding(self):
         return None
+
 
     def createSimilarFile(self, path):
         return DAVFile(path, principalCollections=self.principalCollections())
@@ -632,7 +640,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         # Update the auto-schedule value if specified.
         if autoSchedule is not None and (autoSchedule == "true" or
                                          autoSchedule == "false"):
-            if ( principal.record.recordType != "users" and
+            if (principal.record.recordType != "users" and
                  principal.record.recordType != "groups" or
                  principal.record.recordType == "users" and
                  config.Scheduling.Options.AutoSchedule.AllowUsers):
@@ -642,16 +650,18 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         # Update the proxies if specified.
         for proxyId in removeProxies:
             proxy = self.getResourceById(request, proxyId)
-            (yield action_removeProxyPrincipal(principal, proxy,
-                                               proxyTypes=["read", "write"]))
+            (yield action_removeProxyPrincipal(self.root, self.directory, self.store,
+                principal, proxy, proxyTypes=["read", "write"]))
 
         for proxyId in makeReadProxies:
             proxy = self.getResourceById(request, proxyId)
-            (yield action_addProxyPrincipal(principal, "read", proxy))
+            (yield action_addProxyPrincipal(self.root, self.directory, self.store,
+                principal, "read", proxy))
 
         for proxyId in makeWriteProxies:
             proxy = self.getResourceById(request, proxyId)
-            (yield action_addProxyPrincipal(principal, "write", proxy))
+            (yield action_addProxyPrincipal(self.root, self.directory, self.store,
+                principal, "write", proxy))
 
 
     @inlineCallbacks

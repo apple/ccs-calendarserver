@@ -15,12 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from __future__ import print_function
 
 """
 This tool allows any necessary upgrade to complete, then exits.
 """
 
+from __future__ import print_function
 import os
 import sys
 import time

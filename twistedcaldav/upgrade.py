@@ -39,7 +39,9 @@ from twistedcaldav import caldavxml
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
-from twistedcaldav.directory.directory import DirectoryService, GroupMembershipCacheUpdater
+from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
+from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
@@ -67,6 +69,7 @@ from calendarserver.tools.util import getDirectory
 
 from twext.python.parallel import Parallelizer
 from twistedcaldav.scheduling.imip.mailgateway import migrateTokensToStore
+from twistedcaldav.scheduling.imip.inbound import scheduleNextMailPoll
 
 
 deadPropertyXattrPrefix = namedAny(
@@ -1069,11 +1072,14 @@ class PostDBImportService(Service, object):
                 proxydb = proxydbClass(**self.config.ProxyDBService.params)
 
             updater = GroupMembershipCacheUpdater(proxydb,
-                directory, self.config.GroupCaching.ExpireSeconds,
-                self.config.GroupCaching.LockSeconds,
+                directory,
+                self.config.GroupCaching.UpdateSeconds,
+                self.config.GroupCaching.ExpireSeconds,
                 namespace=self.config.GroupCaching.MemcachedPool,
                 useExternalProxies=self.config.GroupCaching.UseExternalProxies)
             yield updater.updateCache(fast=True)
+            # Set in motion the work queue based updates:
+            yield scheduleNextGroupCachingUpdate(self.store, 0)
 
             uid, gid = getCalendarServerIDs(self.config)
             dbPath = os.path.join(self.config.DataRoot, "proxies.sqlite")
@@ -1087,6 +1093,9 @@ class PostDBImportService(Service, object):
 
         # Migrate mail tokens from sqlite to store
         yield migrateTokensToStore(self.config.DataRoot, self.store)
+        # Set mail polling in motion
+        if self.config.Scheduling.iMIP.Enabled:
+            yield scheduleNextMailPoll(self.store, 0)
 
 
     @inlineCallbacks

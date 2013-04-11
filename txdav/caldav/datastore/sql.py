@@ -70,7 +70,8 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     AttachmentMigrationFailed, AttachmentDropboxNotAllowed, \
     TooManyAttendeesError, InvalidComponentTypeError, InvalidCalendarAccessError, \
     InvalidUIDError, UIDExistsError, ResourceDeletedError, \
-    AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState
+    AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
+    ValidOrganizerError, ShareeAllowedError
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -322,8 +323,17 @@ class CalendarPrincipal(object):
         return self.principal_uid
 
 
+    def shortNames(self):
+        return [self.principal_uid, ]
+
+
     def fullName(self):
         return "%s %s" % (self.principal_uid[:4], self.principal_uid[4:])
+
+
+    def displayName(self):
+        fullName = self.fullName()
+        return fullName if fullName else self.shortNames()[0]
 
 
     def calendarUserAddresses(self):
@@ -1392,8 +1402,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # calendar data
             component.normalizeCalendarUserAddresses(normalizationLookup, self.calendar().viewerHome().principalForCalendarUserAddress)
 
+        # Check location/resource organizer requirement
+        yield self.validLocationResourceOrganizer(component, inserting, update_state)
+
         # Check access
-        yield self.validAccess(component, inserting, update_state)
+        if config.EnablePrivateEvents:
+            yield self.validAccess(component, inserting, update_state)
 
 
     def validIfScheduleMatch(self, etag_match, schedule_tag, update_state):
@@ -1469,6 +1483,43 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                 if attendeeListLength > oldAttendeeListLength:
                     raise TooManyAttendeesError("Attendee list size %d is larger than allowed limit %d" % (attendeeListLength, config.MaxAttendeesPerInstance))
+
+
+    @inlineCallbacks
+    def validLocationResourceOrganizer(self, component, inserting, update_state):
+        """
+        If the calendar owner is a location or resource, check whether an ORGANIZER property is required.
+        """
+
+        if update_state == ComponentUpdateState.NORMAL:
+            originatorPrincipal = (yield self.calendar().ownerHome().principal())
+            cutype = originatorPrincipal.getCUType() if originatorPrincipal is not None else "INDIVIDUAL"
+            organizer = component.getOrganizer()
+
+            # Check for an allowed change
+            if organizer is None and (
+                cutype == "ROOM" and not config.Scheduling.Options.AllowLocationWithoutOrganizer or
+                cutype == "RESOURCE" and not config.Scheduling.Options.AllowResourceWithoutOrganizer):
+                raise ValidOrganizerError("Organizer required in calendar data for a %s" % (cutype.lower(),))
+
+            # Check for tracking the modifier
+            if organizer is None and (
+                cutype == "ROOM" and config.Scheduling.Options.TrackUnscheduledLocationData or
+                cutype == "RESOURCE" and config.Scheduling.Options.TrackUnscheduledResourceData):
+
+                # Find current principal and update modified by details
+                if hasattr(self._txn, "_authz_uid"):
+                    authz = (yield self.calendar().ownerHome().principalForUID(self._txn._authz_uid))
+                    prop = Property("X-CALENDARSERVER-MODIFIED-BY", authz.canonicalCalendarUserAddress())
+                    prop.setParameter("CN", authz.displayName())
+                    for candidate in authz.calendarUserAddresses():
+                        if candidate.startswith("mailto:"):
+                            prop.setParameter("EMAIL", candidate[7:])
+                            break
+                    component.replacePropertyInAllComponents(prop)
+                else:
+                    component.removeAllPropertiesWithName("X-CALENDARSERVER-MODIFIED-BY")
+                self._componentChanged = True
 
 
     def validAccess(self, component, inserting, update_state):
@@ -1724,11 +1775,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 # Cannot do implicit in sharee's shared calendar
                 isShareeCollection = self.destinationparent.isShareeCollection()
                 if isShareeCollection:
-                    raise HTTPError(ErrorResponse(
-                        responsecode.FORBIDDEN,
-                        (calendarserver_namespace, "sharee-privilege-needed",),
-                        description="Sharee's cannot schedule"
-                    ))
+                    scheduler.setSchedulingNotAllowed(
+                        ShareeAllowedError,
+                        "Sharee's cannot schedule",
+                    )
 
                 new_calendar = (yield scheduler.doImplicitScheduling(self.schedule_tag_match))
                 if new_calendar:
@@ -2050,7 +2100,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Determine attachment mode (ignore inbox's) - NB we have to do this
             # after setting up other properties as UID at least is needed
             self._attachment = _ATTACHMENTS_MODE_NONE
-            if self._dropboxID is None:
+            if not self._dropboxID:
                 if not isInboxItem:
                     if component.hasPropertyInAnyComponent("X-APPLE-DROPBOX"):
                         self._attachment = _ATTACHMENTS_MODE_WRITE
@@ -2500,7 +2550,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         for managed_id in added:
             changed[managed_id] = newattached[managed_id]
 
-        if self._dropboxID is None:
+        if not self._dropboxID:
             self._dropboxID = str(uuid.uuid4())
         changes = yield self._addingManagedIDs(self._txn, self._parentCollection, self._dropboxID, changed, component.resourceUID())
 
@@ -2632,7 +2682,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             raise AttachmentStoreFailed
         yield t.loseConnection()
 
-        if self._dropboxID is None:
+        if not self._dropboxID:
             self._dropboxID = str(uuid.uuid4())
         attachment._objectDropboxID = self._dropboxID
 
@@ -3037,7 +3087,7 @@ class Attachment(object):
         @return: C{True} if this attachment exists, C{False} otherwise.
         """
         att = schema.ATTACHMENT
-        if self._dropboxID is not None:
+        if self._dropboxID:
             where = (att.DROPBOX_ID == self._dropboxID).And(
                    att.PATH == self._name)
         else:

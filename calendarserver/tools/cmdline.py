@@ -19,14 +19,19 @@ Shared main-point between utilities.
 """
 
 from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
+from calendarserver.tap.util import checkDirectories
 from calendarserver.tools.util import loadConfig, autoDisableMemcached
 
 from twext.python.log import StandardIOObserver
 
 from twistedcaldav.config import ConfigurationError
+from twisted.internet.defer import inlineCallbacks
 
-import os
 import sys
+from calendarserver.tap.util import getRootResource
+from twisted.application.service import Service
+from errno import ENOENT, EACCES
+from twext.enterprise.queue import NonPerformingQueuer
 
 # TODO: direct unit tests for these functions.
 
@@ -74,10 +79,7 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         if patchConfig is not None:
             patchConfig(config)
 
-        # If we don't have permission to access the DataRoot directory, we
-        # can't proceed.  If this fails it should raise OSError which we
-        # catch below.
-        os.listdir(config.DataRoot)
+        checkDirectories(config)
 
         config.ProcessType = "Utility"
         config.UtilityServiceClass = serviceClass
@@ -85,6 +87,10 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         autoDisableMemcached(config)
 
         maker = serviceMaker()
+
+        # Only perform post-import duties if someone has explicitly said to
+        maker.doPostImport = getattr(maker, "doPostImport", False)
+
         options = CalDAVOptions
         service = maker.makeService(options)
 
@@ -98,3 +104,49 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         return
 
     reactor.run()
+
+
+
+class WorkerService(Service):
+
+    def __init__(self, store):
+        self._store = store
+        # Work can be queued but will not be performed by the command line tool
+        store.queuer = NonPerformingQueuer()
+
+
+    def rootResource(self):
+        try:
+            from twistedcaldav.config import config
+            rootResource = getRootResource(config, self._store)
+        except OSError, e:
+            if e.errno == ENOENT:
+                # Trying to re-write resources.xml but its parent directory does
+                # not exist.  The server's never been started, so we're missing
+                # state required to do any work.
+                raise ConfigurationError(
+                    "It appears that the server has never been started.\n"
+                    "Please start it at least once before running this tool.")
+            elif e.errno == EACCES:
+                # Trying to re-write resources.xml but it is not writable by the
+                # current user.  This most likely means we're in a system
+                # configuration and the user doesn't have sufficient privileges
+                # to do the other things the tool might need to do either.
+                raise ConfigurationError("You must run this tool as root.")
+            else:
+                raise
+        return rootResource
+
+
+    @inlineCallbacks
+    def startService(self):
+        from twisted.internet import reactor
+        try:
+            yield self.doWork()
+        except ConfigurationError, ce:
+            sys.stderr.write("Error: %s\n" % (str(ce),))
+        except Exception, e:
+            sys.stderr.write("Error: %s\n" % (e,))
+            raise
+        finally:
+            reactor.stop()

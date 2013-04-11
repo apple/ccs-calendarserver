@@ -22,7 +22,7 @@ import cgi
 
 from functools import partial
 
-from twisted.trial.unittest import TestCase
+from twistedcaldav.test.util import TestCase
 
 from twisted.web.microdom import parseString, getElementsByTagName
 from twisted.web.domhelpers import gatherTextNodes
@@ -66,7 +66,7 @@ class RenderingTests(TestCase):
 
     def setUp(self):
         self.expectedSearches = {}
-        self.resource = WebAdminResource(self.mktemp(), None, self)
+        self.resource = WebAdminResource(self.mktemp(), None, self, None)
 
 
     @inlineCallbacks
@@ -227,7 +227,7 @@ class RenderingTests(TestCase):
     @inlineCallbacks
     def test_selectResourceById(self):
         """
-        When a resource is selected by a 'resourceId' parameter, 
+        When a resource is selected by a 'resourceId' parameter,
         """
         self.resource.getResourceById = partial(FakePrincipalResource, self)
         document = yield self.renderPage(dict(resourceId=["qux"]))
@@ -335,9 +335,9 @@ class RenderingTests(TestCase):
         When rendering a resource, an "Auto-Schedule Mode" menu with various options
         should be displayed.
         """
-        
+
         modes = ("default", "none", "accept-always", "decline-always", "accept-if-free", "decline-if-busy", "automatic",)
-    
+
         for ctr, expectValue in enumerate(modes):
 
             self.resource.getResourceById = partial(FakePrincipalResource, self,
@@ -421,7 +421,6 @@ class RenderingTests(TestCase):
         self.assertIn(cgi.escape(propertyValue),
                       gatherTextNodes(document))
 
-
     # Properties for being a fake directory service as far as the implementation
     # of DirectoryRecord is concerned.
     realmName = 'Fake'
@@ -500,5 +499,3 @@ class FakePrincipalResource(object):
 
     def getAutoScheduleMode(self):
         return self.autoschedmode
-
-

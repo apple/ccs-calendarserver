@@ -176,7 +176,7 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
 
 
     @inlineCallbacks
-    def enqueue(self, pushKey, dataChangedTimestamp=None):
+    def enqueue(self, transaction, pushKey, dataChangedTimestamp=None):
         """
         Sends an Apple Push Notification to any device token subscribed to
         this pushKey.
@@ -207,9 +207,7 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
         if provider is not None:
 
             # Look up subscriptions for this key
-            txn = self.store.newTransaction()
-            subscriptions = (yield txn.apnSubscriptionsByKey(pushKey))
-            yield txn.commit()
+            subscriptions = (yield transaction.apnSubscriptionsByKey(pushKey))
 
             numSubscriptions = len(subscriptions)
             if numSubscriptions > 0:
@@ -230,11 +228,11 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
     """
 
     # Sent by provider
-    COMMAND_SIMPLE   = 0
+    COMMAND_SIMPLE = 0
     COMMAND_ENHANCED = 1
 
     # Received by provider
-    COMMAND_ERROR    = 8
+    COMMAND_ERROR = 8
 
     # Returned only for an error.  Successful notifications get no response.
     STATUS_CODES = {
@@ -261,6 +259,7 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         self.log_debug("ProviderProtocol makeConnection")
         protocol.Protocol.makeConnection(self, transport)
 
+
     def connectionMade(self):
         self.log_debug("ProviderProtocol connectionMade")
         self.buffer = ""
@@ -269,10 +268,12 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         self.factory.connection = self
         self.factory.clientConnectionMade()
 
+
     def connectionLost(self, reason=None):
         # self.log_debug("ProviderProtocol connectionLost: %s" % (reason,))
         # Clear the reference to us from the factory
         self.factory.connection = None
+
 
     @inlineCallbacks
     def dataReceived(self, data, fn=None):
@@ -323,7 +324,7 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
                     (token,))
                 txn = self.factory.store.newTransaction()
                 subscriptions = (yield txn.apnSubscriptionsByToken(token))
-                for key, modified, uid in subscriptions:
+                for key, _ignore_modified, _ignore_uid in subscriptions:
                     self.log_debug("Removing subscription: %s %s" %
                         (token, key))
                     yield txn.removeAPNSubscription(token, key)
@@ -378,6 +379,7 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         )
 
 
+
 class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
 
     protocol = APNProviderProtocol
@@ -389,15 +391,18 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
         self.maxDelay = 30 # max seconds between connection attempts
         self.shuttingDown = False
 
+
     def clientConnectionMade(self):
         self.log_info("Connection to APN server made")
         self.service.clientConnectionMade()
         self.delay = 1.0
 
+
     def clientConnectionLost(self, connector, reason):
         if not self.shuttingDown:
             self.log_info("Connection to APN server lost: %s" % (reason,))
         ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
+
 
     def clientConnectionFailed(self, connector, reason):
         self.log_error("Unable to connect to APN server: %s" % (reason,))
@@ -405,9 +410,11 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
         ReconnectingClientFactory.clientConnectionFailed(self, connector,
             reason)
 
+
     def retry(self, connector=None):
         self.log_info("Reconnecting to APN server")
         ReconnectingClientFactory.retry(self, connector)
+
 
     def stopTrying(self):
         self.shuttingDown = True
@@ -433,6 +440,7 @@ class APNConnectionService(service.Service, LoggingMixIn):
         if reactor is None:
             from twisted.internet import reactor
         self.reactor = reactor
+
 
     def connect(self, factory):
         if self.testConnector is not None:
@@ -475,10 +483,12 @@ class APNProviderService(APNConnectionService):
         else:
             self.scheduler = None
 
+
     def startService(self):
         self.log_debug("APNProviderService startService")
         self.factory = APNProviderFactory(self, self.store)
         self.connect(self.factory)
+
 
     def stopService(self):
         self.log_debug("APNProviderService stopService")
@@ -486,6 +496,7 @@ class APNProviderService(APNConnectionService):
             self.factory.stopTrying()
         if self.scheduler is not None:
             self.scheduler.stop()
+
 
     def clientConnectionMade(self):
         # Service the queue
@@ -551,7 +562,6 @@ class APNProviderService(APNConnectionService):
                 self.queue.append(((token, key), dataChangedTimestamp))
 
 
-
     def sendNotification(self, token, key, dataChangedTimestamp):
         """
         If there is a connection the notification is sent right away, otherwise
@@ -588,6 +598,7 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
         self.log_debug("FeedbackProtocol connectionMade")
         self.buffer = ""
 
+
     @inlineCallbacks
     def dataReceived(self, data, fn=None):
         """
@@ -606,13 +617,14 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
             self.buffer = self.buffer[self.MESSAGE_LENGTH:]
 
             try:
-                timestamp, tokenLength, binaryToken = struct.unpack("!IH32s",
+                timestamp, _ignore_tokenLength, binaryToken = struct.unpack("!IH32s",
                     message)
                 token = binaryToken.encode("hex").lower()
                 yield fn(timestamp, token)
             except Exception, e:
                 self.log_warn("FeedbackProtocol could not process message: %s (%s)" %
                     (message.encode("hex"), e))
+
 
     @inlineCallbacks
     def processFeedback(self, timestamp, token):
@@ -634,7 +646,7 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
         txn = self.factory.store.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
 
-        for key, modified, uid in subscriptions:
+        for key, modified, _ignore_uid in subscriptions:
             if timestamp > modified:
                 self.log_debug("FeedbackProtocol removing subscription: %s %s" %
                     (token, key))
@@ -650,11 +662,13 @@ class APNFeedbackFactory(ClientFactory, LoggingMixIn):
     def __init__(self, store):
         self.store = store
 
+
     def clientConnectionFailed(self, connector, reason):
         self.log_error("Unable to connect to APN feedback server: %s" %
             (reason,))
         self.connected = False
         ClientFactory.clientConnectionFailed(self, connector, reason)
+
 
 
 class APNFeedbackService(APNConnectionService):
@@ -670,15 +684,18 @@ class APNFeedbackService(APNConnectionService):
         self.store = store
         self.updateSeconds = updateSeconds
 
+
     def startService(self):
         self.log_debug("APNFeedbackService startService")
         self.factory = APNFeedbackFactory(self.store)
         self.checkForFeedback()
 
+
     def stopService(self):
         self.log_debug("APNFeedbackService stopService")
         if self.nextCheck is not None:
             self.nextCheck.cancel()
+
 
     def checkForFeedback(self):
         self.nextCheck = None
@@ -707,16 +724,20 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         self.parent = parent
         self.store = store
 
+
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
+
     def etag(self):
         return succeed(None)
 
+
     def checkPreconditions(self, request):
         return None
+
 
     def defaultAccessControlList(self):
         return davxml.ACL(
@@ -738,20 +759,26 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
             ),
         )
 
+
     def contentType(self):
-        return MimeType.fromString("text/html; charset=utf-8");
+        return MimeType.fromString("text/html; charset=utf-8")
+
 
     def resourceType(self):
         return None
 
+
     def isCollection(self):
         return False
+
 
     def isCalendarCollection(self):
         return False
 
+
     def isPseudoCalendarCollection(self):
         return False
+
 
     @inlineCallbacks
     def http_POST(self, request):
@@ -773,6 +800,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
             principal = collection._principalForURI(data)
             if principal is not None:
                 return principal
+
 
     @inlineCallbacks
     def processSubscription(self, request):
@@ -814,6 +842,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
 
         returnValue((code, msg))
 
+
     @inlineCallbacks
     def addSubscription(self, token, key, uid, userAgent, host):
         """
@@ -838,6 +867,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         txn = self.store.newTransaction()
         yield txn.addAPNSubscription(token, key, now, uid, userAgent, host)
         yield txn.commit()
+
 
     def renderResponse(self, code, body=None):
         response = Response(code, {}, body)

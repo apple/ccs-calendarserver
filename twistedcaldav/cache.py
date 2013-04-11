@@ -20,7 +20,7 @@ import uuid
 
 from zope.interface import implements
 
-from twisted.internet.defer import succeed, maybeDeferred, inlineCallbacks,\
+from twisted.internet.defer import succeed, maybeDeferred, inlineCallbacks, \
     returnValue
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.http import Response
@@ -50,15 +50,15 @@ in effect at the time the entry was cached, together with the response that was 
   - directoryToken - a hash of that principal's directory record
   - uriToken - a token for the request uri
   - childTokens - tokens for any child resources the request uri depends on (for depth:1)
-  
+
   The current principalToken, uriToken and childTokens values are themselves stored in the cache using the key prefix 'cacheToken:'.
 When the 'changeCache' api is called the cached value for the matching token is updated.
-  
+
 (4) When a request is being checked in the cache, the response cache entry key is first computed and any value extracted. The
 tokens in the value are then checked against the current set of tokens in the cache. If there is any mismatch between tokens, the
 cache entry is considered invalid and the cached response is not returned. If everything matches up, the cached response is returned
 to the caller and ultimately sent directly back to the client.
- 
+
 (5) Because of shared calendars/address books that can affect the calendar/address book homes of several different users at once, we
 need to keep track of the separate childTokens for each child resource. The tokens for shared resources are keyed of the sharer's uri,
 so sharee's homes use that token. That way a single token for all shared instances is used and changed just once.
@@ -72,16 +72,20 @@ class DisabledCacheNotifier(object):
     def __init__(self, *args, **kwargs):
         pass
 
+
     def changed(self):
         return succeed(None)
+
 
 
 class DisabledCache(object):
     def getResponseForRequest(self, request):
         return succeed(None)
 
+
     def cacheResponseForRequest(self, request, response):
         return succeed(response)
+
 
 
 class URINotFoundException(Exception):
@@ -95,6 +99,7 @@ class URINotFoundException(Exception):
             self.uri)
 
 
+
 class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
 
     def __init__(self, resource, cachePool=None, cacheHandle="Default"):
@@ -102,8 +107,10 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
         self._cachePool = cachePool
         self._cachePoolHandle = cacheHandle
 
+
     def _newCacheToken(self):
         return str(uuid.uuid4())
+
 
     def changed(self):
         """
@@ -111,13 +118,20 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
 
         return: A L{Deferred} that fires when the token has been changed.
         """
-        url = self._resource.url()
+
+        # For shared resources we use the owner URL as the cache key
+        if hasattr(self._resource, "owner_url"):
+            url = self._resource.owner_url()
+        else:
+            url = self._resource.url()
 
         self.log_debug("Changing Cache Token for %r" % (url,))
         return self.getCachePool().set(
             'cacheToken:%s' % (url,),
-            self._newCacheToken(), expireTime=config.ResponseCacheTimeout*60)
-            
+            self._newCacheToken(), expireTime=config.ResponseCacheTimeout * 60)
+
+
+
 class BaseResponseCache(LoggingMixIn):
     """
     A base class which provides some common operations
@@ -149,10 +163,10 @@ class BaseResponseCache(LoggingMixIn):
     def _canonicalizeURIForRequest(self, uri, request):
         """
         Always use canonicalized forms of the URIs for caching (i.e. __uids__ paths).
-        
-        Do this without calling locateResource which may cause a query on the store. 
+
+        Do this without calling locateResource which may cause a query on the store.
         """
-        
+
         uribits = uri.split("/")
         if len(uribits) > 1 and uribits[1] in ("principals", "calendars", "addressbooks"):
             if uribits[2] == "__uids__":
@@ -166,8 +180,7 @@ class BaseResponseCache(LoggingMixIn):
                     uribits[2] = "__uids__"
                     uribits[3] = record.uid
                     return succeed("/".join(uribits))
-                
-            
+
         # Fall back to the locateResource approach
         try:
             return request.locateResource(uri).addCallback(
@@ -190,6 +203,7 @@ class BaseResponseCache(LoggingMixIn):
 
         return d
 
+
     @inlineCallbacks
     def _requestKey(self, request):
         """
@@ -201,7 +215,7 @@ class BaseResponseCache(LoggingMixIn):
             # Give it back to the request so it can be read again
             request.stream = MemoryStream(requestBody)
             request.stream.doStartReading = None
-            
+
             # Normalize the property order by doing a "dumb" sort on lines
             requestLines = requestBody.splitlines()
             requestLines.sort()
@@ -222,6 +236,7 @@ class BaseResponseCache(LoggingMixIn):
         return d1
 
 
+
 class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
     def __init__(self, docroot, cachePool=None):
         self._docroot = docroot
@@ -238,6 +253,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         else:
             return self.getCachePool().get('cacheToken:%s' % (uri,))
 
+
     @inlineCallbacks
     def _tokenForRecord(self, uri, request):
         """
@@ -247,19 +263,21 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         record = (yield self._getRecordForURI(uri, request))
         returnValue(record.cacheToken())
 
+
     @inlineCallbacks
     def _tokensForChildren(self, rURI, request):
         """
         Create a dict of child resource tokens for any "recorded" during this request in the childCacheURIs attribute.
         """
-        
+
         if hasattr(request, "childCacheURIs"):
             tokens = dict([(uri, (yield self._tokenForURI(uri)),) for uri in request.childCacheURIs])
             returnValue(tokens)
         else:
             returnValue({})
-    
-    @inlineCallbacks 
+
+
+    @inlineCallbacks
     def _getTokens(self, request):
         """
         Tokens are a principal token, directory record token, resource token and list
@@ -296,19 +314,19 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         """
         try:
             key = (yield self._hashedRequestKey(request))
-    
+
             self.log_debug("Checking cache for: %r" % (key,))
             _ignore_flags, value = (yield self.getCachePool().get(key))
-    
+
             if value is None:
                 self.log_debug("Not in cache: %r" % (key,))
                 returnValue(None)
-    
+
             self.log_debug("Found in cache: %r = %r" % (key, value))
-    
+
             (principalToken, directoryToken, uriToken, childTokens, (code, headers, body)) = cPickle.loads(value)
             currentTokens = (yield self._getTokens(request))
-    
+
             if currentTokens[0] != principalToken:
                 self.log_debug(
                     "Principal token doesn't match for %r: %r != %r" % (
@@ -316,7 +334,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                         currentTokens[0],
                         principalToken))
                 returnValue(None)
-    
+
             if currentTokens[1] != directoryToken:
                 self.log_debug(
                     "Directory Record Token doesn't match for %r: %r != %r" % (
@@ -324,7 +342,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                         currentTokens[1],
                         directoryToken))
                 returnValue(None)
-    
+
             if currentTokens[2] != uriToken:
                 self.log_debug(
                     "URI token doesn't match for %r: %r != %r" % (
@@ -332,7 +350,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                         currentTokens[2],
                         uriToken))
                 returnValue(None)
-    
+
             for childuri, token in childTokens.items():
                 currentToken = (yield self._tokenForURI(childuri))
                 if currentToken != token:
@@ -343,18 +361,19 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                             currentToken,
                             token))
                     returnValue(None)
-                     
+
             r = Response(code,
                          stream=MemoryStream(body))
-    
+
             for key, value in headers.iteritems():
                 r.headers.setRawHeaders(key, value)
-    
+
             returnValue(r)
 
         except URINotFoundException, e:
             self.log_debug("Could not locate URI: %r" % (e,))
             returnValue(None)
+
 
     @inlineCallbacks
     def cacheResponseForRequest(self, request, response):
@@ -368,9 +387,9 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                 key = request.cacheKey
             else:
                 key = (yield self._hashedRequestKey(request))
-    
+
             key, responseBody = (yield self._getResponseBody(key, response))
-    
+
             response.headers.removeHeader('date')
             response.stream = MemoryStream(responseBody)
             pToken, dToken, uToken, cTokens = (yield self._getTokens(request))
@@ -388,12 +407,13 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             ))
             self.log_debug("Adding to cache: %r = %r" % (key, cacheEntry))
             yield self.getCachePool().set(key, cacheEntry,
-                expireTime=config.ResponseCacheTimeout*60)
+                expireTime=config.ResponseCacheTimeout * 60)
 
         except URINotFoundException, e:
             self.log_debug("Could not locate URI: %r" % (e,))
 
-        returnValue(response)            
+        returnValue(response)
+
 
 
 class _CachedResponseResource(object):
@@ -402,14 +422,17 @@ class _CachedResponseResource(object):
     def __init__(self, response):
         self._response = response
 
+
     def renderHTTP(self, request):
         if not hasattr(request, "extendedLogItems"):
             request.extendedLogItems = {}
         request.extendedLogItems["cached"] = "1"
         return self._response
 
+
     def locateChild(self, request, segments):
         return self, []
+
 
 
 class PropfindCacheMixin(object):
@@ -433,11 +456,14 @@ class PropfindCacheMixin(object):
             d.addCallback(_getResponseCache)
         return d
 
+
     def changeCache(self):
         if hasattr(self, 'cacheNotifier'):
             return self.cacheNotifier.changed()
         else:
             self.log_debug("%r does not have a cacheNotifier but was changed" % (self,))
+
+
 
 class ResponseCacheMixin(object):
     """
@@ -451,19 +477,25 @@ class ResponseCacheMixin(object):
         else:
             self.log_debug("%r does not have a cacheNotifier but was changed" % (self,))
 
+
+
 class CacheStoreNotifier(object):
-    
+
     def __init__(self, resource):
         self.resource = resource
-    
+
+
     def notify(self, op="update"):
         self.resource.changeCache()
+
 
     def clone(self, label="default", id=None):
         return self
 
+
     def getID(self, label="default"):
         return None
+
 
     def nodeName(self, label="default"):
         return succeed(None)

@@ -300,12 +300,17 @@ create table PUSH_NOTIFICATION_WORK (
     "PUSH_ID" nvarchar2(255)
 );
 
+create table GROUP_CACHER_POLLING_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+);
+
 create table CALENDARSERVER (
     "NAME" nvarchar2(255) primary key,
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '17');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '18');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (

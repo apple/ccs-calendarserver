@@ -36,7 +36,6 @@ Cruft += .dependencies
 Extra_Environment += PATH="$(SIPP)/usr/bin:$$PATH"
 
 CALDAVDSUBDIR = /caldavd
-WEBAPPSSUBDIR = /apache2/webapps
 
 PYTHON = $(USRBINDIR)/python
 PY_HOME = $(SIPP)$(SHAREDIR)$(CALDAVDSUBDIR)
@@ -85,10 +84,7 @@ install:: build
 	$(_v) cd $(BuildDirectory)/pycrypto-2.5       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd.plist"
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(WEBAPPSSUBDIR)"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/com.apple.webapp.contacts.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(WEBAPPSSUBDIR)/com.apple.webapp.contacts.plist"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/com.apple.webapp.contactsssl.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(WEBAPPSSUBDIR)/com.apple.webapp.contactsssl.plist"
+	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist"
 	$(_v) chmod -R ugo+r "$(DSTROOT)$(PY_HOME)"
 	$(_v) for f in $$(find "$(DSTROOT)$(SIPP)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
 
@@ -112,30 +108,10 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) -o "$(CS_USER)" -g "$(CS_GROUP)" -m 0755 "$(DSTROOT)$(VARDIR)/log$(CALDAVDSUBDIR)"
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(NSLIBRARYDIR)/LaunchDaemons"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/calendarserver.plist" "$(DSTROOT)$(SIPP)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist"
-	@echo "Installing migration extras script..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SERVERSETUP)/MigrationExtras"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/calendarmigrator.py" "$(DSTROOT)$(SERVERSETUP)/MigrationExtras/70_calendarmigrator.py"
-	$(_v) chmod ugo+x "$(DSTROOT)$(SERVERSETUP)/MigrationExtras/70_calendarmigrator.py"
-	@echo "Installing common extras script..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SERVERSETUP)/CommonExtras"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/calendarcommonextra.py" "$(DSTROOT)$(SERVERSETUP)/CommonExtras/70_calendarcommonextra.py"
-	$(_v) chmod ugo+x "$(DSTROOT)$(SERVERSETUP)/CommonExtras/70_calendarcommonextra.py"
-	@echo "Installing server promotion extras script..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SERVERSETUP)/PromotionExtras"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/calendarpromotion.py" "$(DSTROOT)$(SERVERSETUP)/PromotionExtras/59_calendarpromotion.py"
-	$(_v) chmod ugo+x "$(DSTROOT)$(SERVERSETUP)/PromotionExtras/59_calendarpromotion.py"
-	@echo "Installing server uninstall extras script..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SERVERSETUP)/UninstallExtras"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/calendardemotion.py" "$(DSTROOT)$(SERVERSETUP)/UninstallExtras/59_calendardemotion.py"
-	$(_v) chmod ugo+x "$(DSTROOT)$(SERVERSETUP)/UninstallExtras/59_calendardemotion.py"
 	@echo "Installing changeip script..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip"
 	$(_v) $(INSTALL_FILE) "$(Sources)/calendarserver/tools/changeip_calendar.py" "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip/changeip_calendar.py"
 	$(_v) chmod ugo+x "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip/changeip_calendar.py"
-	@echo "Installing certificate update scripts..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/certupdate"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/certupdate/calendarcertupdate.py" "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/certupdate/calendarcertupdate.py"
-	$(_v) chmod ugo+x "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/certupdate/calendarcertupdate.py"
 
 install::
 	@echo "Installing CalDAVTester package..."

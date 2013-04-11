@@ -132,9 +132,23 @@ class ResourceDeletedError(CommonStoreError):
 
 
 
+class ValidOrganizerError(CommonStoreError):
+    """
+    Specified organizer is not valid.
+    """
+
+
+
 class AttendeeAllowedError(CommonStoreError):
     """
     Attendee is not allowed to make an implicit scheduling change.
+    """
+
+
+
+class ShareeAllowedError(CommonStoreError):
+    """
+    Sharee is not allowed to make an implicit scheduling change.
     """
 
 

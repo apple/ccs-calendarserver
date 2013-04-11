@@ -265,6 +265,13 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         return joinURL(self._parentResource.url(), self._name, "/")
 
 
+    def owner_url(self):
+        if self.isShareeCollection():
+            return joinURL(self._share.url(), "/")
+        else:
+            return self.url()
+
+
     def parentResource(self):
         return self._parentResource
 

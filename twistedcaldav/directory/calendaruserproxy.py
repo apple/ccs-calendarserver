@@ -375,7 +375,9 @@ class CalendarUserProxyPrincipalResource (
             p = self.pcollection.principalForUID(uid)
             if p:
                 # Only principals enabledForLogin can be a delegate
-                if p.record.enabledForLogin:
+                # (and groups as well)
+                if (p.record.enabledForLogin or 
+                    p.record.recordType == p.record.service.recordType_groups):
                     found.append(p)
                 # Make sure any outstanding deletion timer entries for
                 # existing principals are removed
@@ -592,7 +594,8 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
         @param principalUID: the UID of the principal to remove.
         """
-
+        # FIXME: This method doesn't appear to be used anywhere.  Still needed?
+        
         if delay:
             # We are going to remove the principal only after <delay> seconds
             # has passed since we first chose to remove it, to protect against

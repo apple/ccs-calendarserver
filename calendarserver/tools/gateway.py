@@ -28,10 +28,11 @@ from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.directory.directory import DirectoryError
 from txdav.xml import element as davxml
 
-from calendarserver.tools.principals import (
+from calendarserver.tools.util import (
     principalForPrincipalID, proxySubprincipal, addProxy, removeProxy,
-    getProxies, setProxies, ProxyError, ProxyWarning, updateRecord
+    ProxyError, ProxyWarning
 )
+from calendarserver.tools.principals import getProxies, setProxies, updateRecord
 from calendarserver.tools.purge import WorkerService, PurgeOldEventsService, DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS
 from calendarserver.tools.cmdline import utilityMain
 
@@ -212,7 +213,7 @@ class Runner(object):
         readProxies = command.get("ReadProxies", None)
         writeProxies = command.get("WriteProxies", None)
         principal = principalForPrincipalID(record.guid, directory=self.dir)
-        (yield setProxies(principal, readProxies, writeProxies, directory=self.dir))
+        (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
 
         respondWithRecordsOfType(self.dir, command, "locations")
 
@@ -260,7 +261,7 @@ class Runner(object):
         readProxies = command.get("ReadProxies", None)
         writeProxies = command.get("WriteProxies", None)
         principal = principalForPrincipalID(record.guid, directory=self.dir)
-        (yield setProxies(principal, readProxies, writeProxies, directory=self.dir))
+        (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
 
         yield self.command_getLocationAttributes(command)
 
@@ -300,7 +301,7 @@ class Runner(object):
         readProxies = command.get("ReadProxies", None)
         writeProxies = command.get("WriteProxies", None)
         principal = principalForPrincipalID(record.guid, directory=self.dir)
-        (yield setProxies(principal, readProxies, writeProxies, directory=self.dir))
+        (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
 
         respondWithRecordsOfType(self.dir, command, "resources")
 
@@ -328,7 +329,7 @@ class Runner(object):
         readProxies = command.get("ReadProxies", None)
         writeProxies = command.get("WriteProxies", None)
         principal = principalForPrincipalID(record.guid, directory=self.dir)
-        (yield setProxies(principal, readProxies, writeProxies, directory=self.dir))
+        (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
 
         yield self.command_getResourceAttributes(command)
 
@@ -370,7 +371,7 @@ class Runner(object):
             respondWithError("Proxy not found: %s" % (command['Proxy'],))
             return
         try:
-            (yield addProxy(principal, "write", proxy))
+            (yield addProxy(self.root, self.dir, self.store, principal, "write", proxy))
         except ProxyError, e:
             respondWithError(str(e))
             return
@@ -390,7 +391,7 @@ class Runner(object):
             respondWithError("Proxy not found: %s" % (command['Proxy'],))
             return
         try:
-            (yield removeProxy(principal, proxy, proxyTypes=("write",)))
+            (yield removeProxy(self.root, self.dir, self.store, principal, proxy, proxyTypes=("write",)))
         except ProxyError, e:
             respondWithError(str(e))
             return
@@ -419,7 +420,7 @@ class Runner(object):
             respondWithError("Proxy not found: %s" % (command['Proxy'],))
             return
         try:
-            (yield addProxy(principal, "read", proxy))
+            (yield addProxy(self.root, self.dir, self.store, principal, "read", proxy))
         except ProxyError, e:
             respondWithError(str(e))
             return
@@ -439,7 +440,7 @@ class Runner(object):
             respondWithError("Proxy not found: %s" % (command['Proxy'],))
             return
         try:
-            (yield removeProxy(principal, proxy, proxyTypes=("read",)))
+            (yield removeProxy(self.root, self.dir, self.store, principal, proxy, proxyTypes=("read",)))
         except ProxyError, e:
             respondWithError(str(e))
             return
@@ -516,13 +517,7 @@ def respond(command, result):
 
 def respondWithError(msg, status=1):
     sys.stdout.write(writePlistToString({'error' : msg, }))
-    """
-    try:
-        reactor.stop()
-    except RuntimeError:
-        pass
-    sys.exit(status)
-    """
+
 
 if __name__ == "__main__":
     main()

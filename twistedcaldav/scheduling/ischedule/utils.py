@@ -41,10 +41,13 @@ def getIPsFromHost(host):
     @return: a C{set} of IPs
     """
     ips = set()
-    for family in (socket.AF_INET, socket.AF_INET6):
-        results = socket.getaddrinfo(host, None, family, socket.SOCK_STREAM)
-        for _ignore_family, _ignore_socktype, _ignore_proto, _ignore_canonname, sockaddr in results:
-            ips.add(sockaddr[0])
+    # Use AF_UNSPEC rather than iterating (socket.AF_INET, socket.AF_INET6)
+    # because getaddrinfo() will raise an exception if no match is found for
+    # the specified family
+    # TODO: potentially use twext.internet.gaiendpoint instead
+    results = socket.getaddrinfo(host, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    for _ignore_family, _ignore_socktype, _ignore_proto, _ignore_canonname, sockaddr in results:
+        ips.add(sockaddr[0])
 
     return ips
 

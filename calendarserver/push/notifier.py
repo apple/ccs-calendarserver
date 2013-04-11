@@ -32,19 +32,19 @@ log = Logger()
 
 class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
-    group = "PUSH_ID"
+    group = property(lambda self: self.pushID)
 
     @inlineCallbacks
     def doWork(self):
 
         # Delete all other work items with the same pushID
         yield Delete(From=self.table,
-                     Where=self.table.PUSH_ID == self.pushID 
+                     Where=self.table.PUSH_ID == self.pushID
                     ).on(self.transaction)
 
         pushDistributor = self.transaction._pushDistributor
         if pushDistributor is not None:
-            yield pushDistributor.enqueue(self.pushID)
+            yield pushDistributor.enqueue(self.transaction, self.pushID)
 
 
 
@@ -60,9 +60,10 @@ class Notifier(LoggingMixIn):
 
     def __init__(self, notifierFactory, label="default", id=None, prefix=None):
         self._notifierFactory = notifierFactory
-        self._ids = { label : self.normalizeID(id) }
+        self._ids = {label : self.normalizeID(id) }
         self._notify = True
         self._prefix = prefix
+
 
     def normalizeID(self, id):
         urn = "urn:uuid:"
@@ -73,13 +74,16 @@ class Notifier(LoggingMixIn):
             pass
         return id
 
+
     def enableNotify(self, arg):
         self.log_debug("enableNotify: %s" % (self._ids['default'][1],))
         self._notify = True
 
+
     def disableNotify(self):
         self.log_debug("disableNotify: %s" % (self._ids['default'][1],))
         self._notify = False
+
 
     @inlineCallbacks
     def notify(self):
@@ -93,6 +97,7 @@ class Notifier(LoggingMixIn):
                 else:
                     self.log_debug("Skipping notification for: %s" % (id,))
 
+
     def clone(self, label="default", id=None):
         newNotifier = self.__class__(self._notifierFactory)
         newNotifier._ids = self._ids.copy()
@@ -100,8 +105,10 @@ class Notifier(LoggingMixIn):
         newNotifier._prefix = self._prefix
         return newNotifier
 
+
     def addID(self, label="default", id=None):
         self._ids[label] = self.normalizeID(id)
+
 
     def getID(self, label="default"):
         id = self._ids.get(label, None)
@@ -110,9 +117,11 @@ class Notifier(LoggingMixIn):
         else:
             return "%s|%s" % (self._prefix, id)
 
+
     def nodeName(self, label="default"):
         id = self.getID(label=label)
         return succeed(self._notifierFactory.pushKeyForId(id))
+
 
 
 class NotifierFactory(LoggingMixIn):
@@ -132,6 +141,7 @@ class NotifierFactory(LoggingMixIn):
             from twisted.internet import reactor
         self.reactor = reactor
 
+
     @inlineCallbacks
     def send(self, id):
         txn = self.store.newTransaction()
@@ -141,8 +151,10 @@ class NotifierFactory(LoggingMixIn):
             notBefore=notBefore)
         yield txn.commit()
 
+
     def newNotifier(self, label="default", id=None, prefix=None):
         return Notifier(self, label=label, id=id, prefix=prefix)
+
 
     def pushKeyForId(self, id):
         path = "/"
@@ -190,6 +202,7 @@ def getPubSubAPSConfiguration(pushKey, config):
     return None
 
 
+
 class PushDistributor(object):
     """
     Distributes notifications to the protocol-specific subservices
@@ -198,18 +211,22 @@ class PushDistributor(object):
     def __init__(self, observers):
         """
         @param observers: the list of observers to distribute pushKeys to
-        @type observers: C{list} 
+        @type observers: C{list}
         """
         # TODO: add an IPushObservers interface?
-        self.observers = observers 
+        self.observers = observers
+
 
     @inlineCallbacks
-    def enqueue(self, pushKey):
+    def enqueue(self, transaction, pushKey):
         """
         Pass along enqueued pushKey to any observers
+
+        @param transaction: a transaction to use, if needed
+        @type transaction: L{CommonStoreTransaction}
 
         @param pushKey: the push key to distribute to the observers
         @type pushKey: C{str}
         """
         for observer in self.observers:
-            yield observer.enqueue(pushKey)
+            yield observer.enqueue(transaction, pushKey)

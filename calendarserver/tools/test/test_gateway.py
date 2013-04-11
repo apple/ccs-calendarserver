@@ -29,10 +29,10 @@ from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tools.util import getDirectory
 
 
-class GatewayTestCase(TestCase):
+class RunCommandTestCase(TestCase):
 
     def setUp(self):
-        super(GatewayTestCase, self).setUp()
+        super(RunCommandTestCase, self).setUp()
 
         testRoot = os.path.join(os.path.dirname(__file__), "gateway")
         templateName = os.path.join(testRoot, "caldavd.plist")
@@ -42,6 +42,7 @@ class GatewayTestCase(TestCase):
 
         newConfig = template % {
             "ServerRoot" : os.path.abspath(config.ServerRoot),
+            "WritablePlist" : os.path.join(os.path.abspath(config.ConfigRoot), "caldavd-writable.plist"),
         }
         configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
         configFilePath.setContent(newConfig)
@@ -70,8 +71,10 @@ class GatewayTestCase(TestCase):
         reactor.callLater(0, d.callback, True)
         return d
 
+
     @inlineCallbacks
-    def runCommand(self, command, error=False):
+    def runCommand(self, command, error=False,
+        script="calendarserver_command_gateway"):
         """
         Run the given command by feeding it as standard input to
         calendarserver_command_gateway in a subprocess.
@@ -82,9 +85,9 @@ class GatewayTestCase(TestCase):
 
         sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         python = sys.executable
-        gateway = os.path.join(sourceRoot, "bin", "calendarserver_command_gateway")
+        script = os.path.join(sourceRoot, "bin", script)
 
-        args = [python, gateway, "-f", self.configFileName]
+        args = [python, script, "-f", self.configFileName]
         if error:
             args.append("--error")
 
@@ -101,14 +104,19 @@ class GatewayTestCase(TestCase):
 
         returnValue(plist)
 
+
+
+class GatewayTestCase(RunCommandTestCase):
+
     @inlineCallbacks
     def test_getLocationList(self):
         results = yield self.runCommand(command_getLocationList)
         self.assertEquals(len(results["result"]), 10)
 
+
     @inlineCallbacks
     def test_getLocationAttributes(self):
-        results = yield self.runCommand(command_createLocation)
+        yield self.runCommand(command_createLocation)
         results = yield self.runCommand(command_getLocationAttributes)
         self.assertEquals(results["result"]["Building"], "Test Building")
         self.assertEquals(results["result"]["City"], "Cupertino")
@@ -119,26 +127,30 @@ class GatewayTestCase(TestCase):
         self.assertEquals(results["result"]["RecordName"], ["createdlocation01"])
         self.assertEquals(results["result"]["State"], "CA")
         self.assertEquals(results["result"]["Street"], "1 Infinite Loop")
-        self.assertEquals(results["result"]["RealName"], "Created Location 01 %s" % unichr(208))
+        self.assertEquals(results["result"]["RealName"],
+            "Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
         self.assertEquals(results["result"]["Comment"], "Test Comment")
         self.assertEquals(results["result"]["AutoSchedule"], True)
         self.assertEquals(results["result"]["AutoAcceptGroup"], "E5A6142C-4189-4E9E-90B0-9CD0268B314B")
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
 
+
     @inlineCallbacks
     def test_getResourceList(self):
         results = yield self.runCommand(command_getResourceList)
         self.assertEquals(len(results["result"]), 10)
 
+
     @inlineCallbacks
     def test_getResourceAttributes(self):
-        results = yield self.runCommand(command_createResource)
+        yield self.runCommand(command_createResource)
         results = yield self.runCommand(command_getResourceAttributes)
         self.assertEquals(results["result"]["Comment"], "Test Comment")
         self.assertEquals(results["result"]["Type"], "Computer")
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
+
 
     @inlineCallbacks
     def test_createLocation(self):
@@ -146,7 +158,6 @@ class GatewayTestCase(TestCase):
 
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         self.assertEquals(record, None)
-
         yield self.runCommand(command_createLocation)
 
         directory.flushCaches()
@@ -157,7 +168,8 @@ class GatewayTestCase(TestCase):
         augmentService.refresh()
 
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
-        self.assertEquals(record.fullName.decode("utf-8"), "Created Location 01 %s" % unichr(208))
+        self.assertEquals(record.fullName.decode("utf-8"),
+            "Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
 
         self.assertNotEquals(record, None)
         self.assertEquals(record.autoSchedule, True)
@@ -177,12 +189,12 @@ class GatewayTestCase(TestCase):
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
 
+
     @inlineCallbacks
     def test_setLocationAttributes(self):
         directory = getDirectory()
 
         yield self.runCommand(command_createLocation)
-        record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         yield self.runCommand(command_setLocationAttributes)
         directory.flushCaches()
 
@@ -226,6 +238,7 @@ class GatewayTestCase(TestCase):
         record = directory.recordWithUID("location01")
         self.assertEquals(record, None)
 
+
     @inlineCallbacks
     def test_createResource(self):
         directory = getDirectory()
@@ -238,6 +251,7 @@ class GatewayTestCase(TestCase):
         directory.flushCaches()
         record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
         self.assertNotEquals(record, None)
+
 
     @inlineCallbacks
     def test_setResourceAttributes(self):
@@ -254,6 +268,7 @@ class GatewayTestCase(TestCase):
         record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
         self.assertEquals(record.fullName, "Updated Laptop 1")
 
+
     @inlineCallbacks
     def test_destroyResource(self):
         directory = getDirectory()
@@ -267,16 +282,19 @@ class GatewayTestCase(TestCase):
         record = directory.recordWithUID("resource01")
         self.assertEquals(record, None)
 
+
     @inlineCallbacks
     def test_addWriteProxy(self):
         results = yield self.runCommand(command_addWriteProxy)
         self.assertEquals(len(results["result"]["Proxies"]), 1)
 
+
     @inlineCallbacks
     def test_removeWriteProxy(self):
-        results = yield self.runCommand(command_addWriteProxy)
+        yield self.runCommand(command_addWriteProxy)
         results = yield self.runCommand(command_removeWriteProxy)
         self.assertEquals(len(results["result"]["Proxies"]), 0)
+
 
     @inlineCallbacks
     def test_purgeOldEvents(self):
@@ -285,6 +303,7 @@ class GatewayTestCase(TestCase):
         self.assertEquals(results["result"]["RetainDays"], 42)
         results = yield self.runCommand(command_purgeOldEventsNoDays)
         self.assertEquals(results["result"]["RetainDays"], 365)
+
 
 
 command_addReadProxy = """<?xml version="1.0" encoding="UTF-8"?>
@@ -328,7 +347,7 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         <key>GeneratedUID</key>
         <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
         <key>RealName</key>
-        <string>Created Location 01 %s</string>
+        <string>Created Location 01 %s %s</string>
         <key>RecordName</key>
         <array>
                 <string>createdlocation01</string>
@@ -367,7 +386,7 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         </array>
 </dict>
 </plist>
-""" % unichr(208)
+""" % (unichr(208), u"\ud83d\udca3")
 
 
 command_createResource = """<?xml version="1.0" encoding="UTF-8"?>

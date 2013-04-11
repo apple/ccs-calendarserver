@@ -136,6 +136,8 @@ class ScheduleViaCalDAV(DeliveryService):
             ))
         except ImplicitProcessorException, e:
             log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
+            if log.willLogAtLevel("debug"):
+                log.debug("%s: %s" % (e, Failure().getTraceback(),))
             err = HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "recipient-permissions"),
@@ -151,6 +153,8 @@ class ScheduleViaCalDAV(DeliveryService):
             except Exception as e:
                 # FIXME: Bare except
                 log.err("Could not store data in Inbox : %s %s" % (recipient.inbox, e,))
+                if log.willLogAtLevel("debug"):
+                    log.debug("Bare Exception: %s" % (Failure().getTraceback(),))
                 err = HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "recipient-permissions"),
@@ -192,6 +196,8 @@ class ScheduleViaCalDAV(DeliveryService):
             ))
         except:
             log.err("Could not determine free busy information: %s" % (recipient.cuaddr,))
+            if log.willLogAtLevel("debug"):
+                log.debug("Bare Exception: %s" % (Failure().getTraceback(),))
             err = HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "recipient-permissions"),
