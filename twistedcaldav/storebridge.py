@@ -41,13 +41,14 @@ from twisted.python.util import FancyEqMixin
 from twistedcaldav import customxml, carddavxml, caldavxml
 from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin, \
     DisabledCacheNotifier
-from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance, \
+    NoUIDConflict, MaxInstances
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
-    InvalidICalendarDataError, iCalendarProductID, allowedComponents
-from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
+    InvalidICalendarDataError, iCalendarProductID, allowedComponents, Component
+from twistedcaldav.memcachelock import MemcacheLockTimeoutError
 from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
@@ -60,10 +61,16 @@ from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     AttachmentStoreValidManagedID, AttachmentRemoveFailed, \
-    AttachmentDropboxNotAllowed
+    AttachmentDropboxNotAllowed, InvalidComponentTypeError, \
+    TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError, \
+    UIDExistsError, InvalidUIDError, InvalidPerUserDataMerge, \
+    AttendeeAllowedError, ResourceDeletedError, InvalidComponentForStoreError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
     _BIND_MODE_DIRECT
-from txdav.common.icommondatastore import NoSuchObjectResourceError
+from txdav.common.icommondatastore import NoSuchObjectResourceError, \
+    TooManyObjectResourcesError, ObjectResourceTooBigError, \
+    InvalidObjectResourceError, ObjectResourceNameNotAllowedError, \
+    ObjectResourceNameAlreadyExistsError
 from txdav.idav import PropertyChangeNotAllowedError
 from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
@@ -72,6 +79,12 @@ from urlparse import urlsplit
 import hashlib
 import time
 import uuid
+from twext.web2 import responsecode
+from twext.web2.iweb import IResponse
+from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.instance import InvalidOverriddenInstanceError, \
+    TooManyInstancesError
+from twisted.python.failure import Failure
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -417,12 +430,12 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             )
             log.err(msg)
             raise HTTPError(StatusResponse(BAD_REQUEST, msg))
-        response = (yield self.storeRemove(request, True, request.uri))
+        response = (yield self.storeRemove(request))
         returnValue(response)
 
 
     @inlineCallbacks
-    def storeRemove(self, request, viaRequest, where):
+    def storeRemove(self, request):
         """
         Delete this collection resource, first deleting each contained
         object resource.
@@ -462,11 +475,11 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         # 'deluri' is this resource's URI; I should be able to synthesize it
         # from 'self'.
 
-        errors = ResponseQueue(where, "DELETE", NO_CONTENT)
+        errors = ResponseQueue(request.uri, "DELETE", NO_CONTENT)
 
         for childname in (yield self.listChildren()):
 
-            childurl = joinURL(where, childname)
+            childurl = joinURL(request.uri, childname)
 
             # FIXME: use a more specific API; we should know what this child
             # resource is, and not have to look it up.  (Sharing information
@@ -474,7 +487,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             child = (yield request.locateChildResource(self, childname))
 
             try:
-                yield child.storeRemove(request, viaRequest, childurl)
+                yield child.storeRemove(request)
             except:
                 logDefaultException()
                 errors.add(childurl, BAD_REQUEST)
@@ -902,11 +915,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             if ifmatch and ifmatch != etag.generate():
                 raise HTTPError(PRECONDITION_FAILED)
 
-            yield deleteResource.storeRemove(
-                request,
-                True,
-                href,
-            )
+            yield deleteResource.storeRemove(request)
 
         except HTTPError, e:
             # Extract the pre-condition
@@ -1193,7 +1202,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
 
     @inlineCallbacks
-    def storeRemove(self, request, implicitly, where):
+    def storeRemove(self, request):
         """
         Delete this calendar collection resource, first deleting each contained
         calendar resource.
@@ -1206,14 +1215,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             not actually be a C{DELETE} request itself.
 
         @type request: L{twext.web2.iweb.IRequest}
-
-        @param implicitly: Should implicit scheduling operations be triggered
-            as a resut of this C{DELETE}?
-
-        @type implicitly: C{bool}
-
-        @param where: the URI at which the resource is being deleted.
-        @type where: C{str}
 
         @return: an HTTP response suitable for sending to a client (or
             including in a multi-status).
@@ -1232,9 +1233,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             ))
 
         response = (
-            yield super(CalendarCollectionResource, self).storeRemove(
-                request, implicitly, where
-            )
+            yield super(CalendarCollectionResource, self).storeRemove(request)
         )
 
         if response == NO_CONTENT:
@@ -2176,7 +2175,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             log.debug("Resource not found: %s" % (self,))
             raise HTTPError(NOT_FOUND)
 
-        return self.storeRemove(request, True, request.uri)
+        return self.storeRemove(request)
 
 
     @inlineCallbacks
@@ -2311,7 +2310,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
 
     @inlineCallbacks
-    def storeRemove(self, request, implicitly, where):
+    def storeRemove(self, request):
         """
         Delete this object.
 
@@ -2464,6 +2463,133 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     "If-Schedule-Tag-Match: header value '%s' does not match resource value '%s'" %
                     (header, self.scheduleTag,))
                 raise HTTPError(PRECONDITION_FAILED)
+            return True
+
+        elif config.Scheduling.CalDAV.ScheduleTagCompatibility:
+            # Compatibility with old clients. Policy:
+            #
+            # 1. If If-Match header is not present, never do smart merge.
+            # 2. If If-Match is present and the specified ETag is
+            #    considered a "weak" match to the current Schedule-Tag,
+            #    then do smart merge, else reject with a 412.
+            #
+            # Actually by the time we get here the precondition will
+            # already have been tested and found to be OK, so we can just
+            # always do smart merge now if If-Match is present.
+            return request.headers.getHeader("If-Match") is not None
+
+        else:
+            return False
+
+    StoreExceptionsStatusErrors = set((
+        ObjectResourceNameNotAllowedError,
+        ObjectResourceNameAlreadyExistsError,
+    ))
+
+    StoreExceptionsErrors = {
+        TooManyObjectResourcesError: customxml.MaxResources(),
+        ObjectResourceTooBigError: (caldav_namespace, "max-resource-size"),
+        InvalidObjectResourceError: (caldav_namespace, "valid-calendar-data"),
+        InvalidComponentForStoreError: (caldav_namespace, "valid-calendar-object-resource"),
+        InvalidComponentTypeError: (caldav_namespace, "supported-component"),
+        TooManyAttendeesError: MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),
+        InvalidCalendarAccessError: (calendarserver_namespace, "valid-access-restriction"),
+        ValidOrganizerError: (calendarserver_namespace, "valid-organizer"),
+        UIDExistsError: NoUIDConflict(),
+        InvalidUIDError: NoUIDConflict(),
+        InvalidPerUserDataMerge: (caldav_namespace, "valid-calendar-data"),
+        AttendeeAllowedError: (caldav_namespace, "attendee-allowed"),
+        InvalidOverriddenInstanceError: (caldav_namespace, "valid-calendar-data"),
+        TooManyInstancesError: MaxInstances.fromString(str(config.MaxAllowedInstances)),
+        AttachmentStoreValidManagedID: (caldav_namespace, "valid-managed-id"),
+    }
+
+    @inlineCallbacks
+    def http_PUT(self, request):
+
+        # Content-type check
+        content_type = request.headers.getHeader("content-type")
+        if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "calendar"):
+            log.err("MIME type %s not allowed in calendar collection" % (content_type,))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "supported-calendar-data"),
+                "Invalid MIME type for calendar collection",
+            ))
+
+        # Do schedule tag check
+        schedule_tag_match = self.validIfScheduleMatch(request)
+
+        # Read the calendar component from the stream
+        try:
+            calendardata = (yield allDataFromStream(request.stream))
+            if not hasattr(request, "extendedLogItems"):
+                request.extendedLogItems = {}
+            request.extendedLogItems["cl"] = str(len(calendardata)) if calendardata else "0"
+
+            # We must have some data at this point
+            if calendardata is None:
+                # Use correct DAV:error response
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="No calendar data"
+                ))
+
+            try:
+                component = Component.fromString(calendardata)
+            except ValueError, e:
+                log.err(str(e))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    "Can't parse calendar data"
+                ))
+
+            try:
+                response = (yield self.storeComponent(component))
+            except ResourceDeletedError:
+                # This is OK - it just means the server deleted the resource during the PUT. We make it look
+                # like the PUT succeeded.
+                response = responsecode.CREATED if self.exists() else responsecode.NO_CONTENT
+            response = IResponse(response)
+
+            # Look for Prefer header
+            prefer = request.headers.getHeader("prefer", {})
+            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
+
+            if returnRepresentation and response.code / 100 == 2:
+                oldcode = response.code
+                response = (yield self.http_GET(request))
+                if oldcode == responsecode.CREATED:
+                    response.code = responsecode.CREATED
+                response.headers.setHeader("content-location", request.path)
+
+            returnValue(response)
+
+        # Handle the various store errors
+        except Exception as err:
+
+            # Grab the current exception state here so we can use it in a re-raise - we need this because
+            # an inlineCallback might be called and that raises an exception when it returns, wiping out the
+            # original exception "context".
+            ex = Failure()
+
+            if type(err) in CalendarObjectResource.StoreExceptionsStatusErrors:
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
+
+            elif type(err) in CalendarObjectResource.StoreExceptionsErrors:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    CalendarObjectResource.StoreExceptionsErrors[type(err)],
+                    str(err),
+                ))
+            elif isinstance(err, ValueError):
+                log.err("Error while handling (calendar) PUT: %s" % (e,))
+                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
+            else:
+                # Return the original failure (exception) state
+                ex.raiseException()
 
 
     def storeResource(self, request, parent, destination, destination_uri, destination_parent, hasSource, component, attachmentProcessingDone=False):
@@ -2481,89 +2607,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             calendar=component,
             attachmentProcessingDone=attachmentProcessingDone,
         )
-
-
-    @inlineCallbacks
-    def storeRemove(self, request, implicitly, where):
-        """
-        Delete this calendar object and do implicit scheduling actions if
-        required.
-
-        @param request: Unused by this implementation; present for signature
-            compatibility with L{CalendarCollectionResource.storeRemove}.
-
-        @type request: L{twext.web2.iweb.IRequest}
-
-        @param implicitly: Should implicit scheduling operations be triggered
-            as a result of this C{DELETE}?
-
-        @type implicitly: C{bool}
-
-        @param where: the URI at which the resource is being deleted.
-        @type where: C{str}
-
-        @return: an HTTP response suitable for sending to a client (or
-            including in a multi-status).
-
-         @rtype: something adaptable to L{twext.web2.iweb.IResponse}
-        """
-
-        # TODO: need to use transaction based delete on live scheduling object
-        # resources as the iTIP operation may fail and may need to prevent the
-        # delete from happening.
-
-        isinbox = self._newStoreObject._calendar.name() == "inbox"
-        transaction = self._newStoreObject.transaction()
-
-        # Do If-Schedule-Tag-Match behavior first
-        # Important: this should only ever be done when storeRemove is called
-        # directly as a result of an HTTP DELETE to ensure the proper If-
-        # header is used in this test.
-        if not isinbox and implicitly:
-            self.validIfScheduleMatch(request)
-
-        scheduler = None
-        lock = None
-        if not isinbox and implicitly:
-            # Get data we need for implicit scheduling
-            calendar = (yield self.iCalendarForUser(request))
-            scheduler = ImplicitScheduler()
-            do_implicit_action, _ignore = (
-                yield scheduler.testImplicitSchedulingDELETE(
-                    request, self, calendar
-                )
-            )
-            if do_implicit_action:
-                lock = MemcacheLock(
-                    "ImplicitUIDLock",
-                    calendar.resourceUID(),
-                    timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
-                    expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
-                )
-
-        try:
-            if lock:
-                yield lock.acquire()
-
-            yield super(CalendarObjectResource, self).storeRemove(request, implicitly, where)
-
-            # Do scheduling
-            if not isinbox and implicitly:
-                yield scheduler.doImplicitScheduling()
-
-        except MemcacheLockTimeoutError:
-            raise HTTPError(StatusResponse(
-                CONFLICT,
-                "Resource: %s currently in use on the server." % (where,))
-            )
-
-        finally:
-            if lock:
-                # Release lock after commit or abort
-                transaction.postCommit(lock.clean)
-                transaction.postAbort(lock.clean)
-
-        returnValue(NO_CONTENT)
 
 
     @requiresPermissions(davxml.WriteContent())
@@ -2820,7 +2863,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     @inlineCallbacks
-    def storeRemove(self, request, viaRequest, where):
+    def storeRemove(self, request):
         """
         Delete this collection resource, first deleting each contained
         object resource.
@@ -2833,14 +2876,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
             not actually be a C{DELETE} request itself.
 
         @type request: L{twext.web2.iweb.IRequest}
-
-        @param viaRequest: Indicates if the delete was a direct result of an http_DELETE
-        which for calendars at least will require implicit cancels to be sent.
-
-        @type request: C{bool}
-
-        @param where: the URI at which the resource is being deleted.
-        @type where: C{str}
 
         @return: an HTTP response suitable for sending to a client (or
             including in a multi-status).
@@ -2859,9 +2894,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
             ))
 
         response = (
-            yield super(AddressBookCollectionResource, self).storeRemove(
-                request, viaRequest, where
-            )
+            yield super(AddressBookCollectionResource, self).storeRemove(request)
         )
 
         returnValue(response)
@@ -3140,7 +3173,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             log.debug("Resource not found: %s" % (self,))
             raise HTTPError(NOT_FOUND)
 
-        return self.storeRemove(request, request.uri)
+        return self.storeRemove(request)
 
 
     def http_PROPPATCH(self, request):
@@ -3151,7 +3184,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
 
     @inlineCallbacks
-    def storeRemove(self, request, where):
+    def storeRemove(self, request):
         """
         Remove this notification object.
         """
@@ -3169,7 +3202,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             self._initializeWithObject(None)
 
         except MemcacheLockTimeoutError:
-            raise HTTPError(StatusResponse(CONFLICT, "Resource: %s currently in use on the server." % (where,)))
+            raise HTTPError(StatusResponse(CONFLICT, "Resource: %s currently in use on the server." % (request.uri,)))
         except NoSuchObjectResourceError:
             raise HTTPError(NOT_FOUND)
 

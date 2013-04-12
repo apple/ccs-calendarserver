@@ -32,6 +32,8 @@ class DeleteResource(object):
     def __init__(self, request, resource, resource_uri, parent, depth,
         internal_request=False, allowImplicitSchedule=True):
 
+        raise AssertionError("Never use this")
+
         self.request = request
         self.resource = resource
         self.resource_uri = resource_uri
@@ -47,7 +49,7 @@ class DeleteResource(object):
         # with storeRemove on them also have their own http_DELETEs.
         response = (
             yield self.resource.storeRemove(
-                self.request, 
+                self.request,
                 not self.internal_request and self.allowImplicitSchedule,
                 self.resource_uri
             )

@@ -42,6 +42,8 @@ from twistedcaldav.resource import isAddressBookCollectionResource
 @inlineCallbacks
 def http_PUT(self, request):
 
+    raise AssertionError("Never use this")
+
     parentURL = parentForURL(request.uri)
     parent = (yield request.locateResource(parentURL))
 

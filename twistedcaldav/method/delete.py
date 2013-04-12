@@ -39,6 +39,8 @@ def http_DELETE(self, request):
     # index file has the entry for the deleted calendar component removed.
     #
 
+    raise AssertionError("Never use this")
+
     if not self.exists():
         log.err("Resource not found: %s" % (self,))
         raise HTTPError(responsecode.NOT_FOUND)

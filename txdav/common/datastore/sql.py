@@ -4130,7 +4130,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
             raise ObjectResourceNameNotAllowedError(name)
 
         objectResource = cls(parent, name, None, None, options=options)
-        yield objectResource.setComponent(component, inserting=True, options=options)
+        yield objectResource.setComponent(component, inserting=True)
         yield objectResource._loadPropertyStore(created=True)
 
         # Note: setComponent triggers a notification, so we don't need to
@@ -4346,7 +4346,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
                                    resourceID=self._resourceID)
         self.properties()._removeResource()
 
-        self._parentCollection.removedObjectResource(self)
+        yield self._parentCollection.removedObjectResource(self)
 
         # Set to non-existent state
         self._resourceID = None

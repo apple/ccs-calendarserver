@@ -71,7 +71,8 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     TooManyAttendeesError, InvalidComponentTypeError, InvalidCalendarAccessError, \
     InvalidUIDError, UIDExistsError, ResourceDeletedError, \
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
-    ValidOrganizerError, ShareeAllowedError, ComponentRemoveState
+    ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
+    InvalidComponentForStoreError
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -87,7 +88,8 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE, \
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
     HomeChildNameNotAllowedError, ObjectResourceTooBigError, \
-    InvalidObjectResourceError
+    InvalidObjectResourceError, ObjectResourceNameAlreadyExistsError, \
+    ObjectResourceNameNotAllowedError, TooManyObjectResourcesError
 from txdav.xml.rfc2518 import ResourceType
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -884,7 +886,7 @@ class Calendar(CommonHomeChild):
         Initialize a calendar pointing at a record in a database.
         """
         super(Calendar, self).__init__(*args, **kw)
-        if self.name() == 'inbox':
+        if self.isInbox():
             self._index = PostgresLegacyInboxIndexEmulator(self)
         else:
             self._index = PostgresLegacyIndexEmulator(self)
@@ -943,12 +945,28 @@ class Calendar(CommonHomeChild):
     calendarObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
 
 
+    @inlineCallbacks
     def _createCalendarObjectWithNameInternal(self, name, component, internal_state, options=None):
 
-        if options is None:
-            options = {}
-        options["internal_state"] = internal_state
-        return super(Calendar, self).createObjectResourceWithName(name, component, options)
+        # Create => a new resource name
+        if name in self._objects and self._objects[name]:
+            raise ObjectResourceNameAlreadyExistsError()
+
+        # Apply check to the size of the collection
+        if config.MaxResourcesPerCollection:
+            child_count = (yield self.countObjectResources())
+            if child_count >= config.MaxResourcesPerCollection:
+                raise TooManyObjectResourcesError()
+
+        objectResource = (
+            yield self._objectResourceClass._createInternal(self, name, component, internal_state, options)
+        )
+        self._objects[objectResource.name()] = objectResource
+        self._objects[objectResource.uid()] = objectResource
+
+        # Note: create triggers a notification when the component is set, so we
+        # don't need to call notify() here like we do for object removal.
+        returnValue(objectResource)
 
 
     def calendarObjectsInTimeRange(self, start, end, timeZone):
@@ -1337,6 +1355,27 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     ]
 
 
+    @classmethod
+    @inlineCallbacks
+    def _createInternal(cls, parent, name, component, internal_state, options=None):
+
+        child = (yield cls.objectWithName(parent, name, None))
+        if child:
+            raise ObjectResourceNameAlreadyExistsError(name)
+
+        if name.startswith("."):
+            raise ObjectResourceNameNotAllowedError(name)
+
+        objectResource = cls(parent, name, None, None, options=options)
+        yield objectResource._setComponentInternal(component, inserting=True, internal_state=internal_state)
+        yield objectResource._loadPropertyStore(created=True)
+
+        # Note: setComponent triggers a notification, so we don't need to
+        # call notify( ) here like we do for object removal.
+
+        returnValue(objectResource)
+
+
     def _initFromRow(self, row):
         """
         Given a select result using the columns from L{_allColumns}, initialize
@@ -1381,7 +1420,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Do validation on external requests
         if internal_state == ComponentUpdateState.NORMAL:
 
-            # Valid data sizes - do before parsing the data
+            # Valid data sizes
             if config.MaxResourceSize:
                 calsize = len(str(component))
                 if calsize > config.MaxResourceSize:
@@ -1395,7 +1434,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if internal_state == ComponentUpdateState.NORMAL:
 
             # Valid calendar data checks
-            yield self.validCalendarDataCheck(component, inserting)
+            self.validCalendarDataCheck(component, inserting)
 
             # Valid calendar component for check
             if not self.calendar().isSupportedComponent(component.mainType()):
@@ -1413,7 +1452,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Check access
         if config.EnablePrivateEvents:
-            yield self.validAccess(component, inserting, internal_state)
+            self.validAccess(component, inserting, internal_state)
 
 
     def validIfScheduleMatch(self, etag_match, schedule_tag, internal_state):
@@ -1453,11 +1492,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         try:
             component.validCalendarData(validateRecurrences=self._txn._migrating)
-            component.validCalendarForCalDAV(methodAllowed=self.calendar().name() == 'inbox')
+        except InvalidICalendarDataError, e:
+            raise InvalidObjectResourceError(str(e))
+        try:
+            component.validCalendarForCalDAV(methodAllowed=self.calendar().isInbox())
+        except InvalidICalendarDataError, e:
+            raise InvalidComponentForStoreError(str(e))
+        try:
             if self._txn._migrating:
                 component.validOrganizerForScheduling(doFix=True)
         except InvalidICalendarDataError, e:
-            raise InvalidObjectResourceError(e)
+            raise ValidOrganizerError(str(e))
 
 
     @inlineCallbacks
@@ -1879,22 +1924,22 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Cannot overwrite a resource with different UID
             if not inserting:
                 if self._uid != new_uid:
-                    raise InvalidUIDError()
+                    raise InvalidUIDError("Cannot change the UID in an existing resource.")
             else:
                 # New UID must be unique for the owner - no need to do this on an overwrite as we can assume
                 # the store is already consistent in this regard
                 elsewhere = (yield self.calendar().ownerHome().hasCalendarResourceUIDSomewhereElse(new_uid, self, "schedule"))
                 if elsewhere:
-                    raise UIDExistsError()
+                    raise UIDExistsError("UID already exists.")
 
 
-    def setComponent(self, component, inserting=False, options=None):
+    def setComponent(self, component, inserting=False):
         """
         Public api for storing a component. This will do full data validation checks on the specified component.
         Scheduling will be done automatically.
         """
 
-        return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL if options is None else options.get("internal_state"))
+        return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL)
 
 
     @inlineCallbacks
@@ -2333,8 +2378,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue(self._cachedCommponentPerUser[user_uuid])
 
 
-    def remove(self):
-        return self._removeInternal(internal_state=ComponentRemoveState.NORMAL)
+    def remove(self, implicitly=True):
+        return self._removeInternal(
+            internal_state=ComponentRemoveState.NORMAL if implicitly else ComponentRemoveState.NORMAL_NO_IMPLICIT
+        )
 
 
     @inlineCallbacks

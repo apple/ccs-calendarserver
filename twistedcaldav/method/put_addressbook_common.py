@@ -113,6 +113,8 @@ class StoreAddressObjectResource(object):
         @param returnData:         True if the caller wants the actual data written to the store returned
         """
 
+        raise AssertionError("Never use this")
+
         # Check that all arguments are valid
         try:
             assert destination is not None and destinationparent is not None and destination_uri is not None

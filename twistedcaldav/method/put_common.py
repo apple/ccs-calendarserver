@@ -159,6 +159,8 @@ class StoreCalendarObjectResource(object):
         @param attachmentProcessingDone    True if the caller has already processed managed attachment changes
         """
 
+        raise AssertionError("Never use this")
+
         # Check that all arguments are valid
         try:
             assert destination is not None and destinationparent is not None and destination_uri is not None

@@ -28,7 +28,7 @@ from txdav.common.icommondatastore import ObjectResourceTooBigError, \
     InvalidObjectResourceError
 from txdav.caldav.icalendarstore import InvalidComponentTypeError, \
     TooManyAttendeesError, InvalidCalendarAccessError, InvalidUIDError, \
-    UIDExistsError, ComponentUpdateState
+    UIDExistsError, ComponentUpdateState, InvalidComponentForStoreError
 import sys
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 
@@ -215,7 +215,7 @@ END:VCALENDAR
             calendar = item
             try:
                 yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
-            except InvalidObjectResourceError:
+            except (InvalidObjectResourceError, InvalidComponentForStoreError):
                 pass
             except:
                 self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))

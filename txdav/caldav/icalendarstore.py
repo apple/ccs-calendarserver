@@ -106,14 +106,26 @@ class ComponentRemoveState(Names):
     NORMAL -                this is an application layer (user) generated remove that should do all
                             implicit scheduling operations.
 
+    NORMAL_NO_IMPLICIT -    this is an application layer (user) generated remove that deliberately turns
+                            off implicit scheduling operations.
+
     INTERNAL -              remove the resource without implicit scheduling.
     """
 
     NORMAL = NamedConstant()
+    NORMAL_NO_IMPLICIT = NamedConstant()
     INTERNAL = NamedConstant()
 
     NORMAL.description = "normal"
+    NORMAL_NO_IMPLICIT.description = "normal-no-implicit"
     INTERNAL.description = "internal"
+
+
+
+class InvalidComponentForStoreError(CommonStoreError):
+    """
+    Invalid component for an object resource.
+    """
 
 
 
@@ -198,6 +210,9 @@ class AttachmentStoreValidManagedID(Exception):
     """
     Specified attachment managed-id is not valid.
     """
+
+    def __str__(self):
+        return "Invalid Managed-ID parameter in calendar data"
 
 
 
