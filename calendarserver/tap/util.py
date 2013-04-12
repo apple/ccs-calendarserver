@@ -765,35 +765,6 @@ def getDBPool(config):
 
 
 
-def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
-    """
-    Determine how many process to spawn based on installed RAM and CPUs,
-    returning at least "mininum"
-    """
-
-    if cpuCount is None:
-        try:
-            cpuCount = getNCPU()
-        except NotImplementedError, e:
-            log.error("Unable to detect number of CPUs: %s" % (str(e),))
-            return minimum
-
-    if memSize is None:
-        try:
-            memSize = getMemorySize()
-        except NotImplementedError, e:
-            log.error("Unable to detect amount of installed RAM: %s" % (str(e),))
-            return minimum
-
-    countByCore = perCPU * cpuCount
-    countByMemory = perGB * (memSize / (1024 * 1024 * 1024))
-
-    # Pick the smaller of the two:
-    count = min(countByCore, countByMemory)
-
-    # ...but at least "minimum"
-    return max(count, minimum)
-
 
 
 class FakeRequest(object):

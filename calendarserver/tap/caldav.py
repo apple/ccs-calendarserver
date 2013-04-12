@@ -53,6 +53,8 @@ from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
 from twisted.application.service import Service
 
+from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twext.web2.server import Site
 from twext.python.log import Logger, LoggingMixIn
 from twext.python.log import logLevelForNamespace, setLogLevelForNamespace
@@ -68,13 +70,10 @@ from txdav.common.datastore.upgrade.sql.upgrade import (
 )
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
 
-from twistedcaldav.config import ConfigurationError
-from twistedcaldav.config import config
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav import memcachepool
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import UpgradeFileSystemFormatService, PostDBImportService
 
 from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
@@ -102,8 +101,7 @@ from twext.enterprise.queue import PeerConnectionPool
 from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
-from calendarserver.tap.util import getRootResource, computeProcessCount
-
+from calendarserver.tap.util import getRootResource
 from calendarserver.tap.util import storeFromConfig
 from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tap.util import oracleConnectorFromConfig
@@ -1271,18 +1269,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                 monitor.addProcess('memcached-%s' % (name,), memcachedArgv,
                                    env=PARENT_ENVIRONMENT)
 
-        #
-        # Calculate the number of processes to spawn
-        #
-        if config.MultiProcess.ProcessCount == 0:
-            # TODO: this should probably be happening in a configuration hook.
-            processCount = computeProcessCount(
-                config.MultiProcess.MinProcessCount,
-                config.MultiProcess.PerCPU,
-                config.MultiProcess.PerGB,
-            )
-            config.MultiProcess.ProcessCount = processCount
-            self.log_info("Configuring %d processes." % (processCount,))
 
         # Open the socket(s) to be inherited by the slaves
         inheritFDs = []
