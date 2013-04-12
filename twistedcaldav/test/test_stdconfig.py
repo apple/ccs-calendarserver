@@ -170,5 +170,5 @@ class ConfigParsingTests(TestCase):
             "MaxDBConnectionsPerPool" : 10,
         })
         _updateMultiProcess(configDict)
-        self.assertEquals(35, configDict.Postgres.MaxConnections)
-        self.assertEquals(52, configDict.Postgres.SharedBuffers)
+        self.assertEquals(45, configDict.Postgres.MaxConnections)
+        self.assertEquals(67, configDict.Postgres.SharedBuffers)
