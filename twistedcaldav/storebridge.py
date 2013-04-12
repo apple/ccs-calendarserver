@@ -322,6 +322,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             similar = self._childClass(
                 newStoreObject,
                 self._newStoreObject,
+                self,
                 name,
                 principalCollections=self._principalCollections
             )
@@ -553,6 +554,32 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         basename = destinationURI.rstrip("/").split("/")[-1]
         yield self._newStoreObject.rename(basename)
         returnValue(NO_CONTENT)
+
+
+    @inlineCallbacks
+    def POST_handler_add_member(self, request):
+        """
+        Handle a POST ;add-member request on this collection
+
+        @param request: the request object
+        @type request: L{Request}
+        """
+
+        # Create a name for the new child
+        name = str(uuid.uuid4()) + self.resourceSuffix()
+
+        # Get a resource for the new child
+        parentURL = request.path
+        newchildURL = joinURL(parentURL, name)
+        newchild = (yield request.locateResource(newchildURL))
+
+        # Treat as if it were a regular PUT to a new resource
+        response = (yield newchild.http_PUT(request))
+
+        # May need to add a location header
+        addLocation(request, request.unparseURL(path=newchildURL, params=""))
+
+        returnValue(response)
 
 
     @inlineCallbacks
@@ -2116,7 +2143,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
     _componentFromStream = None
 
-    def __init__(self, storeObject, parentObject, name, *args, **kw):
+    def __init__(self, storeObject, parentObject, parentResource, name, *args, **kw):
         """
         Construct a L{_CommonObjectResource} from an L{CommonObjectResource}.
 
@@ -2125,6 +2152,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         """
         super(_CommonObjectResource, self).__init__(*args, **kw)
         self._initializeWithObject(storeObject, parentObject)
+        self._parentResource = parentResource
         self._name = name
         self._metadata = {}
 
@@ -2135,6 +2163,10 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         self._dead_properties = _NewStorePropertiesWrapper(
             self._newStoreObject.properties()
         ) if self._newStoreObject and self._newStoreParent.objectResourcesHaveProperties() else NonePropertyStore(self)
+
+
+    def url(self):
+        return joinURL(self._parentResource.url(), self.name())
 
 
     def isCollection(self):
@@ -2563,7 +2595,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 response = (yield self.http_GET(request))
                 if oldcode == responsecode.CREATED:
                     response.code = responsecode.CREATED
-                response.headers.setHeader("content-location", request.path)
+                response.headers.removeHeader("content-location")
+                response.headers.setHeader("content-location", self.url())
 
             returnValue(response)
 
