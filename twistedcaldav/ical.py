@@ -57,7 +57,6 @@ from pycalendar.property import PyCalendarProperty
 from pycalendar.timezone import PyCalendarTimezone
 from pycalendar.utcoffsetvalue import PyCalendarUTCOffsetValue
 
-import base64
 
 log = Logger()
 
