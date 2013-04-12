@@ -47,6 +47,8 @@ def maybeCOPYContact(self, request):
     is not being changed in any way. We do need to do an index update for
     the destination if its an addressbook collection.
     """
+    raise AssertionError("Never use this")
+
     # Copy of addressbook collections isn't allowed.
     if isAddressBookCollectionResource(self):
         returnValue(responsecode.FORBIDDEN)
@@ -120,6 +122,8 @@ def maybeMOVEContact(self, request):
     since its effectively being deleted. We do need to do an index update for
     the destination if its an addressbook collection
     """
+    raise AssertionError("Never use this")
+
     result, sourceadbk, sourceparent, destination_uri, destination, destinationadbk, destinationparent = (yield checkForAddressBookAction(self, request))
     if not result or not destinationadbk:
 

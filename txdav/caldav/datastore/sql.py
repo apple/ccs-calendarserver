@@ -46,7 +46,7 @@ from twext.python.vcomponent import VComponent
 from twext.web2.http_headers import MimeType, generateContentType
 from twext.web2.stream import readStream
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
 
 from twistedcaldav import caldavxml, customxml
@@ -72,7 +72,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     InvalidUIDError, UIDExistsError, ResourceDeletedError, \
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
     ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
-    InvalidComponentForStoreError
+    InvalidComponentForStoreError, InvalidResourceMove
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -330,7 +330,7 @@ class CalendarPrincipal(object):
 
 
     def fullName(self):
-        return "%s %s" % (self.principal_uid[:4], self.principal_uid[4:])
+        return "%s %s" % (self.principal_uid[:4].capitalize(), self.principal_uid[4:])
 
 
     def displayName(self):
@@ -2376,6 +2376,43 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             filtered = PerUserDataFilter(user_uuid).filter(caldata.duplicate())
             self._cachedCommponentPerUser[user_uuid] = filtered
         returnValue(self._cachedCommponentPerUser[user_uuid])
+
+
+    def moveValidation(self, destination, name):
+        """
+        Validate whether a move to the specified collection is allowed.
+
+        @param destination: destination calendar collection
+        @type destination: L{CalendarCollection}
+        @param name: name of new resource
+        @type name: C{str}
+        """
+
+        # Calendar to calendar moves are OK if the resource (viewer) owner is the same.
+        # Use resourceOwnerPrincipal for this as that takes into account sharing such that the
+        # returned principal relates to the URI path used to access the resource rather than the
+        # underlying resource owner (sharee).
+        sourceowner = self.calendar().viewerHome().uid()
+        destowner = destination.viewerHome().uid()
+
+        if sourceowner != destowner:
+            msg = "Calendar-to-calendar moves with different homes are not supported."
+            log.debug(msg)
+            raise InvalidResourceMove(msg)
+
+        # Calendar to calendar moves where Organizer is present are not OK if the owners are different.
+        sourceowner = self.calendar().ownerHome().uid()
+        destowner = destination.ownerHome().uid()
+
+        if sourceowner != destowner and self._schedule_object:
+            msg = "Calendar-to-calendar moves with an organizer property present and different owners are not supported."
+            log.debug(msg)
+            raise InvalidResourceMove(msg)
+
+        # NB there is no need to do a UID lock and test here as we are moving an existing resource
+        # with the already imposed constraint of unique UIDs.
+
+        return succeed(None)
 
 
     def remove(self, implicitly=True):

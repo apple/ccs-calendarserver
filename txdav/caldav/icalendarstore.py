@@ -199,6 +199,13 @@ class InvalidPerUserDataMerge(CommonStoreError):
 
 
 
+class InvalidResourceMove(CommonStoreError):
+    """
+    Moving a resource failed.
+    """
+
+
+
 class AttachmentStoreFailed(Exception):
     """
     Unable to store an attachment.

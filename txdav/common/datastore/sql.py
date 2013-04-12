@@ -3770,14 +3770,25 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         @type newname: C{str} or C{None} for existing name
         """
 
-        if newname and newname.startswith("."):
-            raise ObjectResourceNameNotAllowedError(newname)
-
         name = child.name()
         uid = child.uid()
 
         if newname is None:
             newname = name
+
+        # Create => a new resource name
+        if newname.startswith("."):
+            raise ObjectResourceNameNotAllowedError(newname)
+
+        # Make sure name is not already used - i.e., overwrite not allowed
+        if (yield newparent.objectResourceWithName(newname)) is not None:
+            raise ObjectResourceNameAlreadyExistsError(newname)
+
+        # Apply check to the size of the collection
+        if config.MaxResourcesPerCollection:
+            child_count = (yield self.countObjectResources())
+            if child_count >= config.MaxResourcesPerCollection:
+                raise TooManyObjectResourcesError()
 
         # Clean this collections cache and signal sync change
         self._objects.pop(name, None)
@@ -4325,6 +4336,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         return Delete(cls._objectSchema, Where=cls._objectSchema.RESOURCE_ID == Parameter("resourceID"))
 
 
+    @inlineCallbacks
     def moveTo(self, destination, name):
         """
         Move object to another collection.
@@ -4335,9 +4347,12 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         @type name: C{str} or C{None} to use existing name
         """
 
-        if name and name.startswith("."):
-            raise ObjectResourceNameNotAllowedError(name)
-        return self._parentCollection.moveObjectResource(self, destination, name)
+        yield self.moveValidation(destination, name)
+        yield self._parentCollection.moveObjectResource(self, destination, name)
+
+
+    def moveValidation(self, destination, name):
+        raise NotImplementedError
 
 
     @inlineCallbacks

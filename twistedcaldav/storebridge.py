@@ -28,8 +28,7 @@ from twext.web2.http import HTTPError, StatusResponse, Response
 from twext.web2.http_headers import ETag, MimeType, MimeDisposition
 from twext.web2.responsecode import \
     FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED, \
-    BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE, \
-    INTERNAL_SERVER_ERROR
+    BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE
 from twext.web2.stream import ProducerStream, readStream, MemoryStream
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
@@ -64,7 +63,8 @@ from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     AttachmentDropboxNotAllowed, InvalidComponentTypeError, \
     TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError, \
     UIDExistsError, InvalidUIDError, InvalidPerUserDataMerge, \
-    AttendeeAllowedError, ResourceDeletedError, InvalidComponentForStoreError
+    AttendeeAllowedError, ResourceDeletedError, InvalidComponentForStoreError, \
+    InvalidResourceMove
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
     _BIND_MODE_DIRECT
 from txdav.common.icommondatastore import NoSuchObjectResourceError, \
@@ -2197,6 +2197,11 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         response.headers.setHeader("content-type", self.contentType())
         returnValue(response)
 
+    # The following are used to map store exceptions into HTTP error responses
+    StoreExceptionsStatusErrors = set()
+    StoreExceptionsErrors = {}
+    StoreMoveExceptionsStatusErrors = set()
+    StoreMoveExceptionsErrors = {}
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
@@ -2208,6 +2213,14 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             raise HTTPError(NOT_FOUND)
 
         return self.storeRemove(request)
+
+
+    def http_COPY(self, request):
+        """
+        Copying of calendar data isn't allowed.
+        """
+        # FIXME: no direct tests
+        return FORBIDDEN
 
 
     @inlineCallbacks
@@ -2271,9 +2284,30 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         # May need to add a location header
         addLocation(request, destination_uri)
 
-        storer = self.storeResource(request, parent, destination, destination_uri, destinationparent, True, None)
-        result = (yield storer.move())
-        returnValue(result)
+        try:
+            response = (yield self.storeMove(request, destinationparent, destination.name()))
+            returnValue(response)
+
+        # Handle the various store errors
+        except Exception as err:
+
+            # Grab the current exception state here so we can use it in a re-raise - we need this because
+            # an inlineCallback might be called and that raises an exception when it returns, wiping out the
+            # original exception "context".
+            ex = Failure()
+
+            if type(err) in self.StoreMoveExceptionsStatusErrors:
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
+
+            elif type(err) in self.StoreMoveExceptionsErrors:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    self.StoreMoveExceptionsErrors[type(err)],
+                    str(err),
+                ))
+            else:
+                # Return the original failure (exception) state
+                ex.raiseException()
 
 
     def http_PROPPATCH(self, request):
@@ -2332,12 +2366,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         @type destination_name: C{str}
         """
 
-        try:
-            yield self._newStoreObject.moveTo(destinationparent._newStoreObject, destination_name)
-        except Exception, e:
-            log.err(e)
-            raise HTTPError(INTERNAL_SERVER_ERROR)
-
+        yield self._newStoreObject.moveTo(destinationparent._newStoreObject, destination_name)
         returnValue(CREATED)
 
 
@@ -2536,6 +2565,17 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         AttachmentStoreValidManagedID: (caldav_namespace, "valid-managed-id"),
     }
 
+    StoreMoveExceptionsStatusErrors = set((
+        ObjectResourceNameNotAllowedError,
+        ObjectResourceNameAlreadyExistsError,
+    ))
+
+    StoreMoveExceptionsErrors = {
+        TooManyObjectResourcesError: customxml.MaxResources(),
+        InvalidResourceMove: (calendarserver_namespace, "valid-move"),
+        InvalidComponentTypeError: (caldav_namespace, "supported-component"),
+    }
+
     @inlineCallbacks
     def http_PUT(self, request):
 
@@ -2578,6 +2618,17 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     "Can't parse calendar data"
                 ))
 
+            # storeComponent needs to know who the auth'd user is for access control
+            # TODO: this needs to be done in a better way - ideally when the txn is created for the request,
+            # we should set a txn.authzid attribute.
+            authz = None
+            authz_principal = self._parentResource.currentPrincipal(request).children[0]
+            if isinstance(authz_principal, davxml.HRef):
+                principalURL = str(authz_principal)
+                if principalURL:
+                    authz = (yield request.locateResource(principalURL))
+                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.guid
+
             try:
                 response = (yield self.storeComponent(component))
             except ResourceDeletedError:
@@ -2585,6 +2636,19 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 # like the PUT succeeded.
                 response = responsecode.CREATED if self.exists() else responsecode.NO_CONTENT
             response = IResponse(response)
+
+            if self._newStoreObject.isScheduleObject:
+                # Add a response header
+                response.headers.setHeader("Schedule-Tag", self._newStoreObject.scheduleTag)
+
+            # Must not set ETag in response if data changed
+            if self._newStoreObject._componentChanged:
+                def _removeEtag(request, response):
+                    response.headers.removeHeader('etag')
+                    return response
+                _removeEtag.handleErrors = True
+
+                request.addResponseFilter(_removeEtag, atEnd=True)
 
             # Look for Prefer header
             prefer = request.headers.getHeader("prefer", {})
@@ -2618,8 +2682,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     str(err),
                 ))
             elif isinstance(err, ValueError):
-                log.err("Error while handling (calendar) PUT: %s" % (e,))
-                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
+                log.err("Error while handling (calendar) PUT: %s" % (err,))
+                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(err)))
             else:
                 # Return the original failure (exception) state
                 ex.raiseException()

@@ -53,6 +53,8 @@ def http_COPY(self, request):
     the destination if its a calendar collection.
     """
 
+    raise AssertionError("Never use this")
+
     # Copy of calendar collections isn't allowed.
     if isPseudoCalendarCollectionResource(self):
         returnValue(responsecode.FORBIDDEN)
@@ -128,6 +130,8 @@ def http_MOVE(self, request):
     since its effectively being deleted. We do need to do an index update for
     the destination if its a calendar collection
     """
+    raise AssertionError("Never use this")
+
     result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = (yield checkForCalendarAction(self, request))
     if not result:
         is_calendar_collection = isPseudoCalendarCollectionResource(self)
