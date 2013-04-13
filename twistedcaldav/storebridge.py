@@ -49,7 +49,6 @@ from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
     InvalidICalendarDataError, iCalendarProductID, allowedComponents, Component
 from twistedcaldav.memcachelock import MemcacheLockTimeoutError
 from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
-from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
     DefaultAlarmPropertyMixin
@@ -654,7 +653,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)
                 newchild = (yield request.locateResource(newchildURL))
-                dataChanged = (yield self.storeResourceData(request, newchild, newchildURL, component, returnData=return_changed))
+                dataChanged = (yield self.storeResourceData(newchild, component, returnData=return_changed))
 
             except HTTPError, e:
                 # Extract the pre-condition
@@ -826,7 +825,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             # Get a resource for the new item
             newchildURL = joinURL(request.path, name)
             newchild = (yield request.locateResource(newchildURL))
-            yield self.storeResourceData(request, newchild, newchildURL, component, componentdata)
+            yield self.storeResourceData(newchild, component, componentdata)
 
             # FIXME: figure out return_changed behavior
 
@@ -887,7 +886,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             if ifmatch and ifmatch != etag.generate():
                 raise HTTPError(PRECONDITION_FAILED)
 
-            yield self.storeResourceData(request, updateResource, href, component, componentdata)
+            yield self.storeResourceData(updateResource, component, componentdata)
 
             # FIXME: figure out return_changed behavior
 
@@ -1213,19 +1212,14 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
 
     @inlineCallbacks
-    def storeResourceData(self, request, newchild, newchildURL, component, returnData=False):
-        storer = StoreCalendarObjectResource(
-            request=request,
-            destination=newchild,
-            destination_uri=newchildURL,
-            destinationcal=True,
-            destinationparent=self,
-            calendar=component,
-            returnData=returnData,
-        )
-        yield storer.run()
+    def storeResourceData(self, newchild, component, returnData=False):
 
-        returnValue(storer.storeddata if hasattr(storer, "storeddata") else None)
+        yield newchild.storeComponent(component)
+        if returnData:
+            result = (yield newchild.componentForUser())
+            returnValue(str(result))
+        else:
+            returnValue(None)
 
 
     @inlineCallbacks
@@ -2320,13 +2314,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             return FORBIDDEN
 
 
-    def storeResource(self, request, parent, destination, destination_uri, destination_parent, hasSource, component):
-        """
-        Create the appropriate StoreXXX class for storing of data.
-        """
-        raise NotImplementedError
-
-
     @inlineCallbacks
     def storeStream(self, stream):
 
@@ -2339,18 +2326,32 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
     @inlineCallbacks
     def storeComponent(self, component):
 
-        if self._newStoreObject:
-            yield self._newStoreObject.setComponent(component)
-            returnValue(NO_CONTENT)
-        else:
-            self._newStoreObject = (yield self._newStoreParent.createObjectResourceWithName(
-                self.name(), component, self._metadata
-            ))
+        try:
+            if self._newStoreObject:
+                yield self._newStoreObject.setComponent(component)
+                returnValue(NO_CONTENT)
+            else:
+                self._newStoreObject = (yield self._newStoreParent.createObjectResourceWithName(
+                    self.name(), component, self._metadata
+                ))
 
-            # Re-initialize to get stuff setup again now we have no object
-            self._initializeWithObject(self._newStoreObject, self._newStoreParent)
+                # Re-initialize to get stuff setup again now we have no object
+                self._initializeWithObject(self._newStoreObject, self._newStoreParent)
+                returnValue(CREATED)
 
-            returnValue(CREATED)
+        # Map store exception to HTTP errors
+        except Exception as err:
+            if type(err) in self.StoreExceptionsStatusErrors:
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
+
+            elif type(err) in self.StoreExceptionsErrors:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    self.StoreExceptionsErrors[type(err)],
+                    str(err),
+                ))
+            else:
+                raise
 
 
     @inlineCallbacks
@@ -2504,6 +2505,10 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         returnValue(str(data))
 
     iCalendar = _CommonObjectResource.component
+
+
+    def componentForUser(self):
+        return self._newStoreObject.componentForUser()
 
 
     def validIfScheduleMatch(self, request):
@@ -2667,43 +2672,11 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         # Handle the various store errors
         except Exception as err:
 
-            # Grab the current exception state here so we can use it in a re-raise - we need this because
-            # an inlineCallback might be called and that raises an exception when it returns, wiping out the
-            # original exception "context".
-            ex = Failure()
-
-            if type(err) in CalendarObjectResource.StoreExceptionsStatusErrors:
-                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
-
-            elif type(err) in CalendarObjectResource.StoreExceptionsErrors:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    CalendarObjectResource.StoreExceptionsErrors[type(err)],
-                    str(err),
-                ))
-            elif isinstance(err, ValueError):
+            if isinstance(err, ValueError):
                 log.err("Error while handling (calendar) PUT: %s" % (err,))
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(err)))
             else:
-                # Return the original failure (exception) state
-                ex.raiseException()
-
-
-    def storeResource(self, request, parent, destination, destination_uri, destination_parent, hasSource, component, attachmentProcessingDone=False):
-        return StoreCalendarObjectResource(
-            request=request,
-            source=self if hasSource else None,
-            source_uri=request.uri if hasSource else None,
-            sourceparent=parent if hasSource else None,
-            sourcecal=hasSource,
-            deletesource=hasSource,
-            destination=destination,
-            destination_uri=destination_uri,
-            destinationparent=destination_parent,
-            destinationcal=True,
-            calendar=component,
-            attachmentProcessingDone=attachmentProcessingDone,
-        )
+                raise
 
 
     @requiresPermissions(davxml.WriteContent())
@@ -2943,20 +2916,14 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     @inlineCallbacks
-    def storeResourceData(self, request, newchild, newchildURL, component, returnData=False):
-        storer = StoreAddressObjectResource(
-            request=request,
-            sourceadbk=False,
-            destination=newchild,
-            destination_uri=newchildURL,
-            destinationadbk=True,
-            destinationparent=self,
-            vcard=component,
-            returnData=returnData,
-        )
-        yield storer.run()
+    def storeResourceData(self, newchild, component, returnData=False):
 
-        returnValue(storer.returndata if hasattr(storer, "returndata") else None)
+        yield newchild.storeComponent(component)
+        if returnData:
+            result = (yield newchild.component())
+            returnValue(str(result))
+        else:
+            returnValue(None)
 
 
     @inlineCallbacks
@@ -3041,22 +3008,6 @@ class AddressBookObjectResource(_CommonObjectResource):
         returnValue(str(data))
 
     vCard = _CommonObjectResource.component
-
-
-    def storeResource(self, request, parent, destination, destination_uri, destination_parent, hasSource, component):
-        return StoreAddressObjectResource(
-            request=request,
-            source=self if hasSource else None,
-            source_uri=request.uri if hasSource else None,
-            sourceparent=parent if hasSource else None,
-            sourceadbk=hasSource,
-            deletesource=hasSource,
-            destination=destination,
-            destination_uri=destination_uri,
-            destinationparent=destination_parent,
-            destinationadbk=True,
-            vcard=component,
-        )
 
 
 
