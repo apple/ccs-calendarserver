@@ -27,14 +27,12 @@ from hashlib import md5
 from twisted.python.procutils import which
 from twisted.internet.protocol import ProcessProtocol
 
-from twisted.python.reflect import namedAny
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath
 
-pgdb = namedAny("pgdb")
+import pgdb
 
 from twisted.protocols.basic import LineReceiver
-from twisted.internet import reactor
 from twisted.internet.defer import Deferred
 from txdav.base.datastore.dbapiclient import DBAPIConnector
 from txdav.base.datastore.dbapiclient import postgresPreflight
@@ -168,7 +166,8 @@ class PostgresService(MultiService):
                  spawnedDBUser="caldav",
                  importFileName=None,
                  pgCtl="pg_ctl",
-                 initDB="initdb"):
+                 initDB="initdb",
+                 reactor=None):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -239,6 +238,14 @@ class PostgresService(MultiService):
         self.openConnections = []
         self._pgCtl = pgCtl
         self._initdb = initDB
+        self._reactor = reactor
+
+    @property
+    def reactor(self):
+        if self._reactor is None:
+            from twisted.internet import reactor
+            self._reactor = reactor
+        return self._reactor
 
 
     def pgCtl(self):
@@ -300,17 +307,12 @@ class PostgresService(MultiService):
         return self._connectorFor(databaseName).connect(label)
 
 
-    def ready(self):
+    def ready(self, createDatabaseConn, createDatabaseCursor):
         """
         Subprocess is ready.  Time to initialize the subservice.
         If the database has not been created and there is a dump file,
         then the dump file is imported.
         """
-        createDatabaseConn = self.produceConnection(
-            'schema creation', 'postgres'
-        )
-        createDatabaseCursor = createDatabaseConn.cursor()
-        createDatabaseCursor.execute("commit")
 
         if self.resetSchema:
             try:
@@ -347,9 +349,6 @@ class PostgresService(MultiService):
             connection.commit()
             connection.close()
 
-        # TODO: anyone know why these two lines are here?
-        connection = self.produceConnection()
-        cursor = connection.cursor()
 
         if self.shutdownDeferred is None:
             # Only continue startup if we've not begun shutdown
@@ -383,6 +382,30 @@ class PostgresService(MultiService):
         """
         Start the database and initialize the subservice.
         """
+
+        def createConnection():
+            createDatabaseConn = self.produceConnection(
+                'schema creation', 'postgres'
+            )
+            createDatabaseCursor = createDatabaseConn.cursor()
+            createDatabaseCursor.execute("commit")
+            return createDatabaseConn, createDatabaseCursor
+
+        try:
+            createDatabaseConn, createDatabaseCursor = createConnection()
+        except pgdb.DatabaseError:
+            # We could not connect the database, so attempt to start it
+            pass
+        except Exception, e:
+            # Some other unexpected error is preventing us from connecting
+            # to the database
+            log.warn("Failed to connect to Postgres: %s" % (str(e)))
+        else:
+            # Database is running, so just use our connection
+            self.ready(createDatabaseConn, createDatabaseCursor)
+            self.deactivateDelayedShutdown()
+            return
+
         monitor = _PostgresMonitor(self)
         pgCtl = self.pgCtl()
         # check consistency of initdb and postgres?
@@ -400,7 +423,7 @@ class PostgresService(MultiService):
         options.append("-c standard_conforming_strings=on")
         options.extend(self.options)
 
-        reactor.spawnProcess(
+        self.reactor.spawnProcess(
             monitor, pgCtl,
             [
                 pgCtl,
@@ -418,7 +441,7 @@ class PostgresService(MultiService):
         self.monitor = monitor
         def gotReady(result):
             self.shouldStopDatabase = result
-            self.ready()
+            self.ready(*createConnection())
             self.deactivateDelayedShutdown()
         def reportit(f):
             log.err(f)
@@ -454,7 +477,7 @@ class PostgresService(MultiService):
                 os.chown(self.dataStoreDirectory.path, self.uid, self.gid)
                 os.chown(workingDir.path, self.uid, self.gid)
             dbInited = Deferred()
-            reactor.spawnProcess(
+            self.reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
                 initdb, [initdb, "-E", "UTF8", "-U", self.spawnedDBUser], env, workingDir.path,
                 uid=self.uid, gid=self.gid,
@@ -486,7 +509,7 @@ class PostgresService(MultiService):
             if self.shouldStopDatabase:
                 monitor = _PostgresMonitor()
                 pgCtl = self.pgCtl()
-                reactor.spawnProcess(monitor, pgCtl,
+                self.reactor.spawnProcess(monitor, pgCtl,
                     [pgCtl, '-l', 'logfile', 'stop'],
                     self.env,
                     uid=self.uid, gid=self.gid,

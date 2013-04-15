@@ -20,11 +20,18 @@ Tests for txdav.base.datastore.subpostgres.
 
 from twisted.trial.unittest import TestCase
 
+# NOTE: This import will fail eventuall when this functionality is added to 
+# MemoryReactor:
+from twisted.runner.test.test_procmon import DummyProcessReactor
+
+from twisted.python.filepath import FilePath
 from twext.python.filepath import CachingFilePath
 
 from txdav.base.datastore.subpostgres import PostgresService
 from twisted.internet.defer import inlineCallbacks, Deferred
 from twisted.application.service import Service
+
+import pgdb
 
 class SubprocessStartup(TestCase):
     """
@@ -185,3 +192,73 @@ class SubprocessStartup(TestCase):
         values = cursor.fetchall()
         self.assertEquals(values, [["value1"],["value2"]])
 
+    def test_startDatabaseRunning(self):
+        """ Ensure that if we can connect to postgres we don't spawn pg_ctl """
+
+        self.cursorHistory = []
+
+        class DummyCursor(object):
+            def __init__(self, historyHolder):
+                self.historyHolder = historyHolder 
+
+            def execute(self, *args):
+                self.historyHolder.cursorHistory.append(args)
+
+            def close(self):
+                pass
+
+        class DummyConnection(object):
+            def __init__(self, historyHolder):
+                self.historyHolder = historyHolder
+
+            def cursor(self):
+                return DummyCursor(self.historyHolder)
+
+            def commit(self):
+                pass
+
+            def close(self):
+                pass
+
+        def produceConnection(*args):
+            return DummyConnection(self)
+
+        dummyReactor = DummyProcessReactor()
+        svc = PostgresService(
+            FilePath("postgres_4.pgdb"),
+            lambda x : Service(),
+            "",
+             reactor=dummyReactor,
+        )
+        svc.produceConnection = produceConnection
+        svc.env = {}
+        svc.startDatabase()
+        self.assertEquals(
+            self.cursorHistory,
+            [
+                ('commit',),
+                ("create database subpostgres with encoding 'UTF8'",),
+                ('',)
+            ]
+        )
+        self.assertEquals(dummyReactor.spawnedProcesses, [])
+
+
+    def test_startDatabaseNotRunning(self):
+        """ Ensure that if we can't connect to postgres we spawn pg_ctl """
+
+        def produceConnection(*args):
+            raise pgdb.DatabaseError
+
+        dummyReactor = DummyProcessReactor()
+        svc = PostgresService(
+            FilePath("postgres_4.pgdb"),
+            lambda x : Service(),
+            "",
+             reactor=dummyReactor,
+        )
+        svc.produceConnection = produceConnection
+        svc.env = {}
+        svc.startDatabase()
+        self.assertEquals(len(dummyReactor.spawnedProcesses), 1)
+        self.assertTrue(dummyReactor.spawnedProcesses[0]._executable.endswith("pg_ctl"))
