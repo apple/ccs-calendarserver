@@ -214,7 +214,7 @@ class ConnectionDispenser(object):
 
 
 
-def storeFromConfig(config, txnFactory):
+def storeFromConfig(config, txnFactory, directoryService=None):
     """
     Produce an L{IDataStore} from the given configuration, transaction factory,
     and notifier factory.
@@ -232,6 +232,10 @@ def storeFromConfig(config, txnFactory):
             config.Notifications.CoalesceSeconds)
     else:
         notifierFactory = None
+
+    if directoryService is None:
+        directoryService = directoryFromConfig(config)
+
     quota = config.UserQuota
     if quota == 0:
         quota = None
@@ -243,6 +247,7 @@ def storeFromConfig(config, txnFactory):
         attachments_uri = uri + "/calendars/__uids__/%(home)s/dropbox/%(dropbox_id)s/%(name)s"
         store = CommonSQLDataStore(
             txnFactory, notifierFactory,
+            directoryService,
             FilePath(config.AttachmentsRoot), attachments_uri,
             config.EnableCalDAV, config.EnableCardDAV,
             config.EnableManagedAttachments,
@@ -260,7 +265,8 @@ def storeFromConfig(config, txnFactory):
     else:
         store = CommonFileDataStore(
             FilePath(config.DocumentRoot),
-            notifierFactory, config.EnableCalDAV, config.EnableCardDAV,
+            notifierFactory, directoryService,
+            config.EnableCalDAV, config.EnableCardDAV,
             quota=quota
         )
     if notifierFactory is not None:
@@ -366,7 +372,7 @@ def directoryFromConfig(config):
 
 
 
-def getRootResource(config, newStore, resources=None, directory=None):
+def getRootResource(config, newStore, resources=None):
     """
     Set up directory service and resource hierarchy based on config.
     Return root resource.
@@ -402,8 +408,7 @@ def getRootResource(config, newStore, resources=None, directory=None):
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
     apnSubscriptionResourceClass = APNSubscriptionResource
 
-    if directory is None:
-        directory = directoryFromConfig(config)
+    directory = newStore.directoryService()
 
     #
     # Setup the ProxyDB Service

@@ -78,7 +78,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import UpgradeFileSystemFormatService, PostDBImportService
 
 from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
-from calendarserver.tap.util import directoryFromConfig, checkDirectories
+from calendarserver.tap.util import checkDirectories
 
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
@@ -642,7 +642,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         store = storeFromConfig(config, txnFactory)
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)
-        directory = result.rootResource.getDirectory()
+        directory = store.directoryService()
         if pool is not None:
             pool.setServiceParent(result)
 
@@ -1003,7 +1003,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 if observers:
                     pushDistributor = PushDistributor(observers)
 
-            directory = result.rootResource.getDirectory()
+            directory = store.directoryService()
 
             # Optionally set up mail retrieval
             if config.Scheduling.iMIP.Enabled:
@@ -1397,7 +1397,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             if config.UseMetaFD:
                 cl.setServiceParent(multi)
 
-            directory = directoryFromConfig(config)
+            directory = store.directoryService()
             rootResource = getRootResource(config, store, [])
 
             # Optionally set up mail retrieval

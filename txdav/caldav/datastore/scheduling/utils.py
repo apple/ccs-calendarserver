@@ -21,17 +21,17 @@ from txdav.caldav.icalendarstore import ComponentRemoveState
 log = Logger()
 
 @inlineCallbacks
-def getCalendarObjectForPrincipals(txn, principal, uid, allow_shared=False):
+def getCalendarObjectForRecord(txn, record, uid, allow_shared=False):
     """
-    Get a copy of the event for a principal.
+    Get a copy of the event for a calendar user identified by a directory record.
 
     NOTE: if more than one resource with the same UID is found, we will delete all but
     one of them to avoid scheduling problems.
     """
 
-    if principal and principal.locallyHosted():
-        # Get principal's calendar-home
-        calendar_home = yield txn.calendarHomeWithUID(principal.uid())
+    if record and record.locallyHosted():
+        # Get record's calendar-home
+        calendar_home = yield txn.calendarHomeWithUID(record.uid)
 
         # Get matching newstore objects
         objectResources = (yield calendar_home.getCalendarResourcesForUID(uid, allow_shared))

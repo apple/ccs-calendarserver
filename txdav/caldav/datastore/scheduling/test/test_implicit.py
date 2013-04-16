@@ -17,24 +17,24 @@
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 
+from twext.python.clsprop import classproperty
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError
 
 from twisted.internet.defer import succeed, inlineCallbacks
+from twisted.trial.unittest import TestCase
 
 from twistedcaldav.ical import Component
+import twistedcaldav.test.util
 
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
-
-import twistedcaldav.test.util
-from txdav.common.datastore.test.util import CommonCommonTests, buildStore, \
-    populateCalendarsFrom
-from twisted.trial.unittest import TestCase
-from twext.python.clsprop import classproperty
-from txdav.caldav.datastore.sql import CalendarPrincipal
-import hashlib
+from txdav.caldav.datastore.test.util import buildCalendarStore, \
+    buildDirectoryRecord
 from txdav.caldav.icalendarstore import AttendeeAllowedError
+from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
+
+import hashlib
 import sys
 
 class FakeScheduler(object):
@@ -52,10 +52,19 @@ class FakeScheduler(object):
 
 
 
+class FakeDirectoryService(object):
+
+    def recordWithUID(self, uid):
+        return buildDirectoryRecord(uid)
+
+
+
 class FakeCalendarHome(object):
 
-    def principalForUID(self, uid):
-        return CalendarPrincipal(uid, ("urn:uuid:%s" % (uid,), "mailto:%s@example.com" % (uid,),))
+    def directoryService(self):
+        if not hasattr(self, "_directoryService"):
+            self._directoryService = FakeDirectoryService()
+        return self._directoryService
 
 
 
@@ -843,11 +852,11 @@ END:VCALENDAR
             scheduler.reinvites = None
 
             scheduler.calendar_home = FakeCalendarHome()
-            scheduler.calendar_owner = "user01"
+            scheduler.calendar_owner = "user1"
 
             # Get some useful information from the calendar
             yield scheduler.extractCalendarData()
-            scheduler.organizerPrincipal = CalendarPrincipal(scheduler.organizer, scheduler.organizer)
+            scheduler.organizerPrincipal = buildDirectoryRecord(scheduler.calendar_owner)
 
             recipients = []
 
@@ -870,7 +879,7 @@ class ImplicitRequests (CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(ImplicitRequests, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
 

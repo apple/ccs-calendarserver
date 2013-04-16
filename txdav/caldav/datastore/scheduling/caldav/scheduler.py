@@ -29,8 +29,6 @@ from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, \
     InvalidCalendarUser, calendarUserFromPrincipal, RemoteCalendarUser
 from txdav.caldav.datastore.scheduling.scheduler import Scheduler, ScheduleResponseQueue
 
-from txdav.xml import element as davxml
-
 
 """
 L{CalDAVScheduler} - handles deliveries for scheduling messages within the CalDAV server.
@@ -63,8 +61,8 @@ class CalDAVScheduler(Scheduler):
         "max-recipients": (caldav_namespace, "recipient-limit"),
     }
 
-    def __init__(self, calendar_home, calendar_collection, resource, **kwargs):
-        super(CalDAVScheduler, self).__init__(calendar_home, calendar_collection, resource, **kwargs)
+    def __init__(self, txn, originator_uid, **kwargs):
+        super(CalDAVScheduler, self).__init__(txn, originator_uid, **kwargs)
         self.doingPOST = False
 
 
@@ -78,7 +76,7 @@ class CalDAVScheduler(Scheduler):
 
     def checkAuthorization(self):
         # Must have an authenticated user
-        if not self.internal_request and self.resource.currentPrincipal(self.request) == davxml.Principal(davxml.Unauthenticated()):
+        if not self.internal_request and self.originator_uid == None:
             log.err("Unauthenticated originators not allowed: %s" % (self.originator,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
@@ -93,7 +91,7 @@ class CalDAVScheduler(Scheduler):
         """
 
         # Verify that Originator is a valid calendar user
-        originatorPrincipal = self.calendar_home.principalForCalendarUserAddress(self.originator)
+        originatorPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.originator)
         if originatorPrincipal is None:
             # Local requests MUST have a principal.
             log.err("Could not find principal for originator: %s" % (self.originator,))
@@ -116,7 +114,7 @@ class CalDAVScheduler(Scheduler):
         results = []
         for recipient in self.recipients:
             # Get the principal resource for this recipient
-            principal = self.calendar_home.principalForCalendarUserAddress(recipient)
+            principal = self.txn.directoryService().recordWithCalendarUserAddress(recipient)
 
             # If no principal we may have a remote recipient but we should check whether
             # the address is one that ought to be on our server and treat that as a missing
@@ -131,7 +129,7 @@ class CalDAVScheduler(Scheduler):
                 inbox = None
                 if principal.thisServer():
                     if principal.locallyHosted():
-                        recipient_home = yield self.calendar_home.transaction().calendarHomeWithUID(principal.uid())
+                        recipient_home = yield self.txn.calendarHomeWithUID(principal.uid)
                         if recipient_home:
                             inbox = (yield recipient_home.calendarWithName("inbox"))
                     else:
@@ -155,7 +153,7 @@ class CalDAVScheduler(Scheduler):
         # Verify that the ORGANIZER's cu address maps to a valid user
         organizer = self.calendar.getOrganizer()
         if organizer:
-            organizerPrincipal = self.calendar_home.principalForCalendarUserAddress(organizer)
+            organizerPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(organizer)
             if organizerPrincipal:
                 if organizerPrincipal.calendarsEnabled():
 
@@ -210,7 +208,7 @@ class CalDAVScheduler(Scheduler):
             ))
 
         # Make sure that the ORGANIZER's Outbox is the request URI
-        if self.doingPOST and self.organizer.principal.uid() != self.calendar_home.uid():
+        if self.doingPOST is not None and self.organizer.principal.uid != self.originator_uid:
             log.err("Wrong outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
@@ -226,9 +224,9 @@ class CalDAVScheduler(Scheduler):
         """
 
         # Attendee's Outbox MUST be the request URI
-        attendeePrincipal = self.calendar_home.principalForCalendarUserAddress(self.attendee)
+        attendeePrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.attendee)
         if attendeePrincipal:
-            if self.doingPOST and attendeePrincipal.uid() != self.calendar_home.uid():
+            if self.doingPOST is not None and attendeePrincipal.uid != self.originator_uid:
                 log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,

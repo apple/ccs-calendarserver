@@ -51,6 +51,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         self._sqlStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()
 
+
     @inlineCallbacks
     def populate(self):
         populateTxn = self.storeUnderTest().newTransaction()
@@ -76,7 +77,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         self.notifierFactory.reset()
 
 
-
     def storeUnderTest(self):
         """
         Create and return a L{AddressBookStore} for testing.
@@ -91,7 +91,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         events).
         """
         @inlineCallbacks
-        def namesAndComponents(x, filter=lambda x:x.component()):
+        def namesAndComponents(x, filter=lambda x: x.component()):
             fromObjs = yield x.addressbookObjects()
             returnValue(dict([(fromObj.name(), (yield filter(fromObj)))
                               for fromObj in fromObjs]))
@@ -107,7 +107,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         """
         Assert that two objects with C{properties} methods have similar
         properties.
-        
+
         @param disregard: a list of L{PropertyName} keys to discard from both
             input and output.
         """
@@ -215,7 +215,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         version = yield txn.calendarserverValue("ADDRESSBOOK-DATAVERSION")[0][0]
         ch = schema.ADDRESSBOOK_HOME
         homeVersion = yield Select(
-            [ch.DATAVERSION,],
+            [ch.DATAVERSION, ],
             From=ch,
             Where=ch.OWNER_UID == "home_version",
         ).on(txn)[0][0]
@@ -288,6 +288,7 @@ END:VCARD
         yield d1
         yield d2
 
+
     @inlineCallbacks
     def test_removeAddressBookPropertiesOnDelete(self):
         """
@@ -301,7 +302,7 @@ END:VCARD
         addressbook = yield home.createAddressBookWithName(name)
         resourceID = addressbook._resourceID
         addressbookProperties = addressbook.properties()
-        
+
         prop = carddavxml.AddressBookDescription.fromString("Address Book to be removed")
         addressbookProperties[PropertyName.fromElement(prop)] = prop
         yield self.commit()
@@ -329,6 +330,7 @@ END:VCARD
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
 
+
     @inlineCallbacks
     def test_removeAddressBookObjectPropertiesOnDelete(self):
         """
@@ -341,7 +343,7 @@ END:VCARD
         adbk1 = yield self.addressbookUnderTest()
         name = "4.vcf"
         component = VComponent.fromString(vcard4_text)
-        addressobject = yield adbk1.createAddressBookObjectWithName(name, component, metadata={})
+        addressobject = yield adbk1.createAddressBookObjectWithName(name, component, options={})
         resourceID = addressobject._resourceID
 
         prop = schema.RESOURCE_PROPERTY
@@ -357,7 +359,8 @@ END:VCARD
 
         # Remove address book object and check for no properties
         adbk1 = yield self.addressbookUnderTest()
-        yield adbk1.removeAddressBookObjectWithName(name)
+        obj1 = yield adbk1.addressbookObjectWithName(name)
+        yield obj1.remove()
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
@@ -366,4 +369,3 @@ END:VCARD
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
-

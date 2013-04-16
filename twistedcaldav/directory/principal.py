@@ -844,10 +844,7 @@ class DirectoryPrincipalResource (
 
 
     def displayName(self):
-        if self.record.fullName:
-            return self.record.fullName
-        else:
-            return self.record.shortNames[0]
+        return self.record.displayName()
 
     ##
     # ACL
@@ -1076,15 +1073,7 @@ class DirectoryPrincipalResource (
         @param organizer: the CUA of the organizer trying to schedule this principal
         @type organizer: C{str}
         """
-
-        if config.Scheduling.Options.AutoSchedule.Enabled:
-            if (config.Scheduling.Options.AutoSchedule.Always or
-                self.getAutoSchedule() or
-                self.autoAcceptFromOrganizer(organizer)):
-                if (self.getCUType() != "INDIVIDUAL" or
-                    config.Scheduling.Options.AutoSchedule.AllowUsers):
-                    return True
-        return False
+        return self.record.canAutoSchedule(organizer)
 
 
     @inlineCallbacks
@@ -1110,10 +1099,7 @@ class DirectoryPrincipalResource (
             accept-if-free, decline-if-busy, automatic (see stdconfig.py)
         @rtype: C{str}
         """
-        autoScheduleMode = self.record.autoScheduleMode
-        if self.autoAcceptFromOrganizer(organizer):
-            autoScheduleMode = "automatic"
-        return autoScheduleMode
+        return self.record.getAutoScheduleMode(organizer)
 
 
     @inlineCallbacks
@@ -1149,12 +1135,7 @@ class DirectoryPrincipalResource (
             of that group.  False otherwise.
         @rtype: C{bool}
         """
-        if organizer is not None and self.record.autoAcceptGroup is not None:
-            organizerPrincipal = self.parent.principalForCalendarUserAddress(organizer)
-            if organizerPrincipal is not None:
-                if organizerPrincipal.record.guid in self.record.autoAcceptMembers():
-                    return True
-        return False
+        return self.record.autoAcceptFromOrganizer()
 
 
     def getCUType(self):
@@ -1200,7 +1181,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
 
     def calendarsEnabled(self):
-        return config.EnableCalDAV and self.record.enabledForCalendaring
+        return self.record.calendarsEnabled()
 
 
     def addressBooksEnabled(self):
@@ -1222,19 +1203,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
 
     def calendarUserAddresses(self):
-
-        # No CUAs if not enabledForCalendaring.
-        if not self.record.enabledForCalendaring:
-            return set()
-
-        # Get any CUAs defined by the directory implementation.
-        addresses = set(self.record.calendarUserAddresses)
-
-        # Add the principal URL and alternate URIs to the list.
-        for uri in ((self.principalURL(),) + tuple(self.alternateURIs())):
-            addresses.add(uri)
-
-        return addresses
+        return self.record.calendarUserAddresses()
 
 
     def htmlElement(self):
@@ -1251,33 +1220,11 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
             mailto: form
             first in calendarUserAddresses( ) list
         """
-
-        cua = ""
-        for candidate in self.calendarUserAddresses():
-            # Pick the first one, but urn:uuid: and mailto: can override
-            if not cua:
-                cua = candidate
-            # But always immediately choose the urn:uuid: form
-            if candidate.startswith("urn:uuid:"):
-                cua = candidate
-                break
-            # Prefer mailto: if no urn:uuid:
-            elif candidate.startswith("mailto:"):
-                cua = candidate
-        return cua
+        return self.record.canonicalCalendarUserAddress()
 
 
     def enabledAsOrganizer(self):
-        if self.record.recordType == DirectoryService.recordType_users:
-            return True
-        elif self.record.recordType == DirectoryService.recordType_groups:
-            return config.Scheduling.Options.AllowGroupAsOrganizer
-        elif self.record.recordType == DirectoryService.recordType_locations:
-            return config.Scheduling.Options.AllowLocationAsOrganizer
-        elif self.record.recordType == DirectoryService.recordType_resources:
-            return config.Scheduling.Options.AllowResourceAsOrganizer
-        else:
-            return False
+        return self.record.enabledAsOrganizer()
 
 
     @inlineCallbacks

@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from calendarserver.tap.util import getRootResource
+from calendarserver.tap.util import getRootResource, directoryFromConfig
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.value import PyCalendarValue
@@ -34,15 +34,15 @@ from twistedcaldav.ical import Property, Component
 from txdav.caldav.datastore.sql import CalendarStoreFeatures, DropBoxAttachment, \
     ManagedAttachment
 from txdav.caldav.datastore.test.common import CaptureProtocol
+from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport, IAttachment, \
     QuotaExceeded
 from txdav.common.datastore.sql_tables import schema
-from txdav.common.datastore.test.util import CommonCommonTests, buildStore, \
+from txdav.common.datastore.test.util import CommonCommonTests, \
     populateCalendarsFrom, deriveQuota, withSpecialQuota
 
 import hashlib
 import os
-import uuid
 
 """
 Tests for txdav.caldav.datastore.sql attachment handling.
@@ -99,7 +99,7 @@ class AttachmentTests(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(AttachmentTests, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
 
@@ -346,7 +346,7 @@ END:VCALENDAR
         two attachments with the same name won't overwrite each other.
         """
         obj = yield self.calendarObjectUnderTest()
-        obj2 = yield self.calendarObjectUnderTest("2.ics")
+        obj2 = yield self.calendarObjectUnderTest(name="2.ics")
         att1 = yield self.stringToAttachment(obj, "sample.attachment",
                                              "test data 1")
         att2 = yield self.stringToAttachment(obj2, "sample.attachment",
@@ -761,7 +761,7 @@ END:VCALENDAR
         self.assertNotEqual(quota, 0)
 
         # Remove resource
-        obj = yield self.calendarObjectUnderTest("test.ics")
+        obj = yield self.calendarObjectUnderTest(name="test.ics")
         yield obj.remove()
         yield self.commit()
 
@@ -888,7 +888,7 @@ class ManagedAttachmentTests(AttachmentTests):
         two attachments with the same name won't overwrite each other.
         """
         obj = yield self.calendarObjectUnderTest()
-        obj2 = yield self.calendarObjectUnderTest("2.ics")
+        obj2 = yield self.calendarObjectUnderTest(name="2.ics")
         att1 = yield self.stringToAttachment(obj, "sample.attachment",
                                              "test data 1")
         att2 = yield self.stringToAttachment(obj2, "sample.attachment",
@@ -1206,18 +1206,14 @@ class ManagedAttachmentTests(AttachmentTests):
 
         # Create attachment
         obj = yield self.calendarObjectUnderTest()
-        cdata = yield obj.component()
+        cdata = yield obj.componentForUser()
 
         attachment, _ignore_location = yield obj.addAttachment(None, MimeType("text", "x-fixture"), "new.attachment", MemoryStream("new attachment text"), cdata)
-        mid = attachment.managedID()
         apath = attachment._path.path
 
         newcdata = Component.fromString(str(cdata).replace("uid1", "uid1-attached"))
         calendar = yield self.calendarUnderTest()
-        cobj = yield calendar.createCalendarObjectWithName(
-            "test.ics", newcdata
-        )
-        yield cobj.copyResourceAttachments(((mid, str(uuid.uuid4()),),))
+        yield calendar.createCalendarObjectWithName("test.ics", newcdata)
         yield self.commit()
 
         self.assertTrue(os.path.exists(apath))
@@ -1240,7 +1236,7 @@ class ManagedAttachmentTests(AttachmentTests):
         self.assertNotEqual(quota, 0)
 
         # Remove resource
-        obj = yield self.calendarObjectUnderTest("test.ics")
+        obj = yield self.calendarObjectUnderTest(name="test.ics")
         yield obj.remove()
         yield self.commit()
 
@@ -1393,8 +1389,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(AttachmentMigrationTests, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
-        yield self.populate()
 
         self.patch(config.DirectoryService.params, "xmlFile",
             os.path.join(
@@ -1406,8 +1400,12 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
                 os.path.dirname(__file__), "attachments", "resources.xml"
             )
         )
+
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory, directoryFromConfig(config))
+        yield self.populate()
+
         self.rootResource = getRootResource(config, self._sqlCalendarStore)
-        self.directory = self.rootResource.getDirectory()
+        self.directory = self._sqlCalendarStore.directoryService()
 
 
     @inlineCallbacks
@@ -1451,7 +1449,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         t.write(" attachment")
         yield t.loseConnection()
 
-        cal = (yield event.component())
+        cal = (yield event.componentForUser())
         cal.mainComponent().addProperty(Property(
             "ATTACH",
             "http://localhost/calendars/users/%s/dropbox/%s.dropbox/%s" % (home.name(), dropboxid, name,),
@@ -1474,7 +1472,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         calendar = (yield home.calendarWithName(calendar))
         event = (yield calendar.calendarObjectWithName(event))
 
-        cal = (yield event.component())
+        cal = (yield event.componentForUser())
         cal.mainComponent().addProperty(Property(
             "ATTACH",
             "http://localhost/calendars/users/%s/dropbox/%s.dropbox/%s" % (owner_home, dropboxid, name,),
@@ -1510,13 +1508,13 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         home = (yield txn.calendarHomeWithUID(home))
         calendar = (yield home.calendarWithName(calendar))
         event = (yield calendar.calendarObjectWithName(event))
-        component = (yield event.component()).mainComponent()
+        component = (yield event.componentForUser()).mainComponent()
 
         # No more X-APPLE-DROPBOX
         self.assertFalse(component.hasProperty("X-APPLE-DROPBOX"))
 
         # Check only managed attachments exist
-        attachments = (yield event.component()).mainComponent().properties("ATTACH")
+        attachments = (yield event.componentForUser()).mainComponent().properties("ATTACH")
         dropbox_count = 0
         managed_count = 0
         for attach in attachments:
@@ -1540,13 +1538,13 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         home = (yield txn.calendarHomeWithUID(home))
         calendar = (yield home.calendarWithName(calendar))
         event = (yield calendar.calendarObjectWithName(event))
-        component = (yield event.component()).mainComponent()
+        component = (yield event.componentForUser()).mainComponent()
 
         # X-APPLE-DROPBOX present
         self.assertTrue(component.hasProperty("X-APPLE-DROPBOX"))
 
         # Check only managed attachments exist
-        attachments = (yield event.component()).mainComponent().properties("ATTACH")
+        attachments = (yield event.componentForUser()).mainComponent().properties("ATTACH")
         dropbox_count = 0
         managed_count = 0
         for attach in attachments:
@@ -1675,7 +1673,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         event = (yield calendar.calendarObjectWithName("1.2.ics"))
 
         # Check that dropbox ATTACH exists
-        attachments = (yield event.component()).mainComponent().properties("ATTACH")
+        attachments = (yield event.componentForUser()).mainComponent().properties("ATTACH")
         for attach in attachments:
             self.assertTrue(attach.value().find("1.2.dropbox") != -1)
             self.assertTrue(attach.value().endswith("attach_1_2_1.txt") or attach.value().endswith("attach_1_2_2.txt"))
@@ -1694,7 +1692,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         event = (yield calendar.calendarObjectWithName("1.2.ics"))
 
         # Check that one managed-id and one dropbox ATTACH exist
-        attachments = (yield event.component()).mainComponent().properties("ATTACH")
+        attachments = (yield event.componentForUser()).mainComponent().properties("ATTACH")
         dropbox_count = 0
         managed_count = 0
         for attach in attachments:
@@ -1726,13 +1724,13 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         home = (yield txn.calendarHomeWithUID("home1"))
         calendar = (yield home.calendarWithName("calendar1"))
         event = (yield calendar.calendarObjectWithName("1.2.ics"))
-        component = (yield event.component()).mainComponent()
+        component = (yield event.componentForUser()).mainComponent()
 
         # No more X-APPLE-DROPBOX
         self.assertFalse(component.hasProperty("X-APPLE-DROPBOX"))
 
         # Check that one managed-id and one dropbox ATTACH exist
-        attachments = (yield event.component()).mainComponent().properties("ATTACH")
+        attachments = (yield event.componentForUser()).mainComponent().properties("ATTACH")
         dropbox_count = 0
         managed_count = 0
         for attach in attachments:

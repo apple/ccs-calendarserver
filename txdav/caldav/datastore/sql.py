@@ -314,64 +314,64 @@ class CalendarStoreFeatures(object):
 
 
 
-class CalendarPrincipal(object):
-
-    def __init__(self, uid, cuaddrs):
-        self.principal_uid = uid
-        self.cuaddrs = cuaddrs
-
-
-    def uid(self):
-        return self.principal_uid
-
-
-    def shortNames(self):
-        return [self.principal_uid, ]
-
-
-    def fullName(self):
-        return "%s %s" % (self.principal_uid[:4].capitalize(), self.principal_uid[4:])
-
-
-    def displayName(self):
-        fullName = self.fullName()
-        return fullName if fullName else self.shortNames()[0]
-
-
-    def calendarUserAddresses(self):
-        return self.cuaddrs
-
-
-    def canonicalCalendarUserAddress(self):
-        return [cuaddr for cuaddr in self.cuaddrs if cuaddr.startswith("urn:uuid")][0]
-
-
-    def locallyHosted(self):
-        return True
-
-
-    def thisServer(self):
-        return True
-
-
-    def calendarsEnabled(self):
-        return True
-
-
-    def getCUType(self):
-        return "INDIVIDUAL"
-
-
-    def enabledAsOrganizer(self):
-        return True
-
-
-    def canAutoSchedule(self, organizer):
-        return False
-
-
-    def getAutoScheduleMode(self, organizer):
-        return "auto"
+#class CalendarPrincipal(object):
+#
+#    def __init__(self, uid, cuaddrs):
+#        self.principal_uid = uid
+#        self.cuaddrs = cuaddrs
+#
+#
+#    def uid(self):
+#        return self.principal_uid
+#
+#
+#    def shortNames(self):
+#        return [self.principal_uid, ]
+#
+#
+#    def fullName(self):
+#        return "%s %s" % (self.principal_uid[:4].capitalize(), self.principal_uid[4:])
+#
+#
+#    def displayName(self):
+#        fullName = self.fullName()
+#        return fullName if fullName else self.shortNames()[0]
+#
+#
+#    def calendarUserAddresses(self):
+#        return self.cuaddrs
+#
+#
+#    def canonicalCalendarUserAddress(self):
+#        return [cuaddr for cuaddr in self.cuaddrs if cuaddr.startswith("urn:uuid")][0]
+#
+#
+#    def locallyHosted(self):
+#        return True
+#
+#
+#    def thisServer(self):
+#        return True
+#
+#
+#    def calendarsEnabled(self):
+#        return True
+#
+#
+#    def getCUType(self):
+#        return "INDIVIDUAL"
+#
+#
+#    def enabledAsOrganizer(self):
+#        return True
+#
+#
+#    def canAutoSchedule(self, organizer):
+#        return False
+#
+#
+#    def getAutoScheduleMode(self, organizer):
+#        return "auto"
 
 
 
@@ -831,25 +831,25 @@ class CalendarHome(CommonHome):
         self.properties()[PropertyName.fromElement(prop)] = prop.fromString(alarm)
 
 
-    def principal(self):
-        return self.principalForUID(self.uid())
-
-
-    def principalForUID(self, uid):
-        return CalendarPrincipal(uid, ("urn:uuid:%s" % (uid,), "mailto:%s@example.com" % (uid,),))
-
-
-    def principalForCalendarUserAddress(self, cuaddr):
-        if cuaddr.startswith("mailto:"):
-            uid, domain = cuaddr[7:].split('@')
-            if domain != "example.com":
-                return None
-            return CalendarPrincipal(uid, (cuaddr, "urn:uuid:%s" % (uid,)))
-        elif cuaddr.startswith("urn:uuid:"):
-            uid = cuaddr[9:]
-            return CalendarPrincipal(uid, (cuaddr, "mailto:%s@example.com" % (uid,)))
-        else:
-            return None
+#    def principal(self):
+#        return self.principalForUID(self.uid())
+#
+#
+#    def principalForUID(self, uid):
+#        return CalendarPrincipal(uid, ("urn:uuid:%s" % (uid,), "mailto:%s@example.com" % (uid,),))
+#
+#
+#    def principalForCalendarUserAddress(self, cuaddr):
+#        if cuaddr.startswith("mailto:"):
+#            uid, domain = cuaddr[7:].split('@')
+#            if domain != "example.com":
+#                return None
+#            return CalendarPrincipal(uid, (cuaddr, "urn:uuid:%s" % (uid,)))
+#        elif cuaddr.startswith("urn:uuid:"):
+#            uid = cuaddr[9:]
+#            return CalendarPrincipal(uid, (cuaddr, "mailto:%s@example.com" % (uid,)))
+#        else:
+#            return None
 
 
 CalendarHome._register(ECALENDARTYPE)
@@ -978,7 +978,7 @@ class Calendar(CommonHomeChild):
         inbox resources need to store Originator, Recipient etc properties.
         Other calendars do not have object resources with properties.
         """
-        return not self.isInbox()
+        return self.isInbox()
 
 
     @inlineCallbacks
@@ -1445,10 +1445,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Normalize the calendar user addresses once we know we have valid
             # calendar data
-            component.normalizeCalendarUserAddresses(normalizationLookup, self.calendar().viewerHome().principalForCalendarUserAddress)
+            component.normalizeCalendarUserAddresses(normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
 
         # Check location/resource organizer requirement
-        yield self.validLocationResourceOrganizer(component, inserting, internal_state)
+        self.validLocationResourceOrganizer(component, inserting, internal_state)
 
         # Check access
         if config.EnablePrivateEvents:
@@ -1536,14 +1536,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     raise TooManyAttendeesError("Attendee list size %d is larger than allowed limit %d" % (attendeeListLength, config.MaxAttendeesPerInstance))
 
 
-    @inlineCallbacks
     def validLocationResourceOrganizer(self, component, inserting, internal_state):
         """
         If the calendar owner is a location or resource, check whether an ORGANIZER property is required.
         """
 
         if internal_state == ComponentUpdateState.NORMAL:
-            originatorPrincipal = (yield self.calendar().ownerHome().principal())
+            originatorPrincipal = self.calendar().ownerHome().directoryRecord()
             cutype = originatorPrincipal.getCUType() if originatorPrincipal is not None else "INDIVIDUAL"
             organizer = component.getOrganizer()
 
@@ -1560,7 +1559,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                 # Find current principal and update modified by details
                 if hasattr(self._txn, "_authz_uid"):
-                    authz = (yield self.calendar().ownerHome().principalForUID(self._txn._authz_uid))
+                    authz = self.directoryService().recordWithUID(self._txn._authz_uid)
                     prop = Property("X-CALENDARSERVER-MODIFIED-BY", authz.canonicalCalendarUserAddress())
                     prop.setParameter("CN", authz.displayName())
                     for candidate in authz.calendarUserAddresses():
@@ -1649,8 +1648,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 log.debug("Organizer and attendee properties were entirely removed by the client. Restoring existing properties.")
 
                 # Get the originator who is the owner of the calendar resource being modified
-                originatorPrincipal = (yield self.calendar().ownerHome().principal())
-                originatorAddresses = originatorPrincipal.calendarUserAddresses()
+                originatorPrincipal = self.calendar().ownerHome().directoryRecord()
+                originatorAddresses = originatorPrincipal.calendarUserAddresses
 
                 for component in calendar.subcomponents():
                     if component.name() != "VTODO":
@@ -1686,8 +1685,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 log.debug("Sync COMPLETED property change.")
 
                 # Get the originator who is the owner of the calendar resource being modified
-                originatorPrincipal = (yield self.calendar().ownerHome().principal())
-                originatorAddresses = originatorPrincipal.calendarUserAddresses()
+                originatorPrincipal = self.calendar().ownerHome().directoryRecord()
+                originatorAddresses = originatorPrincipal.calendarUserAddresses
 
                 for component in calendar.subcomponents():
                     if component.name() != "VTODO":
@@ -2005,6 +2004,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             component = (yield self.mergePerUserData(component, inserting))
 
             self.processScheduleTags(component, inserting, internal_state)
+
+        # When migrating we always do validity check to fix issues
+        elif self._txn._migrating:
+            self.validCalendarDataCheck(component, inserting)
 
         yield self.updateDatabase(component, inserting=inserting)
 
@@ -2933,7 +2936,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Write the component back (and no need to re-index as we have not
         # changed any timing properties in the calendar data).
         cal.noInstanceIndexing = True
-        yield self.setComponent(cal)
+        yield self._setComponentInternal(cal, internal_state=ComponentUpdateState.RAW)
 
 
     @inlineCallbacks

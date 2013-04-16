@@ -21,6 +21,10 @@ Store test utility functions
 
 from __future__ import print_function
 
+from zope.interface.declarations import implements
+from txdav.common.idirectoryservice import IStoreDirectoryService, \
+    IStoreDirectoryRecord
+
 from calendarserver.push.notifier import Notifier
 
 from hashlib import md5
@@ -87,6 +91,35 @@ def dumpConnectionStatus():
 
 
 
+class TestStoreDirectoryService(object):
+
+    implements(IStoreDirectoryService)
+
+    def __init__(self):
+        self.records = {}
+
+
+    def recordWithUID(self, uid):
+        return self.records.get(uid)
+
+
+    def addRecord(self, record):
+        self.records[record.uid] = record
+
+
+
+class TestStoreDirectoryRecord(object):
+
+    implements(IStoreDirectoryRecord)
+
+    def __init__(self, uid, shortNames, fullName):
+        self.uid = uid
+        self.shortNames = shortNames
+        self.fullName = fullName
+        self.displayName = self.fullName if self.fullName else self.shortNames[0]
+
+
+
 class SQLStoreBuilder(object):
     """
     Test-fixture-builder which can construct a PostgresStore.
@@ -136,13 +169,14 @@ class SQLStoreBuilder(object):
         reactor.addSystemEventTrigger("before", "shutdown", cp.stopService)
         cds = CommonDataStore(
             cp.connection, StubNotifierFactory(),
+            TestStoreDirectoryService(),
             attachmentRoot, "",
             quota=staticQuota
         )
         return cds
 
 
-    def buildStore(self, testCase, notifierFactory):
+    def buildStore(self, testCase, notifierFactory, directoryService=None):
         """
         Do the necessary work to build a store for a particular test case.
 
@@ -151,11 +185,13 @@ class SQLStoreBuilder(object):
         disableMemcacheForTest(testCase)
         dbRoot = CachingFilePath(self.SHARED_DB_PATH)
         attachmentRoot = dbRoot.child("attachments")
+        if directoryService is None:
+            directoryService = TestStoreDirectoryService()
         if self.sharedService is None:
             ready = Deferred()
             def getReady(connectionFactory):
                 self.makeAndCleanStore(
-                    testCase, notifierFactory, attachmentRoot
+                    testCase, notifierFactory, directoryService, attachmentRoot
                 ).chainDeferred(ready)
                 return Service()
             self.sharedService = self.createService(getReady)
@@ -169,7 +205,7 @@ class SQLStoreBuilder(object):
             result = ready
         else:
             result = self.makeAndCleanStore(
-                testCase, notifierFactory, attachmentRoot
+                testCase, notifierFactory, directoryService, attachmentRoot
             )
         def cleanUp():
             def stopit():
@@ -180,7 +216,7 @@ class SQLStoreBuilder(object):
 
 
     @inlineCallbacks
-    def makeAndCleanStore(self, testCase, notifierFactory, attachmentRoot):
+    def makeAndCleanStore(self, testCase, notifierFactory, directoryService, attachmentRoot):
         """
         Create a L{CommonDataStore} specific to the given L{TestCase}.
 
@@ -201,6 +237,7 @@ class SQLStoreBuilder(object):
         store = CommonDataStore(
             cp.connection,
             notifierFactory,
+            directoryService,
             attachmentRoot,
             "https://example.com/calendars/__uids__/%(home)s/attachments/%(name)s",
             quota=quota

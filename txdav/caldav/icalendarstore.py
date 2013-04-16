@@ -571,28 +571,6 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         """
 
 
-    def removeCalendarObjectWithName(name):
-        """
-        Remove the calendar object with the given C{name} from this
-        calendar.
-
-        @param name: a string.
-        @raise NoSuchCalendarObjectError: if no such calendar object
-            exists.
-        """
-
-
-    def removeCalendarObjectWithUID(uid):
-        """
-        Remove the calendar object with the given C{uid} from this
-        calendar.
-
-        @param uid: a string.
-        @raise NoSuchCalendarObjectError: if the calendar object does
-            not exist.
-        """
-
-
     def syncToken():
         """
         Retrieve the current sync token for this calendar.

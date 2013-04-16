@@ -132,12 +132,10 @@ class Scheduler(object):
         "max-recipients": (),
     }
 
-    def __init__(self, calendar_home, calendar_collection, resource, logItems=None, noAttendeeRefresh=False):
+    def __init__(self, txn, originator_uid, logItems=None, noAttendeeRefresh=False):
 
-        self.txn = calendar_home.transaction()
-        self.calendar_home = calendar_home
-        self.calendar_collection = calendar_collection
-        self.resource = resource
+        self.txn = txn
+        self.originator_uid = originator_uid
         self.logItems = logItems
         self.noAttendeeRefresh = noAttendeeRefresh
 
@@ -155,7 +153,7 @@ class Scheduler(object):
 
 
     @inlineCallbacks
-    def doSchedulingViaPOST(self, transaction, use_request_headers=False):
+    def doSchedulingViaPOST(self, use_request_headers=False):
         """
         The Scheduling POST operation on an Outbox.
         """
@@ -194,8 +192,8 @@ class Scheduler(object):
                 raise HTTPError(StatusResponse(responsecode.CONFLICT, "UID: %s currently in use on the server." % (uid,)))
             else:
                 # Release lock after commit or abort
-                transaction.postCommit(lock.clean)
-                transaction.postAbort(lock.clean)
+                self.txn.postCommit(lock.clean)
+                self.txn.postAbort(lock.clean)
 
         result = (yield self.doScheduling())
         returnValue(result)
@@ -205,8 +203,15 @@ class Scheduler(object):
         """
         The implicit scheduling PUT operation.
         """
+        return self.doSchedulingDirectly("PUT", originator, recipients, calendar, internal_request, suppress_refresh)
 
-        self.method = "PUT"
+
+    def doSchedulingDirectly(self, descriptor, originator, recipients, calendar, internal_request=False, suppress_refresh=False):
+        """
+        The implicit scheduling operation.
+        """
+
+        self.method = descriptor
 
         # Load various useful bits doing some basic checks on those
         self.originator = originator
@@ -259,16 +264,10 @@ class Scheduler(object):
     @inlineCallbacks
     def loadOriginatorFromRequestDetails(self):
         # Get the originator who is the authenticated user
-        originatorPrincipal = None
-        originator = ""
-        authz_principal = self.resource.currentPrincipal(self.request).children[0]
-        if isinstance(authz_principal, davxml.HRef):
-            originatorPrincipalURL = str(authz_principal)
-            if originatorPrincipalURL:
-                originatorPrincipal = (yield self.request.locateResource(originatorPrincipalURL))
-                if originatorPrincipal:
-                    # Pick the canonical CUA:
-                    originator = originatorPrincipal.canonicalCalendarUserAddress()
+        originatorPrincipal = self.txn.directoryService().recordWithUID(self.originator_uid)
+
+        # Pick the canonical CUA:
+        originator = originatorPrincipal.canonicalCalendarUserAddress() if originatorPrincipal else ""
 
         if not originator:
             log.err("%s request must have Originator" % (self.method,))
@@ -691,7 +690,7 @@ class RemoteScheduler(Scheduler):
         results = []
         for recipient in self.recipients:
             # Get the principal resource for this recipient
-            principal = self.resource.principalForCalendarUserAddress(recipient)
+            principal = self.txn.directoryService.recordWithCalendarUserAddress(recipient)
 
             # If no principal we may have a remote recipient but we should check whether
             # the address is one that ought to be on our server and treat that as a missing
@@ -705,11 +704,17 @@ class RemoteScheduler(Scheduler):
                 results.append(InvalidCalendarUser(recipient))
             else:
                 # Map recipient to their inbox
-                inboxURL = principal.scheduleInboxURL()
-                inbox = (yield self.request.locateResource(inboxURL)) if principal.locallyHosted() else "dummy"
+                inbox = None
+                if principal.thisServer():
+                    if principal.locallyHosted():
+                        recipient_home = yield self.txn.calendarHomeWithUID(principal.uid)
+                        if recipient_home:
+                            inbox = (yield recipient_home.calendarWithName("inbox"))
+                    else:
+                        inbox = "dummy"
 
                 if inbox:
-                    results.append(calendarUserFromPrincipal(recipient, principal, inbox, inboxURL))
+                    results.append(calendarUserFromPrincipal(recipient, principal, inbox))
                 else:
                     log.err("No schedule inbox for principal: %s" % (principal,))
                     results.append(InvalidCalendarUser(recipient))

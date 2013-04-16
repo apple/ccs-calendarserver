@@ -15,7 +15,7 @@
 # limitations under the License.
 ##
 from zope.interface.declarations import implements
-from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject,\
+from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject, \
     ICalendarTransaction, ICalendarStore
 
 from twisted.python.util import FancyEqMixin
@@ -107,8 +107,10 @@ class ImplicitCalendarHome(
         else:
             returnValue(None)
 
+
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
         return self._calendarHome.hasCalendarResourceUIDSomewhereElse(uid, ok_object, type)
+
 
     def getCalendarResourcesForUID(self, uid, allow_shared=False):
         return self._calendarHome.getCalendarResourcesForUID(uid, allow_shared)
@@ -117,12 +119,29 @@ class ImplicitCalendarHome(
 
 class ImplicitCalendarObject(object):
     implements(ICalendarObject)
-    def setComponent(self, component): ""
-    def component(self): ""
-    def uid(self): ""
-    def componentType(self): ""
-    def organizer(self): ""
-    def properties(self):""
+
+    def setComponent(self, component):
+        pass
+
+
+    def component(self):
+        pass
+
+
+    def uid(self):
+        pass
+
+
+    def componentType(self):
+        pass
+
+
+    def organizer(self):
+        pass
+
+
+    def properties(self):
+        pass
 
 
 
@@ -148,10 +167,6 @@ class ImplicitCalendar(FancyEqMixin,
 #    def createCalendarObjectWithName(self, name, component):
 #        # FIXME: implement most of StoreCalendarObjectResource here!
 #        self._subCalendar.createCalendarObjectWithName(name, component)
-#    def removeCalendarObjectWithName(self, name):
-#        # FIXME: implement deletion logic here!
-#        return self._subCalendar.removeCalendarObjectWithName(name)
-#    def removeCalendarObjectWithUID(self, uid): ""
 #    def syncToken(self): ""
 #    def calendarObjectsInTimeRange(self, start, end, timeZone): ""
 #    def calendarObjectsSinceToken(self, token): ""
@@ -163,6 +178,10 @@ class ImplicitCalendar(FancyEqMixin,
 #        #FIXME: wrap
 #        return self._subCalendar.calendarObjectWithName(name)
 
+
+    def _createCalendarObjectWithNameInternal(self, name, component, internal_state, options=None):
+        return self.createCalendarObjectWithName(name, component, options)
+
     def setSupportedComponents(self, supported_components):
         """
         Update the database column with the supported components. Technically this should only happen once
@@ -170,8 +189,11 @@ class ImplicitCalendar(FancyEqMixin,
         """
         self._supportedComponents = supported_components
 
+
     def getSupportedComponents(self):
         return self._supportedComponents
+
+
 
 class ImplicitStore(proxyForInterface(ICalendarStore, "_calendarStore")):
     """

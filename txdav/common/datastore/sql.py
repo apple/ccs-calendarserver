@@ -66,6 +66,7 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
     InvalidIMIPTokenValues, TooManyObjectResourcesError
+from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 
@@ -149,6 +150,7 @@ class CommonDataStore(Service, object):
     implements(ICalendarStore)
 
     def __init__(self, sqlTxnFactory, notifierFactory,
+                 directoryService,
                  attachmentsPath, attachmentsURIPattern,
                  enableCalendars=True, enableAddressBooks=True,
                  enableManagedAttachments=True,
@@ -161,6 +163,7 @@ class CommonDataStore(Service, object):
 
         self.sqlTxnFactory = sqlTxnFactory
         self.notifierFactory = notifierFactory
+        self._directoryService = IStoreDirectoryService(directoryService) if directoryService is not None else None
         self.attachmentsPath = attachmentsPath
         self.attachmentsURIPattern = attachmentsURIPattern
         self.enableCalendars = enableCalendars
@@ -189,6 +192,10 @@ class CommonDataStore(Service, object):
         # home classes
         __import__("txdav.caldav.datastore.sql")
         __import__("txdav.carddav.datastore.sql")
+
+
+    def directoryService(self):
+        return self._directoryService
 
 
     def callWithNewTransactions(self, callback):
@@ -491,6 +498,10 @@ class CommonStoreTransaction(object):
 
     def store(self):
         return self._store
+
+
+    def directoryService(self):
+        return self._store.directoryService()
 
 
     def __repr__(self):
@@ -1630,6 +1641,14 @@ class CommonHome(LoggingMixIn):
 
     def transaction(self):
         return self._txn
+
+
+    def directoryService(self):
+        return self._txn.store().directoryService()
+
+
+    def directoryRecord(self):
+        return self.directoryService().recordWithUID(self.uid())
 
 
     @inlineCallbacks
@@ -3366,6 +3385,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         return self._home._txn
 
 
+    def directoryService(self):
+        return self._txn.store().directoryService()
+
+
     def resourceType(self):
         return NotImplementedError
 
@@ -3822,6 +3845,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         child._parentCollection = newparent
 
         # Signal sync change on new collection
+        newparent._objects.pop(name, None)
+        newparent._objects.pop(uid, None)
+        newparent._objects.pop(child._resourceID, None)
         yield newparent._insertRevision(newname)
         yield newparent.notifyChanged()
 
@@ -4284,6 +4310,10 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         return self._parentCollection._txn
 
 
+    def directoryService(self):
+        return self._txn.store().directoryService()
+
+
     @classmethod
     def _selectForUpdateQuery(cls, nowait): #@NoSelf
         """
@@ -4337,7 +4367,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @inlineCallbacks
-    def moveTo(self, destination, name):
+    def moveTo(self, destination, name=None):
         """
         Move object to another collection.
 

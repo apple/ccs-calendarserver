@@ -15,20 +15,24 @@
 ##
 
 
-from twistedcaldav.test.util import TestCase
-import email
+from calendarserver.tap.util import getRootResource, directoryFromConfig
+
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.modules import getModule
-from twistedcaldav.ical import Component
-from twistedcaldav.scheduling.imip.inbound import MailReceiver
-from twistedcaldav.scheduling.imip.inbound import MailRetriever
-from twistedcaldav.scheduling.imip.inbound import injectMessage
-from twistedcaldav.scheduling.imip.inbound import IMIPReplyWork
-from twistedcaldav.scheduling.itip import iTIPRequestStatus
-from twistedcaldav.test.util import xmlFile
-from txdav.common.datastore.test.util import buildStore
-from calendarserver.tap.util import getRootResource
+
 from twistedcaldav.config import config, ConfigDict
+from twistedcaldav.ical import Component
+from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import xmlFile
+
+from txdav.caldav.datastore.scheduling.imip.inbound import IMIPReplyWork
+from txdav.caldav.datastore.scheduling.imip.inbound import MailReceiver
+from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
+from txdav.caldav.datastore.scheduling.imip.inbound import injectMessage
+from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
+from txdav.caldav.datastore.test.util import buildCalendarStore
+
+import email
 
 
 class InboundTests(TestCase):
@@ -37,10 +41,10 @@ class InboundTests(TestCase):
     def setUp(self):
         super(InboundTests, self).setUp()
 
-        self.store = yield buildStore(self, None)
         self.patch(config.DirectoryService.params, "xmlFile", xmlFile)
+        self.store = yield buildCalendarStore(self, None, directoryFromConfig(config))
         self.root = getRootResource(config, self.store)
-        self.directory = self.root.getDirectory()
+        self.directory = self.store.directoryService()
         self.receiver = MailReceiver(self.store, self.directory)
         self.retriever = MailRetriever(self.store, self.directory,
             ConfigDict({

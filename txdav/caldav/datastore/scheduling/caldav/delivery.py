@@ -101,7 +101,7 @@ class ScheduleViaCalDAV(DeliveryService):
 
         organizerPrincipal = None
         if type(self.scheduler.organizer) in (LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,):
-            organizerPrincipal = self.scheduler.organizer.principal.uid()
+            organizerPrincipal = self.scheduler.organizer.principal.uid
 
         for recipient in self.recipients:
 
@@ -180,7 +180,7 @@ class ScheduleViaCalDAV(DeliveryService):
     def generateFreeBusyResponse(self, recipient, responses, organizerProp, organizerPrincipal, uid, event_details):
 
         # Extract the ATTENDEE property matching current recipient from the calendar data
-        cuas = recipient.principal.calendarUserAddresses()
+        cuas = recipient.principal.calendarUserAddresses
         attendeeProp = self.scheduler.calendar.getAttendeeProperty(cuas)
 
         remote = isinstance(self.scheduler.organizer, RemoteCalendarUser)
@@ -239,7 +239,7 @@ class ScheduleViaCalDAV(DeliveryService):
         # Check to see if the recipient is the same calendar user as the organizer.
         # Needed for masked UID stuff.
         if isinstance(self.scheduler.organizer, LocalCalendarUser):
-            same_calendar_user = self.scheduler.organizer.principal.principalURL() == recipient.principal.principalURL()
+            same_calendar_user = self.scheduler.organizer.principal.uid == recipient.principal.uid
         else:
             same_calendar_user = False
 

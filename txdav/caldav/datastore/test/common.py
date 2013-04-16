@@ -38,7 +38,6 @@ from txdav.common.icommondatastore import HomeChildNameAlreadyExistsError, \
     ICommonTransaction
 from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError
-from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.common.inotifications import INotificationObject
 from txdav.common.datastore.test.util import CommonCommonTests
@@ -46,7 +45,8 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE, _BIND_MODE_READ
 
 from txdav.caldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
-    ICalendar, ICalendarTransaction)
+    ICalendar, ICalendarTransaction, InvalidUIDError,
+    InvalidComponentForStoreError, ComponentUpdateState)
 
 from twistedcaldav.customxml import InviteNotification, InviteSummary
 from txdav.common.datastore.test.util import transactionClean
@@ -849,11 +849,12 @@ class CommonTests(CommonCommonTests):
     def test_calendarObjectsWithRemovedObject(self):
         """
         L{ICalendar.calendarObjects} skips those objects which have been
-        removed by L{Calendar.removeCalendarObjectWithName} in the same
+        removed by L{CalendarObject.remove} in the same
         transaction, even if it has not yet been committed.
         """
         calendar1 = yield self.calendarUnderTest()
-        yield calendar1.removeCalendarObjectWithName("2.ics")
+        obj1 = yield calendar1.calendarObjectWithName("2.ics")
+        yield obj1.remove()
         calendarObjects = list((yield calendar1.calendarObjects()))
         self.assertEquals(set(o.name() for o in calendarObjects),
                           set(calendar1_objectNames) - set(["2.ics"]))
@@ -871,7 +872,8 @@ class CommonTests(CommonCommonTests):
         calendarObject = yield self.calendarObjectUnderTest()
         ctxn = self.concurrentTransaction()
         calendar1prime = yield self.calendarUnderTest(ctxn)
-        yield calendar1prime.removeCalendarObjectWithName("1.ics")
+        obj1 = yield calendar1prime.calendarObjectWithName("1.ics")
+        yield obj1.remove()
         yield ctxn.commit()
         try:
             retrieval = yield calendarObject.component()
@@ -918,16 +920,16 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_removeCalendarObjectWithUID_exists(self):
+    def test_CalendarObjectWithUID_remove_exists(self):
         """
         Remove an existing calendar object.
         """
         calendar = yield self.calendarUnderTest()
         for name in calendar1_objectNames:
             uid = (u'uid' + name.rstrip(".ics"))
-            self.assertNotIdentical((yield calendar.calendarObjectWithUID(uid)),
-                                    None)
-            yield calendar.removeCalendarObjectWithUID(uid)
+            obj1 = (yield calendar.calendarObjectWithUID(uid))
+            self.assertNotIdentical(obj1, None)
+            yield obj1.remove()
             self.assertEquals(
                 (yield calendar.calendarObjectWithUID(uid)),
                 None
@@ -949,31 +951,18 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_removeCalendarObjectWithName_exists(self):
+    def test_CalendarObject_remove(self):
         """
         Remove an existing calendar object.
         """
         calendar = yield self.calendarUnderTest()
         for name in calendar1_objectNames:
-            self.assertNotIdentical(
-                (yield calendar.calendarObjectWithName(name)), None
-            )
-            yield calendar.removeCalendarObjectWithName(name)
+            obj1 = (yield calendar.calendarObjectWithName(name))
+            self.assertNotIdentical(obj1, None)
+            yield obj1.remove()
             self.assertIdentical(
                 (yield calendar.calendarObjectWithName(name)), None
             )
-
-
-    @inlineCallbacks
-    def test_removeCalendarObjectWithName_absent(self):
-        """
-        Attempt to remove an non-existing calendar object should raise.
-        """
-        calendar = yield self.calendarUnderTest()
-        yield self.failUnlessFailure(
-            maybeDeferred(calendar.removeCalendarObjectWithName, "xyzzy"),
-            NoSuchObjectResourceError
-        )
 
 
     @inlineCallbacks
@@ -1350,9 +1339,10 @@ END:VCALENDAR
         Set up state for testing of per-user components.
         """
         cal = yield self.calendarUnderTest()
-        yield cal.createCalendarObjectWithName(
+        yield cal._createCalendarObjectWithNameInternal(
             "per-user-stuff.ics",
-            self.perUserComponent())
+            self.perUserComponent(),
+            internal_state=ComponentUpdateState.RAW)
         returnValue((yield cal.calendarObjectWithName("per-user-stuff.ics")))
 
 
@@ -1502,10 +1492,10 @@ END:VCALENDAR
             "scheduleEtags": (),
             "hasPrivateComment": False,
         }
-        yield calendar1.createCalendarObjectWithName(name, component, metadata=metadata)
+        yield calendar1._createCalendarObjectWithNameInternal(name, component, internal_state=ComponentUpdateState.RAW, options=metadata)
 
         calendarObject = yield calendar1.calendarObjectWithName(name)
-        self.assertEquals((yield calendarObject.component()), component)
+        self.assertEquals((yield calendarObject.componentForUser()), component)
         self.assertEquals((yield calendarObject.getMetadata()), metadata)
 
         yield self.commit()
@@ -1546,6 +1536,7 @@ END:VCALENDAR
             maybeDeferred((yield self.calendarUnderTest()).createCalendarObjectWithName,
             "new", VComponent.fromString(test_event_notCalDAV_text)),
             InvalidObjectResourceError,
+            InvalidComponentForStoreError,
         )
 
 
@@ -1560,6 +1551,7 @@ END:VCALENDAR
             maybeDeferred(calendarObject.setComponent,
                           VComponent.fromString(test_event_notCalDAV_text)),
             InvalidObjectResourceError,
+            InvalidComponentForStoreError,
         )
 
 
@@ -1575,6 +1567,7 @@ END:VCALENDAR
         yield self.failUnlessFailure(
             maybeDeferred(calendarObject.setComponent, component),
             InvalidObjectResourceError,
+            InvalidUIDError,
         )
 
 
@@ -1616,14 +1609,14 @@ END:VCALENDAR
 
         calendar1 = yield self.calendarUnderTest()
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
-        oldComponent = yield calendarObject.component()
+        oldComponent = yield calendarObject.componentForUser()
         self.assertNotEqual(component, oldComponent)
         yield calendarObject.setComponent(component)
-        self.assertEquals((yield calendarObject.component()), component)
+        self.assertEquals((yield calendarObject.componentForUser()), component)
 
         # Also check a new instance
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
-        self.assertEquals((yield calendarObject.component()), component)
+        self.assertEquals((yield calendarObject.componentForUser()), component)
 
         yield self.commit()
 
@@ -1757,7 +1750,8 @@ END:VCALENDAR
             )
         )
 
-        yield cal.removeCalendarObjectWithName("2.ics")
+        obj1 = yield cal.calendarObjectWithName("2.ics")
+        yield obj1.remove()
         yield home.createCalendarWithName("other-calendar")
         st2 = yield home.syncToken()
         self.failIfEquals(st, st2)
@@ -1791,7 +1785,8 @@ END:VCALENDAR
                 test_event_text
             )
         )
-        yield cal.removeCalendarObjectWithName("2.ics")
+        obj1 = yield cal.calendarObjectWithName("2.ics")
+        yield obj1.remove()
         st2 = yield cal.syncToken()
         rev2 = self.token2revision(st2)
         changed, deleted = yield cal.resourceNamesSinceToken(rev)

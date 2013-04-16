@@ -19,8 +19,7 @@ from twisted.internet.defer import inlineCallbacks
 
 from twistedcaldav.ical import Component
 
-from txdav.common.datastore.test.util import CommonCommonTests, buildStore, \
-    populateCalendarsFrom
+from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 from twisted.trial.unittest import TestCase
 from twext.python.clsprop import classproperty
 from twistedcaldav.config import config
@@ -29,8 +28,8 @@ from txdav.common.icommondatastore import ObjectResourceTooBigError, \
 from txdav.caldav.icalendarstore import InvalidComponentTypeError, \
     TooManyAttendeesError, InvalidCalendarAccessError, InvalidUIDError, \
     UIDExistsError, ComponentUpdateState, InvalidComponentForStoreError
-import sys
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
+from txdav.caldav.datastore.test.util import buildCalendarStore
 
 class ImplicitRequests (CommonCommonTests, TestCase):
     """
@@ -40,7 +39,7 @@ class ImplicitRequests (CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(ImplicitRequests, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
 
@@ -144,14 +143,7 @@ END:VCALENDAR
         self.patch(config, "MaxResourceSize", 100)
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
         calendar1 = Component.fromString(data1)
-        try:
-            yield calendar_collection.createCalendarObjectWithName("test.ics", calendar1)
-        except ObjectResourceTooBigError:
-            pass
-        except:
-            self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
-        else:
-            self.fail("Exception not raised")
+        yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar1), ObjectResourceTooBigError)
         yield self.commit()
 
         self.patch(config, "MaxResourceSize", 10000)
@@ -163,14 +155,7 @@ END:VCALENDAR
         self.patch(config, "MaxResourceSize", 100)
         calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
         calendar2 = Component.fromString(data2)
-        try:
-            yield calendar_resource.setComponent(calendar2)
-        except ObjectResourceTooBigError:
-            pass
-        except:
-            self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
-        else:
-            self.fail("Exception not raised")
+        yield self.failUnlessFailure(calendar_resource.setComponent(calendar2), ObjectResourceTooBigError)
         yield self.commit()
 
 
@@ -213,14 +198,7 @@ END:VCALENDAR
         for item in data:
             calendar_collection = (yield self.calendarUnderTest(home="user01"))
             calendar = item
-            try:
-                yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
-            except (InvalidObjectResourceError, InvalidComponentForStoreError):
-                pass
-            except:
-                self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
-            else:
-                self.fail("Exception not raised")
+            yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar), InvalidObjectResourceError, InvalidComponentForStoreError)
             yield self.commit()
 
 
@@ -245,14 +223,7 @@ END:VCALENDAR
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
         calendar_collection.setSupportedComponents("VTODO")
         calendar = Component.fromString(data1)
-        try:
-            yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
-        except InvalidComponentTypeError:
-            pass
-        except:
-            self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
-        else:
-            self.fail("Exception not raised")
+        yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar), InvalidComponentTypeError)
         yield self.commit()
 
 
@@ -283,14 +254,7 @@ END:VCALENDAR
         self.patch(config, "MaxAttendeesPerInstance", 2)
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
         calendar = Component.fromString(data1)
-        try:
-            yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
-        except TooManyAttendeesError:
-            pass
-        except:
-            self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
-        else:
-            self.fail("Exception not raised")
+        yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar), TooManyAttendeesError)
         yield self.commit()
 
 
@@ -316,14 +280,7 @@ END:VCALENDAR
         self.patch(config, "EnablePrivateEvents", True)
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
         calendar = Component.fromString(data1)
-        try:
-            yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
-        except InvalidCalendarAccessError:
-            pass
-        except:
-            self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
-        else:
-            self.fail("Exception not raised")
+        yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar), InvalidCalendarAccessError)
         yield self.commit()
 
 
@@ -351,14 +308,7 @@ END:VCALENDAR
         calendar = Component.fromString(data1)
         txn = self.transactionUnderTest()
         txn._authz_uid = "user02"
-        try:
-            yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
-        except InvalidCalendarAccessError:
-            pass
-        except:
-            self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
-        else:
-            self.fail("Exception not raised")
+        yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar), InvalidCalendarAccessError)
         yield self.commit()
 
         # This one should be OK
@@ -436,14 +386,7 @@ END:VCALENDAR
 
         calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
         calendar = Component.fromString(data2)
-        try:
-            yield calendar_resource.setComponent(calendar)
-        except InvalidUIDError:
-            pass
-        except:
-            self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
-        else:
-            self.fail("Exception not raised")
+        yield self.failUnlessFailure(calendar_resource.setComponent(calendar), InvalidUIDError)
         yield self.commit()
 
 
@@ -486,14 +429,7 @@ END:VCALENDAR
 
         calendar_collection = (yield self.calendarUnderTest(home="user01"))
         calendar = Component.fromString(data2)
-        try:
-            yield calendar_collection.createCalendarObjectWithName("test2.ics", calendar)
-        except UIDExistsError:
-            pass
-        except:
-            self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
-        else:
-            self.fail("Exception not raised")
+        yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test2.ics", calendar), UIDExistsError)
         yield self.commit()
 
 
@@ -537,14 +473,7 @@ END:VCALENDAR
         home_collection = (yield self.homeUnderTest(name="user01"))
         calendar_collection_2 = (yield home_collection.createCalendarWithName("calendar_2"))
         calendar = Component.fromString(data2)
-        try:
-            yield calendar_collection_2.createCalendarObjectWithName("test2.ics", calendar)
-        except UIDExistsError:
-            pass
-        except:
-            self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
-        else:
-            self.fail("Exception not raised")
+        yield self.failUnlessFailure(calendar_collection_2.createCalendarObjectWithName("test2.ics", calendar), UIDExistsError)
         yield self.commit()
 
 

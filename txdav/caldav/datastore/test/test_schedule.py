@@ -28,7 +28,7 @@ scheduling or data caching as middleware in the data-store layer.
 
 from twisted.trial.unittest import TestCase, SkipTest
 from txdav.caldav.datastore.test.test_file import FileStorageTests
-from txdav.caldav.datastore.scheduling import ImplicitStore
+from txdav.caldav.datastore.schedule import ImplicitStore
 
 simpleEvent = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -56,6 +56,7 @@ class ImplicitStoreTests(FileStorageTests, TestCase):
             sut = super(ImplicitStoreTests, self).storeUnderTest()
             self.implicitStore = ImplicitStore(sut)
         return self.implicitStore
+
 
     def skipit(self):
         raise SkipTest("No private attribute tests.")

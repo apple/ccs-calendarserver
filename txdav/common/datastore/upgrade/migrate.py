@@ -63,7 +63,7 @@ def _getFixedComponent(cobj):
     @return: a L{Deferred} which fires with the appropriate L{Component}.
     """
     comp = yield cobj.component()
-    fixes, fixed = fixOneCalendarObject(comp)
+    _ignore_fixes, fixed = fixOneCalendarObject(comp)
     returnValue(fixed)
 
 
@@ -203,7 +203,7 @@ class UpgradeHelperProcess(AMP):
         subsvc = None
         self.upgrader = UpgradeToDatabaseService(
             FileStore(
-                CachingFilePath(filename), None, True, True,
+                CachingFilePath(filename), None, None, True, True,
                 propertyStoreClass=namedAny(appropriateStoreClass)
             ), self.store, subsvc, merge=merge
         )
@@ -215,7 +215,7 @@ class UpgradeHelperProcess(AMP):
         """
         Upgrade one calendar home.
         """
-        migrateFunc, destFunc = homeTypeLookup[homeType]
+        _ignore_migrateFunc, destFunc = homeTypeLookup[homeType]
         fileTxn = self.upgrader.fileStore.newTransaction()
         return (
             maybeDeferred(destFunc(fileTxn), uid)
@@ -305,7 +305,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                     appropriateStoreClass = AppleDoubleStore
 
                 self = cls(
-                    FileStore(path, None, True, True,
+                    FileStore(path, None, None, True, True,
                               propertyStoreClass=appropriateStoreClass),
                     store, service, uid=uid, gid=gid,
                     parallel=parallel, spawner=spawner, merge=merge
@@ -382,7 +382,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             drivers = yield gatherResults(
                 [spawner.spawnWithStore(UpgradeDriver(self),
                                         UpgradeHelperProcess)
-                 for x in xrange(parallel)]
+                 for _ignore_x in xrange(parallel)]
             )
             # Wait for all subprocesses to be fully configured before
             # continuing, but let them configure in any order.
@@ -465,7 +465,6 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             yield parallelizer.do(doOneUpgrade)
         else:
             yield self.migrateOneHome(fileTxn, homeType, fileHome)
-
 
 
     def startService(self):

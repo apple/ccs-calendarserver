@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.caldav.datastore.test.util import buildCalendarStore
+from txdav.caldav.icalendarstore import ComponentUpdateState
 
 """
 Tests for txdav.caldav.datastore.postgres, mostly based on
@@ -46,7 +48,7 @@ from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
     _BIND_STATUS_ACCEPTED
-from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
+from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
@@ -60,7 +62,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(CalendarSQLStorageTests, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
         self.nowYear = {"now": PyCalendarDateTime.getToday().getYear()}
@@ -186,7 +188,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
             "new-home", create=True)
         toCalendar = yield toHome.calendarWithName("calendar")
         toResource = yield toCalendar.calendarObjectWithName("1.ics")
-        caldata = yield toResource.component()
+        caldata = yield toResource.componentForUser()
         self.assertEqual(str(caldata), """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -237,7 +239,7 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % self.nowYear)
 
         toResource = yield toCalendar.calendarObjectWithName("2.ics")
-        caldata = yield toResource.component()
+        caldata = yield toResource.componentForUser()
         self.assertEqual(str(caldata), """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -290,7 +292,7 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % self.nowYear)
 
         toResource = yield toCalendar.calendarObjectWithName("3.ics")
-        caldata = yield toResource.component()
+        caldata = yield toResource.componentForUser()
         self.assertEqual(str(caldata), """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -585,7 +587,7 @@ END:VCALENDAR
 
         # Provision the home and calendar now
         txn = calendarStore.newTransaction()
-        home = yield txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        home = yield txn.homeWithUID(ECALENDARTYPE, "user01", create=True)
         self.assertNotEqual(home, None)
         cal = yield home.calendarWithName("calendar")
         self.assertNotEqual(cal, None)
@@ -594,8 +596,8 @@ END:VCALENDAR
         txn1 = calendarStore.newTransaction()
         txn2 = calendarStore.newTransaction()
 
-        home1 = yield txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
-        home2 = yield txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        home1 = yield txn1.homeWithUID(ECALENDARTYPE, "user01", create=True)
+        home2 = yield txn2.homeWithUID(ECALENDARTYPE, "user01", create=True)
 
         cal1 = yield home1.calendarWithName("calendar")
         cal2 = yield home2.calendarWithName("calendar")
@@ -817,7 +819,7 @@ END:VCALENDAR
             "scheduleEtags": (),
             "hasPrivateComment": False,
         }
-        calobject = yield calendar1.createCalendarObjectWithName(name, component, metadata=metadata)
+        calobject = yield calendar1.createCalendarObjectWithName(name, component, options=metadata)
         resourceID = calobject._resourceID
 
         prop = schema.RESOURCE_PROPERTY
@@ -833,7 +835,8 @@ END:VCALENDAR
 
         # Remove calendar and check for no properties
         calendar1 = yield self.calendarUnderTest()
-        yield calendar1.removeCalendarObjectWithName(name)
+        obj1 = yield calendar1.calendarObjectWithName(name)
+        yield obj1.remove()
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
@@ -864,7 +867,7 @@ END:VCALENDAR
             "scheduleEtags": (),
             "hasPrivateComment": False,
         }
-        calobject = yield inbox.createCalendarObjectWithName(name, component, metadata=metadata)
+        calobject = yield inbox.createCalendarObjectWithName(name, component, options=metadata)
         resourceID = calobject._resourceID
         calobjectProperties = calobject.properties()
 
@@ -886,7 +889,8 @@ END:VCALENDAR
         # Remove calendar object and check for no properties
         home = yield self.homeUnderTest()
         inbox = yield home.calendarWithName("inbox")
-        yield inbox.removeCalendarObjectWithName(name)
+        obj1 = yield inbox.calendarObjectWithName(name)
+        yield obj1.remove()
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
@@ -1003,7 +1007,7 @@ END:VCALENDAR
 
         child = yield calendar2.calendarObjectWithName("5.ics")
 
-        yield calendar2.moveObjectResource(child, calendar1)
+        yield child.moveTo(calendar1, child.name())
 
         child = yield calendar2.calendarObjectWithName("5.ics")
         self.assertTrue(child is None)
@@ -1368,7 +1372,8 @@ END:VCALENDAR
             sorted(instances3, key=lambda x: x[0])[0],
         )
 
-        yield calendar.removeCalendarObjectWithName("indexing.ics")
+        obj1 = yield calendar.calendarObjectWithName("indexing.ics")
+        yield obj1.remove()
         yield self.commit()
 
 
@@ -1433,7 +1438,7 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _createInboxItem(rname, pvalue):
-            obj = yield inbox.createCalendarObjectWithName(rname, component)
+            obj = yield inbox._createCalendarObjectWithNameInternal(rname, component, internal_state=ComponentUpdateState.ATTENDEE_ITIP_UPDATE)
             prop = caldavxml.CalendarDescription.fromString(pvalue)
             obj.properties()[PropertyName.fromElement(prop)] = prop
 

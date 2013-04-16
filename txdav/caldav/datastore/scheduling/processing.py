@@ -37,7 +37,7 @@ from twistedcaldav.method import report_common
 
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestStatus
-from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForPrincipals
+from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
 
 import collections
 import hashlib
@@ -160,9 +160,9 @@ class ImplicitProcessor(object):
 
         self.recipient_calendar = None
         self.recipient_calendar_resource = None
-        calendar_resource = (yield getCalendarObjectForPrincipals(self.txn, self.recipient.principal, self.uid))
+        calendar_resource = (yield getCalendarObjectForRecord(self.txn, self.recipient.principal, self.uid))
         if calendar_resource:
-            self.recipient_calendar = (yield calendar_resource.componentForUser(self.recipient.principal.uid()))
+            self.recipient_calendar = (yield calendar_resource.componentForUser(self.recipient.principal.uid))
             self.recipient_calendar_resource = calendar_resource
 
 
@@ -1036,7 +1036,7 @@ class ImplicitProcessor(object):
             raise ImplicitProcessorException("5.1;Service unavailable")
 
         # Locate the originator's copy of the event
-        calendar_resource, _ignore_name, _ignore_collection, _ignore_uri = (yield getCalendarObjectForPrincipals(self.request, self.originator.principal, self.uid))
+        calendar_resource, _ignore_name, _ignore_collection, _ignore_uri = (yield getCalendarObjectForRecord(self.request, self.originator.principal, self.uid))
         if not calendar_resource:
             raise ImplicitProcessorException("5.1;Service unavailable")
         originator_calendar = (yield calendar_resource.iCalendarForUser(self.request))
@@ -1045,7 +1045,7 @@ class ImplicitProcessor(object):
         originator_calendar.attendeesView((self.recipient.cuaddr,))
 
         # Locate the attendee's copy of the event if it exists.
-        recipient_resource, recipient_resource_name, recipient_collection, recipient_collection_uri = (yield getCalendarObjectForPrincipals(self.request, self.recipient.principal, self.uid))
+        recipient_resource, recipient_resource_name, recipient_collection, recipient_collection_uri = (yield getCalendarObjectForRecord(self.request, self.recipient.principal, self.uid))
 
         # We only need to fix data that already exists
         if recipient_resource:

@@ -18,7 +18,7 @@
 Tests for calendarserver.tools.purge
 """
 
-from calendarserver.tap.util import getRootResource
+from calendarserver.tap.util import getRootResource, directoryFromConfig
 
 from pycalendar.datetime import PyCalendarDateTime
 
@@ -27,9 +27,10 @@ from twisted.trial import unittest
 
 from twistedcaldav.config import config
 
-from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForPrincipals
-from txdav.caldav.datastore.sql import CalendarPrincipal
-from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
+from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
+from txdav.caldav.datastore.test.util import buildCalendarStore, \
+    buildDirectoryRecord
+from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 
 import os
 
@@ -110,10 +111,6 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
 
-        yield super(RecipientCopy, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
-        yield self.populate()
-
         self.patch(config.DirectoryService.params, "xmlFile",
             os.path.join(
                 os.path.dirname(__file__), "accounts.xml"
@@ -124,8 +121,13 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
                 os.path.dirname(__file__), "resources.xml"
             )
         )
+
+        yield super(RecipientCopy, self).setUp()
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory, directoryFromConfig(config))
+        yield self.populate()
+
         self.rootResource = getRootResource(config, self._sqlCalendarStore)
-        self.directory = self.rootResource.getDirectory()
+        self.directory = self._sqlCalendarStore.directoryService()
 
 
     @inlineCallbacks
@@ -142,9 +144,9 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    def test_getCalendarObjectForPrincipals(self):
+    def test_getCalendarObjectForRecord(self):
         """
-        Test that L{twistedcaldav.scheduling.utils.getCalendarObjectForPrincipals} detects and removes
+        Test that L{twistedcaldav.scheduling.utils.getCalendarObjectForRecord} detects and removes
         resources with duplicate UIDs in the same calendar home.
         """
 
@@ -160,9 +162,9 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         yield self.commit()
 
         # Look up resource by UID in home where only one exists
-        principal = CalendarPrincipal("user01", ("urn:uuid:user01",))
+        principal = buildDirectoryRecord("user01")
         txn = self.transactionUnderTest()
-        resource = (yield getCalendarObjectForPrincipals(txn, principal, "685BC3A1-195A-49B3-926D-388DDACA78A6"))
+        resource = (yield getCalendarObjectForRecord(txn, principal, "685BC3A1-195A-49B3-926D-388DDACA78A6"))
         self.assertEqual(resource.name(), "1.ics")
         self.assertEqual(resource._parentCollection.name(), "calendar1")
         self.assertEqual(resource._parentCollection.viewerHome().uid(), "user01")
@@ -180,9 +182,9 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         yield self.commit()
 
         # Look up resource by UID in home where two exists
-        principal = CalendarPrincipal("user02", ("urn:uuid:user02",))
+        principal = buildDirectoryRecord("user02")
         txn = self.transactionUnderTest()
-        resource = (yield getCalendarObjectForPrincipals(txn, principal, "685BC3A1-195A-49B3-926D-388DDACA78A6"))
+        resource = (yield getCalendarObjectForRecord(txn, principal, "685BC3A1-195A-49B3-926D-388DDACA78A6"))
         self.assertTrue(resource.name() in ("2.ics", "3.ics",))
         self.assertTrue(resource._parentCollection.name() in ("calendar2", "calendar3",))
         self.assertEqual(resource._parentCollection.viewerHome().uid(), "user02")

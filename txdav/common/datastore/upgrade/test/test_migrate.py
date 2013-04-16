@@ -37,7 +37,8 @@ from txdav.caldav.datastore.test.common import CommonTests
 from txdav.carddav.datastore.test.common import CommonTests as ABCommonTests
 from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.sql_tables import schema
-from txdav.common.datastore.test.util import SQLStoreBuilder
+from txdav.common.datastore.test.util import SQLStoreBuilder, \
+    TestStoreDirectoryService
 from txdav.common.datastore.test.util import theStoreBuilder, \
     populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s, \
     populateAddressBooksFrom, resetAddressBookMD5s, deriveValue, \
@@ -149,7 +150,7 @@ class HomeMigrationTests(TestCase):
         self.filesPath = CachingFilePath(self.mktemp())
         self.filesPath.createDirectory()
         fileStore = self.fileStore = CommonDataStore(
-            self.filesPath, StubNotifierFactory(), True, True
+            self.filesPath, StubNotifierFactory(), TestStoreDirectoryService(), True, True
         )
         self.sqlStore = yield theStoreBuilder.buildStore(
             self, StubNotifierFactory()

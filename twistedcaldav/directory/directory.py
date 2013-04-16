@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.caldav.icalendardirectoryservice import ICalendarStoreDirectoryService, \
+    ICalendarStoreDirectoryRecord
 
 
 """
@@ -67,7 +69,7 @@ log = Logger()
 
 
 class DirectoryService(LoggingMixIn):
-    implements(IDirectoryService, ICredentialsChecker)
+    implements(IDirectoryService, ICalendarStoreDirectoryService, ICredentialsChecker)
 
     ##
     # IDirectoryService
@@ -924,6 +926,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         returnValue((fast, len(members), len(changedMembers)))
 
 
+
 class GroupCacherPollingWork(WorkItem, fromTable(schema.GROUP_CACHER_POLLING_WORK)):
 
     group = "group_cacher_polling"
@@ -954,6 +957,7 @@ class GroupCacherPollingWork(WorkItem, fromTable(schema.GROUP_CACHER_POLLING_WOR
                 notBefore=notBefore)
 
 
+
 @inlineCallbacks
 def scheduleNextGroupCachingUpdate(store, seconds):
     txn = store.newTransaction()
@@ -961,6 +965,7 @@ def scheduleNextGroupCachingUpdate(store, seconds):
     log.debug("Scheduling next group cacher update: %s" % (notBefore,))
     yield txn.enqueue(GroupCacherPollingWork, notBefore=notBefore)
     yield txn.commit()
+
 
 
 def diffAssignments(old, new):
@@ -994,7 +999,7 @@ def diffAssignments(old, new):
 
 
 class DirectoryRecord(LoggingMixIn):
-    implements(IDirectoryRecord)
+    implements(IDirectoryRecord, ICalendarStoreDirectoryRecord)
 
     def __repr__(self):
         return "<%s[%s@%s(%s)] %s(%s) %r @ %s/#%s>" % (
@@ -1165,6 +1170,10 @@ class DirectoryRecord(LoggingMixIn):
                 self.enabledForAddressBooks = False
 
 
+    def displayName(self):
+        return self.record.fullName if self.record.fullName else self.record.shortNames[0]
+
+
     def isLoginEnabled(self):
         """
         Returns True if the user should be allowed to log in, based on the
@@ -1248,6 +1257,46 @@ class DirectoryRecord(LoggingMixIn):
     def verifyCredentials(self, credentials):
         return False
 
+
+    def calendarsEnabled(self):
+        return config.EnableCalDAV and self.enabledForCalendaring
+
+
+    def canonicalCalendarUserAddress(self):
+        """
+            Return a CUA for this principal, preferring in this order:
+            urn:uuid: form
+            mailto: form
+            first in calendarUserAddresses list
+        """
+
+        cua = ""
+        for candidate in self.calendarUserAddresses:
+            # Pick the first one, but urn:uuid: and mailto: can override
+            if not cua:
+                cua = candidate
+            # But always immediately choose the urn:uuid: form
+            if candidate.startswith("urn:uuid:"):
+                cua = candidate
+                break
+            # Prefer mailto: if no urn:uuid:
+            elif candidate.startswith("mailto:"):
+                cua = candidate
+        return cua
+
+
+    def enabledAsOrganizer(self):
+        if self.recordType == DirectoryService.recordType_users:
+            return True
+        elif self.recordType == DirectoryService.recordType_groups:
+            return config.Scheduling.Options.AllowGroupAsOrganizer
+        elif self.recordType == DirectoryService.recordType_locations:
+            return config.Scheduling.Options.AllowLocationAsOrganizer
+        elif self.recordType == DirectoryService.recordType_resources:
+            return config.Scheduling.Options.AllowResourceAsOrganizer
+        else:
+            return False
+
     # Mapping from directory record.recordType to RFC2445 CUTYPE values
     _cuTypes = {
         'users' : 'INDIVIDUAL',
@@ -1266,6 +1315,33 @@ class DirectoryRecord(LoggingMixIn):
             if val == cuType:
                 return key
         return None
+
+
+    def canAutoSchedule(self, organizer):
+        if config.Scheduling.Options.AutoSchedule.Enabled:
+            if (config.Scheduling.Options.AutoSchedule.Always or
+                self.getAutoSchedule() or
+                self.autoAcceptFromOrganizer(organizer)):
+                if (self.getCUType() != "INDIVIDUAL" or
+                    config.Scheduling.Options.AutoSchedule.AllowUsers):
+                    return True
+        return False
+
+
+    def getAutoScheduleMode(self, organizer):
+        autoScheduleMode = self.autoScheduleMode
+        if self.autoAcceptFromOrganizer(organizer):
+            autoScheduleMode = "automatic"
+        return autoScheduleMode
+
+
+    def autoAcceptFromOrganizer(self, organizer):
+        if organizer is not None and self.autoAcceptGroup is not None:
+            organizerRecord = self.service.recordWithCalendarUserAddress(organizer)
+            if organizerRecord is not None:
+                if organizerRecord.guid in self.autoAcceptMembers():
+                    return True
+        return False
 
 
     def serverURI(self):
@@ -1350,6 +1426,7 @@ class DirectoryRecord(LoggingMixIn):
                     self._cachedAutoAcceptMembers = [m.guid for m in groupRecord.expandedMembers()]
 
         return self._cachedAutoAcceptMembers
+
 
 
 class DirectoryError(RuntimeError):

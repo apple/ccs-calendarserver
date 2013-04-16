@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
 """
 File calendar store.
@@ -274,6 +275,10 @@ class Calendar(CommonHomeChild):
     calendarObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
 
 
+    def _createCalendarObjectWithNameInternal(self, name, component, internal_state, options=None):
+        return self.createCalendarObjectWithName(name, component, options)
+
+
     def calendarObjectsInTimeRange(self, start, end, timeZone):
         raise NotImplementedError()
 
@@ -495,8 +500,20 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         return component
 
 
-    def remove(self):
-        pass
+    def componentForUser(self, user_uuid=None):
+        """
+        Return the iCalendar component filtered for the specified user's per-user data.
+
+        @param user_uuid: the user UUID to filter on
+        @type user_uuid: C{str}
+
+        @return: the filtered calendar component
+        @rtype: L{twistedcaldav.ical.Component}
+        """
+
+        if user_uuid is None:
+            user_uuid = self._parentCollection.viewerHome().uid()
+        return PerUserDataFilter(user_uuid).filter(self.component().duplicate())
 
 
     def _text(self):

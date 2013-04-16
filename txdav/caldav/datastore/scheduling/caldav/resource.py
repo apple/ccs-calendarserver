@@ -473,7 +473,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         scheduler = CalDAVScheduler(request, self)
 
         # Do the POST processing treating
-        result = (yield scheduler.doSchedulingViaPOST(self._associatedTransaction))
+        result = (yield scheduler.doSchedulingViaPOST())
         returnValue(result.response())
 
 
