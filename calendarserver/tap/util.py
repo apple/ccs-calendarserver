@@ -974,17 +974,16 @@ def checkDirectories(config):
             access=os.W_OK,
             create=(0750, config.UserName, config.GroupName),
         )
-    if config.LogRoot.startswith(config.ServerRoot + os.sep):
-        checkDirectory(
-            config.LogRoot,
-            "Log root",
-            access=os.W_OK,
-            create=(0750, config.UserName, config.GroupName),
-        )
-    if config.RunRoot.startswith(config.ServerRoot + os.sep):
-        checkDirectory(
-            config.RunRoot,
-            "Run root",
-            access=os.W_OK,
-            create=(0770, config.UserName, config.GroupName),
-        )
+    # Always create  these:
+    checkDirectory(
+        config.LogRoot,
+        "Log root",
+        access=os.W_OK,
+        create=(0750, config.UserName, config.GroupName),
+    )
+    checkDirectory(
+        config.RunRoot,
+        "Run root",
+        access=os.W_OK,
+        create=(0770, config.UserName, config.GroupName),
+    )
