@@ -41,6 +41,8 @@ WRITABLE_CONFIG_KEYS = [
     "Authentication.Wiki.Enabled",
     "DataRoot",
     "DefaultLogLevel",
+    "DirectoryAddressBook.params.queryUserRecords",
+    "DirectoryAddressBook.params.queryPeopleRecords",
     "EnableCalDAV",
     "EnableCardDAV",
     "EnableSearchAddressBook",
