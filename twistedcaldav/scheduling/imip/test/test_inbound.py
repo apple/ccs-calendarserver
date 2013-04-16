@@ -15,6 +15,7 @@
 ##
 
 
+from twistedcaldav.test.util import TestCase
 import email
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.modules import getModule
@@ -24,7 +25,6 @@ from twistedcaldav.scheduling.imip.inbound import MailRetriever
 from twistedcaldav.scheduling.imip.inbound import injectMessage
 from twistedcaldav.scheduling.imip.inbound import IMIPReplyWork
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
-from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import xmlFile
 from txdav.common.datastore.test.util import buildStore
 from calendarserver.tap.util import getRootResource

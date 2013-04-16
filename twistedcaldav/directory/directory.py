@@ -49,7 +49,6 @@ from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav.config import config
-from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName, normalizeUUID
@@ -935,7 +934,7 @@ class GroupCacherPollingWork(WorkItem, fromTable(schema.GROUP_CACHER_POLLING_WOR
         # Delete all other work items
         yield Delete(From=self.table, Where=None).on(self.transaction)
 
-        groupCacher = self.transaction._groupCacher
+        groupCacher = getattr(self.transaction, "_groupCacher", None)
         if groupCacher is not None:
             try:
                 yield groupCacher.updateCache()
@@ -947,6 +946,12 @@ class GroupCacherPollingWork(WorkItem, fromTable(schema.GROUP_CACHER_POLLING_WOR
                 log.debug("Scheduling next group cacher update: %s" % (notBefore,))
                 yield self.transaction.enqueue(GroupCacherPollingWork,
                     notBefore=notBefore)
+        else:
+            notBefore = (datetime.datetime.utcnow() +
+                datetime.timedelta(seconds=10))
+            log.debug("Rescheduling group cacher update: %s" % (notBefore,))
+            yield self.transaction.enqueue(GroupCacherPollingWork,
+                notBefore=notBefore)
 
 
 @inlineCallbacks

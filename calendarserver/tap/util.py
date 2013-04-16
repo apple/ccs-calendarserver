@@ -650,6 +650,7 @@ def getRootResource(config, newStore, resources=None, directory=None):
             config.WebCalendarRoot,
             root,
             directory,
+            newStore,
             principalCollections=(principalCollection,),
         )
         root.putChild("admin", webAdmin)
