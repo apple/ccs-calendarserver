@@ -15,13 +15,12 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks
-from twisted.internet.task import Clock
 from twisted.python.filepath import FilePath
 
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile, dirTest
 from twistedcaldav.config import config
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, GroupMembershipCacherService, GroupMembershipCache, GroupMembershipCacheUpdater, diffAssignments
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, GroupMembershipCache, GroupMembershipCacheUpdater, diffAssignments
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory import augment, calendaruserproxy
@@ -120,45 +119,6 @@ class GroupMembershipTests (TestCase):
         """
         self.count += 1
 
-
-    @inlineCallbacks
-    def test_groupMembershipCacherService(self):
-        """
-        Instantiate a GroupMembershipCacherService and make sure its update
-        method fires at the right interval, in this case 30 seconds.  The
-        updateMethod keyword arg is purely for testing purposes, so we can
-        directly detect it getting called in this test.
-        """
-        clock = Clock()
-        self.count = 0
-
-        # Deliberately set the expireSeconds lower than updateSeconds to verify
-        # expireSeconds gets set to 2 * updateSeconds in that scenario
-
-        service = GroupMembershipCacherService(
-            None, None, "Testing", 30, 20, 30, reactor=clock,
-            updateMethod=self._updateMethod)
-
-        # expireSeconds = 2 * 30 updateSeconds
-        self.assertEquals(service.updater.cache.expireSeconds, 60)
-
-        yield service.startService()
-
-        self.assertEquals(self.count, 1)
-        clock.advance(29)
-        self.assertEquals(self.count, 1)
-        clock.advance(1)
-        self.assertEquals(self.count, 2)
-
-        service.stopService()
-
-        service.updateInProgress = True
-        self.assertTrue((yield service.update()))
-        self.assertTrue(service.updateAwaiting)
-
-        service.updateInProgress = False
-        self.assertFalse((yield service.update()))
-        self.assertFalse(service.updateAwaiting)
 
 
     def test_expandedMembers(self):
@@ -279,17 +239,6 @@ class GroupMembershipTests (TestCase):
             )
         )
 
-        # Prevent an update by locking the cache
-        acquiredLock = (yield cache.acquireLock())
-        self.assertTrue(acquiredLock)
-        self.assertEquals((False, 0), (yield updater.updateCache()))
-
-        # You can't lock when already locked:
-        acquiredLockAgain = (yield cache.acquireLock())
-        self.assertFalse(acquiredLockAgain)
-
-        # Allow an update by unlocking the cache
-        yield cache.releaseLock()
         self.assertEquals((False, 9, 9), (yield updater.updateCache()))
 
         # Verify cache is populated:
@@ -686,10 +635,6 @@ class GroupMembershipTests (TestCase):
         # time), but since the snapshot doesn't exist we fault in from the
         # directory (fast now is False), and snapshot will get created
 
-        # Note that because fast=True and isPopulated() is False, locking is
-        # ignored:
-        yield cache.acquireLock()
-
         self.assertFalse((yield cache.isPopulated()))
         fast, numMembers, numChanged = (yield updater.updateCache(fast=True))
         self.assertEquals(fast, False)
@@ -697,8 +642,6 @@ class GroupMembershipTests (TestCase):
         self.assertEquals(numChanged, 9)
         self.assertTrue(snapshotFile.exists())
         self.assertTrue((yield cache.isPopulated()))
-
-        yield cache.releaseLock()
 
         # Try another fast update where the snapshot already exists (as in a
         # server-restart scenario), which will only read from the snapshot

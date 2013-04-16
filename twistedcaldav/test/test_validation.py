@@ -23,6 +23,7 @@ from twisted.trial.unittest import TestCase
 # to address this to use system twisted.
 from twext.web2.test.test_server import SimpleRequest
 from twext.web2.http import HTTPError
+from twext.web2.resource import Resource
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component, Property
@@ -31,15 +32,19 @@ from twistedcaldav.caldavxml import MaxAttendeesPerInstance
 from twistedcaldav.resource import CalDAVResource
 
 class InMemoryCalendarObjectResource(CalDAVResource):
-    
+
     def exists(self):
         return hasattr(self, "_data") and self._data is not None
 
+
     def iCalendarForUser(self, user):
         return self._data
-    
+
+
     def setData(self, data):
         self._data = data
+
+
 
 class TestCopyMoveValidation(TestCase):
     """
@@ -52,10 +57,11 @@ class TestCopyMoveValidation(TestCase):
         """
 
         self.destination = InMemoryCalendarObjectResource()
-        self.destination.name = lambda : '1'
+        self.destination.name = lambda : 'bar'
         self.destinationParent = CalDAVResource()
-        self.destinationParent.name = lambda : '2'
+        self.destinationParent.name = lambda : 'foo'
         self.destinationParent.isSupportedComponent = lambda x: True
+
 
     def _getSampleCalendar(self):
         return Component.fromString("""BEGIN:VCALENDAR
@@ -72,9 +78,13 @@ END:VEVENT
 END:VCALENDAR
 """)
 
+
     def _getStorer(self, calendar):
         self.sampleCalendar = calendar
         req = SimpleRequest(None, "COPY", "http://example.com/foo/bar")
+        req._rememberResource(self.destination, "/foo/bar")
+        req._rememberResource(self.destinationParent, "/foo/")
+        req._rememberResource(Resource(), "/")
         self.storer = StoreCalendarObjectResource(
             req,
             destination=self.destination,
@@ -83,7 +93,8 @@ END:VCALENDAR
             calendar=self.sampleCalendar
         )
         return self.storer
-                
+
+
     @inlineCallbacks
     def test_simpleValidRequest(self):
         """
@@ -110,7 +121,7 @@ END:VCALENDAR
         eventComponent = list(self.sampleCalendar.subcomponents())[0]
         for x in xrange(config.MaxAttendeesPerInstance):
             eventComponent.addProperty(
-                Property("ATTENDEE", "mailto:user%d@example.com" % (x+3,)))
+                Property("ATTENDEE", "mailto:user%d@example.com" % (x + 3,)))
 
         try:
             yield self._getStorer(self.sampleCalendar).fullValidation()
@@ -143,7 +154,7 @@ END:VCALENDAR
         eventComponent = list(self.sampleCalendar.subcomponents())[0]
         for x in xrange(config.MaxAttendeesPerInstance - 5):
             eventComponent.addProperty(
-                Property("ATTENDEE", "mailto:user%d@example.com" % (x+3,)))
+                Property("ATTENDEE", "mailto:user%d@example.com" % (x + 3,)))
 
         try:
             yield self._getStorer(self.sampleCalendar).fullValidation()
@@ -155,7 +166,7 @@ END:VCALENDAR
         config.MaxAttendeesPerInstance -= 10
         eventComponent.addProperty(
             Property("ATTENDEE", "mailto:user-extra@example.com"))
-        
+
         try:
             yield self._getStorer(self.sampleCalendar).fullValidation()
         except HTTPError, err:
@@ -187,7 +198,7 @@ END:VCALENDAR
         eventComponent = list(self.sampleCalendar.subcomponents())[0]
         for x in xrange(config.MaxAttendeesPerInstance - 5):
             eventComponent.addProperty(
-                Property("ATTENDEE", "mailto:user%d@example.com" % (x+3,)))
+                Property("ATTENDEE", "mailto:user%d@example.com" % (x + 3,)))
 
         try:
             yield self._getStorer(self.sampleCalendar).fullValidation()
@@ -197,7 +208,7 @@ END:VCALENDAR
 
         # Now reduce the limit and try to store without any additional attendees.
         config.MaxAttendeesPerInstance -= 10
-        
+
         try:
             yield self._getStorer(self.sampleCalendar).fullValidation()
         except HTTPError:
@@ -209,8 +220,8 @@ END:VCALENDAR
         eventComponent = list(self.sampleCalendar.subcomponents())[0]
         for x in xrange(config.MaxAttendeesPerInstance + 2):
             eventComponent.addProperty(
-                Property("ATTENDEE", "mailto:user%d@example.com" % (x+3,)))
-        
+                Property("ATTENDEE", "mailto:user%d@example.com" % (x + 3,)))
+
         try:
             yield self._getStorer(self.sampleCalendar).fullValidation()
         except HTTPError:
