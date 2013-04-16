@@ -33,11 +33,12 @@ from twisted.python.procutils import which
 
 from twisted.internet.interfaces import IProcessTransport, IReactorProcess
 from twisted.internet.protocol import ServerFactory
-from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet.defer import Deferred, inlineCallbacks, passthru
 from twisted.internet.task import Clock
 from twisted.internet import reactor
 
-from twisted.application.service import IService, IServiceCollection
+from twisted.application.service import (IService, IServiceCollection,
+                                         MultiService)
 from twisted.application import internet
 
 from twext.web2.dav import auth
@@ -62,6 +63,7 @@ from calendarserver.tap.caldav import (
     _CONTROL_SERVICE_NAME, getSystemIDs
 )
 from calendarserver.provision.root import RootResource
+from twext.enterprise.queue import PeerConnectionPool, LocalQueuer
 from StringIO import StringIO
 
 
@@ -358,14 +360,16 @@ class BaseServiceMakerTests(TestCase):
         writePlist(self.config, self.configFile)
 
 
-    def makeService(self):
+    def makeService(self, patcher=passthru):
         """
         Create a service by calling into CalDAVServiceMaker with
         self.configFile
         """
         self.options.parseOptions(["-f", self.configFile])
 
-        return CalDAVServiceMaker().makeService(self.options)
+        maker = CalDAVServiceMaker()
+        maker = patcher(maker)
+        return maker.makeService(self.options)
 
 
     def getSite(self):
@@ -506,6 +510,39 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
             )
         )
 
+
+    def test_storeQueuerSetInMaster(self):
+        """
+        In the master, the store's queuer should be set to a
+        L{PeerConnectionPool}, so that work can be distributed to other
+        processes.
+        """
+        self.config["ProcessType"] = "Combined"
+        self.writeConfig()
+        class NotAStore(object):
+            queuer = LocalQueuer(None)
+            def newTransaction(self):
+                return None
+            def callWithNewTransactions(self, x):
+                pass
+        store = NotAStore()
+        def something(proposal):
+            pass
+        store.queuer.callWithNewProposals(something)
+        def patch(maker):
+            def storageServiceStandIn(createMainService, logObserver,
+                                      uid=None, gid=None):
+                pool = None
+                logObserver = None
+                svc = createMainService(pool, store, logObserver)
+                multi = MultiService()
+                svc.setServiceParent(multi)
+                return multi
+            self.patch(maker, "storageService", storageServiceStandIn)
+            return maker
+        self.makeService(patch)
+        self.assertIsInstance(store.queuer, PeerConnectionPool)
+        self.assertIn(something, store.queuer.proposalCallbacks)
 
 
 

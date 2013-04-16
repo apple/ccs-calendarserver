@@ -124,7 +124,8 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["RecordName"], ["createdlocation01"])
         self.assertEquals(results["result"]["State"], "CA")
         self.assertEquals(results["result"]["Street"], "1 Infinite Loop")
-        self.assertEquals(results["result"]["RealName"], "Created Location 01 %s" % unichr(208))
+        self.assertEquals(results["result"]["RealName"],
+            "Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3" ))
         self.assertEquals(results["result"]["Comment"], "Test Comment")
         self.assertEquals(results["result"]["AutoSchedule"], True)
         self.assertEquals(results["result"]["AutoAcceptGroup"], "E5A6142C-4189-4E9E-90B0-9CD0268B314B")
@@ -151,7 +152,6 @@ class GatewayTestCase(RunCommandTestCase):
 
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         self.assertEquals(record, None)
-
         yield self.runCommand(command_createLocation)
 
         directory.flushCaches()
@@ -162,7 +162,8 @@ class GatewayTestCase(RunCommandTestCase):
         augmentService.refresh()
 
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
-        self.assertEquals(record.fullName.decode("utf-8"), "Created Location 01 %s" % unichr(208))
+        self.assertEquals(record.fullName.decode("utf-8"),
+            "Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
 
         self.assertNotEquals(record, None)
         self.assertEquals(record.autoSchedule, True)
@@ -334,7 +335,7 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         <key>GeneratedUID</key>
         <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
         <key>RealName</key>
-        <string>Created Location 01 %s</string>
+        <string>Created Location 01 %s %s</string>
         <key>RecordName</key>
         <array>
                 <string>createdlocation01</string>
@@ -373,7 +374,7 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         </array>
 </dict>
 </plist>
-""" % unichr(208)
+""" % (unichr(208), u"\ud83d\udca3")
 
 
 command_createResource = """<?xml version="1.0" encoding="UTF-8"?>
