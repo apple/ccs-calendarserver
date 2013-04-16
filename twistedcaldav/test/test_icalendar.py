@@ -7323,7 +7323,6 @@ END:VCALENDAR
     def test_normalizeCalendarUserAddressesFromUUID(self):
         """
         Ensure mailto is preferred, followed by path form, then http form.
-        If CALENDARSERVER-OLD-CUA parameter is present, restore that value.
         """
 
         data = """BEGIN:VCALENDAR
@@ -7335,7 +7334,6 @@ DTSTART:20071114T000000Z
 ATTENDEE:urn:uuid:foo
 ATTENDEE:urn:uuid:bar
 ATTENDEE:urn:uuid:baz
-ATTENDEE;CALENDARSERVER-OLD-CUA="base64-aHR0cDovL2V4YW1wbGUuY29tL3ByaW5jaXBhbHMvdXNlcnMvYnV6":urn:uuid:buz
 DTSTAMP:20071114T000000Z
 END:VEVENT
 END:VCALENDAR
@@ -7361,11 +7359,6 @@ END:VCALENDAR
                     "baz",
                     ("urn:uuid:baz", "http://example.com/baz")
                 ),
-                "urn:uuid:buz" : (
-                    "Buz",
-                    "buz",
-                    ("urn:uuid:buz",)
-                ),
             }[cuaddr]
 
         component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=False)
@@ -7376,60 +7369,8 @@ END:VCALENDAR
             component.getAttendeeProperty(("/foo",)).value())
         self.assertEquals("http://example.com/baz",
             component.getAttendeeProperty(("http://example.com/baz",)).value())
-        self.assertEquals("http://example.com/principals/users/buz",
-            component.getAttendeeProperty(("http://example.com/principals/users/buz",)).value())
 
 
-    def test_normalizeCalendarUserAddressesToUUID(self):
-        """
-        Ensure http(s) and /path CUA values are tucked away into the property
-        using CALENDARSERVER-OLD-CUA parameter.
-        """
-
-        data = """BEGIN:VCALENDAR
-VERSION:2.0
-DTSTART:20071114T000000Z
-BEGIN:VEVENT
-UID:12345-67890
-DTSTART:20071114T000000Z
-ATTENDEE:/principals/users/foo
-ATTENDEE:http://example.com/principals/users/buz
-DTSTAMP:20071114T000000Z
-END:VEVENT
-END:VCALENDAR
-"""
-
-        component = Component.fromString(data)
-
-
-        def lookupFunction(cuaddr, ignored1, ignored2):
-            return {
-                "/principals/users/foo" : (
-                    "Foo",
-                    "foo",
-                    ("urn:uuid:foo",)
-                ),
-                "http://example.com/principals/users/buz" : (
-                    "Buz",
-                    "buz",
-                    ("urn:uuid:buz",)
-                ),
-            }[cuaddr]
-
-        self.patch(config.Scheduling.Options, "V1Compatibility", True)
-        component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
-
-        # /principal CUAs are stored in CALENDARSERVER-OLD-CUA
-        prop = component.getAttendeeProperty(("urn:uuid:foo",))
-        self.assertEquals("urn:uuid:foo", prop.value())
-        self.assertEquals(prop.parameterValue("CALENDARSERVER-OLD-CUA"),
-            "base64-L3ByaW5jaXBhbHMvdXNlcnMvZm9v")
-
-        # http CUAs are stored in CALENDARSERVER-OLD-CUA
-        prop = component.getAttendeeProperty(("urn:uuid:buz",))
-        self.assertEquals("urn:uuid:buz", prop.value())
-        self.assertEquals(prop.parameterValue("CALENDARSERVER-OLD-CUA"),
-            "base64-aHR0cDovL2V4YW1wbGUuY29tL3ByaW5jaXBhbHMvdXNlcnMvYnV6")
 
 
     def test_normalizeCalendarUserAddressesAndLocationChange(self):

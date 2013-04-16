@@ -2994,26 +2994,13 @@ END:VCALENDAR
                 cutype = prop.parameterValue("CUTYPE")
 
                 if toUUID:
-                    # Store the original CUA if http(s) or /path:
-                    if config.Scheduling.Options.V1Compatibility:
-                        if cuaddr.startswith("http") or cuaddr.startswith("/"):
-                            prop.setParameter("CALENDARSERVER-OLD-CUA",
-                                "base64-%s" % (base64.b64encode(prop.value())))
-
                     # Always re-write value to urn:uuid
                     prop.setValue("urn:uuid:%s" % (guid,))
 
                 # If it is already a non-UUID address leave it be
                 elif cuaddr.startswith("urn:uuid:"):
 
-                    # Restore old CUA
-                    oldExternalCUA = prop.parameterValue("CALENDARSERVER-OLD-CUA")
-                    if oldExternalCUA:
-                        if oldExternalCUA.startswith("base64-"):
-                            oldExternalCUA = base64.b64decode(oldExternalCUA[7:])
-                        newaddr = oldExternalCUA
-                        prop.removeParameter("CALENDARSERVER-OLD-CUA")
-                    elif oldemail:
+                    if oldemail:
                         # Use the EMAIL parameter if it exists
                         newaddr = oldemail
                     else:

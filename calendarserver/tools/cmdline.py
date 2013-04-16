@@ -19,6 +19,7 @@ Shared main-point between utilities.
 """
 
 from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
+from calendarserver.tap.util import checkDirectories
 from calendarserver.tools.util import loadConfig, autoDisableMemcached
 
 from twext.python.log import StandardIOObserver
@@ -26,7 +27,6 @@ from twext.python.log import StandardIOObserver
 from twistedcaldav.config import ConfigurationError
 from twisted.internet.defer import inlineCallbacks
 
-import os
 import sys
 from calendarserver.tap.util import getRootResource
 from twisted.application.service import Service
@@ -79,10 +79,7 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         if patchConfig is not None:
             patchConfig(config)
 
-        # If we don't have permission to access the DataRoot directory, we
-        # can't proceed.  If this fails it should raise OSError which we
-        # catch below.
-        os.listdir(config.DataRoot)
+        checkDirectories(config)
 
         config.ProcessType = "Utility"
         config.UtilityServiceClass = serviceClass

@@ -152,6 +152,8 @@ class TestCalDAVOptions (CalDAVOptions):
     def checkFile(self, *args, **kwargs):
         pass
 
+    def checkDirectories(self, *args, **kwargs):
+        pass
 
     def loadConfiguration(self):
         """
