@@ -552,7 +552,7 @@ jmake () {
       ;;
     FreeBSD)
       ncpu="$(sysctl hw.ncpu)";
-      ncpu="${cpu##hw.ncpu: }";
+      ncpu="${ncpu##hw.ncpu: }";
       ;;
   esac;
 
