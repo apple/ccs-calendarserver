@@ -467,6 +467,31 @@ class PeerConnectionPoolUnitTests(TestCase):
         self.assertIdentical(result, proposal)
 
 
+    def test_workerConnectionPoolPerformWork(self):
+        """
+        L{WorkerConnectionPool.performWork} performs work by selecting a
+        L{ConnectionFromWorker} and sending it a L{PerformWork} command.
+        """
+        clock = Clock()
+        peerPool = PeerConnectionPool(clock, None, 4322, schema)
+        factory = peerPool.workerListenerFactory()
+        def peer():
+            p = factory.buildProtocol(None)
+            t = StringTransport()
+            p.makeConnection(t)
+            return p, t
+        worker1, trans1 = peer()
+        worker2, trans2 = peer()
+        # Ask the worker to do something.
+        worker1.performWork(schema.DUMMY_WORK_ITEM, 1)
+        self.assertEquals(worker1.currentLoad, 1)
+        self.assertEquals(worker2.currentLoad, 0)
+
+        # Now ask the pool to do something
+        peerPool.workerPool.performWork(schema.DUMMY_WORK_ITEM, 2)
+        self.assertEquals(worker1.currentLoad, 1)
+        self.assertEquals(worker2.currentLoad, 1)
+
 
 class HalfConnection(object):
     def __init__(self, protocol):
