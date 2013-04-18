@@ -1342,6 +1342,7 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
         def done(result):
             self._startingUp = None
             super(PeerConnectionPool, self).startService()
+            self._lostWorkCheckLoop()
             return result
 
 
