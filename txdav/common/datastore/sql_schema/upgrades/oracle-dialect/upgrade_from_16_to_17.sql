@@ -23,6 +23,13 @@
 -- CALENDAR_OBJECT clean-up --
 ------------------------------
 
+begin
+for i in (select constraint_name from user_cons_columns where column_name = 'ORGANIZER_OBJECT')
+loop
+execute immediate 'alter table calendar_object drop constraint ' || i.constraint_name;
+end loop;
+end;
+
 alter table CALENDAR_OBJECT
  drop (ORGANIZER_OBJECT);
 

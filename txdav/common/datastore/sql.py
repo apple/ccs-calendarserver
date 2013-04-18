@@ -57,7 +57,7 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 
 from txdav.common.datastore.common import HomeChildBase
-from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.sql_tables import schema, splitSQLString
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, \
     NOTIFICATION_OBJECT_REVISIONS_TABLE
@@ -71,7 +71,6 @@ from txdav.common.inotifications import INotificationCollection, \
 
 from twext.python.clsprop import classproperty
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from twext.enterprise.dal.parseschema import significant
 
 from twext.enterprise.dal.syntax import \
     Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction, \
@@ -94,7 +93,6 @@ from twext.enterprise.util import parseSQLTimestamp
 from pycalendar.datetime import PyCalendarDateTime
 
 from cStringIO import StringIO
-from sqlparse import parse
 import time
 
 current_sql_schema = getModule(__name__).filePath.sibling("sql_schema").child("current.sql").getContent()
@@ -1004,19 +1002,11 @@ class CommonStoreTransaction(object):
     @inlineCallbacks
     def execSQLBlock(self, sql):
         """
-        Execute a block of SQL by parsing it out into individual statements and execute
-        each of those.
-
+        Execute SQL statements parsed by splitSQLString.
         FIXME: temporary measure for handling large schema upgrades. This should NOT be used
         for regular SQL operations - only upgrades.
         """
-        parsed = parse(sql)
-        for stmt in parsed:
-            while stmt.tokens and not significant(stmt.tokens[0]):
-                stmt.tokens.pop(0)
-            if not stmt.tokens:
-                continue
-            stmt = str(stmt).rstrip(";")
+        for stmt in splitSQLString(sql):
             yield self.execSQL(stmt)
 
 
