@@ -147,7 +147,8 @@ class _Statement(object):
 
     _paramstyles = {
         'pyformat': partial(FixedPlaceholder, "%s"),
-        'numeric': NumericPlaceholder
+        'numeric': NumericPlaceholder,
+        'qmark': defaultPlaceholder,
     }
 
 
