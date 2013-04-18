@@ -1090,7 +1090,7 @@ class CalDAVResource (
 
 
     @inlineCallbacks
-    def movedCalendar(self, request, defaultCalendarType, destination, destination_uri):
+    def movedCalendar(self, request, destination, destination_uri):
         """
         Calendar has been moved. Need to do some extra clean-up.
         """
@@ -1099,15 +1099,9 @@ class CalDAVResource (
         principal = (yield self.resourceOwnerPrincipal(request))
         inboxURL = principal.scheduleInboxURL()
         if inboxURL:
-            (_ignore_scheme, _ignore_host, destination_path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(destination_uri))
-
             inbox = (yield request.locateResource(inboxURL))
             inbox.processFreeBusyCalendar(request.path, False)
             inbox.processFreeBusyCalendar(destination_uri, destination.isCalendarOpaque())
-
-            # Adjust the default calendar setting if necessary
-            if defaultCalendarType is not None:
-                yield inbox.writeProperty(defaultCalendarType(element.HRef(destination_path)), request)
 
 
     def isCalendarOpaque(self):
@@ -1121,20 +1115,11 @@ class CalDAVResource (
             return False
 
 
-    @inlineCallbacks
     def isDefaultCalendar(self, request):
 
         assert self.isCalendarCollection()
 
-        # Not allowed to delete the default calendar
-        principal = (yield self.resourceOwnerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
-        if inboxURL:
-            inbox = (yield request.locateResource(inboxURL))
-            result = (yield inbox.isDefaultCalendar(request, self))
-            returnValue(result)
-
-        returnValue(None)
+        return self._newStoreParentHome.isDefaultCalendar(self._newStoreObject)
 
 
     @inlineCallbacks
@@ -2350,8 +2335,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                                 )
                             )
 
-
                         returnValue(customxml.PubSubPushTransportsProperty(*children))
+
             returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
@@ -2546,7 +2531,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         from twistedcaldav.storebridge import StoreScheduleInboxResource
         self._provisionedChildren["inbox"] = StoreScheduleInboxResource.maybeCreateInbox
 
-        from twistedcaldav.scheduling.caldav.resource import ScheduleOutboxResource
+        from twistedcaldav.scheduling_store.caldav.resource import ScheduleOutboxResource
         self._provisionedChildren["outbox"] = ScheduleOutboxResource
 
         if config.EnableDropBox and not config.EnableManagedAttachments:

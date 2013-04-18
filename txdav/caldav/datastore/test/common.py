@@ -275,9 +275,10 @@ class CommonTests(CommonCommonTests):
         },
         "home_defaults": {
             "calendar_1": {
-                "1.ics": (cal1NoSplitsRoot.child("1.ics").getContent(), metadata1),
-                "3.ics": (cal1NoSplitsRoot.child("3.ics").getContent(), metadata3),
+                "1.ics": (cal1DefaultsRoot.child("1.ics").getContent(), metadata1),
+                "3.ics": (cal1DefaultsRoot.child("3.ics").getContent(), metadata3),
             },
+            "inbox" : {},
         },
     }
     md5s = {

@@ -114,6 +114,14 @@ class DirectoryService(LoggingMixIn):
         self.realmName = realmName
 
 
+    def getPrincipalPath(self):
+        return getattr(self, "principalPath", None)
+
+
+    def setPrincipalPath(self, principalPath):
+        self.principalPath = principalPath
+
+
     def available(self):
         """
         By default, the directory is available.  This may return a boolean or a
@@ -1078,8 +1086,14 @@ class DirectoryRecord(LoggingMixIn):
             ["mailto:%s" % (emailAddress,)
              for emailAddress in self.emailAddresses]
         )
+        path = self.service.getPrincipalPath()
         if self.guid:
             cuas.add("urn:uuid:%s" % (self.guid,))
+            if path:
+                cuas.add("/%s/__uids__/%s/" % (path, self.guid,))
+        if path:
+            for shortName in self.shortNames:
+                cuas.add("/%s/%s/%s/" % (path, self.recordType, shortName,))
 
         return frozenset(cuas)
 
@@ -1171,7 +1185,7 @@ class DirectoryRecord(LoggingMixIn):
 
 
     def displayName(self):
-        return self.record.fullName if self.record.fullName else self.record.shortNames[0]
+        return self.fullName if self.fullName else self.shortNames[0]
 
 
     def isLoginEnabled(self):
@@ -1320,7 +1334,7 @@ class DirectoryRecord(LoggingMixIn):
     def canAutoSchedule(self, organizer):
         if config.Scheduling.Options.AutoSchedule.Enabled:
             if (config.Scheduling.Options.AutoSchedule.Always or
-                self.getAutoSchedule() or
+                self.autoSchedule or
                 self.autoAcceptFromOrganizer(organizer)):
                 if (self.getCUType() != "INDIVIDUAL" or
                     config.Scheduling.Options.AutoSchedule.AllowUsers):

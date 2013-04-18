@@ -16,10 +16,10 @@
 
 from calendarserver.push.amppush import AMPPushMaster, AMPPushNotifierProtocol
 from calendarserver.push.amppush import NotificationForID
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import StoreTestCase
 from twisted.internet.task import Clock
 
-class AMPPushMasterTests(TestCase):
+class AMPPushMasterTests(StoreTestCase):
 
     def test_AMPPushMaster(self):
 

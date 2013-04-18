@@ -1203,7 +1203,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
 
     def calendarUserAddresses(self):
-        return self.record.calendarUserAddresses()
+        return self.record.calendarUserAddresses
 
 
     def htmlElement(self):

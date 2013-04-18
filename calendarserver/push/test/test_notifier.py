@@ -14,13 +14,12 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import StoreTestCase
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.notifier import getPubSubAPSConfiguration
 from calendarserver.push.notifier import PushNotificationWork
 from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.config import ConfigDict
-from txdav.common.datastore.test.util import buildStore
 
 
 class StubService(object):
@@ -38,7 +37,7 @@ class StubService(object):
 
 
 
-class PushDistributorTests(TestCase):
+class PushDistributorTests(StoreTestCase):
 
     @inlineCallbacks
     def test_enqueue(self):
@@ -95,20 +94,19 @@ class StubDistributor(object):
 
 
 
-class PushNotificationWorkTests(TestCase):
+class PushNotificationWorkTests(StoreTestCase):
 
     @inlineCallbacks
     def test_work(self):
-        self.store = yield buildStore(self, None)
 
         pushDistributor = StubDistributor()
 
         def decorateTransaction(txn):
             txn._pushDistributor = pushDistributor
 
-        self.store.callWithNewTransactions(decorateTransaction)
+        self._sqlCalendarStore.callWithNewTransactions(decorateTransaction)
 
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         wp = (yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/foo/",
         ))
@@ -117,7 +115,7 @@ class PushNotificationWorkTests(TestCase):
         self.assertEquals(pushDistributor.history, ["/CalDAV/localhost/foo/"])
 
         pushDistributor.reset()
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         wp = (yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
         ))

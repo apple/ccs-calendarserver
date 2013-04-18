@@ -598,18 +598,18 @@ class CommonCommonTests(object):
     savedStore = None
     assertProvides = assertProvides
 
-    def transactionUnderTest(self):
+    def transactionUnderTest(self, txn=None):
         """
         Create a transaction from C{storeUnderTest} and save it as
         C{lastTransaction}.  Also makes sure to use the same store, saving the
         value from C{storeUnderTest}.
         """
         if self.lastTransaction is None:
-            self.lastTransaction = self.concurrentTransaction()
+            self.lastTransaction = self.concurrentTransaction(txn)
         return self.lastTransaction
 
 
-    def concurrentTransaction(self):
+    def concurrentTransaction(self, txn=None):
         """
         Create a transaction from C{storeUnderTest} and save it for later
         clean-up.
@@ -617,9 +617,12 @@ class CommonCommonTests(object):
         if self.savedStore is None:
             self.savedStore = self.storeUnderTest()
         self.counter += 1
-        txn = self.savedStore.newTransaction(
-            self.id() + " #" + str(self.counter)
-        )
+        if txn is None:
+            txn = self.savedStore.newTransaction(
+                self.id() + " #" + str(self.counter)
+            )
+        else:
+            txn._label = self.id() + " #" + str(self.counter)
         @inlineCallbacks
         def maybeCommitThis():
             try:

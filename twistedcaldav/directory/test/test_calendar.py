@@ -19,39 +19,16 @@ from txdav.xml import element as davxml
 
 from twistedcaldav import caldavxml
 
-from twistedcaldav.test.util import TestCase
-from twext.web2.test.test_server import SimpleRequest
-from twistedcaldav.directory.util import transactionFromRequest, NotFoundResource
+from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
+from twistedcaldav.directory.util import NotFoundResource
 
-class ProvisionedCalendars (TestCase):
+class ProvisionedCalendars (StoreTestCase):
     """
     Directory service provisioned principals.
     """
 
-    @inlineCallbacks
-    def setUp(self):
-        yield super(ProvisionedCalendars, self).setUp()
-
-        self.createStockDirectoryService()
-        self.setupCalendars()
-
-
     def oneRequest(self, uri):
-        req = self._cleanupRequest = SimpleRequest(self.site, "GET", uri)
-        return req
-
-
-    def tearDown(self):
-        """
-        If the request started by this test has a transaction, commit it.
-        Otherwise, don't bother.
-        """
-        class JustForCleanup(object):
-            def newTransaction(self, *whatever):
-                return self
-            def commit(self):
-                return
-        return transactionFromRequest(self._cleanupRequest, JustForCleanup()).commit()
+        return SimpleStoreRequest(self, "GET", uri)
 
 
     def test_NonExistentCalendarHome(self):
@@ -67,6 +44,8 @@ class ProvisionedCalendars (TestCase):
         request = self.oneRequest("/calendars/users/12345/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
+
 
     def test_ExistentCalendarHome(self):
 
@@ -77,6 +56,8 @@ class ProvisionedCalendars (TestCase):
         request = self.oneRequest("/calendars/users/wsanchez/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
+
 
     def test_ExistentCalendar(self):
 
@@ -87,6 +68,8 @@ class ProvisionedCalendars (TestCase):
         request = self.oneRequest("/calendars/users/wsanchez/calendar/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
+
 
     def test_ExistentInbox(self):
 
@@ -97,6 +80,8 @@ class ProvisionedCalendars (TestCase):
         request = self.oneRequest("/calendars/users/wsanchez/inbox/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
+
 
     @inlineCallbacks
     def test_CalendarTranspProperty(self):
@@ -111,7 +96,7 @@ class ProvisionedCalendars (TestCase):
         inbox = (yield request.locateResource("/calendars/users/wsanchez/inbox/"))
         if inbox is None:
             self.fail("Incorrect response to GET on existent inbox.")
-        
+
         # Provisioned calendar has default opaque property
         transp = (yield calendar.hasProperty(caldavxml.ScheduleCalendarTransp, request))
         self.assertTrue(transp)
@@ -173,4 +158,3 @@ class ProvisionedCalendars (TestCase):
 
         transp = (yield calendar.readProperty(caldavxml.ScheduleCalendarTransp, request))
         self.assertEqual(transp, caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
-

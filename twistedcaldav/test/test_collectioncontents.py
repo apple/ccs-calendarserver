@@ -20,7 +20,6 @@ from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream, FileStream
 from twext.web2.http_headers import MimeType
-from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav.ical import Component
 from twistedcaldav.memcachelock import MemcacheLock
@@ -28,9 +27,10 @@ from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 
 
-from twistedcaldav.test.util import HomeTestCase
+from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
+from twext.web2.dav.util import joinURL
 
-class CollectionContents(HomeTestCase):
+class CollectionContents(StoreTestCase):
     """
     PUT request
     """
@@ -65,7 +65,7 @@ class CollectionContents(HomeTestCase):
         """
         Make (regular) collection in calendar
         """
-        calendar_uri = "/collection_in_calendar/"
+        calendar_uri = "/calendars/users/wsanchez/collection_in_calendar/"
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -79,25 +79,27 @@ class CollectionContents(HomeTestCase):
                 if response.code != responsecode.FORBIDDEN:
                     self.fail("Incorrect response to nested MKCOL: %s" % (response.code,))
 
-            nested_uri = "/".join([calendar_uri, "nested"])
+            nested_uri = joinURL(calendar_uri, "nested")
 
-            request = SimpleRequest(self.site, "MKCOL", nested_uri)
-            self.send(request, mkcol_cb)
+            request = SimpleStoreRequest(self, "MKCOL", nested_uri, authid="wsanchez")
+            return self.send(request, mkcol_cb)
 
-        request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="wsanchez")
         return self.send(request, mkcalendar_cb)
+
 
     def test_bogus_file(self):
         """
         Bogus file in calendar collection
         """
+
+        # FIXME: Should FileStream be OK here?
         # FIXME: Should FileStream be OK here?
         dst_file = file(__file__)
-        try:
-            stream = FileStream(dst_file)
-            return self._test_file_in_calendar("bogus file in calendar", (stream, responsecode.FORBIDDEN))
-        finally:
-            dst_file.close()
+        self.addCleanup(dst_file.close)
+        stream = FileStream(dst_file)
+        return self._test_file_in_calendar("bogus file in calendar", (stream, responsecode.FORBIDDEN))
+
 
     def openHolidays(self):
         """
@@ -135,7 +137,8 @@ class CollectionContents(HomeTestCase):
             if subcomponent.name() == "VEVENT":
                 subcalendar = Component("VCALENDAR")
                 subcalendar.addComponent(subcomponent)
-                for property in calendar.properties(): subcalendar.addProperty(property)
+                for property in calendar.properties():
+                    subcalendar.addProperty(property)
                 work.append((MemoryStream(str(subcalendar)), responsecode.CREATED))
 
         return self._test_file_in_calendar("single event in calendar", *work)
@@ -148,8 +151,10 @@ class CollectionContents(HomeTestCase):
         stream = self.dataPath.child(
             "Holidays").child(
             "C318AA54-1ED0-11D9-A5E0-000A958A3252.ics").open()
-        try: calendar = str(Component.fromStream(stream))
-        finally: stream.close()
+        try:
+            calendar = str(Component.fromStream(stream))
+        finally:
+            stream.close()
 
         return self._test_file_in_calendar(
             "mutiple resources with the same UID",
@@ -164,7 +169,7 @@ class CollectionContents(HomeTestCase):
         with the data from given stream and verifies that the response code from the
         PUT request matches the given response_code.
         """
-        calendar_uri = "/testing_calendar/"
+        calendar_uri = "/calendars/users/wsanchez/testing_calendar/"
 
 
         @inlineCallbacks
@@ -178,8 +183,8 @@ class CollectionContents(HomeTestCase):
 
             for stream, response_code in work:
 
-                dst_uri = "/".join([calendar_uri, "dst%d.ics" % (c,)])
-                request = SimpleRequest(self.site, "PUT", dst_uri)
+                dst_uri = joinURL(calendar_uri, "dst%d.ics" % (c,))
+                request = SimpleStoreRequest(self, "PUT", dst_uri, authid="wsanchez")
                 request.headers.setHeader("if-none-match", "*")
                 request.headers.setHeader("content-type", MimeType("text", "calendar"))
                 request.stream = stream
@@ -191,7 +196,7 @@ class CollectionContents(HomeTestCase):
 
                 c += 1
 
-        request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="wsanchez")
         return self.send(request, mkcalendar_cb)
 
 
@@ -199,7 +204,7 @@ class CollectionContents(HomeTestCase):
         """
         Make (regular) collection in calendar
         """
-        calendar_uri = "/dot_file_in_calendar/"
+        calendar_uri = "/calendars/users/wsanchez/dot_file_in_calendar/"
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -217,16 +222,17 @@ class CollectionContents(HomeTestCase):
                 "Holidays").child(
                 "C318AA54-1ED0-11D9-A5E0-000A958A3252.ics"
             ).open()
-            try: calendar = str(Component.fromStream(stream))
-            finally: stream.close()
+            try:
+                calendar = str(Component.fromStream(stream))
+            finally:
+                stream.close()
 
             event_uri = "/".join([calendar_uri, ".event.ics"])
 
-            request = SimpleRequest(self.site, "PUT", event_uri)
+            request = SimpleStoreRequest(self, "PUT", event_uri, authid="wsanchez")
             request.headers.setHeader("content-type", MimeType("text", "calendar"))
             request.stream = MemoryStream(calendar)
             return self.send(request, put_cb)
 
-        request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="wsanchez")
         return self.send(request, mkcalendar_cb)
-

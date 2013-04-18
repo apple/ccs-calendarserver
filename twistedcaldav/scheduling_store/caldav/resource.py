@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.caldav.icalendarstore import InvalidDefaultCalendar
+from twisted.python.failure import Failure
 
 """
 CalDAV scheduling resources.
@@ -26,9 +28,14 @@ __all__ = [
 ]
 
 
+from twistedcaldav.config import config
+# _schedulePrivilegeSet implicitly depends on config being initialized. The
+# following line is wrong because _schedulePrivilegeSet won't actually use the
+# config file, it will pick up stdconfig whenever it is imported, so this works
+# around that for now.
+__import__("twistedcaldav.stdconfig") # FIXME
+
 from twext.web2 import responsecode
-from txdav.xml import element as davxml
-from txdav.xml.rfc2518 import HRef
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.resource import davPrivilegeSet
 from twext.web2.dav.util import joinURL, normalizeURL
@@ -39,19 +46,15 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import caldav_namespace, Opaque, \
     CalendarFreeBusySet, ScheduleCalendarTransp
-from twistedcaldav.config import config
-# _schedulePrivilegeSet implicitly depends on config being initialized. The
-# following line is wrong because _schedulePrivilegeSet won't actually use the
-# config file, it will pick up stdconfig whenever it is imported, so this works
-# around that for now.
-__import__("twistedcaldav.stdconfig") # FIXME
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.ical import allowedComponents
+from twistedcaldav.ical import allowedComponents, Component
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.resource import isCalendarCollectionResource
-from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
+from txdav.xml import element as davxml
+from txdav.xml.rfc2518 import HRef
 
 def _schedulePrivilegeSet(deliver):
     edited = False
@@ -219,7 +222,8 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             property.children = [davxml.HRef(href) for href in new_calendars]
 
         elif property.qname() in (caldavxml.ScheduleDefaultCalendarURL.qname(), customxml.ScheduleDefaultTasksURL.qname()):
-            property = (yield self.writeDefaultCalendarProperty(request, property))
+            yield self.writeDefaultCalendarProperty(request, property)
+            returnValue(None)
 
         yield super(ScheduleInboxResource, self).writeProperty(property, request)
 
@@ -248,21 +252,13 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         """
 
         tasks = qname == customxml.ScheduleDefaultTasksURL.qname()
+        componentType = "VTODO" if tasks else "VEVENT"
+        prop_to_set = customxml.ScheduleDefaultTasksURL if tasks else caldavxml.ScheduleDefaultCalendarURL
 
-        # Must have a valid default
-        try:
-            defaultCalendarProperty = self.readDeadProperty(qname)
-        except HTTPError:
-            defaultCalendarProperty = None
-        if defaultCalendarProperty and len(defaultCalendarProperty.children) == 1:
-            defaultCalendar = str(defaultCalendarProperty.children[0])
-            cal = (yield request.locateResource(str(defaultCalendar)))
-            if cal is not None and isCalendarCollectionResource(cal) and cal.exists() and not cal.isShareeCollection():
-                returnValue(defaultCalendarProperty)
-
-        # Default is not valid - we have to try to pick one
-        defaultCalendarProperty = (yield self.pickNewDefaultCalendar(request, tasks=tasks))
-        returnValue(defaultCalendarProperty)
+        # This property now comes direct from the calendar home new store object
+        default = (yield self.parent._newStoreHome.defaultCalendar(componentType))
+        defaultURL = joinURL(self.parent.url(), default.name())
+        returnValue(prop_to_set(davxml.HRef(defaultURL)))
 
 
     @inlineCallbacks
@@ -271,8 +267,6 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         Write either the default VEVENT or VTODO calendar property, validating and canonicalizing the value
         """
         tasks = property.qname() == customxml.ScheduleDefaultTasksURL
-        componentType = "VTODO" if tasks else "VEVENT"
-        prop_to_set = customxml.ScheduleDefaultTasksURL if tasks else caldavxml.ScheduleDefaultCalendarURL
         error_element = (calendarserver_namespace, "valid-schedule-default-tasks-URL") if tasks else (caldav_namespace, "valid-schedule-default-calendar-URL")
 
         # Verify that the calendar added in the PROPPATCH is valid.
@@ -280,72 +274,23 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         new_calendar = [str(href) for href in property.children]
         cal = None
         if len(new_calendar) == 1:
-            calURI = str(new_calendar[0])
             cal = (yield request.locateResource(str(new_calendar[0])))
+        else:
+            raise HTTPError(ErrorResponse(
+                responsecode.BAD_REQUEST,
+                error_element,
+                "Invalid HRef in property",
+            ))
 
-        # TODO: check that owner of the new calendar is the same as owner of this inbox
-        if cal is None or not cal.exists() or not isCalendarCollectionResource(cal) or \
-            cal.isShareeCollection() or not cal.isSupportedComponent(componentType):
-            # Validate that href's point to a valid calendar.
+        try:
+            # Now set it on the new store object
+            yield self.parent._newStoreHome.setDefaultCalendar(cal._newStoreObject, tasks)
+        except InvalidDefaultCalendar as e:
             raise HTTPError(ErrorResponse(
                 responsecode.CONFLICT,
                 error_element,
-                "Invalid URI",
+                str(e),
             ))
-        else:
-            # Canonicalize the URL to __uids__ form
-            calURI = (yield cal.canonicalURL(request))
-            property = prop_to_set(davxml.HRef(calURI))
-            returnValue(property)
-
-
-    @inlineCallbacks
-    def pickNewDefaultCalendar(self, request, tasks=False):
-        """
-        First see if default provisioned calendar exists in the calendar home and pick that. Otherwise
-        pick another from the calendar home.
-        """
-
-        componentType = "VTODO" if tasks else "VEVENT"
-        test_name = "tasks" if tasks else "calendar"
-        prop_to_set = customxml.ScheduleDefaultTasksURL if tasks else caldavxml.ScheduleDefaultCalendarURL
-
-        calendarHomeURL = self.parent.url()
-        defaultCalendarURL = joinURL(calendarHomeURL, test_name)
-        defaultCalendar = (yield request.locateResource(defaultCalendarURL))
-        if defaultCalendar is None or not defaultCalendar.exists():
-            # Really, the dead property shouldn't be necessary, and this should
-            # be entirely computed by a back-end method like 'defaultCalendar()'
-
-            @inlineCallbacks
-            def _findDefault():
-                for calendarName in (yield self.parent._newStoreHome.listCalendars()):  # These are only unshared children
-                    if calendarName == "inbox":
-                        continue
-                    calendar = (yield self.parent._newStoreHome.calendarWithName(calendarName))
-                    if not calendar.owned():
-                        continue
-                    if not calendar.isSupportedComponent(componentType):
-                        continue
-                    break
-                else:
-                    calendarName = None
-                returnValue(calendarName)
-
-            foundName = yield _findDefault()
-            if foundName is None:
-                # Create a default and try and get its name again
-                yield self.parent._newStoreHome.ensureDefaultCalendarsExist()
-                foundName = yield _findDefault()
-                if foundName is None:
-                    # Failed to even create a default - bad news...
-                    raise RuntimeError("No valid calendars to use as a default %s calendar." % (componentType,))
-
-            defaultCalendarURL = joinURL(calendarHomeURL, foundName)
-
-        prop = prop_to_set(davxml.HRef(defaultCalendarURL))
-        self.writeDeadProperty(prop)
-        returnValue(prop)
 
 
     @inlineCallbacks
@@ -355,62 +300,13 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         not exist, automatically provision it.
         """
 
-        # Check any default calendar property first - this will create if none exists
-        default = (yield self.readProperty(caldavxml.ScheduleDefaultCalendarURL.qname(), request))
-        if len(default.children) == 1:
-            defaultURL = str(default.children[0])
-            default = (yield request.locateResource(defaultURL))
-        else:
-            default = None
+        # This property now comes direct from the calendar home new store object
+        default = (yield self.parent._newStoreHome.defaultCalendar(componentType))
 
-        # Check that default handles the component type
-        if default is not None:
-            if not default.isSupportedComponent(componentType):
-                default = None
-
-        # Must have a default - provision one if not
-        if default is None:
-
-            # Try to find a calendar supporting the required component type. If there are multiple, pick
-            # the one with the oldest created timestamp as that will likely be the initial provision.
-            for calendarName in (yield self.parent._newStoreHome.listCalendars()):  # These are only unshared children
-                if calendarName == "inbox":
-                    continue
-                calendar = (yield self.parent._newStoreHome.calendarWithName(calendarName))
-                if not calendar.isSupportedComponent(componentType):
-                    continue
-                if default is None or calendar.created() < default.created():
-                    default = calendar
-
-            # If none can be found, provision one
-            if default is None:
-                new_name = "%ss" % (componentType.lower()[1:],)
-                default = yield self.parent._newStoreHome.createCalendarWithName(new_name)
-                yield default.setSupportedComponents(componentType.upper())
-
-            # Need L{DAVResource} object to return not new store object
-            default = (yield request.locateResource(joinURL(self.parent.url(), default.name())))
+        # Need L{DAVResource} object to return not new store object
+        default = (yield request.locateResource(joinURL(self.parent.url(), default.name())))
 
         returnValue(default)
-
-
-    @inlineCallbacks
-    def isDefaultCalendar(self, request, calendar):
-        """
-        Is the supplied calendar one of the possible default calendars.
-        """
-        assert calendar.isCalendarCollection()
-
-        # Not allowed to delete the default calendar
-        for default_prop in (caldavxml.ScheduleDefaultCalendarURL, customxml.ScheduleDefaultTasksURL,):
-            default = (yield self.readProperty(default_prop.qname(), request))
-            if default and len(default.children) == 1:
-                defaultURL = normalizeURL(str(default.children[0]))
-                myURL = (yield calendar.canonicalURL(request))
-                if defaultURL == myURL:
-                    returnValue(default_prop)
-
-        returnValue(None)
 
 
     ##
@@ -469,12 +365,89 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # Check authentication and access controls
         yield self.authorize(request, (caldavxml.ScheduleSend(),))
 
+        calendar = (yield self.loadCalendarFromRequest(request))
+        originator = (yield self.loadOriginatorFromRequestDetails(request))
+        recipients = self.loadRecipientsFromCalendarData()
+
         # This is a local CALDAV scheduling operation.
-        scheduler = CalDAVScheduler(request, self)
+        scheduler = CalDAVScheduler(self._associatedTransaction, self.parent._newStoreHome.uid())
 
         # Do the POST processing treating
-        result = (yield scheduler.doSchedulingViaPOST())
+        result = (yield scheduler.doSchedulingViaPOST(originator, recipients, calendar))
         returnValue(result.response())
+
+
+    @inlineCallbacks
+    def loadCalendarFromRequest(self, request):
+        # Must be content-type text/calendar
+        contentType = request.headers.getHeader("content-type")
+        if contentType is not None and (contentType.mediaType, contentType.mediaSubtype) != ("text", "calendar"):
+            self.log_error("MIME type %s not allowed in calendar collection" % (contentType,))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "supported-calendar-data"),
+                "Data is not calendar data",
+            ))
+
+        # Parse the calendar object from the HTTP request stream
+        try:
+            calendar = (yield Component.fromIStream(request.stream))
+        except:
+            # FIXME: Bare except
+            self.log_error("Error while handling POST: %s" % (Failure(),))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "valid-calendar-data"),
+                description="Can't parse calendar data"
+            ))
+
+        returnValue(calendar)
+
+
+    @inlineCallbacks
+    def loadOriginatorFromRequestDetails(self, request):
+        # Get the originator who is the authenticated user
+        originatorPrincipal = None
+        originator = ""
+        authz_principal = self.currentPrincipal(request).children[0]
+        if isinstance(authz_principal, davxml.HRef):
+            originatorPrincipalURL = str(authz_principal)
+            if originatorPrincipalURL:
+                originatorPrincipal = (yield request.locateResource(originatorPrincipalURL))
+                if originatorPrincipal:
+                    # Pick the canonical CUA:
+                    originator = originatorPrincipal.canonicalCalendarUserAddress()
+
+        if not originator:
+            self.log_err("%s request must have Originator" % (self.method,))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "originator-specified"),
+                "Missing originator",
+            ))
+        else:
+            returnValue(originator)
+
+
+    def loadRecipientsFromCalendarData(self, calendar):
+
+        # Get the ATTENDEEs
+        attendees = list()
+        unique_set = set()
+        for attendee, _ignore in calendar.getAttendeesByInstance():
+            if attendee not in unique_set:
+                attendees.append(attendee)
+                unique_set.add(attendee)
+
+        if not attendees:
+            self.log_err("POST request must have at least one ATTENDEE")
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "recipient-specified"),
+                "Must have recipients",
+            ))
+        else:
+            return(list(attendees))
 
 
     ##

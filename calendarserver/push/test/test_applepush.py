@@ -21,19 +21,12 @@ from calendarserver.push.applepush import (
     ApplePushNotifierService, APNProviderProtocol
 )
 from calendarserver.push.util import validToken, TokenHistory
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import StoreTestCase
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.internet.task import Clock
-from txdav.common.datastore.test.util import buildStore, CommonCommonTests
 from txdav.common.icommondatastore import InvalidSubscriptionValues
 
-class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
-
-    @inlineCallbacks
-    def setUp(self):
-        yield super(ApplePushNotifierServiceTests, self).setUp()
-        self.store = yield buildStore(self, None)
-
+class ApplePushNotifierServiceTests(StoreTestCase):
 
     @inlineCallbacks
     def test_ApplePushNotifierService(self):
@@ -67,7 +60,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         }
 
         # Add subscriptions
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
 
         # Ensure empty values don't get through
         try:
@@ -116,7 +109,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Set up the service
         clock = Clock()
         service = (yield ApplePushNotifierService.makeService(settings,
-            self.store, testConnectorClass=TestConnector, reactor=clock))
+            self._sqlCalendarStore, testConnectorClass=TestConnector, reactor=clock))
         self.assertEquals(set(service.providers.keys()), set(["CalDAV", "CardDAV"]))
         self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV", "CardDAV"]))
 
@@ -125,7 +118,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
 
         # Notification arrives from calendar server
         dataChangedTimestamp = 1354815999
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         yield service.enqueue(txn, "/CalDAV/calendars.example.com/user01/calendar/",
             dataChangedTimestamp=dataChangedTimestamp)
         yield txn.commit()
@@ -166,7 +159,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Reset sent data
         providerConnector.transport.data = None
         # Send notification while service is connected
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         yield service.enqueue(txn, "/CalDAV/calendars.example.com/user01/calendar/")
         yield txn.commit()
         clock.advance(1) # so that first push is sent
@@ -208,7 +201,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         self.assertEquals(len(providerConnector.service.protocol.buffer), 1)
 
         # Prior to feedback, there are 2 subscriptions
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
         yield txn.commit()
         self.assertEquals(len(subscriptions), 2)
@@ -247,7 +240,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         self.assertEquals(len(feedbackConnector.service.protocol.buffer), 1)
 
         # The second subscription should now be gone
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
         yield txn.commit()
         self.assertEquals(subscriptions,
@@ -265,7 +258,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         self.assertTrue((id, token2) not in providerConnector.service.protocol.history.history)
 
         # All subscriptions for this token should now be gone
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token2))
         yield txn.commit()
         self.assertEquals(subscriptions, [])
@@ -275,19 +268,19 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         #
 
         # Create two subscriptions, one old and one new
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         now = int(time.time())
         yield txn.addAPNSubscription(token2, key1, now - 2 * 24 * 60 * 60, uid, userAgent, ipAddr) # old
         yield txn.addAPNSubscription(token2, key2, now, uid, userAgent, ipAddr) # recent
         yield txn.commit()
 
         # Purge old subscriptions
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         yield txn.purgeOldAPNSubscriptions(now - 60 * 60)
         yield txn.commit()
 
         # Check that only the recent subscription remains
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token2))
         yield txn.commit()
         self.assertEquals(len(subscriptions), 1)

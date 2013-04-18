@@ -16,13 +16,16 @@
 
 from twext.web2 import responsecode, http_headers
 from twext.web2.dav.util import davXMLFromStream
-from twext.web2.http import HTTPError
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 from twext.web2.test.test_server import SimpleRequest
+
 from twisted.internet.defer import inlineCallbacks
+
 from twistedcaldav import caldavxml, customxml
-from twistedcaldav.test.util import HomeTestCase, TestCase
+from twistedcaldav.test.util import HomeTestCase, StoreTestCase, \
+    SimpleStoreRequest
+
 from txdav.xml import element as davxml
 
 class Properties (HomeTestCase):
@@ -163,13 +166,7 @@ class Properties (HomeTestCase):
 
 
 
-class DefaultCalendar (TestCase):
-
-    def setUp(self):
-        super(DefaultCalendar, self).setUp()
-        self.createStockDirectoryService()
-        self.setupCalendars()
-
+class DefaultCalendar (StoreTestCase):
 
     @inlineCallbacks
     def test_pick_default_vevent_calendar(self):
@@ -177,27 +174,14 @@ class DefaultCalendar (TestCase):
         Test that pickNewDefaultCalendar will choose the correct calendar.
         """
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
 
-        # default property initially not present
-        try:
-            inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
-        except HTTPError:
-            pass
-        else:
-            self.fail("caldavxml.ScheduleDefaultCalendarURL is not empty")
+        # default property initially present
+        prop = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)
+        self.assertEqual(str(prop.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
 
-        yield inbox.pickNewDefaultCalendar(request)
-
-        try:
-            default = inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
-        except HTTPError:
-            self.fail("caldavxml.ScheduleDefaultCalendarURL is not present")
-        else:
-            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
-
-        request._newStoreTransaction.abort()
+        yield self.abort()
 
 
     @inlineCallbacks
@@ -206,27 +190,13 @@ class DefaultCalendar (TestCase):
         Test that pickNewDefaultCalendar will choose the correct tasks calendar.
         """
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
 
-        # default property initially not present
-        try:
-            inbox.readDeadProperty(customxml.ScheduleDefaultTasksURL)
-        except HTTPError:
-            pass
-        else:
-            self.fail("customxml.ScheduleDefaultTasksURL is not empty")
+        default = yield inbox.readProperty(customxml.ScheduleDefaultTasksURL, request)
+        self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/tasks")
 
-        yield inbox.pickNewDefaultCalendar(request, tasks=True)
-
-        try:
-            default = inbox.readDeadProperty(customxml.ScheduleDefaultTasksURL)
-        except HTTPError:
-            self.fail("customxml.ScheduleDefaultTasksURL is not present")
-        else:
-            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/tasks")
-
-        request._newStoreTransaction.abort()
+        yield self.abort()
 
 
     @inlineCallbacks
@@ -235,33 +205,23 @@ class DefaultCalendar (TestCase):
         Test that pickNewDefaultCalendar will create a missing default calendar.
         """
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
         home = yield request.locateResource("/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
 
         # default property initially not present
-        try:
-            inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
-        except HTTPError:
-            pass
-        else:
-            self.fail("caldavxml.ScheduleDefaultCalendarURL is not empty")
+        default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)
+        self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
 
         # Forcibly remove the one we need
         yield home._newStoreHome.removeChildWithName("calendar")
         names = [calendarName for calendarName in (yield home._newStoreHome.listCalendars())]
         self.assertTrue("calendar" not in names)
 
-        yield inbox.pickNewDefaultCalendar(request)
+        default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)
+        self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
 
-        try:
-            default = inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
-        except HTTPError:
-            self.fail("caldavxml.ScheduleDefaultCalendarURL is not present")
-        else:
-            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
-
-        request._newStoreTransaction.abort()
+        yield self.abort()
 
 
     @inlineCallbacks
@@ -270,33 +230,23 @@ class DefaultCalendar (TestCase):
         Test that pickNewDefaultCalendar will create a missing default tasks calendar.
         """
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
         home = yield request.locateResource("/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
 
-        # default property initially not present
-        try:
-            inbox.readDeadProperty(customxml.ScheduleDefaultTasksURL)
-        except HTTPError:
-            pass
-        else:
-            self.fail("caldavxml.ScheduleDefaultTasksURL is not empty")
+        # default property present
+        default = yield inbox.readProperty(customxml.ScheduleDefaultTasksURL, request)
+        self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/tasks")
 
         # Forcibly remove the one we need
         yield home._newStoreHome.removeChildWithName("tasks")
         names = [calendarName for calendarName in (yield home._newStoreHome.listCalendars())]
         self.assertTrue("tasks" not in names)
 
-        yield inbox.pickNewDefaultCalendar(request, tasks=True)
+        default = yield inbox.readProperty(customxml.ScheduleDefaultTasksURL, request)
+        self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/tasks")
 
-        try:
-            default = inbox.readDeadProperty(customxml.ScheduleDefaultTasksURL)
-        except HTTPError:
-            self.fail("caldavxml.ScheduleDefaultTasksURL is not present")
-        else:
-            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/tasks")
-
-        request._newStoreTransaction.abort()
+        yield self.abort()
 
 
     @inlineCallbacks
@@ -305,86 +255,30 @@ class DefaultCalendar (TestCase):
         Make calendar
         """
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
 
-        # default property not present
-        try:
-            inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
-        except HTTPError:
-            pass
-        else:
-            self.fail("caldavxml.ScheduleDefaultCalendarURL is not empty")
+        # default property present
+        default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)
+        self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
 
         # Create a new default calendar
         newcalendar = yield request.locateResource("/calendars/users/wsanchez/newcalendar")
         yield newcalendar.createCalendarCollection()
-        inbox.writeDeadProperty(caldavxml.ScheduleDefaultCalendarURL(
-            davxml.HRef("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
-        ))
+        yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")), request)
 
         # Delete the normal calendar
         calendar = yield request.locateResource("/calendars/users/wsanchez/calendar")
-        yield calendar.storeRemove(request, False, "/calendars/users/wsanchez/calendar")
+        yield calendar.storeRemove(request)
+        yield self.commit()
 
-        inbox.removeDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
-
-        # default property not present
-        try:
-            inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
-        except HTTPError:
-            pass
-        else:
-            self.fail("caldavxml.ScheduleDefaultCalendarURL is not empty")
-        request._newStoreTransaction.commit()
-
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
-        inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
-        yield inbox.pickNewDefaultCalendar(request)
-
-        try:
-            default = inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
-        except HTTPError:
-            self.fail("caldavxml.ScheduleDefaultCalendarURL is not present")
-        else:
-            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
-
-        request._newStoreTransaction.abort()
-
-
-    @inlineCallbacks
-    def test_fix_shared_default(self):
-        """
-        Make calendar
-        """
-
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
 
-        # Create a new default calendar
-        newcalendar = yield request.locateResource("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
-        yield newcalendar.createCalendarCollection()
-        inbox.writeDeadProperty(caldavxml.ScheduleDefaultCalendarURL(
-            davxml.HRef("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
-        ))
-        try:
-            default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)
-        except HTTPError:
-            self.fail("caldavxml.ScheduleDefaultCalendarURL is not present")
-        else:
-            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
+        default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)
+        self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
 
-        # Force the new calendar to think it is a virtual share
-        newcalendar._isShareeCollection = True
-
-        try:
-            default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)
-        except HTTPError:
-            self.fail("caldavxml.ScheduleDefaultCalendarURL is not present")
-        else:
-            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
-
-        request._newStoreTransaction.abort()
+        yield self.abort()
 
 
     @inlineCallbacks
@@ -393,35 +287,27 @@ class DefaultCalendar (TestCase):
         Test that the default URL can be set to another VEVENT calendar
         """
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
 
-        # default property not present
-        try:
-            inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
-        except HTTPError:
-            pass
-        else:
-            self.fail("caldavxml.ScheduleDefaultCalendarURL is not empty")
+        # default property is present
+        default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)
+        self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
 
         # Create a new default calendar
         newcalendar = yield request.locateResource("/calendars/users/wsanchez/newcalendar")
         yield newcalendar.createCalendarCollection()
         yield newcalendar.setSupportedComponents(("VEVENT",))
-        request._newStoreTransaction.commit()
+        yield self.commit()
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
         yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")), request)
 
-        try:
-            default = inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
-        except HTTPError:
-            self.fail("caldavxml.ScheduleDefaultCalendarURL is not present")
-        else:
-            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
+        default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)
+        self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
 
-        request._newStoreTransaction.commit()
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -431,27 +317,28 @@ class DefaultCalendar (TestCase):
         """
 
         # Create a new non-default calendar
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
         newcalendar = yield request.locateResource("/calendars/users/wsanchez/newcalendar")
         yield newcalendar.createCalendarCollection()
         yield newcalendar.setSupportedComponents(("VEVENT",))
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
-        yield inbox.pickNewDefaultCalendar(request)
-        request._newStoreTransaction.commit()
+        yield inbox.defaultCalendar(request, "VEVENT")
+        yield inbox.defaultCalendar(request, "VTODO")
+        yield self.commit()
 
-        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
         calendar = yield request.locateResource("/calendars/users/wsanchez/calendar")
         newcalendar = yield request.locateResource("/calendars/users/wsanchez/newcalendar")
         tasks = yield request.locateResource("/calendars/users/wsanchez/tasks")
 
-        result = yield inbox.isDefaultCalendar(request, calendar)
-        self.assertEqual(result, caldavxml.ScheduleDefaultCalendarURL)
+        result = yield calendar.isDefaultCalendar(request)
+        self.assertTrue(result)
 
-        result = yield inbox.isDefaultCalendar(request, newcalendar)
-        self.assertEqual(result, None)
+        result = yield newcalendar.isDefaultCalendar(request)
+        self.assertFalse(result)
 
-        result = yield inbox.isDefaultCalendar(request, tasks)
-        self.assertEqual(result, customxml.ScheduleDefaultTasksURL)
+        result = yield tasks.isDefaultCalendar(request)
+        self.assertTrue(result)
 
-        request._newStoreTransaction.commit()
+        yield self.commit()

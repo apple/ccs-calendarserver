@@ -48,11 +48,10 @@ from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
     InvalidICalendarDataError, iCalendarProductID, allowedComponents, Component
 from twistedcaldav.memcachelock import MemcacheLockTimeoutError
-from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
 from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
     DefaultAlarmPropertyMixin
-from twistedcaldav.scheduling.caldav.resource import ScheduleInboxResource
+from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
@@ -1271,14 +1270,11 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         Moving a calendar collection is allowed for the purposes of changing
         that calendar's name.
         """
-        defaultCalendarType = (yield self.isDefaultCalendar(request))
-
         result = (yield super(CalendarCollectionResource, self).http_MOVE(request))
         if result == NO_CONTENT:
             destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
             destination = yield request.locateResource(destinationURI)
-            yield self.movedCalendar(request, defaultCalendarType,
-                               destination, destinationURI)
+            yield self.movedCalendar(request, destination, destinationURI)
         returnValue(result)
 
 

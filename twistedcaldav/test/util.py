@@ -29,7 +29,7 @@ from twisted.internet.protocol import ProcessProtocol
 from twext.python.memcacheclient import ClientFactory
 from twext.python.filepath import CachingFilePath as FilePath
 import twext.web2.dav.test.util
-from txdav.xml import element as davxml
+from txdav.xml import element as davxml, element
 from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import memcacher
@@ -44,12 +44,17 @@ from twistedcaldav.directory.principal import (
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
-from txdav.common.datastore.test.util import deriveQuota
+from txdav.common.datastore.test.util import deriveQuota, CommonCommonTests
 from txdav.common.datastore.file import CommonDataStore
 
 from calendarserver.provision.root import RootResource
 
 from twext.python.log import Logger
+from txdav.caldav.datastore.test.util import buildCalendarStore
+from calendarserver.tap.util import getRootResource, directoryFromConfig
+from twext.web2.dav.test.util import SimpleRequest
+from twistedcaldav.directory.util import transactionFromRequest
+from twistedcaldav.directory.directory import DirectoryService
 
 log = Logger()
 
@@ -94,7 +99,6 @@ class DirectoryFixture(object):
                 "/principals/", ds
             )
         self._directoryChangeHooks = [_setUpPrincipals]
-
 
     directoryService = None
     principalsResource = None
@@ -150,6 +154,119 @@ class DirectoryFixture(object):
 
 
 
+class SimpleStoreRequest(SimpleRequest):
+    """
+    A SimpleRequest that automatically grabs the proper transaction for a test.
+    """
+    def __init__(self, test, method, uri, headers=None, content=None, authid=None):
+        super(SimpleStoreRequest, self).__init__(test.site, method, uri, headers, content)
+        self._test = test
+        self._newStoreTransaction = test.transactionUnderTest(txn=transactionFromRequest(self, test.storeUnderTest()))
+        self.credentialFactories = {}
+
+        # Fake credentials if auth needed
+        if authid is not None:
+            record = self._test.directory.recordWithShortName(DirectoryService.recordType_users, authid)
+            if record:
+                self.authzUser = self.authnUser = element.Principal(element.HRef("/principals/__uids__/%s/" % (record.uid,)))
+
+
+    @inlineCallbacks
+    def process(self):
+        """
+        Process will commit the transaction in the test so we need to clear it out.
+        """
+        result = yield super(SimpleStoreRequest, self).process()
+        self._test.lastTransaction = None
+        returnValue(result)
+
+
+    def _cbFinishRender(self, result):
+        self._test.lastTransaction = None
+        return super(SimpleStoreRequest, self)._cbFinishRender(result)
+
+
+
+class StoreTestCase(CommonCommonTests, twext.web2.dav.test.util.TestCase):
+    """
+    A base class for tests that use the SQL store.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(StoreTestCase, self).setUp()
+
+        self.configure()
+
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory, directoryFromConfig(config))
+        self.rootResource = getRootResource(config, self._sqlCalendarStore)
+        self.directory = self._sqlCalendarStore.directoryService()
+
+        self.principalsResource = DirectoryPrincipalProvisioningResource("/principals/", self.directory)
+        self.site.resource.putChild("principals", self.principalsResource)
+        self.calendarCollection = DirectoryCalendarHomeProvisioningResource(self.directory, "/calendars/", self._sqlCalendarStore)
+        self.site.resource.putChild("calendars", self.calendarCollection)
+        self.addressbookCollection = DirectoryAddressBookHomeProvisioningResource(self.directory, "/addressbooks/", self._sqlCalendarStore)
+        self.site.resource.putChild("addressbooks", self.addressbookCollection)
+
+        yield self.populate()
+
+
+    def populate(self):
+        return succeed(None)
+
+
+    def storeUnderTest(self):
+        """
+        Return a store for testing.
+        """
+        return self._sqlCalendarStore
+
+
+    def configure(self):
+        """
+        Adjust the global configuration for this test.
+        """
+        self.serverRoot = self.mktemp()
+        os.mkdir(self.serverRoot)
+
+        config.reset()
+
+        config.ServerRoot = os.path.abspath(self.serverRoot)
+        config.ConfigRoot = "config"
+        config.LogRoot = "logs"
+        config.RunRoot = "logs"
+
+        if not os.path.exists(config.DataRoot):
+            os.makedirs(config.DataRoot)
+        if not os.path.exists(config.DocumentRoot):
+            os.makedirs(config.DocumentRoot)
+        if not os.path.exists(config.ConfigRoot):
+            os.makedirs(config.ConfigRoot)
+        if not os.path.exists(config.LogRoot):
+            os.makedirs(config.LogRoot)
+
+        config.Memcached.Pools.Default.ClientEnabled = False
+        config.Memcached.Pools.Default.ServerEnabled = False
+        ClientFactory.allowTestCache = True
+        memcacher.Memcacher.allowTestCache = True
+        memcacher.Memcacher.memoryCacheInstance = None
+        config.DirectoryAddressBook.Enabled = False
+
+        accounts = FilePath(config.DataRoot).child("accounts.xml")
+        accounts.setContent(xmlFile.getContent())
+
+
+    @property
+    def directoryService(self):
+        """
+        Read-only alias for L{DirectoryFixture.directoryService} for
+        compatibility with older tests.  TODO: remove this.
+        """
+        return self.directory
+
+
+
 class TestCase(twext.web2.dav.test.util.TestCase):
     resource_class = RootResource
 
@@ -159,7 +276,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         addressbooks.)  By default returns a L{CommonDataStore}, but this is a
         hook for subclasses to override to provide different data stores.
         """
-        return CommonDataStore(FilePath(config.DocumentRoot), None, True, False,
+        return CommonDataStore(FilePath(config.DocumentRoot), None, None, True, False,
                                quota=deriveQuota(self))
 
 
@@ -267,7 +384,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                     continue
 
                 childPath = os.path.join(parent, childName)
-                if childStructure.has_key("@contents"):
+                if "@contents" in childStructure:
                     # This is a file
                     with open(childPath, "w") as child:
                         child.write(childStructure["@contents"])
@@ -276,7 +393,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                     os.mkdir(childPath)
                     createChildren(childPath, childStructure)
 
-                if childStructure.has_key("@xattrs"):
+                if "@xattrs" in childStructure:
                     xattrs = childStructure["@xattrs"]
                     for attr, value in xattrs.iteritems():
                         try:
@@ -285,7 +402,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                             pass
 
                 # Set access and modified times
-                if childStructure.has_key("@timestamp"):
+                if "@timestamp" in childStructure:
                     timestamp = childStructure["@timestamp"]
                     os.utime(childPath, (timestamp, timestamp))
 
@@ -338,13 +455,13 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                 childPath = os.path.join(parent, childName)
 
                 if not os.path.exists(childPath):
-                    if childStructure.has_key("@optional"):
+                    if "@optional" in childStructure:
                         return True
                     else:
                         print("Missing:", childPath)
                         return False
 
-                if childStructure.has_key("@contents"):
+                if "@contents" in childStructure:
                     # This is a file
                     expectedContents = childStructure["@contents"]
                     if expectedContents is None:
@@ -371,7 +488,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                     if not verifyChildren(childPath, childStructure):
                         return False
 
-                if childStructure.has_key("@xattrs"):
+                if "@xattrs" in childStructure:
                     try:
                         # See if we have xattr support; IOError if not
                         try:
@@ -406,9 +523,12 @@ class TestCase(twext.web2.dav.test.util.TestCase):
 
         return verifyChildren(root, structure)
 
+
+
 class norequest(object):
     def addResponseFilter(self, filter):
         "stub; ignore me"
+
 
 
 class HomeTestCase(TestCase):
@@ -421,7 +541,7 @@ class HomeTestCase(TestCase):
         # FIXME: AddressBookHomeTestCase needs the same treatment.
         fp = FilePath(self.mktemp())
         fp.createDirectory()
-        return CommonDataStore(fp, None, True, False)
+        return CommonDataStore(fp, None, None, True, False)
 
 
     def setUp(self):
@@ -448,7 +568,6 @@ class HomeTestCase(TestCase):
                 self.docroot = aPath.path
 
         return self._refreshRoot().addCallback(_defer)
-
 
     committed = True
 
@@ -577,6 +696,7 @@ class InMemoryPropertyStore(object):
         self._properties = {}
         self.resource = _FauxResource()
 
+
     def get(self, qname, uid=None):
         qnameuid = qname + (uid,)
         data = self._properties.get(qnameuid)
@@ -584,9 +704,11 @@ class InMemoryPropertyStore(object):
             raise HTTPError(StatusResponse(404, "No such property"))
         return data
 
+
     def set(self, property, uid=None):
         qnameuid = property.qname() + (uid,)
         self._properties[qnameuid] = property
+
 
     def delete(self, qname, uid=None):
         try:
@@ -595,20 +717,23 @@ class InMemoryPropertyStore(object):
         except KeyError:
             pass
 
+
     def contains(self, qname, uid=None):
         qnameuid = qname + (uid,)
         return qnameuid in self._properties
 
+
     def list(self, uid=None, filterByUID=True):
         results = self._properties.iterkeys()
         if filterByUID:
-            return [ 
+            return [
                 (namespace, name)
                 for namespace, name, propuid in results
                 if propuid == uid
             ]
         else:
             return results
+
 
 
 class StubCacheChangeNotifier(object):
@@ -634,6 +759,7 @@ class InMemoryMemcacheProtocol(object):
 
         self._timeouts = {}
 
+
     def get(self, key):
         if key not in self._cache:
             return succeed((0, None))
@@ -648,7 +774,6 @@ class InMemoryMemcacheProtocol(object):
         if expireTime > 0:
             if key in self._timeouts:
                 self._timeouts[key].cancel()
-
 
             self._timeouts[key] = self._reactor.callLater(
                 expireTime,
@@ -691,6 +816,7 @@ class ErrorOutput(Exception):
     The process produced some error output and exited with a non-zero exit
     code.
     """
+
 
 
 class CapturingProcessProtocol(ProcessProtocol):

@@ -13,23 +13,24 @@
 # limitations under the License.
 ##
 
-import os
-
-from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2 import responsecode
+from twext.web2.dav.util import davXMLFromStream, joinURL
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
-from txdav.xml import element as davxml
-from twext.web2.dav.util import davXMLFromStream
-from twext.web2.test.test_server import SimpleRequest
+
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import caldavxml
 from twistedcaldav import ical
-from twistedcaldav.test.util import HomeTestCase, todo
 from twistedcaldav.config import config
+from twistedcaldav.test.util import todo, StoreTestCase, SimpleStoreRequest
 
-class CalendarMultiget (HomeTestCase):
+from txdav.xml import element as davxml
+
+import os
+
+class CalendarMultiget (StoreTestCase):
     """
     calendar-multiget REPORT
     """
@@ -48,6 +49,7 @@ class CalendarMultiget (HomeTestCase):
 
         return self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids)
 
+
     def test_multiget_all_events(self):
         """
         All events.
@@ -58,6 +60,7 @@ class CalendarMultiget (HomeTestCase):
         baduids = ["12345%40example.com", "67890%40example.com"]
 
         return self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids)
+
 
     def test_multiget_limited_with_data(self):
         """
@@ -82,6 +85,7 @@ class CalendarMultiget (HomeTestCase):
         d.addCallbacks(_restoreValueOK, _restoreValueError)
         return d
 
+
     def test_multiget_limited_no_data(self):
         """
         All events.
@@ -103,6 +107,7 @@ class CalendarMultiget (HomeTestCase):
 
         return self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids, withData=False)
 
+
     @todo("Remove: Does not work with new store")
     @inlineCallbacks
     def test_multiget_one_broken_event(self):
@@ -110,10 +115,10 @@ class CalendarMultiget (HomeTestCase):
         All events.
         (CalDAV-access-09, section 7.6.8)
         """
-        okuids = ["good", "bad",]
+        okuids = ["good", "bad", ]
         baduids = []
         data = {
-            "good":"""BEGIN:VCALENDAR
+            "good": """BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
 PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
 VERSION:2.0
@@ -127,7 +132,7 @@ SUMMARY:New Year's Day
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n"),
-            "bad":"""BEGIN:VCALENDAR
+            "bad": """BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
 PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
 VERSION:2.0
@@ -144,7 +149,7 @@ END:VCALENDAR
         }
 
         yield self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids, data)
-        
+
         # Now forcibly corrupt one piece of calendar data
         calendar_path = os.path.join(self.docroot, "calendar_multiget_events/", "bad.ics")
         f = open(calendar_path, "w")
@@ -165,7 +170,10 @@ END:VCALENDAR
         baduids = ["bad", ]
         yield self.simple_event_multiget("/calendar_multiget_events/", okuids, baduids, data, no_init=True)
 
+
     def simple_event_multiget(self, cal_uri, okuids, baduids, data=None, no_init=False, withData=True):
+
+        cal_uri = joinURL("/calendars/users/wsanchez", cal_uri)
         props = (
             davxml.GETETag(),
         )
@@ -175,14 +183,14 @@ END:VCALENDAR
             )
         children = []
         children.append(davxml.PropertyContainer(*props))
-        
-        okhrefs = [cal_uri + x + ".ics" for x in okuids]
-        badhrefs = [cal_uri + x + ".ics" for x in baduids]
+
+        okhrefs = [joinURL(cal_uri, x + ".ics") for x in okuids]
+        badhrefs = [joinURL(cal_uri, x + ".ics") for x in baduids]
         for href in okhrefs + badhrefs:
             children.append(davxml.HRef.fromString(href))
-        
+
         query = caldavxml.CalendarMultiGet(*children)
-        
+
         def got_xml(doc):
             if not isinstance(doc.root_element, davxml.MultiStatus):
                 self.fail("REPORT response XML root element is not multistatus: %r" % (doc.root_element,))
@@ -200,7 +208,8 @@ END:VCALENDAR
 
                     for property in properties:
                         qname = property.qname()
-                        if qname == (davxml.dav_namespace, "getetag"): continue
+                        if qname == (davxml.dav_namespace, "getetag"):
+                            continue
                         if qname != (caldavxml.caldav_namespace, "calendar-data"):
                             self.fail("Response included unexpected property %r" % (property,))
 
@@ -223,7 +232,7 @@ END:VCALENDAR
                             original_calendar = ical.Component.fromStream(original_filename)
 
                         self.assertEqual(result_calendar, original_calendar)
-            
+
             for response in doc.root_element.childrenOfType(davxml.StatusResponse):
                 href = str(response.childOfType(davxml.HRef))
                 propstatus = response.childOfType(davxml.PropertyStatus)
@@ -241,38 +250,37 @@ END:VCALENDAR
                             continue
                         else:
                             self.fail("Got unexpected href %r" % (href,))
-        
+
             if withData and (len(okuids) + len(badhrefs)):
                 self.fail("Some components were not returned: %r, %r" % (okuids, badhrefs))
 
         return self.calendar_query(cal_uri, query, got_xml, data, no_init)
 
+
     @inlineCallbacks
     def calendar_query(self, calendar_uri, query, got_xml, data, no_init):
 
         if not no_init:
-            response = yield self.send(SimpleRequest(self.site, "MKCALENDAR",
-                calendar_uri))
+            response = yield self.send(SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="wsanchez"))
             response = IResponse(response)
             if response.code != responsecode.CREATED:
                 self.fail("MKCALENDAR failed: %s" % (response.code,))
 
             if data:
                 for filename, icaldata in data.iteritems():
-                    request = SimpleRequest(self.site, "PUT",
-                        calendar_uri + "/" + filename + ".ics")
+                    request = SimpleStoreRequest(self, "PUT", joinURL(calendar_uri, filename + ".ics"), authid="wsanchez")
                     request.stream = MemoryStream(icaldata)
                     yield self.send(request)
             else:
                 # Add holiday events to calendar
                 for child in FilePath(self.holidays_dir).children():
-                    if os.path.splitext(child.basename())[1] != ".ics": continue
-                    request = SimpleRequest(self.site, "PUT",
-                        calendar_uri + "/" + child.basename())
+                    if os.path.splitext(child.basename())[1] != ".ics":
+                        continue
+                    request = SimpleStoreRequest(self, "PUT", joinURL(calendar_uri, child.basename()), authid="wsanchez")
                     request.stream = MemoryStream(child.getContent())
                     yield self.send(request)
 
-        request = SimpleRequest(self.site, "REPORT", calendar_uri)
+        request = SimpleStoreRequest(self, "REPORT", calendar_uri, authid="wsanchez")
         request.stream = MemoryStream(query.toxml())
         response = yield self.send(request)
 

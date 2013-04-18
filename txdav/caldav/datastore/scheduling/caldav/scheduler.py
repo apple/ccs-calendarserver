@@ -66,12 +66,12 @@ class CalDAVScheduler(Scheduler):
         self.doingPOST = False
 
 
-    def doSchedulingViaPOST(self, transaction):
+    def doSchedulingViaPOST(self):
         """
         The Scheduling POST operation on an Outbox.
         """
         self.doingPOST = True
-        return super(CalDAVScheduler, self).doSchedulingViaPOST(transaction)
+        return super(CalDAVScheduler, self).doSchedulingViaPOST()
 
 
     def checkAuthorization(self):
@@ -127,9 +127,9 @@ class CalDAVScheduler(Scheduler):
             else:
                 # Map recipient to their inbox
                 inbox = None
-                if principal.thisServer():
+                if principal.calendarsEnabled() and principal.thisServer():
                     if principal.locallyHosted():
-                        recipient_home = yield self.txn.calendarHomeWithUID(principal.uid)
+                        recipient_home = yield self.txn.calendarHomeWithUID(principal.uid, create=True)
                         if recipient_home:
                             inbox = (yield recipient_home.calendarWithName("inbox"))
                     else:

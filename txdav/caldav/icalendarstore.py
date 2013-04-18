@@ -206,6 +206,13 @@ class InvalidResourceMove(CommonStoreError):
 
 
 
+class InvalidDefaultCalendar(CommonStoreError):
+    """
+    Setting a default calendar failed.
+    """
+
+
+
 class AttachmentStoreFailed(Exception):
     """
     Unable to store an attachment.

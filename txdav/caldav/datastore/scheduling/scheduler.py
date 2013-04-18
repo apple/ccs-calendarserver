@@ -17,9 +17,10 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 
+from twext.enterprise.locking import NamedLock
 from twext.python.log import Logger, LoggingMixIn
 from twext.web2 import responsecode
-from twext.web2.http import HTTPError, Response, StatusResponse
+from twext.web2.http import HTTPError, Response
 from twext.web2.http_headers import MimeType
 from txdav.xml import element as davxml
 from twext.web2.dav.http import messageForFailure, statusForFailure, \
@@ -30,7 +31,6 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
-from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from txdav.caldav.datastore.scheduling import addressmapping
 from txdav.caldav.datastore.scheduling.caldav.delivery import ScheduleViaCalDAV
 from txdav.caldav.datastore.scheduling.cuaddress import InvalidCalendarUser, \
@@ -42,6 +42,7 @@ from txdav.caldav.datastore.scheduling.cuaddress import PartitionedCalendarUser
 from txdav.caldav.datastore.scheduling.imip.delivery import ScheduleViaIMip
 from txdav.caldav.datastore.scheduling.ischedule.delivery import ScheduleViaISchedule
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
+import hashlib
 
 """
 CalDAV/Server-to-Server scheduling behavior.
@@ -153,49 +154,25 @@ class Scheduler(object):
 
 
     @inlineCallbacks
-    def doSchedulingViaPOST(self, use_request_headers=False):
+    def doSchedulingViaPOST(self, originator, recipients, calendar):
         """
         The Scheduling POST operation on an Outbox.
         """
 
-        self.method = "POST"
-
-        # Load various useful bits doing some basic checks on those
-        yield self.loadCalendarFromRequest()
-
-        if use_request_headers:
-            self.loadFromRequestHeaders()
-        else:
-            yield self.loadFromRequestData()
+        self.calendar = calendar
+        self.preProcessCalendarData()
 
         if self.logItems is not None:
-            self.logItems["recipients"] = len(self.recipients)
-            self.logItems["cl"] = str(len(str(self.calendar)))
-
-        # Do some extra authorization checks
-        self.checkAuthorization()
+            self.logItems["recipients"] = len(recipients)
+            self.logItems["cl"] = str(len(str(calendar)))
 
         # We might trigger an implicit scheduling operation here that will require consistency
         # of data for all events with the same UID. So detect this and use a lock
-        if self.calendar.resourceType() != "VFREEBUSY":
-            uid = self.calendar.resourceUID()
-            lock = MemcacheLock(
-                "ImplicitUIDLock",
-                uid,
-                timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
-                expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
-            )
+        if calendar.resourceType() != "VFREEBUSY":
+            uid = calendar.resourceUID()
+            yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(uid).hexdigest(),))
 
-            try:
-                yield lock.acquire()
-            except MemcacheLockTimeoutError:
-                raise HTTPError(StatusResponse(responsecode.CONFLICT, "UID: %s currently in use on the server." % (uid,)))
-            else:
-                # Release lock after commit or abort
-                self.txn.postCommit(lock.clean)
-                self.txn.postAbort(lock.clean)
-
-        result = (yield self.doScheduling())
+        result = (yield self.doSchedulingDirectly("POST", originator, recipients, calendar))
         returnValue(result)
 
 
@@ -705,9 +682,9 @@ class RemoteScheduler(Scheduler):
             else:
                 # Map recipient to their inbox
                 inbox = None
-                if principal.thisServer():
+                if principal.calendarsEnabled() and principal.thisServer():
                     if principal.locallyHosted():
-                        recipient_home = yield self.txn.calendarHomeWithUID(principal.uid)
+                        recipient_home = yield self.txn.calendarHomeWithUID(principal.uid, create=True)
                         if recipient_home:
                             inbox = (yield recipient_home.calendarWithName("inbox"))
                     else:

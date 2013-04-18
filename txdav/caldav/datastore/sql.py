@@ -72,7 +72,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     InvalidUIDError, UIDExistsError, ResourceDeletedError, \
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
     ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
-    InvalidComponentForStoreError, InvalidResourceMove
+    InvalidComponentForStoreError, InvalidResourceMove, InvalidDefaultCalendar
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -727,6 +727,39 @@ class CalendarHome(CommonHome):
 
 
     @inlineCallbacks
+    def setDefaultCalendar(self, calendar, tasks=False):
+        """
+        Set the default calendar for a particular type of component.
+
+        @param calendar: the calendar being set as the default
+        @type calendar: L{CalendarObject}
+        @param tasks: C{True} for VTODO, C{False} for VEVENT
+        @type componentType: C{bool}
+        """
+        chm = self._homeMetaDataSchema
+        componentType = "VTODO" if tasks else "VEVENT"
+        attribute_to_test = "_default_tasks" if tasks else "_default_events"
+        column_to_set = chm.DEFAULT_TASKS if tasks else chm.DEFAULT_EVENTS
+
+        # Check validity of the default
+        if calendar.isInbox():
+            raise InvalidDefaultCalendar("Cannot set inbox as a default calendar")
+        elif not calendar.owned():
+            raise InvalidDefaultCalendar("Cannot set shared calendar as a default calendar")
+        elif not calendar.isSupportedComponent(componentType):
+            raise InvalidDefaultCalendar("Cannot set default calendar to unsupported component type")
+        elif calendar.ownerHome().uid() != self.uid():
+            raise InvalidDefaultCalendar("Cannot set default calendar to someone else's calendar")
+
+        setattr(self, attribute_to_test, calendar._resourceID)
+        yield Update(
+            {column_to_set: calendar._resourceID},
+            Where=chm.RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
+
+
+    @inlineCallbacks
     def defaultCalendar(self, componentType):
         """
         Find the default calendar for the supplied iCalendar component type. If one does
@@ -741,9 +774,13 @@ class CalendarHome(CommonHome):
         else:
             default = None
 
-        # Check that default handles the component type
+        # Check that default meets requirements
         if default is not None:
-            if not default.isSupportedComponent(componentType):
+            if default.isInbox():
+                default = None
+            elif not default.owned():
+                default = None
+            elif not default.isSupportedComponent(componentType):
                 default = None
 
         # Must have a default - provision one if not
@@ -755,9 +792,9 @@ class CalendarHome(CommonHome):
                 calendar = (yield self.calendarWithName(calendarName))
                 if calendar.isInbox():
                     continue
-                if not calendar.owned():
+                elif not calendar.owned():
                     continue
-                if not calendar.isSupportedComponent(componentType):
+                elif not calendar.isSupportedComponent(componentType):
                     continue
                 if default is None or calendar.created() < default.created():
                     default = calendar

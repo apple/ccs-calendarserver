@@ -18,25 +18,24 @@ import os
 
 from twisted.trial.unittest import SkipTest
 
-from twext.python.filepath import CachingFilePath as FilePath
-
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 from txdav.xml import element as davxml
 from twext.web2.dav.util import davXMLFromStream
-from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import caldavxml
 from twistedcaldav import ical
 
 from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.config import config
-from twistedcaldav.test.util import HomeTestCase
+from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 from twisted.internet.defer import inlineCallbacks, returnValue
-from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 
 from pycalendar.datetime import PyCalendarDateTime
+from twistedcaldav.ical import Component
+from txdav.caldav.icalendarstore import ComponentUpdateState
+from twistedcaldav.directory.directory import DirectoryService
 
 
 @inlineCallbacks
@@ -61,20 +60,34 @@ def addEventsDir(testCase, eventsDir, uri):
         count += 1
         if child.basename().split(".")[-1] != "ics":
             continue
-        request = SimpleRequest(testCase.site, "PUT",
-                                uri + "/" + child.basename())
+        request = SimpleStoreRequest(testCase, "PUT", uri + "/" + child.basename())
         request.stream = MemoryStream(child.getContent())
         yield testCase.send(request)
     returnValue(count)
 
 
 
-class CalendarQuery (HomeTestCase):
+class CalendarQuery (StoreTestCase):
     """
     calendar-query REPORT
     """
     data_dir = os.path.join(os.path.dirname(__file__), "data")
     holidays_dir = os.path.join(data_dir, "Holidays")
+
+    @inlineCallbacks
+    def populate(self):
+        """
+        Put the contents of the Holidays directory into the store.
+        """
+        record = self.directory.recordWithShortName(DirectoryService.recordType_users, "wsanchez")
+        yield self.transactionUnderTest().calendarHomeWithUID(record.uid, create=True)
+        calendar = yield self.calendarUnderTest(name="calendar", home=record.uid)
+        for f in os.listdir(self.holidays_dir):
+            if f.endswith(".ics"):
+                component = Component.fromString(open(os.path.join(self.holidays_dir, f)).read())
+                yield calendar._createCalendarObjectWithNameInternal(f, component, internal_state=ComponentUpdateState.RAW)
+        yield self.commit()
+
 
     def test_calendar_query_time_range(self):
         """
@@ -158,7 +171,8 @@ class CalendarQuery (HomeTestCase):
                                 self.fail("REPORT property %r returned calendar %s outside of request time range %r"
                                           % (property, property.calendar, query_timerange))
 
-        return self.calendar_query("/calendar_query_time_range/", query, got_xml)
+        return self.calendar_query(query, got_xml)
+
 
     def test_calendar_query_partial_recurring(self):
         """
@@ -167,12 +181,14 @@ class CalendarQuery (HomeTestCase):
         """
         raise SkipTest("test unimplemented")
 
+
     def test_calendar_query_expanded_recurring(self):
         """
         Expanded retrieval of recurring events.
         (CalDAV-access-09, section 7.6.3)
         """
         raise SkipTest("test unimplemented")
+
 
     def test_calendar_query_partial_freebusy(self):
         """
@@ -181,12 +197,14 @@ class CalendarQuery (HomeTestCase):
         """
         raise SkipTest("test unimplemented")
 
+
     def test_calendar_query_todo_alarm(self):
         """
         Retrieval of to-dos by alarm time range.
         (CalDAV-access-09, section 7.6.5)
         """
         raise SkipTest("test unimplemented")
+
 
     def test_calendar_query_by_uid(self):
         """
@@ -196,7 +214,6 @@ class CalendarQuery (HomeTestCase):
         uid = "C3189A88-1ED0-11D9-A5E0-000A958A3252"
 
         return self.simple_event_query(
-            "/calendar_query_uid/",
             caldavxml.PropertyFilter(
                 caldavxml.TextMatch.fromString(uid, False),
                 name="UID",
@@ -204,12 +221,14 @@ class CalendarQuery (HomeTestCase):
             [uid]
         )
 
+
     def test_calendar_query_partstat(self):
         """
         Retrieval of events by participation status.
         (CalDAV-access-09, section 7.6.7)
         """
         raise SkipTest("test unimplemented")
+
 
     def test_calendar_query_all_events(self):
         """
@@ -219,53 +238,47 @@ class CalendarQuery (HomeTestCase):
         uids = [r[0] for r in (os.path.splitext(f) for f in
                 os.listdir(self.holidays_dir)) if r[1] == ".ics"]
 
-        return self.simple_event_query("/calendar_query_events/", None, uids)
+        return self.simple_event_query(None, uids)
+
 
     def test_calendar_query_limited_with_data(self):
         """
         All events.
         (CalDAV-access-09, section 7.6.8)
         """
-        
-        oldValue = config.MaxQueryWithDataResults
-        config.MaxQueryWithDataResults = 1
+
+        self.patch(config, "MaxQueryWithDataResults", 1)
         def _restoreValueOK(f):
-            config.MaxQueryWithDataResults = oldValue
             self.fail("REPORT must fail with 403")
 
         def _restoreValueError(f):
-            config.MaxQueryWithDataResults = oldValue
             return None
 
         uids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.holidays_dir)) if r[1] == ".ics"]
 
-        d = self.simple_event_query("/calendar_query_events/", None, uids)
+        d = self.simple_event_query(None, uids)
         d.addCallbacks(_restoreValueOK, _restoreValueError)
         return d
+
 
     def test_calendar_query_limited_without_data(self):
         """
         All events.
         (CalDAV-access-09, section 7.6.8)
         """
-        
-        oldValue = config.MaxQueryWithDataResults
-        config.MaxQueryWithDataResults = 1
-        def _restoreValueOK(f):
-            config.MaxQueryWithDataResults = oldValue
-            return None
 
+        self.patch(config, "MaxQueryWithDataResults", 1)
         def _restoreValueError(f):
-            config.MaxQueryWithDataResults = oldValue
             self.fail("REPORT must not fail with 403")
 
         uids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.holidays_dir)) if r[1] == ".ics"]
 
-        d = self.simple_event_query("/calendar_query_events/", None, uids, withData=False)
-        d.addCallbacks(_restoreValueOK, _restoreValueError)
+        d = self.simple_event_query(None, uids, withData=False)
+        d.addErrback(_restoreValueError)
         return d
 
-    def simple_event_query(self, cal_uri, event_filter, uids, withData=True):
+
+    def simple_event_query(self, event_filter, uids, withData=True):
         props = (
             davxml.GETETag(),
         )
@@ -302,7 +315,8 @@ class CalendarQuery (HomeTestCase):
 
                     for property in properties:
                         qname = property.qname()
-                        if qname == (davxml.dav_namespace, "getetag"): continue
+                        if qname == (davxml.dav_namespace, "getetag"):
+                            continue
                         if qname != (caldavxml.caldav_namespace, "calendar-data"):
                             self.fail("Response included unexpected property %r" % (property,))
 
@@ -323,22 +337,13 @@ class CalendarQuery (HomeTestCase):
 
                         self.assertEqual(result_calendar, original_calendar)
 
-        return self.calendar_query(cal_uri, query, got_xml)
+        return self.calendar_query(query, got_xml)
 
 
     @inlineCallbacks
-    def calendar_query(self, calendar_uri, query, got_xml):
+    def calendar_query(self, query, got_xml):
 
-        response = yield self.send(SimpleRequest(self.site, "MKCALENDAR", calendar_uri))
-        response = IResponse(response)
-
-        if response.code != responsecode.CREATED:
-            self.fail("MKCALENDAR failed: %s" % (response.code,))
-
-        # Add holiday events to calendar
-        yield addEventsDir(self, FilePath(self.holidays_dir), calendar_uri)
-
-        request = SimpleRequest(self.site, "REPORT", calendar_uri)
+        request = SimpleStoreRequest(self, "REPORT", "/calendars/users/wsanchez/calendar/", authid="wsanchez")
         request.stream = MemoryStream(query.toxml())
         response = yield self.send(request)
 
@@ -350,17 +355,3 @@ class CalendarQuery (HomeTestCase):
         returnValue(
             (yield davXMLFromStream(response.stream).addCallback(got_xml))
         )
-
-
-class DatabaseQueryTests(CalendarQuery):
-
-    @inlineCallbacks
-    def setUp(self):
-        self.calendarStore = yield buildStore(self, StubNotifierFactory())
-        yield super(DatabaseQueryTests, self).setUp()
-
-
-    def createDataStore(self):
-        return self.calendarStore
-
-

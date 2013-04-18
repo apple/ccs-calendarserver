@@ -14,7 +14,8 @@
 # limitations under the License.
 ##
 from txdav.caldav.datastore.test.util import buildCalendarStore
-from txdav.caldav.icalendarstore import ComponentUpdateState
+from txdav.caldav.icalendarstore import ComponentUpdateState, \
+    InvalidDefaultCalendar
 
 """
 Tests for txdav.caldav.datastore.postgres, mostly based on
@@ -1159,6 +1160,54 @@ END:VCALENDAR
         self.assertTrue(default_tasks2 is not None)
         self.assertEqual(home._default_events, default_events._resourceID)
         self.assertEqual(home._default_tasks, default_tasks2._resourceID)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_setDefaultCalendar(self):
+        """
+        Make sure a default_events calendar is assigned.
+        """
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        calendar1 = yield home.calendarWithName("calendar_1")
+        yield calendar1.splitCollectionByComponentTypes()
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        self.assertEqual(home._default_events, None)
+        self.assertEqual(home._default_tasks, None)
+        calendar1 = yield home.calendarWithName("calendar_1")
+        yield home.setDefaultCalendar(calendar1, False)
+        self.assertEqual(home._default_events, calendar1._resourceID)
+        self.assertEqual(home._default_tasks, None)
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        calendar1 = yield home.calendarWithName("calendar_1")
+        calendar2 = yield home.calendarWithName("calendar_1-vtodo")
+        yield self.failUnlessFailure(home.setDefaultCalendar(calendar2, False), InvalidDefaultCalendar)
+        self.assertEqual(home._default_events, calendar1._resourceID)
+        self.assertEqual(home._default_tasks, None)
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        calendar1 = yield home.calendarWithName("calendar_1")
+        calendar2 = yield home.calendarWithName("calendar_1-vtodo")
+        yield home.setDefaultCalendar(calendar2, True)
+        self.assertEqual(home._default_events, calendar1._resourceID)
+        self.assertEqual(home._default_tasks, calendar2._resourceID)
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        calendar1 = yield home.calendarWithName("inbox")
+        yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, False), InvalidDefaultCalendar)
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        home_other = yield self.homeUnderTest(name="home_splits")
+        calendar1 = yield home_other.calendarWithName("calendar_1")
+        yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, False), InvalidDefaultCalendar)
         yield self.commit()
 
 
