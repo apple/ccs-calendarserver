@@ -1674,6 +1674,12 @@ class Lock(_LockingStatement):
 
 
     def _toSQL(self, queryGenerator):
+        if queryGenerator.dialect == SQLITE_DIALECT:
+            # FIXME - this is only stubbed out for testing right now, actual
+            # concurrency would require some kind of locking statement here.
+            # BEGIN IMMEDIATE maybe, if that's okay in the middle of a
+            # transaction or repeatedly?
+            return SQLFragment('select null')
         return SQLFragment('lock table ').append(
             self.table.subSQL(queryGenerator, [self.table])).append(
             SQLFragment(' in %s mode' % (self.mode,)))
