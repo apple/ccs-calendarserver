@@ -193,6 +193,7 @@ class PostgresService(MultiService):
         MultiService.__init__(self)
         self.subServiceFactory = subServiceFactory
         self.dataStoreDirectory = dataStoreDirectory
+        self.workingDir = self.dataStoreDirectory.child("working")
         self.resetSchema = resetSchema
 
         # In order to delay a shutdown until database initialization has
@@ -435,7 +436,7 @@ class PostgresService(MultiService):
                 "-o",
                 " ".join(options),
             ],
-            self.env,
+            env=self.env, path=self.workingDir.path,
             uid=self.uid, gid=self.gid,
         )
         self.monitor = monitor
@@ -455,7 +456,6 @@ class PostgresService(MultiService):
         MultiService.startService(self)
         self.activateDelayedShutdown()
         clusterDir = self.dataStoreDirectory.child("cluster")
-        workingDir = self.dataStoreDirectory.child("working")
         env = self.env = os.environ.copy()
         env.update(PGDATA=clusterDir.path,
                    PGHOST=self.host,
@@ -471,15 +471,16 @@ class PostgresService(MultiService):
         else:
             if not self.dataStoreDirectory.isdir():
                 self.dataStoreDirectory.createDirectory()
-            if not workingDir.isdir():
-                workingDir.createDirectory()
+            if not self.workingDir.isdir():
+                self.workingDir.createDirectory()
             if self.uid and self.gid:
                 os.chown(self.dataStoreDirectory.path, self.uid, self.gid)
-                os.chown(workingDir.path, self.uid, self.gid)
+                os.chown(self.workingDir.path, self.uid, self.gid)
             dbInited = Deferred()
             self.reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
-                initdb, [initdb, "-E", "UTF8", "-U", self.spawnedDBUser], env, workingDir.path,
+                initdb, [initdb, "-E", "UTF8", "-U", self.spawnedDBUser],
+                env=env, path=self.workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
             def doCreate(result):
@@ -511,7 +512,7 @@ class PostgresService(MultiService):
                 pgCtl = self.pgCtl()
                 self.reactor.spawnProcess(monitor, pgCtl,
                     [pgCtl, '-l', 'logfile', 'stop'],
-                    self.env,
+                    env=self.env, path=self.workingDir.path,
                     uid=self.uid, gid=self.gid,
                 )
                 return monitor.completionDeferred
