@@ -59,7 +59,7 @@ from twisted.python.filepath import FilePath
 from xml.parsers.expat import ExpatError
 from plistlib import readPlistFromString
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.queue import WorkItem
+from twext.enterprise.queue import WorkItem, PeerConnectionPool
 from txdav.common.datastore.sql_tables import schema
 from twext.enterprise.dal.syntax import Delete
 
@@ -959,8 +959,18 @@ def scheduleNextGroupCachingUpdate(store, seconds):
     txn = store.newTransaction()
     notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
     log.debug("Scheduling next group cacher update: %s" % (notBefore,))
-    yield txn.enqueue(GroupCacherPollingWork, notBefore=notBefore)
+    wp = (yield txn.enqueue(GroupCacherPollingWork, notBefore=notBefore))
     yield txn.commit()
+    returnValue(wp)
+
+
+def schedulePolledGroupCachingUpdate(store):
+    """
+    Schedules a group caching update work item in "the past" so PeerConnectionPool's
+    overdue-item logic picks it up quickly.
+    """
+    seconds = -PeerConnectionPool.queueProcessTimeout
+    return scheduleNextGroupCachingUpdate(store, seconds)
 
 
 def diffAssignments(old, new):
