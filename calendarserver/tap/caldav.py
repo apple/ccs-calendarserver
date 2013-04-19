@@ -1418,7 +1418,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             return multi
 
-        ssvc = self.storageService(spawnerSvcCreator, uid, gid)
+        ssvc = self.storageService(spawnerSvcCreator, None, uid, gid)
         ssvc.setServiceParent(s)
         return s
 
