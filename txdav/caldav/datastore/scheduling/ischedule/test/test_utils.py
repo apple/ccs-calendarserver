@@ -16,7 +16,7 @@
 
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.config import config
-from twistedcaldav.scheduling.ischedule import utils
+from txdav.caldav.datastore.scheduling.ischedule import utils
 from twistedcaldav.test.util import TestCase
 from twisted.python.modules import getModule
 from twisted.names.authority import BindAuthority

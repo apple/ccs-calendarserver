@@ -150,7 +150,7 @@ class ScheduleViaCalDAV(DeliveryService):
         if store_inbox:
             # Copy calendar to inbox
             try:
-                yield recipient.inbox._createCalendarObjectWithNameInternal(name, self.scheduler.calendar, ComponentUpdateState.INBOX)
+                child = yield recipient.inbox._createCalendarObjectWithNameInternal(name, self.scheduler.calendar, ComponentUpdateState.INBOX)
             except Exception as e:
                 # FIXME: Bare except
                 log.err("Could not store data in Inbox : %s %s" % (recipient.inbox, e,))
@@ -165,9 +165,9 @@ class ScheduleViaCalDAV(DeliveryService):
                 returnValue(False)
             else:
                 # Store CS:schedule-changes property if present
-                if changes:
-                    props = recipient.inbox.properties()
-                    props[PropertyName(*changes.qname())] = changes
+                if changes is not None:
+                    props = child.properties()
+                    props[PropertyName.fromElement(changes)] = changes
 
         responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_DELIVERED)
         if autoprocessed:

@@ -2320,11 +2320,11 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
 
     @inlineCallbacks
-    def storeComponent(self, component):
+    def storeComponent(self, component, **kwargs):
 
         try:
             if self._newStoreObject:
-                yield self._newStoreObject.setComponent(component)
+                yield self._newStoreObject.setComponent(component, **kwargs)
                 returnValue(NO_CONTENT)
             else:
                 self._newStoreObject = (yield self._newStoreParent.createObjectResourceWithName(
@@ -2631,7 +2631,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     self._parentResource._newStoreObject._txn._authz_uid = authz.record.guid
 
             try:
-                response = (yield self.storeComponent(component))
+                response = (yield self.storeComponent(component, smart_merge=schedule_tag_match))
             except ResourceDeletedError:
                 # This is OK - it just means the server deleted the resource during the PUT. We make it look
                 # like the PUT succeeded.
@@ -2673,6 +2673,21 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(err)))
             else:
                 raise
+
+
+    @requiresPermissions(fromParent=[davxml.Unbind()])
+    def http_DELETE(self, request):
+        """
+        Override http_DELETE to do schedule tag behavior.
+        """
+        if not self.exists():
+            log.debug("Resource not found: %s" % (self,))
+            raise HTTPError(NOT_FOUND)
+
+        # Do schedule tag check
+        self.validIfScheduleMatch(request)
+
+        return self.storeRemove(request)
 
 
     @requiresPermissions(davxml.WriteContent())

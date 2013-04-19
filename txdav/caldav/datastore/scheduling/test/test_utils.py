@@ -146,7 +146,7 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def test_getCalendarObjectForRecord(self):
         """
-        Test that L{twistedcaldav.scheduling.utils.getCalendarObjectForRecord} detects and removes
+        Test that L{txdav.caldav.datastore.scheduling.utils.getCalendarObjectForRecord} detects and removes
         resources with duplicate UIDs in the same calendar home.
         """
 

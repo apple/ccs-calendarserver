@@ -37,10 +37,10 @@ from twistedcaldav.config import config
 from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMVerifier, \
     DKIMVerificationError, DKIMMissingError
 from twext.web2.http_headers import MimeType
-from twistedcaldav.scheduling.ischedule.xml import ischedule_namespace
+from txdav.caldav.datastore.scheduling.ischedule.xml import ischedule_namespace
 from txdav.xml.base import WebDAVUnknownElement
-from twistedcaldav.scheduling.ischedule.utils import getIPsFromHost
-from twistedcaldav.scheduling.ischedule import xml
+from txdav.caldav.datastore.scheduling.ischedule.utils import getIPsFromHost
+from txdav.caldav.datastore.scheduling.ischedule import xml
 from twistedcaldav.ical import normalizeCUAddress
 
 """

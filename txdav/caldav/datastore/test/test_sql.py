@@ -1149,7 +1149,7 @@ END:VCALENDAR
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
         self.assertEqual(home._default_events, default_events._resourceID)
         self.assertEqual(home._default_tasks, default_tasks._resourceID)
-        yield home.removeCalendarWithName("todos")
+        yield home.removeCalendarWithName("calendar_1-vtodo")
         yield self.commit()
 
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")

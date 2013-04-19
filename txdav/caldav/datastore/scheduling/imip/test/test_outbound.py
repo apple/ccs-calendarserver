@@ -26,9 +26,9 @@ from twistedcaldav.config import config
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.ical import Component
-from twistedcaldav.scheduling.imip.outbound import IMIPInvitationWork
-from twistedcaldav.scheduling.imip.outbound import MailSender
-from twistedcaldav.scheduling.imip.outbound import StringFormatTemplateLoader
+from txdav.caldav.datastore.scheduling.imip.outbound import IMIPInvitationWork
+from txdav.caldav.datastore.scheduling.imip.outbound import MailSender
+from txdav.caldav.datastore.scheduling.imip.outbound import StringFormatTemplateLoader
 from twistedcaldav.test.util import TestCase, xmlFile, augmentsFile
 from txdav.common.datastore.test.util import buildStore
 

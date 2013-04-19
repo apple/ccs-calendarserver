@@ -1,4 +1,4 @@
-# -*- test-case-name: twistedcaldav.scheduling.test.test_imip -*-
+# -*- test-case-name: txdav.caldav.datastore.scheduling.test.test_imip -*-
 ##
 # Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #

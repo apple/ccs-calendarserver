@@ -1630,6 +1630,16 @@ class CommonHome(LoggingMixIn):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
 
+    def id(self):
+        """
+        Retrieve the store identifier for this home.
+
+        @return: store identifier.
+        @rtype: C{int}
+        """
+        return self._resourceID
+
+
     def uid(self):
         """
         Retrieve the unique identifier for this home.
@@ -3380,6 +3390,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         yield self._loadPropertyStore()
 
 
+    def id(self):
+        """
+        Retrieve the store identifier for this collection.
+
+        @return: store identifier.
+        @rtype: C{int}
+        """
+        return self._resourceID
+
+
     @property
     def _txn(self):
         return self._home._txn
@@ -4301,6 +4321,16 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
 
+    def id(self):
+        """
+        Retrieve the store identifier for this object resource.
+
+        @return: store identifier.
+        @rtype: C{int}
+        """
+        return self._resourceID
+
+
     @property
     def _txn(self):
         return self._parentCollection._txn
@@ -4312,6 +4342,10 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     def directoryService(self):
         return self._txn.store().directoryService()
+
+
+    def parentCollection(self):
+        return self._parentCollection
 
 
     @classmethod
@@ -4576,6 +4610,16 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
+
+
+    def id(self):
+        """
+        Retrieve the store identifier for this collection.
+
+        @return: store identifier.
+        @rtype: C{int}
+        """
+        return self._resourceID
 
 
     def name(self):
@@ -4928,6 +4972,16 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
     def properties(self):
         return self._propertyStore
+
+
+    def id(self):
+        """
+        Retrieve the store identifier for this object.
+
+        @return: store identifier.
+        @rtype: C{int}
+        """
+        return self._resourceID
 
 
     @property

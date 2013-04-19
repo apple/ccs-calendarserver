@@ -74,10 +74,6 @@ class ComponentUpdateState(Names):
                             iTIP message. Some validation and implicit scheduling is not done. Schedule-Tag
                             is changed.
 
-    ATTENDEE_ITIP_REFRESH - the store is an update to an attendee's data caused by processing an incoming
-                            iTIP message. Some validation and implicit scheduling is not done. Schedule-Tag
-                            is changed.
-
     RAW                   - store the supplied data as-is without any processing or validation. This is used
                             for unit testing purposes only.
     """
@@ -86,14 +82,12 @@ class ComponentUpdateState(Names):
     INBOX = NamedConstant()
     ORGANIZER_ITIP_UPDATE = NamedConstant()
     ATTENDEE_ITIP_UPDATE = NamedConstant()
-    ATTENDEE_ITIP_REFRESH = NamedConstant()
     RAW = NamedConstant()
 
     NORMAL.description = "normal"
     INBOX.description = "inbox"
     ORGANIZER_ITIP_UPDATE.description = "organizer-update"
     ATTENDEE_ITIP_UPDATE.description = "attendee-update"
-    ATTENDEE_ITIP_REFRESH.description = "attendee-refresh"
     RAW.description = "raw"
 
 

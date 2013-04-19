@@ -21,7 +21,7 @@ from twext.python.clsprop import classproperty
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError
 
-from twisted.internet.defer import succeed, inlineCallbacks
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
 
 from twistedcaldav.ical import Component
@@ -36,6 +36,7 @@ from txdav.common.datastore.test.util import CommonCommonTests, populateCalendar
 
 import hashlib
 import sys
+from twistedcaldav.config import config
 
 class FakeScheduler(object):
     """
@@ -46,7 +47,7 @@ class FakeScheduler(object):
         self.recipients = recipients
 
 
-    def doSchedulingViaPUT(self, originator, recipients, calendar, internal_request=False):
+    def doSchedulingViaPUT(self, originator, recipients, calendar, internal_request=False, suppress_refresh=False):
         self.recipients.extend(recipients)
         return succeed(ScheduleResponseQueue("FAKE", responsecode.OK))
 
@@ -904,6 +905,12 @@ class ImplicitRequests (CommonCommonTests, TestCase):
             "inbox": {
             },
         },
+        "user03": {
+            "calendar_1": {
+            },
+            "inbox": {
+            },
+        },
     }
 
 
@@ -912,6 +919,44 @@ class ImplicitRequests (CommonCommonTests, TestCase):
         Create and return a L{CalendarStore} for testing.
         """
         return self._sqlCalendarStore
+
+
+    @inlineCallbacks
+    def _createCalendarObject(self, data, user, name):
+        calendar_collection = (yield self.calendarUnderTest(home=user))
+        yield calendar_collection.createCalendarObjectWithName("test.ics", Component.fromString(data))
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def _listCalendarObjects(self, user, collection_name="calendar_1"):
+        collection = (yield self.calendarUnderTest(name=collection_name, home=user))
+        items = (yield collection.listCalendarObjects())
+        yield self.commit()
+        returnValue(items)
+
+
+    @inlineCallbacks
+    def _getCalendarData(self, user, name=None):
+        if name is None:
+            items = (yield self._listCalendarObjects(user))
+            name = items[0]
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name=name, home=user))
+        calendar = (yield calendar_resource.component())
+        yield self.commit()
+        returnValue(str(calendar).replace("\r\n ", ""))
+
+
+    @inlineCallbacks
+    def _setCalendarData(self, data, user, name=None):
+        if name is None:
+            items = (yield self._listCalendarObjects(user))
+            name = items[0]
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name=name, home=user))
+        yield calendar_resource.setComponent(Component.fromString(data))
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -1102,19 +1147,15 @@ ATTENDEE:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """
-        calendar_collection = (yield self.calendarUnderTest(home="user01"))
-        calendar = Component.fromString(data)
-        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
-        yield self.commit()
+        yield self._createCalendarObject(data, "user01", "test.ics")
 
-        calendar_collection2 = (yield self.calendarUnderTest(home="user02"))
-        items = (yield calendar_collection2.listCalendarObjects())
-        self.assertEqual(len(items), 1)
-        self.assertTrue(items[0].startswith(hashlib.md5("12345-67890").hexdigest()))
-        inbox2 = (yield self.calendarUnderTest(name="inbox", home="user02"))
-        items = (yield inbox2.listCalendarObjects())
-        self.assertEqual(len(items), 1)
-        self.assertTrue(items[0].startswith(hashlib.md5("12345-67890").hexdigest()))
+        list2 = (yield self._listCalendarObjects("user02"))
+        self.assertEqual(len(list2), 1)
+        self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
+
+        list2 = (yield self._listCalendarObjects("user02", "inbox"))
+        self.assertEqual(len(list2), 1)
+        self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
 
 
     @inlineCallbacks
@@ -1151,25 +1192,18 @@ ATTENDEE:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """
-        calendar_collection = (yield self.calendarUnderTest(home="user01"))
-        calendar = Component.fromString(data1)
-        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
-        yield self.commit()
+        yield self._createCalendarObject(data1, "user01", "test.ics")
 
-        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01"))
-        calendar = Component.fromString(data2)
-        yield calendar_resource.setComponent(calendar)
-        yield self.commit()
+        yield self._setCalendarData(data2, "user01", "test.ics")
 
-        calendar_collection2 = (yield self.calendarUnderTest(home="user02"))
-        items = (yield calendar_collection2.listCalendarObjects())
-        self.assertEqual(len(items), 1)
-        self.assertTrue(items[0].startswith(hashlib.md5("12345-67890").hexdigest()))
-        inbox2 = (yield self.calendarUnderTest(name="inbox", home="user02"))
-        items = (yield inbox2.listCalendarObjects())
-        self.assertEqual(len(items), 2)
-        self.assertTrue(items[0].startswith(hashlib.md5("12345-67890").hexdigest()))
-        self.assertTrue(items[1].startswith(hashlib.md5("12345-67890").hexdigest()))
+        list2 = (yield self._listCalendarObjects("user02"))
+        self.assertEqual(len(list2), 1)
+        self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
+
+        list2 = (yield self._listCalendarObjects("user02", "inbox"))
+        self.assertEqual(len(list2), 2)
+        self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
+        self.assertTrue(list2[1].startswith(hashlib.md5("12345-67890").hexdigest()))
 
 
     @inlineCallbacks
@@ -1192,39 +1226,20 @@ ATTENDEE:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """
-        data2 = """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VEVENT
-UID:12345-67890
-DTSTAMP:20080601T120000Z
-DTSTART:20080601T130000Z
-DTEND:20080601T140000Z
-ORGANIZER;CN="User 01":mailto:user01@example.com
-ATTENDEE:mailto:user01@example.com
-ATTENDEE:mailto:user02@example.com
-END:VEVENT
-END:VCALENDAR
-"""
-        calendar_collection = (yield self.calendarUnderTest(home="user01"))
-        calendar = Component.fromString(data1)
-        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
-        yield self.commit()
+        yield self._createCalendarObject(data1, "user01", "test.ics")
 
         calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01"))
-        calendar = Component.fromString(data2)
         yield calendar_resource.remove()
         yield self.commit()
 
-        calendar_collection2 = (yield self.calendarUnderTest(home="user02"))
-        items = (yield calendar_collection2.listCalendarObjects())
-        self.assertEqual(len(items), 1)
-        self.assertTrue(items[0].startswith(hashlib.md5("12345-67890").hexdigest()))
-        inbox2 = (yield self.calendarUnderTest(name="inbox", home="user02"))
-        items = (yield inbox2.listCalendarObjects())
-        self.assertEqual(len(items), 2)
-        self.assertTrue(items[0].startswith(hashlib.md5("12345-67890").hexdigest()))
-        self.assertTrue(items[1].startswith(hashlib.md5("12345-67890").hexdigest()))
+        list2 = (yield self._listCalendarObjects("user02"))
+        self.assertEqual(len(list2), 1)
+        self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
+
+        list2 = (yield self._listCalendarObjects("user02", "inbox"))
+        self.assertEqual(len(list2), 2)
+        self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
+        self.assertTrue(list2[1].startswith(hashlib.md5("12345-67890").hexdigest()))
 
 
     @inlineCallbacks
@@ -1247,24 +1262,17 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """
-        calendar_collection = (yield self.calendarUnderTest(home="user02"))
-        calendar = Component.fromString(data)
         try:
-            yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+            yield self._createCalendarObject(data, "user02", "test.ics")
         except AttendeeAllowedError:
             pass
         except:
             self.fail("Wrong exception raised: %s" % (sys.exc_info()[0].__name__,))
         else:
             self.fail("Exception not raised")
-        yield self.commit()
 
-        calendar_collection = (yield self.calendarUnderTest(home="user02"))
-        calendar = Component.fromString(data)
-
-        inbox1 = (yield self.calendarUnderTest(name="inbox", home="user01"))
-        items = (yield inbox1.listCalendarObjects())
-        self.assertEqual(len(items), 0)
+        list1 = (yield self._listCalendarObjects("user01", "inbox"))
+        self.assertEqual(len(list1), 0)
 
 
     @inlineCallbacks
@@ -1301,32 +1309,101 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """
-        calendar_collection = (yield self.calendarUnderTest(home="user01"))
-        calendar1 = Component.fromString(data1)
-        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar1)
-        yield self.commit()
+        yield self._createCalendarObject(data1, "user01", "test.ics")
 
-        calendar_resource1 = (yield self.calendarObjectUnderTest(name="test.ics", home="user01"))
-        calendar1 = (yield calendar_resource1.component())
-        self.assertTrue("SCHEDULE-STATUS=1.2" in str(calendar1).replace("\r\n ", ""))
+        calendar1 = (yield self._getCalendarData("user01", "test.ics"))
+        self.assertTrue("SCHEDULE-STATUS=1.2" in calendar1)
 
-        inbox2 = (yield self.calendarUnderTest(name="inbox", home="user02"))
-        items = (yield inbox2.listCalendarObjects())
-        self.assertEqual(len(items), 1)
-        yield self.commit()
+        list2 = (yield self._listCalendarObjects("user02", "inbox"))
+        self.assertEqual(len(list2), 1)
 
-        calendar_collection2 = (yield self.calendarUnderTest(home="user02"))
-        items = (yield calendar_collection2.listCalendarObjects())
-        calendar_resource2 = (yield self.calendarObjectUnderTest(name=items[0], home="user02",))
-        calendar2 = Component.fromString(data2)
-        yield calendar_resource2.setComponent(calendar2)
-        yield self.commit()
+        yield self._setCalendarData(data2, "user02")
 
-        inbox1 = (yield self.calendarUnderTest(name="inbox", home="user01"))
-        items = (yield inbox1.listCalendarObjects())
-        self.assertEqual(len(items), 1)
+        list1 = (yield self._listCalendarObjects("user01", "inbox"))
+        self.assertEqual(len(list1), 1)
 
-        calendar_resource1 = (yield self.calendarObjectUnderTest(name="test.ics", home="user01"))
-        calendar1 = (yield calendar_resource1.component())
-        self.assertTrue("SCHEDULE-STATUS=2.0" in str(calendar1).replace("\r\n ", ""))
-        self.assertTrue("PARTSTAT=ACCEPTED" in str(calendar1).replace("\r\n ", ""))
+        calendar1 = (yield self._getCalendarData("user01", "test.ics"))
+        self.assertTrue("SCHEDULE-STATUS=2.0" in calendar1)
+        self.assertTrue("PARTSTAT=ACCEPTED" in calendar1)
+
+
+    @inlineCallbacks
+    def test_doImplicitScheduling_refreshAllAttendeesExceptSome(self):
+        """
+        Test that doImplicitScheduling delivers scheduling messages to attendees who can then reply.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        # Need refreshes to occur immediately, not via reactor.callLater
+        self.patch(config.Scheduling.Options, "AttendeeRefreshBatch", False)
+
+        yield self._createCalendarObject(data1, "user01", "test.ics")
+
+        list1 = (yield self._listCalendarObjects("user01", "inbox"))
+        self.assertEqual(len(list1), 0)
+
+        calendar1 = (yield self._getCalendarData("user01", "test.ics"))
+        self.assertTrue("SCHEDULE-STATUS=1.2" in calendar1)
+
+        list2 = (yield self._listCalendarObjects("user02", "inbox"))
+        self.assertEqual(len(list2), 1)
+
+        calendar2 = (yield self._getCalendarData("user02"))
+        self.assertTrue("PARTSTAT=ACCEPTED" not in calendar2)
+
+        list3 = (yield self._listCalendarObjects("user03", "inbox"))
+        self.assertEqual(len(list3), 1)
+
+        calendar3 = (yield self._getCalendarData("user03"))
+        self.assertTrue("PARTSTAT=ACCEPTED" not in calendar3)
+
+        yield self._setCalendarData(data2, "user02")
+
+        list1 = (yield self._listCalendarObjects("user01", "inbox"))
+        self.assertEqual(len(list1), 1)
+
+        calendar1 = (yield self._getCalendarData("user01", "test.ics"))
+        self.assertTrue("SCHEDULE-STATUS=2.0" in calendar1)
+        self.assertTrue("PARTSTAT=ACCEPTED" in calendar1)
+
+        list2 = (yield self._listCalendarObjects("user02", "inbox"))
+        self.assertEqual(len(list2), 1)
+
+        calendar2 = (yield self._getCalendarData("user02"))
+        self.assertTrue("PARTSTAT=ACCEPTED" in calendar2)
+
+        list3 = (yield self._listCalendarObjects("user03", "inbox"))
+        self.assertEqual(len(list3), 1)
+
+        calendar3 = (yield self._getCalendarData("user03"))
+        self.assertTrue("PARTSTAT=ACCEPTED" in calendar3)

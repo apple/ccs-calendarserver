@@ -18,13 +18,13 @@ import twistedcaldav.test.util
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.modules import getModule
 from twistedcaldav.config import config
-from twistedcaldav.scheduling.ischedule import utils
+from txdav.caldav.datastore.scheduling.ischedule import utils
 from twisted.names import client
 from txdav.caldav.datastore.scheduling.ischedule.delivery import ScheduleViaISchedule
 
 class CalDAV (twistedcaldav.test.util.TestCase):
     """
-    twistedcaldav.scheduling.caldav tests
+    txdav.caldav.datastore.scheduling.caldav tests
     """
 
     def tearDown(self):

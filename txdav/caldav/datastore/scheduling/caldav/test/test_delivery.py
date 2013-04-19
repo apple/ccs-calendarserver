@@ -24,7 +24,7 @@ import twistedcaldav.test.util
 
 class CalDAV (twistedcaldav.test.util.TestCase):
     """
-    twistedcaldav.scheduling.caldav tests
+    txdav.caldav.datastore.scheduling.caldav tests
     """
 
     @inlineCallbacks

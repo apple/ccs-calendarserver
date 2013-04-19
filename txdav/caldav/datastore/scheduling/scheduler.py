@@ -278,75 +278,6 @@ class Scheduler(object):
             self.recipients = list(attendees)
 
 
-    def loadFromRequestHeaders(self):
-        """
-        Load Originator and Recipient from request headers.
-        """
-        self.loadOriginatorFromRequestHeaders()
-        self.loadRecipientsFromRequestHeaders()
-
-
-    def loadOriginatorFromRequestHeaders(self):
-        # Must have Originator header
-        originator = self.request.headers.getRawHeaders("originator")
-        if originator is None or (len(originator) != 1):
-            log.err("%s request must have Originator header" % (self.method,))
-            raise HTTPError(self.errorResponse(
-                responsecode.FORBIDDEN,
-                self.errorElements["originator-missing"],
-                "Missing originator",
-            ))
-        else:
-            self.originator = originator[0]
-
-
-    def loadRecipientsFromRequestHeaders(self):
-        # Get list of Recipient headers
-        rawRecipients = self.request.headers.getRawHeaders("recipient")
-        if rawRecipients is None or (len(rawRecipients) == 0):
-            log.err("%s request must have at least one Recipient header" % (self.method,))
-            raise HTTPError(self.errorResponse(
-                responsecode.FORBIDDEN,
-                self.errorElements["recipient-missing"],
-                "No recipients",
-            ))
-
-        # Recipient header may be comma separated list
-        self.recipients = []
-        for rawRecipient in rawRecipients:
-            for r in rawRecipient.split(","):
-                r = r.strip()
-                if len(r):
-                    self.recipients.append(r)
-
-
-    @inlineCallbacks
-    def loadCalendarFromRequest(self):
-        # Must be content-type text/calendar
-        contentType = self.request.headers.getHeader("content-type")
-        if contentType is not None and (contentType.mediaType, contentType.mediaSubtype) != ("text", "calendar"):
-            log.err("MIME type %s not allowed in calendar collection" % (contentType,))
-            raise HTTPError(self.errorResponse(
-                responsecode.FORBIDDEN,
-                self.errorElements["invalid-calendar-data-type"],
-                "Data is not calendar data",
-            ))
-
-        # Parse the calendar object from the HTTP request stream
-        try:
-            self.calendar = (yield Component.fromIStream(self.request.stream))
-
-            self.preProcessCalendarData()
-        except:
-            # FIXME: Bare except
-            log.err("Error while handling %s: %s" % (self.method, Failure(),))
-            raise HTTPError(self.errorResponse(
-                responsecode.FORBIDDEN,
-                self.errorElements["invalid-calendar-data"],
-                description="Can't parse calendar data"
-            ))
-
-
     def preProcessCalendarData(self):
         """
         After loading calendar data from the request, do some optional processing of it. This method will be
@@ -596,11 +527,11 @@ class Scheduler(object):
 
         # Now process partitioned recipients
         if partitioned_recipients:
-            yield self.generateRemoteSchedulingResponses(partitioned_recipients, responses, freebusy, getattr(self.request, 'doing_attendee_refresh', False))
+            yield self.generateRemoteSchedulingResponses(partitioned_recipients, responses, freebusy, getattr(self.txn, 'doing_attendee_refresh', False))
 
         # Now process other server recipients
         if otherserver_recipients:
-            yield self.generateRemoteSchedulingResponses(otherserver_recipients, responses, freebusy, getattr(self.request, 'doing_attendee_refresh', False))
+            yield self.generateRemoteSchedulingResponses(otherserver_recipients, responses, freebusy, getattr(self.txn, 'doing_attendee_refresh', False))
 
         # To reduce chatter, we suppress certain messages
         if not self.suppress_refresh:

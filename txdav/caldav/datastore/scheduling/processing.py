@@ -44,6 +44,7 @@ import hashlib
 import uuid
 from txdav.caldav.icalendarstore import ComponentUpdateState, \
     ComponentRemoveState
+from twext.enterprise.locking import NamedLock
 
 """
 CalDAV implicit processing.
@@ -199,6 +200,8 @@ class ImplicitProcessor(object):
             # Update the organizer's copy of the event
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REPLY, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             self.organizer_calendar_resource = (yield self.writeCalendarResource(None, self.recipient_calendar_resource, self.recipient_calendar))
+            self.organizer_uid = self.organizer_calendar_resource.parentCollection().ownerHome().uid()
+            self.organizer_calendar_resource_id = self.organizer_calendar_resource.id()
 
             organizer = self.recipient_calendar.getOrganizer()
 
@@ -323,10 +326,10 @@ class ImplicitProcessor(object):
         @type only_attendees: C{tuple}
         """
         log.debug("ImplicitProcessing - refreshing UID: '%s', Attendees: %s" % (self.uid, ", ".join(only_attendees) if only_attendees else "all"))
-        from twistedcaldav.scheduling.implicit import ImplicitScheduler
+        from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
         scheduler = ImplicitScheduler()
         yield scheduler.refreshAllAttendeesExceptSome(
-            self.request,
+            self.txn,
             organizer_resource,
             exclude_attendees,
             only_attendees=only_attendees,
@@ -343,44 +346,30 @@ class ImplicitProcessor(object):
         @type attendeesToProcess: C{list}
         """
 
-        # We need to get the UID lock for implicit processing whilst we send the auto-reply
-        # as the Organizer processing will attempt to write out data to other attendees to
-        # refresh them. To prevent a race we need a lock.
-        uidlock = MemcacheLock(
-            "ImplicitUIDLock",
-            self.uid,
-            timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
-            expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
-        )
+        # The original transaction is still around but likely committed at this point, so we need a brand new
+        # transaction to do this work.
+        txn = yield self.txn.store().newTransaction("Delayed attendee refresh for UID: %s" % (self.uid,))
 
         try:
-            yield uidlock.acquire()
-        except MemcacheLockTimeoutError:
-            # Just try again to get the lock
-            reactor.callLater(2.0, self._doDelayedRefresh, attendeesToProcess)
-        else:
+            # We need to get the UID lock for implicit processing whilst we send the auto-reply
+            # as the Organizer processing will attempt to write out data to other attendees to
+            # refresh them. To prevent a race we need a lock.
+            yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5(self.uid).hexdigest(),))
 
-            # inNewTransaction wipes out the remembered resource<-> URL mappings in the
-            # request object but we need to be able to map the actual reply resource to its
-            # URL when doing auto-processing, so we have to sneak that mapping back in here.
-            txn = yield self.organizer_calendar_resource.inNewTransaction(self.request, label="Delayed attendee refresh")
-
-            try:
-                organizer_resource = (yield self.request.locateResource(self.organizer_calendar_resource._url))
-                if organizer_resource.exists():
-                    yield self._doRefresh(organizer_resource, only_attendees=attendeesToProcess)
-                else:
-                    log.debug("ImplicitProcessing - skipping refresh of missing UID: '%s'" % (self.uid,))
-            except Exception, e:
-                log.debug("ImplicitProcessing - refresh exception UID: '%s', %s" % (self.uid, str(e)))
-                yield txn.abort()
-            except:
-                log.debug("ImplicitProcessing - refresh bare exception UID: '%s'" % (self.uid,))
-                yield txn.abort()
+            organizer_home = (yield txn.calendarHomeForUID(self.organizer_uid))
+            organizer_resource = (yield organizer_home.objectResourceWithID(self.organizer_calendar_resource_id))
+            if organizer_resource is not None:
+                yield self._doRefresh(organizer_resource, only_attendees=attendeesToProcess)
             else:
-                yield txn.commit()
-        finally:
-            yield uidlock.clean()
+                log.debug("ImplicitProcessing - skipping refresh of missing UID: '%s'" % (self.uid,))
+        except Exception, e:
+            log.debug("ImplicitProcessing - refresh exception UID: '%s', %s" % (self.uid, str(e)))
+            yield txn.abort()
+        except:
+            log.debug("ImplicitProcessing - refresh bare exception UID: '%s'" % (self.uid,))
+            yield txn.abort()
+        else:
+            yield txn.commit()
 
 
     def _enqueueBatchRefresh(self):
@@ -712,9 +701,9 @@ class ImplicitProcessor(object):
                 self.request._rememberResource(resource, resource._url)
                 # Send out a reply
                 log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
-                from twistedcaldav.scheduling.implicit import ImplicitScheduler
+                from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
                 scheduler = ImplicitScheduler()
-                yield scheduler.sendAttendeeReply(self.request, resource, calendar, self.recipient)
+                yield scheduler.sendAttendeeReply(txn, resource, calendar, self.recipient)
             except Exception, e:
                 log.debug("ImplicitProcessing - auto-reply exception UID: '%s', %s" % (self.uid, str(e)))
                 yield txn.abort()
@@ -947,10 +936,15 @@ class ImplicitProcessor(object):
         Write out the calendar resource (iTIP) message to the specified calendar, either over-writing the named
         resource or by creating a new one.
 
-        @param collection: the L{Calendar} for the calendar collection to store the resource in.
-        @param resource: the L{CalendarObject} for the resource name to write into, or {None} to write a new resource.
-        @param calendar: the L{Component} calendar to write.
-        @return: L{Deferred} -> L{CalDAVResource}
+        @param collection: the calendar collection to store the resource in.
+        @type: L{Calendar}
+        @param resource: the resource object to write to, or C{None} to write a new resource.
+        @type: L{CalendarObject}
+        @param calendar: the calendar data to write.
+        @type: L{Component}
+
+        @return: the object resource written to (either the one passed in or a new one)
+        @rtype: L{CalendarObject}
         """
 
         # Create a new name if one was not provided
@@ -960,7 +954,7 @@ class ImplicitProcessor(object):
             newchild = (yield collection._createCalendarObjectWithNameInternal(name, calendar, internal_state))
         else:
             yield resource._setComponentInternal(calendar, internal_state=internal_state)
-            newchild = None
+            newchild = resource
 
         returnValue(newchild)
 
@@ -1036,16 +1030,16 @@ class ImplicitProcessor(object):
             raise ImplicitProcessorException("5.1;Service unavailable")
 
         # Locate the originator's copy of the event
-        calendar_resource, _ignore_name, _ignore_collection, _ignore_uri = (yield getCalendarObjectForRecord(self.request, self.originator.principal, self.uid))
+        calendar_resource, _ignore_name, _ignore_collection, _ignore_uri = (yield getCalendarObjectForRecord(self.txn, self.originator.principal, self.uid))
         if not calendar_resource:
             raise ImplicitProcessorException("5.1;Service unavailable")
-        originator_calendar = (yield calendar_resource.iCalendarForUser(self.request))
+        originator_calendar = (yield calendar_resource.componentForUser(self.originator.principal.uid))
 
         # Get attendee's view of that
         originator_calendar.attendeesView((self.recipient.cuaddr,))
 
         # Locate the attendee's copy of the event if it exists.
-        recipient_resource, recipient_resource_name, recipient_collection, recipient_collection_uri = (yield getCalendarObjectForRecord(self.request, self.recipient.principal, self.uid))
+        recipient_resource, recipient_resource_name, recipient_collection, recipient_collection_uri = (yield getCalendarObjectForRecord(self.txn, self.recipient.principal, self.uid))
 
         # We only need to fix data that already exists
         if recipient_resource:

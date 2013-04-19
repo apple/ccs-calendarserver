@@ -61,6 +61,7 @@ class ImplicitScheduler(object):
         self.return_status = ImplicitScheduler.STATUS_OK
         self.logItems = {}
         self.allowed_to_schedule = True
+        self.suppress_refresh = False
 
     NotAllowedExceptionDetails = collections.namedtuple("NotAllowedExceptionDetails", ("type", "args", "kwargs",))
 
@@ -326,19 +327,19 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
-    def refreshAllAttendeesExceptSome(self, request, resource, except_attendees=(), only_attendees=None):
+    def refreshAllAttendeesExceptSome(self, txn, resource, except_attendees=(), only_attendees=None):
         """
         Refresh the iCalendar data for all attendees except the one specified in attendees.
         """
 
         self.txn = resource._txn
-        self.request = request
         self.resource = resource
-        self.calendar = (yield self.resource.iCalendarForUser(self.request))
+        self.calendar_home = self.resource.parentCollection().ownerHome()
+        self.calendar_owner = self.calendar_home.uid()
+        self.calendar = (yield self.resource.componentForUser())
         self.state = "organizer"
         self.action = "modify"
 
-        self.calendar_owner = None
         self.internal_request = True
         self.except_attendees = except_attendees
         self.only_refresh_attendees = only_attendees
@@ -347,7 +348,7 @@ class ImplicitScheduler(object):
 
         # Get some useful information from the calendar
         yield self.extractCalendarData()
-        self.organizerPrincipal = self.home.directoryService().recordWithCalendarUserAddress(self.organizer)
+        self.organizerPrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
         self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
 
         # Originator is the organizer in this case
@@ -355,38 +356,38 @@ class ImplicitScheduler(object):
         self.originator = self.organizer
 
         # We want to suppress chatty iMIP messages when other attendees reply
-        self.request.suppressRefresh = False
+        self.suppress_refresh = False
 
         for attendee in self.calendar.getAllAttendeeProperties():
             if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
-                self.request.suppressRefresh = True
+                self.suppress_refresh = True
 
-        if hasattr(self.request, "doing_attendee_refresh"):
-            self.request.doing_attendee_refresh += 1
+        if hasattr(self.txn, "doing_attendee_refresh"):
+            self.txn.doing_attendee_refresh += 1
         else:
-            self.request.doing_attendee_refresh = 1
+            self.txn.doing_attendee_refresh = 1
         try:
             refreshCount = (yield self.processRequests())
         finally:
-            self.request.doing_attendee_refresh -= 1
-            if self.request.doing_attendee_refresh == 0:
-                delattr(self.request, "doing_attendee_refresh")
+            self.txn.doing_attendee_refresh -= 1
+            if self.txn.doing_attendee_refresh == 0:
+                delattr(self.txn, "doing_attendee_refresh")
 
         if refreshCount:
             self.logItems["itip.refreshes"] = refreshCount
 
 
     @inlineCallbacks
-    def sendAttendeeReply(self, request, resource, calendar, attendee):
+    def sendAttendeeReply(self, txn, resource, calendar, attendee):
 
-        self.txn = resource._txn
-        self.request = request
+        self.txn = txn
         self.resource = resource
+        self.calendar_home = self.resource.parentCollection().ownerHome()
+        self.calendar_owner = self.calendar_home.uid()
         self.calendar = calendar
         self.action = "modify"
         self.state = "attendee"
 
-        self.calendar_owner = None
         self.internal_request = True
         self.changed_rids = None
 
@@ -940,7 +941,7 @@ class ImplicitScheduler(object):
 
                 # Do the PUT processing
                 log.info("Implicit CANCEL - organizer: '%s' to attendee: '%s', UID: '%s', RIDs: '%s'" % (self.organizer, attendee, self.uid, rids))
-                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, internal_request=True))
+                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, internal_request=True, suppress_refresh=self.suppress_refresh))
                 self.handleSchedulingResponse(response, True)
 
                 count += 1
@@ -983,7 +984,7 @@ class ImplicitScheduler(object):
 
                 # Do the PUT processing
                 log.info("Implicit REQUEST - organizer: '%s' to attendee: '%s', UID: '%s'" % (self.organizer, attendee, self.uid,))
-                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, internal_request=True))
+                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, internal_request=True, suppress_refresh=self.suppress_refresh))
                 self.handleSchedulingResponse(response, True)
 
                 count += 1

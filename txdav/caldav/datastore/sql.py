@@ -1451,8 +1451,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
 
         # Basic validation
-        #TODO: figure out what to do about etag/schedule-tag
-        self.validIfScheduleMatch(False, False, internal_state)
 
         # Do validation on external requests
         if internal_state == ComponentUpdateState.NORMAL:
@@ -1490,30 +1488,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Check access
         if config.EnablePrivateEvents:
             self.validAccess(component, inserting, internal_state)
-
-
-    def validIfScheduleMatch(self, etag_match, schedule_tag, internal_state):
-        """
-        Check for If-ScheduleTag-Match header behavior.
-        """
-        # Only when a direct request
-        self.schedule_tag_match = False
-        if not self.calendar().isInbox() and internal_state == ComponentUpdateState.NORMAL:
-            if schedule_tag:
-                self._validIfScheduleMatch(self.request)
-                self.schedule_tag_match = True
-            elif config.Scheduling.CalDAV.ScheduleTagCompatibility:
-                # Compatibility with old clients. Policy:
-                #
-                # 1. If If-Match header is not present, never do smart merge.
-                # 2. If If-Match is present and the specified ETag is
-                #    considered a "weak" match to the current Schedule-Tag,
-                #    then do smart merge, else reject with a 412.
-                #
-                # Actually by the time we get here the precondition will
-                # already have been tested and found to be OK, so we can just
-                # always do smart merge now if If-Match is present.
-                self.schedule_tag_match = etag_match is not None
 
 
     def validCalendarDataCheck(self, component, inserting):
@@ -1915,9 +1889,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             #    from the Organizer then the schedule tag changes.
 
             # Check what kind of processing is going on
-            change_scheduletag = internal_state not in (
-                ComponentUpdateState.ORGANIZER_ITIP_UPDATE,
-                ComponentUpdateState.ATTENDEE_ITIP_REFRESH,
+            change_scheduletag = not (
+                (internal_state == ComponentUpdateState.ORGANIZER_ITIP_UPDATE) or
+                (internal_state == ComponentUpdateState.ATTENDEE_ITIP_UPDATE) and not hasattr(self._txn, "doing_attendee_refresh")
             )
 
             if change_scheduletag or not self.scheduleTag:
@@ -1969,17 +1943,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     raise UIDExistsError("UID already exists.")
 
 
-    def setComponent(self, component, inserting=False):
+    def setComponent(self, component, inserting=False, smart_merge=False):
         """
         Public api for storing a component. This will do full data validation checks on the specified component.
         Scheduling will be done automatically.
         """
 
-        return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL)
+        return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, smart_merge)
 
 
     @inlineCallbacks
-    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL):
+    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL, smart_merge=False):
         """
         Setting the component internally to the store itself. This will bypass a whole bunch of data consistency checks
         on the assumption that those have been done prior to the component data being provided, provided the flag is set.
@@ -1987,6 +1961,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
 
         self._componentChanged = False
+        self.schedule_tag_match = not self.calendar().isInbox() and internal_state == ComponentUpdateState.NORMAL and smart_merge
 
         if internal_state != ComponentUpdateState.RAW:
             # Handle all validation operations here.
@@ -2465,14 +2440,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _removeInternal(self, internal_state=ComponentRemoveState.NORMAL):
 
         isinbox = self._calendar.isInbox()
-
-        # Do If-Schedule-Tag-Match behavior first
-        # Important: this should only ever be done when storeRemove is called
-        # directly as a result of an HTTP DELETE to ensure the proper If-
-        # header is used in this test.
-        if not isinbox and internal_state == ComponentRemoveState.NORMAL:
-            #TODO: figure out what to do about etag/schedule-tag
-            self.validIfScheduleMatch(False, False, internal_state)
 
         # Pre-flight scheduling operation
         scheduler = None
