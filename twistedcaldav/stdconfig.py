@@ -1087,8 +1087,10 @@ def _updateDataStore(configDict, reloading=False):
     # Remove possible trailing slash from ServerRoot
     try:
         configDict["ServerRoot"] = configDict["ServerRoot"].rstrip("/")
+        configDict["ServerRoot"] = os.path.abspath(configDict["ServerRoot"])
     except KeyError:
         pass
+
 
     for root, relativePath in RELATIVE_PATHS:
         if root in configDict:
