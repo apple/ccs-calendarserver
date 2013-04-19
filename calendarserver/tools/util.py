@@ -462,7 +462,8 @@ def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipa
     (yield action_removeProxyPrincipal(rootResource, directory, store,
         principal, proxyPrincipal, proxyTypes=proxyTypes))
 
-    yield scheduleNextGroupCachingUpdate(store, 0)
+    # Schedule in the past so the queue poller picks it up quickly
+    yield scheduleNextGroupCachingUpdate(store, -10*60)
 
 
 
@@ -495,7 +496,8 @@ def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwa
         (yield subPrincipal.writeProperty(membersProperty, None))
 
     if removed:
-        yield scheduleNextGroupCachingUpdate(store, 0)
+        # Schedule in the past so the queue poller picks it up quickly
+        yield scheduleNextGroupCachingUpdate(store, -10*60)
     returnValue(removed)
 
 

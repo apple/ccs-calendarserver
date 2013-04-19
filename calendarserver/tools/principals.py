@@ -505,7 +505,8 @@ def setProxies(store, principal, readProxyPrincipals, writeProxyPrincipals, dire
         membersProperty = davxml.GroupMemberSet(*memberURLs)
         yield subPrincipal.writeProperty(membersProperty, None)
         if store is not None:
-            yield scheduleNextGroupCachingUpdate(store, 0)
+            # Schedule in the past so the queue poller picks it up quickly
+            yield scheduleNextGroupCachingUpdate(store, -10*60)
 
 
 @inlineCallbacks
