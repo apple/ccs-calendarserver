@@ -266,7 +266,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
 
     def owner_url(self):
-        if self.isShareeCollection():
+        if self.isShareeResource():
             return joinURL(self._share.url(), "/")
         else:
             return self.url()

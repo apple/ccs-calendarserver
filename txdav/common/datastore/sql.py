@@ -2142,14 +2142,14 @@ class CommonHome(LoggingMixIn):
 
 
     @inlineCallbacks
-    def ownerHomeWithChildID(self, resourceID):
+    def ownerHomeAndChildNameForChildID(self, resourceID):
         """
-        Get the owner home for a shared child ID
+        Get the owner home for a shared child ID and the owner's name for that bound child.
         Subclasses may override.
         """
-        ownerHomeRows = yield self._childClass._ownerHomeWithResourceID.on(self._txn, resourceID=resourceID)
-        ownerHome = yield self._txn.homeWithResourceID(self._homeType, ownerHomeRows[0][0])
-        returnValue(ownerHome)
+        ownerHomeID, ownerName = (yield self._childClass._ownerHomeWithResourceID.on(self._txn, resourceID=resourceID))[0]
+        ownerHome = yield self._txn.homeWithResourceID(self._homeType, ownerHomeID)
+        returnValue((ownerHome, ownerName))
 
 
 
@@ -2936,14 +2936,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
     _revisionsSchema = None
     _objectSchema = None
 
-    def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None):
 
-        if home._notifiers:
-            childID = "%s/%s" % (home.uid(), name)
-            notifiers = [notifier.clone(label="collection", id=childID)
-                         for notifier in home._notifiers]
-        else:
-            notifiers = None
+    def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None, ownerName=None):
 
         self._home = home
         self._name = name
@@ -2951,14 +2945,30 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         self._bindMode = mode
         self._bindStatus = status
         self._bindMessage = message
+        if status != _BIND_STATUS_ACCEPTED:
+            assert ownerHome
+            assert ownerName
         self._ownerHome = home if ownerHome is None else ownerHome
+        self._ownerName = name if ownerName is None else ownerName
+
         self._created = None
         self._modified = None
         self._objects = {}
         self._objectNames = None
         self._syncTokenRevision = None
-        self._notifiers = notifiers
-        self._index = None  # Derived classes need to set this
+
+        # Always use notifiers based off the owner home so that shared collections use tokens common
+        # to the owner - and thus will be the same for each sharee. Without that, each sharee would have
+        # a different token to subscribe to and thus would each need a separate push - whereas a common
+        # token only requires one push (to multiple subscribers).
+        if self._ownerHome._notifiers:
+            childID = "%s/%s" % (self._ownerHome.uid(), self._ownerName)
+            self._notifiers = [notifier.clone(label="collection", id=childID)
+                         for notifier in self._ownerHome._notifiers]
+        else:
+            self._notifiers = None
+
+        self._index = None # Derived classes need to set this
 
 
     def memoMe(self, key, memo): #@UnusedVariable
@@ -3021,15 +3031,17 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
             if bindStatus == _BIND_MODE_OWN:
                 ownerHome = home
+                ownerName = bindName
             else:
                 #TODO: get all ownerHomeIDs at once
-                ownerHome = yield home.ownerHomeWithChildID(resourceID)
+                ownerHome, ownerName = yield home.ownerHomeAndChildNameForChildID(resourceID)
 
             child = cls(
                 home=home,
                 name=bindName, resourceID=resourceID,
                 mode=bindMode, status=bindStatus,
-                message=bindMessage, ownerHome=ownerHome
+                message=bindMessage, ownerHome=ownerHome,
+                ownerName=ownerName,
             )
             for attr, value in zip(cls.metadataAttributes(), metadata):
                 setattr(child, attr, value)
@@ -3085,14 +3097,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
+            ownerName = bindName
         else:
-            ownerHome = yield home.ownerHomeWithChildID(resourceID)
+            ownerHome, ownerName = yield home.ownerHomeAndChildNameForChildID(resourceID)
 
         child = cls(
             home=home,
             name=name, resourceID=resourceID,
             mode=bindMode, status=bindStatus,
             message=bindMessage, ownerHome=ownerHome,
+            ownerName=ownerName
         )
         yield child.initFromStore()
         returnValue(child)
@@ -3350,15 +3364,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
     @classproperty
     def _ownerHomeWithResourceID(cls): #@NoSelf
         """
-        DAL query to retrieve the home resource ID of the owner from the bound
+        DAL query to retrieve the home resource ID and resource name of the owner from the bound
         home-child ID.
         """
         bind = cls._bindSchema
-        return Select([bind.HOME_RESOURCE_ID],
-                     From=bind,
-                     Where=(bind.RESOURCE_ID ==
-                            Parameter("resourceID")).And(
-                                bind.BIND_MODE == _BIND_MODE_OWN))
+        return Select(
+            [bind.HOME_RESOURCE_ID, bind.RESOURCE_NAME, ],
+            From=bind,
+            Where=(bind.RESOURCE_ID == Parameter("resourceID")).And(
+                bind.BIND_MODE == _BIND_MODE_OWN)
+        )
 
 
     @inlineCallbacks

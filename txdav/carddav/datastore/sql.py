@@ -262,6 +262,17 @@ class AddressBookHome(CommonHome):
         returnValue(ownerHome)
 
 
+    @inlineCallbacks
+    def ownerHomeAndChildNameForChildID(self, resourceID):
+        """
+        Get the owner home for a shared child ID and the owner's name for that bound child.
+        Subclasses may override.
+        """
+        ownerHome = yield self.ownerHomeWithChildID(resourceID)
+        ownerName = ownerHome.addressbook.name()
+        returnValue((ownerHome, ownerName))
+
+
     @classproperty
     def _syncTokenQuery(cls): #@NoSelf
         """
@@ -360,6 +371,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
 
     def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None, bindName=None):
+        ownerName = ownerHome.addressbook.name() if ownerHome else None
         super(AddressBook, self).__init__(home, name, resourceID, mode, status, message=message, ownerHome=ownerHome)
         self._index = PostgresLegacyABIndexEmulator(self)
         self._bindName = bindName
