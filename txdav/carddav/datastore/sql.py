@@ -269,7 +269,7 @@ class AddressBookHome(CommonHome):
         Subclasses may override.
         """
         ownerHome = yield self.ownerHomeWithChildID(resourceID)
-        ownerName = ownerHome.addressbook.name()
+        ownerName = ownerHome.addressbook().name()
         returnValue((ownerHome, ownerName))
 
 
@@ -371,7 +371,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
 
     def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None, bindName=None):
-        ownerName = ownerHome.addressbook.name() if ownerHome else None
+        ownerName = ownerHome.addressbook().name() if ownerHome else None
         super(AddressBook, self).__init__(home, name, resourceID, mode, status, message=message, ownerHome=ownerHome, ownerName=ownerName)
         self._index = PostgresLegacyABIndexEmulator(self)
         self._bindName = bindName
