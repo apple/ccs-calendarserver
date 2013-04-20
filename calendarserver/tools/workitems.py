@@ -151,7 +151,7 @@ class WorkWindow(object):
                     self.window.addnstr(y, x, s, self.ncols-2)
                 except curses.error:
                     pass
-            y += 1
+                y += 1
         self.window.refresh()
 
 if __name__ == "__main__":
