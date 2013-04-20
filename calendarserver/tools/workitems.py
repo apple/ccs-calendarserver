@@ -137,10 +137,20 @@ class WorkWindow(object):
         y = 1
         for record in records:
             seconds = record.notBefore - datetime.datetime.utcnow()
-            self.window.addstr(y, x, "%d seconds" % int(seconds.total_seconds()))
+            try:
+                self.window.addstr(y, x, "%d seconds" % int(seconds.total_seconds()))
+            except curses.error:
+                continue
             y += 1
             if self.attrs:
-                self.window.addnstr(y, x, self.fmt % tuple([getattr(record, str(a)) for a in self.attrs]), self.ncols-2)
+                try:
+                    s = self.fmt % tuple([getattr(record, str(a)) for a in self.attrs])
+                except Exception, e:
+                    s = "Error: %s" % (str(e),)
+                try:
+                    self.window.addnstr(y, x, s, self.ncols-2)
+                except curses.error:
+                    pass
             y += 1
         self.window.refresh()
 
