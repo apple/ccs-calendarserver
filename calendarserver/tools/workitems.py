@@ -95,16 +95,46 @@ class WorkItemMonitorService(Service):
     def startService(self):
         self.screen = curses.initscr()
         self.windows = []
-        for title, height, width, y, x, workItemClass, fmt, attrs in (
-            ("Group Membership Indexing", 4, 40, 0, 0, GroupCacherPollingWork, "", ()),
-            ("IMIP Reply Polling", 4, 40, 0, 42, IMIPPollingWork, "", ()),
-            ("IMIP Reply Processing", 10, 82, 4, 0, IMIPReplyWork, "%s %s", ("organizer", "attendee")),
-            ("Push Notifications", 20, 82, 14, 0, PushNotificationWork, "%s", ("pushID",)),
+        self.updateScreenGeometry()
+        self.reactor.callLater(0, self.updateDisplay)
+
+    def updateScreenGeometry(self):
+        for win in self.windows:
+            del win
+        winY, winX = self.screen.getmaxyx()
+        seencolumns = [1]
+        seenrows = [1]
+        heightSoFar = 0
+        begin_x = 0
+        begin_y = 0
+        # Specify height and width of each window as one of:
+        #    absolute value (int), e.g.: 42
+        #    percentage of window height / width (string), e.g.: "42%"
+        # Specify row and column for each window as though it is a cell in an invisible html table
+        # Itemize windows in ascending order by row, col
+        for title, height, width, row, col, workItemClass, fmt, attrs in (
+            ("Group Membership Indexing",   "10%", "50%",  1, 1, GroupCacherPollingWork, "", ()),
+            ("IMIP Reply Polling",          "10%", "50%",  1, 2, IMIPPollingWork, "", ()),
+            ("IMIP Reply Processing",       "20%", "100%", 2, 1, IMIPReplyWork, "%s %s", ("organizer", "attendee")),
+            ("Push Notifications",          "69%", "100%", 3, 1, PushNotificationWork, "%s", ("pushID",)),
         ):
-            window = WorkWindow(height, width, y, x,
+            if (isinstance(height, basestring)):
+                height = max(int(winY * (float(height.strip("%")) / 100.0)), 3)
+            if (isinstance(width, basestring)):
+                width = max(int(winX * (float(width.strip("%")) / 100.0)), 10)
+            if col not in seencolumns:
+                heightSoFar = max(height, heightSoFar)
+                seencolumns.append(col)
+            if row not in seenrows:
+                begin_y = heightSoFar
+                heightSoFar += height
+                begin_x = 0
+                seenrows.append(row)
+                seencolumns = [col]
+            window = WorkWindow(height, width, begin_y, begin_x,
                 self.store, title, workItemClass, fmt, attrs)
             self.windows.append(window)
-        self.reactor.callLater(0, self.updateDisplay)
+            begin_x += width
 
 
     @inlineCallbacks
