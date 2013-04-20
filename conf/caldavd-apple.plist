@@ -112,6 +112,8 @@
             <string>-c deadlock_timeout=10</string>
             <string>-c log_line_prefix='%m [%p] '</string>
         </array>
+        <key>ExtraConnections</key>
+        <integer>20</integer>
     </dict>
 
     <!-- Data root -->

@@ -14,7 +14,8 @@
 # limitations under the License.
 ##
 
-from calendarserver.tap.util import computeProcessCount, directoryFromConfig, MemoryLimitService
+from calendarserver.tap.util import directoryFromConfig, MemoryLimitService
+from twistedcaldav.util import computeProcessCount
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
 from twistedcaldav.directory.augment import AugmentXMLDB

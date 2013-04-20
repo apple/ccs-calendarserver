@@ -37,6 +37,8 @@ from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 from twisted.python.runtime import platform
 
 from calendarserver.push.util import getAPNTopicFromCertificate
+from twistedcaldav.util import computeProcessCount
+
 
 log = Logger()
 
@@ -907,8 +909,14 @@ DEFAULT_CONFIG = {
         "DatabaseName": "caldav",
         "LogFile": "postgres.log",
         "ListenAddresses": [],
-        "SharedBuffers": 30,
-        "MaxConnections": 20,
+        "SharedBuffers": 0, # BuffersToConnectionsRatio * MaxConnections
+                            # Note: don't set this, it will be computed dynamically
+                            # See _updateMultiProcess( ) below for details
+        "MaxConnections": 0, # Dynamically computed based on ProcessCount, etc.
+                             # Note: don't set this, it will be computed dynamically
+                             # See _updateMultiProcess( ) below for details
+        "ExtraConnections": 3, # how many extra connections to leave for utilities
+        "BuffersToConnectionsRatio": 1.5,
         "Options": [
             "-c standard_conforming_strings=on",
         ],
@@ -1079,8 +1087,10 @@ def _updateDataStore(configDict, reloading=False):
     # Remove possible trailing slash from ServerRoot
     try:
         configDict["ServerRoot"] = configDict["ServerRoot"].rstrip("/")
+        configDict["ServerRoot"] = os.path.abspath(configDict["ServerRoot"])
     except KeyError:
         pass
+
 
     for root, relativePath in RELATIVE_PATHS:
         if root in configDict:
@@ -1127,6 +1137,37 @@ def _updateHostName(configDict, reloading=False):
             hostname = "localhost"
         configDict.ServerHostName = hostname
 
+
+def _updateMultiProcess(configDict, reloading=False):
+    """
+    Dynamically compute ProcessCount if it's set to 0.  Always compute
+    MaxConnections and SharedBuffers based on ProcessCount, ExtraConnections,
+    SharedConnectionPool, MaxDBConnectionsPerPool, and BuffersToConnectionsRatio
+    """
+    if configDict.MultiProcess.ProcessCount == 0:
+        processCount = computeProcessCount(
+            configDict.MultiProcess.MinProcessCount,
+            configDict.MultiProcess.PerCPU,
+            configDict.MultiProcess.PerGB,
+        )
+        configDict.MultiProcess.ProcessCount = processCount
+
+    # Start off with extra connections to be used by command line utilities and
+    # administration/inspection tools
+    maxConnections = configDict.Postgres.ExtraConnections
+
+    if configDict.SharedConnectionPool:
+        # If SharedConnectionPool is enabled, then only the master process will
+        # be connection to the database, therefore use MaxDBConnectionsPerPool
+        maxConnections += configDict.MaxDBConnectionsPerPool
+    else:
+        # Otherwise the master *and* each worker process will be connecting
+        maxConnections += ((configDict.MultiProcess.ProcessCount + 1) *
+            configDict.MaxDBConnectionsPerPool)
+
+    configDict.Postgres.MaxConnections = maxConnections
+    configDict.Postgres.SharedBuffers = int(configDict.Postgres.MaxConnections *
+        configDict.Postgres.BuffersToConnectionsRatio)
 
 
 def _preUpdateDirectoryService(configDict, items, reloading=False):
@@ -1502,6 +1543,7 @@ PRE_UPDATE_HOOKS = (
     _preUpdateDirectoryAddressBookBackingDirectoryService,
     )
 POST_UPDATE_HOOKS = (
+    _updateMultiProcess,
     _updateDataStore,
     _updateHostName,
     _postUpdateDirectoryService,

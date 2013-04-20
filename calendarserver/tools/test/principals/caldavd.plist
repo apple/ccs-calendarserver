@@ -743,6 +743,9 @@
     <key>ResponseCacheTimeout</key>
     <integer>30</integer> <!-- in minutes -->
 
+    <!-- For unit tests, enable SharedConnectionPool so we don't use up shared memory -->
+    <key>SharedConnectionPool</key>
+    <true/>
 
     <!--
         Twisted
