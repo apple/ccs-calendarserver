@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.caldav.icalendardirectoryservice import ICalendarStoreDirectoryService, \
-    ICalendarStoreDirectoryRecord
 
 
 """
@@ -31,6 +29,35 @@ __all__ = [
     "GroupMembershipCacheUpdater",
 ]
 
+from plistlib import readPlistFromString
+
+from twext.enterprise.dal.record import fromTable
+from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.queue import WorkItem
+from twext.python.log import Logger, LoggingMixIn
+from twext.web2.dav.auth import IPrincipalCredentials
+from twext.web2.dav.util import joinURL
+
+from twisted.cred.checkers import ICredentialsChecker
+from twisted.cred.error import UnauthorizedLogin
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.python.filepath import FilePath
+
+from twistedcaldav.config import config
+from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
+from twistedcaldav.directory.util import uuidFromName, normalizeUUID
+from twistedcaldav.memcacher import Memcacher
+from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.scheduling.ischedule.localservers import Servers
+
+from txdav.caldav.icalendardirectoryservice import ICalendarStoreDirectoryService, \
+    ICalendarStoreDirectoryRecord
+from txdav.common.datastore.sql_tables import schema
+
+from xml.parsers.expat import ExpatError
+
+from zope.interface import implements
+
 import cPickle as pickle
 import datetime
 import grp
@@ -39,31 +66,6 @@ import os
 import pwd
 import sys
 import types
-
-
-from zope.interface import implements
-
-from twisted.cred.error import UnauthorizedLogin
-from twisted.cred.checkers import ICredentialsChecker
-from twext.web2.dav.auth import IPrincipalCredentials
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
-
-from twext.python.log import Logger, LoggingMixIn
-
-from twistedcaldav.config import config
-
-from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
-from twistedcaldav.directory.util import uuidFromName, normalizeUUID
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
-from twistedcaldav.scheduling.ischedule.localservers import Servers
-from twistedcaldav.memcacher import Memcacher
-from twisted.python.filepath import FilePath
-from xml.parsers.expat import ExpatError
-from plistlib import readPlistFromString
-from twext.enterprise.dal.record import fromTable
-from twext.enterprise.queue import WorkItem
-from txdav.common.datastore.sql_tables import schema
-from twext.enterprise.dal.syntax import Delete
 
 log = Logger()
 
@@ -112,14 +114,6 @@ class DirectoryService(LoggingMixIn):
 
     def setRealm(self, realmName):
         self.realmName = realmName
-
-
-    def getPrincipalPath(self):
-        return getattr(self, "principalPath", None)
-
-
-    def setPrincipalPath(self, principalPath):
-        self.principalPath = principalPath
 
 
     def available(self):
@@ -233,6 +227,14 @@ class DirectoryService(LoggingMixIn):
                     break
             else:
                 return None
+        elif address.startswith("/principals/"):
+            parts = address.split("/")
+            if len(parts) == 3:
+                if parts[1] == "__uids__":
+                    guid = parts[2]
+                    record = self.recordWithGUID(guid)
+                else:
+                    record = self.recordWithShortName(parts[1], parts[2])
 
         return record if record and record.enabledForCalendaring else None
 
@@ -1086,14 +1088,11 @@ class DirectoryRecord(LoggingMixIn):
             ["mailto:%s" % (emailAddress,)
              for emailAddress in self.emailAddresses]
         )
-        path = self.service.getPrincipalPath()
         if self.guid:
             cuas.add("urn:uuid:%s" % (self.guid,))
-            if path:
-                cuas.add("/%s/__uids__/%s/" % (path, self.guid,))
-        if path:
-            for shortName in self.shortNames:
-                cuas.add("/%s/%s/%s/" % (path, self.recordType, shortName,))
+            cuas.add(joinURL("/principals", "__uids__", self.guid) + "/")
+        for shortName in self.shortNames:
+            cuas.add(joinURL("/principals", self.recordType, shortName,) + "/")
 
         return frozenset(cuas)
 

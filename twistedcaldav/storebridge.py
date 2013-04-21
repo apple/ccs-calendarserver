@@ -2636,6 +2636,12 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 # This is OK - it just means the server deleted the resource during the PUT. We make it look
                 # like the PUT succeeded.
                 response = responsecode.CREATED if self.exists() else responsecode.NO_CONTENT
+
+                # Re-initialize to get stuff setup again now we have no object
+                self._initializeWithObject(None, self._newStoreParent)
+
+                returnValue(response)
+
             response = IResponse(response)
 
             if self._newStoreObject.isScheduleObject:
@@ -2688,6 +2694,25 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         self.validIfScheduleMatch(request)
 
         return self.storeRemove(request)
+
+
+    @inlineCallbacks
+    def http_MOVE(self, request):
+        """
+        Need If-Schedule-Tag-Match behavior
+        """
+
+        # Do some pre-flight checks - must exist, must be move to another
+        # CommonHomeChild in the same Home, destination resource must not exist
+        if not self.exists():
+            log.debug("Resource not found: %s" % (self,))
+            raise HTTPError(NOT_FOUND)
+
+        # Do schedule tag check
+        self.validIfScheduleMatch(request)
+
+        result = (yield super(CalendarObjectResource, self).http_MOVE(request))
+        returnValue(result)
 
 
     @requiresPermissions(davxml.WriteContent())

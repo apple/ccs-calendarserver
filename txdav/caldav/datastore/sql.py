@@ -1891,7 +1891,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Check what kind of processing is going on
             change_scheduletag = not (
                 (internal_state == ComponentUpdateState.ORGANIZER_ITIP_UPDATE) or
-                (internal_state == ComponentUpdateState.ATTENDEE_ITIP_UPDATE) and not hasattr(self._txn, "doing_attendee_refresh")
+                (internal_state == ComponentUpdateState.ATTENDEE_ITIP_UPDATE) and hasattr(self._txn, "doing_attendee_refresh")
             )
 
             if change_scheduletag or not self.scheduleTag:
@@ -1996,7 +1996,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                     # Now forcibly delete the event
                     if not inserting:
-                        yield self.storeRemove()
+                        yield self._removeInternal(internal_state=ComponentRemoveState.INTERNAL)
                         raise ResourceDeletedError("Resource modified but immediately deleted by the server.")
                     else:
                         raise AttendeeAllowedError("Attendee cannot create event for Organizer: %s" % (implicit_result,))

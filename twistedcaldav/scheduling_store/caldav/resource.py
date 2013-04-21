@@ -282,6 +282,13 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 "Invalid HRef in property",
             ))
 
+        if cal is None or not cal.exists():
+            raise HTTPError(ErrorResponse(
+                responsecode.BAD_REQUEST,
+                error_element,
+                "HRef is not a valid calendar",
+            ))
+
         try:
             # Now set it on the new store object
             yield self.parent._newStoreHome.setDefaultCalendar(cal._newStoreObject, tasks)

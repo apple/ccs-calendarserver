@@ -882,7 +882,7 @@ class ImplicitScheduler(object):
             if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "CLIENT":
                 cuaddr = attendee.value()
                 if cuaddr not in coerced:
-                    attendeePrincipal = self.resource.directoryService().recordWithCalendarUserAddress(cuaddr)
+                    attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(cuaddr)
                     attendeeAddress = (yield addressmapping.mapper.getCalendarUser(cuaddr, attendeePrincipal))
                     local_attendee = type(attendeeAddress) in (LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,)
                     coerced[cuaddr] = local_attendee
