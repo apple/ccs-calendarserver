@@ -55,7 +55,7 @@ class Filter(FilterBase):
         filter_test = xml_element.attributes.get("test", "anyof")
         if filter_test not in ("anyof", "allof"):
             raise ValueError("Test must be only one of anyof, allof")
-        
+
         self.filter_test = filter_test
 
         self.children = [PropertyFilter(child) for child in xml_element.children]
@@ -65,7 +65,7 @@ class Filter(FilterBase):
         Returns True if the given address property matches this filter, False
         otherwise. Empty element means always match.
         """
-        
+
         if len(self.children) > 0:
             allof = self.filter_test == "allof"
             for propfilter in self.children:
@@ -82,7 +82,7 @@ class Filter(FilterBase):
         
         @return: True if valid, False otherwise
         """
-        
+
         # Test each property
         for propfilter in self.children:
             if not propfilter.valid():
@@ -104,7 +104,7 @@ class FilterChildBase(FilterBase):
 
         for child in xml_element.children:
             qname = child.qname()
-            
+
             if qname in (
                 (carddav_namespace, "is-not-defined"),
             ):
@@ -129,7 +129,7 @@ class FilterChildBase(FilterBase):
 
         if qualifier and isinstance(qualifier, IsNotDefined) and (len(filters) != 0) and propfilter_test == "allof":
             raise ValueError("When test is allof, no other tests allowed when CardDAV:is-not-defined is present")
-            
+
         self.propfilter_test = propfilter_test
         self.qualifier = qualifier
         self.filters = filters
@@ -143,7 +143,7 @@ class FilterChildBase(FilterBase):
         Returns True if the given address book item (either a property or parameter value)
         matches this filter, False otherwise.
         """
-        
+
         allof = self.propfilter_test == "allof"
         if self.qualifier and allof != self.qualifier.match(item):
             return not allof
@@ -176,7 +176,7 @@ class PropertyFilter (FilterChildBase):
         
         @return:      True if valid, False otherwise
         """
-        
+
         # No tests
         return True
 
@@ -261,11 +261,11 @@ class TextMatch (FilterBase):
         def _textCompare(s):
             # Currently ignores the collation and does caseless matching
             s = s.lower()
-            
+
             if self.match_type == "equals":
                 return s == test
             elif self.match_type == "contains":
-                return s.find(test) != -1 
+                return s.find(test) != -1
             elif self.match_type == "starts-with":
                 return s.startswith(test)
             elif self.match_type == "ends-with":
@@ -283,5 +283,5 @@ class TextMatch (FilterBase):
             else:
                 if _textCompare(unicode(value, "utf-8")):
                     return not self.negate
-        
+
         return self.negate

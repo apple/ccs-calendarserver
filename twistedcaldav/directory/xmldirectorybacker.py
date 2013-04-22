@@ -36,18 +36,18 @@ class XMLDirectoryBackingService(XMLDirectoryService):
     """
     Directory backer for L{XMLDirectoryService}.
     """
-    
+
     def __init__(self, params):
         self._actuallyConfigure(**params)
 
     def _actuallyConfigure(self, **params):
-        
+
         self.log_debug("_actuallyConfigure: params=%s" % (params,))
         defaults = {
-            "recordTypes": (self.recordType_users, self.recordType_groups, ), 
+            "recordTypes": (self.recordType_users, self.recordType_groups,),
             "rdnSchema": {
-                self.recordType_users : { 
-                    "vcardPropToDirRecordAttrMap" : { 
+                self.recordType_users : {
+                    "vcardPropToDirRecordAttrMap" : {
                         "FN" : (
                                 "fullName",
                                 "shortNames",
@@ -63,7 +63,7 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                         "EMAIL" : "emailAddresses",
                         "UID" : "guid",
                      },
-                     "dirRecordAttrToDSAttrMap" : { 
+                     "dirRecordAttrToDSAttrMap" : {
                         "guid" :            dsattributes.kDS1AttrGeneratedUID,
                         "fullName" :        dsattributes.kDS1AttrDistinguishedName,
                         "firstName" :       dsattributes.kDS1AttrFirstName,
@@ -71,8 +71,8 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                         "emailAddresses" :  dsattributes.kDSNAttrEMailAddress,
                      },
                 },
-                self.recordType_groups : { 
-                    "vcardPropToDirRecordAttrMap" : { 
+                self.recordType_groups : {
+                    "vcardPropToDirRecordAttrMap" : {
                         "FN" : (
                                 "fullName",
                                 "shortNames",
@@ -89,7 +89,7 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                         "UID" : "guid",
                         "X-ADDRESSBOOKSERVER-MEMBER" : "members",
                      },
-                     "dirRecordAttrToDSAttrMap" : { 
+                     "dirRecordAttrToDSAttrMap" : {
                         "guid" :            dsattributes.kDS1AttrGeneratedUID,
                         "fullName" :        dsattributes.kDS1AttrDistinguishedName,
                         "firstName" :       dsattributes.kDS1AttrFirstName,
@@ -99,9 +99,9 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                      },
                 },
             },
-            "maxQueryResults":0,            # max records returned
-            "sortResults":True,             # sort results by UID
-            "implementNot":True,            # implement Not query by listing all records and subtracting
+            "maxQueryResults":0,  # max records returned
+            "sortResults":True,  # sort results by UID
+            "implementNot":True,  # implement Not query by listing all records and subtracting
        }
 
         #params = self.getParams(params, defaults, ignored)
@@ -110,45 +110,45 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                 if not key in params:
                     params[key] = defaults[key]
             return params
-                    
+
         params = addDefaults(params, defaults)
         self.log_debug("_actuallyConfigure after addDefaults: params=%s" % (params,))
-                
+
         # super does not like these extra params
-        directoryBackedAddressBook=params["directoryBackedAddressBook"]
+        directoryBackedAddressBook = params["directoryBackedAddressBook"]
         #del params["directoryBackedAddressBook"]
-        rdnSchema=params["rdnSchema"]
+        rdnSchema = params["rdnSchema"]
         del params["rdnSchema"]
-        maxQueryResults=params["maxQueryResults"]
+        maxQueryResults = params["maxQueryResults"]
         del params["maxQueryResults"]
-        sortResults=params["sortResults"]
+        sortResults = params["sortResults"]
         del params["sortResults"]
-        implementNot=params["implementNot"]
+        implementNot = params["implementNot"]
         del params["implementNot"]
-        
-        
+
+
         assert directoryBackedAddressBook is not None
         self.directoryBackedAddressBook = directoryBackedAddressBook
-        
+
         self.maxQueryResults = maxQueryResults
         self.sortResults = sortResults
         self.implementNot = implementNot
         self.rdnSchema = rdnSchema
 
-        
+
         super(XMLDirectoryBackingService, self).__init__(params)
-        
- 
+
+
     def createCache(self):
         succeed(None)
-                        
+
 
     @inlineCallbacks
-    def doAddressBookQuery(self, addressBookFilter, addressBookQuery, maxResults ):
+    def doAddressBookQuery(self, addressBookFilter, addressBookQuery, maxResults):
         """
         Get vCards for a given addressBookFilter and addressBookQuery
         """
-    
+
         results = []
         limited = False
 
@@ -157,24 +157,24 @@ class XMLDirectoryBackingService(XMLDirectoryService):
             queryMap = self.rdnSchema[recordType]
             vcardPropToDirRecordAttrMap = queryMap["vcardPropToDirRecordAttrMap"]
             dirRecordAttrToDSAttrMap = queryMap["dirRecordAttrToDSAttrMap"]
-            
+
             kind = {self.recordType_groups:"group",
                     self.recordType_locations:"location",
                     self.recordType_resources:"calendarresource",
                     }.get(recordType, "individual")
-        
+
             constantProperties = ABDirectoryQueryResult.constantProperties.copy()
             constantProperties["KIND"] = kind
             # add KIND as constant so that query can be skipped if addressBookFilter needs a different kind
 
-            filterPropertyNames, dsFilter  = dsFilterFromAddressBookFilter( addressBookFilter, vcardPropToDirRecordAttrMap, constantProperties=constantProperties );
+            filterPropertyNames, dsFilter = dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToDirRecordAttrMap, constantProperties=constantProperties);
             self.log_debug("doAddressBookQuery: rdn=%s, query=%s, propertyNames=%s" % (recordType, dsFilter if isinstance(dsFilter, bool) else dsFilter.generate(), filterPropertyNames))
 
             if dsFilter:
-                                
+
                 @inlineCallbacks
                 def recordsForDSFilter(dsFilter, recordType):
-                    
+
                     """
                         Athough recordsForDSFilter() exercises the dsFilter expression tree and recordsMatchingFields(),
                         it make little difference to the result of a addressbook query because of filtering.
@@ -182,13 +182,13 @@ class XMLDirectoryBackingService(XMLDirectoryService):
 
                     if not isinstance(dsFilter, dsquery.expression):
                         #change  match list  into an expression and recurse
-                        returnValue((yield recordsForDSFilter(dsquery.expression( dsquery.expression.OR, (dsFilter,)), recordType)))
+                        returnValue((yield recordsForDSFilter(dsquery.expression(dsquery.expression.OR, (dsFilter,)), recordType)))
 
                     else:
                         #self.log_debug("recordsForDSFilter:  dsFilter=%s" % (dsFilter.generate(), ))
                         dsFilterSubexpressions = dsFilter.subexpressions if isinstance(dsFilter.subexpressions, list) else (dsFilter.subexpressions,)
                         #self.log_debug("recordsForDSFilter: #subs %s" % (len(dsFilterSubexpressions), ))
-                        
+
                         # evaluate matches
                         matches = [match for match in dsFilterSubexpressions if isinstance(match, dsquery.match)]
                         fields = []
@@ -200,12 +200,12 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                                 dsattributes.eDSContains :     "contains",
                             }.get(match.matchType)
                             if not xmlMatchType:
-                                self.log_debug("recordsForDSFilter: match type=%s match not supported" % (match.generate(), ))
-                                returnValue(None) # match type not supported by recordsMatchingFields()
-                            
+                                self.log_debug("recordsForDSFilter: match type=%s match not supported" % (match.generate(),))
+                                returnValue(None)  # match type not supported by recordsMatchingFields()
+
                             fields += ((match.attribute, match.value, True, xmlMatchType,),)
                             #self.log_debug("recordsForDSFilter: fields=%s" % (fields,))
-                        
+
                         # if there were matches, call get records that match
                         result = None
                         if len(fields):
@@ -217,9 +217,9 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                                 if self.implementNot:
                                     result = (yield self.listRecords(recordType)).difference(result)
                                 else:
-                                    self.log_debug("recordsForDSFilter: NOT expression not supported" % (match.generate(), ))
+                                    self.log_debug("recordsForDSFilter: NOT expression not supported" % (match.generate(),))
                                     returnValue(None)
-                                    
+
 
                         # evaluate subexpressions
                         subexpressions = [subexpression for subexpression in dsFilterSubexpressions if isinstance(subexpression, dsquery.expression)]
@@ -229,12 +229,12 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                             #self.log_debug("recordsForDSFilter: subresult=%s" % (subresult,))
                             if subresult is None:
                                 returnValue(None)
-                            
+
                             if dsFilter.operator == dsquery.expression.NOT:
                                 if self.implementNot:
                                     result = (yield self.listRecords(recordType)).difference(subresult)
                                 else:
-                                    self.log_debug("recordsForDSFilter: NOT expression not supported" % (match.generate(), ))
+                                    self.log_debug("recordsForDSFilter: NOT expression not supported" % (match.generate(),))
                                     returnValue(None)
                             elif result is None:
                                 result = subresult
@@ -245,9 +245,9 @@ class XMLDirectoryBackingService(XMLDirectoryService):
 
                     #self.log_debug("recordsForDSFilter:  dsFilter=%s returning %s" % (dsFilter.generate(), result, ))
                     returnValue(result)
-                                
+
                 # calculate minimum attributes needed for this query: results unused
-                etagRequested, queryPropNames = propertiesInAddressBookQuery( addressBookQuery )
+                etagRequested, queryPropNames = propertiesInAddressBookQuery(addressBookQuery)
                 self.log_debug("doAddressBookQuery: etagRequested=%s, queryPropNames=%s" % (etagRequested, queryPropNames,))
 
                 # walk the expression tree
@@ -255,16 +255,16 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                     xmlDirectoryRecords = None
                 else:
                     xmlDirectoryRecords = (yield recordsForDSFilter(dsFilter, recordType))
-                self.log_debug("doAddressBookQuery: #xmlDirectoryRecords %s" % (len(xmlDirectoryRecords) if xmlDirectoryRecords is not None else xmlDirectoryRecords, ))
-                
+                self.log_debug("doAddressBookQuery: #xmlDirectoryRecords %s" % (len(xmlDirectoryRecords) if xmlDirectoryRecords is not None else xmlDirectoryRecords,))
+
                 if xmlDirectoryRecords is None:
                     xmlDirectoryRecords = (yield self.listRecords(recordType))
-                    self.log_debug("doAddressBookQuery: all #xmlDirectoryRecords %s" % (len(xmlDirectoryRecords), ))
-                
-                
+                    self.log_debug("doAddressBookQuery: all #xmlDirectoryRecords %s" % (len(xmlDirectoryRecords),))
+
+
                 for xmlDirectoryRecord in xmlDirectoryRecords:
-                    
-                    def dsRecordAttributesFromDirectoryRecord( xmlDirectoryRecord ):
+
+                    def dsRecordAttributesFromDirectoryRecord(xmlDirectoryRecord):
                         #FIXME should filter based on request
                         dsRecordAttributes = {}
                         for attr in dirRecordAttrToDSAttrMap:
@@ -281,7 +281,7 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                         return dsRecordAttributes
 
                     result = None
-                    dsRecordAttributes = dsRecordAttributesFromDirectoryRecord( xmlDirectoryRecord )
+                    dsRecordAttributes = dsRecordAttributesFromDirectoryRecord(xmlDirectoryRecord)
                     try:
                         result = ABDirectoryQueryResult(self.directoryBackedAddressBook, dsRecordAttributes, kind=kind)
                     except:
@@ -294,15 +294,15 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                         else:
                             # should also filter for duplicate UIDs
                             self.log_debug("doAddressBookQuery did not match filter: %s (%s)" % (result.vCard().propertyValue("FN"), result.vCard().propertyValue("UID"),))
-                
+
                 if len(results) >= maxResults:
                     limited = True
                     break
-                         
+
         #sort results so that CalDAVTester can have consistent results when it uses limits
         if self.sortResults:
             results = sorted(list(results), key=lambda result:result.vCard().propertyValue("UID"))
 
-        self.log_info("limited  %s len(results) %s" % (limited,len(results),))
-        returnValue((results, limited,))        
+        self.log_info("limited  %s len(results) %s" % (limited, len(results),))
+        returnValue((results, limited,))
 

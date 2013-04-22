@@ -208,7 +208,7 @@ DEFAULT_PROXYDB_PARAMS = {
     },
 }
 
-
+ 
 directoryAddressBookBackingServiceDefaultParams = {
     "twistedcaldav.directory.xmldirectorybacker.XMLDirectoryBackingService": {
         "xmlFile": "/etc/carddavd/accounts.xml",
