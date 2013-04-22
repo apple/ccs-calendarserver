@@ -15,14 +15,16 @@
 # limitations under the License.
 ##
 
+import os
 from cStringIO import StringIO
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.trial.unittest import TestCase
 
-from twistedcaldav.config import Config
+from twistedcaldav.config import Config, ConfigDict
 from twistedcaldav.stdconfig import NoUnicodePlistParser, PListConfigProvider,\
-    _updateDataStore
+    _updateDataStore, _updateMultiProcess
+import twistedcaldav.stdconfig
 
 nonASCIIValue = "→←"
 nonASCIIPlist = "<plist version='1.0'><string>%s</string></plist>" % (
@@ -149,3 +151,31 @@ class ConfigParsingTests(TestCase):
         }
         _updateDataStore(configDict)
         self.assertEquals(configDict["ServerRoot"], "/a/b/c")
+
+        configDict = {
+            "ServerRoot" : "./a",
+        }
+        _updateDataStore(configDict)
+        self.assertEquals(configDict["ServerRoot"], os.path.join(os.getcwd(), "a"))
+
+    def test_updateMultiProcess(self):
+        def stubProcessCount(*args):
+            return 3
+        self.patch(twistedcaldav.stdconfig, "computeProcessCount", stubProcessCount)
+        configDict = ConfigDict({
+            "MultiProcess" : {
+                "ProcessCount" : 0,
+                "MinProcessCount" : 2,
+                "PerCPU" : 1,
+                "PerGB" : 1,
+            },
+            "Postgres" : {
+                "ExtraConnections" : 5,
+                "BuffersToConnectionsRatio" : 1.5,
+            },
+            "SharedConnectionPool" : False,
+            "MaxDBConnectionsPerPool" : 10,
+        })
+        _updateMultiProcess(configDict)
+        self.assertEquals(45, configDict.Postgres.MaxConnections)
+        self.assertEquals(67, configDict.Postgres.SharedBuffers)

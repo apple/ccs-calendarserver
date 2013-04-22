@@ -79,23 +79,23 @@
 
     <!-- Data root -->
     <key>DataRoot</key>
-    <string>Data</string>
+    <string>%(DataRoot)s</string>
 
     <!-- Document root -->
     <key>DocumentRoot</key>
-    <string>Documents</string>
+    <string>%(DocumentRoot)s</string>
 
     <!-- Configuration root -->
     <key>ConfigRoot</key>
-    <string>/etc/caldavd</string>
+    <string>Config</string>
 
     <!-- Log root -->
     <key>LogRoot</key>
-    <string>/var/log/caldavd</string>
+    <string>%(LogRoot)s</string>
 
     <!-- Run root -->
     <key>RunRoot</key>
-    <string>/var/run</string>
+    <string>%(LogRoot)s</string>
 
     <!-- Child aliases -->
     <key>Aliases</key>
@@ -279,7 +279,7 @@
      -->
 
 	<key>ProxyLoadFromFile</key>
-    <string>conf/auth/proxies-test.xml</string>
+    <string></string>
 
     <!--
         Special principals
@@ -743,6 +743,9 @@
     <key>ResponseCacheTimeout</key>
     <integer>30</integer> <!-- in minutes -->
 
+    <!-- For unit tests, enable SharedConnectionPool so we don't use up shared memory -->
+    <key>SharedConnectionPool</key>
+    <true/>
 
     <!--
         Twisted

@@ -114,6 +114,8 @@ class ScheduleViaCalDAV(DeliveryService):
                     yield recipient.inbox.checkPrivileges(self.scheduler.request, (caldavxml.ScheduleDeliver(),), principal=organizerPrincipal)
                 except AccessDeniedError:
                     log.err("Could not access Inbox for recipient: %s" % (recipient.cuaddr,))
+                    if log.willLogAtLevel("debug"):
+                        log.debug("Bare Exception: %s" % (Failure().getTraceback(),))
                     err = HTTPError(ErrorResponse(
                         responsecode.NOT_FOUND,
                         (caldav_namespace, "recipient-permissions"),
@@ -164,6 +166,8 @@ class ScheduleViaCalDAV(DeliveryService):
             ))
         except ImplicitProcessorException, e:
             log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
+            if log.willLogAtLevel("debug"):
+                log.debug("%s: %s" % (e, Failure().getTraceback(),))
             err = HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "recipient-permissions"),
@@ -189,6 +193,8 @@ class ScheduleViaCalDAV(DeliveryService):
             except:
                 # FIXME: Bare except
                 log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
+                if log.willLogAtLevel("debug"):
+                    log.debug("Bare Exception: %s" % (Failure().getTraceback(),))
                 err = HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "recipient-permissions"),
@@ -230,6 +236,8 @@ class ScheduleViaCalDAV(DeliveryService):
             ))
         except:
             log.err("Could not determine free busy information: %s" % (recipient.cuaddr,))
+            if log.willLogAtLevel("debug"):
+                log.debug("Bare Exception: %s" % (Failure().getTraceback(),))
             err = HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "recipient-permissions"),

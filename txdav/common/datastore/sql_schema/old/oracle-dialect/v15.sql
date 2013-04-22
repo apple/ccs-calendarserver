@@ -58,7 +58,7 @@ create table NOTIFICATION (
 create table CALENDAR_BIND (
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
     "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
-    "CALENDAR_RESOURCE_NAME" nvarchar2(255) not null,
+    "CALENDAR_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "MESSAGE" nclob, 
@@ -207,7 +207,7 @@ create table ADDRESSBOOK_METADATA (
 create table ADDRESSBOOK_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "ADDRESSBOOK_RESOURCE_ID" integer not null references ADDRESSBOOK on delete cascade,
-    "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255) not null,
+    "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "MESSAGE" nclob, 
@@ -272,7 +272,6 @@ create table CALENDARSERVER (
 insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '15');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
-
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
     NOTIFICATION_HOME_RESOURCE_ID
 );

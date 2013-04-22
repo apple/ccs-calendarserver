@@ -32,40 +32,47 @@ from twext.python.plistlib import readPlistFromString, writePlistToString
 from twistedcaldav.config import config, ConfigDict, ConfigurationError, mergeData
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 WRITABLE_CONFIG_KEYS = [
-    "EnableSSL",
-    "RedirectHTTPToHTTPS",
+    "Authentication.Basic.AllowedOverWireUnencrypted",
+    "Authentication.Basic.Enabled",
+    "Authentication.Digest.AllowedOverWireUnencrypted",
+    "Authentication.Digest.Enabled",
+    "Authentication.Kerberos.AllowedOverWireUnencrypted",
+    "Authentication.Kerberos.Enabled",
+    "Authentication.Wiki.Enabled",
+    "DataRoot",
+    "DefaultLogLevel",
+    "DirectoryAddressBook.params.queryPeopleRecords",
+    "DirectoryAddressBook.params.queryUserRecords",
     "EnableCalDAV",
     "EnableCardDAV",
-    "DataRoot",
-    "SSLCertificate",
-    "SSLPrivateKey",
-    "SSLAuthorityChain",
     "EnableSearchAddressBook",
-    "Authentication.Basic.Enabled",
-    "Authentication.Basic.AllowedOverWireUnencrypted",
-    "Authentication.Digest.Enabled",
-    "Authentication.Digest.AllowedOverWireUnencrypted",
-    "Authentication.Kerberos.Enabled",
-    "Authentication.Kerberos.AllowedOverWireUnencrypted",
-    "Authentication.Wiki.Enabled",
-    "Scheduling.iMIP.Enabled",
-    "Scheduling.iMIP.Receiving.Username",
-    "Scheduling.iMIP.Receiving.Server",
-    "Scheduling.iMIP.Receiving.Port",
-    "Scheduling.iMIP.Receiving.Type",
-    "Scheduling.iMIP.Receiving.UseSSL",
-    "Scheduling.iMIP.Sending.Username",
-    "Scheduling.iMIP.Sending.Server",
-    "Scheduling.iMIP.Sending.Port",
-    "Scheduling.iMIP.Sending.UseSSL",
-    "Scheduling.iMIP.Sending.Address",
-    "Notifications.Services.APNS.Enabled",
-    "Notifications.Services.APNS.CalDAV.CertificatePath",
+    "EnableSSL",
+    "HTTPPort",
+    "LogLevels",
     "Notifications.Services.APNS.CalDAV.AuthorityChainPath",
+    "Notifications.Services.APNS.CalDAV.CertificatePath",
     "Notifications.Services.APNS.CalDAV.PrivateKeyPath",
-    "Notifications.Services.APNS.CardDAV.CertificatePath",
     "Notifications.Services.APNS.CardDAV.AuthorityChainPath",
+    "Notifications.Services.APNS.CardDAV.CertificatePath",
     "Notifications.Services.APNS.CardDAV.PrivateKeyPath",
+    "Notifications.Services.APNS.Enabled",
+    "RedirectHTTPToHTTPS",
+    "Scheduling.iMIP.Enabled",
+    "Scheduling.iMIP.Receiving.Port",
+    "Scheduling.iMIP.Receiving.Server",
+    "Scheduling.iMIP.Receiving.Type",
+    "Scheduling.iMIP.Receiving.Username",
+    "Scheduling.iMIP.Receiving.UseSSL",
+    "Scheduling.iMIP.Sending.Address",
+    "Scheduling.iMIP.Sending.Port",
+    "Scheduling.iMIP.Sending.Server",
+    "Scheduling.iMIP.Sending.Username",
+    "Scheduling.iMIP.Sending.UseSSL",
+    "ServerHostName",
+    "SSLAuthorityChain",
+    "SSLCertificate",
+    "SSLPort",
+    "SSLPrivateKey",
 ]
 
 def usage(e=None):
@@ -155,6 +162,7 @@ def main():
         rawInput = sys.stdin.read()
         try:
             plist = readPlistFromString(rawInput)
+            # Note: values in plist will already be unicode
         except xml.parsers.expat.ExpatError, e:
             respondWithError(str(e))
             return
@@ -231,6 +239,10 @@ class Runner(object):
         for keyPath in WRITABLE_CONFIG_KEYS:
             value = getKeyPath(config, keyPath)
             if value is not None:
+                # Note: config contains utf-8 encoded strings, but plistlib
+                # wants unicode, so decode here:
+                if isinstance(value, str):
+                    value = value.decode("utf-8")
                 setKeyPath(result, keyPath, value)
         respond(command, result)
 
@@ -244,6 +256,7 @@ class Runner(object):
         writable = WritableConfig(config, config.WritableConfigFile)
         writable.read()
         valuesToWrite = command.get("Values", {})
+        # Note: values are unicode if they contain non-ascii
         for keyPath, value in flattenDictionary(valuesToWrite):
             if keyPath in WRITABLE_CONFIG_KEYS:
                 writable.set(setKeyPath(ConfigDict(), keyPath, value))

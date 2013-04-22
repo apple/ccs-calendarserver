@@ -77,6 +77,14 @@ TOPPATHS = (
 )
 UIDPATH = "__uids__"
 
+
+
+class _StubQueuer(object):
+    def transferProposalCallbacks(self, otherQueuer):
+        return otherQueuer
+
+
+
 class CommonDataStore(DataStore):
     """
     Shared logic for SQL-based data stores, between calendar and addressbook
@@ -87,7 +95,6 @@ class CommonDataStore(DataStore):
 
     @ivar quota: the amount of space granted to each calendar home (in bytes)
         for storing attachments, or C{None} if quota should not be enforced.
-
     @type quota: C{int} or C{NoneType}
 
     @ivar _propertyStoreClass: The class (or callable object / factory) that
@@ -95,6 +102,10 @@ class CommonDataStore(DataStore):
         signature of the L{XattrPropertyStore} type: take 2 arguments
         C{(default-user-uid, path-factory)}, return an L{IPropertyStore}
         provider.
+
+    @ivar queuer: For compatibility with SQL-based store; currently a
+        non-functional implementation just for tests, but could be fixed to be
+        backed by SQLite or something.
     """
     implements(ICalendarStore)
 
@@ -118,6 +129,8 @@ class CommonDataStore(DataStore):
         self._migrating = False
         self._enableNotifications = True
         self._newTransactionCallbacks = set()
+        # FIXME: see '@ivar queuer' above.
+        self.queuer = _StubQueuer()
 
     def callWithNewTransactions(self, callback):
         """

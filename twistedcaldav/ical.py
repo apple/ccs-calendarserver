@@ -57,7 +57,6 @@ from pycalendar.property import PyCalendarProperty
 from pycalendar.timezone import PyCalendarTimezone
 from pycalendar.utcoffsetvalue import PyCalendarUTCOffsetValue
 
-import base64
 
 log = Logger()
 
@@ -2979,8 +2978,7 @@ END:VCALENDAR
                 # Check that we can lookup this calendar user address - if not
                 # we cannot do anything with it
                 cuaddr = normalizeCUAddr(prop.value())
-                name, guid, cuaddrs = lookupFunction(cuaddr, principalFunction,
-                    config)
+                name, guid, cuaddrs = lookupFunction(cuaddr, principalFunction, config)
                 if guid is None:
                     continue
 
@@ -2989,27 +2987,19 @@ END:VCALENDAR
                 if oldemail:
                     oldemail = "mailto:%s" % (oldemail,)
 
-                if toUUID:
-                    # Store the original CUA if http(s) or /path:
-                    if config.Scheduling.Options.V1Compatibility:
-                        if cuaddr.startswith("http") or cuaddr.startswith("/"):
-                            prop.setParameter("CALENDARSERVER-OLD-CUA",
-                                "base64-%s" % (base64.b64encode(prop.value())))
+                # Get any CN parameter
+                oldCN = prop.parameterValue("CN")
 
+                cutype = prop.parameterValue("CUTYPE")
+
+                if toUUID:
                     # Always re-write value to urn:uuid
                     prop.setValue("urn:uuid:%s" % (guid,))
 
                 # If it is already a non-UUID address leave it be
                 elif cuaddr.startswith("urn:uuid:"):
 
-                    # Restore old CUA
-                    oldExternalCUA = prop.parameterValue("CALENDARSERVER-OLD-CUA")
-                    if oldExternalCUA:
-                        if oldExternalCUA.startswith("base64-"):
-                            oldExternalCUA = base64.b64decode(oldExternalCUA[7:])
-                        newaddr = oldExternalCUA
-                        prop.removeParameter("CALENDARSERVER-OLD-CUA")
-                    elif oldemail:
+                    if oldemail:
                         # Use the EMAIL parameter if it exists
                         newaddr = oldemail
                     else:
@@ -3049,9 +3039,17 @@ END:VCALENDAR
                     if newaddr:
                         prop.setValue(newaddr)
 
-                # Always re-write the CN parameter
+                # Re-write the CN parameter
                 if name:
-                    prop.setParameter("CN", name)
+                    if name != oldCN:
+                        prop.setParameter("CN", name)
+
+                        # Also adjust any previously matching location property
+                        if cutype == "ROOM":
+                            location = component.getProperty("LOCATION")
+                            if location is not None:
+                                if location.value() == oldCN:
+                                    location.setValue(name)
                 else:
                     prop.removeParameter("CN")
 

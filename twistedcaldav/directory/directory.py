@@ -26,6 +26,7 @@ __all__ = [
     "DirectoryError",
     "DirectoryConfigurationError",
     "UnknownRecordTypeError",
+    "GroupMembershipCacheUpdater",
 ]
 
 import cPickle as pickle
@@ -34,7 +35,6 @@ import grp
 import itertools
 import os
 import pwd
-import signal
 import sys
 import types
 
@@ -46,23 +46,25 @@ from twisted.cred.checkers import ICredentialsChecker
 from twext.web2.dav.auth import IPrincipalCredentials
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav.config import config
+
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName, normalizeUUID
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.ischedule.localservers import Servers
 from twistedcaldav.memcacher import Memcacher
-from twistedcaldav import memcachepool
 from twisted.python.filepath import FilePath
-from twisted.python.reflect import namedClass
-from twisted.python.usage import Options, UsageError
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from twisted.application import service
-from twisted.plugin import IPlugin
 from xml.parsers.expat import ExpatError
 from plistlib import readPlistFromString
+from twext.enterprise.dal.record import fromTable
+from twext.enterprise.queue import WorkItem, PeerConnectionPool
+from txdav.common.datastore.sql_tables import schema
+from twext.enterprise.dal.syntax import Delete
+
+log = Logger()
+
 
 class DirectoryService(LoggingMixIn):
     implements(IDirectoryService, ICredentialsChecker)
@@ -564,20 +566,16 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
 
     "group-cacher-populated" : contains a datestamp indicating the most recent
     population.
-
-    "group-cacher-lock" : used to prevent multiple updates, it has a value of "1"
-
     """
 
     def __init__(self, namespace, pickle=True, no_invalidation=False,
-        key_normalization=True, expireSeconds=0, lockSeconds=60):
+        key_normalization=True, expireSeconds=0):
 
         super(GroupMembershipCache, self).__init__(namespace, pickle=pickle,
             no_invalidation=no_invalidation,
             key_normalization=key_normalization)
 
         self.expireSeconds = expireSeconds
-        self.lockSeconds = lockSeconds
 
 
     def setGroupsFor(self, guid, memberships):
@@ -616,16 +614,6 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
         returnValue(value is not None)
 
 
-    def acquireLock(self):
-        self.log_debug("add group-cacher-lock")
-        return self.add("group-cacher-lock", "1", expireTime=self.lockSeconds)
-
-
-    def releaseLock(self):
-        self.log_debug("delete group-cacher-lock")
-        return self.delete("group-cacher-lock")
-
-
 
 class GroupMembershipCacheUpdater(LoggingMixIn):
     """
@@ -634,11 +622,12 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
     proxy database, and the location/resource info in the directory system.
     """
 
-    def __init__(self, proxyDB, directory, expireSeconds, lockSeconds,
+    def __init__(self, proxyDB, directory, updateSeconds, expireSeconds,
         cache=None, namespace=None, useExternalProxies=False,
         externalProxiesSource=None):
         self.proxyDB = proxyDB
         self.directory = directory
+        self.updateSeconds = updateSeconds
         self.useExternalProxies = useExternalProxies
         if useExternalProxies and externalProxiesSource is None:
             externalProxiesSource = self.directory.getExternalProxyAssignments
@@ -646,8 +635,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
 
         if cache is None:
             assert namespace is not None, "namespace must be specified if GroupMembershipCache is not provided"
-            cache = GroupMembershipCache(namespace, expireSeconds=expireSeconds,
-                lockSeconds=lockSeconds)
+            cache = GroupMembershipCache(namespace, expireSeconds=expireSeconds)
         self.cache = cache
 
 
@@ -738,17 +726,12 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         # See if anyone has completely populated the group membership cache
         isPopulated = (yield self.cache.isPopulated())
 
-        useLock = True
-
         if fast:
             # We're in quick-start mode.  Check first to see if someone has
             # populated the membership cache, and if so, return immediately
             if isPopulated:
                 self.log_info("Group membership cache is already populated")
                 returnValue((fast, 0))
-
-            # We don't care what others are doing right now, we need to update
-            useLock = False
 
         self.log_info("Updating group membership cache")
 
@@ -766,14 +749,6 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
                 (membershipsCacheFile.path,))
             previousMembers = pickle.loads(membershipsCacheFile.getContent())
             callGroupsChanged = True
-
-        if useLock:
-            self.log_info("Attempting to acquire group membership cache lock")
-            acquiredLock = (yield self.cache.acquireLock())
-            if not acquiredLock:
-                self.log_info("Group membership cache lock held by another process")
-                returnValue((fast, 0))
-            self.log_info("Acquired lock")
 
         if not fast and self.useExternalProxies:
 
@@ -944,255 +919,58 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
 
         yield self.cache.setPopulatedMarker()
 
-        if useLock:
-            self.log_info("Releasing lock")
-            yield self.cache.releaseLock()
-
         self.log_info("Group memberships cache updated")
 
         returnValue((fast, len(members), len(changedMembers)))
 
 
+class GroupCacherPollingWork(WorkItem, fromTable(schema.GROUP_CACHER_POLLING_WORK)):
 
-class GroupMembershipCacherOptions(Options):
-    optParameters = [[
-        "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
-    ]]
-
-    def __init__(self, *args, **kwargs):
-        super(GroupMembershipCacherOptions, self).__init__(*args, **kwargs)
-
-        self.overrides = {}
-
-
-    def _coerceOption(self, configDict, key, value):
-        """
-        Coerce the given C{val} to type of C{configDict[key]}
-        """
-        if key in configDict:
-            if isinstance(configDict[key], bool):
-                value = value == "True"
-
-            elif isinstance(configDict[key], (int, float, long)):
-                value = type(configDict[key])(value)
-
-            elif isinstance(configDict[key], (list, tuple)):
-                value = value.split(',')
-
-            elif isinstance(configDict[key], dict):
-                raise UsageError(
-                    "Dict options not supported on the command line"
-                )
-
-            elif value == 'None':
-                value = None
-
-        return value
-
-
-    def _setOverride(self, configDict, path, value, overrideDict):
-        """
-        Set the value at path in configDict
-        """
-        key = path[0]
-
-        if len(path) == 1:
-            overrideDict[key] = self._coerceOption(configDict, key, value)
-            return
-
-        if key in configDict:
-            if not isinstance(configDict[key], dict):
-                raise UsageError(
-                    "Found intermediate path element that is not a dictionary"
-                )
-
-            if key not in overrideDict:
-                overrideDict[key] = {}
-
-            self._setOverride(
-                configDict[key], path[1:],
-                value, overrideDict[key]
-            )
-
-
-    def opt_option(self, option):
-        """
-        Set an option to override a value in the config file. True, False, int,
-        and float options are supported, as well as comma seperated lists. Only
-        one option may be given for each --option flag, however multiple
-        --option flags may be specified.
-        """
-
-        if "=" in option:
-            path, value = option.split('=')
-            self._setOverride(
-                DEFAULT_CONFIG,
-                path.split('/'),
-                value,
-                self.overrides
-            )
-        else:
-            self.opt_option('%s=True' % (option,))
-
-    opt_o = opt_option
-
-    def postOptions(self):
-        config.load(self['config'])
-        config.updateDefaults(self.overrides)
-        self.parent['pidfile'] = config.PIDFile
-
-
-
-class GroupMembershipCacherService(service.Service, LoggingMixIn):
-    """
-    Service to update the group membership cache at a configured interval
-    """
-
-    def __init__(self, proxyDB, directory, namespace, updateSeconds,
-        expireSeconds, lockSeconds, reactor=None, updateMethod=None,
-        useExternalProxies=False):
-
-        if updateSeconds >= expireSeconds:
-            expireSeconds = updateSeconds * 2
-            self.log_warn("Configuration warning: GroupCaching.ExpireSeconds needs to be longer than UpdateSeconds; setting to %d seconds" % (expireSeconds,))
-
-        self.updater = GroupMembershipCacheUpdater(proxyDB, directory,
-            expireSeconds, lockSeconds, namespace=namespace,
-            useExternalProxies=useExternalProxies)
-
-        if reactor is None:
-            from twisted.internet import reactor
-        self.reactor = reactor
-
-        self.updateSeconds = updateSeconds
-        self.nextUpdate = None
-        self.updateInProgress = False
-        self.updateAwaiting = False
-
-        if updateMethod:
-            self.updateMethod = updateMethod
-        else:
-            self.updateMethod = self.updater.updateCache
-
-
-    def startService(self):
-        self.previousHandler = signal.signal(signal.SIGHUP, self.sighupHandler)
-        self.log_warn("Starting group membership cacher service")
-        service.Service.startService(self)
-        return self.update()
-
-
-    def sighupHandler(self, num, frame):
-        self.reactor.callFromThread(self.update)
-
-
-    def stopService(self):
-        signal.signal(signal.SIGHUP, self.previousHandler)
-        self.log_warn("Stopping group membership cacher service")
-        service.Service.stopService(self)
-        if self.nextUpdate is not None:
-            self.nextUpdate.cancel()
-            self.nextUpdate = None
-
+    group = "group_cacher_polling"
 
     @inlineCallbacks
-    def update(self):
-        """
-        A wrapper around updateCache, this method manages the scheduling of the
-        subsequent update, as well as prevents multiple updates from running
-        simultaneously, which could otherwise happen because SIGHUP now triggers
-        an update on demand.  If update is called while an update is in progress,
-        as soon as the first update is finished a new one is started.  Otherwise,
-        when an update finishes and there is not another one waiting, the next
-        update is scheduled for updateSeconds in the future.
+    def doWork(self):
 
-        @return: True if an update was already in progress, False otherwise
-        @rtype: C{bool}
-        """
+        # Delete all other work items
+        yield Delete(From=self.table, Where=None).on(self.transaction)
 
-        self.log_debug("Group membership update called")
-
-        # A call to update while an update is in progress sets the updateAwaiting flag
-        # so that an update happens again right after the current one is complete.
-        if self.updateInProgress:
-            self.updateAwaiting = True
-            returnValue(True)
-
-        self.nextUpdate = None
-        self.updateInProgress = True
-        self.updateAwaiting = False
-        try:
-            yield self.updateMethod()
-        finally:
-            self.updateInProgress = False
-            if self.updateAwaiting:
-                self.log_info("Performing group membership update")
-                yield self.update()
-            else:
-                self.log_info("Scheduling next group membership update")
-                self.nextUpdate = self.reactor.callLater(self.updateSeconds,
-                    self.update)
-        returnValue(False)
-
-
-
-class GroupMembershipCacherServiceMaker(LoggingMixIn):
-    """
-    Configures and returns a GroupMembershipCacherService
-    """
-    implements(IPlugin, service.IServiceMaker)
-
-    tapname = "caldav_groupcacher"
-    description = "Group Membership Cacher"
-    options = GroupMembershipCacherOptions
-
-    def makeService(self, options):
-        try:
-            from setproctitle import setproctitle
-        except ImportError:
-            pass
+        groupCacher = getattr(self.transaction, "_groupCacher", None)
+        if groupCacher is not None:
+            try:
+                yield groupCacher.updateCache()
+            except Exception, e:
+                log.error("Failed to update group membership cache (%s)" % (e,))
+            finally:
+                notBefore = (datetime.datetime.utcnow() +
+                    datetime.timedelta(seconds=groupCacher.updateSeconds))
+                log.debug("Scheduling next group cacher update: %s" % (notBefore,))
+                yield self.transaction.enqueue(GroupCacherPollingWork,
+                    notBefore=notBefore)
         else:
-            setproctitle("CalendarServer [Group Cacher]")
+            notBefore = (datetime.datetime.utcnow() +
+                datetime.timedelta(seconds=10))
+            log.debug("Rescheduling group cacher update: %s" % (notBefore,))
+            yield self.transaction.enqueue(GroupCacherPollingWork,
+                notBefore=notBefore)
 
-        # Setup the directory
-        from calendarserver.tap.util import directoryFromConfig
-        directory = directoryFromConfig(config)
 
-        # We have to set cacheNotifierFactory otherwise group cacher can't
-        # invalidate the cache tokens for principals whose membership has
-        # changed
-        if config.EnableResponseCache and config.Memcached.Pools.Default.ClientEnabled:
-            from twistedcaldav.directory.principal import DirectoryPrincipalResource
-            from twistedcaldav.cache import MemcacheChangeNotifier
-            DirectoryPrincipalResource.cacheNotifierFactory = MemcacheChangeNotifier
+@inlineCallbacks
+def scheduleNextGroupCachingUpdate(store, seconds):
+    txn = store.newTransaction()
+    notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
+    log.debug("Scheduling next group cacher update: %s" % (notBefore,))
+    wp = (yield txn.enqueue(GroupCacherPollingWork, notBefore=notBefore))
+    yield txn.commit()
+    returnValue(wp)
 
-        # Setup the ProxyDB Service
-        proxydbClass = namedClass(config.ProxyDBService.type)
 
-        self.log_warn("Configuring proxydb service of type: %s" % (proxydbClass,))
-
-        try:
-            proxyDB = proxydbClass(**config.ProxyDBService.params)
-        except IOError:
-            self.log_error("Could not start proxydb service")
-            raise
-
-        # Setup memcached pools
-        memcachepool.installPools(
-            config.Memcached.Pools,
-            config.Memcached.MaxClients,
-        )
-
-        cacherService = GroupMembershipCacherService(proxyDB, directory,
-            config.GroupCaching.MemcachedPool,
-            config.GroupCaching.UpdateSeconds,
-            config.GroupCaching.ExpireSeconds,
-            config.GroupCaching.LockSeconds,
-            useExternalProxies=config.GroupCaching.UseExternalProxies
-            )
-
-        return cacherService
-
+def schedulePolledGroupCachingUpdate(store):
+    """
+    Schedules a group caching update work item in "the past" so PeerConnectionPool's
+    overdue-item logic picks it up quickly.
+    """
+    seconds = -PeerConnectionPool.queueProcessTimeout
+    return scheduleNextGroupCachingUpdate(store, seconds)
 
 
 def diffAssignments(old, new):

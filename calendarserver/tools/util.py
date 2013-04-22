@@ -31,21 +31,27 @@ from time import sleep
 import socket
 from pwd import getpwnam
 from grp import getgrnam
+from uuid import UUID
+
+from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+
 
 from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twext.python.log import Logger
+from twisted.internet.defer import inlineCallbacks, returnValue
 
+from txdav.xml import element as davxml
 
 from calendarserver.provision.root import RootResource
 
 from twistedcaldav import memcachepool
-from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.directory import schedulePolledGroupCachingUpdate
 from calendarserver.push.notifier import NotifierFactory
-from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 from txdav.common.datastore.file import CommonDataStore
 
@@ -70,6 +76,8 @@ def loadConfig(configFileName):
 
     return config
 
+
+
 def getDirectory(config=config):
 
     class MyDirectoryService (AggregateDirectoryService):
@@ -87,7 +95,7 @@ def getDirectory(config=config):
                     notifierFactory = None
 
                 # Need a data store
-                _newStore = CommonDataStore(FilePath(config.DocumentRoot), 
+                _newStore = CommonDataStore(FilePath(config.DocumentRoot),
                     notifierFactory, True, False)
                 if notifierFactory is not None:
                     notifierFactory.store = _newStore
@@ -130,6 +138,8 @@ def getDirectory(config=config):
         def principalForCalendarUserAddress(self, cua):
             return self.principalCollection.principalForCalendarUserAddress(cua)
 
+        def principalForUID(self, uid):
+            return self.principalCollection.principalForUID(uid)
 
     # Load augment/proxy db classes now
     if config.AugmentService.type:
@@ -147,7 +157,6 @@ def getDirectory(config=config):
     directory = BaseDirectoryService(config.DirectoryService.params)
     while not directory.isAvailable():
         sleep(5)
-
 
     directories = [directory]
 
@@ -183,33 +192,46 @@ def getDirectory(config=config):
 
     return aggregate
 
+
+
 class DummyDirectoryService (DirectoryService):
     realmName = ""
     baseGUID = "51856FD4-5023-4890-94FE-4356C4AAC3E4"
-    def recordTypes(self): return ()
-    def listRecords(self): return ()
-    def recordWithShortName(self): return None
+    def recordTypes(self):
+        return ()
+
+
+    def listRecords(self):
+        return ()
+
+
+    def recordWithShortName(self):
+        return None
 
 dummyDirectoryRecord = DirectoryRecord(
-    service = DummyDirectoryService(),
-    recordType = "dummy",
-    guid = "8EF0892F-7CB6-4B8E-B294-7C5A5321136A",
-    shortNames = ("dummy",),
-    fullName = "Dummy McDummerson",
-    firstName = "Dummy",
-    lastName = "McDummerson",
+    service=DummyDirectoryService(),
+    recordType="dummy",
+    guid="8EF0892F-7CB6-4B8E-B294-7C5A5321136A",
+    shortNames=("dummy",),
+    fullName="Dummy McDummerson",
+    firstName="Dummy",
+    lastName="McDummerson",
 )
 
 class UsageError (StandardError):
     pass
 
+
+
 def booleanArgument(arg):
-    if   arg in ("true",  "yes", "yup",  "uh-huh", "1", "t", "y"):
+    if   arg in ("true", "yes", "yup", "uh-huh", "1", "t", "y"):
         return True
-    elif arg in ("false", "no",  "nope", "nuh-uh", "0", "f", "n"):
+    elif arg in ("false", "no", "nope", "nuh-uh", "0", "f", "n"):
         return False
     else:
         raise ValueError("Not a boolean: %s" % (arg,))
+
+
 
 def autoDisableMemcached(config):
     """
@@ -229,6 +251,7 @@ def autoDisableMemcached(config):
         config.Memcached.Pools.Default.ClientEnabled = False
 
 
+
 def setupMemcached(config):
     #
     # Connect to memcached
@@ -238,6 +261,7 @@ def setupMemcached(config):
         config.Memcached.MaxClients
     )
     autoDisableMemcached(config)
+
 
 
 def checkDirectory(dirpath, description, access=None, create=None, wait=False):
@@ -312,3 +336,188 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
 
 
 
+def principalForPrincipalID(principalID, checkOnly=False, directory=None):
+
+    # Allow a directory parameter to be passed in, but default to config.directory
+    # But config.directory isn't set right away, so only use it when we're doing more
+    # than checking.
+    if not checkOnly and not directory:
+        directory = config.directory
+
+    if principalID.startswith("/"):
+        segments = principalID.strip("/").split("/")
+        if (len(segments) == 3 and
+            segments[0] == "principals" and segments[1] == "__uids__"):
+            uid = segments[2]
+        else:
+            raise ValueError("Can't resolve all paths yet")
+
+        if checkOnly:
+            return None
+
+        return directory.principalCollection.principalForUID(uid)
+
+    if principalID.startswith("("):
+        try:
+            i = principalID.index(")")
+
+            if checkOnly:
+                return None
+
+            recordType = principalID[1:i]
+            shortName = principalID[i + 1:]
+
+            if not recordType or not shortName or "(" in recordType:
+                raise ValueError()
+
+            return directory.principalCollection.principalForShortName(recordType, shortName)
+
+        except ValueError:
+            pass
+
+    if ":" in principalID:
+        if checkOnly:
+            return None
+
+        recordType, shortName = principalID.split(":", 1)
+
+        return directory.principalCollection.principalForShortName(recordType, shortName)
+
+    try:
+        UUID(principalID)
+
+        if checkOnly:
+            return None
+
+        x = directory.principalCollection.principalForUID(principalID)
+        return x
+    except ValueError:
+        pass
+
+    raise ValueError("Invalid principal identifier: %s" % (principalID,))
+
+
+
+def proxySubprincipal(principal, proxyType):
+    return principal.getChild("calendar-proxy-" + proxyType)
+
+
+
+@inlineCallbacks
+def action_addProxyPrincipal(rootResource, directory, store, principal, proxyType, proxyPrincipal):
+    try:
+        (yield addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipal))
+        print("Added %s as a %s proxy for %s" % (
+            prettyPrincipal(proxyPrincipal), proxyType,
+            prettyPrincipal(principal)))
+    except ProxyError, e:
+        print("Error:", e)
+    except ProxyWarning, e:
+        print(e)
+
+
+
+@inlineCallbacks
+def action_removeProxyPrincipal(rootResource, directory, store, principal, proxyPrincipal, **kwargs):
+    try:
+        removed = (yield removeProxy(rootResource, directory, store,
+            principal, proxyPrincipal, **kwargs))
+        if removed:
+            print("Removed %s as a proxy for %s" % (
+                prettyPrincipal(proxyPrincipal),
+                prettyPrincipal(principal)))
+    except ProxyError, e:
+        print("Error:", e)
+    except ProxyWarning, e:
+        print(e)
+
+
+
+@inlineCallbacks
+def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipal):
+    proxyURL = proxyPrincipal.url()
+
+    subPrincipal = proxySubprincipal(principal, proxyType)
+    if subPrincipal is None:
+        raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
+            prettyPrincipal(principal)))
+
+    membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+
+    for memberURL in membersProperty.children:
+        if str(memberURL) == proxyURL:
+            raise ProxyWarning("%s is already a %s proxy for %s" % (
+                prettyPrincipal(proxyPrincipal), proxyType,
+                prettyPrincipal(principal)))
+
+    else:
+        memberURLs = list(membersProperty.children)
+        memberURLs.append(davxml.HRef(proxyURL))
+        membersProperty = davxml.GroupMemberSet(*memberURLs)
+        (yield subPrincipal.writeProperty(membersProperty, None))
+
+    proxyTypes = ["read", "write"]
+    proxyTypes.remove(proxyType)
+
+    (yield action_removeProxyPrincipal(rootResource, directory, store,
+        principal, proxyPrincipal, proxyTypes=proxyTypes))
+
+    # Schedule work the PeerConnectionPool will pick up as overdue
+    yield schedulePolledGroupCachingUpdate(store)
+
+
+
+@inlineCallbacks
+def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwargs):
+    removed = False
+    proxyTypes = kwargs.get("proxyTypes", ("read", "write"))
+    for proxyType in proxyTypes:
+        proxyURL = proxyPrincipal.url()
+
+        subPrincipal = proxySubprincipal(principal, proxyType)
+        if subPrincipal is None:
+            raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
+                prettyPrincipal(principal)))
+
+        membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+
+        memberURLs = [
+            m for m in membersProperty.children
+            if str(m) != proxyURL
+        ]
+
+        if len(memberURLs) == len(membersProperty.children):
+            # No change
+            continue
+        else:
+            removed = True
+
+        membersProperty = davxml.GroupMemberSet(*memberURLs)
+        (yield subPrincipal.writeProperty(membersProperty, None))
+
+    if removed:
+        # Schedule work the PeerConnectionPool will pick up as overdue
+        yield schedulePolledGroupCachingUpdate(store)
+    returnValue(removed)
+
+
+
+def prettyPrincipal(principal):
+    record = principal.record
+    return "\"%s\" (%s:%s)" % (record.fullName, record.recordType,
+        record.shortNames[0])
+
+
+
+class ProxyError(Exception):
+    """
+    Raised when proxy assignments cannot be performed
+    """
+
+
+
+class ProxyWarning(Exception):
+    """
+    Raised for harmless proxy assignment failures such as trying to add a
+    duplicate or remove a non-existent assignment.
+    """

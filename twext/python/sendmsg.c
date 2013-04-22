@@ -117,6 +117,7 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
     struct msghdr message_header;
     struct iovec iov[1];
     PyObject *ancillary = NULL;
+    PyObject *ultimate_result = NULL;
     static char *kwlist[] = {"fd", "data", "flags", "ancillary", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(
@@ -148,14 +149,14 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
             PyErr_Format(PyExc_TypeError,
                          "sendmsg argument 3 expected list, got %s",
                          ancillary->ob_type->tp_name);
-            return NULL;
+            goto finished;
         }
 
         PyObject *iterator = PyObject_GetIter(ancillary);
         PyObject *item = NULL;
 
         if (iterator == NULL) {
-            return NULL;
+            goto finished;
         }
 
         size_t all_data_len = 0;
@@ -172,7 +173,7 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
                         &level, &type, &data, &data_len)) {
                 Py_DECREF(item);
                 Py_DECREF(iterator);
-                return NULL;
+                goto finished;
             }
 
             prev_all_data_len = all_data_len;
@@ -185,7 +186,7 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
                 PyErr_Format(PyExc_OverflowError,
                              "Too much msg_control to fit in a size_t: %zu",
                              prev_all_data_len);
-                return NULL;
+                goto finished;
             }
         }
 
@@ -199,15 +200,13 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
                 PyErr_Format(PyExc_OverflowError,
                              "Too much msg_control to fit in a socklen_t: %zu",
                              all_data_len);
-                return NULL;
+                goto finished;
             }
             message_header.msg_control = malloc(all_data_len);
             if (!message_header.msg_control) {
                 PyErr_NoMemory();
-                return NULL;
+                goto finished;
             }
-        } else {
-            message_header.msg_control = NULL;
         }
         message_header.msg_controllen = (socklen_t) all_data_len;
 
@@ -215,8 +214,7 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
         item = NULL;
 
         if (!iterator) {
-            free(message_header.msg_control);
-            return NULL;
+            goto finished;
         }
 
         /* Unpack the tuples into the control message. */
@@ -239,8 +237,7 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
                                   &data_len)) {
                 Py_DECREF(item);
                 Py_DECREF(iterator);
-                free(message_header.msg_control);
-                return NULL;
+                goto finished;
             }
 
             control_message->cmsg_level = level;
@@ -250,12 +247,9 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
             if (data_size > SOCKLEN_MAX) {
                 Py_DECREF(item);
                 Py_DECREF(iterator);
-                free(message_header.msg_control);
-
                 PyErr_Format(PyExc_OverflowError,
                              "CMSG_LEN(%zd) > SOCKLEN_MAX", data_len);
-
-                return NULL;
+                goto finished;
             }
 
             control_message->cmsg_len = (socklen_t) data_size;
@@ -271,8 +265,7 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
         Py_DECREF(iterator);
 
         if (PyErr_Occurred()) {
-            free(message_header.msg_control);
-            return NULL;
+            goto finished;
         }
     }
 
@@ -280,13 +273,16 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
 
     if (sendmsg_result < 0) {
         PyErr_SetFromErrno(sendmsg_socket_error);
-        if (message_header.msg_control) {
-            free(message_header.msg_control);
-        }
-        return NULL;
+        goto finished;
+    } else {
+        ultimate_result = Py_BuildValue("n", sendmsg_result);
     }
 
-    return Py_BuildValue("n", sendmsg_result);
+  finished:
+    if (message_header.msg_control) {
+        free(message_header.msg_control);
+    }
+    return ultimate_result;
 }
 
 static PyObject *sendmsg_recvmsg(PyObject *self, PyObject *args, PyObject *keywds) {

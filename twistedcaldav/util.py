@@ -106,6 +106,37 @@ else:
     def getMemorySize():
         raise NotImplementedError("getMemorySize not yet supported on %s" % (sys.platform))
 
+
+def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
+    """
+    Determine how many process to spawn based on installed RAM and CPUs,
+    returning at least "mininum"
+    """
+
+    if cpuCount is None:
+        try:
+            cpuCount = getNCPU()
+        except NotImplementedError, e:
+            log.error("Unable to detect number of CPUs: %s" % (str(e),))
+            return minimum
+
+    if memSize is None:
+        try:
+            memSize = getMemorySize()
+        except NotImplementedError, e:
+            log.error("Unable to detect amount of installed RAM: %s" % (str(e),))
+            return minimum
+
+    countByCore = perCPU * cpuCount
+    countByMemory = perGB * (memSize / (1024 * 1024 * 1024))
+
+    # Pick the smaller of the two:
+    count = min(countByCore, countByMemory)
+
+    # ...but at least "minimum"
+    return max(count, minimum)
+
+
 ##
 # Module management
 ##
@@ -464,11 +495,6 @@ def normalizationLookup(cuaddr, principalFunction, config):
         # to single-quotes.
         fullName = rec.fullName.replace('"', "'")
 
-        # TODO: remove V1Compatibility when V1 migration is complete
-        if config.Scheduling.Options.V1Compatibility:
-            # Allow /principals-form CUA
-            cuas = principal.calendarUserAddresses()
-        else:
-            cuas = principal.record.calendarUserAddresses
+        cuas = principal.record.calendarUserAddresses
 
         return (fullName, rec.guid, cuas)

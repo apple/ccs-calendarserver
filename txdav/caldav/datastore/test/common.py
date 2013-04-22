@@ -536,7 +536,6 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(name, "/CalDAV/example.com/home1/")
 
 
-
     @inlineCallbacks
     def test_displayNameNone(self):
         """
@@ -1107,6 +1106,26 @@ class CommonTests(CommonCommonTests):
         self.assertEqual(sharedAfter[0].shareMode(), _BIND_MODE_WRITE)
         self.assertEqual(sharedAfter[0].viewerCalendarHome().uid(),
                          OTHER_HOME_UID)
+
+
+    @inlineCallbacks
+    def test_sharedNotifierID(self):
+        yield self.test_shareWith()
+        yield self.commit()
+
+        home = yield self.homeUnderTest()
+        self.assertEquals(home.notifierID(), "CalDAV|home1")
+        calendar = yield home.calendarWithName("calendar_1")
+        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
+        self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name=OTHER_HOME_UID)
+        self.assertEquals(home.notifierID(), "CalDAV|%s" % (OTHER_HOME_UID,))
+        calendar = yield home.calendarWithName(self.sharedName)
+        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
+        self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
+        yield self.commit()
 
 
     @inlineCallbacks

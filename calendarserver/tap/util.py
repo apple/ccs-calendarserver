@@ -68,7 +68,6 @@ from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
-from twistedcaldav.util import getMemorySize, getNCPU
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool, ConnectionPoolConnection
@@ -87,6 +86,7 @@ from txdav.base.datastore.subpostgres import PostgresService
 
 from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
+from calendarserver.tools.util import checkDirectory
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
 
@@ -652,6 +652,7 @@ def getRootResource(config, newStore, resources=None, directory=None):
             config.WebCalendarRoot,
             root,
             directory,
+            newStore,
             principalCollections=(principalCollection,),
         )
         root.putChild("admin", webAdmin)
@@ -764,35 +765,6 @@ def getDBPool(config):
     return (pool, txnFactory)
 
 
-
-def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
-    """
-    Determine how many process to spawn based on installed RAM and CPUs,
-    returning at least "mininum"
-    """
-
-    if cpuCount is None:
-        try:
-            cpuCount = getNCPU()
-        except NotImplementedError, e:
-            log.error("Unable to detect number of CPUs: %s" % (str(e),))
-            return minimum
-
-    if memSize is None:
-        try:
-            memSize = getMemorySize()
-        except NotImplementedError, e:
-            log.error("Unable to detect amount of installed RAM: %s" % (str(e),))
-            return minimum
-
-    countByCore = perCPU * cpuCount
-    countByMemory = perGB * (memSize / (1024 * 1024 * 1024))
-
-    # Pick the smaller of the two:
-    count = min(countByCore, countByMemory)
-
-    # ...but at least "minimum"
-    return max(count, minimum)
 
 
 
@@ -961,3 +933,59 @@ class MemoryLimitService(Service, object):
                         self._processMonitor.stopProcess(name)
         finally:
             self._delayedCall = self._reactor.callLater(self._seconds, self.checkMemory)
+
+
+def checkDirectories(config):
+    """
+    Make sure that various key directories exist (and create if needed)
+    """
+    
+    #
+    # Verify that server root actually exists
+    #
+    checkDirectory(
+        config.ServerRoot,
+        "Server root",
+        # Require write access because one might not allow editing on /
+        access=os.W_OK,
+        wait=True # Wait in a loop until ServerRoot exists
+    )
+
+    #
+    # Verify that other root paths are OK
+    #
+    if config.DataRoot.startswith(config.ServerRoot + os.sep):
+        checkDirectory(
+            config.DataRoot,
+            "Data root",
+            access=os.W_OK,
+            create=(0750, config.UserName, config.GroupName),
+        )
+    if config.DocumentRoot.startswith(config.DataRoot + os.sep):
+        checkDirectory(
+            config.DocumentRoot,
+            "Document root",
+            # Don't require write access because one might not allow editing on /
+            access=os.R_OK,
+            create=(0750, config.UserName, config.GroupName),
+        )
+    if config.ConfigRoot.startswith(config.ServerRoot + os.sep):
+        checkDirectory(
+            config.ConfigRoot,
+            "Config root",
+            access=os.W_OK,
+            create=(0750, config.UserName, config.GroupName),
+        )
+    # Always create  these:
+    checkDirectory(
+        config.LogRoot,
+        "Log root",
+        access=os.W_OK,
+        create=(0750, config.UserName, config.GroupName),
+    )
+    checkDirectory(
+        config.RunRoot,
+        "Run root",
+        access=os.W_OK,
+        create=(0770, config.UserName, config.GroupName),
+    )

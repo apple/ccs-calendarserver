@@ -19,7 +19,7 @@ from __future__ import with_statement
 import os
 import xattr
 
-from calendarserver.provision.root import RootResource
+from twistedcaldav.stdconfig import config
 
 from twisted.python.failure import Failure
 from twisted.internet.base import DelayedCall
@@ -34,7 +34,6 @@ from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import memcacher
 from twistedcaldav.bind import doBind
-from twistedcaldav.config import config
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.calendar import (
@@ -47,6 +46,8 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
 from txdav.common.datastore.test.util import deriveQuota
 from txdav.common.datastore.file import CommonDataStore
+
+from calendarserver.provision.root import RootResource
 
 from twext.python.log import Logger
 

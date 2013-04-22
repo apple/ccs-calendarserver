@@ -52,9 +52,10 @@ from twext.enterprise.dal.record import Record
 from twext.enterprise.queue import ConnectionFromPeerNode
 from twext.enterprise.fixtures import buildConnectionPool
 from zope.interface.verify import verifyObject
-from twisted.test.proto_helpers import StringTransport
+from twisted.test.proto_helpers import StringTransport, MemoryReactor
+from twext.enterprise.fixtures import SteppablePoolHelper
 
-from twext.enterprise.queue import _BaseQueuer
+from twext.enterprise.queue import _BaseQueuer, NonPerformingQueuer
 import twext.enterprise.queue
 
 class Clock(_Clock):
@@ -67,6 +68,16 @@ class Clock(_Clock):
         if _seconds < 0:
             raise ValueError("%s<0: "%(_seconds,))
         return super(Clock, self).callLater(_seconds, _f, *args, **kw)
+
+
+
+class MemoryReactorWithClock(MemoryReactor, Clock):
+    """
+    Simulate a real reactor.
+    """
+    def __init__(self):
+        MemoryReactor.__init__(self)
+        Clock.__init__(self)
 
 
 
@@ -210,7 +221,6 @@ class SchemaAMPTests(TestCase):
         client.callRemote(SampleCommand, table=schema.DUMMY_WORK_ITEM)
         server.dataReceived(clientT.io.getvalue())
         self.assertEqual(server.it, schema.DUMMY_WORK_ITEM)
-
 
 
 
@@ -467,6 +477,63 @@ class PeerConnectionPoolUnitTests(TestCase):
         self.assertIdentical(result, proposal)
 
 
+    def test_workerConnectionPoolPerformWork(self):
+        """
+        L{WorkerConnectionPool.performWork} performs work by selecting a
+        L{ConnectionFromWorker} and sending it a L{PerformWork} command.
+        """
+        clock = Clock()
+        peerPool = PeerConnectionPool(clock, None, 4322, schema)
+        factory = peerPool.workerListenerFactory()
+        def peer():
+            p = factory.buildProtocol(None)
+            t = StringTransport()
+            p.makeConnection(t)
+            return p, t
+        worker1, trans1 = peer()
+        worker2, trans2 = peer()
+        # Ask the worker to do something.
+        worker1.performWork(schema.DUMMY_WORK_ITEM, 1)
+        self.assertEquals(worker1.currentLoad, 1)
+        self.assertEquals(worker2.currentLoad, 0)
+
+        # Now ask the pool to do something
+        peerPool.workerPool.performWork(schema.DUMMY_WORK_ITEM, 2)
+        self.assertEquals(worker1.currentLoad, 1)
+        self.assertEquals(worker2.currentLoad, 1)
+
+
+    def test_poolStartServiceChecksForWork(self):
+        """
+        L{PeerConnectionPool.startService} kicks off the idle work-check loop.
+        """
+        reactor = MemoryReactorWithClock()
+        cph = SteppablePoolHelper(nodeSchema + schemaText)
+        then = datetime.datetime(2012, 12, 12, 12, 12, 0)
+        reactor.advance(astimestamp(then))
+        cph.setUp(self)
+        pcp = PeerConnectionPool(reactor, cph.pool.connection, 4321, schema)
+        now = then + datetime.timedelta(seconds=pcp.queueProcessTimeout * 2)
+        @transactionally(cph.pool.connection)
+        def createOldWork(txn):
+            one = DummyWorkItem.create(txn, workID=1, a=3, b=4, notBefore=then)
+            two = DummyWorkItem.create(txn, workID=2, a=7, b=9, notBefore=now)
+            return gatherResults([one, two])
+        pcp.startService()
+        cph.flushHolders()
+        reactor.advance(pcp.queueProcessTimeout * 2)
+        self.assertEquals(
+            cph.rows("select * from DUMMY_WORK_DONE"),
+            [(1, 7)]
+        )
+        cph.rows("delete from DUMMY_WORK_DONE")
+        reactor.advance(pcp.queueProcessTimeout * 2)
+        self.assertEquals(
+            cph.rows("select * from DUMMY_WORK_DONE"),
+            [(2, 16)]
+        )
+
+
 
 class HalfConnection(object):
     def __init__(self, protocol):
@@ -653,4 +720,15 @@ class BaseQueuerTests(TestCase):
         self.assertEqual(self.proposal, None)
         queuer.enqueueWork(None, None)
         self.assertNotEqual(self.proposal, None)
+
+
+class NonPerformingQueuerTests(TestCase):
+
+    @inlineCallbacks
+    def test_choosePerformer(self):
+        queuer = NonPerformingQueuer()
+        performer = queuer.choosePerformer()
+        result = (yield performer.performWork(None, None))
+        self.assertEquals(result, None)
+
 

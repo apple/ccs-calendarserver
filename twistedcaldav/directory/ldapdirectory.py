@@ -480,6 +480,11 @@ class LdapDirectoryService(CachingDirectoryService):
                 # Seen when using an empty password, treat as invalid creds
                 raise ldap.INVALID_CREDENTIALS()
 
+            except ldap.NO_SUCH_OBJECT:
+                self.log_error("LDAP Authentication error for %s: NO_SUCH_OBJECT"
+                    % (dn,))
+                # fall through to try again; could be transient
+
             except ldap.INVALID_CREDENTIALS:
                 raise
 
