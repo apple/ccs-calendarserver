@@ -1140,10 +1140,10 @@ class CommonTests(CommonCommonTests):
         self.assertFalse(result)
 
         result = (yield home.hasCalendarResourceUIDSomewhereElse("uid1", object, "schedule"))
-        self.assertFalse(result)
+        self.assertFalse(result is not None)
 
         result = (yield home.hasCalendarResourceUIDSomewhereElse("uid2", object, "schedule"))
-        self.assertTrue(result)
+        self.assertTrue(result is not None)
 
         # FIXME:  do this without legacy calls
         '''
@@ -1158,7 +1158,7 @@ class CommonTests(CommonCommonTests):
         result = (yield home.hasCalendarResourceUIDSomewhereElse(
             "uid2-5", object, "schedule"
         ))
-        self.assertFalse(result)
+        self.assertFalse(result is not None)
         '''
         yield None
 

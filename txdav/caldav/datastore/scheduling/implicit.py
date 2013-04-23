@@ -450,7 +450,7 @@ class ImplicitScheduler(object):
 
         # Check for matching resource somewhere else in the home
         foundElsewhere = (yield self.calendar_home.hasCalendarResourceUIDSomewhereElse(self.uid, check_resource, mode))
-        if foundElsewhere:
+        if foundElsewhere is not None:
             log.debug("Implicit - found component with same UID in a different collection: %s" % (check_resource,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,

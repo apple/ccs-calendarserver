@@ -72,7 +72,8 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     InvalidUIDError, UIDExistsError, ResourceDeletedError, \
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
     ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
-    InvalidComponentForStoreError, InvalidResourceMove, InvalidDefaultCalendar
+    InvalidComponentForStoreError, InvalidResourceMove, InvalidDefaultCalendar, \
+    UIDExistsElsewhereError
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -518,9 +519,9 @@ class CalendarHome(CommonHome):
                 continue
             matched_mode = ("schedule" if objectResource.isScheduleObject else "calendar")
             if mode == "schedule" or matched_mode == "schedule":
-                returnValue(True)
+                returnValue(objectResource)
 
-        returnValue(False)
+        returnValue(None)
 
 
     @inlineCallbacks
@@ -1950,8 +1951,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 # New UID must be unique for the owner - no need to do this on an overwrite as we can assume
                 # the store is already consistent in this regard
                 elsewhere = (yield self.calendar().ownerHome().hasCalendarResourceUIDSomewhereElse(new_uid, self, "schedule"))
-                if elsewhere:
-                    raise UIDExistsError("UID already exists.")
+                if elsewhere is not None:
+                    if elsewhere.calendar().id() == self.calendar().id():
+                        raise UIDExistsError("UID already exists in same calendar.")
+                    else:
+                        raise UIDExistsElsewhereError("UID already exists in different calendar: %s." % (elsewhere.calendar().name(),))
 
 
     def setComponent(self, component, inserting=False, smart_merge=False):

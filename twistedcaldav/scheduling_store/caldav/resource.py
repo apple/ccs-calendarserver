@@ -426,7 +426,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                     originator = originatorPrincipal.canonicalCalendarUserAddress()
 
         if not originator:
-            self.log_err("%s request must have Originator" % (self.method,))
+            self.log_error("%s request must have Originator" % (self.method,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "originator-specified"),
@@ -447,7 +447,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 unique_set.add(attendee)
 
         if not attendees:
-            self.log_err("POST request must have at least one ATTENDEE")
+            self.log_error("POST request must have at least one ATTENDEE")
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "recipient-specified"),

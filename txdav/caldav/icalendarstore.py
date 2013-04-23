@@ -153,7 +153,14 @@ class InvalidUIDError(CommonStoreError):
 
 class UIDExistsError(CommonStoreError):
     """
-    The UID of the component in a store operation exists in another calendar belonging to the owner.
+    The UID of the component in a store operation exists in the same calendar belonging to the owner.
+    """
+
+
+
+class UIDExistsElsewhereError(CommonStoreError):
+    """
+    The UID of the component in a store operation exists in different calendar belonging to the owner.
     """
 
 

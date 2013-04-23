@@ -335,16 +335,16 @@ class AggregateDirectoryService(DirectoryService):
             service.setRealm(realmName)
 
 
-    def setPrincipalService(self, principalService):
+    def setPrincipalCollection(self, principalCollection):
         """
         Set the principal service that the directory relies on for doing proxy tests.
 
         @param principalService: the principal service.
         @type principalService: L{DirectoryProvisioningResource}
         """
-        self.principalService = principalService
+        self.principalCollection = principalCollection
         for service in self._recordTypes.values():
-            service.setPrincipalService(principalService)
+            service.setPrincipalCollection(principalCollection)
 
 
 

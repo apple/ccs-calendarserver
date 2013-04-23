@@ -27,7 +27,8 @@ from txdav.common.icommondatastore import ObjectResourceTooBigError, \
     InvalidObjectResourceError
 from txdav.caldav.icalendarstore import InvalidComponentTypeError, \
     TooManyAttendeesError, InvalidCalendarAccessError, InvalidUIDError, \
-    UIDExistsError, ComponentUpdateState, InvalidComponentForStoreError
+    UIDExistsError, ComponentUpdateState, InvalidComponentForStoreError, \
+    UIDExistsElsewhereError
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 from txdav.caldav.datastore.test.util import buildCalendarStore
 
@@ -473,7 +474,7 @@ END:VCALENDAR
         home_collection = (yield self.homeUnderTest(name="user01"))
         calendar_collection_2 = (yield home_collection.createCalendarWithName("calendar_2"))
         calendar = Component.fromString(data2)
-        yield self.failUnlessFailure(calendar_collection_2.createCalendarObjectWithName("test2.ics", calendar), UIDExistsError)
+        yield self.failUnlessFailure(calendar_collection_2.createCalendarObjectWithName("test2.ics", calendar), UIDExistsElsewhereError)
         yield self.commit()
 
 

@@ -137,7 +137,7 @@ def generateFreeBusyInfo(
     organizer_uid = organizer_record.uid if organizer_record else ""
 
     # Free busy is per-user
-    useruid = calresource.ownerHome().uid()
+    useruid = calresource.viewerHome().uid()
     user_record = calresource.directoryService().recordWithUID(useruid)
 
     # Get the timezone property from the collection.

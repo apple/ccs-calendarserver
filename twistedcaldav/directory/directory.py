@@ -562,14 +562,14 @@ class DirectoryService(LoggingMixIn):
         raise NotImplementedError("Subclass must implement createRecords")
 
 
-    def setPrincipalService(self, principalService):
+    def setPrincipalCollection(self, principalCollection):
         """
         Set the principal service that the directory relies on for doing proxy tests.
 
         @param principalService: the principal service.
         @type principalService: L{DirectoryProvisioningResource}
         """
-        self.principalService = principalService
+        self.principalCollection = principalCollection
 
 
     def isProxyFor(self, test, other):
@@ -584,7 +584,7 @@ class DirectoryService(LoggingMixIn):
         @return: C{True} if test is a proxy of other.
         @rtype: C{bool}
         """
-        return self.principalService.proxyFor(self, other)
+        return self.principalCollection.isProxyFor(test, other)
 
 
 
@@ -1477,7 +1477,7 @@ class DirectoryRecord(LoggingMixIn):
         @return: C{True} if it is a proxy.
         @rtype: C{bool}
         """
-        return self.service.proxyFor(self, other)
+        return self.service.isProxyFor(self, other)
 
 
 

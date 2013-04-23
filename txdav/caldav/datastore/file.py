@@ -135,9 +135,9 @@ class CalendarHome(CommonHome):
                 continue
             matched_type = "schedule" if objectResource.isScheduleObject else "calendar"
             if type == "schedule" or matched_type == "schedule":
-                returnValue(True)
+                returnValue(objectResource)
 
-        returnValue(False)
+        returnValue(None)
 
 
     @inlineCallbacks

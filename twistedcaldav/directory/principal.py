@@ -275,7 +275,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         DirectoryProvisioningResource.__init__(self, url, directory)
 
         # FIXME: Smells like a hack
-        self.directory.principalCollection = self
+        self.directory.setPrincipalCollection(self)
 
         #
         # Create children
@@ -389,6 +389,29 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
     def principalCollections(self):
         return (self,)
+
+
+    ##
+    # Proxy callback from directory service
+    ##
+
+    def isProxyFor(self, record1, record2):
+        """
+        Test whether the principal identified by directory record1 is a proxy for the principal identified by
+        record2.
+
+        @param record1: directory record for a user
+        @type record1: L{DirectoryRecord}
+        @param record2: directory record to test with
+        @type record2: L{DirectoryRercord}
+
+        @return: C{True} if record1 is a proxy for record2, otherwise C{False}
+        @rtype: C{bool}
+        """
+
+        principal1 = self.principalForUID(record1.uid)
+        principal2 = self.principalForUID(record2.uid)
+        return principal1.isProxyFor(principal2)
 
 
 

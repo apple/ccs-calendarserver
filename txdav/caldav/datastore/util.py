@@ -219,7 +219,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
             mightConflict = yield outHome.hasCalendarResourceUIDSomewhereElse(
                 calendarObject.uid(), None, "schedule"
             )
-            if mightConflict:
+            if mightConflict is not None:
                 log.warn(
                     "Not migrating object %s/%s/%s due to potential conflict" %
                     (outHome.uid(), outCalendar.name(), calendarObject.name())

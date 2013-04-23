@@ -62,7 +62,7 @@ from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError, \
     UIDExistsError, InvalidUIDError, InvalidPerUserDataMerge, \
     AttendeeAllowedError, ResourceDeletedError, InvalidComponentForStoreError, \
-    InvalidResourceMove
+    InvalidResourceMove, UIDExistsElsewhereError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
     _BIND_MODE_DIRECT
 from txdav.common.icommondatastore import NoSuchObjectResourceError, \
@@ -2558,6 +2558,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         InvalidCalendarAccessError: (calendarserver_namespace, "valid-access-restriction"),
         ValidOrganizerError: (calendarserver_namespace, "valid-organizer"),
         UIDExistsError: NoUIDConflict(),
+        UIDExistsElsewhereError: (caldav_namespace, "unique-scheduling-object-resource"),
         InvalidUIDError: NoUIDConflict(),
         InvalidPerUserDataMerge: (caldav_namespace, "valid-calendar-data"),
         AttendeeAllowedError: (caldav_namespace, "attendee-allowed"),
