@@ -20,17 +20,39 @@ Address book store interfaces
 """
 
 from txdav.common.icommondatastore import ICommonTransaction, \
-    IShareableCollection
+    IShareableCollection, CommonStoreError
 from txdav.idav import INotifier
 from txdav.idav import IDataStoreObject
 
 __all__ = [
     # Classes
+    "GroupForSharedAddressBookDeleteNotAllowedError",
+    "GroupWithUnsharedAddressNotAllowedError",
+    "SharedGroupDeleteNotAllowedError",
     "IAddressBookTransaction",
     "IAddressBookHome",
     "IAddressBook",
     "IAddressBookObject",
 ]
+
+
+class GroupForSharedAddressBookDeleteNotAllowedError(CommonStoreError):
+    """
+    Sharee cannot delete the group for a shared address book.
+    """
+
+
+class GroupWithUnsharedAddressNotAllowedError(CommonStoreError):
+    """
+    Sharee cannot add unshared group members.
+    """
+
+
+class SharedGroupDeleteNotAllowedError(CommonStoreError):
+    """
+    Sharee cannot delete a shared group.
+    """
+
 
 class IAddressBookTransaction(ICommonTransaction):
     """
@@ -49,10 +71,10 @@ class IAddressBookTransaction(ICommonTransaction):
         """
 
 
-
 #
 # Interfaces
 #
+
 
 class IAddressBookHome(INotifier, IDataStoreObject):
     """

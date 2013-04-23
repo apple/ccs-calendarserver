@@ -196,7 +196,6 @@ class ObliterateService(Service, object):
         ca = schema.CALENDAR
         co = schema.CALENDAR_OBJECT
         ah = schema.ADDRESSBOOK_HOME
-        aa = schema.ADDRESSBOOK
         ao = schema.ADDRESSBOOK_OBJECT
         rp = schema.RESOURCE_PROPERTY
 
@@ -222,14 +221,8 @@ class ObliterateService(Service, object):
                                             From=ah,
                                             SetExpression=Union(
                                                 Select(
-                                                    [aa.RESOURCE_ID],
-                                                    From=aa,
-                                                    SetExpression=Union(
-                                                        Select(
-                                                            [ao.RESOURCE_ID],
-                                                            From=ao,
-                                                        ),
-                                                    ),
+                                                    [ao.RESOURCE_ID],
+                                                    From=ao,
                                                 ),
                                             ),
                                         ),

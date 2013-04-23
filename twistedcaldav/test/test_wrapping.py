@@ -33,7 +33,7 @@ from twistedcaldav.ical import Component as VComponent
 from twistedcaldav.vcard import Component as VCComponent
 
 from twistedcaldav.storebridge import DropboxCollection, \
-    CalendarCollectionResource, AddressBookCollectionResource
+    CalendarCollectionResource
 
 from twistedcaldav.test.util import TestCase
 
@@ -57,7 +57,10 @@ from txdav.carddav.iaddressbookstore import IAddressBookHome
 from twisted.internet.defer import maybeDeferred
 from txdav.caldav.datastore.file import Calendar
 
-
+def _todo(f, why):
+    f.todo = why
+    return f
+rewriteOrRemove = lambda f: _todo(f, "Rewrite or remove")
 
 class FakeChanRequest(object):
     code = 'request-not-finished'
@@ -489,24 +492,6 @@ class WrappingTests(TestCase):
         create a corresponding L{AddressBook} via C{AddressBookHome.addressbookWithName}.
         """
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/addressbook")
-        yield self.commit()
-        self.checkPrincipalCollections(calDavFile)
-
-
-    @inlineCallbacks
-    def test_lookupNewAddressBook(self):
-        """
-        When a L{CalDAVResource} which represents a not-yet-created addressbook
-        collection is looked up in a L{AddressBookHomeFile} representing a addressbook
-        home, it will initially have a new storage backend set to C{None}, but
-        when the addressbook is created via a protocol action, the backend will be
-        initialized to match.
-        """
-        calDavFile = yield self.getResource("addressbooks/users/wsanchez/frobozz")
-        self.assertIsInstance(calDavFile, AddressBookCollectionResource)
-        self.assertFalse(calDavFile.exists())
-        yield calDavFile.createAddressBookCollection()
-        self.assertTrue(calDavFile.exists())
         yield self.commit()
         self.checkPrincipalCollections(calDavFile)
 

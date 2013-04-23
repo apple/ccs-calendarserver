@@ -20,25 +20,31 @@ L{txdav.carddav.datastore.test.common}.
 """
 
 from twext.enterprise.dal.syntax import Select, Parameter
-from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+
 from twisted.trial import unittest
 
 from twistedcaldav import carddavxml
-
 from twistedcaldav.vcard import Component as VCard
 from twistedcaldav.vcard import Component as VComponent
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests,\
+from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests, \
     vcard4_text
 from txdav.carddav.datastore.test.test_file import setUpAddressBookStore
 from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE
-from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.sql_tables import  _ABO_KIND_PERSON, _ABO_KIND_GROUP, \
+    schema
 from txdav.common.datastore.test.util import buildStore
+from txdav.xml.rfc2518 import GETContentLanguage
 
+
+def _todo(f, why):
+    f.todo = why
+    return f
+fixMigration = lambda f: _todo(f, "fix migration to shared groups")
 
 class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     """
@@ -60,17 +66,17 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
                 home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
                 # We don't want the default addressbook to appear unless it's
                 # explicitly listed.
-                yield home.removeAddressBookWithName("addressbook")
-                for addressbookName in addressbooks:
-                    addressbookObjNames = addressbooks[addressbookName]
-                    if addressbookObjNames is not None:
-                        yield home.createAddressBookWithName(addressbookName)
-                        addressbook = yield home.addressbookWithName(addressbookName)
-                        for objectName in addressbookObjNames:
-                            objData = addressbookObjNames[objectName]
-                            yield addressbook.createAddressBookObjectWithName(
-                                objectName, VCard.fromString(objData)
-                            )
+                addressbookName = (yield home.addressbook()).name()
+                yield home.removeAddressBookWithName(addressbookName)
+                addressbook = yield home.addressbook()
+
+                addressbookObjNames = addressbooks[addressbookName]
+                if addressbookObjNames is not None:
+                    for objectName in addressbookObjNames:
+                        objData = addressbookObjNames[objectName]
+                        yield addressbook.createAddressBookObjectWithName(
+                            objectName, VCard.fromString(objData)
+                        )
 
         yield populateTxn.commit()
         self.notifierFactory.reset()
@@ -137,7 +143,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         database- backed addressbook.
         """
         fromAddressbook = yield self.fileTransaction().addressbookHomeWithUID(
-            "home1").addressbookWithName("addressbook_1")
+            "home1").addressbookWithName("addressbook")
         toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
             "new-home", create=True)
         toAddressbook = yield toHome.addressbookWithName("addressbook")
@@ -154,7 +160,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         is "bad" address data present in the file-backed addressbook.
         """
         fromAddressbook = yield self.fileTransaction().addressbookHomeWithUID(
-            "home_bad").addressbookWithName("addressbook_bad")
+            "home_bad").addressbookWithName("addressbook")
         toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
             "new-home", create=True)
         toAddressbook = yield toHome.addressbookWithName("addressbook")
@@ -165,6 +171,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
+    @fixMigration
     def test_migrateHomeFromFile(self):
         """
         L{migrateHome} will migrate an L{IAddressbookHome} provider from one
@@ -173,14 +180,12 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         """
         fromHome = yield self.fileTransaction().addressbookHomeWithUID("home1")
 
-        builtinProperties = [PropertyName.fromElement(ResourceType)]
-
         # Populate an arbitrary / unused dead properties so there's something
         # to verify against.
 
         key = PropertyName.fromElement(GETContentLanguage)
         fromHome.properties()[key] = GETContentLanguage("C")
-        (yield fromHome.addressbookWithName("addressbook_1")).properties()[
+        (yield fromHome.addressbookWithName("addressbook")).properties()[
             key] = (
             GETContentLanguage("pig-latin")
         )
@@ -196,9 +201,8 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         for c in fromAddressbooks:
             self.assertPropertiesSimilar(
                 c, (yield toHome.addressbookWithName(c.name())),
-                builtinProperties
             )
-        self.assertPropertiesSimilar(fromHome, toHome, builtinProperties)
+        self.assertPropertiesSimilar(fromHome, toHome,)
 
 
     def test_addressBookHomeVersion(self):
@@ -215,7 +219,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         version = yield txn.calendarserverValue("ADDRESSBOOK-DATAVERSION")[0][0]
         ch = schema.ADDRESSBOOK_HOME
         homeVersion = yield Select(
-            [ch.DATAVERSION,],
+            [ch.DATAVERSION, ],
             From=ch,
             Where=ch.OWNER_UID == "home_version",
         ).on(txn)[0][0]
@@ -249,7 +253,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
         @inlineCallbacks
         def _defer1():
-            yield adbk1.createObjectResourceWithName("1.vcf", VCard.fromString(
+            yield adbk1.createAddressBookObjectWithName("1.vcf", VCard.fromString(
                 """BEGIN:VCARD
 VERSION:3.0
 N:Thompson;Default1;;;
@@ -268,7 +272,7 @@ END:VCARD
 
         @inlineCallbacks
         def _defer2():
-            yield adbk2.createObjectResourceWithName("2.vcf", VCard.fromString(
+            yield adbk2.createAddressBookObjectWithName("2.vcf", VCard.fromString(
                 """BEGIN:VCARD
 VERSION:3.0
 N:Thompson;Default2;;;
@@ -289,27 +293,260 @@ END:VCARD
         yield d2
 
     @inlineCallbacks
+    def test_addressbookObjectUID(self):
+        """
+        Test that kind property UID is stored correctly in database
+        """
+        addressbookStore = yield buildStore(self, self.notifierFactory)
+
+        # Provision the home and addressbook, one user and one group
+        txn = addressbookStore.newTransaction()
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        self.assertNotEqual(home, None)
+        adbk = yield home.addressbookWithName("addressbook")
+        self.assertNotEqual(adbk, None)
+
+        person = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+N:Thompson;Default;;;
+FN:Default Thompson
+EMAIL;type=INTERNET;type=WORK;type=pref:lthompson@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+item1.ADR;type=WORK;type=pref:;;1245 Test;Sesame Street;California;11111;USA
+item1.X-ABADR:us
+UID:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        self.assertEqual(person.resourceUID(), "uid1")
+        abObject = yield adbk.createAddressBookObjectWithName("1.vcf", person)
+        self.assertEqual(abObject.uid(), "uid1")
+        yield txn.commit()
+
+        txn = addressbookStore.newTransaction()
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        adbk = yield home.addressbookWithName("addressbook")
+
+        abObject = yield adbk.objectResourceWithName("1.vcf")
+        person = yield abObject.component()
+        self.assertEqual(person.resourceUID(), "uid1")
+
+        yield home.removeAddressBookWithName("addressbook")
+
+        yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_addressbookObjectKind(self):
+        """
+        Test that kind property vCard is stored correctly in database
+        """
+        addressbookStore = yield buildStore(self, self.notifierFactory)
+
+        # Provision the home and addressbook, one user and one group
+        txn = addressbookStore.newTransaction()
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        self.assertNotEqual(home, None)
+        adbk = yield home.addressbookWithName("addressbook")
+        self.assertNotEqual(adbk, None)
+
+        person = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+N:Thompson;Default;;;
+FN:Default Thompson
+EMAIL;type=INTERNET;type=WORK;type=pref:lthompson@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+item1.ADR;type=WORK;type=pref:;;1245 Test;Sesame Street;California;11111;USA
+item1.X-ABADR:us
+UID:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        self.assertEqual(person.resourceKind(), None)
+        abObject = yield adbk.createAddressBookObjectWithName("p.vcf", person)
+        self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
+
+        group = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//AddressBook 6.1//EN
+UID:uid2
+FN:Top Group
+N:Top Group;;;;
+REV:20120503T194243Z
+X-ADDRESSBOOKSERVER-KIND:group
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        abObject = self.assertEqual(group.resourceKind(), "group")
+        abObject = yield adbk.createAddressBookObjectWithName("g.vcf", group)
+        self.assertEqual(abObject.kind(), _ABO_KIND_GROUP)
+
+        badgroup = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//AddressBook 6.1//EN
+UID:uid3
+FN:Bad Group
+N:Bad Group;;;;
+REV:20120503T194243Z
+X-ADDRESSBOOKSERVER-KIND:badgroup
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        abObject = self.assertEqual(badgroup.resourceKind(), "badgroup")
+        abObject = yield adbk.createAddressBookObjectWithName("bg.vcf", badgroup)
+        self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
+
+        yield txn.commit()
+
+        txn = addressbookStore.newTransaction()
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        adbk = yield home.addressbookWithName("addressbook")
+
+        abObject = yield adbk.objectResourceWithName("p.vcf")
+        person = yield abObject.component()
+        self.assertEqual(person.resourceKind(), None)
+        self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
+
+        abObject = yield adbk.objectResourceWithName("g.vcf")
+        group = yield abObject.component()
+        self.assertEqual(group.resourceKind(), "group")
+        self.assertEqual(abObject.kind(), _ABO_KIND_GROUP)
+
+        abObject = yield adbk.objectResourceWithName("bg.vcf")
+        badgroup = yield abObject.component()
+        self.assertEqual(badgroup.resourceKind(), "badgroup")
+        self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
+
+        yield home.removeAddressBookWithName("addressbook")
+        yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_addressbookObjectMembers(self):
+        """
+        Test that kind property vCard is stored correctly in database
+        """
+        addressbookStore = yield buildStore(self, self.notifierFactory)
+
+        # Provision the home and addressbook, one user and one group
+        txn = addressbookStore.newTransaction()
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        self.assertNotEqual(home, None)
+        adbk = yield home.addressbookWithName("addressbook")
+        self.assertNotEqual(adbk, None)
+
+        person = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+N:Thompson;Default;;;
+FN:Default Thompson
+EMAIL;type=INTERNET;type=WORK;type=pref:lthompson@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+item1.ADR;type=WORK;type=pref:;;1245 Test;Sesame Street;California;11111;USA
+item1.X-ABADR:us
+UID:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        self.assertEqual(person.resourceKind(), None)
+        personObject = yield adbk.createAddressBookObjectWithName("p.vcf", person)
+
+        group = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//AddressBook 6.1//EN
+UID:uid2
+FN:Top Group
+N:Top Group;;;;
+REV:20120503T194243Z
+X-ADDRESSBOOKSERVER-KIND:group
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid3
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        groupObject = yield adbk.createAddressBookObjectWithName("g.vcf", group)
+
+        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
+        aboMembers = schema.ABO_MEMBERS
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
+        self.assertEqual(memberRows, [])
+
+        foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
+        self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
+
+        subgroup = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//AddressBook 6.1//EN
+UID:uid3
+FN:Sub Group
+N:Sub Group;;;;
+REV:20120503T194243Z
+X-ADDRESSBOOKSERVER-KIND:group
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        subgroupObject = yield adbk.createAddressBookObjectWithName("sg.vcf", subgroup)
+
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
+        self.assertEqual(sorted(memberRows), sorted([
+                                                     [groupObject._resourceID, subgroupObject._resourceID],
+                                                     [subgroupObject._resourceID, personObject._resourceID],
+                                                    ]))
+
+        foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
+        self.assertEqual(foreignMemberRows, [])
+
+
+        yield adbk.removeAddressBookObjectWithName("sg.vcf")
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
+        self.assertEqual(memberRows, [])
+
+        foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers,
+                                                 #Where=(aboForeignMembers.GROUP_ID == groupObject._resourceID),
+                                                 ).on(txn)
+        self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
+
+        yield home.removeAddressBookWithName("addressbook")
+        yield txn.commit()
+
+
+
+    @inlineCallbacks
     def test_removeAddressBookPropertiesOnDelete(self):
         """
-        L{IAddressBookHome.removeAddressBookWithName} removes an address book that already
-        exists and makes sure properties are also removed.
+        L{IAddressBookHome.removeAddressBookWithName} clears an address book that already
+        exists and makes sure added properties are also removed.
         """
-
-        # Create address book and add a property
-        home = yield self.homeUnderTest()
-        name = "remove-me"
-        addressbook = yield home.createAddressBookWithName(name)
-        resourceID = addressbook._resourceID
-        addressbookProperties = addressbook.properties()
-        
-        prop = carddavxml.AddressBookDescription.fromString("Address Book to be removed")
-        addressbookProperties[PropertyName.fromElement(prop)] = prop
-        yield self.commit()
 
         prop = schema.RESOURCE_PROPERTY
         _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
                         From=prop,
                         Where=prop.RESOURCE_ID == Parameter("resourceID"))
+
+        # Create address book and add a property
+        home = yield self.homeUnderTest()
+        name = "addressbook"
+        addressbook = yield home.createAddressBookWithName(name)
+        resourceID = addressbook._resourceID
+
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 1)
+
+        addressbookProperties = addressbook.properties()
+        prop = carddavxml.AddressBookDescription.fromString("Address Book prop to be removed")
+        addressbookProperties[PropertyName.fromElement(prop)] = prop
+        yield self.commit()
 
         # Check that two properties are present
         home = yield self.homeUnderTest()
@@ -321,12 +558,12 @@ END:VCARD
         home = yield self.homeUnderTest()
         yield home.removeAddressBookWithName(name)
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
-        self.assertEqual(len(tuple(rows)), 0)
+        self.assertEqual(len(tuple(rows)), 1)
         yield self.commit()
 
         # Recheck it
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
-        self.assertEqual(len(tuple(rows)), 0)
+        self.assertEqual(len(tuple(rows)), 1)
         yield self.commit()
 
     @inlineCallbacks

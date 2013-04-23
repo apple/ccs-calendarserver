@@ -819,7 +819,7 @@ class StoreCalendarObjectResource(object):
         """
 
         # Only relevant if calendar is sharee collection
-        if self.destinationparent.isShareeCollection():
+        if self.destinationparent.isShareeResource():
 
             # Get all X-APPLE-DROPBOX's and ATTACH's that are http URIs
             xdropboxes = self.calendar.getAllPropertiesInAnyComponent(
@@ -888,7 +888,7 @@ class StoreCalendarObjectResource(object):
             return
 
         # Never add default alarms to calendar data in shared calendars
-        if self.destinationparent.isShareeCollection():
+        if self.destinationparent.isShareeResource():
             return
 
         # Add default alarm for VEVENT and VTODO only
@@ -907,7 +907,7 @@ class StoreCalendarObjectResource(object):
         # See if default exists and add using appropriate logic
         alarm = self.destinationparent.getDefaultAlarm(vevent, timed)
         if alarm and self.calendar.addAlarms(alarm):
-            self.dataChanged = True
+                self.dataChanged = True
 
 
     @inlineCallbacks
@@ -1036,8 +1036,8 @@ class StoreCalendarObjectResource(object):
             if do_implicit_action and self.allowImplicitSchedule:
 
                 # Cannot do implicit in sharee's shared calendar
-                isShareeCollection = self.destinationparent.isShareeCollection()
-                if isShareeCollection:
+                isShareeResource = self.destinationparent.isShareeResource()
+                if isShareeResource:
                     scheduler.setSchedulingNotAllowed(
                         HTTPError,
                         ErrorResponse(

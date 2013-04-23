@@ -42,7 +42,6 @@ from twistedcaldav import customxml, carddavxml, caldavxml
 from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin, \
     DisabledCacheNotifier
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
@@ -61,6 +60,8 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     AttachmentStoreValidManagedID, AttachmentRemoveFailed, \
     AttachmentDropboxNotAllowed
+from txdav.carddav.iaddressbookstore import GroupWithUnsharedAddressNotAllowedError, \
+    GroupForSharedAddressBookDeleteNotAllowedError, SharedGroupDeleteNotAllowedError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
     _BIND_MODE_DIRECT
 from txdav.common.icommondatastore import NoSuchObjectResourceError
@@ -139,7 +140,6 @@ class _NewStorePropertiesWrapper(object):
     def list(self):
         return [(pname.namespace, pname.name) for pname in
                 self._newPropertyStore.keys()]
-
 
 
 def requiresPermissions(*permissions, **kw):
@@ -266,7 +266,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
 
     def owner_url(self):
-        if self.isShareeCollection():
+        if self.isShareeResource():
             return joinURL(self._share.url(), "/")
         else:
             return self.url()
@@ -451,8 +451,8 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         """
 
         # Check sharee collection first
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        isShareeResource = self.isShareeResource()
+        if isShareeResource:
             log.debug("Removing shared collection %s" % (self,))
             yield self.removeShareeCollection(request)
             returnValue(NO_CONTENT)
@@ -1262,6 +1262,13 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         returnValue(result)
 
 
+    def resourceType(self,):
+        if self.hasDeadProperty((dav_namespace, "resourcetype")):
+            return super(CalendarCollectionResource, self).resourceType()
+        else:
+            return caldavxml.ResourceType.calendar
+
+
 
 class StoreScheduleInboxResource(_CalendarCollectionBehaviorMixin, _CommonHomeChildCollectionMixin, ScheduleInboxResource):
 
@@ -1739,7 +1746,7 @@ class AttachmentsCollection(_GetChildHelper):
         return davxml.ACL(*aces)
 
 
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None): #@UnusedVariable
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
@@ -2778,10 +2785,8 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     def isAddressBookCollection(self):
-        """
-        Yes, it is a calendar collection.
-        """
         return True
+
 
     createAddressBookCollection = _CommonHomeChildCollectionMixin.createCollection
 
@@ -2821,70 +2826,18 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         returnValue(storer.returndata if hasattr(storer, "returndata") else None)
 
 
-    @inlineCallbacks
-    def storeRemove(self, request, viaRequest, where):
-        """
-        Delete this collection resource, first deleting each contained
-        object resource.
-
-        This has to emulate the behavior in fileop.delete in that any errors
-        need to be reported back in a multistatus response.
-
-        @param request: The request used to locate child resources.  Note that
-            this is the request which I{triggered} the C{DELETE}, but which may
-            not actually be a C{DELETE} request itself.
-
-        @type request: L{twext.web2.iweb.IRequest}
-
-        @param viaRequest: Indicates if the delete was a direct result of an http_DELETE
-        which for calendars at least will require implicit cancels to be sent.
-
-        @type request: C{bool}
-
-        @param where: the URI at which the resource is being deleted.
-        @type where: C{str}
-
-        @return: an HTTP response suitable for sending to a client (or
-            including in a multi-status).
-
-        @rtype: something adaptable to L{twext.web2.iweb.IResponse}
-        """
-
-        # Not allowed to delete the default address book
-        default = (yield self.isDefaultAddressBook(request))
-        if default:
-            log.err("Cannot DELETE default address book: %s" % (self,))
-            raise HTTPError(ErrorResponse(
-                FORBIDDEN,
-                (carddav_namespace, "default-addressbook-delete-allowed",),
-                "Cannot delete default address book",
-            ))
-
-        response = (
-            yield super(AddressBookCollectionResource, self).storeRemove(
-                request, viaRequest, where
-            )
-        )
-
-        returnValue(response)
-
-
-    # FIXME: access control
-    @inlineCallbacks
     def http_MOVE(self, request):
         """
-        Moving an address book collection is allowed for the purposes of changing
-        that address book's name.
+        Addressbooks may not be renamed.
         """
-        defaultAddressBook = (yield self.isDefaultAddressBook(request))
+        return FORBIDDEN
 
-        result = (yield super(AddressBookCollectionResource, self).http_MOVE(request))
-        if result == NO_CONTENT:
-            destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
-            destination = yield request.locateResource(destinationURI)
-            yield self.movedAddressBook(request, defaultAddressBook,
-                               destination, destinationURI)
-        returnValue(result)
+
+    def resourceType(self,):
+        if self.hasDeadProperty((dav_namespace, "resourcetype")):
+            return super(AddressBookCollectionResource, self).resourceType()
+        else:
+            return carddavxml.ResourceType.addressbook
 
 
 
@@ -2929,6 +2882,117 @@ class AddressBookObjectResource(_CommonObjectResource):
             destinationadbk=True,
             vcard=component,
         )
+
+
+    @inlineCallbacks
+    def storeRemove(self, request, viaRequest, where):
+        """
+        Remove this address book object
+        """
+        # Handle sharing
+        wasShared = (yield self.isShared(request))
+        if wasShared:
+            yield self.downgradeFromShare(request)
+
+        response = (
+            yield super(AddressBookObjectResource, self).storeRemove(
+                request, viaRequest, where
+            )
+        )
+
+        returnValue(response)
+
+
+    @inlineCallbacks
+    def http_PUT(self, request):
+
+        try:
+            returnValue((yield super(AddressBookObjectResource, self).http_PUT(request)))
+
+        except GroupWithUnsharedAddressNotAllowedError:
+            raise HTTPError(StatusResponse(
+                FORBIDDEN,
+                "Sharee cannot add unshared group members",)
+            )
+
+    @inlineCallbacks
+    def http_DELETE(self, request):
+
+        try:
+            returnValue((yield super(AddressBookObjectResource, self).http_DELETE(request)))
+
+        except GroupForSharedAddressBookDeleteNotAllowedError:
+            raise HTTPError(StatusResponse(
+                FORBIDDEN,
+                "Sharee cannot delete the group for a shared address book",)
+            )
+
+        except SharedGroupDeleteNotAllowedError:
+            raise HTTPError(StatusResponse(
+                FORBIDDEN,
+                "Sharee cannot delete a shared group",)
+            )
+
+    @inlineCallbacks
+    def accessControlList(self, request, *a, **kw):
+        """
+        Return WebDAV ACLs appropriate for the current user accessing the
+        a vcard in a shared addressbook or shared group.
+        
+        Items in an "invite" share get read-onlly privileges.
+        (It's not clear if that case ever occurs)
+        
+        "direct" shares are not supported.
+
+        @param request: the request used to locate the owner resource.
+        @type request: L{twext.web2.iweb.IRequest}
+
+        @param args: The arguments for
+            L{twext.web2.dav.idav.IDAVResource.accessControlList}
+
+        @param kwargs: The keyword arguments for
+            L{twext.web2.dav.idav.IDAVResource.accessControlList}, plus
+            keyword-only arguments.
+
+        @return: the appropriate WebDAV ACL for the sharee
+        @rtype: L{davxml.ACL}
+        """
+        if not self.exists():
+            log.debug("Resource not found: %s" % (self,))
+            raise HTTPError(NOT_FOUND)
+
+        if self._newStoreObject.addressbook().owned():
+            returnValue((yield super(AddressBookObjectResource, self).accessControlList(request, *a, **kw)))
+
+        # Direct shares use underlying privileges of shared collection
+        userprivs = []
+        userprivs.append(davxml.Privilege(davxml.Read()))
+        userprivs.append(davxml.Privilege(davxml.ReadACL()))
+        userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
+
+        if (yield self._newStoreObject.readWriteAccess()):
+            userprivs.append(davxml.Privilege(davxml.Write()))
+        else:
+            userprivs.append(davxml.Privilege(davxml.WriteProperties()))
+
+        sharee = self.principalForUID(self._newStoreObject.viewerHome().uid())
+        aces = (
+            # Inheritable specific access for the resource's associated principal.
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(sharee.principalURL())),
+                davxml.Grant(*userprivs),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ),
+        )
+
+        # Give read access to config.ReadPrincipals
+        aces += config.ReadACEs
+
+        # Give all access to config.AdminPrincipals
+        aces += config.AdminACEs
+
+        returnValue(davxml.ACL(*aces))
 
 
 

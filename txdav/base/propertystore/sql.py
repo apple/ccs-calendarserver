@@ -292,10 +292,11 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
         prop, Where=(prop.RESOURCE_ID == Parameter("resourceID"))
     )
 
+    @inlineCallbacks
     def _removeResource(self):
 
         self._cached = {}
-        self._deleteResourceQuery.on(self._txn, resourceID=self._resourceID)
+        yield self._deleteResourceQuery.on(self._txn, resourceID=self._resourceID)
         self._cacher.delete(str(self._resourceID))
 
     @inlineCallbacks
@@ -316,7 +317,7 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
                 yield self._insertQuery.on(
                     self._txn, resourceID=self._resourceID, value=value_str,
                     name=key_str, uid=uid)
-                
+
 
         # Reload from the DB
         self._cached = {}

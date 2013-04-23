@@ -36,7 +36,7 @@ class StubProperty(object):
 class StubHome(object):
     def properties(self):
         return []
-    
+
     def addNotifier(self, notifier):
         pass
 
@@ -182,7 +182,7 @@ class DefaultAddressBook (TestCase):
         """
         Make calendar
         """
-        
+
 
         request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
@@ -211,7 +211,7 @@ class DefaultAddressBook (TestCase):
         """
         Make adbk
         """
-        
+
 
         request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
@@ -231,7 +231,7 @@ class DefaultAddressBook (TestCase):
             HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
         ))
         request._newStoreTransaction.commit()
-        
+
         # Delete the normal adbk
         request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
@@ -239,7 +239,7 @@ class DefaultAddressBook (TestCase):
         yield adbk.storeRemove(request, False, "/addressbooks/users/wsanchez/addressbook")
 
         home.removeDeadProperty(carddavxml.DefaultAddressBookURL)
-        
+
         # default property not present
         try:
             home.readDeadProperty(carddavxml.DefaultAddressBookURL)
@@ -267,7 +267,7 @@ class DefaultAddressBook (TestCase):
         """
         Make calendar
         """
-        
+
 
         request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
@@ -284,10 +284,10 @@ class DefaultAddressBook (TestCase):
             self.fail("carddavxml.DefaultAddressBookURL is not present")
         else:
             self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
-        
+
         # Force the new calendar to think it is a sharee collection
-        newadbk._isShareeCollection = True
-        
+        newadbk._isShareeResource = True
+
         try:
             default = yield home.readProperty(carddavxml.DefaultAddressBookURL, request)
         except HTTPError:

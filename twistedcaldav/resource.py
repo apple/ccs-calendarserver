@@ -57,8 +57,7 @@ from twext.web2.dav.http import ErrorResponse
 from twext.web2.http_headers import MimeType, ETag
 from twext.web2.stream import MemoryStream
 
-from twistedcaldav import caldavxml, customxml
-from twistedcaldav import carddavxml
+from twistedcaldav import caldavxml, customxml, carddavxml
 from twistedcaldav.cache import PropfindCacheMixin, DisabledCacheNotifier, \
     CacheStoreNotifier
 from twistedcaldav.caldavxml import caldav_namespace
@@ -76,7 +75,7 @@ from twistedcaldav.ical import Component
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
 from calendarserver.push.notifier import getPubSubAPSConfiguration
-from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
+from twistedcaldav.sharing import SharedResourceMixin, SharedHomeMixin
 from twistedcaldav.util import normalizationLookup
 from twistedcaldav.vcard import Component as vComponent
 
@@ -221,7 +220,7 @@ def updateCacheTokenOnCallback(f):
 
 
 class CalDAVResource (
-        CalDAVComplianceMixIn, SharedCollectionMixin,
+        CalDAVComplianceMixIn, SharedResourceMixin,
         DAVResourceWithChildrenMixin, DAVResource, LoggingMixIn
     ):
     """
@@ -583,7 +582,7 @@ class CalDAVResource (
                 if hasattr(self, "_newStoreObject"):
                     dataObject = getattr(self, "_newStoreObject")
                 if dataObject:
-                    label = "collection" if self.isShareeCollection() else "default"
+                    label = "collection" if self.isShareeResource() else "default"
                     nodeName = (yield dataObject.nodeName(label=label))
                     if nodeName:
                         propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
@@ -713,9 +712,9 @@ class CalDAVResource (
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
 
         elif qname == customxml.SharedURL.qname():
-            isShareeCollection = self.isShareeCollection()
+            isShareeResource = self.isShareeResource()
 
-            if isShareeCollection:
+            if isShareeResource:
                 returnValue(customxml.SharedURL(element.HRef.fromString(self._share.url())))
             else:
                 returnValue(None)
@@ -834,8 +833,8 @@ class CalDAVResource (
     def accessControlList(self, request, *args, **kwargs):
 
         acls = None
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        isShareeResource = self.isShareeResource()
+        if isShareeResource:
             acls = (yield self.shareeAccessControlList(request, *args, **kwargs))
 
         if acls is None:
@@ -891,8 +890,8 @@ class CalDAVResource (
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
 
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        isShareeResource = self.isShareeResource()
+        if isShareeResource:
             parent = (yield self.locateParent(request, self._share.url()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
@@ -908,8 +907,8 @@ class CalDAVResource (
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        isShareeResource = self.isShareeResource()
+        if isShareeResource:
             parent = (yield self.locateParent(request, self._share.url()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
@@ -1343,15 +1342,15 @@ class CalDAVResource (
         """
 
         sharedParent = None
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        isShareeResource = self.isShareeResource()
+        if isShareeResource:
             # A sharee collection's quota root is the resource owner's root
             sharedParent = (yield request.locateResource(parentForURL(self._share.url())))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if isCalendarCollectionResource(parent) or isAddressBookCollectionResource(parent):
-                isShareeCollection = parent.isShareeCollection()
-                if isShareeCollection:
+                isShareeResource = parent.isShareeResource()
+                if isShareeResource:
                     # A sharee collection's quota root is the resource owner's root
                     sharedParent = (yield request.locateResource(parentForURL(parent._share.url())))
 
@@ -2737,6 +2736,14 @@ class AddressBookHomeResource (CommonHomeResource):
     Address book home collection resource.
     """
 
+
+    def __init__(self, *args, **kw):
+        super(AddressBookHomeResource, self).__init__(*args, **kw)
+        # get some Access header items
+        self.http_MKCOL = None
+        self.http_MKCALENDAR = None
+        
+
     @classmethod
     @inlineCallbacks
     def homeFromTransaction(cls, transaction, uid):
@@ -2772,7 +2779,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if defaultAddressBookProperty and len(defaultAddressBookProperty.children) == 1:
                 defaultAddressBook = str(defaultAddressBookProperty.children[0])
                 adbk = (yield request.locateResource(str(defaultAddressBook)))
-                if adbk is not None and isAddressBookCollectionResource(adbk) and adbk.exists() and not adbk.isShareeCollection():
+                if adbk is not None and isAddressBookCollectionResource(adbk) and adbk.exists() and not adbk.isShareeResource():
                     returnValue(defaultAddressBookProperty)
 
             # Default is not valid - we have to try to pick one
@@ -2795,7 +2802,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if len(new_adbk) == 1:
                 adbkURI = str(new_adbk[0])
                 adbk = (yield request.locateResource(str(new_adbk[0])))
-            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk) or adbk.isShareeCollection():
+            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk) or adbk.isShareeResource():
                 # Validate that href's point to a valid addressbook.
                 raise HTTPError(ErrorResponse(
                     responsecode.CONFLICT,

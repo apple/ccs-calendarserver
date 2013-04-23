@@ -216,8 +216,8 @@ class SharingTests(HomeTestCase):
         self.assertEquals(rtype, regularCalendarType)
         isShared = (yield self.resource.isShared(None))
         self.assertFalse(isShared)
-        isShareeCollection = self.resource.isShareeCollection()
-        self.assertFalse(isShareeCollection)
+        isShareeResource = self.resource.isShareeResource()
+        self.assertFalse(isShareeResource)
 
         self.resource.upgradeToShare()
 
@@ -225,8 +225,8 @@ class SharingTests(HomeTestCase):
         self.assertEquals(rtype, sharedOwnerType)
         isShared = (yield self.resource.isShared(None))
         self.assertTrue(isShared)
-        isShareeCollection = self.resource.isShareeCollection()
-        self.assertFalse(isShareeCollection)
+        isShareeResource = self.resource.isShareeResource()
+        self.assertFalse(isShareeResource)
 
 
     @inlineCallbacks
@@ -238,8 +238,8 @@ class SharingTests(HomeTestCase):
         self.assertEquals(rtype, sharedOwnerType)
         isShared = (yield self.resource.isShared(None))
         self.assertTrue(isShared)
-        isShareeCollection = self.resource.isShareeCollection()
-        self.assertFalse(isShareeCollection)
+        isShareeResource = self.resource.isShareeResource()
+        self.assertFalse(isShareeResource)
 
         yield self.resource.downgradeFromShare(None)
 
@@ -247,8 +247,8 @@ class SharingTests(HomeTestCase):
         self.assertEquals(rtype, regularCalendarType)
         isShared = (yield self.resource.isShared(None))
         self.assertFalse(isShared)
-        isShareeCollection = self.resource.isShareeCollection()
-        self.assertFalse(isShareeCollection)
+        isShareeResource = self.resource.isShareeResource()
+        self.assertFalse(isShareeResource)
 
 
     @inlineCallbacks
@@ -279,8 +279,8 @@ class SharingTests(HomeTestCase):
 
         isShared = (yield self.resource.isShared(None))
         self.assertTrue(isShared)
-        isShareeCollection = self.resource.isShareeCollection()
-        self.assertFalse(isShareeCollection)
+        isShareeResource = self.resource.isShareeResource()
+        self.assertFalse(isShareeResource)
 
 
     @inlineCallbacks
@@ -309,8 +309,8 @@ class SharingTests(HomeTestCase):
 
         isShared = (yield self.resource.isShared(None))
         self.assertTrue(isShared)
-        isShareeCollection = (yield self.resource.isShareeCollection())
-        self.assertFalse(isShareeCollection)
+        isShareeResource = (yield self.resource.isShareeResource())
+        self.assertFalse(isShareeResource)
 
 
     @inlineCallbacks
@@ -734,7 +734,7 @@ class SharingTests(HomeTestCase):
     @inlineCallbacks
     def test_noWikiAccess(self):
         """
-        If L{SharedCollectionMixin.shareeAccessControlList} detects missing
+        If L{SharedResourceMixin.shareeAccessControlList} detects missing
         access controls for a directly shared collection, it will automatically
         un-share that collection.
         """

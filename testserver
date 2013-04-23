@@ -25,6 +25,8 @@ cdt="${wd}/../CalDAVTester";
 
 verbose="";
 serverinfo="${cdt}/scripts/server/serverinfo.xml";
+printres="";
+subdir="";
 
 usage ()
 {
@@ -32,19 +34,25 @@ usage ()
   echo "Usage: ${program} [-v] [-s serverinfo]";
   echo "Options:";
   echo "        -h  Print this help and exit";
+  echo "        -t  Set the CalDAVTester directory";
+  echo "        -d  Set the script subdirectory";
   echo "        -s  Set the serverinfo.xml";
+  echo "        -r  Print request and response";
   echo "        -v  Verbose.";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hvs:' option; do
+while getopts 'hvrt:s:d:' option; do
   case "$option" in 
     '?') usage; ;;
     'h') usage -; exit 0; ;;
+    't')   cdt="${OPTARG}"; serverinfo="${OPTARG}/scripts/server/serverinfo.xml"; ;;
+    'd')   subdir="--subdir ${OPTARG} "; ;;
     's')   serverinfo="${OPTARG}"; ;;
-    'v')      verbose="v"; ;;
+    'r')   printres="--always-print-request --always-print-response"; ;;
+    'v')   verbose="v"; ;;
   esac;
 done;
 
@@ -60,5 +68,5 @@ fi;
 
 source "${wd}/support/shell.sh";
 
-cd "${cdt}" && "${python}" testcaldav.py --print-details-onfail -s "${serverinfo}" "$@";
+cd "${cdt}" && "${python}" testcaldav.py --print-details-onfail ${printres} -s "${serverinfo}" "${subdir}""$@";
 
