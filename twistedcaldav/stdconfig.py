@@ -326,8 +326,8 @@ DEFAULT_CONFIG = {
     "ConfigRoot"              : "Config",
     "LogRoot"                 : "/var/log/caldavd",
     "RunRoot"                 : "/var/run/caldavd",
-    "WebCalendarRoot"         : "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd",
-
+    "WebCalendarRoot"         : "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd/webcal/public",
+    
     #
     # Quotas
     #
@@ -432,7 +432,7 @@ DEFAULT_CONFIG = {
         },
         "Wiki": {
             "Enabled": False,
-            "Cookie": "apple_webauth_token",
+            "Cookie": "cc.collabd_session_guid",
             "URL": "http://127.0.0.1:8089/RPC2",
             "UserMethod": "userForSession",
             "WikiMethod": "accessLevelForUserWikiCalendar",

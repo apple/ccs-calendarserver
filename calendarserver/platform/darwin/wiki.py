@@ -48,7 +48,7 @@ def usernameForAuthToken(token, host="localhost", port=80):
             (jsonResponse, str(e)))
         raise WebAuthError("Could not look up token: %s" % (token,))
     if response["succeeded"]:
-        returnValue(response["shortname"])
+        returnValue(response["shortName"])
     else:
         raise WebAuthError("Could not look up token: %s" % (token,))
 
