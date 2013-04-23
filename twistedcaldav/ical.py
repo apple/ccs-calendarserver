@@ -663,7 +663,7 @@ class Component (object):
         """
         result = Component(None, pycalendar=self._pycalendar.duplicate())
         if hasattr(self, "noInstanceIndexing"):
-            result.noInstanceIndexing = True
+            result.noInstanceIndexing = self.noInstanceIndexing
         return result
 
 

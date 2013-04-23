@@ -25,8 +25,6 @@ from twext.web2.http import HTTPError
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.method import report_common
-from twistedcaldav.resource import isCalendarCollectionResource
 
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser, \
     PartitionedCalendarUser, OtherServerCalendarUser
@@ -38,6 +36,8 @@ import hashlib
 import uuid
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.icalendarstore import ComponentUpdateState
+from txdav.caldav.datastore.scheduling.freebusy import processAvailabilityFreeBusy, \
+    generateFreeBusyInfo, buildFreeBusyResult
 
 
 """
@@ -223,18 +223,18 @@ class ScheduleViaCalDAV(DeliveryService):
     @inlineCallbacks
     def generateAttendeeFreeBusyResponse(self, recipient, organizerProp, organizerPrincipal, uid, attendeeProp, remote, event_details=None):
 
-        # Find the current recipients calendar-free-busy-set
-        fbset = (yield recipient.principal.calendarFreeBusyURIs(self.scheduler.request))
+        # Find the current recipients calendars that are not transparent
+        fbset = (yield recipient.inbox.ownerHome().loadCalendars())
+        fbset = [calendar for calendar in fbset if calendar.isUsedForFreeBusy()]
 
         # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
         fbinfo = ([], [], [])
 
         # Process the availability property from the Inbox.
-        has_prop = (yield recipient.inbox.hasProperty((calendarserver_namespace, "calendar-availability"), self.scheduler.request))
-        if has_prop:
-            availability = (yield recipient.inbox.readProperty((calendarserver_namespace, "calendar-availability"), self.scheduler.request))
+        availability = recipient.inbox.properties().get(PropertyName(calendarserver_namespace, "calendar-availability"))
+        if availability is not None:
             availability = availability.calendar()
-            report_common.processAvailabilityFreeBusy(availability, fbinfo, self.scheduler.timeRange)
+            processAvailabilityFreeBusy(availability, fbinfo, self.scheduler.timeRange)
 
         # Check to see if the recipient is the same calendar user as the organizer.
         # Needed for masked UID stuff.
@@ -245,18 +245,9 @@ class ScheduleViaCalDAV(DeliveryService):
 
         # Now process free-busy set calendars
         matchtotal = 0
-        for calendarResourceURL in fbset:
-            if not calendarResourceURL.endswith('/'):
-                calendarResourceURL += '/'
-            calendarResource = (yield self.scheduler.request.locateResource(calendarResourceURL))
-            if calendarResource is None or not calendarResource.exists() or not isCalendarCollectionResource(calendarResource):
-                # We will ignore missing calendars. If the recipient has failed to
-                # properly manage the free busy set that should not prevent us from working.
-                continue
-
-            matchtotal = (yield report_common.generateFreeBusyInfo(
-                self.scheduler.request,
-                calendarResource,
+        for calendar in fbset:
+            matchtotal = (yield generateFreeBusyInfo(
+                calendar,
                 fbinfo,
                 self.scheduler.timeRange,
                 matchtotal,
@@ -266,10 +257,11 @@ class ScheduleViaCalDAV(DeliveryService):
                 same_calendar_user=same_calendar_user,
                 servertoserver=remote,
                 event_details=event_details,
+                logItems=self.scheduler.logItems,
             ))
 
         # Build VFREEBUSY iTIP reply for this recipient
-        fbresult = report_common.buildFreeBusyResult(
+        fbresult = buildFreeBusyResult(
             fbinfo,
             self.scheduler.timeRange,
             organizer=organizerProp,

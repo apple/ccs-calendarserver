@@ -125,6 +125,10 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
         return "automatic"
 
 
+    def isProxyFor(self, other):
+        return False
+
+
 
 def buildDirectory(homes=None):
 

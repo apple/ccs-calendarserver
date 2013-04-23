@@ -23,9 +23,9 @@ from twext.web2.http import HTTPError
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
+from twistedcaldav.config import config
 
 from twistedcaldav.ical import Component
-import twistedcaldav.test.util
 
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
@@ -36,7 +36,6 @@ from txdav.common.datastore.test.util import CommonCommonTests, populateCalendar
 
 import hashlib
 import sys
-from twistedcaldav.config import config
 
 class FakeScheduler(object):
     """
@@ -69,7 +68,7 @@ class FakeCalendarHome(object):
 
 
 
-class Implicit (twistedcaldav.test.util.TestCase):
+class Implicit(TestCase):
     """
     iCalendar support tests
     """
@@ -872,9 +871,9 @@ END:VCALENDAR
 
 
 
-class ImplicitRequests (CommonCommonTests, TestCase):
+class ImplicitRequests(CommonCommonTests, TestCase):
     """
-    Test twistedcaldav.scheduyling.implicit with a Request object.
+    Test twistedcaldav.scheduling.implicit with a Request object.
     """
 
     @inlineCallbacks

@@ -272,6 +272,16 @@ class TimeRangeUpperLimit(Exception):
 
 
 
+class QueryMaxResources(CommonStoreError):
+    """
+    A query-based request for resources returned more resources than the server is willing to deal with in one go.
+    """
+
+    def __init__(self, limit, actual):
+        super(QueryMaxResources, self).__init__("Query result count limit (%s) exceeded: %s" % (limit, actual,))
+
+
+
 class ICalendarTransaction(ICommonTransaction):
     """
     Transaction functionality required to be implemented by calendar stores.

@@ -170,7 +170,7 @@ class Scheduler(object):
         # of data for all events with the same UID. So detect this and use a lock
         if calendar.resourceType() != "VFREEBUSY":
             uid = calendar.resourceUID()
-            yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(uid).hexdigest(),))
+            yield NamedLock.acquire(self.txn, "ImplicitUIDLock:%s" % (hashlib.md5(uid).hexdigest(),))
 
         result = (yield self.doSchedulingDirectly("POST", originator, recipients, calendar))
         returnValue(result)
@@ -234,11 +234,10 @@ class Scheduler(object):
 
     @inlineCallbacks
     def loadFromRequestData(self):
-        yield self.loadOriginatorFromRequestDetails()
+        self.loadOriginatorFromRequestDetails()
         self.loadRecipientsFromCalendarData()
 
 
-    @inlineCallbacks
     def loadOriginatorFromRequestDetails(self):
         # Get the originator who is the authenticated user
         originatorPrincipal = self.txn.directoryService().recordWithUID(self.originator_uid)

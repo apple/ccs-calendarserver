@@ -66,12 +66,12 @@ class CalDAVScheduler(Scheduler):
         self.doingPOST = False
 
 
-    def doSchedulingViaPOST(self):
+    def doSchedulingViaPOST(self, originator, recipients, calendar):
         """
         The Scheduling POST operation on an Outbox.
         """
         self.doingPOST = True
-        return super(CalDAVScheduler, self).doSchedulingViaPOST()
+        return super(CalDAVScheduler, self).doSchedulingViaPOST(originator, recipients, calendar)
 
 
     def checkAuthorization(self):

@@ -33,7 +33,6 @@ from twistedcaldav.ical import Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.memcacher import Memcacher
-from twistedcaldav.method import report_common
 
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestStatus
@@ -45,6 +44,8 @@ import uuid
 from txdav.caldav.icalendarstore import ComponentUpdateState, \
     ComponentRemoveState
 from twext.enterprise.locking import NamedLock
+from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 
 """
 CalDAV implicit processing.
@@ -550,8 +551,8 @@ class ImplicitProcessor(object):
 
                 # Let the store know that no time-range info has changed for a refresh (assuming that
                 # no auto-accept changes were made)
-                if hasattr(self.txn, "doing_attendee_refresh") and not send_reply:
-                    new_calendar.noInstanceIndexing = True
+                if hasattr(self.txn, "doing_attendee_refresh"):
+                    new_calendar.noInstanceIndexing = not send_reply
 
                 # Update the attendee's copy of the event
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
@@ -624,7 +625,7 @@ class ImplicitProcessor(object):
 
                     # Delete the attendee's copy of the event
                     log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - deleting entire event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                    yield self.deleteCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name)
+                    yield self.deleteCalendarResource(self.recipient_calendar_resource)
 
                     # Build the schedule-changes XML element
                     changes = customxml.ScheduleChanges(
@@ -672,50 +673,30 @@ class ImplicitProcessor(object):
         @return: L{Component} for the new calendar data to write
         """
 
-        # We need to get the UID lock for implicit processing whilst we send the auto-reply
-        # as the Organizer processing will attempt to write out data to other attendees to
-        # refresh them. To prevent a race we need a lock.
-        lock = MemcacheLock(
-            "ImplicitUIDLock",
-            calendar.resourceUID(),
-            timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
-            expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
-        )
+        # The original transaction is still around but likely committed at this point, so we need a brand new
+        # transaction to do this work.
+        txn = yield self.txn.store().newTransaction("Attendee (%s) auto-reply for UID: %s" % (self.recipient.cuaddr, self.uid,))
 
-        # Note that this lock also protects the request, as this request is
-        # being re-used by potentially multiple transactions and should not be
-        # used concurrency (the locateResource cache needs to be cleared each
-        # time, by inNewTransaction). -glyph
         try:
-            yield lock.acquire()
-        except MemcacheLockTimeoutError:
-            # Just try again to get the lock
-            reactor.callLater(2.0, self.sendAttendeeAutoReply, *(calendar, resource, partstat))
+            # We need to get the UID lock for implicit processing whilst we send the auto-reply
+            # as the Organizer processing will attempt to write out data to other attendees to
+            # refresh them. To prevent a race we need a lock.
+            yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5(calendar.resourceUID()).hexdigest(),))
+
+            # Send out a reply
+            log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
+            from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
+            scheduler = ImplicitScheduler()
+            yield scheduler.sendAttendeeReply(txn, resource, calendar, self.recipient)
+        except Exception, e:
+            log.debug("ImplicitProcessing - auto-reply exception UID: '%s', %s" % (self.uid, str(e)))
+            yield txn.abort()
+        except:
+            log.debug("ImplicitProcessing - auto-reply bare exception UID: '%s'" % (self.uid,))
+            yield txn.abort()
         else:
-            # inNewTransaction wipes out the remembered resource<-> URL mappings in the
-            # request object but we need to be able to map the actual reply resource to its
-            # URL when doing auto-processing, so we have to sneak that mapping back in here.
-            txn = yield resource.inNewTransaction(self.request, label="Send Attendee auto-reply")
-
-            try:
-                self.request._rememberResource(resource, resource._url)
-                # Send out a reply
-                log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
-                from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
-                scheduler = ImplicitScheduler()
-                yield scheduler.sendAttendeeReply(txn, resource, calendar, self.recipient)
-            except Exception, e:
-                log.debug("ImplicitProcessing - auto-reply exception UID: '%s', %s" % (self.uid, str(e)))
-                yield txn.abort()
-            except:
-                log.debug("ImplicitProcessing - auto-reply bare exception UID: '%s'" % (self.uid,))
-                yield txn.abort()
-            else:
-                yield txn.commit()
+            yield txn.commit()
         finally:
-            # This correctly gets called only after commit or abort is done
-            yield lock.clean()
-
             # Track outstanding auto-reply processing
             if hasattr(self.txn, "auto_reply_processing_count"):
                 self.txn.auto_reply_processing_count -= 1
@@ -748,7 +729,7 @@ class ImplicitProcessor(object):
 
         log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - checking for auto-reply with mode: %s" % (self.recipient.cuaddr, self.uid, automode,))
 
-        cuas = self.recipient.principal.calendarUserAddresses()
+        cuas = self.recipient.principal.calendarUserAddresses
 
         # First expand current one to get instances (only go 1 year into the future)
         default_future_expansion_duration = PyCalendarDuration(days=config.Scheduling.Options.AutoSchedule.FutureFreeBusyDays)
@@ -783,16 +764,15 @@ class ImplicitProcessor(object):
         uid = comp.propertyValue("UID")
 
         # Now compare each instance time-range with the index and see if there is an overlap
-        calendars = (yield self._getCalendarsToMatch())
+        fbset = (yield self.recipient.inbox.ownerHome().loadCalendars())
+        fbset = [fbcalendar for fbcalendar in fbset if fbcalendar.isUsedForFreeBusy()]
 
-        for calURL in calendars:
-            testcal = (yield self.request.locateResource(calURL))
+        for testcal in fbset:
 
             # Get the timezone property from the collection, and store in the query filter
             # for use during the query itself.
-            has_prop = (yield testcal.hasProperty((caldav_namespace, "calendar-timezone"), self.request))
-            if has_prop:
-                tz = (yield testcal.readProperty((caldav_namespace, "calendar-timezone"), self.request))
+            tz = testcal.properties().get(PropertyName(caldav_namespace, "calendar-timezone"))
+            if tz is not None:
                 tzinfo = tz.calendar().gettimezone()
             else:
                 tzinfo = PyCalendarTimezone(utc=True)
@@ -820,7 +800,7 @@ class ImplicitProcessor(object):
                             end=str(makeTimedUTC(instance.end)),
                         )
 
-                        yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid, servertoserver=True)
+                        yield generateFreeBusyInfo(testcal, fbinfo, tr, 0, uid, servertoserver=True)
 
                         # If any fbinfo entries exist we have an overlap
                         if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):
@@ -923,13 +903,6 @@ class ImplicitProcessor(object):
         returnValue((made_changes, store_inbox, partstat,))
 
 
-    def _getCalendarsToMatch(self):
-        # Determine the set of calendar URIs for a principal need to be searched.
-
-        # Find the current recipients calendar-free-busy-set
-        return self.recipient.principal.calendarFreeBusyURIs(self.request)
-
-
     @inlineCallbacks
     def writeCalendarResource(self, collection, resource, calendar):
         """
@@ -1030,8 +1003,8 @@ class ImplicitProcessor(object):
             raise ImplicitProcessorException("5.1;Service unavailable")
 
         # Locate the originator's copy of the event
-        calendar_resource, _ignore_name, _ignore_collection, _ignore_uri = (yield getCalendarObjectForRecord(self.txn, self.originator.principal, self.uid))
-        if not calendar_resource:
+        calendar_resource = (yield getCalendarObjectForRecord(self.txn, self.originator.principal, self.uid))
+        if calendar_resource is None:
             raise ImplicitProcessorException("5.1;Service unavailable")
         originator_calendar = (yield calendar_resource.componentForUser(self.originator.principal.uid))
 
@@ -1039,13 +1012,13 @@ class ImplicitProcessor(object):
         originator_calendar.attendeesView((self.recipient.cuaddr,))
 
         # Locate the attendee's copy of the event if it exists.
-        recipient_resource, recipient_resource_name, recipient_collection, recipient_collection_uri = (yield getCalendarObjectForRecord(self.txn, self.recipient.principal, self.uid))
+        recipient_resource = (yield getCalendarObjectForRecord(self.txn, self.recipient.principal, self.uid))
 
         # We only need to fix data that already exists
-        if recipient_resource:
+        if recipient_resource is not None:
             if originator_calendar.mainType() != None:
-                yield self.writeCalendarResource(recipient_collection_uri, recipient_collection, recipient_resource_name, originator_calendar)
+                yield self.writeCalendarResource(recipient_resource, originator_calendar)
             else:
-                yield self.deleteCalendarResource(recipient_collection_uri, recipient_collection, recipient_resource_name)
+                yield self.deleteCalendarResource(recipient_resource)
 
         returnValue(True)

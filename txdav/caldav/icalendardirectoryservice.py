@@ -122,3 +122,14 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @return: C{True} if automatically scheduled.
         @rtype: C{bool}
         """
+
+    def isProxyFor(other): #@NoSelf
+        """
+        Test whether the record is a calendar user proxy for the specified record.
+
+        @param other: record to test
+        @type other: L{IDirectoryRecord}
+
+        @return: C{True} if it is a proxy.
+        @rtype: C{bool}
+        """

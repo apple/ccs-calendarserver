@@ -1102,6 +1102,17 @@ class Calendar(CommonHomeChild):
         return self.name() == "inbox"
 
 
+    def isUsedForFreeBusy(self):
+        """
+        Indicates whether the contents of this calendar contributes to free busy.
+
+        @return: C{True} if it does, C{False} otherwise
+        @rtype: C{bool}
+        """
+        opaque = self.properties().get(PropertyName(*ScheduleCalendarTransp.qname()), ScheduleCalendarTransp(Opaque())) == ScheduleCalendarTransp(Opaque())
+        return opaque and not self.isInbox()
+
+
     def initPropertyStore(self, props):
         # Setup peruser special properties
         props.setSpecialProperties(
@@ -1573,7 +1584,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     authz = self.directoryService().recordWithUID(self._txn._authz_uid)
                     prop = Property("X-CALENDARSERVER-MODIFIED-BY", authz.canonicalCalendarUserAddress())
                     prop.setParameter("CN", authz.displayName())
-                    for candidate in authz.calendarUserAddresses():
+                    for candidate in authz.calendarUserAddresses:
                         if candidate.startswith("mailto:"):
                             prop.setParameter("EMAIL", candidate[7:])
                             break
@@ -2066,7 +2077,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # In some cases there is no need to remove/rebuild the instance index because we know no time or
         # freebusy related properties have changed (e.g. an attendee reply and refresh). In those cases
         # the component will have a special attribute present to let us know to suppress the instance indexing.
-        instanceIndexingRequired = not hasattr(component, "noInstanceIndexing") or inserting or reCreate
+        instanceIndexingRequired = not getattr(component, "noInstanceIndexing", False) or inserting or reCreate
 
         if instanceIndexingRequired:
 

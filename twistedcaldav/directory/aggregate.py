@@ -86,14 +86,17 @@ class AggregateDirectoryService(DirectoryService):
             "shortNames" : { },
         }
 
+
     def __repr__(self):
         return "<%s (%s): %r>" % (self.__class__.__name__, self.realmName, self._recordTypes)
+
 
     #
     # Define calendarHomesCollection as a property so we can set it on contained services
     #
     def _getCalendarHomesCollection(self):
         return self._calendarHomesCollection
+
 
     def _setCalendarHomesCollection(self, value):
         for service in self._recordTypes.values():
@@ -108,6 +111,7 @@ class AggregateDirectoryService(DirectoryService):
     def _getAddressBookHomesCollection(self):
         return self._addressBookHomesCollection
 
+
     def _setAddressBookHomesCollection(self, value):
         for service in self._recordTypes.values():
             service.addressBookHomesCollection = value
@@ -118,12 +122,14 @@ class AggregateDirectoryService(DirectoryService):
     def recordTypes(self):
         return set(self._recordTypes)
 
+
     def listRecords(self, recordType):
         records = self._query("listRecords", recordType)
         if records is None:
             return ()
         else:
             return records
+
 
     def recordWithShortName(self, recordType, shortName):
 
@@ -135,6 +141,7 @@ class AggregateDirectoryService(DirectoryService):
             return record
 
         return self._query("recordWithShortName", recordType, shortName)
+
 
     def recordWithUID(self, uid):
 
@@ -152,8 +159,10 @@ class AggregateDirectoryService(DirectoryService):
     def recordWithAuthID(self, authID):
         return self._queryAll("recordWithAuthID", authID)
 
+
     def recordWithCalendarUserAddress(self, address):
         return self._queryAll("recordWithCalendarUserAddress", address)
+
 
     def recordWithCachedGroupsAlias(self, recordType, alias):
         """
@@ -166,6 +175,7 @@ class AggregateDirectoryService(DirectoryService):
         """
         service = self.serviceForRecordType(recordType)
         return service.recordWithCachedGroupsAlias(recordType, alias)
+
 
     @inlineCallbacks
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
@@ -236,6 +246,7 @@ class AggregateDirectoryService(DirectoryService):
         except KeyError:
             raise UnknownRecordTypeError(recordType)
 
+
     def _query(self, query, recordType, *args):
         try:
             service = self.serviceForRecordType(recordType)
@@ -246,6 +257,7 @@ class AggregateDirectoryService(DirectoryService):
             recordType[len(service.recordTypePrefix):],
             *[a[len(service.recordTypePrefix):] for a in args]
         )
+
 
     def _queryAll(self, query, *args):
         for service in self._recordTypes.values():
@@ -258,6 +270,7 @@ class AggregateDirectoryService(DirectoryService):
         else:
             return None
 
+
     def flushCaches(self):
         for service in self._recordTypes.values():
             if hasattr(service, "_initCaches"):
@@ -266,11 +279,12 @@ class AggregateDirectoryService(DirectoryService):
     userRecordTypes = [DirectoryService.recordType_users]
 
     def requestAvatarId(self, credentials):
-        
+
         if credentials.authnPrincipal:
             return credentials.authnPrincipal.record.service.requestAvatarId(credentials)
-        
+
         raise UnauthorizedLogin("No such user: %s" % (credentials.credentials.username,))
+
 
     def getResourceInfo(self):
         results = []
@@ -295,6 +309,7 @@ class AggregateDirectoryService(DirectoryService):
             firstName=firstName, lastName=lastName,
             emailAddresses=emailAddresses, uid=uid, password=password, **kwargs)
 
+
     def updateRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
         uid=None, password=None, **kwargs):
@@ -305,9 +320,11 @@ class AggregateDirectoryService(DirectoryService):
             lastName=lastName, emailAddresses=emailAddresses, uid=uid,
             password=password, **kwargs)
 
+
     def destroyRecord(self, recordType, guid=None):
         service = self.serviceForRecordType(recordType)
         return service.destroyRecord(recordType, guid=guid)
+
 
     def setRealm(self, realmName):
         """
@@ -316,6 +333,20 @@ class AggregateDirectoryService(DirectoryService):
         self.realmName = realmName
         for service in self._recordTypes.values():
             service.setRealm(realmName)
+
+
+    def setPrincipalService(self, principalService):
+        """
+        Set the principal service that the directory relies on for doing proxy tests.
+
+        @param principalService: the principal service.
+        @type principalService: L{DirectoryProvisioningResource}
+        """
+        self.principalService = principalService
+        for service in self._recordTypes.values():
+            service.setPrincipalService(principalService)
+
+
 
 class DuplicateRecordTypeError(DirectoryError):
     """

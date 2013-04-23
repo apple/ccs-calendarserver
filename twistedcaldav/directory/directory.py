@@ -562,6 +562,31 @@ class DirectoryService(LoggingMixIn):
         raise NotImplementedError("Subclass must implement createRecords")
 
 
+    def setPrincipalService(self, principalService):
+        """
+        Set the principal service that the directory relies on for doing proxy tests.
+
+        @param principalService: the principal service.
+        @type principalService: L{DirectoryProvisioningResource}
+        """
+        self.principalService = principalService
+
+
+    def isProxyFor(self, test, other):
+        """
+        Test whether one record is a calendar user proxy for the specified record.
+
+        @param test: record to test
+        @type test: L{DirectoryRecord}
+        @param other: record to check against
+        @type other: L{DirectoryRecord}
+
+        @return: C{True} if test is a proxy of other.
+        @rtype: C{bool}
+        """
+        return self.principalService.proxyFor(self, other)
+
+
 
 class GroupMembershipCache(Memcacher, LoggingMixIn):
     """
@@ -1350,7 +1375,8 @@ class DirectoryRecord(LoggingMixIn):
 
     def autoAcceptFromOrganizer(self, organizer):
         if organizer is not None and self.autoAcceptGroup is not None:
-            organizerRecord = self.service.recordWithCalendarUserAddress(organizer)
+            service = self.service.aggregateService or self.service
+            organizerRecord = service.recordWithCalendarUserAddress(organizer)
             if organizerRecord is not None:
                 if organizerRecord.guid in self.autoAcceptMembers():
                     return True
@@ -1439,6 +1465,19 @@ class DirectoryRecord(LoggingMixIn):
                     self._cachedAutoAcceptMembers = [m.guid for m in groupRecord.expandedMembers()]
 
         return self._cachedAutoAcceptMembers
+
+
+    def isProxyFor(self, other):
+        """
+        Test whether the record is a calendar user proxy for the specified record.
+
+        @param other: record to test
+        @type other: L{DirectoryRecord}
+
+        @return: C{True} if it is a proxy.
+        @rtype: C{bool}
+        """
+        return self.service.proxyFor(self, other)
 
 
 

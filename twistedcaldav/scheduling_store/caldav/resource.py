@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.caldav.icalendarstore import InvalidDefaultCalendar
-from twisted.python.failure import Failure
 
 """
 CalDAV scheduling resources.
@@ -42,6 +40,7 @@ from twext.web2.dav.util import joinURL, normalizeURL
 from twext.web2.http import HTTPError
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.python.failure import Failure
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import caldav_namespace, Opaque, \
@@ -53,6 +52,7 @@ from twistedcaldav.resource import isCalendarCollectionResource
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
+from txdav.caldav.icalendarstore import InvalidDefaultCalendar
 from txdav.xml import element as davxml
 from txdav.xml.rfc2518 import HRef
 
@@ -374,7 +374,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
         calendar = (yield self.loadCalendarFromRequest(request))
         originator = (yield self.loadOriginatorFromRequestDetails(request))
-        recipients = self.loadRecipientsFromCalendarData()
+        recipients = self.loadRecipientsFromCalendarData(calendar)
 
         # This is a local CALDAV scheduling operation.
         scheduler = CalDAVScheduler(self._associatedTransaction, self.parent._newStoreHome.uid())
