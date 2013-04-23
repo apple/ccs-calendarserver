@@ -74,6 +74,8 @@ class ComponentUpdateState(Names):
                             iTIP message. Some validation and implicit scheduling is not done. Schedule-Tag
                             is changed.
 
+    ATTACHMENT_UPDATE     - change to a managed attachment that is re-writing calendar data.
+
     RAW                   - store the supplied data as-is without any processing or validation. This is used
                             for unit testing purposes only.
     """
@@ -82,12 +84,14 @@ class ComponentUpdateState(Names):
     INBOX = NamedConstant()
     ORGANIZER_ITIP_UPDATE = NamedConstant()
     ATTENDEE_ITIP_UPDATE = NamedConstant()
+    ATTACHMENT_UPDATE = NamedConstant()
     RAW = NamedConstant()
 
     NORMAL.description = "normal"
     INBOX.description = "inbox"
     ORGANIZER_ITIP_UPDATE.description = "organizer-update"
     ATTENDEE_ITIP_UPDATE.description = "attendee-update"
+    ATTACHMENT_UPDATE.description = "attachment-update"
     RAW.description = "raw"
 
 
@@ -210,6 +214,13 @@ class InvalidResourceMove(CommonStoreError):
 class InvalidDefaultCalendar(CommonStoreError):
     """
     Setting a default calendar failed.
+    """
+
+
+
+class InvalidAttachmentOperation(Exception):
+    """
+    Unable to store an attachment because some aspect of the request is invalid.
     """
 
 

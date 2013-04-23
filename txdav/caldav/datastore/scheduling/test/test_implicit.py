@@ -873,7 +873,7 @@ END:VCALENDAR
 
 class ImplicitRequests(CommonCommonTests, TestCase):
     """
-    Test twistedcaldav.scheduling.implicit with a Request object.
+    Test txdav.caldav.datastore.scheduling.implicit.
     """
 
     @inlineCallbacks

@@ -73,7 +73,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
     ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
     InvalidComponentForStoreError, InvalidResourceMove, InvalidDefaultCalendar, \
-    UIDExistsElsewhereError
+    UIDExistsElsewhereError, InvalidAttachmentOperation
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -1831,6 +1831,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         new_component = None
         did_implicit_action = False
 
+        is_internal = internal_state not in (ComponentUpdateState.NORMAL, ComponentUpdateState.ATTACHMENT_UPDATE,)
+
         # Do scheduling
         if not self.calendar().isInbox():
             scheduler = ImplicitScheduler()
@@ -1840,10 +1842,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 self.calendar(),
                 None if inserting else self,
                 component,
-                internal_request=(internal_state != ComponentUpdateState.NORMAL),
+                internal_request=is_internal,
             ))
 
-            if do_implicit_action and internal_state == ComponentUpdateState.NORMAL:
+            if do_implicit_action and not is_internal:
 
                 # Cannot do implicit in sharee's shared calendar
                 if not self.calendar().owned():
@@ -2817,7 +2819,36 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def addAttachment(self, rids, content_type, filename, stream, calendar):
+    def _checkValidManagedAttachmentChange(self):
+        """
+        Make sure a managed attachment add, update or remover operation is valid.
+        """
+
+        # Only allow organizers to manipulate managed attachments for now
+        calendar = (yield self.componentForUser())
+        scheduler = ImplicitScheduler()
+        is_attendee = (yield scheduler.testAttendeeEvent(self.calendar(), self, calendar,))
+        if is_attendee:
+            raise InvalidAttachmentOperation("Attendees are not allowed to manipulate managed attachments")
+
+
+    @inlineCallbacks
+    def addAttachment(self, rids, content_type, filename, stream):
+        """
+        Add a new managed attachment to this calendar object.
+
+        @param rids: list of recurrence-ids for components to add to, or C{None} to add to all.
+        @type rids: C{str} or C{None}
+        @param content_type: the MIME media type/subtype of the attachment
+        @type content_type: L{MimeType}
+        @param filename: the name for the attachment
+        @type filename: C{str}
+        @param stream: the stream to read attachment data from
+        @type stream: L{IStream}
+        """
+
+        # Check validity of request
+        yield self._checkValidManagedAttachmentChange()
 
         # First write the data stream
 
@@ -2836,8 +2867,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             self._dropboxID = str(uuid.uuid4())
         attachment._objectDropboxID = self._dropboxID
 
-        # Now try and adjust the actual calendar data
-        #calendar = (yield self.component())
+        # Now try and adjust the actual calendar data.
+        # NB We need a copy of the original calendar data as implicit scheduling will need to compare that to
+        # the original in order to detect changes that would case scheduling.
+        calendar = (yield self.componentForUser())
+        calendar = calendar.duplicate()
 
         attach, location = (yield attachment.attachProperty())
         if rids is None:
@@ -2846,14 +2880,29 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # TODO - per-recurrence attachments
             pass
 
-        # TODO: Here is where we want to store data implicitly - for now we have to let app layer deal with it
-        #yield self.setComponent(calendar)
+        # Here is where we want to store data implicitly
+        yield self._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTACHMENT_UPDATE)
 
         returnValue((attachment, location,))
 
 
     @inlineCallbacks
-    def updateAttachment(self, managed_id, content_type, filename, stream, calendar):
+    def updateAttachment(self, managed_id, content_type, filename, stream):
+        """
+        Update a managed attachment in this calendar object.
+
+        @param managed_id: the attachment's managed-id
+        @type managed_id: C{str}
+        @param content_type: the new MIME media type/subtype of the attachment
+        @type content_type: L{MIMEType}
+        @param filename: the new name for the attachment
+        @type filename: C{str}
+        @param stream: the stream to read new attachment data from
+        @type stream: L{IStream}
+        """
+
+        # Check validity of request
+        yield self._checkValidManagedAttachmentChange()
 
         # First check the supplied managed-id is associated with this resource
         cobjs = (yield ManagedAttachment.referencesTo(self._txn, managed_id))
@@ -2881,29 +2930,47 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             raise AttachmentStoreFailed
         yield t.loseConnection()
 
-        # Now try and adjust the actual calendar data
-        #calendar = (yield self.component())
+        # Now try and adjust the actual calendar data.
+        # NB We need a copy of the original calendar data as implicit scheduling will need to compare that to
+        # the original in order to detect changes that would case scheduling.
+        calendar = (yield self.componentForUser())
+        calendar = calendar.duplicate()
 
         attach, location = (yield attachment.attachProperty())
         calendar.replaceAllPropertiesWithParameterMatch(attach, "MANAGED-ID", managed_id)
 
-        # TODO: Here is where we want to store data implicitly - for now we have to let app layer deal with it
-        #yield self.setComponent(calendar)
+        # Here is where we want to store data implicitly
+        yield self._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTACHMENT_UPDATE)
 
         returnValue((attachment, location,))
 
 
     @inlineCallbacks
-    def removeAttachment(self, rids, managed_id, calendar):
+    def removeAttachment(self, rids, managed_id):
+        """
+        Remove a managed attachment from this calendar object.
+
+        @param rids: list of recurrence-ids for components to add to, or C{None} to add to all.
+        @type rids: C{str} or C{None}
+        @param managed_id: the attachment's managed-id
+        @type managed_id: C{str}
+        """
+
+        # Check validity of request
+        yield self._checkValidManagedAttachmentChange()
 
         # First check the supplied managed-id is associated with this resource
         cobjs = (yield ManagedAttachment.referencesTo(self._txn, managed_id))
         if self._resourceID not in cobjs:
             raise AttachmentStoreValidManagedID
 
-        # Now try and adjust the actual calendar data
+        # Now try and adjust the actual calendar data.
+        # NB We need a copy of the original calendar data as implicit scheduling will need to compare that to
+        # the original in order to detect changes that would case scheduling.
         all_removed = False
-        #calendar = (yield self.component())
+        calendar = (yield self.componentForUser())
+        calendar = calendar.duplicate()
+
         if rids is None:
             calendar.removeAllPropertiesWithParameterMatch("ATTACH", "MANAGED-ID", managed_id)
             all_removed = True
@@ -2911,8 +2978,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # TODO: per-recurrence removal
             pass
 
-        # TODO: Here is where we want to store data implicitly - for now we have to let app layer deal with it
-        #yield self.setComponent(calendar)
+        # Here is where we want to store data implicitly
+        yield self._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTACHMENT_UPDATE)
 
         # Remove it - this will take care of actually removing it from the store if there are
         # no more references to the attachment

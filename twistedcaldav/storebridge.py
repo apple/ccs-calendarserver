@@ -52,7 +52,6 @@ from twistedcaldav.notifications import NotificationCollectionResource, Notifica
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
     DefaultAlarmPropertyMixin
 from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
-from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
 from txdav.base.propertystore.base import PropertyName
@@ -62,7 +61,7 @@ from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError, \
     UIDExistsError, InvalidUIDError, InvalidPerUserDataMerge, \
     AttendeeAllowedError, ResourceDeletedError, InvalidComponentForStoreError, \
-    InvalidResourceMove, UIDExistsElsewhereError
+    InvalidResourceMove, UIDExistsElsewhereError, InvalidAttachmentOperation
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
     _BIND_MODE_DIRECT
 from txdav.common.icommondatastore import NoSuchObjectResourceError, \
@@ -2578,6 +2577,16 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         InvalidComponentTypeError: (caldav_namespace, "supported-component"),
     }
 
+    StoreAttachmentValidErrors = set((
+        AttachmentStoreFailed,
+        InvalidAttachmentOperation,
+    ))
+
+    StoreAttachmentExceptionsErrors = {
+        AttachmentStoreValidManagedID: (caldav_namespace, "valid-managed-id-parameter",),
+        AttachmentRemoveFailed: (caldav_namespace, "valid-attachment-remove",),
+    }
+
     @inlineCallbacks
     def http_PUT(self, request):
 
@@ -2783,105 +2792,77 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             "attachment-remove": "valid-attachment-remove",
         }
 
-        # Only allow organizers to manipulate managed attachments for now
-        calendar = (yield self.iCalendarForUser(request))
-        scheduler = ImplicitScheduler()
-        is_attendee = (yield scheduler.testAttendeeEvent(request, self, calendar,))
-        if is_attendee and action in valid_preconditions:
-            raise HTTPError(ErrorResponse(
-                FORBIDDEN,
-                (caldav_namespace, valid_preconditions[action],),
-                "Attendees are not allowed to manipulate managed attachments",
-            ))
-
         # Dispatch to store object
-        if action == "attachment-add":
+        try:
+            if action == "attachment-add":
+                rids = _getRIDs()
+                content_type, filename = _getContentInfo()
+                attachment, location = (yield self._newStoreObject.addAttachment(rids, content_type, filename, request.stream))
+                post_result = Response(CREATED)
 
-            # Add an attachment property
-            rids = _getRIDs()
-            content_type, filename = _getContentInfo()
-            try:
-                attachment, location = (yield self._newStoreObject.addAttachment(rids, content_type, filename, request.stream, calendar))
-            except AttachmentStoreFailed:
+            elif action == "attachment-update":
+                mid = _getMID()
+                content_type, filename = _getContentInfo()
+                attachment, location = (yield self._newStoreObject.updateAttachment(mid, content_type, filename, request.stream))
+                post_result = Response(NO_CONTENT)
+
+            elif action == "attachment-remove":
+                rids = _getRIDs()
+                mid = _getMID()
+                yield self._newStoreObject.removeAttachment(rids, mid)
+                post_result = Response(NO_CONTENT)
+
+            else:
                 raise HTTPError(ErrorResponse(
                     FORBIDDEN,
-                    (caldav_namespace, "valid-attachment-add",),
-                    "Could not store the supplied attachment",
-                ))
-            except QuotaExceeded:
-                raise HTTPError(ErrorResponse(
-                    INSUFFICIENT_STORAGE_SPACE,
-                    (dav_namespace, "quota-not-exceeded"),
-                    "Could not store the supplied attachment because user quota would be exceeded",
+                    (caldav_namespace, "valid-action-parameter",),
+                    "The action parameter in the request-URI is not valid",
                 ))
 
-            post_result = Response(CREATED)
-
-        elif action == "attachment-update":
-            mid = _getMID()
-            content_type, filename = _getContentInfo()
-            try:
-                attachment, location = (yield self._newStoreObject.updateAttachment(mid, content_type, filename, request.stream, calendar))
-            except AttachmentStoreValidManagedID:
-                raise HTTPError(ErrorResponse(
-                    FORBIDDEN,
-                    (caldav_namespace, "valid-managed-id-parameter",),
-                    "The managed-id parameter does not refer to an attachment in this calendar object resource",
-                ))
-            except AttachmentStoreFailed:
-                raise HTTPError(ErrorResponse(
-                    FORBIDDEN,
-                    (caldav_namespace, "valid-attachment-update",),
-                    "Could not store the supplied attachment",
-                ))
-            except QuotaExceeded:
-                raise HTTPError(ErrorResponse(
-                    INSUFFICIENT_STORAGE_SPACE,
-                    (dav_namespace, "quota-not-exceeded"),
-                    "Could not store the supplied attachment because user quota would be exceeded",
-                ))
-
-            post_result = Response(NO_CONTENT)
-
-        elif action == "attachment-remove":
-            rids = _getRIDs()
-            mid = _getMID()
-            try:
-                yield self._newStoreObject.removeAttachment(rids, mid, calendar)
-            except AttachmentStoreValidManagedID:
-                raise HTTPError(ErrorResponse(
-                    FORBIDDEN,
-                    (caldav_namespace, "valid-managed-id-parameter",),
-                    "The managed-id parameter does not refer to an attachment in this calendar object resource",
-                ))
-            except AttachmentRemoveFailed:
-                raise HTTPError(ErrorResponse(
-                    FORBIDDEN,
-                    (caldav_namespace, "valid-attachment-remove",),
-                    "Could not remove the specified attachment",
-                ))
-
-            post_result = Response(NO_CONTENT)
-
-        else:
+        except QuotaExceeded:
             raise HTTPError(ErrorResponse(
-                FORBIDDEN,
-                (caldav_namespace, "valid-action-parameter",),
-                "The action parameter in the request-URI is not valid",
+                INSUFFICIENT_STORAGE_SPACE,
+                (dav_namespace, "quota-not-exceeded"),
+                "Could not store the supplied attachment because user quota would be exceeded",
             ))
 
-        # TODO: The storing piece here should go away once we do implicit in the store
-        # Store new resource
-        parent = (yield request.locateResource(parentForURL(request.path)))
-        storer = self.storeResource(request, None, self, request.uri, parent, False, calendar, attachmentProcessingDone=True)
-        result = (yield storer.run())
+        # Map store exception to HTTP errors
+        except Exception as err:
+
+            if type(err) in self.StoreAttachmentValidErrors:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, valid_preconditions[action],),
+                    str(err),
+                ))
+
+            elif type(err) in self.StoreAttachmentExceptionsErrors:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    self.StoreAttachmentExceptionsErrors[type(err)],
+                    str(err),
+                ))
+
+            elif type(err) in self.StoreExceptionsStatusErrors:
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
+
+            elif type(err) in self.StoreExceptionsErrors:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    self.StoreExceptionsErrors[type(err)],
+                    str(err),
+                ))
+
+            else:
+                raise
 
         # Look for Prefer header
         prefer = request.headers.getHeader("prefer", {})
         returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
-        if returnRepresentation and result.code / 100 == 2:
+        if returnRepresentation:
             result = (yield self.render(request))
             result.code = OK
+            result.headers.removeHeader("content-location")
             result.headers.setHeader("content-location", request.path)
         else:
             result = post_result
