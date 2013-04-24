@@ -14,28 +14,24 @@
 # limitations under the License.
 ##
 
-import os
-
 from twisted.internet.defer import inlineCallbacks
-from twistedcaldav.test.util import TestCase
-from twistedcaldav.test.util import xmlFile
-from txdav.common.datastore.test.util import buildStore
-from calendarserver.tap.util import getRootResource
-from twistedcaldav.config import config
+from twisted.trial import unittest
+
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
+from txdav.common.datastore.test.util import buildStore
+
+import os
 
 
-class MailGatewayTokenDBTests(TestCase):
+class MailGatewayTokenDBTests(unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
         super(MailGatewayTokenDBTests, self).setUp()
 
         self.store = yield buildStore(self, None)
-        self.patch(config.DirectoryService.params, "xmlFile", xmlFile)
-        self.root = getRootResource(config, self.store)
-        self.directory = self.root.getDirectory()
+        self.directory = self.store.directoryService()
 
 
     @inlineCallbacks

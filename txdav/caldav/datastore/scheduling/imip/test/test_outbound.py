@@ -16,21 +16,24 @@
 from __future__ import print_function
 
 from cStringIO import StringIO
-import os
 
-import email
 from pycalendar.datetime import PyCalendarDateTime
+
 from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.trial import unittest
 from twisted.web.template import Element, renderer, flattenString
+
 from twistedcaldav.config import config
-from twistedcaldav.directory import augment
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.ical import Component
+
 from txdav.caldav.datastore.scheduling.imip.outbound import IMIPInvitationWork
 from txdav.caldav.datastore.scheduling.imip.outbound import MailSender
 from txdav.caldav.datastore.scheduling.imip.outbound import StringFormatTemplateLoader
-from twistedcaldav.test.util import TestCase, xmlFile, augmentsFile
 from txdav.common.datastore.test.util import buildStore
+
+import email
+import os
+
 
 initialInviteText = u"""BEGIN:VCALENDAR
 VERSION:2.0
@@ -84,18 +87,12 @@ class DummySMTPSender(object):
 
 
 
-class OutboundTests(TestCase):
+class OutboundTests(unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
         self.store = yield buildStore(self, None)
-        self.directory = XMLDirectoryService(
-            {
-                'xmlFile' : xmlFile,
-                'augmentService' :
-                    augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
-            }
-        )
+        self.directory = self.store.directoryService()
         self.sender = MailSender("server@example.com", 7, DummySMTPSender(),
             language="en")
 

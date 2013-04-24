@@ -182,6 +182,7 @@ class ImplicitCalendar(FancyEqMixin,
     def _createCalendarObjectWithNameInternal(self, name, component, internal_state, options=None):
         return self.createCalendarObjectWithName(name, component, options)
 
+
     def setSupportedComponents(self, supported_components):
         """
         Update the database column with the supported components. Technically this should only happen once

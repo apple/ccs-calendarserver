@@ -597,7 +597,7 @@ class RemoteScheduler(Scheduler):
         results = []
         for recipient in self.recipients:
             # Get the principal resource for this recipient
-            principal = self.txn.directoryService.recordWithCalendarUserAddress(recipient)
+            principal = self.txn.directoryService().recordWithCalendarUserAddress(recipient)
 
             # If no principal we may have a remote recipient but we should check whether
             # the address is one that ought to be on our server and treat that as a missing

@@ -18,21 +18,15 @@
 Tests for calendarserver.tools.purge
 """
 
-from calendarserver.tap.util import getRootResource, directoryFromConfig
-
 from pycalendar.datetime import PyCalendarDateTime
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
 
-from twistedcaldav.config import config
-
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
 from txdav.caldav.datastore.test.util import buildCalendarStore, \
     buildDirectoryRecord
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
-
-import os
 
 
 now = PyCalendarDateTime.getToday().getYear()
@@ -111,22 +105,10 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
 
-        self.patch(config.DirectoryService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "accounts.xml"
-            )
-        )
-        self.patch(config.ResourceService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "resources.xml"
-            )
-        )
-
         yield super(RecipientCopy, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory, directoryFromConfig(config))
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
-        self.rootResource = getRootResource(config, self._sqlCalendarStore)
         self.directory = self._sqlCalendarStore.directoryService()
 
 

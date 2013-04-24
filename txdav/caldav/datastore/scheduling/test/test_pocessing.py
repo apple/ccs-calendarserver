@@ -15,13 +15,14 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks
+from twisted.trial import unittest
 
-from twistedcaldav.config import config
+from twistedcaldav import memcacher
 from twistedcaldav.ical import Component
+from twistedcaldav.stdconfig import config
 
 from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor
 
-import twistedcaldav.test.util
 
 class FakeImplicitProcessor(ImplicitProcessor):
     """
@@ -48,10 +49,18 @@ class FakePrincipal(object):
 
 
 
-class BatchRefresh (twistedcaldav.test.util.TestCase):
+class BatchRefresh (unittest.TestCase):
     """
     iCalendar support tests
     """
+
+    def setUp(self):
+        super(BatchRefresh, self).setUp()
+        config.Memcached.Pools.Default.ClientEnabled = False
+        config.Memcached.Pools.Default.ServerEnabled = False
+        memcacher.Memcacher.allowTestCache = True
+        memcacher.Memcacher.memoryCacheInstance = None
+
 
     @inlineCallbacks
     def test_queueAttendeeUpdate_no_refresh(self):

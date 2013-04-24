@@ -15,7 +15,10 @@
 ##
 
 from twext.web2 import responsecode
+
 from twisted.internet.defer import inlineCallbacks
+from twisted.trial import unittest
+
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 
@@ -24,9 +27,7 @@ from txdav.caldav.datastore.scheduling.imip.delivery import ScheduleViaIMip
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
 
-import twistedcaldav.test.util
-
-class iMIPProcessing (twistedcaldav.test.util.TestCase):
+class iMIPProcessing (unittest.TestCase):
     """
     iCalendar support tests
     """

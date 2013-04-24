@@ -15,15 +15,11 @@
 ##
 
 
-from calendarserver.tap.util import getRootResource, directoryFromConfig
-
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.modules import getModule
 
-from twistedcaldav.config import config, ConfigDict
+from twistedcaldav.config import ConfigDict
 from twistedcaldav.ical import Component
-from twistedcaldav.test.util import TestCase
-from twistedcaldav.test.util import xmlFile
 
 from txdav.caldav.datastore.scheduling.imip.inbound import IMIPReplyWork
 from txdav.caldav.datastore.scheduling.imip.inbound import MailReceiver
@@ -33,17 +29,16 @@ from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.datastore.test.util import buildCalendarStore
 
 import email
+from twisted.trial import unittest
 
 
-class InboundTests(TestCase):
+class InboundTests(unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
         super(InboundTests, self).setUp()
 
-        self.patch(config.DirectoryService.params, "xmlFile", xmlFile)
-        self.store = yield buildCalendarStore(self, None, directoryFromConfig(config))
-        self.root = getRootResource(config, self.store)
+        self.store = yield buildCalendarStore(self, None)
         self.directory = self.store.directoryService()
         self.receiver = MailReceiver(self.store, self.directory)
         self.retriever = MailRetriever(self.store, self.directory,
@@ -56,7 +51,6 @@ class InboundTests(TestCase):
         )
 
         def decorateTransaction(txn):
-            txn._rootResource = self.root
             txn._mailRetriever = self.retriever
 
         self.store.callWithNewTransactions(decorateTransaction)
@@ -295,7 +289,6 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         result = (yield injectMessage(
                 txn,
-                self.root,
                 "urn:uuid:user01",
                 "mailto:xyzzy@example.com",
                 calendar
@@ -329,7 +322,6 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         result = (yield injectMessage(
                 txn,
-                self.root,
                 "urn:uuid:unknown_user",
                 "mailto:xyzzy@example.com",
                 calendar

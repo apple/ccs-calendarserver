@@ -18,15 +18,16 @@ from __future__ import print_function
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 
+from twisted.trial import unittest
+
 from twistedcaldav.ical import Component
 
 from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTipGenerator
 
 import os
 
-import twistedcaldav.test.util
 
-class iTIPProcessing (twistedcaldav.test.util.TestCase):
+class iTIPProcessing (unittest.TestCase):
     """
     iCalendar support tests
     """
@@ -1605,7 +1606,7 @@ END:VCALENDAR
 
 
 
-class iTIPGenerator (twistedcaldav.test.util.TestCase):
+class iTIPGenerator (unittest.TestCase):
     """
     iCalendar support tests
     """

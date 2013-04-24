@@ -26,7 +26,6 @@ from twext.web2.http import HTTPError
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.directory.util import transactionFromRequest
 from txdav.caldav.datastore.scheduling.delivery import DeliveryService
 from txdav.caldav.datastore.scheduling.imip.outbound import IMIPInvitationWork
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
@@ -100,7 +99,7 @@ class ScheduleViaIMip(DeliveryService):
 
                     fromAddr = str(self.scheduler.originator.cuaddr)
 
-                    txn = transactionFromRequest(self.scheduler.request, self.scheduler.request._newStoreTransaction.store)
+                    txn = yield self.scheduler.txn.store().newTransaction("Submitting iMIP message for UID: %s" % (self.scheduler.calendar.resourceUID(),))
                     log.debug("Submitting iMIP message...  To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, caldata,))
                     yield txn.enqueue(IMIPInvitationWork, fromAddr=fromAddr, toAddr=toAddr, icalendarText=caldata)
 

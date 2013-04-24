@@ -17,25 +17,29 @@
 """
 Inbound IMIP mail handling for Calendar Server
 """
-import datetime
-from calendarserver.tap.util import FakeRequest
-import email.utils
+
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.queue import WorkItem
+from twext.internet.gaiendpoint import GAIEndpoint
 from twext.python.log import Logger, LoggingMixIn
+
 from twisted.application import service
 from twisted.internet import protocol, defer, ssl
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.mail import pop3client, imap4
 from twisted.mail.smtp import messageid
+
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property, Component
+
 from txdav.caldav.datastore.scheduling.imip.scheduler import IMIPScheduler
 from txdav.caldav.datastore.scheduling.imip.smtpsender import SMTPSender
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.common.datastore.sql_tables import schema
-from twext.internet.gaiendpoint import GAIEndpoint
+
+import datetime
+import email.utils
 
 
 log = Logger()
@@ -72,10 +76,8 @@ class IMIPReplyWork(WorkItem, fromTable(schema.IMIP_REPLY_WORK)):
 
     @inlineCallbacks
     def doWork(self):
-        rootResource = self.transaction._rootResource
         calendar = Component.fromString(self.icalendarText)
-        yield injectMessage(self.transaction, rootResource, self.organizer, self.attendee,
-            calendar)
+        yield injectMessage(self.transaction, self.organizer, self.attendee, calendar)
 
 
 
@@ -389,19 +391,12 @@ class MailReceiver(object):
 
 
 @inlineCallbacks
-def injectMessage(txn, root, organizer, attendee, calendar):
-
-    request = FakeRequest(root, None, "/", transaction=txn)
-    resource = root.getChild("principals")
-    scheduler = IMIPScheduler(request, resource)
-    scheduler.originator = attendee
-    scheduler.recipients = [organizer, ]
-    scheduler.calendar = calendar
+def injectMessage(txn, organizer, attendee, calendar):
 
     try:
-        results = (yield scheduler.doScheduling())
-        log.info("Successfully injected iMIP response from %s to %s" %
-            (attendee, organizer))
+        scheduler = IMIPScheduler(txn, None)
+        results = (yield scheduler.doSchedulingDirectly("iMIP", attendee, [organizer, ], calendar,))
+        log.info("Successfully injected iMIP response from %s to %s" % (attendee, organizer))
     except Exception, e:
         log.error("Failed to inject iMIP response (%s)" % (e,))
         raise

@@ -16,9 +16,10 @@
 
 from difflib import unified_diff
 
-from twistedcaldav.config import config
+from twisted.trial import unittest
+
+from twistedcaldav.stdconfig import config
 from twistedcaldav.ical import Component
-import twistedcaldav.test.util
 
 from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 
@@ -26,7 +27,7 @@ import itertools
 import re
 
 
-class ICalDiff (twistedcaldav.test.util.TestCase):
+class ICalDiff (unittest.TestCase):
     """
     iCalendar support tests
     """
