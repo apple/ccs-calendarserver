@@ -54,7 +54,7 @@ def main():
         sys.exit(1)
 
     verbose = False
-    configFile = "/Library/Server/Calendar and Contacts/Config/caldavd.plist"
+    configFile = "/Library/Server/Calendar and Contacts/Config/caldavd-system.plist"
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
