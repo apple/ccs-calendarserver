@@ -25,7 +25,7 @@ from txdav.base.propertystore.base import PropertyName
 
 from txdav.common.icommondatastore import (
     HomeChildNameAlreadyExistsError, ICommonTransaction
-)
+, InvalidUIDError)
 from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
@@ -755,7 +755,7 @@ class CommonTests(CommonCommonTests):
         addressbookObject = yield addressbook1.addressbookObjectWithName("1.vcf")
         yield self.failUnlessFailure(
             maybeDeferred(addressbookObject.setComponent, component),
-            InvalidObjectResourceError
+            InvalidObjectResourceError, InvalidUIDError,
         )
 
 

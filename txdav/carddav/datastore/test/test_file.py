@@ -379,14 +379,6 @@ class AddressBookTest(unittest.TestCase):
 
 
     @testUnimplemented
-    def test_addressbookObjectsInTimeRange(self):
-        """
-        Find addressbook objects occuring in a given time range.
-        """
-        raise NotImplementedError()
-
-
-    @testUnimplemented
     def test_addressbookObjectsSinceToken(self):
         """
         Find addressbook objects that have been modified since a given

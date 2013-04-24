@@ -35,7 +35,7 @@ from txdav.xml.element import WebDAVUnknownElement, ResourceType
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.icommondatastore import HomeChildNameAlreadyExistsError, \
-    ICommonTransaction
+    ICommonTransaction, InvalidComponentForStoreError, InvalidUIDError
 from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
@@ -45,8 +45,8 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE, _BIND_MODE_READ
 
 from txdav.caldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
-    ICalendar, ICalendarTransaction, InvalidUIDError,
-    InvalidComponentForStoreError, ComponentUpdateState)
+    ICalendar, ICalendarTransaction,
+    ComponentUpdateState)
 
 from twistedcaldav.customxml import InviteNotification, InviteSummary
 from txdav.common.datastore.test.util import transactionClean

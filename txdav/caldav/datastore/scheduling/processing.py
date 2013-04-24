@@ -253,17 +253,20 @@ class ImplicitProcessor(object):
         """
         Queue up an update to attendees and use a memcache lock to ensure we don't update too frequently.
 
-        @param exclude_attendees: list of attendees who should not be refreshed (e.g., the one that triggeed the refresh)
+        @param exclude_attendees: list of attendees who should not be refreshed (e.g., the one that triggered the refresh)
         @type exclude_attendees: C{list}
         """
 
         # When doing auto-processing of replies, only refresh attendees when the last auto-accept is done.
         # Note that when we do this we also need to refresh the attendee that is generating the reply because they
-        # are no longer up to date with changes of other auto-accept attendees.
-        if hasattr(self.txn, "auto_reply_processing_count") and self.txn.auto_reply_processing_count > 1:
+        # are no longer up to date with changes of other auto-accept attendees. See docstr for sendAttendeeAutoReply
+        # below for more details of what is going on here.
+        if getattr(self.txn, "auto_reply_processing_count", 0) > 1:
+            log.debug("ImplicitProcessing - refreshing UID: '%s', Suppressed: %s" % (self.uid, self.txn.auto_reply_processing_count,))
             self.txn.auto_reply_suppressed = True
             returnValue(None)
-        if hasattr(self.txn, "auto_reply_suppressed"):
+        if getattr(self.txn, "auto_reply_suppressed", False):
+            log.debug("ImplicitProcessing - refreshing UID: '%s', Suppression lifted" % (self.uid,))
             exclude_attendees = ()
 
         self.uid = self.recipient_calendar.resourceUID()
@@ -517,10 +520,8 @@ class ImplicitProcessor(object):
 
             if send_reply:
                 # Track outstanding auto-reply processing
-                if not hasattr(self.txn, "auto_reply_processing_count"):
-                    self.txn.auto_reply_processing_count = 1
-                else:
-                    self.txn.auto_reply_processing_count += 1
+                self.txn.auto_reply_processing_count = getattr(self.txn, "auto_reply_processing_count", 0) + 1
+                log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued: %s" % (self.recipient.cuaddr, self.uid, self.txn.auto_reply_processing_count,))
                 reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
 
             # Build the schedule-changes XML element
@@ -560,10 +561,8 @@ class ImplicitProcessor(object):
 
                 if send_reply:
                     # Track outstanding auto-reply processing
-                    if not hasattr(self.txn, "auto_reply_processing_count"):
-                        self.txn.auto_reply_processing_count = 1
-                    else:
-                        self.txn.auto_reply_processing_count += 1
+                    self.txn.auto_reply_processing_count = getattr(self.txn, "auto_reply_processing_count", 0) + 1
+                    log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued: %s" % (self.recipient.cuaddr, self.uid, self.txn.auto_reply_processing_count,))
                     reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
 
                 # Build the schedule-changes XML element
@@ -667,6 +666,17 @@ class ImplicitProcessor(object):
         Auto-process the calendar option to generate automatic accept/decline status and
         send a reply if needed.
 
+        There is some tricky behavior here: when multiple auto-accept attendees are present in a
+        calendar object, we want to suppress the processing of other attendee refreshes until all
+        auto-accepts have replied, to avoid a flood of refreshes. We do that by tracking the pending
+        auto-replies via a "auto_reply_processing_count" attribute on the original txn objection (even
+        though that has been committed). We also use a "auto_reply_suppressed" attribute on that txn
+        to indicate when suppression has occurred, to ensure that when the refresh is finally sent, we
+        send it to everyone to make sure all are in sync. In order for the actual refreshes to be
+        suppressed we have to "transfer" those two attributes from the original txn to the new one
+        used to send the reply. Then we transfer "auto_reply_suppressed" back when done, and decrement
+        "auto_reply_processing_count" (all done under a UID lock to prevent race conditions).
+
         @param calendar: calendar data to examine
         @type calendar: L{Component}
 
@@ -677,11 +687,16 @@ class ImplicitProcessor(object):
         # transaction to do this work.
         txn = yield self.txn.store().newTransaction("Attendee (%s) auto-reply for UID: %s" % (self.recipient.cuaddr, self.uid,))
 
+        aborted = False
         try:
             # We need to get the UID lock for implicit processing whilst we send the auto-reply
             # as the Organizer processing will attempt to write out data to other attendees to
             # refresh them. To prevent a race we need a lock.
             yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5(calendar.resourceUID()).hexdigest(),))
+
+            # Must be done after acquiring the lock to avoid a race-condition
+            txn.auto_reply_processing_count = getattr(self.txn, "auto_reply_processing_count", 0)
+            txn.auto_reply_suppressed = getattr(self.txn, "auto_reply_suppressed", False)
 
             # Send out a reply
             log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
@@ -690,16 +705,19 @@ class ImplicitProcessor(object):
             yield scheduler.sendAttendeeReply(txn, resource, calendar, self.recipient)
         except Exception, e:
             log.debug("ImplicitProcessing - auto-reply exception UID: '%s', %s" % (self.uid, str(e)))
-            yield txn.abort()
+            aborted = True
         except:
             log.debug("ImplicitProcessing - auto-reply bare exception UID: '%s'" % (self.uid,))
+            aborted = True
+
+        # Track outstanding auto-reply processing - must be done before commit/abort which releases the lock
+        self.txn.auto_reply_processing_count = getattr(self.txn, "auto_reply_processing_count", 0) - 1
+        self.txn.auto_reply_suppressed = txn.auto_reply_suppressed
+
+        if aborted:
             yield txn.abort()
         else:
             yield txn.commit()
-        finally:
-            # Track outstanding auto-reply processing
-            if hasattr(self.txn, "auto_reply_processing_count"):
-                self.txn.auto_reply_processing_count -= 1
 
 
     @inlineCallbacks

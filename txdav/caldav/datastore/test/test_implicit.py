@@ -24,11 +24,10 @@ from twisted.trial.unittest import TestCase
 from twext.python.clsprop import classproperty
 from twistedcaldav.config import config
 from txdav.common.icommondatastore import ObjectResourceTooBigError, \
-    InvalidObjectResourceError
+    InvalidObjectResourceError, InvalidComponentForStoreError, InvalidUIDError, \
+    UIDExistsError, UIDExistsElsewhereError
 from txdav.caldav.icalendarstore import InvalidComponentTypeError, \
-    TooManyAttendeesError, InvalidCalendarAccessError, InvalidUIDError, \
-    UIDExistsError, ComponentUpdateState, InvalidComponentForStoreError, \
-    UIDExistsElsewhereError
+    TooManyAttendeesError, InvalidCalendarAccessError, ComponentUpdateState
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 from txdav.caldav.datastore.test.util import buildCalendarStore
 

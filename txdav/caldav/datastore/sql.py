@@ -69,11 +69,11 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     IAttachment, AttachmentStoreFailed, AttachmentStoreValidManagedID, \
     AttachmentMigrationFailed, AttachmentDropboxNotAllowed, \
     TooManyAttendeesError, InvalidComponentTypeError, InvalidCalendarAccessError, \
-    InvalidUIDError, UIDExistsError, ResourceDeletedError, \
+    ResourceDeletedError, \
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
     ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
-    InvalidComponentForStoreError, InvalidResourceMove, InvalidDefaultCalendar, \
-    UIDExistsElsewhereError, InvalidAttachmentOperation
+    InvalidDefaultCalendar, \
+    InvalidAttachmentOperation
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -90,7 +90,9 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
     HomeChildNameNotAllowedError, ObjectResourceTooBigError, \
     InvalidObjectResourceError, ObjectResourceNameAlreadyExistsError, \
-    ObjectResourceNameNotAllowedError, TooManyObjectResourcesError
+    ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
+    InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
+    InvalidResourceMove, InvalidComponentForStoreError
 from txdav.xml.rfc2518 import ResourceType
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -312,67 +314,6 @@ class CalendarStoreFeatures(object):
             results.append(cobj)
 
         returnValue(results)
-
-
-
-#class CalendarPrincipal(object):
-#
-#    def __init__(self, uid, cuaddrs):
-#        self.principal_uid = uid
-#        self.cuaddrs = cuaddrs
-#
-#
-#    def uid(self):
-#        return self.principal_uid
-#
-#
-#    def shortNames(self):
-#        return [self.principal_uid, ]
-#
-#
-#    def fullName(self):
-#        return "%s %s" % (self.principal_uid[:4].capitalize(), self.principal_uid[4:])
-#
-#
-#    def displayName(self):
-#        fullName = self.fullName()
-#        return fullName if fullName else self.shortNames()[0]
-#
-#
-#    def calendarUserAddresses(self):
-#        return self.cuaddrs
-#
-#
-#    def canonicalCalendarUserAddress(self):
-#        return [cuaddr for cuaddr in self.cuaddrs if cuaddr.startswith("urn:uuid")][0]
-#
-#
-#    def locallyHosted(self):
-#        return True
-#
-#
-#    def thisServer(self):
-#        return True
-#
-#
-#    def calendarsEnabled(self):
-#        return True
-#
-#
-#    def getCUType(self):
-#        return "INDIVIDUAL"
-#
-#
-#    def enabledAsOrganizer(self):
-#        return True
-#
-#
-#    def canAutoSchedule(self, organizer):
-#        return False
-#
-#
-#    def getAutoScheduleMode(self, organizer):
-#        return "auto"
 
 
 
@@ -867,27 +808,6 @@ class CalendarHome(CommonHome):
             prop = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
 
         self.properties()[PropertyName.fromElement(prop)] = prop.fromString(alarm)
-
-
-#    def principal(self):
-#        return self.principalForUID(self.uid())
-#
-#
-#    def principalForUID(self, uid):
-#        return CalendarPrincipal(uid, ("urn:uuid:%s" % (uid,), "mailto:%s@example.com" % (uid,),))
-#
-#
-#    def principalForCalendarUserAddress(self, cuaddr):
-#        if cuaddr.startswith("mailto:"):
-#            uid, domain = cuaddr[7:].split('@')
-#            if domain != "example.com":
-#                return None
-#            return CalendarPrincipal(uid, (cuaddr, "urn:uuid:%s" % (uid,)))
-#        elif cuaddr.startswith("urn:uuid:"):
-#            uid = cuaddr[9:]
-#            return CalendarPrincipal(uid, (cuaddr, "mailto:%s@example.com" % (uid,)))
-#        else:
-#            return None
 
 
 CalendarHome._register(ECALENDARTYPE)

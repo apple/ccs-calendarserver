@@ -1206,11 +1206,11 @@ class ManagedAttachmentTests(AttachmentTests):
 
         # Create attachment
         obj = yield self.calendarObjectUnderTest()
-        cdata = yield obj.componentForUser()
 
-        attachment, _ignore_location = yield obj.addAttachment(None, MimeType("text", "x-fixture"), "new.attachment", MemoryStream("new attachment text"), cdata)
+        attachment, _ignore_location = yield obj.addAttachment(None, MimeType("text", "x-fixture"), "new.attachment", MemoryStream("new attachment text"))
         apath = attachment._path.path
 
+        cdata = yield obj.componentForUser()
         newcdata = Component.fromString(str(cdata).replace("uid1", "uid1-attached"))
         calendar = yield self.calendarUnderTest()
         yield calendar.createCalendarObjectWithName("test.ics", newcdata)

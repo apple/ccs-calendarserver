@@ -149,9 +149,44 @@ class InvalidObjectResourceError(CommonStoreError):
 
 
 
+class InvalidComponentForStoreError(CommonStoreError):
+    """
+    Invalid component for an object resource.
+    """
+
+
+
 class ObjectResourceTooBigError(CommonStoreError):
     """
     Object resource data is larger than allowed limit.
+    """
+
+
+
+class InvalidUIDError(CommonStoreError):
+    """
+    The UID of the component in a store operation does not match the existing value.
+    """
+
+
+
+class UIDExistsError(CommonStoreError):
+    """
+    The UID of the component in a store operation exists in the same calendar belonging to the owner.
+    """
+
+
+
+class UIDExistsElsewhereError(CommonStoreError):
+    """
+    The UID of the component in a store operation exists in different calendar belonging to the owner.
+    """
+
+
+
+class InvalidResourceMove(CommonStoreError):
+    """
+    Moving a resource failed.
     """
 
 

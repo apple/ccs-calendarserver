@@ -41,8 +41,8 @@ from twistedcaldav import customxml, carddavxml, caldavxml
 from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin, \
     DisabledCacheNotifier
 from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance, \
-    NoUIDConflict, MaxInstances
-from twistedcaldav.carddavxml import carddav_namespace
+    MaxInstances, NoUIDConflict
+from twistedcaldav.carddavxml import carddav_namespace, NoUIDConflict as NovCardUIDConflict
 from twistedcaldav.config import config
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
@@ -59,15 +59,16 @@ from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     AttachmentStoreValidManagedID, AttachmentRemoveFailed, \
     AttachmentDropboxNotAllowed, InvalidComponentTypeError, \
     TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError, \
-    UIDExistsError, InvalidUIDError, InvalidPerUserDataMerge, \
-    AttendeeAllowedError, ResourceDeletedError, InvalidComponentForStoreError, \
-    InvalidResourceMove, UIDExistsElsewhereError, InvalidAttachmentOperation
+    InvalidPerUserDataMerge, \
+    AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
     _BIND_MODE_DIRECT
 from txdav.common.icommondatastore import NoSuchObjectResourceError, \
     TooManyObjectResourcesError, ObjectResourceTooBigError, \
     InvalidObjectResourceError, ObjectResourceNameNotAllowedError, \
-    ObjectResourceNameAlreadyExistsError
+    ObjectResourceNameAlreadyExistsError, UIDExistsError, \
+    UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove, \
+    InvalidComponentForStoreError
 from txdav.idav import PropertyChangeNotAllowedError
 from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
@@ -651,7 +652,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)
                 newchild = (yield request.locateResource(newchildURL))
-                dataChanged = (yield self.storeResourceData(newchild, component, returnData=return_changed))
+                dataChanged = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
 
             except HTTPError, e:
                 # Extract the pre-condition
@@ -1210,10 +1211,10 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
 
     @inlineCallbacks
-    def storeResourceData(self, newchild, component, returnData=False):
+    def storeResourceData(self, newchild, component, returnChangedData=False):
 
         yield newchild.storeComponent(component)
-        if returnData:
+        if returnChangedData and newchild._newStoreObject._componentChanged:
             result = (yield newchild.componentForUser())
             returnValue(str(result))
         else:
@@ -2934,10 +2935,10 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     @inlineCallbacks
-    def storeResourceData(self, newchild, component, returnData=False):
+    def storeResourceData(self, newchild, component, returnChangedData=False):
 
         yield newchild.storeComponent(component)
-        if returnData:
+        if returnChangedData and newchild._newStoreObject._componentChanged:
             result = (yield newchild.component())
             returnValue(str(result))
         else:
@@ -3026,6 +3027,127 @@ class AddressBookObjectResource(_CommonObjectResource):
         returnValue(str(data))
 
     vCard = _CommonObjectResource.component
+
+    StoreExceptionsStatusErrors = set((
+        ObjectResourceNameNotAllowedError,
+        ObjectResourceNameAlreadyExistsError,
+    ))
+
+    StoreExceptionsErrors = {
+        TooManyObjectResourcesError: customxml.MaxResources(),
+        ObjectResourceTooBigError: (carddav_namespace, "max-resource-size"),
+        InvalidObjectResourceError: (carddav_namespace, "valid-address-data"),
+        InvalidComponentForStoreError: (carddav_namespace, "valid-addressbook-object-resource"),
+        UIDExistsError: NovCardUIDConflict(),
+        InvalidUIDError: NovCardUIDConflict(),
+        InvalidPerUserDataMerge: (carddav_namespace, "valid-address-data"),
+    }
+
+    StoreMoveExceptionsStatusErrors = set((
+        ObjectResourceNameNotAllowedError,
+        ObjectResourceNameAlreadyExistsError,
+    ))
+
+    StoreMoveExceptionsErrors = {
+        TooManyObjectResourcesError: customxml.MaxResources(),
+        InvalidResourceMove: (calendarserver_namespace, "valid-move"),
+    }
+
+    @inlineCallbacks
+    def http_PUT(self, request):
+
+        # Content-type check
+        content_type = request.headers.getHeader("content-type")
+        if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "vcard"):
+            log.err("MIME type %s not allowed in vcard collection" % (content_type,))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (carddav_namespace, "supported-address-data"),
+                "Invalid MIME type for vcard collection",
+            ))
+
+        # Read the vcard from the stream
+        try:
+            vcarddata = (yield allDataFromStream(request.stream))
+            if not hasattr(request, "extendedLogItems"):
+                request.extendedLogItems = {}
+            request.extendedLogItems["cl"] = str(len(vcarddata)) if vcarddata else "0"
+
+            # We must have some data at this point
+            if vcarddata is None:
+                # Use correct DAV:error response
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (carddav_namespace, "valid-address-data"),
+                    description="No vcard data"
+                ))
+
+            try:
+                component = VCard.fromString(vcarddata)
+            except ValueError, e:
+                log.err(str(e))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (carddav_namespace, "valid-address-data"),
+                    "Could not parse vCard",
+                ))
+
+            # storeComponent needs to know who the auth'd user is for access control
+            # TODO: this needs to be done in a better way - ideally when the txn is created for the request,
+            # we should set a txn.authzid attribute.
+            authz = None
+            authz_principal = self._parentResource.currentPrincipal(request).children[0]
+            if isinstance(authz_principal, davxml.HRef):
+                principalURL = str(authz_principal)
+                if principalURL:
+                    authz = (yield request.locateResource(principalURL))
+                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.guid
+
+            try:
+                response = (yield self.storeComponent(component))
+            except ResourceDeletedError:
+                # This is OK - it just means the server deleted the resource during the PUT. We make it look
+                # like the PUT succeeded.
+                response = responsecode.CREATED if self.exists() else responsecode.NO_CONTENT
+
+                # Re-initialize to get stuff setup again now we have no object
+                self._initializeWithObject(None, self._newStoreParent)
+
+                returnValue(response)
+
+            response = IResponse(response)
+
+            # Must not set ETag in response if data changed
+            if self._newStoreObject._componentChanged:
+                def _removeEtag(request, response):
+                    response.headers.removeHeader('etag')
+                    return response
+                _removeEtag.handleErrors = True
+
+                request.addResponseFilter(_removeEtag, atEnd=True)
+
+            # Look for Prefer header
+            prefer = request.headers.getHeader("prefer", {})
+            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
+
+            if returnRepresentation and response.code / 100 == 2:
+                oldcode = response.code
+                response = (yield self.http_GET(request))
+                if oldcode == responsecode.CREATED:
+                    response.code = responsecode.CREATED
+                response.headers.removeHeader("content-location")
+                response.headers.setHeader("content-location", self.url())
+
+            returnValue(response)
+
+        # Handle the various store errors
+        except Exception as err:
+
+            if isinstance(err, ValueError):
+                log.err("Error while handling (vCard) PUT: %s" % (err,))
+                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(err)))
+            else:
+                raise
 
 
 

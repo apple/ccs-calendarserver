@@ -69,9 +69,9 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         for directory in self.directoryServices:
             name = directory.__class__.__name__
             url = "/" + name + "/"
-            directory.setPrincipalPath(name)
 
             provisioningResource = DirectoryPrincipalProvisioningResource(url, directory)
+            directory.setPrincipalCollection(provisioningResource)
 
             self.site.resource.putChild(name, provisioningResource)
 
@@ -437,12 +437,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
-                self.failUnless(
-                    (
-                        set((recordResource.principalURL(),)) |
-                        set(record.calendarUserAddresses)
-                    ).issubset(set(recordResource.calendarUserAddresses()))
-                )
+                self.assertEqual(set(record.calendarUserAddresses), set(recordResource.calendarUserAddresses()))
 
                 # Verify that if not enabled for calendaring, no CUAs:
                 record.enabledForCalendaring = False

@@ -120,13 +120,6 @@ class ComponentRemoveState(Names):
 
 
 
-class InvalidComponentForStoreError(CommonStoreError):
-    """
-    Invalid component for an object resource.
-    """
-
-
-
 class InvalidComponentTypeError(CommonStoreError):
     """
     Invalid object resource component type for collection.
@@ -144,27 +137,6 @@ class InvalidCalendarAccessError(CommonStoreError):
 class TooManyAttendeesError(CommonStoreError):
     """
     Too many attendees in calendar data.
-    """
-
-
-
-class InvalidUIDError(CommonStoreError):
-    """
-    The UID of the component in a store operation does not match the existing value.
-    """
-
-
-
-class UIDExistsError(CommonStoreError):
-    """
-    The UID of the component in a store operation exists in the same calendar belonging to the owner.
-    """
-
-
-
-class UIDExistsElsewhereError(CommonStoreError):
-    """
-    The UID of the component in a store operation exists in different calendar belonging to the owner.
     """
 
 
@@ -200,13 +172,6 @@ class ShareeAllowedError(CommonStoreError):
 class InvalidPerUserDataMerge(CommonStoreError):
     """
     Per-user data merge failed.
-    """
-
-
-
-class InvalidResourceMove(CommonStoreError):
-    """
-    Moving a resource failed.
     """
 
 
