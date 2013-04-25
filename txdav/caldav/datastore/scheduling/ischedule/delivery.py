@@ -45,7 +45,7 @@ from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMRequest, DKIMUt
 from txdav.caldav.datastore.scheduling.ischedule.remoteservers import IScheduleServerRecord
 from txdav.caldav.datastore.scheduling.ischedule.remoteservers import IScheduleServers
 from txdav.caldav.datastore.scheduling.ischedule.utils import lookupServerViaSRV
-from twistedcaldav.scheduling.ischedule.xml import ScheduleResponse, Response, \
+from txdav.caldav.datastore.scheduling.ischedule.xml import ScheduleResponse, Response, \
     RequestStatus, Recipient, ischedule_namespace, CalendarData, \
     ResponseDescription, Error
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus

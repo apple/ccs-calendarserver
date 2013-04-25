@@ -43,7 +43,8 @@ class IScheduleServers(object):
 
     def __init__(self):
 
-        self._loadConfig()
+        if IScheduleServers._servers is None:
+            self._loadConfig()
 
 
     def _loadConfig(self):

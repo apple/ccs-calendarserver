@@ -45,9 +45,9 @@ from twistedcaldav.scheduling.ischedule.dkim import DKIMRequest, DKIMUtils
 from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServerRecord
 from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServers
 from twistedcaldav.scheduling.ischedule.utils import lookupServerViaSRV
-from twistedcaldav.scheduling.ischedule.xml import ScheduleResponse, Response, \
-    RequestStatus, Recipient, ischedule_namespace, CalendarData, \
-    ResponseDescription, Error
+#from twistedcaldav.scheduling.ischedule.xml import ScheduleResponse, Response, \
+#    RequestStatus, Recipient, ischedule_namespace, CalendarData, \
+#    ResponseDescription, Error
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String, normalizationLookup
 

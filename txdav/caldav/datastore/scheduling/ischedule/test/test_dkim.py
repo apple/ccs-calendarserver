@@ -22,8 +22,10 @@ from twext.web2.stream import MemoryStream
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.names import client
 from twisted.python.modules import getModule
+from twisted.trial import unittest
 
-from twistedcaldav.config import config
+from twistedcaldav.stdconfig import config
+
 from txdav.caldav.datastore.scheduling.ischedule import utils
 from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMRequest, DKIMVerifier, \
     DKIMVerificationError, DKIMUtils, PublicKeyLookup_DNSTXT, \
@@ -33,9 +35,8 @@ import base64
 import hashlib
 import os
 import time
-import twistedcaldav.test.util
 
-class TestDKIMBase (twistedcaldav.test.util.TestCase):
+class TestDKIMBase (unittest.TestCase):
     """
     DKIM support tests
     """

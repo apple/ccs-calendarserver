@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twisted.trial.unittest import TestCase
+from twext.python.clsprop import classproperty
+from twisted.internet.defer import inlineCallbacks
 
 """
 Store test utility functions
@@ -23,7 +26,8 @@ from twistedcaldav.config import config
 from txdav.caldav.icalendardirectoryservice import ICalendarStoreDirectoryService, \
     ICalendarStoreDirectoryRecord
 from txdav.common.datastore.test.util import TestStoreDirectoryService, \
-    TestStoreDirectoryRecord, theStoreBuilder
+    TestStoreDirectoryRecord, theStoreBuilder, CommonCommonTests, \
+    populateCalendarsFrom
 from zope.interface.declarations import implements
 
 class TestCalendarStoreDirectoryService(TestStoreDirectoryService):
@@ -181,3 +185,50 @@ def buildCalendarStore(testCase, notifierFactory, directoryService=None, homes=N
     if directoryService is None:
         directoryService = buildDirectory(homes=homes)
     return theStoreBuilder.buildStore(testCase, notifierFactory, directoryService)
+
+
+
+class CommonStoreTests(CommonCommonTests, TestCase):
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(CommonStoreTests, self).setUp()
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.populate()
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
+        self.notifierFactory.reset()
+
+
+    @classproperty(cache=False)
+    def requirements(cls): #@NoSelf
+        return {
+        "user01": {
+            "calendar_1": {
+            },
+            "inbox": {
+            },
+        },
+        "user02": {
+            "calendar_1": {
+            },
+            "inbox": {
+            },
+        },
+        "user03": {
+            "calendar_1": {
+            },
+            "inbox": {
+            },
+        },
+    }
+
+
+    def storeUnderTest(self):
+        """
+        Create and return a L{CalendarStore} for testing.
+        """
+        return self._sqlCalendarStore

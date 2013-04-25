@@ -17,31 +17,34 @@
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, Response
+from twext.web2.http_headers import MimeType
+
 from twisted.internet.abstract import isIPAddress
 from twisted.internet.defer import inlineCallbacks, returnValue
+
+from twistedcaldav.config import config
+from twistedcaldav.ical import normalizeCUAddress
+
 from txdav.caldav.datastore.scheduling import addressmapping
 from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser
 from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromPrincipal
+from txdav.caldav.datastore.scheduling.ischedule import xml
+from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMVerifier, \
+    DKIMVerificationError, DKIMMissingError
+from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
 from txdav.caldav.datastore.scheduling.ischedule.remoteservers import IScheduleServers
+from txdav.caldav.datastore.scheduling.ischedule.utils import getIPsFromHost
+from txdav.caldav.datastore.scheduling.ischedule.xml import ischedule_namespace
+import txdav.caldav.datastore.scheduling.ischedule.xml as ixml
 from txdav.caldav.datastore.scheduling.scheduler import RemoteScheduler, \
     ScheduleResponseQueue
-import txdav.caldav.datastore.scheduling.ischedule.xml as ixml
-from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
-from twistedcaldav.util import normalizationLookup
-from txdav.xml import element as davxml
+from txdav.caldav.datastore.util import normalizationLookup
+from txdav.xml.base import WebDAVUnknownElement
+
 import itertools
 import re
 import socket
 import urlparse
-from twistedcaldav.config import config
-from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMVerifier, \
-    DKIMVerificationError, DKIMMissingError
-from twext.web2.http_headers import MimeType
-from txdav.caldav.datastore.scheduling.ischedule.xml import ischedule_namespace
-from txdav.xml.base import WebDAVUnknownElement
-from txdav.caldav.datastore.scheduling.ischedule.utils import getIPsFromHost
-from txdav.caldav.datastore.scheduling.ischedule import xml
-from twistedcaldav.ical import normalizeCUAddress
 
 """
 L{IScheduleScheduler} - handles deliveries for scheduling messages being POSTed to the iSchedule inbox.
@@ -136,11 +139,12 @@ class IScheduleScheduler(RemoteScheduler):
     }
 
     @inlineCallbacks
-    def doSchedulingViaPOST(self, transaction, use_request_headers=False):
+    def doSchedulingViaPOST(self, request, originator, recipients, calendar):
         """
         Carry out iSchedule specific processing.
         """
 
+        self.request = request
         self.verified = False
         if config.Scheduling.iSchedule.DKIM.Enabled:
             verifier = DKIMVerifier(self.request, protocol_debug=config.Scheduling.iSchedule.DKIM.ProtocolDebug)
@@ -166,18 +170,14 @@ class IScheduleScheduler(RemoteScheduler):
                     msg,
                 ))
 
-        result = (yield super(IScheduleScheduler, self).doSchedulingViaPOST(transaction, use_request_headers))
-        returnValue(result)
-
-
-    def loadFromRequestHeaders(self):
-        """
-        Load Originator and Recipient from request headers.
-        """
-        super(IScheduleScheduler, self).loadFromRequestHeaders()
-
         if self.request.headers.getRawHeaders('x-calendarserver-itip-refreshonly', ("F"))[0] == "T":
-            self.request.doing_attendee_refresh = 1
+            self.txn.doing_attendee_refresh = 1
+
+        # Normalize recipient addresses
+        recipients = [normalizeCUAddress(recipient, normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress) for recipient in recipients]
+
+        result = (yield super(IScheduleScheduler, self).doSchedulingViaPOST(originator, recipients, calendar))
+        returnValue(result)
 
 
     def preProcessCalendarData(self):
@@ -190,7 +190,7 @@ class IScheduleScheduler(RemoteScheduler):
         if not self.checkForFreeBusy():
             # Need to normalize the calendar data and recipient values to keep those in sync,
             # as we might later try to match them
-            self.calendar.normalizeCalendarUserAddresses(normalizationLookup, self.resource.principalForCalendarUserAddress)
+            self.calendar.normalizeCalendarUserAddresses(normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress)
 
 
     def loadRecipientsFromRequestHeaders(self):
@@ -199,13 +199,13 @@ class IScheduleScheduler(RemoteScheduler):
         as we might later try to match them
         """
         super(IScheduleScheduler, self).loadRecipientsFromRequestHeaders()
-        self.recipients = [normalizeCUAddress(recipient, normalizationLookup, self.resource.principalForCalendarUserAddress) for recipient in self.recipients]
+        self.recipients = [normalizeCUAddress(recipient, normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress) for recipient in self.recipients]
 
 
     def checkAuthorization(self):
         # Must have an unauthenticated user
-        if self.resource.currentPrincipal(self.request) != davxml.Principal(davxml.Unauthenticated()):
-            log.err("Authenticated originators not allowed: %s" % (self.originator,))
+        if self.originator_uid is not None:
+            log.err("Authenticated originators not allowed: %s" % (self.originator_uid,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["originator-denied"],
@@ -220,7 +220,7 @@ class IScheduleScheduler(RemoteScheduler):
         """
 
         # For remote requests we do not allow the originator to be a local user or one within our domain.
-        originatorPrincipal = self.resource.principalForCalendarUserAddress(self.originator)
+        originatorPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.originator)
         localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
         if originatorPrincipal or localUser:
             if originatorPrincipal.locallyHosted():
@@ -367,7 +367,7 @@ class IScheduleScheduler(RemoteScheduler):
         # Verify that the ORGANIZER's cu address does not map to a valid user
         organizer = self.calendar.getOrganizer()
         if organizer:
-            organizerPrincipal = self.resource.principalForCalendarUserAddress(organizer)
+            organizerPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(organizer)
             if organizerPrincipal:
                 if organizerPrincipal.locallyHosted():
                     log.err("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
@@ -408,7 +408,7 @@ class IScheduleScheduler(RemoteScheduler):
         """
 
         # Attendee cannot be local.
-        attendeePrincipal = self.resource.principalForCalendarUserAddress(self.attendee)
+        attendeePrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.attendee)
         if attendeePrincipal:
             if attendeePrincipal.locallyHosted():
                 log.err("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))

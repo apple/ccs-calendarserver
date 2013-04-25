@@ -15,10 +15,11 @@
 ##
 
 from twisted.python.filepath import FilePath
-from txdav.caldav.datastore.scheduling.ischedule.remoteservers import IScheduleServersParser
-import twistedcaldav.test.util
+from twisted.trial import unittest
 
-class Test_IScheduleServersParser(twistedcaldav.test.util.TestCase):
+from txdav.caldav.datastore.scheduling.ischedule.remoteservers import IScheduleServersParser
+
+class Test_IScheduleServersParser(unittest.TestCase):
     """
     Test L{IScheduleServersParser} implementation.
     """

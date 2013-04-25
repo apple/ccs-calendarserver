@@ -61,8 +61,8 @@ from calendarserver.push.notifier import NotifierFactory
 from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import AuthenticationWrapper
-from twistedcaldav.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
-from twistedcaldav.scheduling.ischedule.resource import IScheduleInboxResource
+from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
+from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
 from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource

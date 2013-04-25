@@ -14,15 +14,15 @@
 # limitations under the License.
 ##
 
-import twistedcaldav.test.util
 from twisted.internet.defer import inlineCallbacks
-from twisted.python.modules import getModule
-from twistedcaldav.config import config
-from txdav.caldav.datastore.scheduling.ischedule import utils
 from twisted.names import client
+from twisted.python.modules import getModule
+from twisted.trial import unittest
+from twistedcaldav.stdconfig import config
+from txdav.caldav.datastore.scheduling.ischedule import utils
 from txdav.caldav.datastore.scheduling.ischedule.delivery import ScheduleViaISchedule
 
-class CalDAV (twistedcaldav.test.util.TestCase):
+class CalDAV (unittest.TestCase):
     """
     txdav.caldav.datastore.scheduling.caldav tests
     """

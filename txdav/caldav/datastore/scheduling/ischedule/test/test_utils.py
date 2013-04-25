@@ -15,15 +15,15 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks
-from twistedcaldav.config import config
-from txdav.caldav.datastore.scheduling.ischedule import utils
-from twistedcaldav.test.util import TestCase
-from twisted.python.modules import getModule
-from twisted.names.authority import BindAuthority
 from twisted.names import client
+from twisted.names.authority import BindAuthority
 from twisted.names.test.test_client import FakeResolver
+from twisted.python.modules import getModule
+from twisted.trial import unittest
+from twistedcaldav.stdconfig import config
+from txdav.caldav.datastore.scheduling.ischedule import utils
 
-class LookupService (TestCase):
+class LookupService (unittest.TestCase):
 
 
     def setUp(self):

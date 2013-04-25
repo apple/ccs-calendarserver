@@ -18,22 +18,25 @@ from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 
 from twext.web2 import responsecode
+from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.http import Response, HTTPError, StatusResponse, XMLResponse
 from twext.web2.http_headers import MimeType
 
 from twisted.internet.defer import succeed, returnValue, inlineCallbacks
+from twisted.python.failure import Failure
 
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.directory.util import transactionFromRequest
-from twistedcaldav.extensions import DAVResource, \
-    DAVResourceWithoutChildrenMixin
+from twistedcaldav.extensions import DAVResource, DAVResourceWithoutChildrenMixin
+from twistedcaldav.ical import Component
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
+from twistedcaldav.scheduling_store.caldav.resource import deliverSchedulePrivilegeSet
 
-from txdav.caldav.datastore.scheduling.caldav.resource import deliverSchedulePrivilegeSet
 from txdav.caldav.datastore.scheduling.ischedule.dkim import ISCHEDULE_CAPABILITIES
 from txdav.caldav.datastore.scheduling.ischedule.scheduler import IScheduleScheduler
+from txdav.caldav.datastore.scheduling.ischedule.xml import ischedule_namespace
 from txdav.xml import element as davxml
 import txdav.caldav.datastore.scheduling.ischedule.xml  as ischedulexml
 
@@ -212,29 +215,97 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         The server-to-server POST method.
         """
 
-        # This is a server-to-server scheduling operation.
-        scheduler = IScheduleScheduler(request, self)
-
         # Need a transaction to work with
         txn = transactionFromRequest(request, self._newStore)
-        request._newStoreTransaction = txn
+
+        # This is a server-to-server scheduling operation.
+        scheduler = IScheduleScheduler(txn, None)
+
+        originator = self.loadOriginatorFromRequestHeaders(request)
+        recipients = self.loadRecipientsFromRequestHeaders(request)
+        calendar = (yield self.loadCalendarFromRequest(request))
 
         # Do the POST processing treating this as a non-local schedule
         try:
-            result = (yield scheduler.doSchedulingViaPOST(txn, use_request_headers=True))
-        except Exception, e:
+            result = (yield scheduler.doSchedulingViaPOST(request, originator, recipients, calendar))
+        except Exception:
+            ex = Failure()
             yield txn.abort()
-            raise e
+            ex.raiseException()
         else:
             yield txn.commit()
         response = result.response()
         response.headers.addRawHeader(ISCHEDULE_CAPABILITIES, str(config.Scheduling.iSchedule.SerialNumber))
         returnValue(response)
 
+
+    def loadOriginatorFromRequestHeaders(self, request):
+        # Must have Originator header
+        originator = request.headers.getRawHeaders("originator")
+        if originator is None or (len(originator) != 1):
+            self.log_error("iSchedule POST request must have Originator header")
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (ischedule_namespace, "originator-missing"),
+                "Missing originator",
+            ))
+        else:
+            originator = originator[0]
+        return originator
+
+
+    def loadRecipientsFromRequestHeaders(self, request):
+        # Get list of Recipient headers
+        rawRecipients = request.headers.getRawHeaders("recipient")
+        if rawRecipients is None or (len(rawRecipients) == 0):
+            self.log_error("%s request must have at least one Recipient header" % (self.method,))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (ischedule_namespace, "recipient-missing"),
+                "No recipients",
+            ))
+
+        # Recipient header may be comma separated list
+        recipients = []
+        for rawRecipient in rawRecipients:
+            for r in rawRecipient.split(","):
+                r = r.strip()
+                if len(r):
+                    recipients.append(r)
+
+        return recipients
+
+
+    @inlineCallbacks
+    def loadCalendarFromRequest(self, request):
+        # Must be content-type text/calendar
+        contentType = request.headers.getHeader("content-type")
+        if contentType is not None and (contentType.mediaType, contentType.mediaSubtype) != ("text", "calendar"):
+            self.log_error("MIME type %s not allowed in iSchedule POST request" % (contentType,))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (ischedule_namespace, "invalid-calendar-data-type"),
+                "Data is not calendar data",
+            ))
+
+        # Parse the calendar object from the HTTP request stream
+        try:
+            calendar = (yield Component.fromIStream(request.stream))
+        except:
+            # FIXME: Bare except
+            self.log_error("Error while handling iSchedule POST: %s" % (Failure(),))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (ischedule_namespace, "invalid-calendar-data"),
+                description="Can't parse calendar data"
+            ))
+
+        returnValue(calendar)
+
+
     ##
     # ACL
     ##
-
 
     def supportedPrivileges(self, request):
         return succeed(deliverSchedulePrivilegeSet)

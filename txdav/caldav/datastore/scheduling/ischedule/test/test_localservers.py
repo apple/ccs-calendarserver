@@ -15,12 +15,16 @@
 ##
 
 from twext.web2.test.test_server import SimpleRequest
-from twistedcaldav.config import config
+
+from twisted.trial import unittest
+
+from twistedcaldav.stdconfig import config
+
 from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers, SERVER_SECRET_HEADER
-from twistedcaldav.test.util import TestCase
+
 import StringIO as StringIO
 
-class ServerTests(TestCase):
+class ServerTests(unittest.TestCase):
 
     data1 = """<?xml version="1.0" encoding="utf-8"?>
 <servers>
