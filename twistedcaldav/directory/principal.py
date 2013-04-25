@@ -68,7 +68,7 @@ from twistedcaldav.extensions import DirectoryElement
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVPrincipalResource, \
     DAVResourceWithChildrenMixin
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 
 thisModule = getModule(__name__)
 log = Logger()

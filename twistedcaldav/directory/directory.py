@@ -47,8 +47,8 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName, normalizeUUID
 from twistedcaldav.memcacher import Memcacher
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
-from twistedcaldav.scheduling.ischedule.localservers import Servers
+from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
 
 from txdav.caldav.icalendardirectoryservice import ICalendarStoreDirectoryService, \
     ICalendarStoreDirectoryRecord

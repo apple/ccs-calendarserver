@@ -41,10 +41,11 @@ from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import Property
 from twistedcaldav.resource import CalDAVResource, ReadOnlyNoCopyResourceMixIn
-from twistedcaldav.scheduling.caldav.delivery import ScheduleViaCalDAV
-from twistedcaldav.scheduling.caldav.resource import deliverSchedulePrivilegeSet
-from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
-from twistedcaldav.scheduling.scheduler import Scheduler
+from twistedcaldav.scheduling_store.caldav.resource import deliverSchedulePrivilegeSet
+
+from txdav.caldav.datastore.scheduling.caldav.delivery import ScheduleViaCalDAV
+from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
+from txdav.caldav.datastore.scheduling.scheduler import Scheduler
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration

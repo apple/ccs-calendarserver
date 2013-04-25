@@ -65,7 +65,7 @@ from twistedcaldav.dateops import pyCalendarTodatetime
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.ical import Component, ignoredComponents, \
     InvalidICalendarDataError, Property
-from twistedcaldav.scheduling.itip import iTipGenerator
+from txdav.caldav.datastore.scheduling.itip import iTipGenerator
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.util import normalizationLookup
 

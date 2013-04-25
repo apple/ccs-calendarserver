@@ -46,9 +46,9 @@ from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.ical import Component
-from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
-from twistedcaldav.scheduling.imip.mailgateway import MailGatewayTokensDatabase
-from twistedcaldav.scheduling.scheduler import DirectScheduler
+from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
+from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
+from txdav.caldav.datastore.scheduling.scheduler import DirectScheduler
 from twistedcaldav.util import normalizationLookup
 
 from twisted.application.service import Service
@@ -68,8 +68,8 @@ from calendarserver.tools.resources import migrateResources
 from calendarserver.tools.util import getDirectory
 
 from twext.python.parallel import Parallelizer
-from twistedcaldav.scheduling.imip.mailgateway import migrateTokensToStore
-from twistedcaldav.scheduling.imip.inbound import scheduleNextMailPoll
+from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
+from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
 
 
 deadPropertyXattrPrefix = namedAny(

@@ -1443,7 +1443,7 @@ def _updateScheduling(configDict, reloading=False):
 
 
 def _updateServers(configDict, reloading=False):
-    from twistedcaldav.scheduling.ischedule.localservers import Servers
+    from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
     if configDict.Servers.Enabled:
         Servers.load()
         Servers.getThisServer().installReverseProxies(

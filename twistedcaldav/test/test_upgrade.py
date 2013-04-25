@@ -28,7 +28,7 @@ from txdav.caldav.datastore.index_file import db_basename
 from twistedcaldav.config import config
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
-from twistedcaldav.scheduling.imip.mailgateway import MailGatewayTokensDatabase
+from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import (
     xattrname, upgradeData, updateFreeBusySet,
     removeIllegalCharacters, normalizeCUAddrs

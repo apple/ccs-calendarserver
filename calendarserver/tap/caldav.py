@@ -111,7 +111,7 @@ from calendarserver.tap.cfgchild import ConfiguredChildSpawner
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
-from twistedcaldav.scheduling.imip.inbound import MailRetriever
+from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 
 try:
     from calendarserver.version import version

@@ -45,7 +45,7 @@ from twistedcaldav.ical import Component, Property
 from twistedcaldav.instance import TooManyInstancesError, \
     InvalidOverriddenInstanceError
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
-from twistedcaldav.scheduling.implicit import ImplicitScheduler
+from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 
 from txdav.caldav.icalendarstore import AttachmentStoreValidManagedID
 from txdav.common.icommondatastore import ReservationError
