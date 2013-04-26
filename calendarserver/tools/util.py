@@ -50,7 +50,7 @@ from twistedcaldav import memcachepool
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
-from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
+from twistedcaldav.directory.directory import schedulePolledGroupCachingUpdate
 from calendarserver.push.notifier import NotifierFactory
 
 from txdav.common.datastore.file import CommonDataStore
@@ -462,7 +462,8 @@ def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipa
     (yield action_removeProxyPrincipal(rootResource, directory, store,
         principal, proxyPrincipal, proxyTypes=proxyTypes))
 
-    yield scheduleNextGroupCachingUpdate(store, 0)
+    # Schedule work the PeerConnectionPool will pick up as overdue
+    yield schedulePolledGroupCachingUpdate(store)
 
 
 
@@ -495,7 +496,8 @@ def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwa
         (yield subPrincipal.writeProperty(membersProperty, None))
 
     if removed:
-        yield scheduleNextGroupCachingUpdate(store, 0)
+        # Schedule work the PeerConnectionPool will pick up as overdue
+        yield schedulePolledGroupCachingUpdate(store)
     returnValue(removed)
 
 

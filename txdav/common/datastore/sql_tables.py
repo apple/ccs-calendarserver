@@ -27,8 +27,9 @@ from twext.enterprise.dal.syntax import FixedPlaceholder
 from twext.enterprise.ienterprise import ORACLE_DIALECT, POSTGRES_DIALECT
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.ienterprise import ORACLE_TABLE_NAME_MAX
-from twext.enterprise.dal.parseschema import schemaFromPath
-
+from twext.enterprise.dal.parseschema import schemaFromPath, significant
+from sqlparse import parse
+from re import compile
 import hashlib
 
 
@@ -382,6 +383,44 @@ def _translateSchema(out, schema=schema):
         )
         out.write(',\n    '.join([column.name for column in index.columns]))
         out.write('\n);\n\n')
+
+
+
+def splitSQLString(sqlString):
+    """
+    Strings which mix zero or more sql statements with zero or more pl/sql
+    statements need to be split into individual sql statements for execution.
+    This function was written to allow execution of pl/sql during Oracle schema
+    upgrades.
+    """
+    aggregated = ''
+    inPlSQL = None
+    parsed = parse(sqlString)
+    for stmt in parsed:
+        while stmt.tokens and not significant(stmt.tokens[0]):
+            stmt.tokens.pop(0)
+        if not stmt.tokens:
+            continue
+        if inPlSQL is not None:
+            agg = str(stmt).strip()
+            if "end;".lower() in agg.lower():
+                inPlSQL = None
+                aggregated += agg
+                rex = compile("\n +")
+                aggregated = rex.sub('\n', aggregated)
+                yield aggregated.strip()
+                continue
+            aggregated += agg
+            continue
+        if inPlSQL is None:
+            #if 'begin'.lower() in str(stmt).split()[0].lower():
+            if 'begin'.lower() in str(stmt).lower():
+                inPlSQL = True
+                aggregated += str(stmt)
+                continue
+        else:
+            continue
+        yield str(stmt).rstrip().rstrip(";")
 
 
 if __name__ == '__main__':

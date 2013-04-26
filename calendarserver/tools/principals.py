@@ -31,7 +31,7 @@ from txdav.xml.base import decodeXMLName, encodeXMLName
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
-from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
+from twistedcaldav.directory.directory import schedulePolledGroupCachingUpdate
 
 from calendarserver.tools.util import (
     booleanArgument, proxySubprincipal, action_addProxyPrincipal,
@@ -510,7 +510,8 @@ def setProxies(store, principal, readProxyPrincipals, writeProxyPrincipals, dire
         membersProperty = davxml.GroupMemberSet(*memberURLs)
         yield subPrincipal.writeProperty(membersProperty, None)
         if store is not None:
-            yield scheduleNextGroupCachingUpdate(store, 0)
+            # Schedule work the PeerConnectionPool will pick up as overdue
+            yield schedulePolledGroupCachingUpdate(store)
 
 
 

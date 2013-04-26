@@ -125,4 +125,6 @@ export PYTHONHASHSEED=random
 
 export PYTHONPATH
 
-exec "${python}" "${twistdpath}" ${twistd_profile} ${twistd_reactor} ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${errorlogenabled} ${profile} ${child_reactor};
+extra="-o FailIfUpgradeNeeded=False";
+
+exec "${python}" "${twistdpath}" ${twistd_profile} ${twistd_reactor} ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${errorlogenabled} ${profile} ${child_reactor} ${extra};

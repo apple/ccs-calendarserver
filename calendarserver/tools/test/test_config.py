@@ -105,6 +105,8 @@ class ConfigTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["EnableCalDAV"], True)
         self.assertEquals(results["result"]["EnableCardDAV"], True)
         self.assertEquals(results["result"]["EnableSSL"], False)
+        self.assertEquals(results["result"]["DefaultLogLevel"], "warn")
+
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], False)
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/calendar.cer")
 

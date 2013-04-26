@@ -67,7 +67,6 @@ from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
-from twistedcaldav.util import getMemorySize, getNCPU
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool, ConnectionPoolConnection
@@ -770,35 +769,6 @@ def getDBPool(config):
 
 
 
-def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
-    """
-    Determine how many process to spawn based on installed RAM and CPUs,
-    returning at least "mininum"
-    """
-
-    if cpuCount is None:
-        try:
-            cpuCount = getNCPU()
-        except NotImplementedError, e:
-            log.error("Unable to detect number of CPUs: %s" % (str(e),))
-            return minimum
-
-    if memSize is None:
-        try:
-            memSize = getMemorySize()
-        except NotImplementedError, e:
-            log.error("Unable to detect amount of installed RAM: %s" % (str(e),))
-            return minimum
-
-    countByCore = perCPU * cpuCount
-    countByMemory = perGB * (memSize / (1024 * 1024 * 1024))
-
-    # Pick the smaller of the two:
-    count = min(countByCore, countByMemory)
-
-    # ...but at least "minimum"
-    return max(count, minimum)
-
 
 
 class FakeRequest(object):
@@ -1010,17 +980,16 @@ def checkDirectories(config):
             access=os.W_OK,
             create=(0750, config.UserName, config.GroupName),
         )
-    if config.LogRoot.startswith(config.ServerRoot + os.sep):
-        checkDirectory(
-            config.LogRoot,
-            "Log root",
-            access=os.W_OK,
-            create=(0750, config.UserName, config.GroupName),
-        )
-    if config.RunRoot.startswith(config.ServerRoot + os.sep):
-        checkDirectory(
-            config.RunRoot,
-            "Run root",
-            access=os.W_OK,
-            create=(0770, config.UserName, config.GroupName),
-        )
+    # Always create  these:
+    checkDirectory(
+        config.LogRoot,
+        "Log root",
+        access=os.W_OK,
+        create=(0750, config.UserName, config.GroupName),
+    )
+    checkDirectory(
+        config.RunRoot,
+        "Run root",
+        access=os.W_OK,
+        create=(0770, config.UserName, config.GroupName),
+    )
