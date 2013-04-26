@@ -24,11 +24,11 @@ from twext.web2.http_headers import MimeType
 from twistedcaldav.ical import Component
 from twistedcaldav.memcachelock import MemcacheLock
 from twistedcaldav.memcacher import Memcacher
-from twistedcaldav.method.put_common import StoreCalendarObjectResource
 
 
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 from twext.web2.dav.util import joinURL
+from txdav.caldav.datastore.sql import CalendarObject
 
 class CollectionContents(StoreTestCase):
     """
@@ -49,10 +49,10 @@ class CollectionContents(StoreTestCase):
                    _getFakeMemcacheProtocol)
 
         # Need to not do implicit behavior during these tests
-        def _fakeDoImplicitScheduling(self):
-            return False, False, False
+        def _fakeDoImplicitScheduling(self, component, inserting, internal_state):
+            return False, None, False
 
-        self.patch(StoreCalendarObjectResource , "doImplicitScheduling",
+        self.patch(CalendarObject , "doImplicitScheduling",
                    _fakeDoImplicitScheduling)
 
         # Tests in this suite assume that the root resource is a calendar home.

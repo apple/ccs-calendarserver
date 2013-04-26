@@ -70,6 +70,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.util import normalizationLookup
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
 
@@ -773,7 +774,7 @@ class CalVerifyService(Service, object):
         # Write out fix, commit and get a new transaction
         # Use _migrating to ignore possible overridden instance errors - we are either correcting or ignoring those
         self.txn._migrating = True
-        component = yield calendarObj.setComponent(component)
+        component = yield calendarObj._setComponentInternal(component, internal_state=ComponentUpdateState.RAW)
         yield self.txn.commit()
         self.txn = self.store.newTransaction()
 
@@ -824,7 +825,7 @@ class CalVerifyService(Service, object):
             calendar = yield home.childWithID(calendarID)
             calendarObj = yield calendar.objectResourceWithID(resid)
             objname = calendarObj.name()
-            yield calendarObj.remove()
+            yield calendarObj.remove(implicitly=False)
             yield self.txn.commit()
             self.txn = self.store.newTransaction()
 
@@ -1347,7 +1348,7 @@ class BadDataService(CalVerifyService):
             try:
                 # Use _migrating to ignore possible overridden instance errors - we are either correcting or ignoring those
                 self.txn._migrating = True
-                component = yield calendarObj.setComponent(component)
+                component = yield calendarObj._setComponentInternal(component, internal_state=ComponentUpdateState.RAW)
             except Exception, e:
                 print(e, component)
                 print(traceback.print_exc())
@@ -1917,7 +1918,7 @@ class SchedulingMismatchService(CalVerifyService):
                 calendar = yield home.childWithID(calendarID)
                 calendarObj = yield calendar.objectResourceWithID(attresid)
                 calendarObj.scheduleTag = str(uuid.uuid4())
-                yield calendarObj.setComponent(attendee_calendar)
+                yield calendarObj._setComponentInternal(attendee_calendar, internal_state=ComponentUpdateState.RAW)
                 self.results.setdefault("Fix change event", set()).add((home.name(), calendar.name(), attendee_calendar.resourceUID(),))
 
                 details["path"] = "/calendars/__uids__/%s/%s/%s" % (home.name(), calendar.name(), calendarObj.name(),)
@@ -1928,7 +1929,7 @@ class SchedulingMismatchService(CalVerifyService):
                 if defaultCalendar is None:
                     raise ValueError("Cannot find suitable default calendar")
                 new_name = str(uuid.uuid4()) + ".ics"
-                calendarObj = (yield defaultCalendar.createCalendarObjectWithName(new_name, attendee_calendar, self.metadata))
+                calendarObj = (yield defaultCalendar._createCalendarObjectWithNameInternal(new_name, attendee_calendar, internal_state=ComponentUpdateState.RAW, options=self.metadata))
                 self.results.setdefault("Fix add event", set()).add((home.name(), defaultCalendar.name(), attendee_calendar.resourceUID(),))
 
                 details["path"] = "/calendars/__uids__/%s/%s/%s" % (home.name(), defaultCalendar.name(), new_name,)
@@ -1944,7 +1945,7 @@ class SchedulingMismatchService(CalVerifyService):
             details["title"] = instance.component.propertyValue("SUMMARY")
 
             # Write new itip message to attendee inbox
-            yield inbox.createCalendarObjectWithName(str(uuid.uuid4()) + ".ics", itipmsg, self.metadata_inbox)
+            yield inbox.createCalendarObjectWithName(str(uuid.uuid4()) + ".ics", itipmsg, options=self.metadata_inbox)
             self.results.setdefault("Fix add inbox", set()).add((home.name(), itipmsg.resourceUID(),))
 
             yield self.txn.commit()

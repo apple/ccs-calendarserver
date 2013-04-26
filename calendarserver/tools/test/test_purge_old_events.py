@@ -18,7 +18,6 @@
 Tests for calendarserver.tools.purge
 """
 
-from calendarserver.tap.util import getRootResource
 from calendarserver.tools.purge import PurgeOldEventsService, PurgeAttachmentsService, \
     PurgePrincipalService
 
@@ -29,13 +28,13 @@ from twext.enterprise.dal.syntax import Update, Delete
 from twext.web2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.trial import unittest
 
 from twistedcaldav.config import config
+from twistedcaldav.test.util import StoreTestCase
 from twistedcaldav.vcard import Component as VCardComponent
 
 from txdav.common.datastore.sql_tables import schema
-from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
+from txdav.common.datastore.test.util import populateCalendarsFrom
 
 import os
 
@@ -365,7 +364,7 @@ END:VCARD
 """.replace("\n", "\r\n")
 
 
-class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
+class PurgeOldEventsTests(StoreTestCase):
     """
     Tests for deleting events older than a given date
     """
@@ -410,14 +409,11 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         }
     }
 
-    @inlineCallbacks
-    def setUp(self):
+    def configure(self):
+        super(PurgeOldEventsTests, self).configure()
+
         # Turn off delayed indexing option so we can have some useful tests
         self.patch(config, "FreeBusyIndexDelayedExpand", False)
-
-        yield super(PurgeOldEventsTests, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
-        yield self.populate()
 
         self.patch(config.DirectoryService.params, "xmlFile",
             os.path.join(
@@ -429,8 +425,6 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
                 os.path.dirname(__file__), "purge", "resources.xml"
             )
         )
-        self.rootResource = getRootResource(config, self._sqlCalendarStore)
-        self.directory = self.rootResource.getDirectory()
 
 
     @inlineCallbacks
@@ -445,13 +439,6 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         ).on(txn)
 
         (yield txn.commit())
-
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlCalendarStore
 
 
     @inlineCallbacks

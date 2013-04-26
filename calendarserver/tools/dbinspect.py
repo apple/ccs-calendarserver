@@ -24,7 +24,6 @@ of simple commands.
 
 from caldavclientlibrary.admin.xmlaccounts.recordtypes import recordType_users, \
     recordType_locations, recordType_resources, recordType_groups
-from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain
 from pycalendar.datetime import PyCalendarDateTime
@@ -33,7 +32,6 @@ from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete, \
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.filepath import FilePath
-from twisted.python.reflect import namedClass
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
 from twistedcaldav import caldavxml
@@ -95,7 +93,7 @@ class DBInspectOptions(Options):
 
 
 def UserNameFromUID(txn, uid):
-    record = txn._directory.recordWithGUID(uid)
+    record = txn.directoryService().recordWithGUID(uid)
     return record.shortNames[0] if record else "(%s)" % (uid,)
 
 
@@ -106,13 +104,13 @@ def UIDFromInput(txn, value):
     except (ValueError, TypeError):
         pass
 
-    record = txn._directory.recordWithShortName(recordType_users, value)
+    record = txn.directoryService().recordWithShortName(recordType_users, value)
     if record is None:
-        record = txn._directory.recordWithShortName(recordType_locations, value)
+        record = txn.directoryService().recordWithShortName(recordType_locations, value)
     if record is None:
-        record = txn._directory.recordWithShortName(recordType_resources, value)
+        record = txn.directoryService().recordWithShortName(recordType_resources, value)
     if record is None:
-        record = txn._directory.recordWithShortName(recordType_groups, value)
+        record = txn.directoryService().recordWithShortName(recordType_groups, value)
     return record.guid if record else None
 
 
@@ -867,7 +865,6 @@ class DBInspectService(Service, object):
         self.options = options
         self.reactor = reactor
         self.config = config
-        self._directory = None
         self.commands = []
         self.commandMap = {}
 
@@ -922,7 +919,6 @@ class DBInspectService(Service, object):
     @inlineCallbacks
     def runCommand(self, cmd):
         txn = self.store.newTransaction()
-        txn._directory = self.directoryService()
         try:
             yield cmd().doIt(txn)
             yield txn.commit()
@@ -965,21 +961,6 @@ class DBInspectService(Service, object):
                 yield self.runCommandByPosition(position - 1)
 
         self.reactor.stop()
-
-
-    def directoryService(self):
-        """
-        Get an appropriate directory service for this L{DBInspectService}'s
-        configuration, creating one first if necessary.
-        """
-        if self._directory is None:
-            self._directory = directoryFromConfig(self.config)
-            proxydbClass = namedClass(config.ProxyDBService.type)
-            try:
-                calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
-            except IOError:
-                print("Could not start proxydb service")
-        return self._directory
 
 
     def stopService(self):

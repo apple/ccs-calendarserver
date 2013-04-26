@@ -23,16 +23,14 @@ from calendarserver.tools.calverify import BadDataService, \
     SchedulingMismatchService, DoubleBookingService, DarkPurgeService
 
 from StringIO import StringIO
-from calendarserver.tap.util import getRootResource
 from pycalendar.datetime import PyCalendarDateTime
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.trial import unittest
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config
+from twistedcaldav.test.util import StoreTestCase
 from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.datastore import util
-from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
+from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.xml import element as davxml
 import os
 
@@ -415,7 +413,7 @@ END:VCALENDAR
 
 
 
-class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
+class CalVerifyDataTests(StoreTestCase):
     """
     Tests calverify for iCalendar data problems.
     """
@@ -448,12 +446,8 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         },
     }
 
-    @inlineCallbacks
-    def setUp(self):
-        yield super(CalVerifyDataTests, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
-        yield self.populate()
-
+    def configure(self):
+        super(CalVerifyDataTests, self).configure()
         self.patch(config.DirectoryService.params, "xmlFile",
             os.path.join(
                 os.path.dirname(__file__), "calverify", "accounts.xml"
@@ -465,17 +459,12 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
             )
         )
 
-        self.rootResource = getRootResource(config, self._sqlCalendarStore)
-        self.directory = self.rootResource.getDirectory()
-
 
     @inlineCallbacks
     def populate(self):
 
         # Need to bypass normal validation inside the store
-        util.validationBypass = True
-        yield populateCalendarsFrom(self.requirements, self.storeUnderTest(), migrating=True)
-        util.validationBypass = False
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
 
@@ -939,7 +928,7 @@ END:VCALENDAR
 
 
 
-class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
+class CalVerifyMismatchTestsBase(StoreTestCase):
     """
     Tests calverify for iCalendar mismatch problems.
     """
@@ -960,8 +949,6 @@ class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(CalVerifyMismatchTestsBase, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
-        yield self.populate()
 
         inbox = (yield self.calendarUnderTest(self.uuid3, "inbox"))
         inbox.properties()[PropertyName.fromElement(caldavxml.ScheduleDefaultCalendarURL)] = caldavxml.ScheduleDefaultCalendarURL(
@@ -969,6 +956,9 @@ class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
         )
         yield self.commit()
 
+
+    def configure(self):
+        super(CalVerifyMismatchTestsBase, self).configure()
         self.patch(config.DirectoryService.params, "xmlFile",
             os.path.join(
                 os.path.dirname(__file__), "calverify", "accounts.xml"
@@ -984,17 +974,13 @@ class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
                 os.path.dirname(__file__), "calverify", "augments.xml"
             ), ]
         )
-        self.rootResource = getRootResource(config, self._sqlCalendarStore)
-        self.directory = self.rootResource.getDirectory()
 
 
     @inlineCallbacks
     def populate(self):
 
         # Need to bypass normal validation inside the store
-        util.validationBypass = True
-        yield populateCalendarsFrom(self.requirements, self.storeUnderTest(), migrating=True)
-        util.validationBypass = False
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
 

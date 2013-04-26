@@ -1107,7 +1107,6 @@ class CommonStoreTransaction(object):
         many were removed.
         """
 
-        assert "This needs to be moved into txdav.caldav as it needs to call _removeInternal"
         # Make sure cut off is after any lower limit truncation in the DB
         if config.FreeBusyIndexLowerLimitDays:
             truncateLowerLimit = PyCalendarDateTime.getToday()
@@ -1121,7 +1120,7 @@ class CommonStoreTransaction(object):
             home = (yield self.calendarHomeWithUID(uid))
             calendar = (yield home.childWithName(calendarName))
             resource = (yield calendar.objectResourceWithName(eventName))
-            yield resource._removeInternal()
+            yield resource.remove(implicitly=False)
             count += 1
         returnValue(count)
 
