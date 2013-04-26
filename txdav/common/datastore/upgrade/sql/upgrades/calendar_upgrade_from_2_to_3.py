@@ -23,7 +23,7 @@ as in calendar data and properties.
 
 from txdav.common.datastore.sql import fixUUIDNormalization
 from twisted.internet.defer import inlineCallbacks
-from txdav.common.datastore.upgrade.sql.upgrades.util import updateDataVersion
+from txdav.common.datastore.upgrade.sql.upgrades.util import updateCalendarDataVersion
 
 UPGRADE_TO_VERSION = 3
 
@@ -36,7 +36,7 @@ def doUpgrade(sqlStore):
     yield fixUUIDNormalization(sqlStore)
 
     # Always bump the DB value
-    yield updateDataVersion(
-        sqlStore, "CALENDAR-DATAVERSION", UPGRADE_TO_VERSION
+    yield updateCalendarDataVersion(
+        sqlStore, UPGRADE_TO_VERSION
     )
 

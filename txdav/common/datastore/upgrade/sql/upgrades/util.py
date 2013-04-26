@@ -43,9 +43,9 @@ def removeProperty(txn, propelement):
     ).on(txn)
 
 @inlineCallbacks
-def updateDataVersion(store, key, version):
+def _updateDataVersion(store, key, version):
 
-    txn = store.newTransaction("updateDataVersion")    
+    txn = store.newTransaction("update " + key)
     cs = schema.CALENDARSERVER
     yield Update(
         {cs.VALUE: version},
@@ -54,13 +54,13 @@ def updateDataVersion(store, key, version):
     yield txn.commit()
 
 def updateCalendarDataVersion(store, version):
-    return updateDataVersion(store, "CALENDAR-DATAVERSION", version)
+    return _updateDataVersion(store, "CALENDAR-DATAVERSION", version)
 
 def updateAddressBookDataVersion(store, version):
-    return updateDataVersion(store, "ADDRESSBOOK-DATAVERSION", version)
+    return _updateDataVersion(store, "ADDRESSBOOK-DATAVERSION", version)
 
 @inlineCallbacks
-def doToEachCalendarHomeNotAtVersion(store, homeSchema, version, doIt):
+def doToEachHomeNotAtVersion(store, homeSchema, version, doIt):
     """
     Do something to each home whose version column indicates it is older
     than the specified version. Do this in batches as there may be a lot of work to do.

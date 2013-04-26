@@ -316,7 +316,7 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
 
 
 
-class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
+class _UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
     """
     Checks and upgrades the database data. This assumes there are a bunch of
     upgrade python modules that we can execute against the database to
@@ -345,7 +345,6 @@ class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
         Apply the data upgrade .py files to the database.
         """
 
-
         # Find the module function we need to execute
         try:
             module = getModule(__name__)
@@ -361,7 +360,7 @@ class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
 
 
 
-class UpgradeDatabaseCalendarDataService(UpgradeDatabaseDataService):
+class UpgradeDatabaseCalendarDataService(_UpgradeDatabaseDataService):
     """
     Checks and upgrades the database data. This assumes there are a bunch of
     upgrade python modules that we can execute against the database to
@@ -395,7 +394,7 @@ class UpgradeDatabaseCalendarDataService(UpgradeDatabaseDataService):
 
 
 
-class UpgradeDatabaseAddressBookDataService(UpgradeDatabaseDataService):
+class UpgradeDatabaseAddressBookDataService(_UpgradeDatabaseDataService):
     """
     Checks and upgrades the database data. This assumes there are a bunch of
     upgrade python modules that we can execute against the database to

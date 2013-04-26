@@ -1,4 +1,4 @@
-##
+# #
 # Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-##
+# #
 
 """
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
@@ -24,7 +24,7 @@ from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
 from txdav.common.datastore.test.util import theStoreBuilder, StubNotifierFactory
 from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaService, \
-    UpgradeDatabaseDataService
+    UpgradeDatabaseCalendarDataService, UpgradeDatabaseAddressBookDataService
 import re
 
 class SchemaUpgradeTests(TestCase):
@@ -207,7 +207,7 @@ class SchemaUpgradeTests(TestCase):
 
 
     @inlineCallbacks
-    def test_dbDataUpgrades(self):
+    def test_dbCalendarDataUpgrades(self):
         """
         This does a full DB test of all possible data upgrade paths. For each old schema, it loads it into the DB
         then runs the data upgrade service. This ensures all the upgrade_XX.py files work correctly - at least for
@@ -264,10 +264,78 @@ class SchemaUpgradeTests(TestCase):
             versions.add(self._getSchemaVersion(child, "CALENDAR-DATAVERSION"))
 
         for oldVersion in sorted(versions):
-            upgrader = UpgradeDatabaseDataService(store, None)
+            upgrader = UpgradeDatabaseCalendarDataService(store, None)
             yield _loadOldData(test_upgrader.schemaLocation.child("current.sql"), oldVersion)
             yield upgrader.databaseUpgrade()
             new_version = yield _loadVersion()
             yield _unloadOldData()
 
             self.assertEqual(new_version, expected_version)
+
+
+    @inlineCallbacks
+    def test_dbAddressBookDataUpgrades(self):
+        """
+        This does a full DB test of all possible data upgrade paths. For each old schema, it loads it into the DB
+        then runs the data upgrade service. This ensures all the upgrade_XX.py files work correctly - at least for
+        postgres.
+
+        TODO: this currently does not create any calendar data to test with. It simply runs the upgrade on an empty
+        store.
+        """
+
+        store = yield theStoreBuilder.buildStore(
+            self, StubNotifierFactory()
+        )
+
+        @inlineCallbacks
+        def _loadOldData(path, oldVersion):
+            """
+            Use the postgres schema mechanism to do tests under a separate "namespace"
+            in postgres that we can quickly wipe clean afterwards.
+            """
+            startTxn = store.newTransaction("test_dbUpgrades")
+            yield startTxn.execSQL("create schema test_dbUpgrades;")
+            yield startTxn.execSQL("set search_path to test_dbUpgrades;")
+            yield startTxn.execSQL(path.getContent())
+            yield startTxn.execSQL("update CALENDARSERVER set VALUE = '%s' where NAME = 'ADDRESSBOOK-DATAVERSION';" % (oldVersion,))
+            yield startTxn.commit()
+
+        @inlineCallbacks
+        def _loadVersion():
+            startTxn = store.newTransaction("test_dbUpgrades")
+            new_version = yield startTxn.execSQL("select value from calendarserver where name = 'ADDRESSBOOK-DATAVERSION';")
+            yield startTxn.commit()
+            returnValue(int(new_version[0][0]))
+
+        @inlineCallbacks
+        def _unloadOldData():
+            startTxn = store.newTransaction("test_dbUpgrades")
+            yield startTxn.execSQL("set search_path to public;")
+            yield startTxn.execSQL("drop schema test_dbUpgrades cascade;")
+            yield startTxn.commit()
+
+        @inlineCallbacks
+        def _cleanupOldData():
+            startTxn = store.newTransaction("test_dbUpgrades")
+            yield startTxn.execSQL("set search_path to public;")
+            yield startTxn.execSQL("drop schema if exists test_dbUpgrades cascade;")
+            yield startTxn.commit()
+
+        self.addCleanup(_cleanupOldData)
+
+        test_upgrader = UpgradeDatabaseSchemaService(None, None)
+        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), "ADDRESSBOOK-DATAVERSION")
+        versions = set()
+        for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
+            versions.add(self._getSchemaVersion(child, "ADDRESSBOOK-DATAVERSION"))
+
+        for oldVersion in sorted(versions):
+            upgrader = UpgradeDatabaseAddressBookDataService(store, None)
+            yield _loadOldData(test_upgrader.schemaLocation.child("current.sql"), oldVersion)
+            yield upgrader.databaseUpgrade()
+            new_version = yield _loadVersion()
+            yield _unloadOldData()
+
+            self.assertEqual(new_version, expected_version)
+

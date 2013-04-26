@@ -14,11 +14,9 @@
 -- limitations under the License.
 ----
 
-
 ---------------------------------------------------
 -- Upgrade database schema from VERSION 18 to 19 --
 ---------------------------------------------------
-
 
 -- Now update the version
 update CALENDARSERVER set VALUE = '19' where NAME = 'VERSION';

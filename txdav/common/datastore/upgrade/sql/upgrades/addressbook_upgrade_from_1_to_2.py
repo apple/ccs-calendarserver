@@ -30,6 +30,5 @@ def doUpgrade(sqlStore):
     Do the required upgrade steps.
     """
 
-    # FIXME: do nothing for now!
-    # Always bump the DB value
-    yield updateAddressBookDataVersion(sqlStore, UPGRADE_TO_VERSION - 1)
+    # bump data version
+    yield updateAddressBookDataVersion(sqlStore, UPGRADE_TO_VERSION)
