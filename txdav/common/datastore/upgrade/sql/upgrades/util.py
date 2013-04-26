@@ -60,9 +60,9 @@ def updateAddressBookDataVersion(store, version):
     return updateDataVersion(store, "ADDRESSBOOK-DATAVERSION", version)
 
 @inlineCallbacks
-def doToEachCalendarHomeNotAtVersion(store, version, doIt):
+def doToEachCalendarHomeNotAtVersion(store, homeSchema, version, doIt):
     """
-    Do something to each calendar home whose version column indicates it is older
+    Do something to each home whose version column indicates it is older
     than the specified version. Do this in batches as there may be a lot of work to do.
     """
 
@@ -71,12 +71,11 @@ def doToEachCalendarHomeNotAtVersion(store, version, doIt):
         # Get the next home with an old version
         txn = store.newTransaction("updateDataVersion")   
         try: 
-            ch = schema.CALENDAR_HOME
             rows = yield Select(
-                [ch.RESOURCE_ID, ch.OWNER_UID,],
-                From=ch,
-                Where=ch.DATAVERSION < version,
-                OrderBy=ch.OWNER_UID,
+                [homeSchema.RESOURCE_ID, homeSchema.OWNER_UID, ],
+                From=homeSchema,
+                Where=homeSchema.DATAVERSION < version,
+                OrderBy=homeSchema.OWNER_UID,
                 Limit=1,
             ).on(txn)
             
@@ -91,8 +90,8 @@ def doToEachCalendarHomeNotAtVersion(store, version, doIt):
     
             # Update the home to the current version
             yield Update(
-                {ch.DATAVERSION: version},
-                Where=ch.RESOURCE_ID == resource_id,
+                {homeSchema.DATAVERSION: version},
+                Where=homeSchema.RESOURCE_ID == resource_id,
             ).on(txn)
             yield txn.commit()
         except RuntimeError:

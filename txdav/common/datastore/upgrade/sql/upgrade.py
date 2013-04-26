@@ -1,5 +1,5 @@
 # -*- test-case-name: txdav.common.datastore.upgrade.sql.test -*-
-##
+# #
 # Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-##
+# #
 
 """
 Utilities, mostly related to upgrading, common to calendar and addresbook
@@ -91,6 +91,7 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
 
         self.versionKey = None
         self.versionDescriptor = ""
+        self.upgradeFilePrefix = ""
         self.upgradeFileSuffix = ""
         self.defaultKeyValue = None
 
@@ -214,8 +215,8 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
 
         fp = self.getPathToUpgrades(dialect)
         upgrades = []
-        regex = re.compile("upgrade_from_(\d+)_to_(\d+)%s" % (self.upgradeFileSuffix,))
-        for child in fp.globChildren("upgrade_*%s" % (self.upgradeFileSuffix,)):
+        regex = re.compile("%supgrade_from_(\d+)_to_(\d+)%s" % (self.upgradeFilePrefix, self.upgradeFileSuffix,))
+        for child in fp.globChildren("%supgrade_*%s" % (self.upgradeFilePrefix, self.upgradeFileSuffix,)):
             matched = regex.match(child.basename())
             if matched is not None:
                 fromV = int(matched.group(1))
@@ -234,7 +235,6 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
         step. As a result we will always try and pick the upgrade file that gives the biggest
         jump from one version to another at each step.
         """
-
         # Now find the path from the old version to the current one
         filesByFromVersion = {}
         for fromV, toV, fp in files:
@@ -334,19 +334,6 @@ class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
     @type wrappedService: L{IService} or C{NoneType}
     """
 
-    def __init__(self, sqlStore, service, **kwargs):
-        """
-        Initialize the service.
-
-        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
-        @param service:  Wrapped service. Can be C{None} when doing unit tests.
-        """
-        super(UpgradeDatabaseDataService, self).__init__(sqlStore, service, **kwargs)
-
-        self.versionKey = "CALENDAR-DATAVERSION"
-        self.versionDescriptor = "data"
-        self.upgradeFileSuffix = ".py"
-
 
     def getPathToUpgrades(self, dialect):
         return self.pyLocation.child("upgrades")
@@ -357,6 +344,7 @@ class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
         """
         Apply the data upgrade .py files to the database.
         """
+
 
         # Find the module function we need to execute
         try:
@@ -370,6 +358,74 @@ class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
 
         self.log_warn("Applying data upgrade: %s" % (module,))
         yield doUpgrade(self.sqlStore)
+
+
+
+class UpgradeDatabaseCalendarDataService(UpgradeDatabaseDataService):
+    """
+    Checks and upgrades the database data. This assumes there are a bunch of
+    upgrade python modules that we can execute against the database to
+    accomplish the upgrade.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+
+    @ivar wrappedService: Wrapped L{IService} that will be started after this
+        L{UpgradeDatabaseSchemaService}'s work is done and the database schema
+        of C{sqlStore} is fully upgraded.  This may also be specified as
+        C{None}, in which case no service will be started.
+
+    @type wrappedService: L{IService} or C{NoneType}
+    """
+
+    def __init__(self, sqlStore, service, **kwargs):
+        """
+        Initialize the service.
+
+        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
+        @param service:  Wrapped service. Can be C{None} when doing unit tests.
+        """
+        super(UpgradeDatabaseCalendarDataService, self).__init__(sqlStore, service, **kwargs)
+
+        self.versionKey = "CALENDAR-DATAVERSION"
+        self.versionDescriptor = "calendar data"
+        self.upgradeFilePrefix = "calendar_"
+        self.upgradeFileSuffix = ".py"
+
+
+
+class UpgradeDatabaseAddressBookDataService(UpgradeDatabaseDataService):
+    """
+    Checks and upgrades the database data. This assumes there are a bunch of
+    upgrade python modules that we can execute against the database to
+    accomplish the upgrade.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+
+    @ivar wrappedService: Wrapped L{IService} that will be started after this
+        L{UpgradeDatabaseSchemaService}'s work is done and the database schema
+        of C{sqlStore} is fully upgraded.  This may also be specified as
+        C{None}, in which case no service will be started.
+
+    @type wrappedService: L{IService} or C{NoneType}
+    """
+
+    def __init__(self, sqlStore, service, **kwargs):
+        """
+        Initialize the service.
+
+        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
+        @param service:  Wrapped service. Can be C{None} when doing unit tests.
+        """
+        super(UpgradeDatabaseAddressBookDataService, self).__init__(sqlStore, service, **kwargs)
+
+        self.versionKey = "ADDRESSBOOK-DATAVERSION"
+        self.versionDescriptor = "addressbook data"
+        self.upgradeFilePrefix = "addressbook_"
+        self.upgradeFileSuffix = ".py"
 
 
 

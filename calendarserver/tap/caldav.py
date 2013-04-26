@@ -66,7 +66,7 @@ from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
-    UpgradeDatabaseSchemaService, UpgradeDatabaseDataService, UpgradeDatabaseOtherService,
+    UpgradeDatabaseSchemaService, UpgradeDatabaseCalendarDataService, UpgradeDatabaseAddressBookDataService, UpgradeDatabaseOtherService,
 )
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
 
@@ -1117,16 +1117,19 @@ class CalDAVServiceMaker (LoggingMixIn):
                 upgradeSvc = UpgradeFileSystemFormatService(
                     config, spawner, parallel,
                     UpgradeDatabaseSchemaService.wrapService(
-                        UpgradeDatabaseDataService.wrapService(
-                            UpgradeToDatabaseService.wrapService(
-                                CachingFilePath(config.DocumentRoot),
-                                UpgradeDatabaseOtherService.wrapService(
-                                    postImport,
+                        UpgradeDatabaseCalendarDataService.wrapService(
+                            UpgradeDatabaseAddressBookDataService.wrapService(
+                                UpgradeToDatabaseService.wrapService(
+                                    CachingFilePath(config.DocumentRoot),
+                                    UpgradeDatabaseOtherService.wrapService(
+                                        postImport,
+                                        store, uid=overrideUID, gid=overrideGID,
+                                    ),
                                     store, uid=overrideUID, gid=overrideGID,
+                                    spawner=spawner, merge=config.MergeUpgrades,
+                                    parallel=parallel
                                 ),
                                 store, uid=overrideUID, gid=overrideGID,
-                                spawner=spawner, merge=config.MergeUpgrades,
-                                parallel=parallel
                             ),
                             store, uid=overrideUID, gid=overrideGID,
                         ),
