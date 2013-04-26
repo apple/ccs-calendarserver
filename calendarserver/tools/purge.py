@@ -17,7 +17,6 @@
 ##
 from __future__ import print_function
 
-from calendarserver.tap.util import FakeRequest
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.tools.util import removeProxy
@@ -756,12 +755,6 @@ class PurgePrincipalService(WorkerService):
 
         principalCollection = self.directory.principalCollection
         principal = principalCollection.principalForRecord(record)
-
-        request = FakeRequest(self.root, None, None)
-        request.checkedSACL = True
-        request.authnUser = request.authzUser = davxml.Principal(
-            davxml.HRef.fromString("/principals/__uids__/%s/" % (uid,))
-        )
 
         # See if calendar home is provisioned
         txn = self._store.newTransaction()
