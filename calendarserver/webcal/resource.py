@@ -91,11 +91,11 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
     def htmlContent(self, debug=False):
         if debug:
             cacheAttr = "_htmlContentDebug"
-            templateFileName = "debug_template.html"
+            templateFileName = "debug_standalone.html"
         else:
             cacheAttr = "_htmlContent"
-            templateFileName = "template.html"
-        templateFileName = os.path.join(config.WebCalendarRoot, "calendar", templateFileName)
+            templateFileName = "standalone.html"
+        templateFileName = os.path.join(config.WebCalendarRoot, templateFileName)
 
         #
         # See if the file changed, and dump the cached template if so.
