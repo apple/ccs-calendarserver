@@ -182,9 +182,6 @@ class StepFour(Step):
     successValue = "four success"
     errorValue = "four failure"
 
-    # def stepWithFailure(self, failure):
-    #     Step.stepWithFailure(self, failure)
-    #     return succeed(None)
 
 class StepperTestCase(TestCase):
 

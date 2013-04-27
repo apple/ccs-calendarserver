@@ -205,7 +205,9 @@ class PostgresService(MultiService):
 
         # Options from config
         self.databaseName = databaseName
-        self.logFile = logFile
+        # Make logFile absolute in case the working directory of postgres is
+        # elsewhere:
+        self.logFile = os.path.abspath(logFile)
         if listenAddresses:
             self.socketDir = None
             self.host, self.port = listenAddresses[0].split(":") if ":" in listenAddresses[0] else (listenAddresses[0], None,)
@@ -510,6 +512,7 @@ class PostgresService(MultiService):
             if self.shouldStopDatabase:
                 monitor = _PostgresMonitor()
                 pgCtl = self.pgCtl()
+                # FIXME: why is this 'logfile' and not self.logfile?
                 self.reactor.spawnProcess(monitor, pgCtl,
                     [pgCtl, '-l', 'logfile', 'stop'],
                     env=self.env, path=self.workingDir.path,
