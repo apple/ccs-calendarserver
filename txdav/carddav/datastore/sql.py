@@ -68,7 +68,7 @@ class AddressBookHome(CommonHome):
 
     # structured tables.  (new, preferred)
     _homeSchema = schema.ADDRESSBOOK_HOME
-    _bindSchema = schema.ADDRESSBOOK_HOME_BIND
+    _bindSchema = schema.ADDRESSBOOK_BIND
     _homeMetaDataSchema = schema.ADDRESSBOOK_HOME_METADATA
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
     _objectSchema = schema.ADDRESSBOOK_OBJECT
@@ -170,7 +170,7 @@ class AddressBookHome(CommonHome):
     @inlineCallbacks
     def remove(self):
         ah = schema.ADDRESSBOOK_HOME
-        ahb = schema.ADDRESSBOOK_HOME_BIND
+        ahb = schema.ADDRESSBOOK_BIND
         aor = schema.ADDRESSBOOK_OBJECT_REVISIONS
         rp = schema.RESOURCE_PROPERTY
 
@@ -363,7 +363,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
     # structured tables.  (new, preferred)
     _homeSchema = schema.ADDRESSBOOK_HOME
-    _bindSchema = schema.ADDRESSBOOK_HOME_BIND
+    _bindSchema = schema.ADDRESSBOOK_BIND
     _homeChildSchema = schema.ADDRESSBOOK_HOME
     _homeChildMetaDataSchema = schema.ADDRESSBOOK_HOME_METADATA
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
@@ -1255,7 +1255,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
     implements(IAddressBookObject)
 
     _objectSchema = schema.ADDRESSBOOK_OBJECT
-    _bindSchema = schema.GROUP_ADDRESSBOOK_HOME_BIND
+    _bindSchema = schema.GROUP_ADDRESSBOOK_BIND
 
     # used by CommonHomeChild._childrenAndMetadataForHomeID() only
     #_homeChildSchema = schema.ADDRESSBOOK_OBJECT

@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
         "addressbooks": {
             "home_table"        : "ADDRESSBOOK_HOME",
-            "bind_table"        : "ADDRESSBOOK_HOME_BIND",
+            "bind_table"        : "ADDRESSBOOK_BIND",
             "object_table"      : "ADDRESSBOOK_OBJECT",
 
             "bind_home_id"      : "ADDRESSBOOK_HOME_RESOURCE_ID",

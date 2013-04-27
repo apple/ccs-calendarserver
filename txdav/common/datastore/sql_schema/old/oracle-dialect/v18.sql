@@ -183,7 +183,6 @@ create table RESOURCE_PROPERTY (
 
 create table ADDRESSBOOK_HOME (
     "RESOURCE_ID" integer primary key,
-    "HOME_RESOURCE_ID" integer not null,
     "OWNER_UID" nvarchar2(255) unique,
     "DATAVERSION" integer default 0 not null
 );
@@ -195,9 +194,19 @@ create table ADDRESSBOOK_HOME_METADATA (
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
+create table ADDRESSBOOK (
+    "RESOURCE_ID" integer primary key
+);
+
+create table ADDRESSBOOK_METADATA (
+    "RESOURCE_ID" integer primary key references ADDRESSBOOK on delete cascade,
+    "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+);
+
 create table ADDRESSBOOK_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
-    "ADDRESSBOOK_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
+    "ADDRESSBOOK_RESOURCE_ID" integer not null references ADDRESSBOOK on delete cascade,
     "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
@@ -208,50 +217,15 @@ create table ADDRESSBOOK_BIND (
 
 create table ADDRESSBOOK_OBJECT (
     "RESOURCE_ID" integer primary key,
-    "ADDRESSBOOK_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
+    "ADDRESSBOOK_RESOURCE_ID" integer not null references ADDRESSBOOK on delete cascade,
     "RESOURCE_NAME" nvarchar2(255),
     "VCARD_TEXT" nclob,
     "VCARD_UID" nvarchar2(255),
-    "KIND" integer not null,
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
     unique("ADDRESSBOOK_RESOURCE_ID", "RESOURCE_NAME"), 
     unique("ADDRESSBOOK_RESOURCE_ID", "VCARD_UID")
-);
-
-create table ADDRESSBOOK_OBJECT_KIND (
-    "ID" integer primary key,
-    "DESCRIPTION" nvarchar2(16) unique
-);
-
-insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('person', 0);
-insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('group', 1);
-insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('resource', 2);
-insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('location', 3);
-create table ABO_MEMBERS (
-    "GROUP_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
-    "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
-    "MEMBER_ID" integer not null references ADDRESSBOOK_OBJECT, 
-    primary key("GROUP_ID", "MEMBER_ID")
-);
-
-create table ABO_FOREIGN_MEMBERS (
-    "GROUP_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
-    "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
-    "MEMBER_ADDRESS" nvarchar2(255), 
-    primary key("GROUP_ID", "MEMBER_ADDRESS")
-);
-
-create table GROUP_ADDRESSBOOK_BIND (
-    "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
-    "GROUP_RESOURCE_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
-    "GROUP_ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
-    "BIND_MODE" integer not null,
-    "BIND_STATUS" integer not null,
-    "MESSAGE" nclob, 
-    primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_RESOURCE_ID"), 
-    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_ADDRESSBOOK_RESOURCE_NAME")
 );
 
 create table CALENDAR_OBJECT_REVISIONS (
@@ -265,7 +239,7 @@ create table CALENDAR_OBJECT_REVISIONS (
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
-    "ADDRESSBOOK_RESOURCE_ID" integer references ADDRESSBOOK_HOME,
+    "ADDRESSBOOK_RESOURCE_ID" integer references ADDRESSBOOK,
     "ADDRESSBOOK_NAME" nvarchar2(255) default null,
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
@@ -336,9 +310,9 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '19');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '18');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
-insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
+insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
     NOTIFICATION_HOME_RESOURCE_ID
 );
@@ -383,10 +357,6 @@ create index ATTACHMENT_CALENDAR_H_0078845c on ATTACHMENT (
 
 create index ADDRESSBOOK_BIND_RESO_205aa75c on ADDRESSBOOK_BIND (
     ADDRESSBOOK_RESOURCE_ID
-);
-
-create index GROUP_ADDRESSBOOK_BIN_71d6a48a on GROUP_ADDRESSBOOK_BIND (
-    GROUP_RESOURCE_ID
 );
 
 create index CALENDAR_OBJECT_REVIS_3a3956c4 on CALENDAR_OBJECT_REVISIONS (
