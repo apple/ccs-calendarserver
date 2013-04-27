@@ -24,8 +24,6 @@ create table CALENDAR_HOME (
 create table CALENDAR_HOME_METADATA (
     "RESOURCE_ID" integer primary key references CALENDAR_HOME on delete cascade,
     "QUOTA_USED_BYTES" integer default 0 not null,
-    "DEFAULT_EVENTS" integer default null,
-    "DEFAULT_TASKS" integer default null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
@@ -312,8 +310,8 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '19');
-insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '4');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '18');
+insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
     NOTIFICATION_HOME_RESOURCE_ID

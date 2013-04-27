@@ -258,7 +258,7 @@ class ICommonTransaction(ITransaction):
     stores.
     """
 
-    def notificationsWithUID(uid):
+    def notificationsWithUID(uid): #@NoSelf
         """
         Retrieve the notification collection for the principal with the given
         C{uid}.
@@ -267,7 +267,7 @@ class ICommonTransaction(ITransaction):
             notification collection exists.
         """
 
-    def addAPNSubscription(token, key, timestamp, subscriber, userAgent, ipAddr):
+    def addAPNSubscription(token, key, timestamp, subscriber, userAgent, ipAddr): #@NoSelf
         """
         Add (or update) a subscription entry in the database.
 
@@ -290,7 +290,7 @@ class ICommonTransaction(ITransaction):
         @type ipAddr: C{str}
         """
 
-    def removeAPNSubscription(token, key):
+    def removeAPNSubscription(token, key): #@NoSelf
         """
         Remove a subscription entry from the database.
 
@@ -301,7 +301,7 @@ class ICommonTransaction(ITransaction):
         @type key: C{str}
         """
 
-    def purgeOldAPNSubscriptions(olderThan):
+    def purgeOldAPNSubscriptions(olderThan): #@NoSelf
         """
         Remove all subscription entries whose modified timestamp
         is older than the provided timestamp.
@@ -310,7 +310,7 @@ class ICommonTransaction(ITransaction):
         @type token: C{int}
         """
 
-    def apnSubscriptionsByToken(token):
+    def apnSubscriptionsByToken(token): #@NoSelf
         """
         Retrieve all subscription entries for the token.
 
@@ -320,7 +320,7 @@ class ICommonTransaction(ITransaction):
         @return: tuples of (key, timestamp, guid)
         """
 
-    def apnSubscriptionsByKey(key):
+    def apnSubscriptionsByKey(key): #@NoSelf
         """
         Retrieve all subscription entries for the key.
 
@@ -330,7 +330,7 @@ class ICommonTransaction(ITransaction):
         @return: tuples of (token, guid)
         """
 
-    def apnSubscriptionsBySubscriber(guid):
+    def apnSubscriptionsBySubscriber(guid): #@NoSelf
         """
         Retrieve all subscription entries for the subscriber.
 
@@ -340,7 +340,7 @@ class ICommonTransaction(ITransaction):
         @return: tuples of (token, key, timestamp, userAgent, ipAddr)
         """
 
-    def imipCreateToken(organizer, attendee, icaluid, token=None):
+    def imipCreateToken(organizer, attendee, icaluid, token=None): #@NoSelf
         """
         Add an entry in the database; if no token is provided, one will be
         generated.
@@ -355,7 +355,7 @@ class ICommonTransaction(ITransaction):
         @type token: C{str}
         """
 
-    def imipLookupByToken(token):
+    def imipLookupByToken(token): #@NoSelf
         """
         Returns the organizer, attendee, and icaluid corresponding to the token
 
@@ -363,7 +363,7 @@ class ICommonTransaction(ITransaction):
         @type token: C{str}
         """
 
-    def imipGetToken(organizer, attendee, icaluid):
+    def imipGetToken(organizer, attendee, icaluid): #@NoSelf
         """
         Returns the token (if any) corresponding to the given organizer, attendee,
         and icaluid combination
@@ -376,7 +376,7 @@ class ICommonTransaction(ITransaction):
         @type organizer: C{str}
         """
 
-    def imipRemoveToken(token):
+    def imipRemoveToken(token): #@NoSelf
         """
         Removes the entry for the given token.
 
@@ -384,7 +384,7 @@ class ICommonTransaction(ITransaction):
         @type token: C{str}
         """
 
-    def purgeOldIMIPTokens(olderThan):
+    def purgeOldIMIPTokens(olderThan): #@NoSelf
         """
         Removes all tokens whose access time is before olderThan
         """

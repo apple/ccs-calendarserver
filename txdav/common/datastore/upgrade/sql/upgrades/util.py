@@ -20,17 +20,20 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.common.datastore.sql_tables import schema
 
 @inlineCallbacks
-def rowsForProperty(txn, propelement):
+def rowsForProperty(txn, propelement, batch=None):
     pname = PropertyName.fromElement(propelement)
 
     rp = schema.RESOURCE_PROPERTY
     rows = yield Select(
-        [rp.RESOURCE_ID, rp.VALUE,],
+        [rp.RESOURCE_ID, rp.VALUE, ],
         From=rp,
         Where=rp.NAME == pname.toString(),
+        Limit=batch,
     ).on(txn)
-    
+
     returnValue(rows)
+
+
 
 @inlineCallbacks
 def removeProperty(txn, propelement):
@@ -42,10 +45,12 @@ def removeProperty(txn, propelement):
         Where=rp.NAME == pname.toString(),
     ).on(txn)
 
+
+
 @inlineCallbacks
 def updateDataVersion(store, key, version):
 
-    txn = store.newTransaction("updateDataVersion")    
+    txn = store.newTransaction("updateDataVersion")
     cs = schema.CALENDARSERVER
     yield Update(
         {cs.VALUE: version},
@@ -53,11 +58,17 @@ def updateDataVersion(store, key, version):
     ).on(txn)
     yield txn.commit()
 
+
+
 def updateCalendarDataVersion(store, version):
     return updateDataVersion(store, "CALENDAR-DATAVERSION", version)
 
+
+
 def updateAddressBookDataVersion(store, version):
     return updateDataVersion(store, "ADDRESSBOOK-DATAVERSION", version)
+
+
 
 @inlineCallbacks
 def doToEachCalendarHomeNotAtVersion(store, version, doIt):
@@ -67,28 +78,28 @@ def doToEachCalendarHomeNotAtVersion(store, version, doIt):
     """
 
     while True:
-        
+
         # Get the next home with an old version
-        txn = store.newTransaction("updateDataVersion")   
-        try: 
+        txn = store.newTransaction("updateDataVersion")
+        try:
             ch = schema.CALENDAR_HOME
             rows = yield Select(
-                [ch.RESOURCE_ID, ch.OWNER_UID,],
+                [ch.RESOURCE_ID, ch.OWNER_UID, ],
                 From=ch,
                 Where=ch.DATAVERSION < version,
                 OrderBy=ch.OWNER_UID,
                 Limit=1,
             ).on(txn)
-            
+
             if len(rows) == 0:
                 yield txn.commit()
                 returnValue(None)
-            
+
             # Apply to the home
             resource_id, _ignore_owner_uid = rows[0]
             home = yield txn.calendarHomeWithResourceID(resource_id)
             yield doIt(home)
-    
+
             # Update the home to the current version
             yield Update(
                 {ch.DATAVERSION: version},

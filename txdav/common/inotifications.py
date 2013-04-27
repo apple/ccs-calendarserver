@@ -35,7 +35,7 @@ class INotificationCollection(Interface):
     A notification collection belongs to a specific principal.
     """
 
-    def name():
+    def name(): #@NoSelf
         """
         Identify this notification collection.
 
@@ -43,7 +43,7 @@ class INotificationCollection(Interface):
         @rtype: C{str}
         """
 
-    def notificationObjects():
+    def notificationObjects(): #@NoSelf
         """
         Retrieve the notification objects contained in this notification
         collection with the given C{componentType}.
@@ -52,7 +52,7 @@ class INotificationCollection(Interface):
         @return: an iterable of L{INotificationObject}s.
         """
 
-    def notificationObjectWithName(name):
+    def notificationObjectWithName(name): #@NoSelf
         """
         Retrieve the notification object with the given C{name} contained
         in this notification collection.
@@ -62,7 +62,7 @@ class INotificationCollection(Interface):
             object exists.
         """
 
-    def notificationObjectWithUID(uid):
+    def notificationObjectWithUID(uid): #@NoSelf
         """
         Retrieve the notification object with the given C{uid} contained
         in this notification collection.
@@ -72,7 +72,7 @@ class INotificationCollection(Interface):
             object exists.
         """
 
-    def writeNotificationObject(uid, xmltype, xmldata):
+    def writeNotificationObject(uid, xmltype, xmldata): #@NoSelf
         """
         Write a notification with the given C{uid} in this notification
         collection from the given C{xmldata} with given C{xmltype}.  If a
@@ -86,7 +86,7 @@ class INotificationCollection(Interface):
         @param xmltype: the node within the notification payload, emptied of
             its children, to indicate the type of notification and fill out the
             C{CS:notificationtype} property.
-            
+
         @type xmltype: an instance of
             L{txdav.xml.base.WebDAVElement},
             most likely a subclass like L{twistedcaldav.customxml.InviteReply},
@@ -97,7 +97,7 @@ class INotificationCollection(Interface):
         @type xmldata: C{str}
         """
 
-    def removeNotificationObjectWithName(name):
+    def removeNotificationObjectWithName(name): #@NoSelf
         """
         Remove the notification object with the given C{name} from this
         notification collection. If C{deleteOnly} is C{True} then do not
@@ -109,7 +109,7 @@ class INotificationCollection(Interface):
             object exists.
         """
 
-    def removeNotificationObjectWithUID(uid):
+    def removeNotificationObjectWithUID(uid): #@NoSelf
         """
         Remove the notification object with the given C{uid} from this
         notification collection.
@@ -119,19 +119,20 @@ class INotificationCollection(Interface):
             not exist.
         """
 
-    def syncToken():
+    def syncToken(): #@NoSelf
         """
         Retrieve the current sync token for this notification.
 
         @return: a string containing a sync token.
         """
 
-    def properties():
+    def properties(): #@NoSelf
         """
         Retrieve the property store for this notification.
 
         @return: an L{IPropertyStore}.
         """
+
 
 
 class INotificationObject(IDataStoreObject):
@@ -141,7 +142,7 @@ class INotificationObject(IDataStoreObject):
     An notification object describes an XML notification.
     """
 
-    def setData(uid, xmltype, xmldata, inserting=False):
+    def setData(uid, xmltype, xmldata, inserting=False): #@NoSelf
         """
         Rewrite this notification object to match the given C{xmltype} and
         C{xmldata}. C{xmldata} must have the same UID as this notification object.
@@ -153,26 +154,24 @@ class INotificationObject(IDataStoreObject):
             an notification object.
         """
 
-    def xmldata():
+    def xmldata(): #@NoSelf
         """
         Retrieve the notification data for this notification object.
 
         @return: a string.
         """
 
-    def uid():
+    def uid(): #@NoSelf
         """
         Retrieve the UID for this notification object.
 
         @return: a string containing a UID.
         """
 
-
-    def notificationCollection():
+    def notificationCollection(): #@NoSelf
         """
         @return: the parent L{INotificationCollection} which this
             L{INotificationObject} was retrieved from.
 
         @rtype: L{INotificationCollection}
         """
-

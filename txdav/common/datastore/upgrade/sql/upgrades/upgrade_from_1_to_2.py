@@ -84,6 +84,6 @@ def splitCalendars(sqlStore):
         Split each regular calendar in the home.
         """
         yield home.splitCalendars()
-            
+
     # Do this to each calendar home not already at version 2
     yield doToEachCalendarHomeNotAtVersion(sqlStore, UPGRADE_TO_VERSION, doIt)
