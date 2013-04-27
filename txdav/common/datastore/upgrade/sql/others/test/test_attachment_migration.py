@@ -26,7 +26,7 @@ from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import theStoreBuilder, \
     StubNotifierFactory
 from txdav.common.datastore.upgrade.sql.others import attachment_migration
-from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseOtherService
+from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseOtherStep
 
 """
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
@@ -35,7 +35,7 @@ Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
 
 class AttachmentMigrationTests(TestCase):
     """
-    Tests for L{UpgradeDatabaseSchemaService}.
+    Tests for L{UpgradeDatabaseSchemaStep}.
     """
 
     @inlineCallbacks
@@ -80,7 +80,7 @@ class AttachmentMigrationTests(TestCase):
 
         store = (yield self._initStore())
 
-        upgrader = UpgradeDatabaseOtherService(store, None)
+        upgrader = UpgradeDatabaseOtherStep(store)
         yield attachment_migration.doUpgrade(upgrader)
         self.assertFalse(didUpgrade[0])
 
@@ -108,7 +108,7 @@ class AttachmentMigrationTests(TestCase):
 
         store = (yield self._initStore())
 
-        upgrader = UpgradeDatabaseOtherService(store, None)
+        upgrader = UpgradeDatabaseOtherStep(store)
         yield attachment_migration.doUpgrade(upgrader)
         self.assertTrue(didUpgrade[0])
 
@@ -139,7 +139,7 @@ class AttachmentMigrationTests(TestCase):
         yield txn.setCalendarserverValue("MANAGED-ATTACHMENTS", "1")
         yield txn.commit()
 
-        upgrader = UpgradeDatabaseOtherService(store, None)
+        upgrader = UpgradeDatabaseOtherStep(store)
         yield attachment_migration.doUpgrade(upgrader)
         self.assertFalse(didUpgrade[0])
 
@@ -167,7 +167,7 @@ class AttachmentMigrationTests(TestCase):
 
         store = (yield self._initStore(False))
 
-        upgrader = UpgradeDatabaseOtherService(store, None)
+        upgrader = UpgradeDatabaseOtherStep(store)
         yield attachment_migration.doUpgrade(upgrader)
         self.assertFalse(didUpgrade[0])
 

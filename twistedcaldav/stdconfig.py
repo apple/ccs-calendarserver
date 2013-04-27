@@ -308,6 +308,8 @@ DEFAULT_CONFIG = {
     "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
                                    # tools from running if the database needs a schema
                                    # upgrade.
+    "StopAfterUpgradeTriggerFile" : "stop_after_upgrade", # if this file exists
+        # in ConfigRoot, stop the service after finishing upgrade phase
 
     #
     # Types of service provided
@@ -1063,7 +1065,7 @@ RELATIVE_PATHS = [
     ("DataRoot", "DatabaseRoot"),
     ("DataRoot", "AttachmentsRoot"),
     ("DataRoot", ("TimezoneService", "BasePath",)),
-    ("ConfigRoot", "SudoersFile"),
+    ("ConfigRoot", "StopAfterUpgradeTriggerFile"),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DNSDebug",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateKeyFile",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PublicKeyFile",)),
