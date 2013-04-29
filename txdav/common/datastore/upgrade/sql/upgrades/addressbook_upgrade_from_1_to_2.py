@@ -19,7 +19,7 @@ from twisted.internet.defer import inlineCallbacks
 from txdav.common.datastore.upgrade.sql.upgrades.util import updateAddressBookDataVersion
 
 """
-Data upgrade from database version 1 to 2
+AddressBook Data upgrade from database version 1 to 2
 """
 
 UPGRADE_TO_VERSION = 2

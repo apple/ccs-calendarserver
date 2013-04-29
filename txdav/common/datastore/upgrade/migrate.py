@@ -29,13 +29,10 @@ from twext.python.log import LoggingMixIn
 from twisted.python.runtime import platform
 from twisted.python.reflect import namedAny, qual
 
-from twisted.application.service import Service
-from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.defer import maybeDeferred, gatherResults
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import maybeDeferred
 
 from twext.python.filepath import CachingFilePath
-from twext.python.parallel import Parallelizer
 from twext.internet.spawnsvc import SpawnerService
 
 from twisted.protocols.amp import AMP, Command, String, Boolean
@@ -201,7 +198,7 @@ class UpgradeHelperProcess(AMP):
     @Configure.responder
     def configure(self, filename, appropriateStoreClass, merge):
         subsvc = None
-        self.upgrader = UpgradeToDatabaseService(
+        self.upgrader = UpgradeToDatabaseStep(
             FileStore(
                 CachingFilePath(filename), None, True, True,
                 propertyStoreClass=namedAny(appropriateStoreClass)
@@ -231,38 +228,17 @@ class UpgradeHelperProcess(AMP):
 
 
 
-class UpgradeToDatabaseService(Service, LoggingMixIn, object):
+class UpgradeToDatabaseStep(LoggingMixIn, object):
     """
     Upgrade resources from a filesystem store to a database store.
     """
 
-    @classmethod
-    def wrapService(cls, path, service, store, uid=None, gid=None,
-                    parallel=0, spawner=None, merge=False):
+    def __init__(self, fileStore, sqlStore, uid=None, gid=None, merge=False):
         """
-        Create an L{UpgradeToDatabaseService} if there are still file-based
+        Create an L{UpgradeToDatabaseStep} if there are still file-based
         calendar or addressbook homes remaining in the given path.
 
-        @param path: a path pointing at the document root, where the file-based
-            data-store is located.
-        @type path: L{CachingFilePath}
-
-        @param service: the service to wrap.  This service should be started
-            when the upgrade is complete.  (This is accomplished by returning
-            it directly when no upgrade needs to be done, and by adding it to
-            the service hierarchy when the upgrade completes; assuming that the
-            service parent of the resulting service will be set to a
-            L{MultiService} or similar.)
-
-        @param store: the SQL storage service.
-
-        @type service: L{IService}
-
-        @param parallel: The number of parallel subprocesses that should manage
-            the upgrade.
-
-        @param spawner: a concrete L{StoreSpawnerService} subclass that will be
-            used to spawn helper processes.
+        @param sqlStore: the SQL storage service.
 
         @param merge: merge filesystem homes into SQL homes, rather than
             skipping them.
@@ -270,6 +246,21 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         @return: a service
         @rtype: L{IService}
         """
+
+        self.fileStore = fileStore
+        self.sqlStore = sqlStore
+        self.uid = uid
+        self.gid = gid
+        self.merge = merge
+
+    @classmethod
+    def fileStoreFromPath(cls, path):
+        """ 
+        @param path: a path pointing at the document root, where the file-based
+            data-store is located.
+        @type path: L{CachingFilePath}
+        """ 
+
         # TODO: TOPPATHS should be computed based on enabled flags in 'store',
         # not hard coded.
         for homeType in TOPPATHS:
@@ -304,29 +295,9 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
 
                     appropriateStoreClass = AppleDoubleStore
 
-                self = cls(
-                    FileStore(path, None, True, True,
-                              propertyStoreClass=appropriateStoreClass),
-                    store, service, uid=uid, gid=gid,
-                    parallel=parallel, spawner=spawner, merge=merge
-                )
-                return self
-        return service
-
-
-    def __init__(self, fileStore, sqlStore, service, uid=None, gid=None,
-                 parallel=0, spawner=None, merge=False):
-        """
-        Initialize the service.
-        """
-        self.wrappedService = service
-        self.fileStore = fileStore
-        self.sqlStore = sqlStore
-        self.uid = uid
-        self.gid = gid
-        self.parallel = parallel
-        self.spawner = spawner
-        self.merge = merge
+                    return FileStore(path, None, True, True,
+                              propertyStoreClass=appropriateStoreClass)
+        return None 
 
 
     @inlineCallbacks
@@ -373,38 +344,6 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         @return: a Deferred which fires when the migration is complete.
         """
         self.sqlStore.setMigrating(True)
-        parallel = self.parallel
-        if parallel:
-            self.log_warn("Starting %d upgrade helper processes." %
-                          (parallel,))
-            spawner = self.spawner
-            spawner.startService()
-            drivers = yield gatherResults(
-                [spawner.spawnWithStore(UpgradeDriver(self),
-                                        UpgradeHelperProcess)
-                 for x in xrange(parallel)]
-            )
-            # Wait for all subprocesses to be fully configured before
-            # continuing, but let them configure in any order.
-            self.log_warn("Configuring upgrade helper processes.")
-
-            # FIXME: abstraction violations galore here; not too important,
-            # since fileStore and this code are part of the same conceptual
-            # unit, but if these become more independent there should probably
-            # be a store-serialization API so that this code doesn't need to
-            # know the intimate details of the fileStore implementation.
-            # (Alternately, wrapService could just hold on to the details that
-            # it used to construct the service in the first place.)
-            yield gatherResults(
-                [driver.configure(self.fileStore._path.path,
-                                  self.fileStore._propertyStoreClass)
-                 for driver in drivers]
-            )
-            self.log_warn("Upgrade helpers ready.")
-            parallelizer = Parallelizer(drivers)
-        else:
-            parallelizer = None
-
         self.log_warn("Beginning filesystem -> database upgrade.")
 
         for homeType, eachFunc in [
@@ -413,12 +352,9 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             ]:
             yield eachFunc(
                 lambda txn, home: self._upgradeAction(
-                    txn, home, homeType, parallel, parallelizer
+                    txn, home, homeType 
                 )
             )
-
-        if parallel:
-            yield parallelizer.done()
 
         for homeType in TOPPATHS:
             homesPath = self.fileStore._path.child(homeType)
@@ -438,38 +374,19 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
 
         self.sqlStore.setMigrating(False)
 
-        if parallel:
-            self.log_warn("Stopping upgrade helper processes.")
-            yield spawner.stopService()
-            self.log_warn("Upgrade helpers all stopped.")
         self.log_warn(
             "Filesystem upgrade complete, launching database service."
         )
-        wrapped = self.wrappedService
-        if wrapped is not None:
-            # see http://twistedmatrix.com/trac/ticket/4649
-            reactor.callLater(0, wrapped.setServiceParent, self.parent)
 
 
     @inlineCallbacks
-    def _upgradeAction(self, fileTxn, fileHome, homeType, parallel,
-                       parallelizer):
+    def _upgradeAction(self, fileTxn, fileHome, homeType):
         uid = fileHome.uid()
         self.log_warn("Migrating %s UID %r" % (homeType, uid))
-        if parallel:
-            @inlineCallbacks
-            def doOneUpgrade(driver, fileUID=uid, homeType=homeType):
-                yield driver.oneUpgrade(fileUID, homeType)
-                self.log_warn("Completed migration of %s uid %r" %
-                              (homeType, fileUID))
-            yield parallelizer.do(doOneUpgrade)
-        else:
-            yield self.migrateOneHome(fileTxn, homeType, fileHome)
+        yield self.migrateOneHome(fileTxn, homeType, fileHome)
 
 
-
-    def startService(self):
-        """
-        Start the service.
-        """
-        self.doMigration()
+    def stepWithResult(self, result):
+        if self.fileStore is None:
+            return succeed(None)
+        return self.doMigration()

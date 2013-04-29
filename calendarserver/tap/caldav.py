@@ -43,7 +43,7 @@ from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
 
-from twisted.internet.defer import gatherResults, Deferred, inlineCallbacks
+from twisted.internet.defer import gatherResults, Deferred, inlineCallbacks, succeed
 
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
@@ -66,18 +66,20 @@ from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
-    UpgradeDatabaseSchemaService, UpgradeDatabaseCalendarDataService, UpgradeDatabaseAddressBookDataService, UpgradeDatabaseOtherService,
+    UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep, 
+    UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
 )
-from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
+from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
 
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav import memcachepool
-from twistedcaldav.upgrade import UpgradeFileSystemFormatService, PostDBImportService
+from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
 
 from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
 from calendarserver.tap.util import directoryFromConfig, checkDirectories
+from calendarserver.tap.util import Stepper
 
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
@@ -105,7 +107,6 @@ from calendarserver.tap.util import getRootResource
 from calendarserver.tap.util import storeFromConfig
 from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tap.util import oracleConnectorFromConfig
-from calendarserver.tap.cfgchild import ConfiguredChildSpawner
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
@@ -542,6 +543,122 @@ class ReExecService(MultiService, LoggingMixIn):
         MultiService.stopService(self)
 
 
+class PreProcessingService(Service):
+    """
+    A Service responsible for running any work that needs to be finished prior
+    to the main service starting.  Once that work is done, it instantiates the
+    main service and adds it to the Service hierarchy (specifically to its
+    parent).  If the final work step does not return a Failure, that is an 
+    indication the store is ready and it is passed to the main service.
+    Otherwise, None is passed to the main service in place of a store.  This
+    is mostly useful in the case of command line utilities that need to do
+    something different if the store is not available (e.g. utilities that
+    aren't allowed to upgrade the database).
+    """
+
+    def __init__(self, serviceCreator, connectionPool, store, logObserver,
+        reactor=None):
+        """
+        @param serviceCreator: callable which will be passed the connection
+            pool, store, and log observer, and should return a Service
+        @param connectionPool: connection pool to pass to serviceCreator
+        @param store: the store object being processed
+        @param logObserver: log observer to pass to serviceCreator
+        """
+        self.serviceCreator = serviceCreator
+        self.connectionPool = connectionPool
+        self.store = store
+        self.logObserver = logObserver
+        self.stepper = Stepper()        
+
+        if reactor is None:
+            from twisted.internet import reactor
+        self.reactor = reactor
+
+    def stepWithResult(self, result):
+        """
+        The final "step"; if we get here we know our store is ready, so
+        we create the main service and pass in the store.
+        """
+        service = self.serviceCreator(self.connectionPool, self.store,
+            self.logObserver)
+        if self.parent is not None:
+            self.reactor.callLater(0, service.setServiceParent, self.parent)
+        return succeed(None)
+
+    def stepWithFailure(self, failure):
+        """
+        The final "step", but if we get here we know our store is not ready,
+        so we create the main service and pass in a None for the store.
+        """
+        try:
+            service = self.serviceCreator(self.connectionPool, None,
+                self.logObserver)
+            if self.parent is not None:
+                self.reactor.callLater(0, service.setServiceParent, self.parent)
+        except StoreNotAvailable:
+            self.reactor.stop()
+
+        return succeed(None)
+
+    def addStep(self, step):
+        """
+        Hand the step to our Stepper
+
+        @param step: an object implementing stepWithResult( )
+        """
+        self.stepper.addStep(step)
+        return self
+
+    def startService(self):
+        """
+        Add ourself as the final step, and then tell the coordinator to start
+        working on each step one at a time.
+        """
+        self.addStep(self)
+        self.stepper.start()
+
+
+class PostUpgradeStopRequested(Exception):
+    """
+    Raised when we've been asked to stop just after upgrade has completed.
+    """
+
+class StoreNotAvailable(Exception):
+    """
+    Raised when we want to give up because the store is not available
+    """
+
+class QuitAfterUpgradeStep(object):
+
+    def __init__(self, triggerFile, reactor=None):
+        self.triggerFile = triggerFile
+        if reactor is None:
+            from twisted.internet import reactor
+        self.reactor = reactor
+
+    def removeTriggerFile(self):
+        try:
+            os.remove(self.triggerFile)
+        except OSError:
+            pass
+
+    def stepWithResult(self, result):
+        if os.path.exists(self.triggerFile):
+            self.removeTriggerFile()
+            self.reactor.stop()
+            raise PostUpgradeStopRequested()
+        else:
+            return succeed(result)
+
+    def stepWithFailure(self, failure):
+        if os.path.exists(self.triggerFile):
+            self.removeTriggerFile()
+            self.reactor.stop()
+            raise PostUpgradeStopRequested()
+        else:
+            return failure
+
 
 class CalDAVServiceMaker (LoggingMixIn):
     implements(IPlugin, IServiceMaker)
@@ -957,31 +1074,12 @@ class CalDAVServiceMaker (LoggingMixIn):
         configuration.  Memcached will be spawned automatically.
         """
         def slaveSvcCreator(pool, store, logObserver):
+
+            if store is None:
+                raise StoreNotAvailable()
+
             result = self.requestProcessingService(options, store, logObserver)
 
-            # Optionally launch memcached.  Note, this is not going through a
-            # ProcessMonitor because there is code elsewhere that needs to
-            # access memcached before startService() gets called, so we're just
-            # directly using Popen to spawn memcached.
-            for name, pool in config.Memcached.Pools.items():
-                if pool.ServerEnabled:
-                    self.log_info(
-                        "Adding memcached service for pool: %s" % (name,)
-                    )
-                    memcachedArgv = [
-                        config.Memcached.memcached,
-                        "-p", str(pool.Port),
-                        "-l", pool.BindAddress,
-                        "-U", "0",
-                    ]
-                    if config.Memcached.MaxMemory is not 0:
-                        memcachedArgv.extend(
-                            ["-m", str(config.Memcached.MaxMemory)]
-                        )
-                    if config.UserName:
-                        memcachedArgv.extend(["-u", config.UserName])
-                    memcachedArgv.extend(config.Memcached.Options)
-                    Popen(memcachedArgv)
 
             # Optionally set up push notifications
             pushDistributor = None
@@ -1043,6 +1141,30 @@ class CalDAVServiceMaker (LoggingMixIn):
             config.AccessLogFile,
         )
 
+        # Optionally launch memcached.  Note, this is not going through a
+        # ProcessMonitor because there is code elsewhere that needs to
+        # access memcached before startService() gets called, so we're just
+        # directly using Popen to spawn memcached.
+        for name, pool in config.Memcached.Pools.items():
+            if pool.ServerEnabled:
+                self.log_info(
+                    "Adding memcached service for pool: %s" % (name,)
+                )
+                memcachedArgv = [
+                    config.Memcached.memcached,
+                    "-p", str(pool.Port),
+                    "-l", pool.BindAddress,
+                    "-U", "0",
+                ]
+                if config.Memcached.MaxMemory is not 0:
+                    memcachedArgv.extend(
+                        ["-m", str(config.Memcached.MaxMemory)]
+                    )
+                if config.UserName:
+                    memcachedArgv.extend(["-u", config.UserName])
+                memcachedArgv.extend(config.Memcached.Options)
+                Popen(memcachedArgv)
+
         return self.storageService(slaveSvcCreator, logObserver, uid=uid, gid=gid)
 
 
@@ -1076,7 +1198,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             not require any particular setup, then this may return the
             C{mainService} argument.
 
-        @type mainService: C{callable} that takes C{(connectionPool, store)}
+        @type createMainService: C{callable} that takes C{(connectionPool, store)}
             and returns L{IService}
 
         @param uid: the user ID to run the backend as, if this process is
@@ -1100,45 +1222,68 @@ class CalDAVServiceMaker (LoggingMixIn):
                                     maxConnections=config.MaxDBConnectionsPerPool)
                 cp.setServiceParent(ms)
                 store = storeFromConfig(config, cp.connection)
-                mainService = createMainService(cp, store, logObserver)
-                if config.SharedConnectionPool:
-                    dispenser = ConnectionDispenser(cp)
-                else:
-                    dispenser = None
-                if config.ParallelUpgrades:
-                    parallel = config.MultiProcess.ProcessCount
-                else:
-                    parallel = 0
-                spawner = ConfiguredChildSpawner(self, dispenser, config)
-                if getattr(self, "doPostImport", True):
-                    postImport = PostDBImportService(config, store, mainService)
-                else:
-                    postImport = mainService
-                upgradeSvc = UpgradeFileSystemFormatService(
-                    config, spawner, parallel,
-                    UpgradeDatabaseSchemaService.wrapService(
-                        UpgradeDatabaseCalendarDataService.wrapService(
-                            UpgradeDatabaseAddressBookDataService.wrapService(
-                                UpgradeToDatabaseService.wrapService(
-                                    CachingFilePath(config.DocumentRoot),
-                                    UpgradeDatabaseOtherService.wrapService(
-                                        postImport,
-                                        store, uid=overrideUID, gid=overrideGID,
-                                    ),
-                                    store, uid=overrideUID, gid=overrideGID,
-                                    spawner=spawner, merge=config.MergeUpgrades,
-                                    parallel=parallel
-                                ),
-                                store, uid=overrideUID, gid=overrideGID,
-                            ),
-                            store, uid=overrideUID, gid=overrideGID,
-                        ),
+
+                pps = PreProcessingService(createMainService, cp, store,
+                    logObserver)
+
+                # The following "steps" will run sequentially when the service
+                # hierarchy is started.  If any of the steps raise an exception
+                # the subsequent steps' stepWithFailure methods will be called
+                # instead, until one of them returns a non-Failure.
+
+                # Still need this for Snow Leopard support
+                pps.addStep(
+                    UpgradeFileSystemFormatStep(config)
+                )
+
+                pps.addStep(
+                    UpgradeDatabaseSchemaStep(
                         store, uid=overrideUID, gid=overrideGID,
-                        failIfUpgradeNeeded=config.FailIfUpgradeNeeded,
+                        failIfUpgradeNeeded=config.FailIfUpgradeNeeded
                     )
                 )
-                upgradeSvc.setServiceParent(ms)
+                '''
+                pps.addStep(
+                    UpgradeDatabaseAddressBookDataStep(
+                        store, uid=overrideUID, gid=overrideGID
+                    )
+                )
+                '''
+                pps.addStep(
+                    UpgradeDatabaseCalendarDataStep(
+                        store, uid=overrideUID, gid=overrideGID
+                    )
+                )
+
+                pps.addStep(
+                    UpgradeToDatabaseStep(
+                        UpgradeToDatabaseStep.fileStoreFromPath(
+                            CachingFilePath(config.DocumentRoot)
+                        ),
+                        store, uid=overrideUID, gid=overrideGID,
+                        merge=config.MergeUpgrades
+                    )
+                )
+
+                pps.addStep(
+                    UpgradeDatabaseOtherStep(
+                        store, uid=overrideUID, gid=overrideGID
+                    )
+                )
+
+                # Conditionally stop after upgrade at this point
+                pps.addStep(
+                    QuitAfterUpgradeStep(config.StopAfterUpgradeTriggerFile)
+                )
+
+                pps.addStep(
+                    PostDBImportStep(store, config,
+                        getattr(self, "doPostImport", True)
+                    )
+                )
+                pps.setServiceParent(ms)
                 return ms
+
             return subServiceFactory
 
         # FIXME: this is replicating the logic of getDBPool(), except for the
@@ -1362,6 +1507,9 @@ class CalDAVServiceMaker (LoggingMixIn):
         # filesystem to the database (if that's necessary, and there is
         # filesystem data in need of upgrading).
         def spawnerSvcCreator(pool, store, ignored):
+            if store is None:
+                raise StoreNotAvailable()
+
             from twisted.internet import reactor
             pool = PeerConnectionPool(reactor, store.newTransaction,
                                       7654, schema)

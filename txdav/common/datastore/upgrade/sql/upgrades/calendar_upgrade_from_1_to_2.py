@@ -24,7 +24,7 @@ from txdav.common.datastore.upgrade.sql.upgrades.util import rowsForProperty,\
     removeProperty, updateCalendarDataVersion, doToEachHomeNotAtVersion
 
 """
-Data upgrade from database version 1 to 2
+Calendar data upgrade from database version 1 to 2
 """
 
 UPGRADE_TO_VERSION = 2
