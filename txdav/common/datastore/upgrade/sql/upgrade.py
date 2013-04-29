@@ -43,7 +43,7 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
     @type sqlStore: L{txdav.idav.IDataStore}
     """
 
-    def __init__(self, sqlStore, uid=None, gid=None, failIfUpgradeNeeded=False, stopOnFail=True):
+    def __init__(self, sqlStore, uid=None, gid=None, failIfUpgradeNeeded=False):
         """
         Initialize the service.
         """
@@ -51,7 +51,6 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
         self.uid = uid
         self.gid = gid
         self.failIfUpgradeNeeded = failIfUpgradeNeeded
-        self.stopOnFail = stopOnFail
         self.schemaLocation = getModule(__name__).filePath.parent().parent().sibling("sql_schema")
         self.pyLocation = getModule(__name__).filePath.parent()
 
@@ -88,8 +87,6 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
             self.log_error(msg)
             raise RuntimeError(msg)
         elif self.failIfUpgradeNeeded:
-            if self.stopOnFail:
-                reactor.stop()
                 # TODO: change this exception to be upgrade-specific
             raise RuntimeError("Database upgrade is needed but not allowed.")
         else:

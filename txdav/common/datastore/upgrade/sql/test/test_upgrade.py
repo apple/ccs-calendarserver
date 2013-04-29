@@ -189,7 +189,7 @@ class SchemaUpgradeTests(TestCase):
             self.assertEqual(new_version, expected_version)
 
             # Upgrade disallowed
-            upgrader = UpgradeDatabaseSchemaStep(store, failIfUpgradeNeeded=True, stopOnFail=False)
+            upgrader = UpgradeDatabaseSchemaStep(store, failIfUpgradeNeeded=True)
             yield _loadOldSchema(child)
             old_version = yield _loadVersion()
             try:
