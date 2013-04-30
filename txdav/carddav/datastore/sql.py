@@ -82,7 +82,7 @@ class AddressBookHome(CommonHome):
 
         self._childClass = AddressBook
         super(AddressBookHome, self).__init__(transaction, ownerUID, notifiers)
-        self._homeResourceID = None
+        self._homePropertyStoreID = None
         self._addressbook = None
 
 
@@ -101,7 +101,7 @@ class AddressBookHome(CommonHome):
     @classproperty
     def _resourceIDAndHomeResourceIDFromOwnerQuery(cls): #@NoSelf
         home = cls._homeSchema
-        return Select([home.RESOURCE_ID, home.HOME_RESOURCE_ID],
+        return Select([home.RESOURCE_ID, home.PROPERTY_STORE_ID],
                       From=home, Where=home.OWNER_UID == Parameter("ownerUID"))
 
 
@@ -120,7 +120,7 @@ class AddressBookHome(CommonHome):
                 yield self._cacher.set(self._ownerUID, result)
 
         if result:
-            self._resourceID, self._homeResourceID = result[0]
+            self._resourceID, self._homePropertyStoreID = result[0]
 
             queryCacher = self._txn._queryCacher
             if queryCacher:
@@ -161,7 +161,7 @@ class AddressBookHome(CommonHome):
             self.uid(),
             self.uid(),
             self._txn,
-            self._homeResourceID, # not ._resourceID as in CommonHome._loadPropertyStore()
+            self._homePropertyStoreID,  # not ._resourceID as in CommonHome._loadPropertyStore()
             notifyCallback=self.notifyChanged
         )
         self._propertyStore = props
@@ -192,7 +192,7 @@ class AddressBookHome(CommonHome):
         yield Delete(
             From=rp,
             Where=(rp.RESOURCE_ID == self._resourceID).Or(
-                rp.RESOURCE_ID == self._homeResourceID
+                rp.RESOURCE_ID == self._homePropertyStoreID
             )
         ).on(self._txn)
 
@@ -555,12 +555,12 @@ class AddressBook(CommonHomeChild, SharingMixIn):
         """
         obj = cls._objectSchema
         return Select(columns, From=obj,
-                      Where=obj.ADDRESSBOOK_RESOURCE_ID == Parameter("addressbookResourceID"),)
+                      Where=obj.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookResourceID"),)
 
 
     def _fullySharedAddressBookGroupRow(self): #@NoSelf
         return [
-            self._resourceID, # obj.ADDRESSBOOK_RESOURCE_ID,
+            self._resourceID,  # obj.ADDRESSBOOK_HOME_RESOURCE_ID,
             self._resourceID, # obj.RESOURCE_ID,
             self._fullySharedAddressBookGroupName(), # obj.RESOURCE_NAME, shared name is UID and thus avoids collisions
             self._fullySharedAddressBookGroupUID(), # obj.UID, shared name is uuid
@@ -1502,7 +1502,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         """
         obj = cls._objectSchema
         return [
-            obj.ADDRESSBOOK_RESOURCE_ID,
+            obj.ADDRESSBOOK_HOME_RESOURCE_ID,
             obj.RESOURCE_ID,
             obj.RESOURCE_NAME,
             obj.UID,
@@ -1618,7 +1618,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         abo = schema.ADDRESSBOOK_OBJECT
         return Select([abo.RESOURCE_ID, abo.VCARD_UID],
                       From=abo,
-                      Where=((abo.ADDRESSBOOK_RESOURCE_ID == Parameter("addressbookResourceID")
+                      Where=((abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookResourceID")
                               ).And(
                                     abo.VCARD_UID.In(Parameter("uids", len(uids))))),
                       )
@@ -1650,7 +1650,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         abo = schema.ADDRESSBOOK_OBJECT
         return Insert(
             {abo.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
-             abo.ADDRESSBOOK_RESOURCE_ID: Parameter("addressbookResourceID"),
+             abo.ADDRESSBOOK_HOME_RESOURCE_ID: Parameter("addressbookResourceID"),
              abo.RESOURCE_NAME: Parameter("name"),
              abo.VCARD_TEXT: Parameter("text"),
              abo.VCARD_UID: Parameter("uid"),
@@ -2286,7 +2286,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                   Where=(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
                         .And(bind.RESOURCE_ID == abo.RESOURCE_ID)
                         .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                        .And(abo.ADDRESSBOOK_RESOURCE_ID == Parameter("addressbookID"))
+                        .And(abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookID"))
         )
 
 
@@ -2300,7 +2300,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                   Where=(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
                         .And(bind.RESOURCE_ID == abo.RESOURCE_ID)
                         .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                        .And(abo.ADDRESSBOOK_RESOURCE_ID == Parameter("addressbookID"))
+                        .And(abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookID"))
         )
 
 
@@ -2313,7 +2313,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                   From=bind.join(abo),
                   Where=(bind.RESOURCE_ID == abo.RESOURCE_ID)
                         .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                        .And(abo.ADDRESSBOOK_RESOURCE_ID == Parameter("addressbookID"))
+                        .And(abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookID"))
         )
 
 

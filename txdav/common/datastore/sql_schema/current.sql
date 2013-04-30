@@ -341,10 +341,10 @@ create table RESOURCE_PROPERTY (
 ----------------------
 
 create table ADDRESSBOOK_HOME (
-  RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  HOME_RESOURCE_ID integer      default nextval('RESOURCE_ID_SEQ') not null, 	-- implicit index
-  OWNER_UID        varchar(255) not null unique,                                -- implicit index
-  DATAVERSION      integer      default 0 not null
+  RESOURCE_ID      	integer			primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
+  PROPERTY_STORE_ID	integer      	default nextval('RESOURCE_ID_SEQ') not null, 	-- implicit index
+  OWNER_UID        	varchar(255) 	not null unique,                                -- implicit index
+  DATAVERSION      	integer      	default 0 not null
 );
 
 
@@ -367,19 +367,19 @@ create table ADDRESSBOOK_HOME_METADATA (
 -- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_HOME
 
 create table ADDRESSBOOK_BIND (
-  ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK_HOME on delete cascade,
-  ADDRESSBOOK_RESOURCE_NAME    varchar(255) not null,
-  BIND_MODE                    integer      not null, -- enum CALENDAR_BIND_MODE
-  BIND_STATUS                  integer      not null, -- enum CALENDAR_BIND_STATUS
-  MESSAGE                      text,                  -- FIXME: xml?
+  ADDRESSBOOK_HOME_RESOURCE_ID			integer			not null references ADDRESSBOOK_HOME,
+  OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer      	not null references ADDRESSBOOK_HOME on delete cascade,
+  ADDRESSBOOK_RESOURCE_NAME    			varchar(255) 	not null,
+  BIND_MODE                    			integer      	not null,	-- enum CALENDAR_BIND_MODE
+  BIND_STATUS                  			integer      	not null,	-- enum CALENDAR_BIND_STATUS
+  MESSAGE                      			text,                  		-- FIXME: xml?
 
-  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
+  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_ADDRESSBOOK_HOME_RESOURCE_ID), -- implicit index
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
 create index ADDRESSBOOK_BIND_RESOURCE_ID on
-  ADDRESSBOOK_BIND(ADDRESSBOOK_RESOURCE_ID);
+  ADDRESSBOOK_BIND(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID);
 
 
 ------------------------
@@ -387,18 +387,18 @@ create index ADDRESSBOOK_BIND_RESOURCE_ID on
 ------------------------
 
 create table ADDRESSBOOK_OBJECT (
-  RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
-  ADDRESSBOOK_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME on delete cascade,
-  RESOURCE_NAME           varchar(255) not null,
-  VCARD_TEXT              text         not null,
-  VCARD_UID               varchar(255) not null,
-  KIND 			  		  integer      not null, -- enum OBJECT_KIND
-  MD5                     char(32)     not null,
-  CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  RESOURCE_ID             		integer   		primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
+  ADDRESSBOOK_HOME_RESOURCE_ID 	integer      	not null references ADDRESSBOOK_HOME on delete cascade,
+  RESOURCE_NAME           		varchar(255) 	not null,
+  VCARD_TEXT              		text         	not null,
+  VCARD_UID               		varchar(255) 	not null,
+  KIND 			  		  		integer      	not null, 	-- enum OBJECT_KIND
+  MD5                     		char(32)     	not null,
+  CREATED                 		timestamp    	default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED                		timestamp    	default timezone('UTC', CURRENT_TIMESTAMP),
 
-  unique (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
-  unique (ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
+  unique (ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME), -- implicit index
+  unique (ADDRESSBOOK_HOME_RESOURCE_ID, VCARD_UID)      -- implicit index
 );
 
 
@@ -493,22 +493,22 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
 ----------------------------------
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
-  ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_NAME             varchar(255) default null,
-  RESOURCE_NAME                varchar(255),
-  REVISION                     integer      default nextval('REVISION_SEQ') not null,
-  DELETED                      boolean      not null
+  ADDRESSBOOK_HOME_RESOURCE_ID 			integer			not null references ADDRESSBOOK_HOME,
+  OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer      	references ADDRESSBOOK_HOME,
+  ADDRESSBOOK_NAME             			varchar(255) 	default null,
+  RESOURCE_NAME                			varchar(255),
+  REVISION                     			integer     	default nextval('REVISION_SEQ') not null,
+  DELETED                      			boolean      	not null
 );
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_ADDRESSBOOK_RESOURCE_ID
-  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID);
+  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_ADDRESSBOOK_HOME_RESOURCE_ID);
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
-  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME);
+  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME);
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_RESOURCE_ID_REVISION
-  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_RESOURCE_ID, REVISION);
+  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID, REVISION);
 
 
 -----------------------------------

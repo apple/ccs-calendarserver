@@ -94,9 +94,9 @@ if __name__ == '__main__':
 
             "bind_home_id"      : "ADDRESSBOOK_HOME_RESOURCE_ID",
             "bind_name"         : "ADDRESSBOOK_RESOURCE_NAME",
-            "bind_id"           : "ADDRESSBOOK_RESOURCE_ID",
+            "bind_id"           : "OWNER_ADDRESSBOOK_HOME_RESOURCE_ID",
 
-            "object_bind_id"    : "ADDRESSBOOK_RESOURCE_ID",
+            "object_bind_id"    : "ADDRESSBOOK_HOME_RESOURCE_ID",
             "object_name"       : "RESOURCE_NAME",
             "object_data"       : "VCARD_TEXT",
         },

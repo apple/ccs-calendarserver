@@ -749,7 +749,7 @@ class CardDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
         if self.calendarid:
 
             # AND the whole thing
-            test = expression.isExpression("ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID", str(self.calendarid), True)
+            test = expression.isExpression("ADDRESSBOOK_OBJECT.ADDRESSBOOK_HOME_RESOURCE_ID", str(self.calendarid), True)
             self.expression = test.andWith(self.expression)
 
         # Generate ' where ...' partial statement
@@ -861,7 +861,7 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
                 [self._objectSchema.RESOURCE_NAME,
                  self._objectSchema.VCARD_UID],
                 From=self._objectSchema,
-                Where=self._objectSchema.ADDRESSBOOK_RESOURCE_ID ==
+                Where=self._objectSchema.ADDRESSBOOK_HOME_RESOURCE_ID ==
                 self.addressbook._resourceID
             ).on(self.addressbook._txn)
 
