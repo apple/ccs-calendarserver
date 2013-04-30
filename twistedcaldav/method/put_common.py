@@ -1036,8 +1036,7 @@ class StoreCalendarObjectResource(object):
             if do_implicit_action and self.allowImplicitSchedule:
 
                 # Cannot do implicit in sharee's shared calendar
-                isShareeResource = self.destinationparent.isShareeResource()
-                if isShareeResource:
+                if self.destinationparent.isShareeResource():
                     scheduler.setSchedulingNotAllowed(
                         HTTPError,
                         ErrorResponse(

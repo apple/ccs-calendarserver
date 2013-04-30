@@ -712,9 +712,7 @@ class CalDAVResource (
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
 
         elif qname == customxml.SharedURL.qname():
-            isShareeResource = self.isShareeResource()
-
-            if isShareeResource:
+            if self.isShareeResource():
                 returnValue(customxml.SharedURL(element.HRef.fromString(self._share.url())))
             else:
                 returnValue(None)
@@ -833,8 +831,7 @@ class CalDAVResource (
     def accessControlList(self, request, *args, **kwargs):
 
         acls = None
-        isShareeResource = self.isShareeResource()
-        if isShareeResource:
+        if self.isShareeResource():
             acls = (yield self.shareeAccessControlList(request, *args, **kwargs))
 
         if acls is None:
@@ -890,8 +887,7 @@ class CalDAVResource (
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
 
-        isShareeResource = self.isShareeResource()
-        if isShareeResource:
+        if self.isShareeResource():
             parent = (yield self.locateParent(request, self._share.url()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
@@ -907,8 +903,7 @@ class CalDAVResource (
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        isShareeResource = self.isShareeResource()
-        if isShareeResource:
+        if self.isShareeResource():
             parent = (yield self.locateParent(request, self._share.url()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
@@ -1342,15 +1337,13 @@ class CalDAVResource (
         """
 
         sharedParent = None
-        isShareeResource = self.isShareeResource()
-        if isShareeResource:
+        if self.isShareeResource():
             # A sharee collection's quota root is the resource owner's root
             sharedParent = (yield request.locateResource(parentForURL(self._share.url())))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if isCalendarCollectionResource(parent) or isAddressBookCollectionResource(parent):
-                isShareeResource = parent.isShareeResource()
-                if isShareeResource:
+                if parent.isShareeResource():
                     # A sharee collection's quota root is the resource owner's root
                     sharedParent = (yield request.locateResource(parentForURL(parent._share.url())))
 

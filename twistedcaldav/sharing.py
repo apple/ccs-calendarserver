@@ -304,8 +304,7 @@ class SharedResourceMixin(object):
         else:
             rtype = superMethod()
 
-        isShareeResource = self.isShareeResource()
-        if isShareeResource:
+        if self.isShareeResource():
             rtype = element.ResourceType(
                 *(
                     tuple([child for child in rtype.children if child.qname() != customxml.SharedOwner.qname()]) +
