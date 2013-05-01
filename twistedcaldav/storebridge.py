@@ -1256,10 +1256,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             yield super(CalendarCollectionResource, self).storeRemove(request)
         )
 
-        if response == NO_CONTENT:
-            # Do some clean up
-            yield self.deletedCalendar(request)
-
         returnValue(response)
 
 
@@ -1271,10 +1267,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         that calendar's name.
         """
         result = (yield super(CalendarCollectionResource, self).http_MOVE(request))
-        if result == NO_CONTENT:
-            destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
-            destination = yield request.locateResource(destinationURI)
-            yield self.movedCalendar(request, destination, destinationURI)
         returnValue(result)
 
 

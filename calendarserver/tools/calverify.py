@@ -59,7 +59,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import log, usage
 from twisted.python.usage import Options
 
-from twistedcaldav import caldavxml
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import pyCalendarTodatetime
 from twistedcaldav.directory.directory import DirectoryService
@@ -69,7 +68,6 @@ from txdav.caldav.datastore.scheduling.itip import iTipGenerator
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.util import normalizationLookup
 
-from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
@@ -1925,7 +1923,7 @@ class SchedulingMismatchService(CalVerifyService):
                 details["rid"] = attresid
             else:
                 # Find default calendar for VEVENTs
-                defaultCalendar = (yield self.defaultCalendarForAttendee(home, inbox))
+                defaultCalendar = (yield self.defaultCalendarForAttendee(home))
                 if defaultCalendar is None:
                     raise ValueError("Cannot find suitable default calendar")
                 new_name = str(uuid.uuid4()) + ".ics"
@@ -1965,22 +1963,11 @@ class SchedulingMismatchService(CalVerifyService):
 
 
     @inlineCallbacks
-    def defaultCalendarForAttendee(self, home, inbox):
+    def defaultCalendarForAttendee(self, home):
 
         # Check for property
-        default = inbox.properties().get(PropertyName.fromElement(caldavxml.ScheduleDefaultCalendarURL))
-        if default:
-            defaultName = str(default.children[0]).rstrip("/").split("/")[-1]
-            defaultCalendar = (yield home.calendarWithName(defaultName))
-            returnValue(defaultCalendar)
-        else:
-            # Iterate for the first calendar that supports VEVENTs
-            calendars = (yield home.calendars())
-            for calendar in calendars:
-                if calendar.name() != "inbox" and calendar.isSupportedComponent("VEVENT"):
-                    returnValue(calendar)
-            else:
-                returnValue(None)
+        calendar = (yield home.defaultCalendar("VEVENT"))
+        returnValue(calendar)
 
 
     def printAutoAccepts(self):

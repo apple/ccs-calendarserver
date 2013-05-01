@@ -50,7 +50,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
 
 from twistedcaldav import caldavxml, customxml
-from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
@@ -85,7 +84,7 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE, \
     CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE, \
     CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE, \
     CALENDAR_OBJECT_AND_BIND_TABLE, schema, _BIND_MODE_OWN, \
-    _ATTACHMENTS_MODE_READ
+    _ATTACHMENTS_MODE_READ, _TRANSP_OPAQUE, _TRANSP_TRANSPARENT
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
     HomeChildNameNotAllowedError, ObjectResourceTooBigError, \
@@ -552,8 +551,6 @@ class CalendarHome(CommonHome):
 
         # Default calendar
         defaultCal = yield self.createCalendarWithName("calendar")
-        props = defaultCal.properties()
-        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
 
         # Check whether components type must be separate
         if config.RestrictCalendarsToOneComponentType:
@@ -562,8 +559,10 @@ class CalendarHome(CommonHome):
             # Default tasks
             defaultTasks = yield self.createCalendarWithName("tasks")
             yield defaultTasks.setSupportedComponents("VTODO")
+            yield defaultTasks.setUsedForFreeBusy(False)
 
-        yield self.createCalendarWithName("inbox")
+        inbox = yield self.createCalendarWithName("inbox")
+        yield inbox.setUsedForFreeBusy(False)
 
 
     @inlineCallbacks
@@ -848,6 +847,7 @@ class Calendar(CommonHomeChild):
             self._index = PostgresLegacyInboxIndexEmulator(self)
         else:
             self._index = PostgresLegacyIndexEmulator(self)
+        self._transp = _TRANSP_OPAQUE
 
 
     @classmethod
@@ -881,6 +881,32 @@ class Calendar(CommonHomeChild):
             "_created",
             "_modified",
             "_supportedComponents",
+        )
+
+
+    @classmethod
+    def additionalBindColumns(cls):
+        """
+        Return a list of column names for retrieval during creation. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        return (
+            cls._bindSchema.TRANSP,
+        )
+
+
+    @classmethod
+    def additionalBindAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of during creation. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        return (
+            "_transp",
         )
 
 
@@ -1023,6 +1049,27 @@ class Calendar(CommonHomeChild):
         return self.name() == "inbox"
 
 
+    @inlineCallbacks
+    def setUsedForFreeBusy(self, use_it):
+        """
+        Mark this calendar as being used for free busy request. Note this is a per-user setting so we are setting
+        this on the bind table entry which is related to the user viewing the calendar.
+
+        @param use_it: C{True} if used for free busy, C{False} otherwise
+        @type use_it: C{bool}
+        """
+
+        self._transp = _TRANSP_OPAQUE if use_it else _TRANSP_TRANSPARENT
+        cal = self._bindSchema
+        yield Update(
+            {
+                cal.TRANSP : self._transp
+            },
+            Where=(cal.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cal.CALENDAR_RESOURCE_ID == self._resourceID)
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
+
+
     def isUsedForFreeBusy(self):
         """
         Indicates whether the contents of this calendar contributes to free busy.
@@ -1030,8 +1077,7 @@ class Calendar(CommonHomeChild):
         @return: C{True} if it does, C{False} otherwise
         @rtype: C{bool}
         """
-        opaque = self.properties().get(PropertyName(*ScheduleCalendarTransp.qname()), ScheduleCalendarTransp(Opaque())) == ScheduleCalendarTransp(Opaque())
-        return opaque and not self.isInbox()
+        return self._transp == _TRANSP_OPAQUE
 
 
     def initPropertyStore(self, props):

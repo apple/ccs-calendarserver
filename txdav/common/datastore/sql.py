@@ -2610,6 +2610,28 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
 
     @classmethod
+    def additionalBindColumns(cls):
+        """
+        Return a list of column names for retrieval during creation. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        return ()
+
+
+    @classmethod
+    def additionalBindAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of during creation. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        return ()
+
+
+    @classmethod
     @inlineCallbacks
     def listObjects(cls, home):
         """
@@ -2658,6 +2680,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                    bind.RESOURCE_NAME,
                    bind.BIND_STATUS,
                    bind.MESSAGE]
+        columns.extend(cls.additionalBindColumns())
         columns.extend(cls.metadataColumns())
         return Select(columns,
                      From=child.join(
@@ -2920,15 +2943,17 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
     @classmethod
     def _bindFor(cls, condition): #@NoSelf
         bind = cls._bindSchema
+        columns = [bind.BIND_MODE,
+                   bind.HOME_RESOURCE_ID,
+                   bind.RESOURCE_ID,
+                   bind.RESOURCE_NAME,
+                   bind.BIND_STATUS,
+                   bind.MESSAGE]
+        columns.extend(cls.additionalBindColumns())
         return Select(
-            [bind.BIND_MODE,
-             bind.HOME_RESOURCE_ID,
-             bind.RESOURCE_ID,
-             bind.RESOURCE_NAME,
-             bind.BIND_STATUS,
-             bind.MESSAGE],
-                  From=bind,
-                  Where=condition
+            columns,
+            From=bind,
+            Where=condition
         )
 
 
@@ -2963,7 +2988,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
         cls = self.__class__ # for ease of grepping...
         result = []
-        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
+        for item in acceptedRows:
+            bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = item[:6] #@UnusedVariable
+            additionalBind = item[6:]
+
             assert bindStatus == _BIND_STATUS_ACCEPTED
             # TODO: this could all be issued in parallel; no need to serialize
             # the loop.
@@ -2973,7 +3001,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 mode=bindMode, status=bindStatus,
                 message=bindMessage, ownerHome=self._home
             )
-            yield new.initFromStore()
+            yield new.initFromStore(additionalBind)
             result.append(new)
         returnValue(result)
 
@@ -3007,7 +3035,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         cls = self.__class__ # for ease of grepping...
 
         result = []
-        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in rows: #@UnusedVariable
+        for item in rows:
+            bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = item[:6] #@UnusedVariable
+            additionalBind = item[6:]
             # TODO: this could all be issued in parallel; no need to serialize
             # the loop.
             new = cls(
@@ -3016,7 +3046,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 mode=bindMode, status=bindStatus,
                 message=bindMessage, ownerHome=self._home
             )
-            yield new.initFromStore()
+            yield new.initFromStore(additionalBind)
             result.append(new)
         returnValue(result)
 
@@ -3059,7 +3089,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         # Create the actual objects merging in properties
         for items in dataRows:
             bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = items[:6] #@UnusedVariable
-            metadata = items[6:]
+            additionalBind = items[6:6 + len(cls.additionalBindColumns())]
+            metadata = items[6 + len(cls.additionalBindColumns()):]
 
             if bindStatus == _BIND_MODE_OWN:
                 ownerHome = home
@@ -3076,6 +3107,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 message=bindMessage,
                 ownerHome=ownerHome, ownerName=ownerName
             )
+            for attr, value in zip(cls.additionalBindAttributes(), additionalBind):
+                setattr(child, attr, value)
             for attr, value in zip(cls.metadataAttributes(), metadata):
                 setattr(child, attr, value)
             child._syncTokenRevision = revisions[resourceID]
@@ -3120,7 +3153,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
+        item = rows[0]
+        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = item[:6] #@UnusedVariable
+        additionalBind = item[6:]
 
         #TODO:  combine with _invitedBindForNameAndHomeID and sort results
         ownerHomeID, ownerName = (yield cls._ownerHomeWithResourceID.on(home._txn, resourceID=resourceID))[0]
@@ -3133,7 +3168,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             message=bindMessage,
             ownerHome=ownerHome, ownerName=ownerName,
         )
-        yield child.initFromStore()
+        yield child.initFromStore(additionalBind)
         returnValue(child)
 
 
@@ -3174,7 +3209,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             rows = yield cls._childForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
 
             if rows:
-                bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
+                item = rows[0]
+                bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = item[:6] #@UnusedVariable
                 # get ownerHomeID
                 if bindMode == _BIND_MODE_OWN:
                     ownerHomeID = homeID
@@ -3182,8 +3218,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 else:
                     ownerHomeID, ownerName = (yield cls._ownerHomeWithResourceID.on(
                                     home._txn, resourceID=resourceID))[0]
-                rows[0].append(ownerHomeID)
-                rows[0].append(ownerName)
+                rows[0].insert(6, ownerHomeID)
+                rows[0].insert(7, ownerName)
 
             if rows and queryCacher:
                 # Cache the result
@@ -3192,7 +3228,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage, ownerHomeID, ownerName = rows[0] #@UnusedVariable
+        item = rows[0] #@UnusedVariable
+        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage, ownerHomeID, ownerName = item[:8]
+        additionalBind = item[8:]
 
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
@@ -3206,7 +3244,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             message=bindMessage,
             ownerHome=ownerHome, ownerName=ownerName,
         )
-        yield child.initFromStore()
+        yield child.initFromStore(additionalBind)
         returnValue(child)
 
 
@@ -3239,7 +3277,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
+        item = rows[0]
+        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = item[:6] #@UnusedVariable
+        additionalBind = item[6:]
 
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
@@ -3254,7 +3294,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             message=bindMessage,
             ownerHome=ownerHome, ownerName=ownerName,
         )
-        yield child.initFromStore()
+        yield child.initFromStore(additionalBind)
         returnValue(child)
 
 
@@ -3352,7 +3392,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
 
     @inlineCallbacks
-    def initFromStore(self):
+    def initFromStore(self, additionalBind=None):
         """
         Initialise this object from the store, based on its already-populated
         resource ID. We read in and cache all the extra metadata from the DB to
@@ -3373,6 +3413,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             if queryCacher:
                 # Cache the results
                 yield queryCacher.setAfterCommit(self._txn, cacheKey, dataRows)
+
+        if additionalBind:
+            for attr, value in zip(self.additionalBindAttributes(), additionalBind):
+                setattr(self, attr, value)
 
         for attr, value in zip(self.metadataAttributes(), dataRows):
             setattr(self, attr, value)
@@ -3415,6 +3459,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         queryCacher = self._txn._queryCacher
         if queryCacher is not None:
             cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
+            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+            cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, self._name)
             yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
 

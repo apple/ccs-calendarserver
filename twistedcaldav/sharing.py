@@ -1228,7 +1228,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # Calendars always start out transparent and with empty default alarms
         if isNewShare and shareeCollection.isCalendarCollection():
-            yield shareeCollection.writeProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()), request)
+            yield shareeCollection._newStoreObject.setUsedForFreeBusy(False)
             yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVEventDateTime.fromString(""), request)
             yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVEventDate.fromString(""), request)
             yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVToDoDateTime.fromString(""), request)
@@ -1286,14 +1286,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
         shareURL = joinURL(self.url(), share.name())
         shared = (yield request.locateResource(shareURL))
         displayname = shared.displayName()
-
-        if self.isCalendarCollection():
-            # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-            principal = (yield self.resourceOwnerPrincipal(request))
-            inboxURL = principal.scheduleInboxURL()
-            if inboxURL:
-                inbox = (yield request.locateResource(inboxURL))
-                inbox.processFreeBusyCalendar(shareURL, False)
 
         if share.direct():
             yield share._sharerHomeChild.unshareWith(share._shareeHomeChild.viewerHome())

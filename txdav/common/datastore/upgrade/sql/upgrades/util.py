@@ -18,20 +18,34 @@ from twext.enterprise.dal.syntax import Select, Delete, Update
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.datastore.sql_tables import schema
+from txdav.base.propertystore.sql import PropertyStore
 
 @inlineCallbacks
-def rowsForProperty(txn, propelement, batch=None):
+def rowsForProperty(txn, propelement, with_uid=False, batch=None):
     pname = PropertyName.fromElement(propelement)
 
     rp = schema.RESOURCE_PROPERTY
+    columns = [rp.RESOURCE_ID, rp.VALUE, ]
+    if with_uid:
+        columns.append(rp.VIEWER_UID)
     rows = yield Select(
-        [rp.RESOURCE_ID, rp.VALUE, ],
+        columns,
         From=rp,
         Where=rp.NAME == pname.toString(),
         Limit=batch,
     ).on(txn)
 
     returnValue(rows)
+
+
+
+@inlineCallbacks
+def cleanPropertyStore():
+    """
+    We have manually manipulated the SQL property store by-passing the underlying implementation's caching
+    mechanism. We need to clear out the cache.
+    """
+    yield PropertyStore._cacher.flushAll()
 
 
 
@@ -44,6 +58,31 @@ def removeProperty(txn, propelement):
         From=rp,
         Where=rp.NAME == pname.toString(),
     ).on(txn)
+
+
+
+@inlineCallbacks
+def updateAllCalendarHomeDataVersions(store, version):
+
+    txn = store.newTransaction("updateAllCalendarHomeDataVersions")
+    ch = schema.CALENDAR_HOME
+    yield Update(
+        {ch.DATAVERSION: version},
+        Where=None,
+    ).on(txn)
+    yield txn.commit()
+
+
+
+@inlineCallbacks
+def updateAllAddressBookHomeDataVersions(store, version):
+
+    txn = store.newTransaction("updateAllAddressBookHomeDataVersions")
+    ah = schema.ADDRESSBOOK_HOME
+    yield Update(
+        {ah.DATAVERSION: version},
+    ).on(txn)
+    yield txn.commit()
 
 
 

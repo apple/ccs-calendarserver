@@ -43,14 +43,12 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.failure import Failure
 
 from twistedcaldav import caldavxml, customxml
-from twistedcaldav.caldavxml import caldav_namespace, Opaque, \
-    CalendarFreeBusySet, ScheduleCalendarTransp
+from twistedcaldav.caldavxml import caldav_namespace, CalendarFreeBusySet
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import allowedComponents, Component
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.resource import isCalendarCollectionResource
 
-from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
 from txdav.caldav.icalendarstore import InvalidDefaultCalendar
 from txdav.xml import element as davxml
@@ -155,6 +153,24 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         return davxml.ResourceType.scheduleInbox
 
 
+    def hasProperty(self, property, request):
+        """
+        Need to special case calendar-free-busy-set for backwards compatability.
+        """
+
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        # Force calendar collections to always appear to have the property
+        if qname == caldavxml.CalendarFreeBusySet.qname():
+            return succeed(True)
+
+        else:
+            return super(ScheduleInboxResource, self).hasProperty(property, request)
+
+
     @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
@@ -163,15 +179,14 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             qname = property.qname()
 
         if qname == caldavxml.CalendarFreeBusySet.qname():
-            # Always return at least an empty list
-            if not self.hasDeadProperty(property):
-                top = self.parent.url()
-                values = []
-                for cal in (yield self.parent._newStoreHome.calendars()):
-                    prop = cal.properties().get(PropertyName.fromString(ScheduleCalendarTransp.sname()))
-                    if prop == ScheduleCalendarTransp(Opaque()):
-                        values.append(HRef(joinURL(top, cal.name())))
-                returnValue(CalendarFreeBusySet(*values))
+            # Synthesize value for calendar transparency state
+            top = self.parent.url()
+            values = []
+            for cal in (yield self.parent._newStoreHome.calendars()):
+                if cal.isUsedForFreeBusy():
+                    values.append(HRef(joinURL(top, cal.name()) + "/"))
+            returnValue(CalendarFreeBusySet(*values))
+
         elif qname in (caldavxml.ScheduleDefaultCalendarURL.qname(), customxml.ScheduleDefaultTasksURL.qname()):
             result = (yield self.readDefaultCalendarProperty(request, qname))
             returnValue(result)
@@ -201,10 +216,10 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             # whether existing items in the property are still valid - only new ones.
             property.children = [davxml.HRef(normalizeURL(str(href))) for href in property.children]
             new_calendars = set([str(href) for href in property.children])
-            if not self.hasDeadProperty(property):
-                old_calendars = set()
-            else:
-                old_calendars = set([normalizeURL(str(href)) for href in self.readDeadProperty(property).children])
+            old_calendars = set()
+            for cal in (yield self.parent._newStoreHome.calendars()):
+                if cal.isUsedForFreeBusy():
+                    old_calendars.add(HRef(joinURL(self.parent.url(), cal.name())))
             added_calendars = new_calendars.difference(old_calendars)
             for href in added_calendars:
                 cal = (yield request.locateResource(str(href)))
@@ -215,34 +230,26 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                         (caldav_namespace, "valid-calendar-url"),
                         "Invalid URI",
                     ))
-            for href in tuple(new_calendars):
+
+            # Remove old ones
+            for href in old_calendars.difference(new_calendars):
                 cal = (yield request.locateResource(str(href)))
-                if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
-                    new_calendars.remove(href)
-            property.children = [davxml.HRef(href) for href in new_calendars]
+                if cal is not None and cal.exists() and isCalendarCollectionResource(cal) and cal._newStoreObject.isUsedForFreeBusy():
+                    yield cal._newStoreObject.setUsedForFreeBusy(False)
+
+            # Add new ones
+            for href in new_calendars:
+                cal = (yield request.locateResource(str(href)))
+                if cal is not None and cal.exists() and isCalendarCollectionResource(cal) and not cal._newStoreObject.isUsedForFreeBusy():
+                    yield cal._newStoreObject.setUsedForFreeBusy(True)
+
+            returnValue(None)
 
         elif property.qname() in (caldavxml.ScheduleDefaultCalendarURL.qname(), customxml.ScheduleDefaultTasksURL.qname()):
             yield self.writeDefaultCalendarProperty(request, property)
             returnValue(None)
 
         yield super(ScheduleInboxResource, self).writeProperty(property, request)
-
-
-    def processFreeBusyCalendar(self, uri, addit):
-        uri = normalizeURL(uri)
-
-        if not self.hasDeadProperty(caldavxml.CalendarFreeBusySet.qname()):
-            fbset = set()
-        else:
-            fbset = set([normalizeURL(str(href)) for href in self.readDeadProperty(caldavxml.CalendarFreeBusySet.qname()).children])
-        if addit:
-            if uri not in fbset:
-                fbset.add(uri)
-                self.writeDeadProperty(caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in fbset]))
-        else:
-            if uri in fbset:
-                fbset.remove(uri)
-                self.writeDeadProperty(caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in fbset]))
 
 
     @inlineCallbacks

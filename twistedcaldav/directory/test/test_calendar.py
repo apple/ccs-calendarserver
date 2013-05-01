@@ -110,29 +110,16 @@ class ProvisionedCalendars (StoreTestCase):
 
         fbset = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
         self.assertEqual(fbset, caldavxml.CalendarFreeBusySet(
-            davxml.HRef.fromString("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar"),
+            davxml.HRef.fromString("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/"),
         ))
 
-        # Now remove the dead property to simulate the old calendar server state with
+        # Now remove the property to simulate the old calendar server state with
         # a calendar listed in the fbset
-        yield calendar.removeDeadProperty(caldavxml.ScheduleCalendarTransp)
+        yield calendar._newStoreObject.setUsedForFreeBusy(False)
         fbset = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
-        self.assertEqual(fbset, caldavxml.CalendarFreeBusySet(
-            davxml.HRef.fromString("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar"),
-        ))
+        self.assertEqual(fbset, caldavxml.CalendarFreeBusySet())
 
         # Calendar has opaque property derived from inbox
-        transp = (yield calendar.hasProperty(caldavxml.ScheduleCalendarTransp, request))
-        self.assertTrue(transp)
-
-        transp = (yield calendar.readProperty(caldavxml.ScheduleCalendarTransp, request))
-        self.assertEqual(transp, caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
-
-        # Now remove the dead property and the inbox fbset item to simulate the old calendar server state
-        yield calendar.removeDeadProperty(caldavxml.ScheduleCalendarTransp)
-        yield inbox.removeDeadProperty(caldavxml.CalendarFreeBusySet)
-
-        # Calendar has transp property derived from inbox
         transp = (yield calendar.hasProperty(caldavxml.ScheduleCalendarTransp, request))
         self.assertTrue(transp)
 
@@ -140,13 +127,12 @@ class ProvisionedCalendars (StoreTestCase):
         self.assertEqual(transp, caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()))
 
         # Force trailing slash on fbset
-        inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(
+        yield inbox.writeProperty(caldavxml.CalendarFreeBusySet(
             davxml.HRef.fromString("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/"),
-        ))
+        ), request)
 
         # Now remove the dead property to simulate the old calendar server state with
         # a calendar listed in the fbset
-        yield calendar.removeDeadProperty(caldavxml.ScheduleCalendarTransp)
         fbset = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
         self.assertEqual(fbset, caldavxml.CalendarFreeBusySet(
             davxml.HRef.fromString("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/"),

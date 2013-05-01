@@ -14,155 +14,111 @@
 # limitations under the License.
 ##
 
-from twext.web2 import responsecode, http_headers
-from twext.web2.dav.util import davXMLFromStream
-from twext.web2.iweb import IResponse
-from twext.web2.stream import MemoryStream
 from twext.web2.test.test_server import SimpleRequest
 
 from twisted.internet.defer import inlineCallbacks
 
 from twistedcaldav import caldavxml, customxml
-from twistedcaldav.test.util import HomeTestCase, StoreTestCase, \
-    SimpleStoreRequest
+from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 
 from txdav.xml import element as davxml
+from twext.web2.http import HTTPError
 
-class Properties (HomeTestCase):
+class Properties (StoreTestCase):
     """
     CalDAV properties
     """
-    def test_free_busy_set_prop(self):
+
+    @inlineCallbacks
+    def test_free_busy_set_same(self):
         """
-        Test for PROPFIND on Inbox with missing calendar-free-busy-set property.
+        Test that calendar-free-busy-set has the correct value and can be reset to the same.
         """
 
-        inbox_uri = "/inbox/"
+        request = SimpleRequest(self.site, "GET", "/calendars/users/user01/inbox/")
+        inbox = yield request.locateResource("/calendars/users/user01/inbox/")
+        self.assertTrue((yield inbox.hasProperty(caldavxml.CalendarFreeBusySet, request)))
+        prop = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
+        self.assertEqual(prop.children[0], davxml.HRef("/calendars/__uids__/user01/calendar/"))
 
-        def propfind_cb(response):
-            response = IResponse(response)
+        newfbset = set()
+        newfbset.add("/calendars/users/user01/calendar/")
+        newset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in newfbset])
 
-            if response.code != responsecode.MULTI_STATUS:
-                self.fail("Incorrect response to PROPFIND: %s" % (response.code,))
+        yield inbox.writeProperty(newset, request)
+        yield request._newStoreTransaction.commit()
 
-            def got_xml(doc):
-                if not isinstance(doc.root_element, davxml.MultiStatus):
-                    self.fail("PROPFIND response XML root element is not multistatus: %r" % (doc.root_element,))
-
-                response = doc.root_element.childOfType(davxml.Response)
-                href = response.childOfType(davxml.HRef)
-                self.failUnless(str(href) == inbox_uri)
-
-                for propstat in response.childrenOfType(davxml.PropertyStatus):
-                    status = propstat.childOfType(davxml.Status)
-                    if status.code != responsecode.OK:
-                        self.fail("Unable to read requested properties (%s): %r"
-                                  % (status, propstat.childOfType(davxml.PropertyContainer).toxml()))
-
-                container = propstat.childOfType(davxml.PropertyContainer)
-
-                #
-                # Check CalDAV:calendar-free-busy-set
-                #
-
-                free_busy_set = container.childOfType(caldavxml.CalendarFreeBusySet)
-                if not free_busy_set:
-                    self.fail("Expected CalDAV:calendar-free-busy-set element; but got none.")
-
-                if not free_busy_set.children:
-                    self.fail("Expected non-empty CalDAV:calendar-free-busy-set element.")
-
-            return davXMLFromStream(response.stream).addCallback(got_xml)
-
-        query = davxml.PropertyFind(
-                    davxml.PropertyContainer(
-                        caldavxml.CalendarFreeBusySet(),
-                    ),
-                )
-
-        request = SimpleRequest(
-            self.site,
-            "PROPFIND",
-            inbox_uri,
-            headers=http_headers.Headers({"Depth": "0"}),
-        )
-        request.stream = MemoryStream(query.toxml())
-        return self.send(request, propfind_cb)
+        request = SimpleRequest(self.site, "GET", "/calendars/users/user01/inbox/")
+        inbox = yield request.locateResource("/calendars/users/user01/inbox/")
+        prop = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
+        self.assertEqual(prop.children[0], davxml.HRef("/calendars/__uids__/user01/calendar/"))
+        yield request._newStoreTransaction.commit()
+        calendar = yield request.locateResource("/calendars/__uids__/user01/calendar/")
+        self.assertTrue(calendar._newStoreObject.isUsedForFreeBusy())
 
 
     @inlineCallbacks
-    def test_free_busy_set_remove_broken(self):
+    def test_free_busy_set_different(self):
         """
-        ???
+        Test that calendar-free-busy-set has the correct value and can be reset to the same.
         """
 
-        request = SimpleRequest(self.site, "GET", "/inbox/")
-        inbox = yield request.locateResource("/inbox/")
-        self.assertTrue(inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet))
+        txn = self.transactionUnderTest()
+        home = (yield txn.calendarHomeWithUID("user01", create=True))
+        yield home.createCalendarWithName("calendar_new")
+        yield self.commit()
+
+        request = SimpleRequest(self.site, "GET", "/calendars/users/user01/inbox/")
+        inbox = yield request.locateResource("/calendars/users/user01/inbox/")
+        self.assertTrue((yield inbox.hasProperty(caldavxml.CalendarFreeBusySet, request)))
+        prop = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
+        self.assertEqual(
+            set([str(child) for child in prop.children]),
+            set((
+                "/calendars/__uids__/user01/calendar/",
+                "/calendars/__uids__/user01/calendar_new/",
+            ))
+        )
+        calendar = yield request.locateResource("/calendars/__uids__/user01/calendar_new/")
+        self.assertTrue(calendar._newStoreObject.isUsedForFreeBusy())
+        calendar = yield request.locateResource("/calendars/__uids__/user01/calendar/")
+        self.assertTrue(calendar._newStoreObject.isUsedForFreeBusy())
+
+        newfbset = set()
+        newfbset.add("/calendars/users/user01/calendar_new/")
+        newset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in newfbset])
+
+        yield inbox.writeProperty(newset, request)
+        yield request._newStoreTransaction.commit()
+
+        request = SimpleRequest(self.site, "GET", "/calendars/users/user01/inbox/")
+        inbox = yield request.locateResource("/calendars/users/user01/inbox/")
+        prop = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
+        self.assertEqual(prop.children[0], davxml.HRef("/calendars/__uids__/user01/calendar_new/"))
+        yield request._newStoreTransaction.commit()
+        calendar = yield request.locateResource("/calendars/__uids__/user01/calendar_new/")
+        self.assertTrue(calendar._newStoreObject.isUsedForFreeBusy())
+        calendar = yield request.locateResource("/calendars/__uids__/user01/calendar/")
+        self.assertFalse(calendar._newStoreObject.isUsedForFreeBusy())
+
+
+    @inlineCallbacks
+    def test_free_busy_set_invalid_url(self):
+        """
+        Test that calendar-free-busy-set will generate an error if an invalid value is used.
+        """
+
+        request = SimpleRequest(self.site, "GET", "/calendars/users/user01/inbox/")
+        inbox = yield request.locateResource("/calendars/users/user01/inbox/")
+        self.assertTrue((yield inbox.hasProperty(caldavxml.CalendarFreeBusySet, request)))
         oldfbset = set(("/calendar",))
-        oldset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in oldfbset])
 
         newfbset = set()
         newfbset.update(oldfbset)
         newfbset.add("/calendar-broken")
         newset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in newfbset])
 
-        inbox.writeDeadProperty(newset)
-        changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
-        self.assertEqual(tuple(changedset.children), tuple(newset.children))
-
-        yield inbox.writeProperty(newset, request)
-
-        changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
-        self.assertEqual(tuple(changedset.children), tuple(oldset.children))
-
-
-    @inlineCallbacks
-    def test_free_busy_set_strip_slash(self):
-        """
-        ???
-        """
-
-        request = SimpleRequest(self.site, "GET", "/inbox/")
-        inbox = yield request.locateResource("/inbox/")
-        self.assertTrue(inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet))
-
-        oldfbset = set(("/calendar/",))
-        oldset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in oldfbset])
-        inbox.writeDeadProperty(oldset)
-
-        writefbset = set(("/calendar/",))
-        writeset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in writefbset])
-        yield inbox.writeProperty(writeset, request)
-
-        correctfbset = set(("/calendar",))
-        correctset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in correctfbset])
-        changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
-        self.assertEqual(tuple(changedset.children), tuple(correctset.children))
-
-
-    @inlineCallbacks
-    def test_free_busy_set_strip_slash_remove(self):
-        """
-        ???
-        """
-
-        request = SimpleRequest(self.site, "GET", "/inbox/")
-        inbox = yield request.locateResource("/inbox/")
-        self.assertTrue(inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet))
-
-        oldfbset = set(("/calendar/", "/broken/"))
-        oldset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in oldfbset])
-        inbox.writeDeadProperty(oldset)
-
-        writefbset = set(("/calendar/", "/broken/"))
-        writeset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in writefbset])
-        yield inbox.writeProperty(writeset, request)
-
-        correctfbset = set(("/calendar",))
-        correctset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in correctfbset])
-        changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
-        self.assertEqual(tuple(changedset.children), tuple(correctset.children))
+        self.failUnlessFailure(inbox.writeProperty(newset, request), HTTPError)
 
 
 

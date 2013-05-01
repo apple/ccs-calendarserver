@@ -24,6 +24,19 @@ alter table ATTACHMENT
  add ("DEFAULT_EVENTS" integer default null,
  	  "DEFAULT_TASKS"  integer default null);
 
+ 	  
+-- Calendar bind related updates
+
+alter table CALENDAR_BIND
+ add ("TRANSP" integer default 0 not null);
+
+create table CALENDAR_TRANSP (
+    "ID" integer primary key,
+    "DESCRIPTION" nvarchar2(16) unique
+);
+
+insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('opaque', 0);
+insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('transparent', 1);
 
 -- Now update the version
 -- No data upgrades

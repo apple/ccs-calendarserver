@@ -64,7 +64,8 @@ create table CALENDAR_BIND (
     "CALENDAR_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
-    "MESSAGE" nclob, 
+    "MESSAGE" nclob,
+    "TRANSP" integer default 0 not null, 
     primary key("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
     unique("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
 );
@@ -87,6 +88,13 @@ insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('invited', 0);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('accepted', 1);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('declined', 2);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('invalid', 3);
+create table CALENDAR_TRANSP (
+    "ID" integer primary key,
+    "DESCRIPTION" nvarchar2(16) unique
+);
+
+insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('opaque', 0);
+insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('transparent', 1);
 create table CALENDAR_OBJECT (
     "RESOURCE_ID" integer primary key,
     "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,

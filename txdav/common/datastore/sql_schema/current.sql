@@ -127,6 +127,7 @@ create table CALENDAR_BIND (
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
   MESSAGE                   text,
+  TRANSP					integer		 default 0 not null, -- enum CALENDAR_TRANSP
 
   primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID), -- implicit index
   unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME)     -- implicit index
@@ -157,6 +158,17 @@ insert into CALENDAR_BIND_STATUS values (0, 'invited' );
 insert into CALENDAR_BIND_STATUS values (1, 'accepted');
 insert into CALENDAR_BIND_STATUS values (2, 'declined');
 insert into CALENDAR_BIND_STATUS values (3, 'invalid');
+
+
+-- Enumeration of transparency
+
+create table CALENDAR_TRANSP (
+  ID          integer     primary key,
+  DESCRIPTION varchar(16) not null unique
+);
+
+insert into CALENDAR_TRANSP values (0, 'opaque' );
+insert into CALENDAR_TRANSP values (1, 'transparent');
 
 
 ---------------------

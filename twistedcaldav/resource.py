@@ -670,17 +670,7 @@ class CalDAVResource (
                 ))
 
         elif qname == caldavxml.ScheduleCalendarTransp.qname() and self.isCalendarCollection():
-            # For backwards compatibility, if the property does not exist we need to create
-            # it and default to the old free-busy-set value.
-            if not self.hasDeadProperty(property):
-                # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-                principal = (yield self.resourceOwnerPrincipal(request))
-                fbset = (yield principal.calendarFreeBusyURIs(request))
-                fbset = [fburl.rstrip("/") for fburl in fbset]
-                url = (yield self.canonicalURL(request))
-                url = url.rstrip("/")
-                opaque = url in fbset
-                self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
+            returnValue(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if self._newStoreObject.isUsedForFreeBusy() else caldavxml.Transparent()))
 
         elif qname == carddavxml.SupportedAddressData.qname() and self.isAddressBookCollection():
             # CardDAV, section 6.2.2
@@ -734,7 +724,6 @@ class CalDAVResource (
         returnValue(res)
 
 
-    @inlineCallbacks
     def _preProcessWriteProperty(self, property, request, isShare=False):
         if property.qname() == caldavxml.SupportedCalendarComponentSet.qname():
             if not self.isPseudoCalendarCollection():
@@ -793,21 +782,16 @@ class CalDAVResource (
                     "Property %s may only be set on calendar collection." % (property,)
                 ))
 
-            # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-            principal = (yield self.resourceOwnerPrincipal(request))
-
-            # Map owner to their inbox
-            inboxURL = principal.scheduleInboxURL()
-            if inboxURL:
-                inbox = (yield request.locateResource(inboxURL))
-                myurl = (yield self.canonicalURL(request))
-                inbox.processFreeBusyCalendar(myurl, property.children[0] == caldavxml.Opaque())
-
 
     @inlineCallbacks
     def _writeGlobalProperty(self, property, request):
 
-        yield self._preProcessWriteProperty(property, request)
+        self._preProcessWriteProperty(property, request)
+
+        if property.qname() == caldavxml.ScheduleCalendarTransp.qname():
+            yield self._newStoreObject.setUsedForFreeBusy(property == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
+            returnValue(None)
+
         result = (yield super(CalDAVResource, self).writeProperty(property, request))
         returnValue(result)
 
@@ -1071,49 +1055,6 @@ class CalDAVResource (
     #                        yield child.findSpecialCollectionsFaster(type, depth, request, callback, privileges)
 
     findSpecialCollections = findSpecialCollectionsFaster
-
-    @inlineCallbacks
-    def deletedCalendar(self, request):
-        """
-        Calendar has been deleted. Need to do some extra clean-up.
-
-        @param request:
-        @type request:
-        """
-
-        # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-        principal = (yield self.resourceOwnerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
-        if inboxURL:
-            inbox = (yield request.locateResource(inboxURL))
-            inbox.processFreeBusyCalendar(request.path, False)
-
-
-    @inlineCallbacks
-    def movedCalendar(self, request, destination, destination_uri):
-        """
-        Calendar has been moved. Need to do some extra clean-up.
-        """
-
-        # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-        principal = (yield self.resourceOwnerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
-        if inboxURL:
-            inbox = (yield request.locateResource(inboxURL))
-            inbox.processFreeBusyCalendar(request.path, False)
-            inbox.processFreeBusyCalendar(destination_uri, destination.isCalendarOpaque())
-
-
-    def isCalendarOpaque(self):
-
-        assert self.isCalendarCollection()
-
-        if self.hasDeadProperty((caldav_namespace, "schedule-calendar-transp")):
-            property = self.readDeadProperty((caldav_namespace, "schedule-calendar-transp"))
-            return property.children[0] == caldavxml.Opaque()
-        else:
-            return False
-
 
     def isDefaultCalendar(self, request):
 
@@ -2091,11 +2032,9 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     @classmethod
     @inlineCallbacks
     def createHomeResource(cls, parent, name, transaction):
-        home, created = yield cls.homeFromTransaction(
+        home, _ignored_created = yield cls.homeFromTransaction(
             transaction, name)
         resource = cls(parent, name, transaction, home)
-        if created:
-            yield resource.postCreateHome()
         returnValue(resource)
 
 
@@ -2113,10 +2052,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
 
     def _setupProvisions(self):
-        pass
-
-
-    def postCreateHome(self):
         pass
 
 
@@ -2549,16 +2484,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
             from twistedcaldav.notifications import NotificationCollectionResource
             self._provisionedChildren["notification"] = NotificationCollectionResource
-
-
-    @inlineCallbacks
-    def postCreateHome(self):
-        # This is a bit of a hack.  Really we ought to be always generating
-        # this URL live from a back-end method that tells us what the
-        # default calendar is.
-        inbox = yield self.getChild("inbox")
-        childURL = joinURL(self.url(), "calendar")
-        inbox.processFreeBusyCalendar(childURL, True)
 
 
     def canShare(self):

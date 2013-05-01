@@ -153,6 +153,16 @@ _BIND_STATUS_ACCEPTED = _bindStatus('accepted')
 _BIND_STATUS_DECLINED = _bindStatus('declined')
 _BIND_STATUS_INVALID = _bindStatus('invalid')
 
+
+_transpValues = _schemaConstants(
+    schema.CALENDAR_TRANSP.DESCRIPTION,
+    schema.CALENDAR_TRANSP.ID
+)
+
+_TRANSP_OPAQUE = _transpValues('opaque')
+_TRANSP_TRANSPARENT = _transpValues('transparent')
+
+
 _attachmentsMode = _schemaConstants(
     schema.CALENDAR_OBJECT_ATTACHMENTS_MODE.DESCRIPTION,
     schema.CALENDAR_OBJECT_ATTACHMENTS_MODE.ID

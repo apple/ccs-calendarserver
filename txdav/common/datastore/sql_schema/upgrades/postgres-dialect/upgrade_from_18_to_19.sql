@@ -26,6 +26,19 @@ alter table CALENDAR_HOME_METADATA
  add column DEFAULT_TASKS integer default null;
 
 
+-- Calendar bind related updates
+
+alter table CALENDAR_BIND
+ add column TRANSP integer default 0 not null;
+
+create table CALENDAR_TRANSP (
+  ID          integer     primary key,
+  DESCRIPTION varchar(16) not null unique
+);
+
+insert into CALENDAR_TRANSP values (0, 'opaque' );
+insert into CALENDAR_TRANSP values (1, 'transparent');
+
 -- Now update the version
 -- No data upgrades
 update CALENDARSERVER set VALUE = '19' where NAME = 'VERSION';
