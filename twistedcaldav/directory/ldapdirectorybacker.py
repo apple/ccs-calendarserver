@@ -69,7 +69,8 @@ class LdapDirectoryBackingService(LdapDirectoryService):
        }
 
         #params = self.getParams(params, defaults, ignored)
-        def addDefaults(params, defaults, remove=None):
+        def addDefaults(params, defaults, remove=None):  # @UnusedVariable
+
             for key in defaults:
                 if not key in params:
                     params[key] = defaults[key]
@@ -172,7 +173,6 @@ class LdapDirectoryBackingService(LdapDirectoryService):
 
                     if len(ldapAttributeValues):
 
-
                         dsAttributeNames = ldapAttrToDSAttrMap.get(ldapAttributeName)
                         if dsAttributeNames:
 
@@ -203,8 +203,6 @@ class LdapDirectoryBackingService(LdapDirectoryService):
                                     if (ldapAttributeValues != transformedValues):
                                         self.log_debug("_getLdapQueryResults: %s %s transformed to %s" % (ldapAttributeName, ldapAttributeValues, transformedValues))
                                         ldapAttributeValues = transformedValues
-
-
 
                             if not isinstance(dsAttributeNames, list):
                                 dsAttributeNames = [dsAttributeNames, ]
