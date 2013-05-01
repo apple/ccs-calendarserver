@@ -1571,6 +1571,16 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             for url in self.valuesForAttribute(dsattributes.kDSNAttrURL):
                 addPropertyAndLabel(groupCount, "_$!<HomePage>!$_", "URL", url, parameters={"TYPE": ["HOMEPAGE", ]})
 
+            # special case for Apple
+            if self.appleInternalServer:
+                urlbase = {"individual":"adir://employees/",
+                           "group":"adir://groups/",
+                           "org":"adir://groups/",
+                           "location":"adir://conferencerooms/",
+                           }.get(self.kind)
+                if urlbase:
+                    addPropertyAndLabel(groupCount, "\xef\xa3\xbf Directory", "URL", urlbase + self.firstValueForAttribute(dsattributes.kDS1AttrGeneratedUID), parameters={"TYPE": ["HOMEPAGE", ]})
+
 
             # 3.6.9 VERSION Type Definition
             # ALREADY ADDED
@@ -1654,13 +1664,17 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
             if self.appleInternalServer:
                 for manager in self.valuesForAttribute("dsAttrTypeNative:appleManager"):
                     splitManager = manager.split("|")
-                    if len(splitManager) >= 4:
-                        managerValue = "%s %s, %s" % (splitManager[0], splitManager[1], splitManager[3],)
-                    elif len(splitManager) >= 2:
+                    if len(splitManager) >= 2:
+                        # first name, last name
                         managerValue = "%s %s" % (splitManager[0], splitManager[1])
                     else:
                         managerValue = manager
                     addPropertyAndLabel(groupCount, "_$!<Manager>!$_", "X-ABRELATEDNAMES", managerValue, parameters={ "TYPE": ["MANAGER", ]})
+
+                    if len(splitManager) >= 4:
+                        # email
+                        addPropertyAndLabel(groupCount, "_$!<Manager>!$_", "X-ABRELATEDNAMES", splitManager[3], parameters={ "TYPE": ["MANAGER", ]})
+
 
 
             # add apple-defined group vcard properties if record type is group
