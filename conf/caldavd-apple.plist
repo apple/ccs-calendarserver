@@ -114,11 +114,17 @@
         </array>
         <key>ExtraConnections</key>
         <integer>20</integer>
+        <key>ClusterName</key>
+        <string>cluster.pg</string>
     </dict>
 
     <!-- Data root -->
     <key>DataRoot</key>
     <string>Data</string>
+
+    <!-- Database root -->
+    <key>DatabaseRoot</key>
+    <string>Database.xpg</string>
 
     <!-- Document root -->
     <key>DocumentRoot</key>

@@ -158,6 +158,7 @@ class PostgresService(MultiService):
 
     def __init__(self, dataStoreDirectory, subServiceFactory,
                  schema, resetSchema=False, databaseName='subpostgres',
+                 clusterName="cluster",
                  logFile="postgres.log", socketDir="/tmp",
                  listenAddresses=[], sharedBuffers=30,
                  maxConnections=20, options=[],
@@ -205,6 +206,7 @@ class PostgresService(MultiService):
 
         # Options from config
         self.databaseName = databaseName
+        self.clusterName = clusterName
         # Make logFile absolute in case the working directory of postgres is
         # elsewhere:
         self.logFile = os.path.abspath(logFile)
@@ -457,7 +459,7 @@ class PostgresService(MultiService):
     def startService(self):
         MultiService.startService(self)
         self.activateDelayedShutdown()
-        clusterDir = self.dataStoreDirectory.child("cluster")
+        clusterDir = self.dataStoreDirectory.child(self.clusterName)
         env = self.env = os.environ.copy()
         env.update(PGDATA=clusterDir.path,
                    PGHOST=self.host,
@@ -468,11 +470,10 @@ class PostgresService(MultiService):
                 self.socketDir.createDirectory()
             if self.uid and self.gid:
                 os.chown(self.socketDir.path, self.uid, self.gid)
-        if clusterDir.isdir():
+        if self.dataStoreDirectory.isdir():
             self.startDatabase()
         else:
-            if not self.dataStoreDirectory.isdir():
-                self.dataStoreDirectory.createDirectory()
+            self.dataStoreDirectory.createDirectory()
             if not self.workingDir.isdir():
                 self.workingDir.createDirectory()
             if self.uid and self.gid:
