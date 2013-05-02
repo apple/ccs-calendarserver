@@ -183,7 +183,7 @@ create table RESOURCE_PROPERTY (
 
 create table ADDRESSBOOK_HOME (
     "RESOURCE_ID" integer primary key,
-    "HOME_RESOURCE_ID" integer not null,
+    "PROPERTY_STORE_ID" integer not null,
     "OWNER_UID" nvarchar2(255) unique,
     "DATAVERSION" integer default 0 not null
 );
@@ -195,20 +195,20 @@ create table ADDRESSBOOK_HOME_METADATA (
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
-create table ADDRESSBOOK_BIND (
+create table SHARED_ADDRESSBOOK_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
-    "ADDRESSBOOK_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
+    "OWNER_ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
     "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "MESSAGE" nclob, 
-    primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_ID"), 
+    primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_ADDRESSBOOK_HOME_RESOURCE_ID"), 
     unique("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
 );
 
 create table ADDRESSBOOK_OBJECT (
     "RESOURCE_ID" integer primary key,
-    "ADDRESSBOOK_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
+    "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
     "RESOURCE_NAME" nvarchar2(255),
     "VCARD_TEXT" nclob,
     "VCARD_UID" nvarchar2(255),
@@ -216,8 +216,8 @@ create table ADDRESSBOOK_OBJECT (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    unique("ADDRESSBOOK_RESOURCE_ID", "RESOURCE_NAME"), 
-    unique("ADDRESSBOOK_RESOURCE_ID", "VCARD_UID")
+    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "RESOURCE_NAME"), 
+    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "VCARD_UID")
 );
 
 create table ADDRESSBOOK_OBJECT_KIND (
@@ -243,7 +243,7 @@ create table ABO_FOREIGN_MEMBERS (
     primary key("GROUP_ID", "MEMBER_ADDRESS")
 );
 
-create table GROUP_ADDRESSBOOK_BIND (
+create table SHARED_GROUP_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "GROUP_RESOURCE_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
     "GROUP_ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
@@ -265,7 +265,7 @@ create table CALENDAR_OBJECT_REVISIONS (
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
-    "ADDRESSBOOK_RESOURCE_ID" integer references ADDRESSBOOK_HOME,
+    "OWNER_ADDRESSBOOK_HOME_RESOURCE_ID" integer references ADDRESSBOOK_HOME,
     "ADDRESSBOOK_NAME" nvarchar2(255) default null,
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
@@ -381,11 +381,11 @@ create index ATTACHMENT_CALENDAR_H_0078845c on ATTACHMENT (
     CALENDAR_HOME_RESOURCE_ID
 );
 
-create index ADDRESSBOOK_BIND_RESO_205aa75c on ADDRESSBOOK_BIND (
-    ADDRESSBOOK_RESOURCE_ID
+create index SHARED_ADDRESSBOOK_BI_e9a2e6d4 on SHARED_ADDRESSBOOK_BIND (
+    OWNER_ADDRESSBOOK_HOME_RESOURCE_ID
 );
 
-create index GROUP_ADDRESSBOOK_BIN_71d6a48a on GROUP_ADDRESSBOOK_BIND (
+create index SHARED_GROUP_BIND_RES_cf52f95d on SHARED_GROUP_BIND (
     GROUP_RESOURCE_ID
 );
 
@@ -406,16 +406,16 @@ create index CALENDAR_OBJECT_REVIS_265c8acf on CALENDAR_OBJECT_REVISIONS (
 
 create index ADDRESSBOOK_OBJECT_RE_f460d62d on ADDRESSBOOK_OBJECT_REVISIONS (
     ADDRESSBOOK_HOME_RESOURCE_ID,
-    ADDRESSBOOK_RESOURCE_ID
+    OWNER_ADDRESSBOOK_HOME_RESOURCE_ID
 );
 
 create index ADDRESSBOOK_OBJECT_RE_9a848f39 on ADDRESSBOOK_OBJECT_REVISIONS (
-    ADDRESSBOOK_RESOURCE_ID,
+    OWNER_ADDRESSBOOK_HOME_RESOURCE_ID,
     RESOURCE_NAME
 );
 
 create index ADDRESSBOOK_OBJECT_RE_cb101e6b on ADDRESSBOOK_OBJECT_REVISIONS (
-    ADDRESSBOOK_RESOURCE_ID,
+    OWNER_ADDRESSBOOK_HOME_RESOURCE_ID,
     REVISION
 );
 

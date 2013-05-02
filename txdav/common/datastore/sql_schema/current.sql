@@ -364,9 +364,9 @@ create table ADDRESSBOOK_HOME_METADATA (
 -- AddressBook Bind --
 ----------------------
 
--- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_HOME
+-- Joins sharee ADDRESSBOOK_HOME and owner ADDRESSBOOK_HOME
 
-create table ADDRESSBOOK_BIND (
+create table SHARED_ADDRESSBOOK_BIND (
   ADDRESSBOOK_HOME_RESOURCE_ID			integer			not null references ADDRESSBOOK_HOME,
   OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer      	not null references ADDRESSBOOK_HOME on delete cascade,
   ADDRESSBOOK_RESOURCE_NAME    			varchar(255) 	not null,
@@ -378,8 +378,8 @@ create table ADDRESSBOOK_BIND (
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
-create index ADDRESSBOOK_BIND_RESOURCE_ID on
-  ADDRESSBOOK_BIND(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID);
+create index SHARED_ADDRESSBOOK_BIND_RESOURCE_ID on
+  SHARED_ADDRESSBOOK_BIND(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID);
 
 
 ------------------------
@@ -447,7 +447,7 @@ create table ABO_FOREIGN_MEMBERS (
 
 -- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_OBJECT (acting as Address Book)
 
-create table GROUP_ADDRESSBOOK_BIND (	
+create table SHARED_GROUP_BIND (	
   ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
   GROUP_RESOURCE_ID      			integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
   GROUP_ADDRESSBOOK_RESOURCE_NAME	varchar(255) not null,
@@ -459,8 +459,8 @@ create table GROUP_ADDRESSBOOK_BIND (
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
-create index GROUP_ADDRESSBOOK_BIND_RESOURCE_ID on
-  GROUP_ADDRESSBOOK_BIND(GROUP_RESOURCE_ID);
+create index SHARED_GROUP_BIND_RESOURCE_ID on
+  SHARED_GROUP_BIND(GROUP_RESOURCE_ID);
 
 
 ---------------
