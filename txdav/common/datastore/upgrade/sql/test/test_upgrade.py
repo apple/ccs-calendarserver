@@ -23,13 +23,13 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
 from txdav.common.datastore.test.util import theStoreBuilder, StubNotifierFactory
-from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaService, \
-    UpgradeDatabaseDataService
+from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaStep, \
+    UpgradeDatabaseDataStep
 import re
 
 class SchemaUpgradeTests(TestCase):
     """
-    Tests for L{UpgradeDatabaseSchemaService}.
+    Tests for L{UpgradeDatabaseSchemaStep}.
     """
 
     def _getSchemaVersion(self, fp, versionKey):
@@ -45,7 +45,7 @@ class SchemaUpgradeTests(TestCase):
 
     def test_scanUpgradeFiles(self):
 
-        upgrader = UpgradeDatabaseSchemaService(None, None)
+        upgrader = UpgradeDatabaseSchemaStep(None)
 
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema1")
         files = upgrader.scanForUpgradeFiles("fake_dialect")
@@ -66,7 +66,7 @@ class SchemaUpgradeTests(TestCase):
 
     def test_determineUpgradeSequence(self):
 
-        upgrader = UpgradeDatabaseSchemaService(None, None)
+        upgrader = UpgradeDatabaseSchemaStep(None)
 
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema1")
         files = upgrader.scanForUpgradeFiles("fake_dialect")
@@ -104,7 +104,7 @@ class SchemaUpgradeTests(TestCase):
         """
 
         for dialect in (POSTGRES_DIALECT, ORACLE_DIALECT,):
-            upgrader = UpgradeDatabaseSchemaService(None, None)
+            upgrader = UpgradeDatabaseSchemaStep(None)
             files = upgrader.scanForUpgradeFiles(dialect)
 
             current_version = self._getSchemaVersion(upgrader.schemaLocation.child("current.sql"), "VERSION")
@@ -120,7 +120,7 @@ class SchemaUpgradeTests(TestCase):
 #        """
 #
 #        for dialect in (POSTGRES_DIALECT, ORACLE_DIALECT,):
-#            upgrader = UpgradeDatabaseSchemaService(None, None)
+#            upgrader = UpgradeDatabaseSchemaStep(None)
 #            files = upgrader.scanForUpgradeFiles(dialect)
 #            for _ignore_from, _ignore_to, fp in files:
 #                result = upgrader.getDataUpgrade(fp)
@@ -175,12 +175,12 @@ class SchemaUpgradeTests(TestCase):
 
         self.addCleanup(_cleanupOldSchema)
 
-        test_upgrader = UpgradeDatabaseSchemaService(None, None)
+        test_upgrader = UpgradeDatabaseSchemaStep(None)
         expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), "VERSION")
         for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
 
             # Upgrade allowed
-            upgrader = UpgradeDatabaseSchemaService(store, None)
+            upgrader = UpgradeDatabaseSchemaStep(store)
             yield _loadOldSchema(child)
             yield upgrader.databaseUpgrade()
             new_version = yield _loadVersion()
@@ -189,7 +189,7 @@ class SchemaUpgradeTests(TestCase):
             self.assertEqual(new_version, expected_version)
 
             # Upgrade disallowed
-            upgrader = UpgradeDatabaseSchemaService(store, None, failIfUpgradeNeeded=True, stopOnFail=False)
+            upgrader = UpgradeDatabaseSchemaStep(store, failIfUpgradeNeeded=True)
             yield _loadOldSchema(child)
             old_version = yield _loadVersion()
             try:
@@ -257,14 +257,14 @@ class SchemaUpgradeTests(TestCase):
 
         self.addCleanup(_cleanupOldData)
 
-        test_upgrader = UpgradeDatabaseSchemaService(None, None)
+        test_upgrader = UpgradeDatabaseSchemaStep(None)
         expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), "CALENDAR-DATAVERSION")
         versions = set()
         for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
             versions.add(self._getSchemaVersion(child, "CALENDAR-DATAVERSION"))
 
         for oldVersion in sorted(versions):
-            upgrader = UpgradeDatabaseDataService(store, None)
+            upgrader = UpgradeDatabaseDataStep(store)
             yield _loadOldData(test_upgrader.schemaLocation.child("current.sql"), oldVersion)
             yield upgrader.databaseUpgrade()
             new_version = yield _loadVersion()

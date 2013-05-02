@@ -344,6 +344,8 @@ DEFAULT_CONFIG = {
     "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
                                    # tools from running if the database needs a schema
                                    # upgrade.
+    "StopAfterUpgradeTriggerFile" : "stop_after_upgrade", # if this file exists
+        # in ConfigRoot, stop the service after finishing upgrade phase
 
     #
     # Types of service provided
@@ -362,8 +364,8 @@ DEFAULT_CONFIG = {
     "ConfigRoot"              : "Config",
     "LogRoot"                 : "/var/log/caldavd",
     "RunRoot"                 : "/var/run/caldavd",
-    "WebCalendarRoot"         : "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd",
-
+    "WebCalendarRoot"         : "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd/webcal/public",
+    
     #
     # Quotas
     #
@@ -468,7 +470,7 @@ DEFAULT_CONFIG = {
         },
         "Wiki": {
             "Enabled": False,
-            "Cookie": "apple_webauth_token",
+            "Cookie": "cc.collabd_session_guid",
             "URL": "http://127.0.0.1:8089/RPC2",
             "UserMethod": "userForSession",
             "WikiMethod": "accessLevelForUserWikiCalendar",
@@ -1099,7 +1101,7 @@ RELATIVE_PATHS = [
     ("DataRoot", "DatabaseRoot"),
     ("DataRoot", "AttachmentsRoot"),
     ("DataRoot", ("TimezoneService", "BasePath",)),
-    ("ConfigRoot", "SudoersFile"),
+    ("ConfigRoot", "StopAfterUpgradeTriggerFile"),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DNSDebug",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateKeyFile",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PublicKeyFile",)),
@@ -1123,7 +1125,6 @@ def _updateDataStore(configDict, reloading=False):
     # Remove possible trailing slash from ServerRoot
     try:
         configDict["ServerRoot"] = configDict["ServerRoot"].rstrip("/")
-        configDict["ServerRoot"] = os.path.abspath(configDict["ServerRoot"])
     except KeyError:
         pass
 

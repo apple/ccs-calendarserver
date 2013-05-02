@@ -33,7 +33,7 @@ from twisted.python.procutils import which
 
 from twisted.internet.interfaces import IProcessTransport, IReactorProcess
 from twisted.internet.protocol import ServerFactory
-from twisted.internet.defer import Deferred, inlineCallbacks, passthru
+from twisted.internet.defer import Deferred, inlineCallbacks, passthru, succeed
 from twisted.internet.task import Clock
 from twisted.internet import reactor
 
@@ -60,7 +60,8 @@ from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tap.caldav import (
     CalDAVOptions, CalDAVServiceMaker, CalDAVService, GroupOwnedUNIXServer,
     DelayedStartupProcessMonitor, DelayedStartupLineLogger, TwistdSlaveProcess,
-    _CONTROL_SERVICE_NAME, getSystemIDs
+    _CONTROL_SERVICE_NAME, getSystemIDs, PreProcessingService,
+    QuitAfterUpgradeStep
 )
 from calendarserver.provision.root import RootResource
 from twext.enterprise.queue import PeerConnectionPool, LocalQueuer
@@ -334,8 +335,6 @@ class BaseServiceMakerTests(TestCase):
         self.config.Memcached.Pools.Default.ClientEnabled = False
         self.config.Memcached.Pools.Default.ServerEnabled = False
         self.config.DirectoryAddressBook.Enabled = False
-
-        self.config.SudoersFile = ""
 
         if self.configOptions:
             self.config.update(self.configOptions)
@@ -857,22 +856,6 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         ))
 
 
-sudoersFile = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>users</key>
-    <array>
-       	<dict>
-            <key>password</key>
-            <string>superuser</string>
-            <key>username</key>
-            <string>superuser</string>
-        </dict>
-    </array>
-</dict>
-</plist>
-"""
 
 class DirectoryServiceTest(BaseServiceMakerTests):
     """
@@ -1308,3 +1291,122 @@ class SystemIDsTests(TestCase):
         If names are provided, use the IDs corresponding to those names
         """
         self.assertEquals(self._wrappedFunction()("exists", "exists"), (42, 43))
+
+
+#
+# Tests for PreProcessingService
+#
+
+class Step(object):
+
+    def __init__(self, recordCallback, shouldFail):
+        self._recordCallback = recordCallback
+        self._shouldFail = shouldFail
+
+    def stepWithResult(self, result):
+        self._recordCallback(self.successValue, None)
+        if self._shouldFail:
+            1/0
+        return succeed(result)
+
+    def stepWithFailure(self, failure):
+        self._recordCallback(self.errorValue, failure)
+        if self._shouldFail:
+            return failure
+
+class StepOne(Step):
+    successValue = "one success"
+    errorValue = "one failure"
+
+class StepTwo(Step):
+    successValue = "two success"
+    errorValue = "two failure"
+
+class StepThree(Step):
+    successValue = "three success"
+    errorValue = "three failure"
+
+class StepFour(Step):
+    successValue = "four success"
+    errorValue = "four failure"
+
+class PreProcessingServiceTestCase(TestCase):
+
+    def fakeServiceCreator(self, cp, store, lo):
+        self.history.append(("serviceCreator", store))
+
+    def setUp(self):
+        self.history = []
+        self.clock = Clock()
+        self.pps = PreProcessingService(self.fakeServiceCreator, None, "store",
+            None, reactor=self.clock)
+
+    def _record(self, value, failure):
+        self.history.append(value) 
+
+    def test_allSuccess(self):
+        self.pps.addStep(
+            StepOne(self._record, False)
+        ).addStep(
+            StepTwo(self._record, False)
+        ).addStep(
+            StepThree(self._record, False)
+        ).addStep(
+            StepFour(self._record, False)
+        )
+        self.pps.startService()
+        self.assertEquals(self.history,
+            ['one success', 'two success', 'three success', 'four success',
+            ('serviceCreator', 'store')])    
+
+    def test_allFailure(self):
+        self.pps.addStep(
+            StepOne(self._record, True)
+        ).addStep(
+            StepTwo(self._record, True)
+        ).addStep(
+            StepThree(self._record, True)
+        ).addStep(
+            StepFour(self._record, True)
+        )
+        self.pps.startService()
+        self.assertEquals(self.history,
+            ['one success', 'two failure', 'three failure', 'four failure',
+            ('serviceCreator', None)])    
+
+    def test_partialFailure(self):
+        self.pps.addStep(
+            StepOne(self._record, True)
+        ).addStep(
+            StepTwo(self._record, False)
+        ).addStep(
+            StepThree(self._record, True)
+        ).addStep(
+            StepFour(self._record, False)
+        )
+        self.pps.startService()
+        self.assertEquals(self.history,
+            ['one success', 'two failure', 'three success', 'four failure',
+            ('serviceCreator', 'store')])    
+
+    def test_quitAfterUpgradeStep(self):
+        triggerFileName = "stop_after_upgrade"
+        triggerFile = FilePath(triggerFileName)
+        self.pps.addStep(
+            StepOne(self._record, False)
+        ).addStep(
+            StepTwo(self._record, False)
+        ).addStep(
+            QuitAfterUpgradeStep(triggerFile.path, reactor=self.clock)
+        ).addStep(
+            StepFour(self._record, True)
+        )
+        triggerFile.setContent("")
+        self.pps.startService()
+        self.assertEquals(self.history,
+            ['one success', 'two success', 'four failure',
+            ('serviceCreator', None)])    
+        self.assertFalse(triggerFile.exists())
+
+
+

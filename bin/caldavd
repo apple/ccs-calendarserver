@@ -94,12 +94,15 @@ usage ()
     echo "        -t Process type (Master, Slave or Combined)";
     echo "        -p Path to the desired pstats file.";
     echo "        -R The Twisted Reactor to run [${reactor}]";
+    echo "        -o Pass option through to server";
 
     if [ "${1-}" == "-" ]; then return 0; fi;
     exit 64;
 }
 
-while getopts 'hXLu:g:f:T:P:t:p:R:' option; do
+extra="-o FailIfUpgradeNeeded=False";
+
+while getopts 'hXLu:g:f:T:P:t:p:R:o:' option; do
     case "${option}" in
         '?') usage; ;;
         'h') usage -; exit 0; ;;
@@ -114,6 +117,7 @@ while getopts 'hXLu:g:f:T:P:t:p:R:' option; do
         'p') twistd_profile="--profiler=cprofile-cpu --profile=${OPTARG}/master.pstats --savestats";
              profile="-o Profiling/Enabled=True -o Profiling/BaseDirectory=${OPTARG}"; ;;
         'R') twistd_reactor="--reactor=${OPTARG}"; child_reactor="-o Twisted/reactor=${OPTARG}"; ;;
+        'o') extra="${extra} -o ${OPTARG}"; ;;
     esac;
 done;
 
@@ -125,6 +129,5 @@ export PYTHONHASHSEED=random
 
 export PYTHONPATH
 
-extra="-o FailIfUpgradeNeeded=False";
 
 exec "${python}" "${twistdpath}" ${twistd_profile} ${twistd_reactor} ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${errorlogenabled} ${profile} ${child_reactor} ${extra};

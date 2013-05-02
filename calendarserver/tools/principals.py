@@ -113,7 +113,7 @@ class PrincipalService(WorkerService):
         if self.function is not None:
             rootResource = self.rootResource()
             directory = rootResource.getDirectory()
-            yield self.function(rootResource, directory, self._store, *self.params) 
+            yield self.function(rootResource, directory, self.store, *self.params) 
 
 
 def main():
