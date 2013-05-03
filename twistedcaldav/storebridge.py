@@ -70,7 +70,7 @@ from txdav.common.icommondatastore import NoSuchObjectResourceError, \
     UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove, \
     InvalidComponentForStoreError
 from txdav.idav import PropertyChangeNotAllowedError
-from txdav.xml import element as davxml
+from txdav.xml import element as davxml, element
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 
 from urlparse import urlsplit
@@ -494,7 +494,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         # Now do normal delete
 
         # Handle sharing
-        wasShared = (yield self.isShared(request))
+        wasShared = self.isShared()
         if wasShared:
             yield self.downgradeFromShare(request)
 
@@ -1083,6 +1083,15 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         Yes, it is a calendar collection.
         """
         return True
+
+
+    def resourceType(self):
+        if self.isShared():
+            return customxml.ResourceType.sharedownercalendar
+        elif self.isShareeCollection():
+            return customxml.ResourceType.sharedcalendar
+        else:
+            return caldavxml.ResourceType.calendar
 
 
     @inlineCallbacks
@@ -2904,6 +2913,15 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         Yes, it is a calendar collection.
         """
         return True
+
+
+    def resourceType(self):
+        if self.isShared():
+            return customxml.ResourceType.sharedowneraddressbook
+        elif self.isShareeCollection():
+            return customxml.ResourceType.sharedaddressbook
+        else:
+            return carddavxml.ResourceType.addressbook
 
     createAddressBookCollection = _CommonHomeChildCollectionMixin.createCollection
 

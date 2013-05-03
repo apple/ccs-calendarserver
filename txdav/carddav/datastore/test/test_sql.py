@@ -315,7 +315,7 @@ END:VCARD
         # Check that two properties are present
         home = yield self.homeUnderTest()
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
-        self.assertEqual(len(tuple(rows)), 2)
+        self.assertEqual(len(tuple(rows)), 1)
         yield self.commit()
 
         # Remove address book and check for no properties

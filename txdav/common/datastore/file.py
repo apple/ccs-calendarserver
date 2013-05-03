@@ -22,7 +22,7 @@ Common utility functions for a file based datastore.
 import sys
 from twext.internet.decorate import memoizedKey
 from twext.python.log import LoggingMixIn
-from txdav.xml.rfc2518 import ResourceType, GETContentType, HRef
+from txdav.xml.rfc2518 import GETContentType, HRef
 from txdav.xml.rfc5842 import ResourceID
 from twext.web2.http_headers import generateContentType, MimeType
 from twext.web2.dav.resource import TwistedGETContentMD5, \
@@ -826,8 +826,6 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             return lambda: self._path.child(childPath.basename()).remove()
 
         self._transaction.addOperation(do, "create child %r" % (name,))
-        props = c.properties()
-        props[PropertyName(*ResourceType.qname())] = c.resourceType()
 
         self.notifyChanged()
         return c
@@ -1031,10 +1029,6 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
 
     def directoryService(self):
         return self._transaction.store().directoryService()
-
-
-    def resourceType(self):
-        return NotImplementedError
 
 
     def retrieveOldIndex(self):
@@ -1522,13 +1516,7 @@ class NotificationCollection(CommonHomeChild):
 
         txn.addOperation(do, "create notification child %r" %
                           (collectionName,))
-        props = c.properties()
-        props[PropertyName(*ResourceType.qname())] = c.resourceType()
         return c
-
-
-    def resourceType(self):
-        return ResourceType.notification #@UndefinedVariable
 
     notificationObjects = CommonHomeChild.objectResources
     listNotificationObjects = CommonHomeChild.listObjectResources

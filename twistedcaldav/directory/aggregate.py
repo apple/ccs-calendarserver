@@ -119,6 +119,37 @@ class AggregateDirectoryService(DirectoryService):
 
     addressBookHomesCollection = property(_getAddressBookHomesCollection, _setAddressBookHomesCollection)
 
+
+    def addService(self, service):
+        """
+        Add another service to this aggregate.
+
+        @param service: the service to add
+        @type service: L{IDirectoryService}
+        """
+        service = IDirectoryService(service)
+
+        if service.realmName != self.realmName:
+            assert self.realmName is None, (
+                "Aggregated directory services must have the same realm name: %r != %r\nServices: %r"
+                % (service.realmName, self.realmName, service)
+            )
+
+        if not hasattr(service, "recordTypePrefix"):
+            service.recordTypePrefix = ""
+        prefix = service.recordTypePrefix
+
+        for recordType in (prefix + r for r in service.recordTypes()):
+            if recordType in self._recordTypes:
+                raise DuplicateRecordTypeError(
+                    "%r is in multiple services: %s, %s"
+                    % (recordType, self.recordTypes[recordType], service)
+                )
+            self._recordTypes[recordType] = service
+
+        service.aggregateService = self
+
+
     def recordTypes(self):
         return set(self._recordTypes)
 

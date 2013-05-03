@@ -782,10 +782,10 @@ END:VCALENDAR
                         From=prop,
                         Where=prop.RESOURCE_ID == Parameter("resourceID"))
 
-        # Check that two properties are present
+        # Check that one property is present
         home = yield self.homeUnderTest()
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
-        self.assertEqual(len(tuple(rows)), 2)
+        self.assertEqual(len(tuple(rows)), 1)
         yield self.commit()
 
         # Remove calendar and check for no properties

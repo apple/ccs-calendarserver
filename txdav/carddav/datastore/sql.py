@@ -55,7 +55,6 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
 from txdav.common.icommondatastore import InternalDataStoreError, \
     InvalidUIDError, UIDExistsError, ObjectResourceTooBigError, \
     InvalidObjectResourceError, InvalidComponentForStoreError
-from txdav.xml.rfc2518 import ResourceType
 
 from zope.interface.declarations import implements
 
@@ -167,10 +166,6 @@ class AddressBook(CommonHomeChild):
     @property
     def _addressbookHome(self):
         return self._home
-
-
-    def resourceType(self):
-        return ResourceType.addressbook #@UndefinedVariable
 
     ownerAddressBookHome = CommonHomeChild.ownerHome
     addressbookObjects = CommonHomeChild.objectResources

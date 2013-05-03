@@ -40,7 +40,7 @@ from txdav.common.datastore.test.util import CommonCommonTests
 from twistedcaldav.vcard import Component as VComponent
 
 from twext.python.filepath import CachingFilePath as FilePath
-from txdav.xml.element import WebDAVUnknownElement, ResourceType
+from txdav.xml.element import WebDAVUnknownElement
 
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
@@ -315,17 +315,8 @@ class CommonTests(CommonCommonTests):
         self.assertIdentical((yield home.addressbookWithName(name)), None)
         yield home.createAddressBookWithName(name)
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
-        @inlineCallbacks
-        def checkProperties():
-            addressbookProperties = (yield home.addressbookWithName(name)).properties()
-            addressbookType = ResourceType.addressbook #@UndefinedVariable
-            self.assertEquals(
-                addressbookProperties[
-                    PropertyName.fromString(ResourceType.sname())
-                ],
-                addressbookType
-            )
-        yield checkProperties()
+        addressbookProperties = (yield home.addressbookWithName(name)).properties()
+        self.assertEqual(len(addressbookProperties), 0)
         yield self.commit()
 
         # Make sure notification fired after commit
@@ -334,14 +325,6 @@ class CommonTests(CommonCommonTests):
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
-
-        # FIXME: These two lines aren't in the calendar common tests:
-        # home = self.addressbookStore.newTransaction().addressbookHomeWithUID(
-        #     "home1")
-
-        # Sanity check: are the properties actually persisted?
-        # FIXME: no independent testing of this right now
-        yield checkProperties()
 
 
     @inlineCallbacks

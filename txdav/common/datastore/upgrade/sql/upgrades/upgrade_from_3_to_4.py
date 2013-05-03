@@ -26,6 +26,7 @@ from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.datastore.upgrade.sql.upgrades.util import rowsForProperty, updateDataVersion, \
     updateAllCalendarHomeDataVersions, removeProperty, cleanPropertyStore
 from txdav.xml.parser import WebDAVDocument
+from txdav.xml import element
 
 """
 Data upgrade from database version 3 to 4
@@ -41,6 +42,7 @@ def doUpgrade(sqlStore):
     """
     yield moveDefaultCalendarProperties(sqlStore)
     yield moveCalendarTranspProperties(sqlStore)
+    yield removeResourceType(sqlStore)
 
     # Always bump the DB value
     yield updateDataVersion(sqlStore, "CALENDAR-DATAVERSION", UPGRADE_TO_VERSION)
@@ -186,3 +188,12 @@ def moveCalendarTranspProperties(sqlStore):
     except RuntimeError:
         yield sqlTxn.abort()
         raise
+
+
+
+@inlineCallbacks
+def removeResourceType(sqlStore):
+    sqlTxn = sqlStore.newTransaction()
+    yield removeProperty(sqlTxn, PropertyName.fromElement(element.ResourceType))
+    yield sqlTxn.commit()
+    yield cleanPropertyStore()

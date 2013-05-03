@@ -34,7 +34,6 @@ from zope.interface import implements, directlyProvides
 from twext.python.log import Logger, LoggingMixIn
 from twisted.python.log import msg as log_msg, err as log_err
 
-from txdav.xml.element import ResourceType
 from txdav.xml.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
 
@@ -79,7 +78,6 @@ from twext.enterprise.dal.syntax import \
 
 from twistedcaldav.config import config
 
-from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
 from txdav.base.propertystore.sql import PropertyStore
 
@@ -2899,6 +2897,42 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         return self._bindMode == _BIND_MODE_OWN
 
 
+    def isShared(self):
+        """
+        For an owned collection indicate whether it is shared.
+
+        @return: C{True} if shared, C{False} otherwise
+        @rtype: C{bool}
+        """
+        return self._bindMode == _BIND_MODE_OWN and self._bindMessage == "shared"
+
+
+    @inlineCallbacks
+    def setShared(self, shared):
+        """
+        Set an owned collection to shared or unshared state. Technically this is not useful as "shared"
+        really means it has invitees, but the current sharing spec supports a notion of a shared collection
+        that has not yet had invitees added. For the time being we will support that option by using a new
+        BINS_STATUS value to indicate an owned collection that is "shared".
+
+        @param shared: whether or not the owned collection is "shared"
+        @type shared: C{bool}
+        """
+        assert self.owned()
+
+        self._bindMessage = "shared" if shared else None
+
+        bind = self._bindSchema
+        yield Update(
+            {bind.MESSAGE: self._bindMessage},
+            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
+                  .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+        ).on(self._txn, resourceID=self._resourceID, homeID=self.viewerHome()._resourceID)
+
+        yield self.invalidateQueryCache()
+        yield self.notifyChanged()
+
+
     def shareStatus(self):
         """
         @see: L{ICalendar.shareStatus}
@@ -3370,9 +3404,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         child._modified = _modified
         yield child._loadPropertyStore()
 
-        child.properties()[
-            PropertyName.fromElement(ResourceType)
-        ] = child.resourceType()
         yield child._initSyncToken()
 
         # Change notification for a create is on the home collection
@@ -3440,10 +3471,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
     def directoryService(self):
         return self._txn.store().directoryService()
-
-
-    def resourceType(self):
-        return NotImplementedError
 
 
     def retrieveOldIndex(self):
@@ -4637,10 +4664,6 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             self._resourceID,
             notifyCallback=self.notifyChanged
         )
-
-
-    def resourceType(self):
-        return ResourceType.notification #@UndefinedVariable
 
 
     def __repr__(self):

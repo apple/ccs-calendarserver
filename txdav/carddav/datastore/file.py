@@ -29,7 +29,7 @@ __all__ = [
 
 from errno import ENOENT
 
-from txdav.xml.rfc2518 import ResourceType, GETContentType
+from txdav.xml.rfc2518 import GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.http_headers import MimeType
 
@@ -120,10 +120,6 @@ class AddressBook(CommonHomeChild):
     @property
     def _addressbookHome(self):
         return self._home
-
-
-    def resourceType(self):
-        return ResourceType.addressbook #@UndefinedVariable
 
     ownerAddressBookHome = CommonHomeChild.ownerHome
     addressbookObjects = CommonHomeChild.objectResources

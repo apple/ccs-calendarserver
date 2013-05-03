@@ -31,7 +31,7 @@ from twext.python.vcomponent import VComponent
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
-from txdav.xml.element import WebDAVUnknownElement, ResourceType
+from txdav.xml.element import WebDAVUnknownElement
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.icommondatastore import HomeChildNameAlreadyExistsError, \
@@ -701,18 +701,8 @@ class CommonTests(CommonCommonTests):
         self.assertIdentical((yield home.calendarWithName(name)), None)
         yield home.createCalendarWithName(name)
         self.assertNotIdentical((yield home.calendarWithName(name)), None)
-        @inlineCallbacks
-        def checkProperties():
-            calendarProperties = (
-                yield home.calendarWithName(name)).properties()
-            self.assertEquals(
-                calendarProperties[
-                    PropertyName.fromString(ResourceType.sname())
-                ],
-                ResourceType.calendar #@UndefinedVariable
-            )
-        yield checkProperties()
-
+        calendarProperties = (yield home.calendarWithName(name)).properties()
+        self.assertEqual(len(calendarProperties), 0)
         yield self.commit()
 
         # Make sure notification fired after commit
@@ -721,13 +711,6 @@ class CommonTests(CommonCommonTests):
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
         self.assertNotIdentical((yield home.calendarWithName(name)), None)
-
-        # Sanity check: are the properties actually persisted?  Check in
-        # subsequent transaction.
-        yield checkProperties()
-
-        # FIXME: no independent testing of the property store's persistence
-        # right now
 
 
     @inlineCallbacks

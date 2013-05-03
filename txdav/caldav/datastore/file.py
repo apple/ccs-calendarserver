@@ -37,7 +37,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
 
 from twext.python.vcomponent import VComponent
 from txdav.xml import element as davxml
-from txdav.xml.rfc2518 import ResourceType, GETContentType
+from txdav.xml.rfc2518 import GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.http_headers import generateContentType, MimeType
 
@@ -260,10 +260,6 @@ class Calendar(CommonHomeChild):
     @property
     def _calendarHome(self):
         return self._home
-
-
-    def resourceType(self):
-        return ResourceType.calendar #@UndefinedVariable
 
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome

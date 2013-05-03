@@ -468,8 +468,6 @@ class PubSubXMPPPushKeyProperty (WebDAVTextElement):
 
 
 
-
-
 PrincipalPropertySearch.allowed_children[(calendarserver_namespace, "limit")] = (0, 1)
 PrincipalPropertySearch.allowed_attributes["type"] = False
 Match.allowed_attributes = {
@@ -1460,6 +1458,7 @@ ResourceType.notification = ResourceType(Collection(), Notification())
 
 ResourceType.sharedownercalendar = ResourceType(Collection(), caldavxml.Calendar(), SharedOwner())
 ResourceType.sharedcalendar = ResourceType(Collection(), caldavxml.Calendar(), Shared())
+ResourceType.sharedowneraddressbook = ResourceType(Collection(), carddavxml.AddressBook(), SharedOwner())
 ResourceType.sharedaddressbook = ResourceType(Collection(), carddavxml.AddressBook(), Shared())
 
 ResourceType.link = ResourceType(Link())

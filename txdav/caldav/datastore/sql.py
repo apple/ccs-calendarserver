@@ -92,7 +92,6 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
     InvalidResourceMove, InvalidComponentForStoreError
-from txdav.xml.rfc2518 import ResourceType
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
@@ -914,11 +913,6 @@ class Calendar(CommonHomeChild):
     def _calendarHome(self):
         return self._home
 
-
-    # FIXME: resource type is DAV.  This doesn't belong in the data store.  -wsv
-    def resourceType(self):
-        return ResourceType.calendar # @UndefinedVariable
-
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome
     calendarObjects = CommonHomeChild.objectResources
@@ -1068,6 +1062,7 @@ class Calendar(CommonHomeChild):
             Where=(cal.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cal.CALENDAR_RESOURCE_ID == self._resourceID)
         ).on(self._txn)
         yield self.invalidateQueryCache()
+        yield self.notifyChanged()
 
 
     def isUsedForFreeBusy(self):

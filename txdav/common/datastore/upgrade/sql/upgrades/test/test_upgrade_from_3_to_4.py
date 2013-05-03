@@ -20,7 +20,8 @@ from txdav.caldav.datastore.test.util import CommonStoreTests
 from txdav.xml.element import HRef
 from twext.enterprise.dal.syntax import Update
 from txdav.common.datastore.upgrade.sql.upgrades.upgrade_from_3_to_4 import moveDefaultCalendarProperties, \
-    moveCalendarTranspProperties
+    moveCalendarTranspProperties, removeResourceType
+from txdav.xml import element
 
 """
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
@@ -106,3 +107,23 @@ class Upgrade_from_3_to_4(CommonStoreTests):
         self.assertTrue(calendar.isUsedForFreeBusy())
         inbox = (yield self.calendarUnderTest(name="inbox", home="user01"))
         self.assertTrue(PropertyName.fromElement(CalendarFreeBusySet) not in inbox.properties())
+
+
+    @inlineCallbacks
+    def test_resourceTypeUpgrade(self):
+
+        # Set dead property on calendar
+        calendar = (yield self.calendarUnderTest(name="calendar_1", home="user01"))
+        calendar.properties()[PropertyName.fromElement(element.ResourceType)] = element.ResourceType(element.Collection())
+        yield self.commit()
+
+        calendar = (yield self.calendarUnderTest(name="calendar_1", home="user01"))
+        self.assertTrue(PropertyName.fromElement(element.ResourceType) in calendar.properties())
+        yield self.commit()
+
+        # Trigger upgrade
+        yield removeResourceType(self._sqlCalendarStore)
+
+        # Test results
+        calendar = (yield self.calendarUnderTest(name="calendar_1", home="user01"))
+        self.assertTrue(PropertyName.fromElement(element.ResourceType) not in calendar.properties())
