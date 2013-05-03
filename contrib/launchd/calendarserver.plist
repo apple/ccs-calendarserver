@@ -57,6 +57,12 @@ limitations under the License.
 
   <key>PreventsSleep</key>
   <true/>
+  
+  <key>StandardOutPath</key>
+  <string>/var/log/caldavd/error.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/var/log/caldavd/error.log</string>
 
 </dict>
 </plist>
