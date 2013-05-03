@@ -1708,15 +1708,3 @@ def isValidCTag(value):
         return True
     except ValueError:
         return False
-
-
-
-class ParallelUpgradeTests(UpgradeTests):
-    """
-    Tests for upgradeData in parallel.
-    """
-
-    def doUpgrade(self, config):
-        from txdav.common.datastore.upgrade.test.test_migrate import StubSpawner
-        spawner = StubSpawner(config)
-        return upgradeData(config, spawner, 2)

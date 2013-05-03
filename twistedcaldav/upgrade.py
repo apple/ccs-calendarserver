@@ -31,6 +31,7 @@ import time
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
 
+
 from twext.python.log import Logger
 from txdav.xml import element
 from twext.web2.dav.fileop import rmdir
@@ -51,10 +52,8 @@ from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokens
 from txdav.caldav.datastore.scheduling.scheduler import DirectScheduler
 from twistedcaldav.util import normalizationLookup
 
-from twisted.application.service import Service
-from twisted.internet import reactor
 from twisted.internet.defer import (
-    inlineCallbacks, succeed, returnValue, gatherResults
+    inlineCallbacks, succeed, returnValue
 )
 from twisted.python.reflect import namedAny
 from twisted.python.reflect import namedClass
@@ -67,7 +66,6 @@ from calendarserver.tap.util import getRootResource, FakeRequest, directoryFromC
 from calendarserver.tools.resources import migrateResources
 from calendarserver.tools.util import getDirectory
 
-from twext.python.parallel import Parallelizer
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
 from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
 
@@ -302,7 +300,7 @@ class To1Home(AMP):
 
 
 @inlineCallbacks
-def upgrade_to_1(config, spawner, parallel, directory):
+def upgrade_to_1(config, directory):
     """
     Upconvert data from any calendar server version prior to data format 1.
     """
@@ -533,12 +531,6 @@ def upgrade_to_1(config, spawner, parallel, directory):
                 os.chown(inboxItemsFile, uid, gid)
 
             if total:
-                if parallel:
-                    spawner.startService()
-                    parallelizer = Parallelizer((yield gatherResults(
-                        [spawner.spawnWithConfig(config, To1Driver(), To1Home)
-                         for _ignore_x in xrange(parallel)]
-                    )))
                 log.warn("Processing %d calendar homes in %s" % (total, uidHomes))
 
                 # Upgrade calendar homes in the new location:
@@ -556,30 +548,15 @@ def upgrade_to_1(config, spawner, parallel, directory):
                                         # Skip non-directories
                                         continue
 
-                                    if parallel:
-                                        def doIt(driver, hp=homePath):
-                                            d = driver.upgradeHomeInHelper(hp)
-                                            def itWorked(succeeded):
-                                                if not succeeded:
-                                                    setError()
-                                                return succeeded
-                                            d.addCallback(itWorked)
-                                            d.addErrback(setError)
-                                            return d
-                                        yield parallelizer.do(doIt)
-                                    else:
-                                        if not upgradeCalendarHome(
-                                            homePath, directory, cuaCache
-                                        ):
-                                            setError()
+                                    if not upgradeCalendarHome(
+                                        homePath, directory, cuaCache
+                                    ):
+                                        setError()
 
                                     count += 1
                                     if count % 10 == 0:
                                         log.warn("Processed calendar home %d of %d"
                                             % (count, total))
-                if parallel:
-                    yield parallelizer.done()
-                    yield spawner.stopService()
                 log.warn("Done processing calendar homes")
 
     triggerPath = os.path.join(config.ServerRoot, TRIGGER_FILE)
@@ -632,7 +609,7 @@ def normalizeCUAddrs(data, directory, cuaCache):
 
 
 @inlineCallbacks
-def upgrade_to_2(config, spawner, parallel, directory):
+def upgrade_to_2(config, directory):
 
     def renameProxyDB():
         #
@@ -746,7 +723,7 @@ upgradeMethods = [
 ]
 
 @inlineCallbacks
-def upgradeData(config, spawner=None, parallel=0):
+def upgradeData(config):
 
     directory = getDirectory()
 
@@ -784,7 +761,7 @@ def upgradeData(config, spawner=None, parallel=0):
     for version, method in upgradeMethods:
         if onDiskVersion < version:
             log.warn("Upgrading to version %d" % (version,))
-            (yield method(config, spawner, parallel, directory))
+            (yield method(config, directory))
             log.warn("Upgraded to version %d" % (version,))
             with open(versionFilePath, "w") as verFile:
                 verFile.write(str(version))
@@ -981,19 +958,16 @@ def migrateAutoSchedule(config, directory):
 
 
 
-class UpgradeFileSystemFormatService(Service, object):
+class UpgradeFileSystemFormatStep(object):
     """
     Upgrade filesystem from previous versions.
     """
 
-    def __init__(self, config, spawner, parallel, service):
+    def __init__(self, config):
         """
         Initialize the service.
         """
-        self.wrappedService = service
         self.config = config
-        self.spawner = spawner
-        self.parallel = parallel
 
 
     @inlineCallbacks
@@ -1010,26 +984,25 @@ class UpgradeFileSystemFormatService(Service, object):
         memcacheEnabled = self.config.Memcached.Pools.Default.ClientEnabled
         self.config.Memcached.Pools.Default.ClientEnabled = False
 
-        yield upgradeData(self.config, self.spawner, self.parallel)
+        yield upgradeData(self.config)
 
         # Restore memcached client setting
         self.config.Memcached.Pools.Default.ClientEnabled = memcacheEnabled
 
-        # see http://twistedmatrix.com/trac/ticket/4649
-        reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
+        returnValue(None)
 
 
-    def startService(self):
+    def stepWithResult(self, result):
         """
-        Start the service.
+        Execute the step.
         """
-        self.doUpgrade()
+        return self.doUpgrade()
 
 
 
-class PostDBImportService(Service, object):
+class PostDBImportStep(object):
     """
-    Service which runs after database import but before workers are spawned
+    Step which runs after database import but before workers are spawned
     (except memcached will be running at this point)
 
     The jobs carried out here are:
@@ -1038,64 +1011,66 @@ class PostDBImportService(Service, object):
         2. Processing non-implicit inbox items
     """
 
-    def __init__(self, config, store, service):
+    def __init__(self, store, config, doPostImport):
         """
         Initialize the service.
         """
-        self.wrappedService = service
         self.store = store
         self.config = config
+        self.doPostImport = doPostImport
 
 
     @inlineCallbacks
-    def startService(self):
-        """
-        Start the service.
-        """
+    def stepWithResult(self, result):
+        if self.doPostImport:
 
-        directory = directoryFromConfig(self.config)
+            directory = directoryFromConfig(self.config)
 
-        # Load proxy assignments from XML if specified
-        if self.config.ProxyLoadFromFile:
-            proxydbClass = namedClass(self.config.ProxyDBService.type)
-            calendaruserproxy.ProxyDBService = proxydbClass(
-                **self.config.ProxyDBService.params)
-            loader = XMLCalendarUserProxyLoader(self.config.ProxyLoadFromFile)
-            yield loader.updateProxyDB()
-
-        # Populate the group membership cache
-        if (self.config.GroupCaching.Enabled and
-            self.config.GroupCaching.EnableUpdater):
-            proxydb = calendaruserproxy.ProxyDBService
-            if proxydb is None:
+            # Load proxy assignments from XML if specified
+            if self.config.ProxyLoadFromFile:
                 proxydbClass = namedClass(self.config.ProxyDBService.type)
-                proxydb = proxydbClass(**self.config.ProxyDBService.params)
+                calendaruserproxy.ProxyDBService = proxydbClass(
+                    **self.config.ProxyDBService.params)
+                loader = XMLCalendarUserProxyLoader(self.config.ProxyLoadFromFile)
+                yield loader.updateProxyDB()
 
-            updater = GroupMembershipCacheUpdater(proxydb,
-                directory,
-                self.config.GroupCaching.UpdateSeconds,
-                self.config.GroupCaching.ExpireSeconds,
-                namespace=self.config.GroupCaching.MemcachedPool,
-                useExternalProxies=self.config.GroupCaching.UseExternalProxies)
-            yield updater.updateCache(fast=True)
-            # Set in motion the work queue based updates:
-            yield scheduleNextGroupCachingUpdate(self.store, 0)
+            # Populate the group membership cache
+            if (self.config.GroupCaching.Enabled and
+                self.config.GroupCaching.EnableUpdater):
+                proxydb = calendaruserproxy.ProxyDBService
+                if proxydb is None:
+                    proxydbClass = namedClass(self.config.ProxyDBService.type)
+                    proxydb = proxydbClass(**self.config.ProxyDBService.params)
 
-            uid, gid = getCalendarServerIDs(self.config)
-            dbPath = os.path.join(self.config.DataRoot, "proxies.sqlite")
-            if os.path.exists(dbPath):
-                os.chown(dbPath, uid, gid)
+                updater = GroupMembershipCacheUpdater(proxydb,
+                    directory,
+                    self.config.GroupCaching.UpdateSeconds,
+                    self.config.GroupCaching.ExpireSeconds,
+                    namespace=self.config.GroupCaching.MemcachedPool,
+                    useExternalProxies=self.config.GroupCaching.UseExternalProxies)
+                yield updater.updateCache(fast=True)
 
-        # Process old inbox items
-        self.store.setMigrating(True)
-        yield self.processInboxItems()
-        self.store.setMigrating(False)
+                uid, gid = getCalendarServerIDs(self.config)
+                dbPath = os.path.join(self.config.DataRoot, "proxies.sqlite")
+                if os.path.exists(dbPath):
+                    os.chown(dbPath, uid, gid)
 
-        # Migrate mail tokens from sqlite to store
-        yield migrateTokensToStore(self.config.DataRoot, self.store)
-        # Set mail polling in motion
-        if self.config.Scheduling.iMIP.Enabled:
-            yield scheduleNextMailPoll(self.store, 0)
+            # Process old inbox items
+            self.store.setMigrating(True)
+            yield self.processInboxItems()
+            self.store.setMigrating(False)
+
+            # Migrate mail tokens from sqlite to store
+            yield migrateTokensToStore(self.config.DataRoot, self.store)
+
+            # Set mail polling in motion
+            if self.config.Scheduling.iMIP.Enabled:
+                yield scheduleNextMailPoll(self.store, 0)
+
+            if (self.config.GroupCaching.Enabled and
+                self.config.GroupCaching.EnableUpdater):
+                # Set in motion the work queue based updates:
+                yield scheduleNextGroupCachingUpdate(self.store, 0)
 
 
     @inlineCallbacks
@@ -1223,8 +1198,6 @@ class PostDBImportService(Service, object):
                     # Remove the inbox items file - nothing more to do
                     os.remove(inboxItemsList)
                     log.info("Completed inbox item processing.")
-
-        reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
 
 
     @inlineCallbacks

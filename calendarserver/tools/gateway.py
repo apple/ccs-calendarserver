@@ -24,7 +24,7 @@ import xml
 
 from twext.python.plistlib import readPlistFromString, writePlistToString
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.directory.directory import DirectoryError
 from txdav.xml import element as davxml
 
@@ -73,9 +73,14 @@ class RunnerService(WorkerService):
         """
         rootResource = self.rootResource()
         directory = rootResource.getDirectory()
-        runner = Runner(rootResource, directory, self._store, self.commands)
+        runner = Runner(rootResource, directory, self.store, self.commands)
         if runner.validate():
             yield runner.run()
+
+
+    def doWorkWithoutStore(self):
+        respondWithError("Database is not available")
+        return succeed(None)
 
 
 

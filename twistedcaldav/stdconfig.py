@@ -308,6 +308,8 @@ DEFAULT_CONFIG = {
     "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
                                    # tools from running if the database needs a schema
                                    # upgrade.
+    "StopAfterUpgradeTriggerFile" : "stop_after_upgrade", # if this file exists
+        # in ConfigRoot, stop the service after finishing upgrade phase
 
     #
     # Types of service provided
@@ -327,7 +329,7 @@ DEFAULT_CONFIG = {
     "LogRoot"                 : "/var/log/caldavd",
     "RunRoot"                 : "/var/run/caldavd",
     "WebCalendarRoot"         : "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd/webcal/public",
-    
+
     #
     # Quotas
     #
@@ -907,6 +909,7 @@ DEFAULT_CONFIG = {
 
     "Postgres": {
         "DatabaseName": "caldav",
+        "ClusterName": "cluster",
         "LogFile": "postgres.log",
         "ListenAddresses": [],
         "SharedBuffers": 0, # BuffersToConnectionsRatio * MaxConnections
@@ -1063,7 +1066,7 @@ RELATIVE_PATHS = [
     ("DataRoot", "DatabaseRoot"),
     ("DataRoot", "AttachmentsRoot"),
     ("DataRoot", ("TimezoneService", "BasePath",)),
-    ("ConfigRoot", "SudoersFile"),
+    ("ConfigRoot", "StopAfterUpgradeTriggerFile"),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DNSDebug",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateKeyFile",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PublicKeyFile",)),
@@ -1087,10 +1090,8 @@ def _updateDataStore(configDict, reloading=False):
     # Remove possible trailing slash from ServerRoot
     try:
         configDict["ServerRoot"] = configDict["ServerRoot"].rstrip("/")
-        configDict["ServerRoot"] = os.path.abspath(configDict["ServerRoot"])
     except KeyError:
         pass
-
 
     for root, relativePath in RELATIVE_PATHS:
         if root in configDict:
@@ -1138,6 +1139,7 @@ def _updateHostName(configDict, reloading=False):
         configDict.ServerHostName = hostname
 
 
+
 def _updateMultiProcess(configDict, reloading=False):
     """
     Dynamically compute ProcessCount if it's set to 0.  Always compute
@@ -1168,6 +1170,7 @@ def _updateMultiProcess(configDict, reloading=False):
     configDict.Postgres.MaxConnections = maxConnections
     configDict.Postgres.SharedBuffers = int(configDict.Postgres.MaxConnections *
         configDict.Postgres.BuffersToConnectionsRatio)
+
 
 
 def _preUpdateDirectoryService(configDict, items, reloading=False):

@@ -181,7 +181,7 @@ class PurgeOldEventsService(WorkerService):
         if self.dryrun:
             if self.verbose:
                 print("(Dry run) Searching for old events...")
-            txn = self._store.newTransaction(label="Find old events")
+            txn = self.store.newTransaction(label="Find old events")
             oldEvents = (yield txn.eventsOlderThan(self.cutoff))
             eventCount = len(oldEvents)
             if self.verbose:
@@ -199,7 +199,7 @@ class PurgeOldEventsService(WorkerService):
         numEventsRemoved = -1
         totalRemoved = 0
         while numEventsRemoved:
-            txn = self._store.newTransaction(label="Remove old events")
+            txn = self.store.newTransaction(label="Remove old events")
             numEventsRemoved = (yield txn.removeOldEvents(self.cutoff, batchSize=self.batchSize))
             (yield txn.commit())
             if numEventsRemoved:
@@ -391,7 +391,7 @@ class PurgeAttachmentsService(WorkerService):
 
         if self.verbose:
             print("(Dry run) Searching for orphaned attachments...")
-        txn = self._store.newTransaction(label="Find orphaned attachments")
+        txn = self.store.newTransaction(label="Find orphaned attachments")
         orphans = (yield txn.orphanedAttachments(self.uuid))
         returnValue(orphans)
 
@@ -401,7 +401,7 @@ class PurgeAttachmentsService(WorkerService):
 
         if self.verbose:
             print("(Dry run) Searching for old dropbox attachments...")
-        txn = self._store.newTransaction(label="Find old dropbox attachments")
+        txn = self.store.newTransaction(label="Find old dropbox attachments")
         cutoffs = (yield txn.oldDropboxAttachments(self.cutoff, self.uuid))
         yield txn.commit()
 
@@ -413,7 +413,7 @@ class PurgeAttachmentsService(WorkerService):
 
         if self.verbose:
             print("(Dry run) Searching for old managed attachments...")
-        txn = self._store.newTransaction(label="Find old managed attachments")
+        txn = self.store.newTransaction(label="Find old managed attachments")
         cutoffs = (yield txn.oldManagedAttachments(self.cutoff, self.uuid))
         yield txn.commit()
 
@@ -495,7 +495,7 @@ class PurgeAttachmentsService(WorkerService):
         numOrphansRemoved = -1
         totalRemoved = 0
         while numOrphansRemoved:
-            txn = self._store.newTransaction(label="Remove orphaned attachments")
+            txn = self.store.newTransaction(label="Remove orphaned attachments")
             numOrphansRemoved = (yield txn.removeOrphanedAttachments(self.uuid, batchSize=self.batchSize))
             yield txn.commit()
             if numOrphansRemoved:
@@ -526,7 +526,7 @@ class PurgeAttachmentsService(WorkerService):
         numOldRemoved = -1
         totalRemoved = 0
         while numOldRemoved:
-            txn = self._store.newTransaction(label="Remove old dropbox attachments")
+            txn = self.store.newTransaction(label="Remove old dropbox attachments")
             numOldRemoved = (yield txn.removeOldDropboxAttachments(self.cutoff, self.uuid, batchSize=self.batchSize))
             yield txn.commit()
             if numOldRemoved:
@@ -557,7 +557,7 @@ class PurgeAttachmentsService(WorkerService):
         numOldRemoved = -1
         totalRemoved = 0
         while numOldRemoved:
-            txn = self._store.newTransaction(label="Remove old managed attachments")
+            txn = self.store.newTransaction(label="Remove old managed attachments")
             numOldRemoved = (yield txn.removeOldManagedAttachments(self.cutoff, self.uuid, batchSize=self.batchSize))
             yield txn.commit()
             if numOldRemoved:
@@ -757,7 +757,7 @@ class PurgePrincipalService(WorkerService):
         principal = principalCollection.principalForRecord(record)
 
         # See if calendar home is provisioned
-        txn = self._store.newTransaction()
+        txn = self.store.newTransaction()
         storeCalHome = (yield txn.calendarHomeWithUID(uid))
         calHomeProvisioned = storeCalHome is not None
 
@@ -826,14 +826,14 @@ class PurgePrincipalService(WorkerService):
         query_filter = calendarqueryfilter.Filter(query_filter)
 
         count = 0
-        txn = self._store.newTransaction()
+        txn = self.store.newTransaction()
         storeCalHome = (yield txn.calendarHomeWithUID(uid))
         calendarNames = (yield storeCalHome.listCalendars())
         yield txn.commit()
 
         for calendarName in calendarNames:
 
-            txn = self._store.newTransaction()
+            txn = self.store.newTransaction()
             storeCalHome = (yield txn.calendarHomeWithUID(uid))
             calendar = (yield storeCalHome.calendarWithName(calendarName))
             childNames = []
@@ -850,7 +850,7 @@ class PurgePrincipalService(WorkerService):
 
             for childName in childNames:
 
-                txn = self._store.newTransaction()
+                txn = self.store.newTransaction()
                 storeCalHome = (yield txn.calendarHomeWithUID(uid))
                 calendar = (yield storeCalHome.calendarWithName(calendarName))
 
@@ -916,9 +916,10 @@ class PurgePrincipalService(WorkerService):
 
     @inlineCallbacks
     def _removeCalendarHome(self, uid):
-        txn = self._store.newTransaction()
 
         try:
+            txn = self.store.newTransaction()
+
             # Remove empty calendar collections (and calendar home if no more
             # calendars)
             storeCalHome = (yield txn.calendarHomeWithUID(uid))
@@ -959,7 +960,7 @@ class PurgePrincipalService(WorkerService):
     def _removeAddressbookHome(self, uid):
 
         count = 0
-        txn = self._store.newTransaction()
+        txn = self.store.newTransaction()
 
         try:
             # Remove VCards
@@ -1120,7 +1121,7 @@ class PurgePrincipalService(WorkerService):
             proxyFor = (yield principal.proxyFor(proxyType == "write"))
             for other in proxyFor:
                 assignments.append((principal.record.uid, proxyType, other.record.uid))
-                (yield removeProxy(self.root, self.directory, self._store, other, principal))
+                (yield removeProxy(self.root, self.directory, self.store, other, principal))
 
             subPrincipal = principal.getChild("calendar-proxy-" + proxyType)
             proxies = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))

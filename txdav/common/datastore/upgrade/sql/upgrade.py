@@ -24,15 +24,13 @@ import re
 
 from twext.python.log import LoggingMixIn
 
-from twisted.application.service import Service
-from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.modules import getModule
 from twisted.python.reflect import namedObject
 
 from txdav.common.datastore.upgrade.sql.others import attachment_migration
 
-class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
+class UpgradeDatabaseCoreStep(LoggingMixIn, object):
     """
     Base class for either schema or data upgrades on the database.
 
@@ -42,50 +40,16 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
     @ivar sqlStore: The store to operate on.
 
     @type sqlStore: L{txdav.idav.IDataStore}
-
-    @ivar wrappedService: Wrapped L{IService} that will be started after this
-        L{UpgradeDatabaseSchemaService}'s work is done and the database schema
-        of C{sqlStore} is fully upgraded.  This may also be specified as
-        C{None}, in which case no service will be started.
-
-    @type wrappedService: L{IService} or C{NoneType}
     """
 
-    @classmethod
-    def wrapService(cls, service, store, uid=None, gid=None, **kwargs):
-        """
-        Create an L{UpgradeDatabaseSchemaService} when starting the database
-        so we can check the schema version and do any upgrades.
-
-        @param service: the service to wrap.  This service should be started
-            when the upgrade is complete.  (This is accomplished by returning
-            it directly when no upgrade needs to be done, and by adding it to
-            the service hierarchy when the upgrade completes; assuming that the
-            service parent of the resulting service will be set to a
-            L{MultiService} or similar.)
-
-        @param store: the SQL storage service.
-
-        @type service: L{IService}
-
-        @type store: L{txdav.idav.IDataStore}
-
-        @return: a service
-        @rtype: L{IService}
-        """
-        return cls(store, service, uid=uid, gid=gid, **kwargs)
-
-
-    def __init__(self, sqlStore, service, uid=None, gid=None, failIfUpgradeNeeded=False, stopOnFail=True):
+    def __init__(self, sqlStore, uid=None, gid=None, failIfUpgradeNeeded=False):
         """
         Initialize the service.
         """
-        self.wrappedService = service
         self.sqlStore = sqlStore
         self.uid = uid
         self.gid = gid
         self.failIfUpgradeNeeded = failIfUpgradeNeeded
-        self.stopOnFail = stopOnFail
         self.schemaLocation = getModule(__name__).filePath.parent().parent().sibling("sql_schema")
         self.pyLocation = getModule(__name__).filePath.parent()
 
@@ -95,11 +59,11 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
         self.defaultKeyValue = None
 
 
-    def startService(self):
+    def stepWithResult(self, result):
         """
         Start the service.
         """
-        self.databaseUpgrade()
+        return self.databaseUpgrade()
 
 
     @inlineCallbacks
@@ -121,8 +85,7 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
             self.log_error(msg)
             raise RuntimeError(msg)
         elif self.failIfUpgradeNeeded:
-            if self.stopOnFail:
-                reactor.stop()
+                # TODO: change this exception to be upgrade-specific
             raise RuntimeError("Database upgrade is needed but not allowed.")
         else:
             self.sqlStore.setUpgrading(True)
@@ -131,9 +94,7 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
 
         self.log_warn("Database %s check complete." % (self.versionDescriptor,))
 
-        # see http://twistedmatrix.com/trac/ticket/4649
-        if self.wrappedService is not None:
-            reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
+        returnValue(None)
 
 
     @inlineCallbacks
@@ -263,7 +224,7 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
 
 
 
-class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
+class UpgradeDatabaseSchemaStep(UpgradeDatabaseCoreStep):
     """
     Checks and upgrades the database schema. This assumes there are a bunch of
     upgrade files in sql syntax that we can execute against the database to
@@ -272,23 +233,15 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
     @ivar sqlStore: The store to operate on.
 
     @type sqlStore: L{txdav.idav.IDataStore}
-
-    @ivar wrappedService: Wrapped L{IService} that will be started after this
-        L{UpgradeDatabaseSchemaService}'s work is done and the database schema
-        of C{sqlStore} is fully upgraded.  This may also be specified as
-        C{None}, in which case no service will be started.
-
-    @type wrappedService: L{IService} or C{NoneType}
     """
 
-    def __init__(self, sqlStore, service, **kwargs):
+    def __init__(self, sqlStore, **kwargs):
         """
         Initialize the service.
 
         @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
-        @param service:  Wrapped service. Can be C{None} when doing unit tests.
         """
-        super(UpgradeDatabaseSchemaService, self).__init__(sqlStore, service, **kwargs)
+        super(UpgradeDatabaseSchemaStep, self).__init__(sqlStore, **kwargs)
 
         self.versionKey = "VERSION"
         self.versionDescriptor = "schema"
@@ -316,7 +269,7 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
 
 
 
-class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
+class UpgradeDatabaseDataStep(UpgradeDatabaseCoreStep):
     """
     Checks and upgrades the database data. This assumes there are a bunch of
     upgrade python modules that we can execute against the database to
@@ -325,23 +278,15 @@ class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
     @ivar sqlStore: The store to operate on.
 
     @type sqlStore: L{txdav.idav.IDataStore}
-
-    @ivar wrappedService: Wrapped L{IService} that will be started after this
-        L{UpgradeDatabaseSchemaService}'s work is done and the database schema
-        of C{sqlStore} is fully upgraded.  This may also be specified as
-        C{None}, in which case no service will be started.
-
-    @type wrappedService: L{IService} or C{NoneType}
     """
 
-    def __init__(self, sqlStore, service, **kwargs):
+    def __init__(self, sqlStore, **kwargs):
         """
-        Initialize the service.
+        Initialize the Step.
 
         @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
-        @param service:  Wrapped service. Can be C{None} when doing unit tests.
         """
-        super(UpgradeDatabaseDataService, self).__init__(sqlStore, service, **kwargs)
+        super(UpgradeDatabaseDataStep, self).__init__(sqlStore, **kwargs)
 
         self.versionKey = "CALENDAR-DATAVERSION"
         self.versionDescriptor = "data"
@@ -373,27 +318,22 @@ class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
 
 
 
-class UpgradeDatabaseOtherService(UpgradeDatabaseCoreService):
+class UpgradeDatabaseOtherStep(UpgradeDatabaseCoreStep):
     """
     Do any other upgrade behaviors once all the schema, data, file migration upgraders
     are done.
 
     @ivar sqlStore: The store to operate on.
     @type sqlStore: L{txdav.idav.IDataStore}
-
-    @ivar wrappedService: Wrapped L{IService} that will be started after this
-        L{UpgradeDatabaseOtherService}'s work is done
-    @type wrappedService: L{IService} or C{NoneType}
     """
 
-    def __init__(self, sqlStore, service, **kwargs):
+    def __init__(self, sqlStore, **kwargs):
         """
-        Initialize the service.
+        Initialize the Step.
 
         @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
-        @param service:  Wrapped service. Can be C{None} when doing unit tests.
         """
-        super(UpgradeDatabaseOtherService, self).__init__(sqlStore, service, **kwargs)
+        super(UpgradeDatabaseOtherStep, self).__init__(sqlStore, **kwargs)
 
         self.versionDescriptor = "other upgrades"
 
@@ -415,6 +355,4 @@ class UpgradeDatabaseOtherService(UpgradeDatabaseCoreService):
 
         self.log_warn("Database %s check complete." % (self.versionDescriptor,))
 
-        # see http://twistedmatrix.com/trac/ticket/4649
-        if self.wrappedService is not None:
-            reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
+        returnValue(None)

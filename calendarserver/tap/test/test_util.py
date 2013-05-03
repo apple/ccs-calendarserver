@@ -14,12 +14,13 @@
 # limitations under the License.
 ##
 
-from calendarserver.tap.util import directoryFromConfig, MemoryLimitService
+from calendarserver.tap.util import directoryFromConfig, MemoryLimitService, Stepper
 from twistedcaldav.util import computeProcessCount
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
 from twistedcaldav.directory.augment import AugmentXMLDB
 from twisted.internet.task import Clock
+from twisted.internet.defer import succeed, inlineCallbacks
 
 class ProcessCountTestCase(TestCase):
 
@@ -141,3 +142,103 @@ class MemoryLimitServiceTestCase(TestCase):
         processMonitor.history = []
         clock.advance(10)
         self.assertEquals(processMonitor.history, ['process #1', 'process #2', 'process #3'])
+
+
+
+#
+# Tests for Stepper
+#
+
+class Step(object):
+
+    def __init__(self, recordCallback, shouldFail):
+        self._recordCallback = recordCallback
+        self._shouldFail = shouldFail
+
+
+    def stepWithResult(self, result):
+        self._recordCallback(self.successValue, None)
+        if self._shouldFail:
+            1 / 0
+        return succeed(result)
+
+
+    def stepWithFailure(self, failure):
+        self._recordCallback(self.errorValue, failure)
+        if self._shouldFail:
+            return failure
+
+
+
+class StepOne(Step):
+    successValue = "one success"
+    errorValue = "one failure"
+
+
+
+class StepTwo(Step):
+    successValue = "two success"
+    errorValue = "two failure"
+
+
+
+class StepThree(Step):
+    successValue = "three success"
+    errorValue = "three failure"
+
+
+
+class StepFour(Step):
+    successValue = "four success"
+    errorValue = "four failure"
+
+
+
+class StepperTestCase(TestCase):
+
+    def setUp(self):
+        self.history = []
+        self.stepper = Stepper()
+
+
+    def _record(self, value, failure):
+        self.history.append(value)
+
+
+    @inlineCallbacks
+    def test_allSuccess(self):
+        self.stepper.addStep(
+            StepOne(self._record, False)
+        ).addStep(
+            StepTwo(self._record, False)
+        ).addStep(
+            StepThree(self._record, False)
+        ).addStep(
+            StepFour(self._record, False)
+        )
+        result = (yield self.stepper.start("abc"))
+        self.assertEquals(result, "abc") # original result passed through
+        self.assertEquals(self.history,
+            ['one success', 'two success', 'three success', 'four success'])
+
+
+    def test_allFailure(self):
+        self.stepper.addStep(StepOne(self._record, True))
+        self.stepper.addStep(StepTwo(self._record, True))
+        self.stepper.addStep(StepThree(self._record, True))
+        self.stepper.addStep(StepFour(self._record, True))
+        self.failUnlessFailure(self.stepper.start(), ZeroDivisionError)
+        self.assertEquals(self.history,
+            ['one success', 'two failure', 'three failure', 'four failure'])
+
+
+    @inlineCallbacks
+    def test_partialFailure(self):
+        self.stepper.addStep(StepOne(self._record, True))
+        self.stepper.addStep(StepTwo(self._record, False))
+        self.stepper.addStep(StepThree(self._record, True))
+        self.stepper.addStep(StepFour(self._record, False))
+        result = (yield self.stepper.start("abc"))
+        self.assertEquals(result, None) # original result is gone
+        self.assertEquals(self.history,
+            ['one success', 'two failure', 'three success', 'four failure'])

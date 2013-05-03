@@ -15,7 +15,6 @@
 # limitations under the License.
 ##
 
-import os
 from cStringIO import StringIO
 
 from twext.python.filepath import CachingFilePath as FilePath
@@ -145,6 +144,7 @@ class ConfigParsingTests(TestCase):
         self.assertEquals(cfg.DocumentRoot, "/root/overridedata/defaultdoc")
         self.assertEquals(cfg.DataRoot, "/root/overridedata")
 
+
     def test_updateDataStore(self):
         configDict = {
             "ServerRoot" : "/a/b/c/",
@@ -152,11 +152,6 @@ class ConfigParsingTests(TestCase):
         _updateDataStore(configDict)
         self.assertEquals(configDict["ServerRoot"], "/a/b/c")
 
-        configDict = {
-            "ServerRoot" : "./a",
-        }
-        _updateDataStore(configDict)
-        self.assertEquals(configDict["ServerRoot"], os.path.join(os.getcwd(), "a"))
 
     def test_updateMultiProcess(self):
         def stubProcessCount(*args):

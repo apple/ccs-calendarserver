@@ -25,11 +25,11 @@ from calendarserver.tools.util import loadConfig, autoDisableMemcached
 from twext.python.log import StandardIOObserver
 
 from twistedcaldav.config import ConfigurationError
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.application.service import Service
 
 import sys
 from calendarserver.tap.util import getRootResource
-from twisted.application.service import Service
 from errno import ENOENT, EACCES
 from twext.enterprise.queue import NonPerformingQueuer
 
@@ -110,15 +110,13 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
 class WorkerService(Service):
 
     def __init__(self, store):
-        self._store = store
-        # Work can be queued but will not be performed by the command line tool
-        store.queuer = NonPerformingQueuer()
+        self.store = store
 
 
     def rootResource(self):
         try:
             from twistedcaldav.config import config
-            rootResource = getRootResource(config, self._store)
+            rootResource = getRootResource(config, self.store)
         except OSError, e:
             if e.errno == ENOENT:
                 # Trying to re-write resources.xml but its parent directory does
@@ -140,9 +138,16 @@ class WorkerService(Service):
 
     @inlineCallbacks
     def startService(self):
+
         from twisted.internet import reactor
         try:
-            yield self.doWork()
+            # Work can be queued but will not be performed by the command
+            # line tool
+            if self.store is not None:
+                self.store.queuer = NonPerformingQueuer()
+                yield self.doWork()
+            else:
+                yield self.doWorkWithoutStore()
         except ConfigurationError, ce:
             sys.stderr.write("Error: %s\n" % (str(ce),))
         except Exception, e:
@@ -150,3 +155,13 @@ class WorkerService(Service):
             raise
         finally:
             reactor.stop()
+
+
+    def doWorkWithoutStore(self):
+        """
+        Subclasses can override doWorkWithoutStore if there is any work they
+        can accomplish without access to the store, or if they want to emit
+        their own error message.
+        """
+        sys.stderr.write("Error: Data store is not available\n")
+        return succeed(None)

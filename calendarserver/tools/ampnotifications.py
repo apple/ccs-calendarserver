@@ -58,7 +58,7 @@ def usage(e=None):
 class WorkerService(Service):
 
     def __init__(self, store):
-        self._store = store
+        self.store = store
 
 
     @inlineCallbacks

@@ -23,7 +23,6 @@ from twext.enterprise.dal.syntax import Delete
 from twext.python.filepath import CachingFilePath
 from twext.web2.http_headers import MimeType
 
-from twisted.application.service import Service, MultiService
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol
 from twisted.protocols.amp import AMP, Command, String
@@ -43,7 +42,7 @@ from txdav.common.datastore.test.util import theStoreBuilder, \
     populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s, \
     populateAddressBooksFrom, resetAddressBookMD5s, deriveValue, \
     withSpecialValue
-from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService, \
+from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep, \
     StoreSpawnerService, swapAMP
 
 import copy
@@ -128,17 +127,8 @@ class StubSpawner(StoreSpawnerService):
 
 class HomeMigrationTests(TestCase):
     """
-    Tests for L{UpgradeToDatabaseService}.
+    Tests for L{UpgradeToDatabaseStep}.
     """
-
-    def createUpgradeService(self):
-        """
-        Create an upgrade service.
-        """
-        return UpgradeToDatabaseService(
-            self.fileStore, self.sqlStore, self.stubService
-        )
-
 
     @inlineCallbacks
     def setUp(self):
@@ -155,30 +145,7 @@ class HomeMigrationTests(TestCase):
         self.sqlStore = yield theStoreBuilder.buildStore(
             self, StubNotifierFactory()
         )
-        subStarted = self.subStarted = Deferred()
-        class StubService(Service, object):
-            def startService(self):
-                super(StubService, self).startService()
-                if not subStarted.called:
-                    subStarted.callback(None)
-        from twisted.python import log
-        def justOnce(evt):
-            if evt.get('isError') and not hasattr(subStarted, 'result'):
-                subStarted.errback(
-                    evt.get('failure',
-                            RuntimeError("error starting up (see log)"))
-                )
-        log.addObserver(justOnce)
-        def cleanObserver():
-            try:
-                log.removeObserver(justOnce)
-            except ValueError:
-                pass # x not in list, I don't care.
-        self.addCleanup(cleanObserver)
-        self.stubService = StubService()
-        self.topService = MultiService()
-        self.upgrader = self.createUpgradeService()
-        self.upgrader.setServiceParent(self.topService)
+        self.upgrader = UpgradeToDatabaseStep(self.fileStore, self.sqlStore)
 
         requirements = CommonTests.requirements
         extras = deriveValue(self, "extraRequirements", lambda t: {})
@@ -247,10 +214,9 @@ class HomeMigrationTests(TestCase):
         don't have a UID and can't be stored properly in the database, so they
         should not be migrated.
         """
-        self.topService.startService()
+        yield self.upgrader.stepWithResult(None)
         txn = self.sqlStore.newTransaction()
         self.addCleanup(txn.commit)
-        yield self.subStarted
         self.assertIdentical(
             None,
             (yield (yield (yield
@@ -266,9 +232,7 @@ class HomeMigrationTests(TestCase):
         L{UpgradeToDatabaseService.startService} will do the upgrade, then
         start its dependent service by adding it to its service hierarchy.
         """
-        self.topService.startService()
-        yield self.subStarted
-        self.assertEquals(self.stubService.running, True)
+        yield self.upgrader.stepWithResult(None)
         txn = self.sqlStore.newTransaction()
         self.addCleanup(txn.commit)
         for uid in CommonTests.requirements:
@@ -302,8 +266,7 @@ class HomeMigrationTests(TestCase):
         startTxn = self.sqlStore.newTransaction("populate empty sample")
         yield startTxn.calendarHomeWithUID("home1", create=True)
         yield startTxn.commit()
-        self.topService.startService()
-        yield self.subStarted
+        yield self.upgrader.stepWithResult(None)
         vrfyTxn = self.sqlStore.newTransaction("verify sample still empty")
         self.addCleanup(vrfyTxn.commit)
         home = yield vrfyTxn.calendarHomeWithUID("home1")
@@ -359,8 +322,7 @@ class HomeMigrationTests(TestCase):
         transport.write(someAttachmentData)
         yield transport.loseConnection()
         yield maybeCommit()
-        self.topService.startService()
-        yield self.subStarted
+        yield self.upgrader.stepWithResult(None)
         committed = []
         txn = self.sqlStore.newTransaction()
         outObject = yield getSampleObj()
@@ -384,9 +346,7 @@ class HomeMigrationTests(TestCase):
         L{UpgradeToDatabaseService.startService} will do the upgrade, then
         start its dependent service by adding it to its service hierarchy.
         """
-        self.topService.startService()
-        yield self.subStarted
-        self.assertEquals(self.stubService.running, True)
+        yield self.upgrader.stepWithResult(None)
         txn = self.sqlStore.newTransaction()
         self.addCleanup(txn.commit)
         for uid in ABCommonTests.requirements:
@@ -408,20 +368,3 @@ class HomeMigrationTests(TestCase):
         ):
             object = (yield adbk.addressbookObjectWithName(name))
             self.assertEquals(object.md5(), md5)
-
-
-
-class ParallelHomeMigrationTests(HomeMigrationTests):
-    """
-    Tests for home migrations running in parallel.  Functionally this should be
-    the same, so it's just a store created slightly differently.
-    """
-
-    def createUpgradeService(self):
-        """
-        Create an upgrade service.
-        """
-        return UpgradeToDatabaseService(
-            self.fileStore, self.sqlStore, self.stubService,
-            parallel=2, spawner=StubSpawner()
-        )

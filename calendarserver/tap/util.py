@@ -41,11 +41,12 @@ from twext.web2.static import File as FileResource
 
 from twisted.application.service import Service
 from twisted.cred.portal import Portal
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, Deferred, succeed
 from twisted.internet import reactor as _reactor
 from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.tcp import Connection
 from twisted.python.reflect import namedClass
+# from twisted.python.failure import Failure
 
 from twistedcaldav.bind import doBind
 from twistedcaldav.directory import calendaruserproxy
@@ -124,6 +125,7 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
     return PostgresService(
         dbRoot, subServiceFactory, current_sql_schema,
         databaseName=config.Postgres.DatabaseName,
+        clusterName=config.Postgres.ClusterName,
         logFile=config.Postgres.LogFile,
         socketDir=config.RunRoot,
         listenAddresses=config.Postgres.ListenAddresses,
@@ -769,8 +771,6 @@ def getDBPool(config):
 
 
 
-
-
 class FakeRequest(object):
 
     def __init__(self, rootResource, method, path, uri='/', transaction=None):
@@ -993,3 +993,107 @@ def checkDirectories(config):
         access=os.W_OK,
         create=(0770, config.UserName, config.GroupName),
     )
+
+
+
+class Stepper(object):
+    """
+    Manages the sequential, deferred execution of "steps" which are objects
+    implementing these methods:
+
+        - stepWithResult(result)
+            @param result: the result returned from the previous step
+            @returns: Deferred
+
+        - stepWithFailure(failure)
+            @param failure: a Failure encapsulating the exception from the
+                previous step
+            @returns: Failure to continue down the errback chain, or a
+                Deferred returning a non-Failure to switch back to the
+                callback chain
+
+    "Step" objects are added in order by calling addStep(), and when start()
+    is called, the Stepper will call the stepWithResult() of the first step.
+    If stepWithResult() doesn't raise an Exception, the Stepper will call the
+    next step's stepWithResult().  If a stepWithResult() raises an Exception,
+    the Stepper will call the next step's stepWithFailure() -- if it's
+    implemented -- passing it a Failure object.  If the stepWithFailure()
+    decides it can handle the Failure and proceed, it can return a non-Failure
+    which is an indicator to the Stepper to call the next step's
+    stepWithResult().
+
+    TODO: Create an IStep interface (?)
+    """
+
+    def __init__(self):
+        self.steps = []
+        self.failure = None
+        self.result = None
+        self.running = False
+
+
+    def addStep(self, step):
+        """
+        Adds a step object to the ordered list of steps
+
+        @param step: the object to add
+        @type step: an object implementing stepWithResult()
+
+        @return: the Stepper object itself so addStep() calls can be chained
+        """
+        if self.running:
+            raise RuntimeError("Can't add step after start")
+        self.steps.append(step)
+        return self
+
+
+    def defaultStepWithResult(self, result):
+        return succeed(result)
+
+
+    def defaultStepWithFailure(self, failure):
+        log.warn(failure)
+        return failure
+
+    # def protectStep(self, callback):
+    #     def _protected(result):
+    #         try:
+    #             return callback(result)
+    #         except Exception, e:
+    #             # TODO: how to turn Exception into Failure
+    #             return Failure()
+    #     return _protected
+
+
+    def start(self, result=None):
+        """
+        Begin executing the added steps in sequence.  If a step object
+        does not implement a stepWithResult/stepWithFailure method, a
+        default implementation will be used.
+
+        @param result: an optional value to pass to the first step
+        @return: the Deferred that will fire when steps are done
+        """
+        self.running = True
+        self.deferred = Deferred()
+
+        for step in self.steps:
+
+            # See if we need to use a default implementation of the step methods:
+            if hasattr(step, "stepWithResult"):
+                callBack = step.stepWithResult
+                # callBack = self.protectStep(step.stepWithResult)
+            else:
+                callBack = self.defaultStepWithResult
+            if hasattr(step, "stepWithFailure"):
+                errBack = step.stepWithFailure
+            else:
+                errBack = self.defaultStepWithFailure
+
+            # Add callbacks to the Deferred
+            self.deferred.addCallbacks(callBack, errBack)
+
+        # Get things going
+        self.deferred.callback(result)
+
+        return self.deferred

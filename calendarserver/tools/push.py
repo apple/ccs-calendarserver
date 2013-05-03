@@ -34,12 +34,12 @@ log = Logger()
 class WorkerService(Service):
 
     def __init__(self, store):
-        self._store = store
+        self.store = store
 
 
     def rootResource(self):
         try:
-            rootResource = getRootResource(config, self._store)
+            rootResource = getRootResource(config, self.store)
         except OSError, e:
             if e.errno == ENOENT:
                 # Trying to re-write resources.xml but its parent directory does
@@ -81,7 +81,7 @@ class DisplayAPNSubscriptions(WorkerService):
     def doWork(self):
         rootResource = self.rootResource()
         directory = rootResource.getDirectory()
-        return displayAPNSubscriptions(self._store, directory, rootResource,
+        return displayAPNSubscriptions(self.store, directory, rootResource,
             self.users)
 
 
