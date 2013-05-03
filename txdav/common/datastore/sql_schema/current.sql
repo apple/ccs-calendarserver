@@ -360,9 +360,9 @@ create table ADDRESSBOOK_HOME_METADATA (
 );
 
 
-----------------------
--- AddressBook Bind --
-----------------------
+-----------------------------
+-- Shared AddressBook Bind --
+-----------------------------
 
 -- Joins sharee ADDRESSBOOK_HOME and owner ADDRESSBOOK_HOME
 
@@ -441,11 +441,11 @@ create table ABO_FOREIGN_MEMBERS (
 );
 
 
------------------------------
--- Group Address Book Bind --
------------------------------
+-----------------------
+-- Shared Group Bind --
+-----------------------
 
--- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_OBJECT (acting as Address Book)
+-- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_OBJECT (kind == group)
 
 create table SHARED_GROUP_BIND (	
   ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
@@ -494,7 +494,7 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_HOME_RESOURCE_ID 			integer			not null references ADDRESSBOOK_HOME,
-  OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer      	references ADDRESSBOOK_HOME,
+  OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer     	references ADDRESSBOOK_HOME,
   ADDRESSBOOK_NAME             			varchar(255) 	default null,
   RESOURCE_NAME                			varchar(255),
   REVISION                     			integer     	default nextval('REVISION_SEQ') not null,
