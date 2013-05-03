@@ -66,7 +66,7 @@ from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
-    UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep, 
+    UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
     UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
 )
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
@@ -255,7 +255,7 @@ class CalDAVService (ErrorLoggingMultiService):
     connectionServiceName = "ConnectionService"
 
     def __init__(self, logObserver):
-        self.logObserver = logObserver # accesslog observer
+        self.logObserver = logObserver  # accesslog observer
         MultiService.__init__(self)
 
 
@@ -569,7 +569,7 @@ class PreProcessingService(Service):
         self.connectionPool = connectionPool
         self.store = store
         self.logObserver = logObserver
-        self.stepper = Stepper()        
+        self.stepper = Stepper()
 
         if reactor is None:
             from twisted.internet import reactor
@@ -985,7 +985,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 requestFactory, int(config.MetaFD), contextFactory
             ).setServiceParent(connectionService)
 
-        else: # Not inheriting, therefore we open our own:
+        else:  # Not inheriting, therefore we open our own:
             for bindAddress in self._allBindAddresses():
                 self._validatePortConfig()
                 if config.EnableSSL:
@@ -1101,7 +1101,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                     pushDistributor = PushDistributor(observers)
 
             directory = result.rootResource.getDirectory()
-            
+
             # Optionally set up mail retrieval
             if config.Scheduling.iMIP.Enabled:
                 mailRetriever = MailRetriever(store, directory,
@@ -1131,7 +1131,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             store.callWithNewTransactions(decorateTransaction)
 
-            return result 
+            return result
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
 
@@ -1242,13 +1242,11 @@ class CalDAVServiceMaker (LoggingMixIn):
                         failIfUpgradeNeeded=config.FailIfUpgradeNeeded
                     )
                 )
-                '''
                 pps.addStep(
                     UpgradeDatabaseAddressBookDataStep(
                         store, uid=overrideUID, gid=overrideGID
                     )
                 )
-                '''
                 pps.addStep(
                     UpgradeDatabaseCalendarDataStep(
                         store, uid=overrideUID, gid=overrideGID
@@ -1293,7 +1291,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         if config.UseDatabase:
 
-            if os.getuid() == 0: # Only override if root
+            if os.getuid() == 0:  # Only override if root
                 overrideUID = uid
                 overrideGID = gid
             else:
@@ -1428,7 +1426,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                                     config.MultiProcess.ProcessCount))
             dispatcher = cl.dispatcher
         else:
-            s._inheritedSockets = [] # keep a reference to these so they don't close
+            s._inheritedSockets = []  # keep a reference to these so they don't close
             dispatcher = None
 
         for bindAddress in self._allBindAddresses():
@@ -2075,7 +2073,7 @@ class DelayedStartupLineLogger(object):
     MAX_LENGTH = 1024
     CONTINUED_TEXT = " (truncated, continued)"
     tag = None
-    exceeded = False            # Am I in the middle of parsing a long line?
+    exceeded = False  # Am I in the middle of parsing a long line?
     _buffer = ''
 
     def makeConnection(self, transport):
@@ -2134,7 +2132,7 @@ class DelayedStartupLineLogger(object):
         segments = []
         for i in range(numSegments):
             msg = line[i * self.MAX_LENGTH:(i + 1) * self.MAX_LENGTH]
-            if i < numSegments - 1: # not the last segment
+            if i < numSegments - 1:  # not the last segment
                 msg += self.CONTINUED_TEXT
             segments.append(msg)
         return segments

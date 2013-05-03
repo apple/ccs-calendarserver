@@ -183,7 +183,7 @@ create table RESOURCE_PROPERTY (
 
 create table ADDRESSBOOK_HOME (
     "RESOURCE_ID" integer primary key,
-    "PROPERTY_STORE_ID" integer not null,
+    "ADDRESSBOOK_PROPERTY_STORE_ID" integer not null,
     "OWNER_UID" nvarchar2(255) unique,
     "DATAVERSION" integer default 0 not null
 );

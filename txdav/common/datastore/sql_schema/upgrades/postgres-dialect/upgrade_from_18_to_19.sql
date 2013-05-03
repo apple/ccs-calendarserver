@@ -111,10 +111,8 @@ create table ABO_FOREIGN_MEMBERS (
 --------------------
 
 alter table ADDRESSBOOK_HOME
-	add column PROPERTY_STORE_ID	integer      	default nextval('RESOURCE_ID_SEQ') not null;
+	add column ADDRESSBOOK_PROPERTY_STORE_ID	integer      	default nextval('RESOURCE_ID_SEQ') not null;
 
-
-	
 
 ------------------
 -- TODO: Finish --
@@ -125,9 +123,9 @@ alter table ADDRESSBOOK_HOME
 -- delete unused tables --
 --------------------------
 
-delete table ADDRESSBOOK;
-delete table ADDRESSBOOK_METADATA;
-delete table ADDRESSBOOK_BIND;
+drop table ADDRESSBOOK_METADATA;
+drop table ADDRESSBOOK_BIND;
+drop table ADDRESSBOOK;
 
 -- not needed:
 -- drop index ADDRESSBOOK_BIND_RESOURCE_ID;

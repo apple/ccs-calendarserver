@@ -24,7 +24,6 @@ import re
 
 from twext.python.log import LoggingMixIn
 
-from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.modules import getModule
 from twisted.python.reflect import namedObject

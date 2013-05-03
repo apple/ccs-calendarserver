@@ -341,10 +341,10 @@ create table RESOURCE_PROPERTY (
 ----------------------
 
 create table ADDRESSBOOK_HOME (
-  RESOURCE_ID      	integer			primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  PROPERTY_STORE_ID	integer      	default nextval('RESOURCE_ID_SEQ') not null, 	-- implicit index
-  OWNER_UID        	varchar(255) 	not null unique,                                -- implicit index
-  DATAVERSION      	integer      	default 0 not null
+  RESOURCE_ID      				integer			primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
+  ADDRESSBOOK_PROPERTY_STORE_ID	integer      	default nextval('RESOURCE_ID_SEQ') not null, 	-- implicit index
+  OWNER_UID        				varchar(255) 	not null unique,                                -- implicit index
+  DATAVERSION      				integer      	default 0 not null
 );
 
 

@@ -538,7 +538,7 @@ END:VCARD
         home = yield self.homeUnderTest()
         name = "addressbook"
         addressbook = yield home.createAddressBookWithName(name)
-        resourceID = addressbook._resourceID
+        resourceID = home._addressbookPropertyStoreID
 
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 1)
