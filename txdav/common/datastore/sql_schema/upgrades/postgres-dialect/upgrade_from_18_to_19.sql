@@ -24,6 +24,49 @@
 ----------------
 
 -----------------------------
+-- Shared AddressBook Bind --
+-----------------------------
+
+-- Joins sharee ADDRESSBOOK_HOME and owner ADDRESSBOOK_HOME
+
+create table SHARED_ADDRESSBOOK_BIND (
+  ADDRESSBOOK_HOME_RESOURCE_ID			integer			not null references ADDRESSBOOK_HOME,
+  OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer      	not null references ADDRESSBOOK_HOME on delete cascade,
+  ADDRESSBOOK_RESOURCE_NAME    			varchar(255) 	not null,
+  BIND_MODE                    			integer      	not null,	-- enum CALENDAR_BIND_MODE
+  BIND_STATUS                  			integer      	not null,	-- enum CALENDAR_BIND_STATUS
+  MESSAGE                      			text,                  		-- FIXME: xml?
+
+  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_ADDRESSBOOK_HOME_RESOURCE_ID), -- implicit index
+  unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
+);
+
+create index SHARED_ADDRESSBOOK_BIND_RESOURCE_ID on
+  SHARED_ADDRESSBOOK_BIND(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID);
+
+
+-----------------------
+-- Shared Group Bind --
+-----------------------
+
+-- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_OBJECT (kind == group)
+
+create table SHARED_GROUP_BIND (	
+  ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
+  GROUP_RESOURCE_ID      			integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
+  GROUP_ADDRESSBOOK_RESOURCE_NAME	varchar(255) not null,
+  BIND_MODE                    		integer      not null, -- enum CALENDAR_BIND_MODE
+  BIND_STATUS                  		integer      not null, -- enum CALENDAR_BIND_STATUS
+  MESSAGE                      		text,                  -- FIXME: xml?
+
+  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_RESOURCE_ID), -- implicit index
+  unique (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
+);
+
+create index SHARED_GROUP_BIND_RESOURCE_ID on
+  SHARED_GROUP_BIND(GROUP_RESOURCE_ID);
+
+-----------------------------
 -- AddressBook Object kind --
 -----------------------------
 
@@ -62,38 +105,32 @@ create table ABO_FOREIGN_MEMBERS (
 );
 
 
------------------------------
--- Group Address Book Bind --
------------------------------
-
--- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_OBJECT (acting as Address Book)
-
-create table GROUP_ADDRESSBOOK_BIND (	
-  ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
-  GROUP_RESOURCE_ID      			integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
-  GROUP_ADDRESSBOOK_RESOURCE_NAME	varchar(255) not null,
-  BIND_MODE                    		integer      not null, -- enum CALENDAR_BIND_MODE
-  BIND_STATUS                  		integer      not null, -- enum CALENDAR_BIND_STATUS
-  MESSAGE                      		text,                  -- FIXME: xml?
-
-  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_RESOURCE_ID), -- implicit index
-  unique (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
-);
-
-create index GROUP_ADDRESSBOOK_BIND_RESOURCE_ID on
-  GROUP_ADDRESSBOOK_BIND(GROUP_RESOURCE_ID);
 
 --------------------
 -- Simple Updates --
 --------------------
 
 alter table ADDRESSBOOK_HOME
- add column PROPERTY_STORE_ID	integer      	default nextval('RESOURCE_ID_SEQ') not null;
+	add column PROPERTY_STORE_ID	integer      	default nextval('RESOURCE_ID_SEQ') not null;
 
---------------------
+
+	
+
+------------------
 -- TODO: Finish --
---------------------
+------------------
 
+	
+--------------------------
+-- delete unused tables --
+--------------------------
+
+delete table ADDRESSBOOK;
+delete table ADDRESSBOOK_METADATA;
+delete table ADDRESSBOOK_BIND;
+
+-- not needed:
+-- drop index ADDRESSBOOK_BIND_RESOURCE_ID;
 
   
 -- Now update the version
