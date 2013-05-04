@@ -428,6 +428,7 @@ class PostgresService(MultiService):
         options.append("-c standard_conforming_strings=on")
         options.extend(self.options)
 
+        log.warn("Requesting postgres start via %s" % (pgCtl,))
         self.reactor.spawnProcess(
             monitor, pgCtl,
             [
@@ -445,6 +446,7 @@ class PostgresService(MultiService):
         )
         self.monitor = monitor
         def gotReady(result):
+            log.warn("%s successful" % (pgCtl,))
             self.shouldStopDatabase = result
             self.ready(*createConnection())
             self.deactivateDelayedShutdown()
