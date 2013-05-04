@@ -106,30 +106,53 @@ create table ABO_FOREIGN_MEMBERS (
 
 
 
---------------------
--- Simple Updates --
---------------------
+-----------------------------
+-- Alter  ADDRESSBOOK_HOME --
+-----------------------------
 
 alter table ADDRESSBOOK_HOME
-	add column ADDRESSBOOK_PROPERTY_STORE_ID	integer      	default nextval('RESOURCE_ID_SEQ') not null;
+	add column	ADDRESSBOOK_PROPERTY_STORE_ID	integer	default nextval('RESOURCE_ID_SEQ') not null;
 
+--  could set ADDRESSBOOK_PROPERTY_STORE_ID to addressbook resourceID to save ab properties:  But there are no props worth saving!
+	
 
-------------------
--- TODO: Finish --
-------------------
+-------------------------------
+-- Alter  ADDRESSBOOK_OBJECT --
+-------------------------------
+
+alter table ADDRESSBOOK_OBJECT
+	add column	KIND 	integer  	not null; 	-- enum OBJECT_KIND
+-- KIND values set in addressbook data upgrade
+
+alter table ADDRESSBOOK_OBJECT
+	add column	ADDRESSBOOK_HOME_RESOURCE_ID	integer	not null references ADDRESSBOOK_HOME on delete cascade;
+
+-- TODO: update ADDRESSBOOK_HOME_RESOURCE_ID
+
+alter table ADDRESSBOOK_OBJECT
+	drop column	ADDRESSBOOK_RESOURCE_ID;
 
 	
---------------------------
--- delete unused tables --
---------------------------
+-----------------------------------------
+-- Alter  ADDRESSBOOK_OBJECT_REVISIONS --
+-----------------------------------------
+
+alter table ADDRESSBOOK_OBJECT_REVISIONS
+	add column	OWNER_ADDRESSBOOK_HOME_RESOURCE_ID	integer	not null references ADDRESSBOOK_HOME on delete cascade;
+
+-- TODO: update ADDRESSBOOK_HOME_RESOURCE_ID
+
+alter table ADDRESSBOOK_OBJECT_REVISIONS
+	drop column	ADDRESSBOOK_RESOURCE_ID;
+
+
+-------------------------------------
+-- Drop ADDRESSBOOK related tables --
+-------------------------------------
 
 drop table ADDRESSBOOK_METADATA;
 drop table ADDRESSBOOK_BIND;
 drop table ADDRESSBOOK;
-
--- not needed:
--- drop index ADDRESSBOOK_BIND_RESOURCE_ID;
-
   
--- Now update the version
+-- update schema version
 update CALENDARSERVER set VALUE = '19' where NAME = 'VERSION';
