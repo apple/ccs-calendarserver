@@ -113,39 +113,102 @@ create table ABO_FOREIGN_MEMBERS (
 alter table ADDRESSBOOK_HOME
 	add column	ADDRESSBOOK_PROPERTY_STORE_ID	integer	default nextval('RESOURCE_ID_SEQ') not null;
 
---  could set ADDRESSBOOK_PROPERTY_STORE_ID to addressbook resourceID to save ab properties:  But there are no props worth saving!
+update ADDRESSBOOK_HOME
+	set	ADDRESSBOOK_PROPERTY_STORE_ID = (
+		select ADDRESSBOOK_RESOURCE_ID
+			from ADDRESSBOOK_BIND
+		where 
+			ADDRESSBOOK_BIND.ADDRESSBOOK_HOME_RESOURCE_ID = ADDRESSBOOK_HOME.RESOURCE_ID and
+			ADDRESSBOOK_BIND.BIND_MODE = 0 and 	-- CALENDAR_BIND_MODE 'own'
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME = 'addressbook'
+	)
+	where exists (
+		select *
+			from ADDRESSBOOK_BIND
+		where 
+			ADDRESSBOOK_BIND.ADDRESSBOOK_HOME_RESOURCE_ID = ADDRESSBOOK_HOME.RESOURCE_ID and
+			ADDRESSBOOK_BIND.BIND_MODE = 0 and 	-- CALENDAR_BIND_MODE 'own'
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME = 'addressbook'
+  	);
 	
 
--------------------------------
--- Alter  ADDRESSBOOK_OBJECT --
--------------------------------
+--------------------------------
+-- change  ADDRESSBOOK_OBJECT --
+--------------------------------
 
 alter table ADDRESSBOOK_OBJECT
-	add column	KIND 	integer  	not null; 	-- enum OBJECT_KIND
--- KIND values set in addressbook data upgrade
+	add column	KIND	integer	not null;  -- enum ADDRESSBOOK_OBJECT_KIND
 
 alter table ADDRESSBOOK_OBJECT
 	add column	ADDRESSBOOK_HOME_RESOURCE_ID	integer	not null references ADDRESSBOOK_HOME on delete cascade;
 
--- TODO: update ADDRESSBOOK_HOME_RESOURCE_ID
+update ADDRESSBOOK_OBJECT
+	set	ADDRESSBOOK_HOME_RESOURCE_ID = (
+		select ADDRESSBOOK_HOME_RESOURCE_ID
+			from ADDRESSBOOK_BIND
+		where 
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID and
+			ADDRESSBOOK_BIND.BIND_MODE = 0 and 	-- CALENDAR_BIND_MODE 'own'
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME = 'addressbook'
+	), KIND = 0 -- ADDRESSBOOK_OBJECT_KIND 'person'
+	where exists (
+		select *
+			from ADDRESSBOOK_BIND
+		where 
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID and
+			ADDRESSBOOK_BIND.BIND_MODE = 0 and 	-- CALENDAR_BIND_MODE 'own'
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME = 'addressbook'
+  	);
 
 alter table ADDRESSBOOK_OBJECT
 	drop column	ADDRESSBOOK_RESOURCE_ID;
 
 	
------------------------------------------
--- Alter  ADDRESSBOOK_OBJECT_REVISIONS --
------------------------------------------
+------------------------------------------
+-- change  ADDRESSBOOK_OBJECT_REVISIONS --
+------------------------------------------
 
 alter table ADDRESSBOOK_OBJECT_REVISIONS
 	add column	OWNER_ADDRESSBOOK_HOME_RESOURCE_ID	integer	not null references ADDRESSBOOK_HOME on delete cascade;
 
--- TODO: update ADDRESSBOOK_HOME_RESOURCE_ID
+update ADDRESSBOOK_OBJECT_REVISIONS
+	set	OWNER_ADDRESSBOOK_HOME_RESOURCE_ID = (
+		select ADDRESSBOOK_HOME_RESOURCE_ID
+			from ADDRESSBOOK_BIND
+		where 
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = ADDRESSBOOK_OBJECT_REVISIONS.ADDRESSBOOK_RESOURCE_ID and
+			ADDRESSBOOK_BIND.BIND_MODE = 0 and 	-- CALENDAR_BIND_MODE 'own'
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME = 'addressbook'
+	)
+	where exists (
+		select *
+			from ADDRESSBOOK_BIND
+		where 
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = ADDRESSBOOK_OBJECT_REVISIONS.ADDRESSBOOK_RESOURCE_ID and
+			ADDRESSBOOK_BIND.BIND_MODE = 0 and 	-- CALENDAR_BIND_MODE 'own'
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME = 'addressbook'
+  	);
 
 alter table ADDRESSBOOK_OBJECT_REVISIONS
 	drop column	ADDRESSBOOK_RESOURCE_ID;
 
+----------------------------------------------------------------------------
+-- delete RESOURCE_PROPERTY rows for shared and non-default address books --
+----------------------------------------------------------------------------
 
+delete 
+	from RESOURCE_PROPERTY
+	where exists (
+		select *
+			from ADDRESSBOOK_BIND
+		where 
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = RESOURCE_PROPERTY.RESOURCE_ID and (
+				ADDRESSBOOK_BIND.BIND_MODE != 0 or 	-- CALENDAR_BIND_MODE 'own'
+	 			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME != 'addressbook'
+	 		)
+  	);
+
+	
 -------------------------------------
 -- Drop ADDRESSBOOK related tables --
 -------------------------------------
