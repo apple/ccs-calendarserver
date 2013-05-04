@@ -75,17 +75,17 @@ class _PostgresMonitor(ProcessProtocol):
 
 
     def outReceived(self, out):
-        log.msg("received postgres stdout %r" % (out,))
+        log.warn("received postgres stdout %r" % (out,))
         # self.lineReceiver.dataReceived(out)
 
 
     def errReceived(self, err):
-        log.msg("received postgres stderr %r" % (err,))
+        log.warn("received postgres stderr %r" % (err,))
         self.lineReceiver.dataReceived(err)
 
 
     def processEnded(self, reason):
-        log.msg("postgres process ended %r" % (reason,))
+        log.warn("postgres process ended %r" % (reason,))
         result = (reason.value.status == 0)
         self.lineReceiver.connectionLost(reason)
         self.completionDeferred.callback(result)
