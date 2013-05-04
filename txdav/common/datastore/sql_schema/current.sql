@@ -392,7 +392,7 @@ create table ADDRESSBOOK_OBJECT (
   RESOURCE_NAME           		varchar(255) 	not null,
   VCARD_TEXT              		text         	not null,
   VCARD_UID               		varchar(255) 	not null,
-  KIND 			  		  		integer      	not null, 	-- enum OBJECT_KIND
+  KIND 			  		  		integer      	not null,  -- enum ADDRESSBOOK_OBJECT_KIND
   MD5                     		char(32)     	not null,
   CREATED                 		timestamp    	default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                		timestamp    	default timezone('UTC', CURRENT_TIMESTAMP),
