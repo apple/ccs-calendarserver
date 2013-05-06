@@ -1723,7 +1723,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
             # don't store group members in object text
 
-            # sort addreses in component text
+            # sort addresses in component text
             memberAddresses = component.resourceMemberAddresses()
             component.removeProperties("X-ADDRESSBOOKSERVER-MEMBER")
             for memberAddress in sorted(memberAddresses):
