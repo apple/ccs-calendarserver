@@ -71,7 +71,7 @@ from txdav.common.icommondatastore import NoSuchObjectResourceError, \
     UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove, \
     InvalidComponentForStoreError
 from txdav.idav import PropertyChangeNotAllowedError
-from txdav.xml import element as davxml, element
+from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 
 from urlparse import urlsplit
@@ -1482,9 +1482,9 @@ class CalendarObjectDropbox(_GetChildHelper):
         attendees = [attendee.split("urn:uuid:")[-1] for attendee in attendees]
         document = yield davXMLFromStream(request.stream)
         for ace in document.root_element.children:
-            for element in ace.children:
-                if isinstance(element, davxml.Principal):
-                    for href in element.children:
+            for child in ace.children:
+                if isinstance(child, davxml.Principal):
+                    for href in child.children:
                         principalURI = href.children[0].data
                         uidsPrefix = '/principals/__uids__/'
                         if not principalURI.startswith(uidsPrefix):
