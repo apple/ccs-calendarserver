@@ -434,8 +434,20 @@ class _ColumnParser(object):
                     theColumn.doesReferenceName(target)
                 elif val.match(Keyword, 'ON'):
                     expect(self, ttype=Keyword.DML, value='DELETE')
-                    expect(self, ttype=Keyword, value='CASCADE')
-                    theColumn.cascade = True
+                    refAction = self.next()
+                    if refAction.ttype == Keyword and refAction.value.upper() == 'CASCADE':
+                        theColumn.deleteAction = 'cascade'
+                    elif refAction.ttype == Keyword and refAction.value.upper() == 'SET':
+                        setAction = self.next()
+                        if setAction.ttype == Keyword and setAction.value.upper() == 'NULL':
+                            theColumn.deleteAction = 'set null'
+                        elif setAction.ttype == Keyword and setAction.value.upper() == 'DEFAULT':
+                            theColumn.deleteAction = 'set default'
+                        else:
+                            raise RuntimeError("Invalid on delete set %r" % (setAction.value,))
+                    else:
+                        raise RuntimeError("Invalid on delete %r" % (refAction.value,))
+
                 else:
                     expected = False
                 if not expected:
@@ -444,7 +456,6 @@ class _ColumnParser(object):
                     import pprint
                     pprint.pprint(self.parens.tokens)
                     return 0
-
 
 
 
@@ -546,6 +557,3 @@ def _destringify(strval):
     here.  The only quoting syntax respected is "''".)
     """
     return strval[1:-1].replace("''", "'")
-
-
-

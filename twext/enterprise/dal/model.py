@@ -102,7 +102,7 @@ class Check(Constraint):
     @ivar expression: the expression that should evaluate to True.
     @type expression: L{twext.enterprise.dal.syntax.ExpressionSyntax}
     """
-    # XXX TODO: model for expression, rather than 
+    # XXX TODO: model for expression, rather than
 
     def __init__(self, syntaxExpression, name=None):
         self.expression = syntaxExpression
@@ -160,10 +160,13 @@ class Column(FancyEqMixin, object):
         this will be a reference to that table; otherwise (normally) C{None}.
     @type references: L{Table} or C{NoneType}
 
-    @ivar cascade: If this column references another table, will this column's
-        row be deleted when the matching row in that other table is deleted?
-        (In other words, the SQL feature 'on delete cascade'.)
-    @type cascade: C{bool}
+    @ivar deleteAction: If this column references another table, home will this column's
+        row be altered when the matching row in that other table is deleted? Possible values are
+        None - for 'on delete no action'
+        'cascade' - for 'on delete cascade'
+        'set null' - for 'on delete set null'
+        'set default' - for 'on delete set default'
+    @type deleteAction: C{bool}
     """
 
     compareAttributes = 'table name'.split()
@@ -175,7 +178,7 @@ class Column(FancyEqMixin, object):
         self.type = type
         self.default = NO_DEFAULT
         self.references = None
-        self.cascade = False
+        self.deleteAction = None
 
 
     def __repr__(self):
@@ -435,5 +438,3 @@ class Schema(object):
 
     def indexNamed(self, name):
         return _namedFrom(name, self.indexes)
-
-

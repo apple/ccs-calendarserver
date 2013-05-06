@@ -51,6 +51,7 @@ class NoSuchRecord(Exception):
     """
 
 
+
 class _RecordMeta(type):
     """
     Metaclass for associating a L{fromTable} with a L{Record} at inheritance

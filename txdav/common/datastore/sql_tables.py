@@ -344,8 +344,8 @@ def _translateSchema(out, schema=schema):
                 out.write(' unique')
             if column.model.references is not None:
                 out.write(" references %s" % (column.model.references.name,))
-            if column.model.cascade:
-                out.write(" on delete cascade")
+            if column.model.deleteAction is not None:
+                out.write(" on delete %s" % (column.model.deleteAction,))
 
         def writeConstraint(name, cols):
             out.write(", \n") # the table has to have some preceding columns
