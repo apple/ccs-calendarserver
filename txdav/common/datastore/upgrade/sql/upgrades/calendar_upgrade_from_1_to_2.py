@@ -79,10 +79,11 @@ def splitCalendars(sqlStore):
     """
 
     @inlineCallbacks
-    def doIt(home):
+    def doIt(txn, homeResourceID):
         """
         Split each regular calendar in the home.
         """
+        home = yield txn.calendarHomeWithResourceID(homeResourceID)
         yield home.splitCalendars()
             
     # Do this to each calendar home not already at version 2

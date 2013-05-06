@@ -137,10 +137,10 @@ update ADDRESSBOOK_HOME
 --------------------------------
 
 alter table ADDRESSBOOK_OBJECT
-	add column	KIND	integer	not null;  -- enum ADDRESSBOOK_OBJECT_KIND
+	add column	KIND	integer;  -- enum ADDRESSBOOK_OBJECT_KIND
 
 alter table ADDRESSBOOK_OBJECT
-	add column	ADDRESSBOOK_HOME_RESOURCE_ID	integer	not null references ADDRESSBOOK_HOME on delete cascade;
+	add column	ADDRESSBOOK_HOME_RESOURCE_ID	integer	references ADDRESSBOOK_HOME on delete cascade;
 
 update ADDRESSBOOK_OBJECT
 	set	ADDRESSBOOK_HOME_RESOURCE_ID = (
@@ -160,6 +160,28 @@ update ADDRESSBOOK_OBJECT
 			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME = 'addressbook'
   	);
 
+-- delete rows for shared and non-default address books
+delete 
+	from ADDRESSBOOK_OBJECT
+	where exists (
+		select *
+			from ADDRESSBOOK_BIND
+		where 
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID and (
+				ADDRESSBOOK_BIND.BIND_MODE != 0 or 	-- CALENDAR_BIND_MODE 'own'
+	 			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME != 'addressbook'
+	 		)
+  	);
+  	
+-- add non null constraints after update and delete are complete
+alter table ADDRESSBOOK_OBJECT
+	alter column KIND
+		set not null;
+
+alter table ADDRESSBOOK_OBJECT
+	alter column ADDRESSBOOK_HOME_RESOURCE_ID
+		set not null;
+
 alter table ADDRESSBOOK_OBJECT
 	drop column	ADDRESSBOOK_RESOURCE_ID;
 
@@ -169,7 +191,7 @@ alter table ADDRESSBOOK_OBJECT
 ------------------------------------------
 
 alter table ADDRESSBOOK_OBJECT_REVISIONS
-	add column	OWNER_ADDRESSBOOK_HOME_RESOURCE_ID	integer	not null references ADDRESSBOOK_HOME on delete cascade;
+	add column	OWNER_ADDRESSBOOK_HOME_RESOURCE_ID	integer	references ADDRESSBOOK_HOME;
 
 update ADDRESSBOOK_OBJECT_REVISIONS
 	set	OWNER_ADDRESSBOOK_HOME_RESOURCE_ID = (
@@ -189,13 +211,28 @@ update ADDRESSBOOK_OBJECT_REVISIONS
 			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME = 'addressbook'
   	);
 
+-- delete rows for shared and non-default address books
+delete 
+	from ADDRESSBOOK_OBJECT_REVISIONS
+	where exists (
+		select *
+			from ADDRESSBOOK_BIND
+		where 
+			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_ID = ADDRESSBOOK_OBJECT_REVISIONS.ADDRESSBOOK_RESOURCE_ID and (
+				ADDRESSBOOK_BIND.BIND_MODE != 0 or 	-- CALENDAR_BIND_MODE 'own'
+	 			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME != 'addressbook'
+	 		)
+  	);
+
 alter table ADDRESSBOOK_OBJECT_REVISIONS
 	drop column	ADDRESSBOOK_RESOURCE_ID;
 
-----------------------------------------------------------------------------
--- delete RESOURCE_PROPERTY rows for shared and non-default address books --
-----------------------------------------------------------------------------
 
+-------------------------------
+-- change  RESOURCE_PROPERTY --
+-------------------------------
+
+-- delete rows for shared and non-default address books
 delete 
 	from RESOURCE_PROPERTY
 	where exists (

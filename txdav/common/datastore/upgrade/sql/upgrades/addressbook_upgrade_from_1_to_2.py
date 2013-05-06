@@ -16,8 +16,13 @@
 # #
 
 from twisted.internet.defer import inlineCallbacks
-from txdav.common.datastore.upgrade.sql.upgrades.util import updateAddressBookDataVersion
-
+#from txdav.carddav.datastore.util import validateAddressBookComponent
+from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
+    _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema
+    #KIND, RESOURCE_ID
+from txdav.common.datastore.upgrade.sql.upgrades.util import updateAddressBookDataVersion, \
+    doToEachHomeNotAtVersion
+from twext.enterprise.dal.syntax import Update
 """
 AddressBook Data upgrade from database version 1 to 2
 """
@@ -27,8 +32,43 @@ UPGRADE_TO_VERSION = 2
 @inlineCallbacks
 def doUpgrade(sqlStore):
     """
-    Do the required upgrade steps.
+    fill in members tables and increment data version
     """
+    yield populateMembersTables(sqlStore)
 
     # bump data version
     yield updateAddressBookDataVersion(sqlStore, UPGRADE_TO_VERSION)
+
+
+@inlineCallbacks
+def populateMembersTables(sqlStore):
+    """
+    Set the group kind and and members tables
+    """
+    @inlineCallbacks
+    def doIt(txn, homeResourceID):
+        """
+        KIND is set to person by schema upgrade.
+        To upgrade MEMBERS and FOREIGN_MEMBERS:
+            1. Set group KIND (avoids assert)
+            2. Write groups.  Write logic will fill in MEMBERS and FOREIGN_MEMBERS
+                (Remember that all members resource IDs must already be in the address book).
+        """
+        home = yield txn.addressbookHomeWithResourceID(homeResourceID)
+        abObjectResources = yield home.addressbook().objectResources()
+        for abObject in abObjectResources:
+            component = yield abObject.component()
+            lcResourceKind = component.resourceKind().lower() if component.resourceKind() else component.resourceKind();
+            if lcResourceKind == "group":
+                # update kind
+                abo = schema.ADDRESSBOOK_OBJECT
+                yield Update({abo.KIND: _ABO_KIND_GROUP},
+                                Where=abo.RESOURCE_ID == abObject._resourceID,
+                                ).on(txn)
+                abObject._kind = _ABO_KIND_GROUP
+                #update rest
+                yield abObject.setComponent(component)
+
+
+    # Do this to each calendar home not already at version 2
+    yield doToEachHomeNotAtVersion(sqlStore, schema.ADDRESSBOOK_HOME, UPGRADE_TO_VERSION, doIt)
