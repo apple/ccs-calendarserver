@@ -85,6 +85,10 @@
     <key>ServerRoot</key>
     <string>%(ServerRoot)s</string>
 
+    <!-- Database root -->
+    <key>DatabaseRoot</key>
+    <string>%(DatabaseRoot)s</string>
+
     <!-- Data root -->
     <key>DataRoot</key>
     <string>Data</string>

@@ -31,6 +31,7 @@ from twistedcaldav.test.util import TestCase, CapturingProcessProtocol,\
 from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools.principals import (parseCreationArgs, matchStrings,
     updateRecord, principalForPrincipalID, getProxies, setProxies)
+from txdav.common.datastore.test.util import SQLStoreBuilder
 
 
 class ManagePrincipalsTestCase(TestCase):
@@ -49,9 +50,13 @@ class ManagePrincipalsTestCase(TestCase):
         template = templateFile.read()
         templateFile.close()
 
+        # Use the same DatabaseRoot as the SQLStoreBuilder
+        databaseRoot = os.path.abspath(SQLStoreBuilder.SHARED_DB_PATH)
+
         newConfig = template % {
             "ServerRoot" : os.path.abspath(config.ServerRoot),
             "DataRoot" : os.path.abspath(config.DataRoot),
+            "DatabaseRoot" : databaseRoot,
             "DocumentRoot" : os.path.abspath(config.DocumentRoot),
             "LogRoot" : os.path.abspath(config.LogRoot),
         }
