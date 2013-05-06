@@ -14,26 +14,26 @@
 # limitations under the License.
 ##
 
-from xml.etree.cElementTree import XML
+from twext.web2 import responsecode
+from twext.web2.dav.util import allDataFromStream
+from twext.web2.http_headers import MimeType
+from twext.web2.iweb import IResponse
 
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+
+from twistedcaldav import customxml
+from twistedcaldav import sharing
+from twistedcaldav.config import config
+from twistedcaldav.resource import CalDAVResource
+from twistedcaldav.sharing import WikiDirectoryService
+from twistedcaldav.test.test_cache import StubResponseCacheResource
+from twistedcaldav.test.util import norequest, StoreTestCase, SimpleStoreRequest
+
+from txdav.caldav.icalendarstore import BIND_DIRECT
 from txdav.xml import element as davxml
 from txdav.xml.parser import WebDAVDocument
 
-from twext.web2 import responsecode
-from twext.web2.test.test_server import SimpleRequest
-
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from twistedcaldav import customxml
-from twistedcaldav.config import config
-from twistedcaldav.test.util import HomeTestCase, norequest
-from twistedcaldav import sharing
-from twistedcaldav.sharing import WikiDirectoryService
-
-from twistedcaldav.resource import CalDAVResource
-
-from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
-from txdav.caldav.icalendarstore import BIND_DIRECT
-from twistedcaldav.test.test_cache import StubResponseCacheResource
+from xml.etree.cElementTree import XML
 
 
 sharedOwnerType = davxml.ResourceType.sharedownercalendar #@UndefinedVariable
@@ -91,9 +91,8 @@ class FakePrincipal(object):
 
     @inlineCallbacks
     def calendarHome(self, request):
-        a, seg = yield self._test.homeProvisioner.locateChild(request,
-                                                              ["__uids__"])
-        b, seg = yield a.locateChild(request, [self._name])
+        a, _ignore_seg = yield self._test.calendarCollection.locateChild(request, ["__uids__"])
+        b, _ignore_seg = yield a.locateChild(request, [self._name])
         if b is None:
             # XXX all tests except test_noWikiAccess currently rely on the
             # fake thing here.
@@ -114,7 +113,7 @@ class FakePrincipal(object):
 
 
 
-class SharingTests(HomeTestCase):
+class SharingTests(StoreTestCase):
 
     def configure(self):
         """
@@ -127,8 +126,6 @@ class SharingTests(HomeTestCase):
 
     @inlineCallbacks
     def setUp(self):
-        self.calendarStore = yield buildStore(self, StubNotifierFactory())
-
         yield super(SharingTests, self).setUp()
 
         def patched(c):
@@ -177,9 +174,7 @@ class SharingTests(HomeTestCase):
         def principalForUID(resourceSelf, principalUID):
             return FakePrincipal("urn:uuid:" + principalUID, self)
 
-
-    def createDataStore(self):
-        return self.calendarStore
+        self.resource = yield self._getResource()
 
 
     @inlineCallbacks
@@ -195,9 +190,29 @@ class SharingTests(HomeTestCase):
         returnValue(result)
 
 
+    @inlineCallbacks
     def _doPOST(self, body, resultcode=responsecode.OK):
-        return self.simpleSend("POST", "/calendar/", body,
-                               resultcode=resultcode)
+        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user01/calendar/", content=body, authid="user01")
+        request.headers.setHeader("content-type", MimeType("text", "xml"))
+        response = yield self.send(request)
+        response = IResponse(response)
+        self.assertEqual(response.code, resultcode)
+
+        # Reload resource
+        self.resource = yield self._getResource()
+
+        if response.stream:
+            data = yield allDataFromStream(response.stream)
+            returnValue(data)
+        else:
+            returnValue(None)
+
+
+    @inlineCallbacks
+    def _getResource(self):
+        request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/calendar/")
+        resource = yield request.locateResource("/calendars/__uids__/user01/calendar/")
+        returnValue(resource)
 
 
     def _clearUIDElementValue(self, xml):
@@ -214,16 +229,16 @@ class SharingTests(HomeTestCase):
 
         rtype = self.resource.resourceType()
         self.assertEquals(rtype, regularCalendarType)
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertFalse(isShared)
         isShareeCollection = self.resource.isShareeCollection()
         self.assertFalse(isShareeCollection)
 
-        self.resource.upgradeToShare()
+        yield self.resource.upgradeToShare()
 
         rtype = self.resource.resourceType()
         self.assertEquals(rtype, sharedOwnerType)
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertTrue(isShared)
         isShareeCollection = self.resource.isShareeCollection()
         self.assertFalse(isShareeCollection)
@@ -232,11 +247,11 @@ class SharingTests(HomeTestCase):
     @inlineCallbacks
     def test_downgradeFromShare(self):
 
-        self.resource.upgradeToShare()
+        yield self.resource.upgradeToShare()
 
         rtype = self.resource.resourceType()
         self.assertEquals(rtype, sharedOwnerType)
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertTrue(isShared)
         isShareeCollection = self.resource.isShareeCollection()
         self.assertFalse(isShareeCollection)
@@ -245,7 +260,7 @@ class SharingTests(HomeTestCase):
 
         rtype = self.resource.resourceType()
         self.assertEquals(rtype, regularCalendarType)
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertFalse(isShared)
         isShareeCollection = self.resource.isShareeCollection()
         self.assertFalse(isShareeCollection)
@@ -254,7 +269,7 @@ class SharingTests(HomeTestCase):
     @inlineCallbacks
     def test_POSTaddInviteeAlreadyShared(self):
 
-        self.resource.upgradeToShare()
+        yield self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
             <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -277,7 +292,7 @@ class SharingTests(HomeTestCase):
             )
         ))
 
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertTrue(isShared)
         isShareeCollection = self.resource.isShareeCollection()
         self.assertFalse(isShareeCollection)
@@ -307,7 +322,7 @@ class SharingTests(HomeTestCase):
             )
         ))
 
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertTrue(isShared)
         isShareeCollection = (yield self.resource.isShareeCollection())
         self.assertFalse(isShareeCollection)
@@ -316,7 +331,7 @@ class SharingTests(HomeTestCase):
     @inlineCallbacks
     def test_POSTupdateInvitee(self):
 
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertFalse(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
@@ -329,7 +344,7 @@ class SharingTests(HomeTestCase):
             </CS:share>
             """)
 
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertTrue(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
@@ -342,7 +357,7 @@ class SharingTests(HomeTestCase):
             </CS:share>
             """)
 
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertTrue(isShared)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
@@ -360,7 +375,7 @@ class SharingTests(HomeTestCase):
     @inlineCallbacks
     def test_POSTremoveInvitee(self):
 
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertFalse(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
@@ -373,7 +388,7 @@ class SharingTests(HomeTestCase):
             </CS:share>
             """)
 
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertTrue(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
@@ -384,7 +399,7 @@ class SharingTests(HomeTestCase):
             </CS:share>
             """)
 
-        isShared = (yield self.resource.isShared(None))
+        isShared = self.resource.isShared()
         self.assertFalse(isShared)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
@@ -394,7 +409,7 @@ class SharingTests(HomeTestCase):
     @inlineCallbacks
     def test_POSTaddMoreInvitees(self):
 
-        self.resource.upgradeToShare()
+        yield self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
             <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -449,7 +464,7 @@ class SharingTests(HomeTestCase):
     @inlineCallbacks
     def test_POSTaddRemoveInvitees(self):
 
-        self.resource.upgradeToShare()
+        yield self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
             <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -496,10 +511,11 @@ class SharingTests(HomeTestCase):
             ),
         ))
 
+
     @inlineCallbacks
     def test_POSTaddRemoveSameInvitee(self):
 
-        self.resource.upgradeToShare()
+        yield self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
             <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -555,7 +571,7 @@ class SharingTests(HomeTestCase):
         removed the sharee.
         """
 
-        self.resource.upgradeToShare()
+        yield self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
             <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
@@ -595,7 +611,7 @@ class SharingTests(HomeTestCase):
 
     @inlineCallbacks
     def test_POSTaddInvalidInvitee(self):
-        self.resource.upgradeToShare()
+        yield self.resource.upgradeToShare()
 
         data = (yield self._doPOST(
             """<?xml version="1.0" encoding="utf-8" ?>
@@ -633,12 +649,12 @@ class SharingTests(HomeTestCase):
     @inlineCallbacks
     def test_POSTremoveInvalidInvitee(self):
 
-        self.resource.upgradeToShare()
+        yield self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
             <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
                 <CS:set>
-                    <D:href>mailto:user01@example.com</D:href>
+                    <D:href>mailto:user02@example.com</D:href>
                     <CS:summary>My Shared Calendar</CS:summary>
                     <CS:read-write/>
                 </CS:set>
@@ -649,8 +665,8 @@ class SharingTests(HomeTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user01"),
-                customxml.CommonName.fromString("USER01"),
+                davxml.HRef.fromString("urn:uuid:user02"),
+                customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             )
@@ -664,8 +680,8 @@ class SharingTests(HomeTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user01"),
-                customxml.CommonName.fromString("user01"),
+                davxml.HRef.fromString("urn:uuid:user02"),
+                customxml.CommonName.fromString("user02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusInvalid(),
             )
@@ -674,7 +690,7 @@ class SharingTests(HomeTestCase):
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
             <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
                 <CS:remove>
-                    <D:href>mailto:user01@example.com</D:href>
+                    <D:href>mailto:user02@example.com</D:href>
                 </CS:remove>
             </CS:share>
             """)
@@ -690,17 +706,19 @@ class SharingTests(HomeTestCase):
         home is at /.  Return the name of the newly shared calendar in the
         sharee's home.
         """
-        wcreate = self.calendarStore.newTransaction("create wiki")
+        wcreate = self._sqlCalendarStore.newTransaction("create wiki")
         yield wcreate.calendarHomeWithUID("wiki-testing", create=True)
         yield wcreate.commit()
-        self.directoryFixture.addDirectoryService(WikiDirectoryService())
 
-        txn = self.site.resource._associatedTransaction
-        sharee = self.site.resource._newStoreHome
+        newService = WikiDirectoryService()
+        newService.realmName = self.directory.realmName
+        self.directory.addService(newService)
+
+        txn = self.transactionUnderTest()
+        sharee = yield self.homeUnderTest(name="user01")
         sharer = yield txn.calendarHomeWithUID("wiki-testing")
         cal = yield sharer.calendarWithName("calendar")
         sharedName = yield cal.shareWith(sharee, BIND_DIRECT)
-        yield self._refreshRoot()
         returnValue(sharedName)
 
 
@@ -718,8 +736,8 @@ class SharingTests(HomeTestCase):
         self.patch(sharing, "getWikiAccess", stubWikiAccessMethod)
 
         sharedName = yield self.wikiSetup()
-        request = SimpleRequest(self.site, "GET", "/404")
-        collection = yield request.locateResource("/" + sharedName)
+        request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/")
+        collection = yield request.locateResource("/calendars/__uids__/user01/" + sharedName)
 
         # Simulate the wiki server granting Read access
         acl = (yield collection.shareeAccessControlList(request))
@@ -745,10 +763,12 @@ class SharingTests(HomeTestCase):
         self.patch(sharing, "getWikiAccess", stubWikiAccessMethod)
         @inlineCallbacks
         def listChildrenViaPropfind():
-            data = yield self.simpleSend(
-                "PROPFIND", "/", resultcode=responsecode.MULTI_STATUS,
-                headers=[('Depth', '1')]
-            )
+            request = SimpleStoreRequest(self, "PROPFIND", "/calendars/__uids__/user01/", authid="user01")
+            request.headers.setHeader("depth", "1")
+            response = yield self.send(request)
+            response = IResponse(response)
+            data = yield allDataFromStream(response.stream)
+
             tree = XML(data)
             seq = [e.text for e in tree.findall("{DAV:}response/{DAV:}href")]
             shortest = min(seq, key=len)
@@ -760,7 +780,3 @@ class SharingTests(HomeTestCase):
         access = "no-access"
         childNames = yield listChildrenViaPropfind()
         self.assertNotIn(sharedName, childNames)
-
-
-
-

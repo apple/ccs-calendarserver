@@ -22,18 +22,17 @@ Tests for calendarserver.tools.calverify
 from calendarserver.tools.calverify import BadDataService, \
     SchedulingMismatchService, DoubleBookingService, DarkPurgeService
 
-from StringIO import StringIO
-from calendarserver.tap.util import getRootResource
 from pycalendar.datetime import PyCalendarDateTime
+
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.trial import unittest
-from twistedcaldav import caldavxml
+from twisted.internet.defer import inlineCallbacks
+
 from twistedcaldav.config import config
-from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.datastore import util
-from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
-from txdav.xml import element as davxml
+from twistedcaldav.test.util import StoreTestCase
+
+from txdav.common.datastore.test.util import populateCalendarsFrom
+
+from StringIO import StringIO
 import os
 
 
@@ -415,7 +414,7 @@ END:VCALENDAR
 
 
 
-class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
+class CalVerifyDataTests(StoreTestCase):
     """
     Tests calverify for iCalendar data problems.
     """
@@ -430,7 +429,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
 
     requirements = {
         "home1" : {
-            "calendar1" : {
+            "calendar_1" : {
                 "ok.ics"   : (OK_ICS, metadata,),
                 "bad1.ics" : (BAD1_ICS, metadata,),
                 "bad2.ics" : (BAD2_ICS, metadata,),
@@ -448,12 +447,8 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         },
     }
 
-    @inlineCallbacks
-    def setUp(self):
-        yield super(CalVerifyDataTests, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
-        yield self.populate()
-
+    def configure(self):
+        super(CalVerifyDataTests, self).configure()
         self.patch(config.DirectoryService.params, "xmlFile",
             os.path.join(
                 os.path.dirname(__file__), "calverify", "accounts.xml"
@@ -465,17 +460,12 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
             )
         )
 
-        self.rootResource = getRootResource(config, self._sqlCalendarStore)
-        self.directory = self.rootResource.getDirectory()
-
 
     @inlineCallbacks
     def populate(self):
 
         # Need to bypass normal validation inside the store
-        util.validationBypass = True
-        yield populateCalendarsFrom(self.requirements, self.storeUnderTest(), migrating=True)
-        util.validationBypass = False
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
 
@@ -484,36 +474,6 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         Create and return a L{CalendarStore} for testing.
         """
         return self._sqlCalendarStore
-
-
-    @inlineCallbacks
-    def homeUnderTest(self, txn=None):
-        """
-        Get the calendar home detailed by C{requirements['home1']}.
-        """
-        if txn is None:
-            txn = self.transactionUnderTest()
-        returnValue((yield txn.calendarHomeWithUID("home1")))
-
-
-    @inlineCallbacks
-    def calendarUnderTest(self, txn=None):
-        """
-        Get the calendar detailed by C{requirements['home1']['calendar1']}.
-        """
-        returnValue((yield
-            (yield self.homeUnderTest(txn)).calendarWithName("calendar1"))
-        )
-
-
-    @inlineCallbacks
-    def calendarObjectUnderTest(self, name, txn=None):
-        """
-        Get the calendar object detailed by C{requirements[home_name][calendar_name][name]}.
-        """
-        returnValue((yield
-            (yield self.calendarUnderTest(txn)).calendarObjectWithName(name))
-        )
 
 
     def verifyResultsByUID(self, results, expected):
@@ -622,7 +582,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         self.assertNotEqual(sync_token_old, sync_token_new)
 
         # Make sure mailto: fix results in urn:uuid value without SCHEDULE-AGENT
-        obj = yield self.calendarObjectUnderTest("bad10.ics")
+        obj = yield self.calendarObjectUnderTest(name="bad10.ics")
         ical = yield obj.component()
         org = ical.getOrganizerProperty()
         self.assertEqual(org.value(), "urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0")
@@ -939,7 +899,7 @@ END:VCALENDAR
 
 
 
-class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
+class CalVerifyMismatchTestsBase(StoreTestCase):
     """
     Tests calverify for iCalendar mismatch problems.
     """
@@ -957,18 +917,8 @@ class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
     uuid3 = "AC478592-7783-44D1-B2AE-52359B4E8415"
     uuidl1 = "75EA36BE-F71B-40F9-81F9-CF59BF40CA8F"
 
-    @inlineCallbacks
-    def setUp(self):
-        yield super(CalVerifyMismatchTestsBase, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
-        yield self.populate()
-
-        inbox = (yield self.calendarUnderTest(self.uuid3, "inbox"))
-        inbox.properties()[PropertyName.fromElement(caldavxml.ScheduleDefaultCalendarURL)] = caldavxml.ScheduleDefaultCalendarURL(
-            davxml.HRef.fromString("/calendars/__uids__/%s/calendar2/" % (self.uuid3,))
-        )
-        yield self.commit()
-
+    def configure(self):
+        super(CalVerifyMismatchTestsBase, self).configure()
         self.patch(config.DirectoryService.params, "xmlFile",
             os.path.join(
                 os.path.dirname(__file__), "calverify", "accounts.xml"
@@ -984,55 +934,15 @@ class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
                 os.path.dirname(__file__), "calverify", "augments.xml"
             ), ]
         )
-        self.rootResource = getRootResource(config, self._sqlCalendarStore)
-        self.directory = self.rootResource.getDirectory()
 
 
     @inlineCallbacks
     def populate(self):
 
         # Need to bypass normal validation inside the store
-        util.validationBypass = True
-        yield populateCalendarsFrom(self.requirements, self.storeUnderTest(), migrating=True)
-        util.validationBypass = False
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlCalendarStore
-
-
-    @inlineCallbacks
-    def homeUnderTest(self, name=None, txn=None):
-        """
-        Get the calendar home detailed by C{requirements[name]}.
-        """
-        if txn is None:
-            txn = self.transactionUnderTest()
-        returnValue((yield txn.calendarHomeWithUID(name)))
-
-
-    @inlineCallbacks
-    def calendarUnderTest(self, home_name, name="calendar", txn=None):
-        """
-        Get the calendar detailed by C{requirements[home_name][name]}.
-        """
-        returnValue((yield
-            (yield self.homeUnderTest(home_name, txn)).calendarWithName(name))
-        )
-
-
-    @inlineCallbacks
-    def calendarObjectUnderTest(self, home_name, calendar_name, name, txn=None):
-        """
-        Get the calendar object detailed by C{requirements[home_name][calendar_name][name]}.
-        """
-        returnValue((yield
-            (yield self.calendarUnderTest(home_name, calendar_name, txn)).calendarObjectWithName(name))
-        )
 
 now = PyCalendarDateTime.getToday()
 now.setDay(1)
@@ -1464,15 +1374,25 @@ END:VCALENDAR
     }
 
     @inlineCallbacks
+    def setUp(self):
+        yield super(CalVerifyMismatchTestsNonRecurring, self).setUp()
+
+        home = (yield self.homeUnderTest(name=self.uuid3))
+        calendar = (yield self.calendarUnderTest(name="calendar2", home=self.uuid3))
+        yield home.setDefaultCalendar(calendar)
+        yield self.commit()
+
+
+    @inlineCallbacks
     def test_scanMismatchOnly(self):
         """
         CalVerifyService.doScan without fix for mismatches. Make sure it detects
         as much as it can. Make sure sync-token is not changed.
         """
 
-        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_old2 = (yield (yield self.calendarUnderTest(self.uuid2)).syncToken())
-        sync_token_old3 = (yield (yield self.calendarUnderTest(self.uuid3)).syncToken())
+        sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_old2 = (yield (yield self.calendarUnderTest(home=self.uuid2, name="calendar")).syncToken())
+        sync_token_old3 = (yield (yield self.calendarUnderTest(home=self.uuid3, name="calendar")).syncToken())
         self.commit()
 
         options = {
@@ -1522,9 +1442,9 @@ END:VCALENDAR
         self.assertTrue("Fix failures" not in calverify.results)
         self.assertTrue("Auto-Accepts" not in calverify.results)
 
-        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_new2 = (yield (yield self.calendarUnderTest(self.uuid2)).syncToken())
-        sync_token_new3 = (yield (yield self.calendarUnderTest(self.uuid3)).syncToken())
+        sync_token_new1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_new2 = (yield (yield self.calendarUnderTest(home=self.uuid2, name="calendar")).syncToken())
+        sync_token_new3 = (yield (yield self.calendarUnderTest(home=self.uuid3, name="calendar")).syncToken())
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertEqual(sync_token_old2, sync_token_new2)
         self.assertEqual(sync_token_old3, sync_token_new3)
@@ -1537,9 +1457,9 @@ END:VCALENDAR
         and fixes as much as it can. Make sure sync-token is not changed.
         """
 
-        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_old2 = (yield (yield self.calendarUnderTest(self.uuid2)).syncToken())
-        sync_token_old3 = (yield (yield self.calendarUnderTest(self.uuid3)).syncToken())
+        sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_old2 = (yield (yield self.calendarUnderTest(home=self.uuid2, name="calendar")).syncToken())
+        sync_token_old3 = (yield (yield self.calendarUnderTest(home=self.uuid3, name="calendar")).syncToken())
         self.commit()
 
         options = {
@@ -1613,19 +1533,19 @@ END:VCALENDAR
             (self.uuid3, "calendar", "missing_organizer.ics",),
             (self.uuid3, "calendar", "mismatched2_organizer.ics",),
         )))
-        obj = yield self.calendarObjectUnderTest(self.uuid2, "calendar", "missing_organizer.ics")
+        obj = yield self.calendarObjectUnderTest(home=self.uuid2, calendar_name="calendar", name="missing_organizer.ics")
         self.assertEqual(obj, None)
-        obj = yield self.calendarObjectUnderTest(self.uuid3, "calendar", "missing_organizer.ics")
+        obj = yield self.calendarObjectUnderTest(home=self.uuid3, calendar_name="calendar", name="missing_organizer.ics")
         self.assertEqual(obj, None)
-        obj = yield self.calendarObjectUnderTest(self.uuid3, "calendar", "mismatched2_organizer.ics")
+        obj = yield self.calendarObjectUnderTest(home=self.uuid3, calendar_name="calendar", name="mismatched2_organizer.ics")
         self.assertEqual(obj, None)
 
         self.assertEqual(calverify.results["Fix failures"], 0)
         self.assertEqual(calverify.results["Auto-Accepts"], [])
 
-        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_new2 = (yield (yield self.calendarUnderTest(self.uuid2)).syncToken())
-        sync_token_new3 = (yield (yield self.calendarUnderTest(self.uuid3)).syncToken())
+        sync_token_new1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_new2 = (yield (yield self.calendarUnderTest(home=self.uuid2, name="calendar")).syncToken())
+        sync_token_new3 = (yield (yield self.calendarUnderTest(home=self.uuid3, name="calendar")).syncToken())
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertNotEqual(sync_token_old2, sync_token_new2)
         self.assertNotEqual(sync_token_old3, sync_token_new3)
@@ -1747,8 +1667,8 @@ END:VCALENDAR
         as much as it can. Make sure sync-token is not changed.
         """
 
-        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.commit()
 
         options = {
@@ -1785,8 +1705,8 @@ END:VCALENDAR
         self.assertTrue("Fix failures" not in calverify.results)
         self.assertTrue("Auto-Accepts" not in calverify.results)
 
-        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_new1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertEqual(sync_token_oldl1, sync_token_newl1)
 
@@ -1798,8 +1718,8 @@ END:VCALENDAR
         and fixes as much as it can. Make sure sync-token is not changed.
         """
 
-        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.commit()
 
         options = {
@@ -1852,8 +1772,8 @@ END:VCALENDAR
         self.assertEqual(testResults[1]["uid"], "MISSING_ATTENDEE_ICS")
         self.assertEqual(testResults[1]["start"].getText()[:8], "%(year)s%(month)02d07" % {"year": nowYear, "month": nowMonth})
 
-        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_new1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
@@ -1974,8 +1894,8 @@ END:VCALENDAR
         as much as it can. Make sure sync-token is not changed.
         """
 
-        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.commit()
 
         options = {
@@ -2010,8 +1930,8 @@ END:VCALENDAR
         self.assertTrue("Fix failures" not in calverify.results)
         self.assertTrue("Auto-Accepts" not in calverify.results)
 
-        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_new1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertEqual(sync_token_oldl1, sync_token_newl1)
 
@@ -2023,8 +1943,8 @@ END:VCALENDAR
         and fixes as much as it can. Make sure sync-token is not changed.
         """
 
-        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.commit()
 
         options = {
@@ -2070,8 +1990,8 @@ END:VCALENDAR
         self.assertEqual(testResults[0]["uid"], "MISMATCH_ATTENDEE_ICS")
         self.assertEqual(testResults[0]["start"].getText()[:8], "%(year)s%(month)02d07" % {"year": nowYear, "month": nowMonth})
 
-        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_new1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
@@ -2483,8 +2403,8 @@ END:VCALENDAR
         as much as it can. Make sure sync-token is not changed.
         """
 
-        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.commit()
 
         options = {
@@ -2520,8 +2440,8 @@ END:VCALENDAR
         self.assertEqual(calverify.results["Number of double-bookings"], 4)
         self.assertEqual(calverify.results["Number of unique double-bookings"], 3)
 
-        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
-        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_new1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertEqual(sync_token_oldl1, sync_token_newl1)
 
@@ -2646,7 +2566,7 @@ END:VCALENDAR
         as much as it can. Make sure sync-token is not changed.
         """
 
-        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.commit()
 
         options = {
@@ -2682,7 +2602,7 @@ END:VCALENDAR
         self.assertTrue("Fix dark events" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
 
-        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertEqual(sync_token_oldl1, sync_token_newl1)
 
 
@@ -2693,7 +2613,7 @@ END:VCALENDAR
         as much as it can. Make sure sync-token is changed.
         """
 
-        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.commit()
 
         options = {
@@ -2729,7 +2649,7 @@ END:VCALENDAR
         self.assertEqual(calverify.results["Fix dark events"], 2)
         self.assertTrue("Fix remove" in calverify.results)
 
-        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
@@ -2752,7 +2672,7 @@ END:VCALENDAR
         as much as it can. Make sure sync-token is changed.
         """
 
-        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.commit()
 
         options = {
@@ -2788,7 +2708,7 @@ END:VCALENDAR
         self.assertEqual(calverify.results["Fix dark events"], 1)
         self.assertTrue("Fix remove" in calverify.results)
 
-        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
@@ -2811,7 +2731,7 @@ END:VCALENDAR
         as much as it can. Make sure sync-token is changed.
         """
 
-        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.commit()
 
         options = {
@@ -2847,7 +2767,7 @@ END:VCALENDAR
         self.assertEqual(calverify.results["Fix dark events"], 3)
         self.assertTrue("Fix remove" in calverify.results)
 
-        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors

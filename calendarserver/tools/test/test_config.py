@@ -32,6 +32,7 @@ class WritableConfigTestCase(TestCase):
         self.configFile = self.mktemp()
         self.fp = FilePath(self.configFile)
 
+
     def test_readSuccessful(self):
         content = """<plist version="1.0">
     <dict>
@@ -44,13 +45,15 @@ class WritableConfigTestCase(TestCase):
         config = ConfigDict()
         writable = WritableConfig(config, self.configFile)
         writable.read()
-        self.assertEquals(writable.currentConfigSubset, {"string":"foo"})
+        self.assertEquals(writable.currentConfigSubset, {"string": "foo"})
+
 
     def test_readInvalidXML(self):
         self.fp.setContent("invalid")
         config = ConfigDict()
         writable = WritableConfig(config, self.configFile)
         self.assertRaises(ExpatError, writable.read)
+
 
     def test_updates(self):
         content = """<plist version="1.0">
@@ -65,16 +68,17 @@ class WritableConfigTestCase(TestCase):
         config = ConfigDict()
         writable = WritableConfig(config, self.configFile)
         writable.read()
-        writable.set({"key1":"after"})
-        writable.set({"key2":15})
-        writable.set({"key2":20}) # override previous set
-        writable.set({"key3":["a", "b", "c"]})
-        self.assertEquals(writable.currentConfigSubset, {"key1":"after", "key2":20, "key3":["a", "b", "c"]})
+        writable.set({"key1": "after"})
+        writable.set({"key2": 15})
+        writable.set({"key2": 20}) # override previous set
+        writable.set({"key3": ["a", "b", "c"]})
+        self.assertEquals(writable.currentConfigSubset, {"key1": "after", "key2": 20, "key3": ["a", "b", "c"]})
         writable.save()
 
         writable2 = WritableConfig(config, self.configFile)
         writable2.read()
-        self.assertEquals(writable2.currentConfigSubset, {"key1":"after", "key2":20, "key3":["a", "b", "c"]})
+        self.assertEquals(writable2.currentConfigSubset, {"key1": "after", "key2": 20, "key3": ["a", "b", "c"]})
+
 
     def test_convertToValue(self):
         self.assertEquals(True, WritableConfig.convertToValue("True"))
@@ -83,6 +87,7 @@ class WritableConfigTestCase(TestCase):
         self.assertEquals(1.2, WritableConfig.convertToValue("1.2"))
         self.assertEquals("xyzzy", WritableConfig.convertToValue("xyzzy"))
         self.assertEquals("xy.zzy", WritableConfig.convertToValue("xy.zzy"))
+
 
 
 class ConfigTestCase(RunCommandTestCase):
@@ -106,7 +111,8 @@ class ConfigTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/calendar.cer")
 
         # Verify not all keys are present, such as ServerRoot which is not writable
-        self.assertFalse(results["result"].has_key("ServerRoot"))
+        self.assertFalse("ServerRoot" in results["result"])
+
 
     @inlineCallbacks
     def test_writeConfig(self):
@@ -127,6 +133,7 @@ class ConfigTestCase(RunCommandTestCase):
         # The static plist should still have EnableCalDAV = True
         staticPlist = plistlib.readPlist(self.configFileName)
         self.assertTrue(staticPlist["EnableCalDAV"])
+
 
     @inlineCallbacks
     def test_error(self):
@@ -159,6 +166,7 @@ class ConfigTestCase(RunCommandTestCase):
         self.assertEquals(getKeyPath(d, "two.two"), "E")
         self.assertEquals(getKeyPath(d, "three.one.one"), "F")
         self.assertEquals(getKeyPath(d, "three.one.two"), "G")
+
 
     def test_flattenDictionary(self):
         dictionary = {

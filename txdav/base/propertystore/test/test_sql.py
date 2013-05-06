@@ -148,6 +148,7 @@ class PropertyStoreTest(PropertyStoreTest):
                   'b': pval2}[race[-1]]
         self.assertEquals(self.propertyStore[pname], winner)
 
+
     @inlineCallbacks
     def test_copy(self):
 
@@ -182,7 +183,7 @@ class PropertyStoreTest(PropertyStoreTest):
 
         # Do copy and check results
         yield store2_user1.copyAllProperties(store1_user1)
-        
+
         self.assertEqual(store1_user1.keys(), store2_user1.keys())
 
         store1_user2 = yield PropertyStore.load("user01", "user02", self._txn, 2)
@@ -190,7 +191,23 @@ class PropertyStoreTest(PropertyStoreTest):
         self.assertEqual(store1_user2.keys(), store2_user2.keys())
 
 
+    @inlineCallbacks
+    def test_insert_delete(self):
+
+        # Existing store
+        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 2)
+
+        pname = propertyName("dummy1")
+        pvalue = propertyValue("value1-user1")
+
+        yield store1_user1.__setitem__(pname, pvalue)
+        self.assertEqual(store1_user1[pname], pvalue)
+
+        yield store1_user1.__delitem__(pname)
+        self.assertTrue(pname not in store1_user1)
+
+        yield store1_user1.__setitem__(pname, pvalue)
+        self.assertEqual(store1_user1[pname], pvalue)
+
 if PropertyStore is None:
     PropertyStoreTest.skip = importErrorMessage
-
-

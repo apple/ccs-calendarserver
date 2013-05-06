@@ -24,7 +24,8 @@ from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.resource import CalDAVResource, CommonHomeResource, \
  CalendarHomeResource, AddressBookHomeResource
-from twistedcaldav.test.util import InMemoryPropertyStore
+from twistedcaldav.test.util import InMemoryPropertyStore, StoreTestCase, \
+    SimpleStoreRequest
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.notifications import NotificationCollectionResource
 
@@ -33,21 +34,29 @@ class StubProperty(object):
     def qname(self):
         return "StubQnamespace", "StubQname"
 
+
+
 class StubHome(object):
     def properties(self):
         return []
-    
+
+
     def addNotifier(self, notifier):
         pass
+
 
     def nodeName(self):
         return "xyzzy" if self.pushWorking else None
 
+
     def notifierID(self):
         return "xyzzy"
 
+
     def setPushWorking(self, status):
         self.pushWorking = status
+
+
 
 class CalDAVResourceTests(TestCase):
     def setUp(self):
@@ -55,11 +64,14 @@ class CalDAVResourceTests(TestCase):
         self.resource = CalDAVResource()
         self.resource._dead_properties = InMemoryPropertyStore()
 
+
     def test_writeDeadPropertyWritesProperty(self):
         prop = StubProperty()
         self.resource.writeDeadProperty(prop)
         self.assertEquals(self.resource._dead_properties.get(("StubQnamespace", "StubQname")),
                           prop)
+
+
 
 class CommonHomeResourceTests(TestCase):
 
@@ -80,10 +92,10 @@ class CommonHomeResourceTests(TestCase):
         self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'pushkey') in resource.liveProperties())
 
+
     def test_notificationCollectionLiveProperties(self):
         resource = NotificationCollectionResource()
         self.assertTrue(('http://calendarserver.org/ns/', 'getctag') in resource.liveProperties())
-
 
 
 
@@ -170,21 +182,16 @@ class OwnershipTests(TestCase):
         self.assertEquals((yield rsrc.isOwner(request)), True)
 
 
-class DefaultAddressBook (TestCase):
 
-    def setUp(self):
-        super(DefaultAddressBook, self).setUp()
-        self.createStockDirectoryService()
-        self.setupCalendars()
+class DefaultAddressBook (StoreTestCase):
 
     @inlineCallbacks
     def test_pick_default_addressbook(self):
         """
         Make calendar
         """
-        
 
-        request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authid="wsanchez")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
 
         # default property initially not present
@@ -204,16 +211,14 @@ class DefaultAddressBook (TestCase):
         else:
             self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/addressbook/")
 
-        request._newStoreTransaction.abort()
 
     @inlineCallbacks
     def test_pick_default_other(self):
         """
         Make adbk
         """
-        
 
-        request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authid="wsanchez")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
 
         # default property not present
@@ -230,16 +235,15 @@ class DefaultAddressBook (TestCase):
         home.writeDeadProperty(carddavxml.DefaultAddressBookURL(
             HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
         ))
-        request._newStoreTransaction.commit()
-        
+
         # Delete the normal adbk
-        request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authid="wsanchez")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
         adbk = yield request.locateResource("/addressbooks/users/wsanchez/addressbook")
-        yield adbk.storeRemove(request, False, "/addressbooks/users/wsanchez/addressbook")
+        yield adbk.storeRemove(request)
 
         home.removeDeadProperty(carddavxml.DefaultAddressBookURL)
-        
+
         # default property not present
         try:
             home.readDeadProperty(carddavxml.DefaultAddressBookURL)
@@ -247,9 +251,10 @@ class DefaultAddressBook (TestCase):
             pass
         else:
             self.fail("carddavxml.DefaultAddressBookURL is not empty")
-        request._newStoreTransaction.commit()
 
-        request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
+        yield self.commit()
+
+        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authid="wsanchez")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
         yield home.pickNewDefaultAddressBook(request)
 
@@ -260,16 +265,14 @@ class DefaultAddressBook (TestCase):
         else:
             self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
 
-        request._newStoreTransaction.abort()
 
     @inlineCallbacks
     def test_fix_shared_default(self):
         """
         Make calendar
         """
-        
 
-        request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
+        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authid="wsanchez")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
 
         # Create a new default adbk
@@ -284,15 +287,13 @@ class DefaultAddressBook (TestCase):
             self.fail("carddavxml.DefaultAddressBookURL is not present")
         else:
             self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
-        
+
         # Force the new calendar to think it is a sharee collection
         newadbk._isShareeCollection = True
-        
+
         try:
             default = yield home.readProperty(carddavxml.DefaultAddressBookURL, request)
         except HTTPError:
             self.fail("carddavxml.DefaultAddressBookURL is not present")
         else:
             self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/addressbook/")
-
-        request._newStoreTransaction.abort()

@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.config import config
 
 """
 Unit tests for L{calendarsever.tools.export}.
@@ -33,6 +32,7 @@ from twext.enterprise.ienterprise import AlreadyFinishedError
 from twistedcaldav.ical import Component
 from twistedcaldav.datafilters.test.test_peruserdata import dataForTwoUsers
 from twistedcaldav.datafilters.test.test_peruserdata import resultForUser2
+from twistedcaldav.test.util import StoreTestCase
 
 from calendarserver.tools import export
 from calendarserver.tools.export import ExportOptions, main
@@ -41,7 +41,6 @@ from calendarserver.tools.export import DirectoryExporter, UIDExporter
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import Deferred
 
-from txdav.common.datastore.test.util import buildStore
 from txdav.common.datastore.test.util import populateCalendarsFrom
 
 from calendarserver.tools.export import usage, exportToFile
@@ -177,13 +176,10 @@ class CommandLine(TestCase):
 
 
 
-class IntegrationTests(TestCase):
+class IntegrationTests(StoreTestCase):
     """
     Tests for exporting data from a live store.
     """
-
-    accountsFile = 'no-accounts.xml'
-    augmentsFile = 'no-augments.xml'
 
     @inlineCallbacks
     def setUp(self):
@@ -197,7 +193,8 @@ class IntegrationTests(TestCase):
         self.mainCalled = False
         self.patch(export, "utilityMain", self.fakeUtilityMain)
 
-        self.store = yield buildStore(self, None)
+        yield super(IntegrationTests, self).setUp()
+        self.store = self.storeUnderTest()
         self.waitToStop = Deferred()
 
 
@@ -216,24 +213,6 @@ class IntegrationTests(TestCase):
         if self.mainCalled:
             raise RuntimeError(
                 "Main called twice during this test; duplicate reactor run.")
-
-        self.patch(config, "DirectoryService", dict(
-            type="twistedcaldav.directory.xmlfile.XMLDirectoryService",
-            params=dict(
-                xmlFile=self.accountsFile
-            )
-        ))
-        self.patch(config, "ResourceService", dict(
-            Enabled=False,
-            type="twistedcaldav.directory.xmlfile.XMLDirectoryService",
-            params=dict()
-        ))
-        self.patch(config, "AugmentService", dict(
-            type="twistedcaldav.directory.augment.AugmentXMLDB",
-            params=dict(
-                xmlFiles=[self.augmentsFile]
-            )
-        ))
 
         self.mainCalled = True
         self.usedConfigFile = configFileName
@@ -448,36 +427,9 @@ class IntegrationTests(TestCase):
             }, self.store
         )
 
-        augmentsData = """
-            <augments>
-              <record>
-                <uid>Default</uid>
-                <enable>true</enable>
-                <enable-calendar>true</enable-calendar>
-                <enable-addressbook>true</enable-addressbook>
-              </record>
-            </augments>
-        """
-        augments = FilePath(self.mktemp())
-        augments.setContent(augmentsData)
-
-        accountsData = """
-            <accounts realm="Test Realm">
-                <user>
-                    <uid>user-under-test</uid>
-                    <guid>user02</guid>
-                    <name>Not Interesting</name>
-                    <password>very-secret</password>
-                </user>
-            </accounts>
-        """
-        accounts = FilePath(self.mktemp())
-        accounts.setContent(accountsData)
         output = FilePath(self.mktemp())
-        self.accountsFile = accounts.path
-        self.augmentsFile = augments.path
         main(['calendarserver_export', '--output',
-              output.path, '--user', 'user-under-test'], reactor=self)
+              output.path, '--user', 'user02'], reactor=self)
 
         yield self.waitToStop
 

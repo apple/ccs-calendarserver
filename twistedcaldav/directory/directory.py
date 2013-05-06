@@ -29,6 +29,35 @@ __all__ = [
     "GroupMembershipCacheUpdater",
 ]
 
+from plistlib import readPlistFromString
+
+from twext.enterprise.dal.record import fromTable
+from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.queue import WorkItem, PeerConnectionPool
+from twext.python.log import Logger, LoggingMixIn
+from twext.web2.dav.auth import IPrincipalCredentials
+from twext.web2.dav.util import joinURL
+
+from twisted.cred.checkers import ICredentialsChecker
+from twisted.cred.error import UnauthorizedLogin
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.python.filepath import FilePath
+
+from twistedcaldav.config import config
+from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
+from twistedcaldav.directory.util import uuidFromName, normalizeUUID
+from twistedcaldav.memcacher import Memcacher
+from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
+
+from txdav.caldav.icalendardirectoryservice import ICalendarStoreDirectoryService, \
+    ICalendarStoreDirectoryRecord
+from txdav.common.datastore.sql_tables import schema
+
+from xml.parsers.expat import ExpatError
+
+from zope.interface import implements
+
 import cPickle as pickle
 import datetime
 import grp
@@ -38,36 +67,11 @@ import pwd
 import sys
 import types
 
-
-from zope.interface import implements
-
-from twisted.cred.error import UnauthorizedLogin
-from twisted.cred.checkers import ICredentialsChecker
-from twext.web2.dav.auth import IPrincipalCredentials
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
-
-from twext.python.log import Logger, LoggingMixIn
-
-from twistedcaldav.config import config
-
-from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
-from twistedcaldav.directory.util import uuidFromName, normalizeUUID
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
-from twistedcaldav.scheduling.ischedule.localservers import Servers
-from twistedcaldav.memcacher import Memcacher
-from twisted.python.filepath import FilePath
-from xml.parsers.expat import ExpatError
-from plistlib import readPlistFromString
-from twext.enterprise.dal.record import fromTable
-from twext.enterprise.queue import WorkItem, PeerConnectionPool
-from txdav.common.datastore.sql_tables import schema
-from twext.enterprise.dal.syntax import Delete
-
 log = Logger()
 
 
 class DirectoryService(LoggingMixIn):
-    implements(IDirectoryService, ICredentialsChecker)
+    implements(IDirectoryService, ICalendarStoreDirectoryService, ICredentialsChecker)
 
     ##
     # IDirectoryService
@@ -223,6 +227,14 @@ class DirectoryService(LoggingMixIn):
                     break
             else:
                 return None
+        elif address.startswith("/principals/"):
+            parts = address.split("/")
+            if len(parts) == 3:
+                if parts[1] == "__uids__":
+                    guid = parts[2]
+                    record = self.recordWithGUID(guid)
+                else:
+                    record = self.recordWithShortName(parts[1], parts[2])
 
         return record if record and record.enabledForCalendaring else None
 
@@ -548,6 +560,31 @@ class DirectoryService(LoggingMixIn):
         Create directory records in bulk
         """
         raise NotImplementedError("Subclass must implement createRecords")
+
+
+    def setPrincipalCollection(self, principalCollection):
+        """
+        Set the principal service that the directory relies on for doing proxy tests.
+
+        @param principalService: the principal service.
+        @type principalService: L{DirectoryProvisioningResource}
+        """
+        self.principalCollection = principalCollection
+
+
+    def isProxyFor(self, test, other):
+        """
+        Test whether one record is a calendar user proxy for the specified record.
+
+        @param test: record to test
+        @type test: L{DirectoryRecord}
+        @param other: record to check against
+        @type other: L{DirectoryRecord}
+
+        @return: C{True} if test is a proxy of other.
+        @rtype: C{bool}
+        """
+        return self.principalCollection.isProxyFor(test, other)
 
 
 
@@ -924,6 +961,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         returnValue((fast, len(members), len(changedMembers)))
 
 
+
 class GroupCacherPollingWork(WorkItem, fromTable(schema.GROUP_CACHER_POLLING_WORK)):
 
     group = "group_cacher_polling"
@@ -954,6 +992,7 @@ class GroupCacherPollingWork(WorkItem, fromTable(schema.GROUP_CACHER_POLLING_WOR
                 notBefore=notBefore)
 
 
+
 @inlineCallbacks
 def scheduleNextGroupCachingUpdate(store, seconds):
     txn = store.newTransaction()
@@ -964,6 +1003,7 @@ def scheduleNextGroupCachingUpdate(store, seconds):
     returnValue(wp)
 
 
+
 def schedulePolledGroupCachingUpdate(store):
     """
     Schedules a group caching update work item in "the past" so PeerConnectionPool's
@@ -971,6 +1011,7 @@ def schedulePolledGroupCachingUpdate(store):
     """
     seconds = -PeerConnectionPool.queueProcessTimeout
     return scheduleNextGroupCachingUpdate(store, seconds)
+
 
 
 def diffAssignments(old, new):
@@ -1004,7 +1045,7 @@ def diffAssignments(old, new):
 
 
 class DirectoryRecord(LoggingMixIn):
-    implements(IDirectoryRecord)
+    implements(IDirectoryRecord, ICalendarStoreDirectoryRecord)
 
     def __repr__(self):
         return "<%s[%s@%s(%s)] %s(%s) %r @ %s/#%s>" % (
@@ -1085,6 +1126,9 @@ class DirectoryRecord(LoggingMixIn):
         )
         if self.guid:
             cuas.add("urn:uuid:%s" % (self.guid,))
+            cuas.add(joinURL("/principals", "__uids__", self.guid) + "/")
+        for shortName in self.shortNames:
+            cuas.add(joinURL("/principals", self.recordType, shortName,) + "/")
 
         return frozenset(cuas)
 
@@ -1175,6 +1219,10 @@ class DirectoryRecord(LoggingMixIn):
                 self.enabledForAddressBooks = False
 
 
+    def displayName(self):
+        return self.fullName if self.fullName else self.shortNames[0]
+
+
     def isLoginEnabled(self):
         """
         Returns True if the user should be allowed to log in, based on the
@@ -1258,6 +1306,46 @@ class DirectoryRecord(LoggingMixIn):
     def verifyCredentials(self, credentials):
         return False
 
+
+    def calendarsEnabled(self):
+        return config.EnableCalDAV and self.enabledForCalendaring
+
+
+    def canonicalCalendarUserAddress(self):
+        """
+            Return a CUA for this principal, preferring in this order:
+            urn:uuid: form
+            mailto: form
+            first in calendarUserAddresses list
+        """
+
+        cua = ""
+        for candidate in self.calendarUserAddresses:
+            # Pick the first one, but urn:uuid: and mailto: can override
+            if not cua:
+                cua = candidate
+            # But always immediately choose the urn:uuid: form
+            if candidate.startswith("urn:uuid:"):
+                cua = candidate
+                break
+            # Prefer mailto: if no urn:uuid:
+            elif candidate.startswith("mailto:"):
+                cua = candidate
+        return cua
+
+
+    def enabledAsOrganizer(self):
+        if self.recordType == DirectoryService.recordType_users:
+            return True
+        elif self.recordType == DirectoryService.recordType_groups:
+            return config.Scheduling.Options.AllowGroupAsOrganizer
+        elif self.recordType == DirectoryService.recordType_locations:
+            return config.Scheduling.Options.AllowLocationAsOrganizer
+        elif self.recordType == DirectoryService.recordType_resources:
+            return config.Scheduling.Options.AllowResourceAsOrganizer
+        else:
+            return False
+
     # Mapping from directory record.recordType to RFC2445 CUTYPE values
     _cuTypes = {
         'users' : 'INDIVIDUAL',
@@ -1276,6 +1364,34 @@ class DirectoryRecord(LoggingMixIn):
             if val == cuType:
                 return key
         return None
+
+
+    def canAutoSchedule(self, organizer):
+        if config.Scheduling.Options.AutoSchedule.Enabled:
+            if (config.Scheduling.Options.AutoSchedule.Always or
+                self.autoSchedule or
+                self.autoAcceptFromOrganizer(organizer)):
+                if (self.getCUType() != "INDIVIDUAL" or
+                    config.Scheduling.Options.AutoSchedule.AllowUsers):
+                    return True
+        return False
+
+
+    def getAutoScheduleMode(self, organizer):
+        autoScheduleMode = self.autoScheduleMode
+        if self.autoAcceptFromOrganizer(organizer):
+            autoScheduleMode = "automatic"
+        return autoScheduleMode
+
+
+    def autoAcceptFromOrganizer(self, organizer):
+        if organizer is not None and self.autoAcceptGroup is not None:
+            service = self.service.aggregateService or self.service
+            organizerRecord = service.recordWithCalendarUserAddress(organizer)
+            if organizerRecord is not None:
+                if organizerRecord.guid in self.autoAcceptMembers():
+                    return True
+        return False
 
 
     def serverURI(self):
@@ -1360,6 +1476,20 @@ class DirectoryRecord(LoggingMixIn):
                     self._cachedAutoAcceptMembers = [m.guid for m in groupRecord.expandedMembers()]
 
         return self._cachedAutoAcceptMembers
+
+
+    def isProxyFor(self, other):
+        """
+        Test whether the record is a calendar user proxy for the specified record.
+
+        @param other: record to test
+        @type other: L{DirectoryRecord}
+
+        @return: C{True} if it is a proxy.
+        @rtype: C{bool}
+        """
+        return self.service.isProxyFor(self, other)
+
 
 
 class DirectoryError(RuntimeError):

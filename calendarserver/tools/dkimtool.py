@@ -27,7 +27,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.usage import Options
 
-from twistedcaldav.scheduling.ischedule.dkim import RSA256, DKIMRequest, \
+from txdav.caldav.datastore.scheduling.ischedule.dkim import RSA256, DKIMRequest, \
     PublicKeyLookup, DKIMVerifier, DKIMVerificationError
 
 import sys
@@ -66,7 +66,7 @@ def _doKeyGeneration(options):
 def _doRequest(options):
 
     if options["verbose"]:
-        setLogLevelForNamespace("twistedcaldav.scheduling.ischedule.dkim", "debug")
+        setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", "debug")
 
     # Parse the HTTP file
     request = open(options["request"]).read()
@@ -299,7 +299,7 @@ def main(argv=sys.argv, stderr=sys.stderr):
     observer.start()
 
     if options["verbose"]:
-        setLogLevelForNamespace("twistedcaldav.scheduling.ischedule.dkim", "debug")
+        setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", "debug")
 
     if options["key-gen"]:
         _doKeyGeneration(options)

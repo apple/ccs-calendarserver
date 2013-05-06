@@ -34,7 +34,6 @@ from zope.interface import implements, directlyProvides
 from twext.python.log import Logger, LoggingMixIn
 from twisted.python.log import msg as log_msg, err as log_err
 
-from txdav.xml.element import ResourceType
 from txdav.xml.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
 
@@ -65,7 +64,8 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
-    InvalidIMIPTokenValues
+    InvalidIMIPTokenValues, TooManyObjectResourcesError
+from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 
@@ -78,7 +78,6 @@ from twext.enterprise.dal.syntax import \
 
 from twistedcaldav.config import config
 
-from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
 from txdav.base.propertystore.sql import PropertyStore
 
@@ -147,6 +146,7 @@ class CommonDataStore(Service, object):
     implements(ICalendarStore)
 
     def __init__(self, sqlTxnFactory, notifierFactory,
+                 directoryService,
                  attachmentsPath, attachmentsURIPattern,
                  enableCalendars=True, enableAddressBooks=True,
                  enableManagedAttachments=True,
@@ -159,6 +159,7 @@ class CommonDataStore(Service, object):
 
         self.sqlTxnFactory = sqlTxnFactory
         self.notifierFactory = notifierFactory
+        self._directoryService = IStoreDirectoryService(directoryService) if directoryService is not None else None
         self.attachmentsPath = attachmentsPath
         self.attachmentsURIPattern = attachmentsURIPattern
         self.enableCalendars = enableCalendars
@@ -187,6 +188,10 @@ class CommonDataStore(Service, object):
         # home classes
         __import__("txdav.caldav.datastore.sql")
         __import__("txdav.carddav.datastore.sql")
+
+
+    def directoryService(self):
+        return self._directoryService
 
 
     def callWithNewTransactions(self, callback):
@@ -489,6 +494,10 @@ class CommonStoreTransaction(object):
 
     def store(self):
         return self._store
+
+
+    def directoryService(self):
+        return self._store.directoryService()
 
 
     def __repr__(self):
@@ -1098,7 +1107,8 @@ class CommonStoreTransaction(object):
         for uid, calendarName, eventName, _ignore_maxDate in results:
             home = (yield self.calendarHomeWithUID(uid))
             calendar = (yield home.childWithName(calendarName))
-            (yield calendar.removeObjectResourceWithName(eventName))
+            resource = (yield calendar.objectResourceWithName(eventName))
+            yield resource.remove(implicitly=False)
             count += 1
         returnValue(count)
 
@@ -1444,9 +1454,41 @@ class CommonHome(LoggingMixIn):
     @classproperty
     def _metaDataQuery(cls): #@NoSelf
         metadata = cls._homeMetaDataSchema
-        return Select([metadata.CREATED, metadata.MODIFIED],
+        return Select(cls.metadataColumns(),
                       From=metadata,
                       Where=metadata.RESOURCE_ID == Parameter("resourceID"))
+
+
+    @classmethod
+    def metadataColumns(cls):
+        """
+        Return a list of column name for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            cls._homeMetaDataSchema.CREATED,
+            cls._homeMetaDataSchema.MODIFIED,
+        )
+
+
+    @classmethod
+    def metadataAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            "_created",
+            "_modified",
+        )
 
 
     @inlineCallbacks
@@ -1481,7 +1523,8 @@ class CommonHome(LoggingMixIn):
                     # Cache the data
                     yield queryCacher.setAfterCommit(self._txn, cacheKey, data)
 
-            self._created, self._modified = data
+            for attr, value in zip(self.metadataAttributes(), data):
+                setattr(self, attr, value)
 
             yield self._loadPropertyStore()
             returnValue(self)
@@ -1574,6 +1617,16 @@ class CommonHome(LoggingMixIn):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
 
+    def id(self):
+        """
+        Retrieve the store identifier for this home.
+
+        @return: store identifier.
+        @rtype: C{int}
+        """
+        return self._resourceID
+
+
     def uid(self):
         """
         Retrieve the unique identifier for this home.
@@ -1585,6 +1638,22 @@ class CommonHome(LoggingMixIn):
 
     def transaction(self):
         return self._txn
+
+
+    def directoryService(self):
+        return self._txn.store().directoryService()
+
+
+    def directoryRecord(self):
+        return self.directoryService().recordWithUID(self.uid())
+
+
+    @inlineCallbacks
+    def invalidateQueryCache(self):
+        queryCacher = self._txn._queryCacher
+        if queryCacher is not None:
+            cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
+            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
 
     def name(self):
@@ -2086,10 +2155,7 @@ class CommonHome(LoggingMixIn):
 
         try:
             self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
-            queryCacher = self._txn._queryCacher
-            if queryCacher is not None:
-                cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
-                yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+            yield self.invalidateQueryCache()
 
         except AllRetriesFailed:
             log.debug("CommonHome.bumpModified failed")
@@ -2542,6 +2608,28 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
 
     @classmethod
+    def additionalBindColumns(cls):
+        """
+        Return a list of column names for retrieval during creation. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        return ()
+
+
+    @classmethod
+    def additionalBindAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of during creation. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        return ()
+
+
+    @classmethod
     @inlineCallbacks
     def listObjects(cls, home):
         """
@@ -2590,6 +2678,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                    bind.RESOURCE_NAME,
                    bind.BIND_STATUS,
                    bind.MESSAGE]
+        columns.extend(cls.additionalBindColumns())
         columns.extend(cls.metadataColumns())
         return Select(columns,
                      From=child.join(
@@ -2808,6 +2897,42 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         return self._bindMode == _BIND_MODE_OWN
 
 
+    def isShared(self):
+        """
+        For an owned collection indicate whether it is shared.
+
+        @return: C{True} if shared, C{False} otherwise
+        @rtype: C{bool}
+        """
+        return self._bindMode == _BIND_MODE_OWN and self._bindMessage == "shared"
+
+
+    @inlineCallbacks
+    def setShared(self, shared):
+        """
+        Set an owned collection to shared or unshared state. Technically this is not useful as "shared"
+        really means it has invitees, but the current sharing spec supports a notion of a shared collection
+        that has not yet had invitees added. For the time being we will support that option by using a new
+        BINS_STATUS value to indicate an owned collection that is "shared".
+
+        @param shared: whether or not the owned collection is "shared"
+        @type shared: C{bool}
+        """
+        assert self.owned()
+
+        self._bindMessage = "shared" if shared else None
+
+        bind = self._bindSchema
+        yield Update(
+            {bind.MESSAGE: self._bindMessage},
+            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
+                  .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+        ).on(self._txn, resourceID=self._resourceID, homeID=self.viewerHome()._resourceID)
+
+        yield self.invalidateQueryCache()
+        yield self.notifyChanged()
+
+
     def shareStatus(self):
         """
         @see: L{ICalendar.shareStatus}
@@ -2852,15 +2977,17 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
     @classmethod
     def _bindFor(cls, condition): #@NoSelf
         bind = cls._bindSchema
+        columns = [bind.BIND_MODE,
+                   bind.HOME_RESOURCE_ID,
+                   bind.RESOURCE_ID,
+                   bind.RESOURCE_NAME,
+                   bind.BIND_STATUS,
+                   bind.MESSAGE]
+        columns.extend(cls.additionalBindColumns())
         return Select(
-            [bind.BIND_MODE,
-             bind.HOME_RESOURCE_ID,
-             bind.RESOURCE_ID,
-             bind.RESOURCE_NAME,
-             bind.BIND_STATUS,
-             bind.MESSAGE],
-                  From=bind,
-                  Where=condition
+            columns,
+            From=bind,
+            Where=condition
         )
 
 
@@ -2895,7 +3022,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
         cls = self.__class__ # for ease of grepping...
         result = []
-        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
+        for item in acceptedRows:
+            bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = item[:6] #@UnusedVariable
+            additionalBind = item[6:]
+
             assert bindStatus == _BIND_STATUS_ACCEPTED
             # TODO: this could all be issued in parallel; no need to serialize
             # the loop.
@@ -2905,7 +3035,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 mode=bindMode, status=bindStatus,
                 message=bindMessage, ownerHome=self._home
             )
-            yield new.initFromStore()
+            yield new.initFromStore(additionalBind)
             result.append(new)
         returnValue(result)
 
@@ -2939,7 +3069,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         cls = self.__class__ # for ease of grepping...
 
         result = []
-        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in rows: #@UnusedVariable
+        for item in rows:
+            bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = item[:6] #@UnusedVariable
+            additionalBind = item[6:]
             # TODO: this could all be issued in parallel; no need to serialize
             # the loop.
             new = cls(
@@ -2948,7 +3080,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 mode=bindMode, status=bindStatus,
                 message=bindMessage, ownerHome=self._home
             )
-            yield new.initFromStore()
+            yield new.initFromStore(additionalBind)
             result.append(new)
         returnValue(result)
 
@@ -2991,7 +3123,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         # Create the actual objects merging in properties
         for items in dataRows:
             bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = items[:6] #@UnusedVariable
-            metadata = items[6:]
+            additionalBind = items[6:6 + len(cls.additionalBindColumns())]
+            metadata = items[6 + len(cls.additionalBindColumns()):]
 
             if bindStatus == _BIND_MODE_OWN:
                 ownerHome = home
@@ -3008,6 +3141,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 message=bindMessage,
                 ownerHome=ownerHome, ownerName=ownerName
             )
+            for attr, value in zip(cls.additionalBindAttributes(), additionalBind):
+                setattr(child, attr, value)
             for attr, value in zip(cls.metadataAttributes(), metadata):
                 setattr(child, attr, value)
             child._syncTokenRevision = revisions[resourceID]
@@ -3052,7 +3187,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
+        item = rows[0]
+        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = item[:6] #@UnusedVariable
+        additionalBind = item[6:]
 
         #TODO:  combine with _invitedBindForNameAndHomeID and sort results
         ownerHomeID, ownerName = (yield cls._ownerHomeWithResourceID.on(home._txn, resourceID=resourceID))[0]
@@ -3065,7 +3202,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             message=bindMessage,
             ownerHome=ownerHome, ownerName=ownerName,
         )
-        yield child.initFromStore()
+        yield child.initFromStore(additionalBind)
         returnValue(child)
 
 
@@ -3106,7 +3243,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             rows = yield cls._childForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
 
             if rows:
-                bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
+                item = rows[0]
+                bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = item[:6] #@UnusedVariable
                 # get ownerHomeID
                 if bindMode == _BIND_MODE_OWN:
                     ownerHomeID = homeID
@@ -3114,8 +3252,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 else:
                     ownerHomeID, ownerName = (yield cls._ownerHomeWithResourceID.on(
                                     home._txn, resourceID=resourceID))[0]
-                rows[0].append(ownerHomeID)
-                rows[0].append(ownerName)
+                rows[0].insert(6, ownerHomeID)
+                rows[0].insert(7, ownerName)
 
             if rows and queryCacher:
                 # Cache the result
@@ -3124,7 +3262,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage, ownerHomeID, ownerName = rows[0] #@UnusedVariable
+        item = rows[0] #@UnusedVariable
+        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage, ownerHomeID, ownerName = item[:8]
+        additionalBind = item[8:]
 
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
@@ -3138,7 +3278,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             message=bindMessage,
             ownerHome=ownerHome, ownerName=ownerName,
         )
-        yield child.initFromStore()
+        yield child.initFromStore(additionalBind)
         returnValue(child)
 
 
@@ -3171,7 +3311,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
+        item = rows[0]
+        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = item[:6] #@UnusedVariable
+        additionalBind = item[6:]
 
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
@@ -3186,7 +3328,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             message=bindMessage,
             ownerHome=ownerHome, ownerName=ownerName,
         )
-        yield child.initFromStore()
+        yield child.initFromStore(additionalBind)
         returnValue(child)
 
 
@@ -3262,9 +3404,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         child._modified = _modified
         yield child._loadPropertyStore()
 
-        child.properties()[
-            PropertyName.fromElement(ResourceType)
-        ] = child.resourceType()
         yield child._initSyncToken()
 
         # Change notification for a create is on the home collection
@@ -3284,7 +3423,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
 
     @inlineCallbacks
-    def initFromStore(self):
+    def initFromStore(self, additionalBind=None):
         """
         Initialise this object from the store, based on its already-populated
         resource ID. We read in and cache all the extra metadata from the DB to
@@ -3306,9 +3445,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 # Cache the results
                 yield queryCacher.setAfterCommit(self._txn, cacheKey, dataRows)
 
+        if additionalBind:
+            for attr, value in zip(self.additionalBindAttributes(), additionalBind):
+                setattr(self, attr, value)
+
         for attr, value in zip(self.metadataAttributes(), dataRows):
             setattr(self, attr, value)
         yield self._loadPropertyStore()
+
+
+    def id(self):
+        """
+        Retrieve the store identifier for this collection.
+
+        @return: store identifier.
+        @rtype: C{int}
+        """
+        return self._resourceID
 
 
     @property
@@ -3316,8 +3469,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         return self._home._txn
 
 
-    def resourceType(self):
-        return NotImplementedError
+    def directoryService(self):
+        return self._txn.store().directoryService()
 
 
     def retrieveOldIndex(self):
@@ -3326,6 +3479,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
+
+
+    @inlineCallbacks
+    def invalidateQueryCache(self):
+        queryCacher = self._txn._queryCacher
+        if queryCacher is not None:
+            cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
+            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+            cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, self._name)
+            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
 
     def exists(self):
@@ -3634,19 +3797,25 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
 
     @inlineCallbacks
-    def createObjectResourceWithName(self, name, component, metadata=None):
+    def createObjectResourceWithName(self, name, component, options=None):
         """
         Create a new resource with component data and optional metadata. We
         create the python object using the metadata then create the actual store
         object with setComponent.
         """
-        if name in self._objects:
-            if self._objects[name]:
-                raise ObjectResourceNameAlreadyExistsError()
+
+        # Create => a new resource name
+        if name in self._objects and self._objects[name]:
+            raise ObjectResourceNameAlreadyExistsError()
+
+        # Apply check to the size of the collection
+        if config.MaxResourcesPerCollection:
+            child_count = (yield self.countObjectResources())
+            if child_count >= config.MaxResourcesPerCollection:
+                raise TooManyObjectResourcesError()
 
         objectResource = (
-            yield self._objectResourceClass.create(self, name, component,
-                                                   metadata)
+            yield self._objectResourceClass.create(self, name, component, options)
         )
         self._objects[objectResource.name()] = objectResource
         self._objects[objectResource.uid()] = objectResource
@@ -3657,31 +3826,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
 
     @inlineCallbacks
-    def removeObjectResourceWithName(self, name):
-
-        child = (yield self.objectResourceWithName(name))
-        if child is None:
-            raise NoSuchObjectResourceError
-        yield self.removeObjectResource(child)
-
-
-    @inlineCallbacks
-    def removeObjectResourceWithUID(self, uid):
-
-        child = (yield self.objectResourceWithUID(uid))
-        if child is None:
-            raise NoSuchObjectResourceError
-        yield self.removeObjectResource(child)
-
-
-    @inlineCallbacks
-    def removeObjectResource(self, child):
-        name = child.name()
-        uid = child.uid()
-        yield child.remove()
-        self._objects.pop(name, None)
-        self._objects.pop(uid, None)
-        yield self._deleteRevision(name)
+    def removedObjectResource(self, child):
+        self._objects.pop(child.name(), None)
+        self._objects.pop(child.uid(), None)
+        yield self._deleteRevision(child.name())
         yield self.notifyChanged()
 
 
@@ -3727,14 +3875,25 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         @type newname: C{str} or C{None} for existing name
         """
 
-        if newname and newname.startswith("."):
-            raise ObjectResourceNameNotAllowedError(newname)
-
         name = child.name()
         uid = child.uid()
 
         if newname is None:
             newname = name
+
+        # Create => a new resource name
+        if newname.startswith("."):
+            raise ObjectResourceNameNotAllowedError(newname)
+
+        # Make sure name is not already used - i.e., overwrite not allowed
+        if (yield newparent.objectResourceWithName(newname)) is not None:
+            raise ObjectResourceNameAlreadyExistsError(newname)
+
+        # Apply check to the size of the collection
+        if config.MaxResourcesPerCollection:
+            child_count = (yield self.countObjectResources())
+            if child_count >= config.MaxResourcesPerCollection:
+                raise TooManyObjectResourcesError()
 
         # Clean this collections cache and signal sync change
         self._objects.pop(name, None)
@@ -3768,6 +3927,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         child._parentCollection = newparent
 
         # Signal sync change on new collection
+        newparent._objects.pop(name, None)
+        newparent._objects.pop(uid, None)
+        newparent._objects.pop(child._resourceID, None)
         yield newparent._insertRevision(newname)
         yield newparent.notifyChanged()
 
@@ -3933,7 +4095,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     BATCH_LOAD_SIZE = 50
 
-    def __init__(self, parent, name, uid, resourceID=None, metadata=None):
+    def __init__(self, parent, name, uid, resourceID=None, options=None):
         self._parentCollection = parent
         self._resourceID = resourceID
         self._name = name
@@ -4077,7 +4239,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     @classmethod
     @inlineCallbacks
-    def create(cls, parent, name, component, metadata):
+    def create(cls, parent, name, component, options=None):
 
         child = (yield cls.objectWithName(parent, name, None))
         if child:
@@ -4086,7 +4248,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
-        objectResource = cls(parent, name, None, None, metadata=metadata)
+        objectResource = cls(parent, name, None, None, options=options)
         yield objectResource.setComponent(component, inserting=True)
         yield objectResource._loadPropertyStore(created=True)
 
@@ -4221,6 +4383,16 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
 
+    def id(self):
+        """
+        Retrieve the store identifier for this object resource.
+
+        @return: store identifier.
+        @rtype: C{int}
+        """
+        return self._resourceID
+
+
     @property
     def _txn(self):
         return self._parentCollection._txn
@@ -4228,6 +4400,14 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     def transaction(self):
         return self._parentCollection._txn
+
+
+    def directoryService(self):
+        return self._txn.store().directoryService()
+
+
+    def parentCollection(self):
+        return self._parentCollection
 
 
     @classmethod
@@ -4261,7 +4441,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         self._locked = True
 
 
-    def setComponent(self, component, inserting=False):
+    def setComponent(self, component, inserting=False, options=None):
         raise NotImplementedError
 
 
@@ -4282,7 +4462,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         return Delete(cls._objectSchema, Where=cls._objectSchema.RESOURCE_ID == Parameter("resourceID"))
 
 
-    def moveTo(self, destination, name):
+    @inlineCallbacks
+    def moveTo(self, destination, name=None):
         """
         Move object to another collection.
 
@@ -4292,9 +4473,12 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         @type name: C{str} or C{None} to use existing name
         """
 
-        if name and name.startswith("."):
-            raise ObjectResourceNameNotAllowedError(name)
-        return self._parentCollection.moveObjectResource(self, destination, name)
+        yield self.moveValidation(destination, name)
+        yield self._parentCollection.moveObjectResource(self, destination, name)
+
+
+    def moveValidation(self, destination, name):
+        raise NotImplementedError
 
 
     @inlineCallbacks
@@ -4302,6 +4486,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         yield self._deleteQuery.on(self._txn, NoSuchObjectResourceError,
                                    resourceID=self._resourceID)
         self.properties()._removeResource()
+
+        yield self._parentCollection.removedObjectResource(self)
 
         # Set to non-existent state
         self._resourceID = None
@@ -4480,12 +4666,18 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         )
 
 
-    def resourceType(self):
-        return ResourceType.notification #@UndefinedVariable
-
-
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
+
+
+    def id(self):
+        """
+        Retrieve the store identifier for this collection.
+
+        @return: store identifier.
+        @rtype: C{int}
+        """
+        return self._resourceID
 
 
     def name(self):
@@ -4838,6 +5030,16 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
     def properties(self):
         return self._propertyStore
+
+
+    def id(self):
+        """
+        Retrieve the store identifier for this object.
+
+        @return: store identifier.
+        @rtype: C{int}
+        """
+        return self._resourceID
 
 
     @property

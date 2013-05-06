@@ -14,27 +14,30 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import StoreTestCase
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.notifier import getPubSubAPSConfiguration
 from calendarserver.push.notifier import PushNotificationWork
 from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.config import ConfigDict
-from txdav.common.datastore.test.util import buildStore
 
 
 class StubService(object):
     def __init__(self):
         self.reset()
 
+
     def reset(self):
         self.history = []
+
 
     def enqueue(self, transaction, id):
         self.history.append(id)
         return(succeed(None))
 
-class PushDistributorTests(TestCase):
+
+
+class PushDistributorTests(StoreTestCase):
 
     @inlineCallbacks
     def test_enqueue(self):
@@ -42,6 +45,7 @@ class PushDistributorTests(TestCase):
         dist = PushDistributor([stub])
         yield dist.enqueue(None, "testing")
         self.assertEquals(stub.history, ["testing"])
+
 
     def test_getPubSubAPSConfiguration(self):
         config = ConfigDict({
@@ -67,38 +71,42 @@ class PushDistributorTests(TestCase):
         self.assertEquals(
             result,
             {
-                "SubscriptionRefreshIntervalSeconds": 42, 
-                "SubscriptionURL": "https://calendars.example.com:8443/apns", 
-                "APSBundleID": "test topic", 
+                "SubscriptionRefreshIntervalSeconds": 42,
+                "SubscriptionURL": "https://calendars.example.com:8443/apns",
+                "APSBundleID": "test topic",
                 "APSEnvironment": "prod"
             }
         )
+
 
 
 class StubDistributor(object):
     def __init__(self):
         self.reset()
 
+
     def reset(self):
         self.history = []
+
 
     def enqueue(self, transaction, pushID):
         self.history.append(pushID)
 
-class PushNotificationWorkTests(TestCase):
+
+
+class PushNotificationWorkTests(StoreTestCase):
 
     @inlineCallbacks
     def test_work(self):
-        self.store = yield buildStore(self, None)
 
         pushDistributor = StubDistributor()
 
         def decorateTransaction(txn):
             txn._pushDistributor = pushDistributor
 
-        self.store.callWithNewTransactions(decorateTransaction)
+        self._sqlCalendarStore.callWithNewTransactions(decorateTransaction)
 
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         wp = (yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/foo/",
         ))
@@ -107,7 +115,7 @@ class PushNotificationWorkTests(TestCase):
         self.assertEquals(pushDistributor.history, ["/CalDAV/localhost/foo/"])
 
         pushDistributor.reset()
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         wp = (yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
         ))

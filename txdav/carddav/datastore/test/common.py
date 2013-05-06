@@ -25,10 +25,9 @@ from txdav.base.propertystore.base import PropertyName
 
 from txdav.common.icommondatastore import (
     HomeChildNameAlreadyExistsError, ICommonTransaction
-)
+, InvalidUIDError)
 from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError
-from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 
 from txdav.carddav.iaddressbookstore import (
@@ -41,7 +40,7 @@ from txdav.common.datastore.test.util import CommonCommonTests
 from twistedcaldav.vcard import Component as VComponent
 
 from twext.python.filepath import CachingFilePath as FilePath
-from txdav.xml.element import WebDAVUnknownElement, ResourceType
+from txdav.xml.element import WebDAVUnknownElement
 
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
@@ -316,17 +315,8 @@ class CommonTests(CommonCommonTests):
         self.assertIdentical((yield home.addressbookWithName(name)), None)
         yield home.createAddressBookWithName(name)
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
-        @inlineCallbacks
-        def checkProperties():
-            addressbookProperties = (yield home.addressbookWithName(name)).properties()
-            addressbookType = ResourceType.addressbook #@UndefinedVariable
-            self.assertEquals(
-                addressbookProperties[
-                    PropertyName.fromString(ResourceType.sname())
-                ],
-                addressbookType
-            )
-        yield checkProperties()
+        addressbookProperties = (yield home.addressbookWithName(name)).properties()
+        self.assertEqual(len(addressbookProperties), 0)
         yield self.commit()
 
         # Make sure notification fired after commit
@@ -335,14 +325,6 @@ class CommonTests(CommonCommonTests):
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
-
-        # FIXME: These two lines aren't in the calendar common tests:
-        # home = self.addressbookStore.newTransaction().addressbookHomeWithUID(
-        #     "home1")
-
-        # Sanity check: are the properties actually persisted?
-        # FIXME: no independent testing of this right now
-        yield checkProperties()
 
 
     @inlineCallbacks
@@ -427,11 +409,12 @@ class CommonTests(CommonCommonTests):
     def test_addressbookObjectsWithRemovedObject(self):
         """
         L{IAddressBook.addressbookObjects} skips those objects which have been
-        removed by L{AddressBook.removeAddressBookObjectWithName} in the same
+        removed by L{AddressBookObject.remove} in the same
         transaction, even if it has not yet been committed.
         """
         addressbook1 = yield self.addressbookUnderTest()
-        yield addressbook1.removeAddressBookObjectWithName("2.vcf")
+        obj1 = yield addressbook1.addressbookObjectWithName("2.vcf")
+        yield obj1.remove()
         addressbookObjects = list((yield addressbook1.addressbookObjects()))
         self.assertEquals(set(o.name() for o in addressbookObjects),
                           set(addressbook1_objectNames) - set(["2.vcf"]))
@@ -473,18 +456,19 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_removeAddressBookObjectWithUID_exists(self):
+    def test_AddressBookObject_remove_exists(self):
         """
         Remove an existing addressbook object.
         """
         addressbook = yield self.addressbookUnderTest()
         for name in addressbook1_objectNames:
             uid = (u'uid' + name.rstrip(".vcf"))
+            obj1 = (yield addressbook.addressbookObjectWithUID(uid))
             self.assertNotIdentical(
-                (yield addressbook.addressbookObjectWithUID(uid)),
+                obj1,
                 None
             )
-            yield addressbook.removeAddressBookObjectWithUID(uid)
+            yield obj1.remove()
             self.assertEquals(
                 (yield addressbook.addressbookObjectWithUID(uid)),
                 None
@@ -496,16 +480,15 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_removeAddressBookObjectWithName_exists(self):
+    def test_AddressBookObject_remove(self):
         """
         Remove an existing addressbook object.
         """
         addressbook = yield self.addressbookUnderTest()
         for name in addressbook1_objectNames:
-            self.assertNotIdentical(
-                (yield addressbook.addressbookObjectWithName(name)), None
-            )
-            yield addressbook.removeAddressBookObjectWithName(name)
+            obj1 = (yield addressbook.addressbookObjectWithName(name))
+            self.assertNotIdentical(obj1, None)
+            yield obj1.remove()
             self.assertIdentical(
                 (yield addressbook.addressbookObjectWithName(name)), None
             )
@@ -518,18 +501,6 @@ class CommonTests(CommonCommonTests):
                 "CardDAV|home1",
                 "CardDAV|home1/addressbook_1",
             ]
-        )
-
-
-    @inlineCallbacks
-    def test_removeAddressBookObjectWithName_absent(self):
-        """
-        Attempt to remove an non-existing addressbook object should raise.
-        """
-        addressbook = yield self.addressbookUnderTest()
-        yield self.failUnlessFailure(
-            maybeDeferred(addressbook.removeAddressBookObjectWithName, "xyzzy"),
-            NoSuchObjectResourceError
         )
 
 
@@ -767,7 +738,7 @@ class CommonTests(CommonCommonTests):
         addressbookObject = yield addressbook1.addressbookObjectWithName("1.vcf")
         yield self.failUnlessFailure(
             maybeDeferred(addressbookObject.setComponent, component),
-            InvalidObjectResourceError
+            InvalidObjectResourceError, InvalidUIDError,
         )
 
 
@@ -951,5 +922,3 @@ class CommonTests(CommonCommonTests):
                 (yield addressbook2.addressbookObjectWithName(resourceName)), None)
             self.assertIdentical(
                 (yield addressbook2.addressbookObjectWithUID(obj.uid())), None)
-
-

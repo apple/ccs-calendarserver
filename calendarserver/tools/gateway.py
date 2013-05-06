@@ -77,11 +77,10 @@ class RunnerService(WorkerService):
         if runner.validate():
             yield runner.run()
 
+
     def doWorkWithoutStore(self):
         respondWithError("Database is not available")
         return succeed(None)
-
-
 
 
 
@@ -472,6 +471,7 @@ class Runner(object):
         respond(command, {'EventsRemoved' : eventCount, "RetainDays" : retainDays})
 
 
+
 @inlineCallbacks
 def respondWithProxies(directory, command, principal, proxyType):
     proxies = []
@@ -514,8 +514,10 @@ def respondWithRecordsOfType(directory, command, recordType):
     respond(command, result)
 
 
+
 def respond(command, result):
     sys.stdout.write(writePlistToString({'command' : command['command'], 'result' : result}))
+
 
 
 def respondWithError(msg, status=1):

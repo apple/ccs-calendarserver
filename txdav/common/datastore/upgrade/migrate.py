@@ -60,7 +60,7 @@ def _getFixedComponent(cobj):
     @return: a L{Deferred} which fires with the appropriate L{Component}.
     """
     comp = yield cobj.component()
-    fixes, fixed = fixOneCalendarObject(comp)
+    _ignore_fixes, fixed = fixOneCalendarObject(comp)
     returnValue(fixed)
 
 
@@ -200,7 +200,7 @@ class UpgradeHelperProcess(AMP):
         subsvc = None
         self.upgrader = UpgradeToDatabaseStep(
             FileStore(
-                CachingFilePath(filename), None, True, True,
+                CachingFilePath(filename), None, None, True, True,
                 propertyStoreClass=namedAny(appropriateStoreClass)
             ), self.store, subsvc, merge=merge
         )
@@ -212,7 +212,7 @@ class UpgradeHelperProcess(AMP):
         """
         Upgrade one calendar home.
         """
-        migrateFunc, destFunc = homeTypeLookup[homeType]
+        _ignore_migrateFunc, destFunc = homeTypeLookup[homeType]
         fileTxn = self.upgrader.fileStore.newTransaction()
         return (
             maybeDeferred(destFunc(fileTxn), uid)
@@ -253,13 +253,14 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
         self.gid = gid
         self.merge = merge
 
+
     @classmethod
     def fileStoreFromPath(cls, path):
-        """ 
+        """
         @param path: a path pointing at the document root, where the file-based
             data-store is located.
         @type path: L{CachingFilePath}
-        """ 
+        """
 
         # TODO: TOPPATHS should be computed based on enabled flags in 'store',
         # not hard coded.
@@ -295,9 +296,9 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
 
                     appropriateStoreClass = AppleDoubleStore
 
-                    return FileStore(path, None, True, True,
+                    return FileStore(path, None, None, True, True,
                               propertyStoreClass=appropriateStoreClass)
-        return None 
+        return None
 
 
     @inlineCallbacks
@@ -352,7 +353,7 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
             ]:
             yield eachFunc(
                 lambda txn, home: self._upgradeAction(
-                    txn, home, homeType 
+                    txn, home, homeType
                 )
             )
 

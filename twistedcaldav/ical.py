@@ -42,7 +42,7 @@ from twistedcaldav.config import config
 from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime, \
     normalizeForExpand
 from twistedcaldav.instance import InstanceList
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.timezones import hasTZ, TimezoneException
 
 from pycalendar import definitions
@@ -56,7 +56,6 @@ from pycalendar.period import PyCalendarPeriod
 from pycalendar.property import PyCalendarProperty
 from pycalendar.timezone import PyCalendarTimezone
 from pycalendar.utcoffsetvalue import PyCalendarUTCOffsetValue
-
 
 log = Logger()
 
@@ -664,7 +663,7 @@ class Component (object):
         """
         result = Component(None, pycalendar=self._pycalendar.duplicate())
         if hasattr(self, "noInstanceIndexing"):
-            result.noInstanceIndexing = True
+            result.noInstanceIndexing = self.noInstanceIndexing
         return result
 
 

@@ -20,8 +20,7 @@ import uuid
 
 from zope.interface import implements
 
-from twisted.internet.defer import succeed, maybeDeferred, inlineCallbacks, \
-    returnValue
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.http import Response
 from twext.web2.iweb import IResource
@@ -440,21 +439,19 @@ class PropfindCacheMixin(object):
     A mixin that causes a resource's PROPFIND response to be cached. It also adds an api to change the
     resource's uriToken - this must be used whenever something changes to cause the cache to be invalidated.
     """
+
+    @inlineCallbacks
     def renderHTTP(self, request):
-        def _cacheResponse(responseCache, response):
-            return responseCache.cacheResponseForRequest(request, response)
-
-        def _getResponseCache(response):
-            d1 = request.locateResource("/")
-            d1.addCallback(lambda resource: resource.responseCache)
-            d1.addCallback(_cacheResponse, response)
-            return d1
-
-        d = maybeDeferred(super(PropfindCacheMixin, self).renderHTTP, request)
+        response = (yield super(PropfindCacheMixin, self).renderHTTP(request))
 
         if request.method == 'PROPFIND':
-            d.addCallback(_getResponseCache)
-        return d
+            resource = (yield request.locateResource("/"))
+
+            # responseCache might not be present during unit tests
+            if hasattr(resource, "responseCache"):
+                yield resource.responseCache.cacheResponseForRequest(request, response)
+
+        returnValue(response)
 
 
     def changeCache(self):

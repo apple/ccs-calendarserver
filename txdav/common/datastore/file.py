@@ -22,7 +22,7 @@ Common utility functions for a file based datastore.
 import sys
 from twext.internet.decorate import memoizedKey
 from twext.python.log import LoggingMixIn
-from txdav.xml.rfc2518 import ResourceType, GETContentType, HRef
+from txdav.xml.rfc2518 import GETContentType, HRef
 from txdav.xml.rfc5842 import ResourceID
 from twext.web2.http_headers import generateContentType, MimeType
 from twext.web2.dav.resource import TwistedGETContentMD5, \
@@ -43,6 +43,7 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     InternalDataStoreError, ObjectResourceNameNotAllowedError, \
     ObjectResourceNameAlreadyExistsError, NoSuchObjectResourceError
+from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.base.datastore.file import DataStoreTransaction, DataStore, writeOperation, \
@@ -109,8 +110,11 @@ class CommonDataStore(DataStore):
     """
     implements(ICalendarStore)
 
-    def __init__(self, path, notifierFactory, enableCalendars=True,
-                 enableAddressBooks=True, quota=(2 ** 20),
+    def __init__(self, path, notifierFactory,
+                 directoryService,
+                 enableCalendars=True,
+                 enableAddressBooks=True,
+                 quota=(2 ** 20),
                  propertyStoreClass=XattrPropertyStore):
         """
         Create a store.
@@ -120,6 +124,7 @@ class CommonDataStore(DataStore):
         assert enableCalendars or enableAddressBooks
 
         super(CommonDataStore, self).__init__(path)
+        self._directoryService = IStoreDirectoryService(directoryService) if directoryService is not None else None
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
         self._notifierFactory = notifierFactory
@@ -131,6 +136,11 @@ class CommonDataStore(DataStore):
         self._newTransactionCallbacks = set()
         # FIXME: see '@ivar queuer' above.
         self.queuer = _StubQueuer()
+
+
+    def directoryService(self):
+        return self._directoryService
+
 
     def callWithNewTransactions(self, callback):
         """
@@ -700,6 +710,14 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         return self._transaction
 
 
+    def directoryService(self):
+        return self._transaction.store().directoryService()
+
+
+    def directoryRecord(self):
+        return self.directoryService().recordWithUID(self.uid())
+
+
     def retrieveOldShares(self):
         """
         Retrieve the old Index object.
@@ -808,8 +826,6 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             return lambda: self._path.child(childPath.basename()).remove()
 
         self._transaction.addOperation(do, "create child %r" % (name,))
-        props = c.properties()
-        props[PropertyName(*ResourceType.qname())] = c.resourceType()
 
         self.notifyChanged()
         return c
@@ -1006,8 +1022,13 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         return self._home._path.child(self._name)
 
 
-    def resourceType(self):
-        return NotImplementedError
+    @property
+    def _txn(self):
+        return self._transaction
+
+
+    def directoryService(self):
+        return self._transaction.store().directoryService()
 
 
     def retrieveOldIndex(self):
@@ -1204,32 +1225,12 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         return objectResource
 
 
-    @writeOperation
-    def removeObjectResourceWithName(self, name):
-        if name.startswith("."):
-            raise NoSuchObjectResourceError(name)
+    def removedObjectResource(self, child):
 
-        self.retrieveOldIndex().deleteResource(name)
+        self.retrieveOldIndex().deleteResource(child.name())
 
-        objectResourcePath = self._path.child(name)
-        if objectResourcePath.isfile():
-            self._removedObjectResources.add(name)
-            # FIXME: test for undo
-            def do():
-                objectResourcePath.remove()
-                return lambda: None
-            self._transaction.addOperation(do, "remove object resource object %r" %
-                                           (name,))
-
-            self.notifyChanged()
-        else:
-            raise NoSuchObjectResourceError(name)
-
-
-    @writeOperation
-    def removeObjectResourceWithUID(self, uid):
-        self.removeObjectResourceWithName(
-            self.objectResourceWithUID(uid)._path.basename())
+        self._removedObjectResources.add(child.name())
+        self.notifyChanged()
 
 
     def syncToken(self):
@@ -1373,6 +1374,10 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         return self._transaction
 
 
+    def directoryService(self):
+        return self._transaction.store().directoryService()
+
+
     @writeOperation
     def setComponent(self, component, inserting=False):
         raise NotImplementedError
@@ -1380,6 +1385,18 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
     def component(self):
         raise NotImplementedError
+
+
+    def remove(self):
+
+        # FIXME: test for undo
+        objectResourcePath = self._path
+        def do():
+            objectResourcePath.remove()
+            return lambda: None
+        self._transaction.addOperation(do, "remove object resource object %r" % (self._name,))
+
+        self._parentCollection.removedObjectResource(self)
 
 
     def _text(self):
@@ -1499,18 +1516,11 @@ class NotificationCollection(CommonHomeChild):
 
         txn.addOperation(do, "create notification child %r" %
                           (collectionName,))
-        props = c.properties()
-        props[PropertyName(*ResourceType.qname())] = c.resourceType()
         return c
-
-
-    def resourceType(self):
-        return ResourceType.notification #@UndefinedVariable
 
     notificationObjects = CommonHomeChild.objectResources
     listNotificationObjects = CommonHomeChild.listObjectResources
     notificationObjectWithName = CommonHomeChild.objectResourceWithName
-    removeNotificationObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
 
     def notificationObjectWithUID(self, uid):
         name = uid + ".xml"

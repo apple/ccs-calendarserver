@@ -19,7 +19,6 @@ Tests for the interaction between model-level and protocol-level logic.
 """
 
 
-from twext.web2.server import Request
 from twext.web2.responsecode import UNAUTHORIZED
 from twext.web2.http_headers import Headers
 from twext.enterprise.ienterprise import AlreadyFinishedError
@@ -35,15 +34,14 @@ from twistedcaldav.vcard import Component as VCComponent
 from twistedcaldav.storebridge import DropboxCollection, \
     CalendarCollectionResource, AddressBookCollectionResource
 
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 
 from txdav.idav import IDataStore
 from txdav.caldav.datastore.test.test_file import test_event_text
 
 from txdav.carddav.datastore.test.test_file import vcard4_text
 
-from txdav.common.datastore.test.util import buildStore, assertProvides, \
-    StubNotifierFactory
+from txdav.common.datastore.test.util import assertProvides
 
 
 from twext.web2.http import HTTPError
@@ -98,24 +96,12 @@ class FakeChanRequest(object):
 
 
 
-class WrappingTests(TestCase):
+class WrappingTests(StoreTestCase):
     """
     Tests for L{twistedcaldav.static.CalDAVResource} creating the appropriate type
     of txdav.caldav.datastore.file underlying object when it can determine what
     type it really represents.
     """
-
-    def setUp(self):
-        # Mostly copied from
-        # twistedcaldav.directory.test.test_calendar.ProvisionedCalendars; this
-        # should probably be refactored, perhaps even to call (some part of) the
-        # actual root-resource construction logic?
-        super(WrappingTests, self).setUp()
-
-        # Setup the initial directory
-        self.createStockDirectoryService()
-        self.setupCalendars()
-
 
     @inlineCallbacks
     def populateOneObject(self, objectName, objectText):
@@ -128,21 +114,13 @@ class WrappingTests(TestCase):
         @param objectText: Some iCalendar text to populate it with.
         @type objectText: str
         """
-        record = self.directoryService.recordWithShortName("users", "wsanchez")
+        record = self.directory.recordWithShortName("users", "wsanchez")
         uid = record.uid
-        # XXX there should be a more test-friendly way to ensure the directory
-        # actually exists
-        try:
-            self.calendarCollection._newStore._path.createDirectory()
-        except:
-            pass
-        txn = self.calendarCollection._newStore.newTransaction()
+        txn = self.transactionUnderTest()
         home = yield txn.calendarHomeWithUID(uid, True)
         cal = yield home.calendarWithName("calendar")
-        yield cal.createCalendarObjectWithName(
-            objectName, VComponent.fromString(objectText)
-        )
-        yield txn.commit()
+        yield cal.createCalendarObjectWithName(objectName, VComponent.fromString(objectText))
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -155,24 +133,13 @@ class WrappingTests(TestCase):
         @param objectText: Some iVcard text to populate it with.
         @type objectText: str
         """
-        record = self.directoryService.recordWithShortName("users", "wsanchez")
+        record = self.directory.recordWithShortName("users", "wsanchez")
         uid = record.uid
-        # XXX there should be a more test-friendly way to ensure the directory
-        # actually exists
-        try:
-            self.addressbookCollection._newStore._path.createDirectory()
-        except:
-            pass
-        txn = self.addressbookCollection._newStore.newTransaction()
+        txn = self.transactionUnderTest()
         home = yield txn.addressbookHomeWithUID(uid, True)
         adbk = yield home.addressbookWithName("addressbook")
-        if adbk is None:
-            yield home.createAddressBookWithName("addressbook")
-            adbk = yield home.addressbookWithName("addressbook")
-        yield adbk.createAddressBookObjectWithName(
-            objectName, VCComponent.fromString(objectText)
-        )
-        yield txn.commit()
+        yield adbk.createAddressBookObjectWithName(objectName, VCComponent.fromString(objectText))
+        yield self.commit()
 
     requestUnderTest = None
 
@@ -212,36 +179,18 @@ class WrappingTests(TestCase):
         returnValue(aResource)
 
 
-    def commit(self):
-        """
-        Since C{getResource} treats this test case as a resource, it will have
-        an associated transaction.  Commit that transaction to bring the
-        filesystem into a consistent state.
-        """
-        return self.requestUnderTest._newStoreTransaction.commit()
-
-
     def requestForPath(self, path, method='GET'):
         """
         Get a L{Request} with a L{FakeChanRequest} for a given path and method.
         """
         headers = Headers()
         headers.addRawHeader("Host", "localhost:8008")
-        chanReq = FakeChanRequest()
-        req = Request(
-            site=self.site,
-            chanRequest=chanReq,
-            command=method,
-            path=path,
-            version=('1', '1'),
-            contentLength=0,
-            headers=headers
-        )
+        req = SimpleStoreRequest(self, method, path, headers)
 
         # 'process()' normally sets these.  Shame on web2, having so much
         # partially-initialized stuff floating around.
         req.remoteAddr = '127.0.0.1'
-        req.path = path
+        req.chanRequest = FakeChanRequest()
         req.credentialFactories = {}
         return req
 
@@ -254,7 +203,7 @@ class WrappingTests(TestCase):
         L{Resource} is accurately set.
         """
         self.assertEquals(resource._principalCollections,
-                          frozenset([self.directoryFixture.principalsResource]))
+                          frozenset([self.principalsResource]))
 
 
     @inlineCallbacks
@@ -268,10 +217,11 @@ class WrappingTests(TestCase):
         for pathType in self.pathTypes:
             req = self.requestForPath('/%ss/users/wsanchez/%s/forget/it'
                                       % (pathType, pathType))
+            txn = self.transactionUnderTest()
             yield req.process()
             self.assertEquals(req.chanRequest.code, 404)
             yield self.failUnlessFailure(
-                maybeDeferred(req._newStoreTransaction.commit),
+                maybeDeferred(txn.commit),
                 AlreadyFinishedError
             )
 
@@ -294,7 +244,7 @@ class WrappingTests(TestCase):
         Creating a DirectoryCalendarHomeProvisioningResource will create a
         paired CalendarStore.
         """
-        assertProvides(self, IDataStore, self.calendarCollection._newStore)
+        assertProvides(self, IDataStore, self._sqlCalendarStore)
 
 
     @inlineCallbacks
@@ -424,9 +374,9 @@ class WrappingTests(TestCase):
         Exceeding quota on an attachment returns an HTTP error code.
         """
         self.patch(config, "EnableDropBox", True)
-        if not hasattr(self.calendarCollection._newStore, "_dropbox_ok"):
-            self.calendarCollection._newStore._dropbox_ok = False
-        self.patch(self.calendarCollection._newStore, "_dropbox_ok", True)
+        if not hasattr(self._sqlCalendarStore, "_dropbox_ok"):
+            self._sqlCalendarStore._dropbox_ok = False
+        self.patch(self._sqlCalendarStore, "_dropbox_ok", True)
         self.patch(Calendar, "asShared", lambda self: [])
 
         yield self.populateOneObject("1.ics", test_event_text)
@@ -545,8 +495,7 @@ class WrappingTests(TestCase):
         """
         Assert that a user's calendar is empty (their default calendar by default).
         """
-        txn = self.calendarStore.newTransaction()
-        self.addCleanup(txn.commit)
+        txn = self.transactionUnderTest()
         home = yield txn.calendarHomeWithUID(user, create=True)
         cal = yield home.calendarWithName(calendarName)
         objects = yield cal.calendarObjects()
@@ -555,16 +504,6 @@ class WrappingTests(TestCase):
 
 
 class DatabaseWrappingTests(WrappingTests):
-
-    @inlineCallbacks
-    def setUp(self):
-        self.calendarStore = yield buildStore(self, StubNotifierFactory())
-        super(DatabaseWrappingTests, self).setUp()
-
-
-    def createDataStore(self):
-        return self.calendarStore
-
 
     @inlineCallbacks
     def test_invalidCalendarPUT(self):
@@ -583,6 +522,7 @@ class DatabaseWrappingTests(WrappingTests):
                 ((yield calendarObject.renderHTTP(self.requestUnderTest)),
                  self.requestUnderTest)
             )
+
         # see twistedcaldav/directory/test/accounts.xml
         wsanchez = '6423F94A-6B76-4A3A-815B-D52CFD77935D'
         cdaboo = '5A985493-EE2C-4665-94CF-4DFEA3A89500'
@@ -628,9 +568,10 @@ DTSTAMP:20110309T185105Z
 DURATION:PT1H
 SUMMARY:Test
 END:VEVENT""".format(wsanchez=wsanchez, cdaboo=cdaboo)
-        #txn = self.requestUnderTest._newStoreTransaction
+
         invalidEvent = eventTemplate.format(invalidInstance, wsanchez=wsanchez, cdaboo=cdaboo).replace(CR, CRLF)
         yield putEvt(invalidEvent)
+        self.lastTransaction = None
         self.requestUnderTest = None
         yield self.assertCalendarEmpty(wsanchez)
         yield self.assertCalendarEmpty(cdaboo)

@@ -50,7 +50,6 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
             "do not construct directly, call PropertyStore.load()"
         )
 
-
     _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
                         From=prop,
                         Where=prop.RESOURCE_ID == Parameter("resourceID"))
@@ -213,13 +212,11 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
 
         return WebDAVDocument.fromString(value).root_element
 
-
     _updateQuery = Update({prop.VALUE: Parameter("value")},
                           Where=(
                               prop.RESOURCE_ID == Parameter("resourceID")).And(
                               prop.NAME == Parameter("name")).And(
                               prop.VIEWER_UID == Parameter("uid")))
-
 
     _insertQuery = Insert({prop.VALUE: Parameter("value"),
                            prop.RESOURCE_ID: Parameter("resourceID"),
@@ -262,8 +259,6 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
             self.log_error("setting a property failed; probably nothing.")
         self._txn.subtransaction(trySetItem).addErrback(justLogIt)
 
-
-
     _deleteQuery = Delete(
         prop, Where=(prop.RESOURCE_ID == Parameter("resourceID")).And(
             prop.NAME == Parameter("name")).And(
@@ -276,11 +271,17 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
 
         key_str = key.toString()
         del self._cached[(key_str, uid)]
-        self._deleteQuery.on(self._txn, lambda:KeyError(key),
-                             resourceID=self._resourceID,
-                             name=key_str, uid=uid
-                            )
-        self._cacher.delete(str(self._resourceID))
+        @inlineCallbacks
+        def doIt(txn):
+            yield self._deleteQuery.on(txn, lambda: KeyError(key),
+                                 resourceID=self._resourceID,
+                                 name=key_str, uid=uid
+                                )
+            self._cacher.delete(str(self._resourceID))
+        def justLogIt(f):
+            f.trap(AllRetriesFailed)
+            self.log_error("setting a property failed; probably nothing.")
+        self._txn.subtransaction(doIt).addErrback(justLogIt)
 
 
     def _keys_uid(self, uid):
@@ -297,6 +298,7 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
         self._cached = {}
         self._deleteResourceQuery.on(self._txn, resourceID=self._resourceID)
         self._cacher.delete(str(self._resourceID))
+
 
     @inlineCallbacks
     def copyAllProperties(self, other):
@@ -316,7 +318,6 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
                 yield self._insertQuery.on(
                     self._txn, resourceID=self._resourceID, value=value_str,
                     name=key_str, uid=uid)
-                
 
         # Reload from the DB
         self._cached = {}

@@ -83,10 +83,12 @@ if sys.platform == "darwin":
     extensions.append(
         Extension(
             "calendarserver.platform.darwin._sacl",
-            extra_link_args = ["-framework", "Security"],
-            sources = ["calendarserver/platform/darwin/_sacl.c"]
+            extra_link_args=["-framework", "Security"],
+            sources=["calendarserver/platform/darwin/_sacl.c"]
         )
     )
+
+
 
 #
 # Run setup
@@ -96,18 +98,18 @@ def doSetup():
     from distutils.core import setup
 
     dist = setup(
-        name             = "Calendar and Contacts Server",
-        version          = version_string,
-        description      = description,
-        long_description = long_description,
-        url              = None,
-        classifiers      = classifiers,
-        author           = "Apple Inc.",
-        author_email     = None,
-        license          = None,
-        platforms        = ["all"],
-        packages         = find_modules(),
-        package_data     = {
+        name="Calendar and Contacts Server",
+        version=version_string,
+        description=description,
+        long_description=long_description,
+        url=None,
+        classifiers=classifiers,
+        author="Apple Inc.",
+        author_email=None,
+        license=None,
+        platforms=["all"],
+        packages=find_modules(),
+        package_data={
                              "twistedcaldav": [
                                "*.html",
                                "zoneinfo/*.ics",
@@ -127,7 +129,7 @@ def doSetup():
                                "sql_schema/*/*/*.sql",
                              ],
                            },
-        scripts          = [
+        scripts=[
                              "bin/caldavd",
                              "bin/calendarserver_backup",
                              "bin/calendarserver_bootstrap_database",
@@ -153,9 +155,9 @@ def doSetup():
                             #"bin/calendarserver_upgrade",
                             #"bin/calendarserver_verify_data",
                            ],
-        data_files       = [ ("caldavd", ["conf/caldavd.plist"]), ],
-        ext_modules      = extensions,
-        py_modules       = [],
+        data_files=[("caldavd", ["conf/caldavd.plist"]), ],
+        ext_modules=extensions,
+        py_modules=[],
     )
 
     if "install" in dist.commands:
@@ -215,5 +217,3 @@ def doSetup():
 
 if __name__ == "__main__":
     doSetup()
-
-

@@ -21,18 +21,12 @@ from calendarserver.push.applepush import (
     ApplePushNotifierService, APNProviderProtocol
 )
 from calendarserver.push.util import validToken, TokenHistory
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import StoreTestCase
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.internet.task import Clock
-from txdav.common.datastore.test.util import buildStore, CommonCommonTests
 from txdav.common.icommondatastore import InvalidSubscriptionValues
 
-class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
-
-    @inlineCallbacks
-    def setUp(self):
-        yield super(ApplePushNotifierServiceTests, self).setUp()
-        self.store = yield buildStore(self, None)
+class ApplePushNotifierServiceTests(StoreTestCase):
 
     @inlineCallbacks
     def test_ApplePushNotifierService(self):
@@ -65,9 +59,8 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
             },
         }
 
-
         # Add subscriptions
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
 
         # Ensure empty values don't get through
         try:
@@ -79,7 +72,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         except InvalidSubscriptionValues:
             pass
 
-        token  = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
+        token = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
         token2 = "3d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
         key1 = "/CalDAV/calendars.example.com/user01/calendar/"
         timestamp1 = 1000
@@ -116,16 +109,16 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Set up the service
         clock = Clock()
         service = (yield ApplePushNotifierService.makeService(settings,
-            self.store, testConnectorClass=TestConnector, reactor=clock))
-        self.assertEquals(set(service.providers.keys()), set(["CalDAV","CardDAV"]))
-        self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV","CardDAV"]))
+            self._sqlCalendarStore, testConnectorClass=TestConnector, reactor=clock))
+        self.assertEquals(set(service.providers.keys()), set(["CalDAV", "CardDAV"]))
+        self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV", "CardDAV"]))
 
         # First, enqueue a notification while we have no connection, in this
         # case by doing it prior to startService()
 
         # Notification arrives from calendar server
         dataChangedTimestamp = 1354815999
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         yield service.enqueue(txn, "/CalDAV/calendars.example.com/user01/calendar/",
             dataChangedTimestamp=dataChangedTimestamp)
         yield txn.commit()
@@ -154,11 +147,10 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         payload = json.loads(payload[0])
         self.assertEquals(payload["key"], u"/CalDAV/calendars.example.com/user01/calendar/")
         self.assertEquals(payload["dataChangedTimestamp"], dataChangedTimestamp)
-        self.assertTrue(payload.has_key("pushRequestSubmittedTimestamp"))
+        self.assertTrue("pushRequestSubmittedTimestamp" in payload)
         # Verify token history is updated
-        self.assertTrue(token in [t for (i, t) in providerConnector.service.protocol.history.history])
-        self.assertTrue(token2 in [t for (i, t) in providerConnector.service.protocol.history.history])
-
+        self.assertTrue(token in [t for (_ignore_i, t) in providerConnector.service.protocol.history.history])
+        self.assertTrue(token2 in [t for (_ignore_i, t) in providerConnector.service.protocol.history.history])
 
         #
         # Verify staggering behavior
@@ -167,7 +159,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Reset sent data
         providerConnector.transport.data = None
         # Send notification while service is connected
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         yield service.enqueue(txn, "/CalDAV/calendars.example.com/user01/calendar/")
         yield txn.commit()
         clock.advance(1) # so that first push is sent
@@ -177,13 +169,13 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         clock.advance(3) # so that second push is sent
         self.assertEquals(len(providerConnector.transport.data), 183)
 
+        history = []
 
         def errorTestFunction(status, identifier):
             history.append((status, identifier))
             return succeed(None)
 
         # Simulate an error
-        history = []
         errorData = struct.pack("!BBI", APNProviderProtocol.COMMAND_ERROR, 1, 2)
         yield providerConnector.receiveData(errorData, fn=errorTestFunction)
         clock.advance(301)
@@ -208,13 +200,11 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Buffer has 1 byte remaining
         self.assertEquals(len(providerConnector.service.protocol.buffer), 1)
 
-
         # Prior to feedback, there are 2 subscriptions
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
         yield txn.commit()
         self.assertEquals(len(subscriptions), 2)
-
 
         # Simulate feedback with a single token
         feedbackConnector = service.feedbacks["CalDAV"].testConnector
@@ -250,7 +240,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         self.assertEquals(len(feedbackConnector.service.protocol.buffer), 1)
 
         # The second subscription should now be gone
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
         yield txn.commit()
         self.assertEquals(subscriptions,
@@ -268,7 +258,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         self.assertTrue((id, token2) not in providerConnector.service.protocol.history.history)
 
         # All subscriptions for this token should now be gone
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token2))
         yield txn.commit()
         self.assertEquals(subscriptions, [])
@@ -278,25 +268,26 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         #
 
         # Create two subscriptions, one old and one new
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         now = int(time.time())
         yield txn.addAPNSubscription(token2, key1, now - 2 * 24 * 60 * 60, uid, userAgent, ipAddr) # old
         yield txn.addAPNSubscription(token2, key2, now, uid, userAgent, ipAddr) # recent
         yield txn.commit()
 
         # Purge old subscriptions
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         yield txn.purgeOldAPNSubscriptions(now - 60 * 60)
         yield txn.commit()
 
         # Check that only the recent subscription remains
-        txn = self.store.newTransaction()
+        txn = self._sqlCalendarStore.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token2))
         yield txn.commit()
         self.assertEquals(len(subscriptions), 1)
         self.assertEquals(subscriptions[0][0], key2)
 
         service.stopService()
+
 
     def test_validToken(self):
         self.assertTrue(validToken("2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))
@@ -363,6 +354,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         )
 
 
+
 class TestConnector(object):
 
     def connect(self, service, factory):
@@ -372,14 +364,17 @@ class TestConnector(object):
         self.transport = StubTransport()
         service.protocol.makeConnection(self.transport)
 
+
     def receiveData(self, data, fn=None):
         return self.service.protocol.dataReceived(data, fn=fn)
+
 
 
 class StubTransport(object):
 
     def __init__(self):
         self.data = None
+
 
     def write(self, data):
         self.data = data

@@ -33,6 +33,10 @@ class TooManyInstancesError(Exception):
         self.max_allowed = config.MaxAllowedInstances
 
 
+    def __str__(self):
+        return "Too many recurrence instances."
+
+
     def __repr__(self):
         return "<%s max:%s>" % (self.__class__.__name__, self.max_allowed)
 
@@ -43,6 +47,10 @@ class InvalidOverriddenInstanceError(Exception):
     def __init__(self, rid):
         Exception.__init__(self)
         self.rid = rid
+
+
+    def __str__(self):
+        return "Invalid overridden instance :%s" % (self.rid,)
 
 
     def __repr__(self):

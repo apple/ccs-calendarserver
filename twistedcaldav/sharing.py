@@ -88,8 +88,7 @@ class SharedCollectionMixin(object):
                 )
 
             # See if this property is on the shared calendar
-            isShared = yield self.isShared(request)
-            if isShared:
+            if self.isShared():
                 yield self.validateInvites(request)
                 invitations = yield self._allInvitations()
                 returnValue(customxml.Invite(
@@ -117,25 +116,21 @@ class SharedCollectionMixin(object):
         returnValue(None)
 
 
+    @inlineCallbacks
     def upgradeToShare(self):
         """
         Set the resource-type property on this resource to indicate that this
         is the owner's version of a resource which has been shared.
         """
-        # Change resourcetype
-        rtype = self.resourceType()
-        rtype = element.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
-        self.writeDeadProperty(rtype)
+        # Change status on store object
+        yield self._newStoreObject.setShared(True)
 
 
     @inlineCallbacks
     def downgradeFromShare(self, request):
 
-        # Change resource type (note this might be called after deleting a resource
-        # so we have to cope with that)
-        rtype = self.resourceType()
-        rtype = element.ResourceType(*([child for child in rtype.children if child != customxml.SharedOwner()]))
-        self.writeDeadProperty(rtype)
+        # Change status on store object
+        yield self._newStoreObject.setShared(False)
 
         # Remove all invitees
         for invitation in (yield self._allInvitations()):
@@ -146,8 +141,7 @@ class SharedCollectionMixin(object):
 
     @inlineCallbacks
     def changeUserInviteState(self, request, inviteUID, shareeUID, state, summary=None):
-        shared = (yield self.isShared(request))
-        if not shared:
+        if not self.isShared():
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (customxml.calendarserver_namespace, "valid-request"),
@@ -241,12 +235,11 @@ class SharedCollectionMixin(object):
         returnValue(response)
 
 
-    @inlineCallbacks
-    def isShared(self, request):
+    def isShared(self):
         """
         Return True if this is an owner shared calendar collection.
         """
-        returnValue((yield self.isSpecialCollection(customxml.SharedOwner)))
+        return self._newStoreObject.isShared() if self._newStoreObject else False
 
 
     def setShare(self, share):
@@ -276,26 +269,6 @@ class SharedCollectionMixin(object):
         elif self.isAddressBookCollection():
             shareeHome = yield sharee.addressBookHome(request)
         returnValue((yield shareeHome.removeShare(request, self._share)))
-
-
-    def resourceType(self):
-        superObject = super(SharedCollectionMixin, self)
-        try:
-            superMethod = superObject.resourceType
-        except AttributeError:
-            rtype = element.ResourceType()
-        else:
-            rtype = superMethod()
-
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
-            rtype = element.ResourceType(
-                *(
-                    tuple([child for child in rtype.children if child.qname() != customxml.SharedOwner.qname()]) +
-                    (customxml.Shared(),)
-                )
-            )
-        return rtype
 
 
     def sharedResourceType(self):
@@ -896,11 +869,11 @@ class SharedCollectionMixin(object):
         numRecords = (yield self.validateInvites(request))
 
         # Set the sharing state on the collection
-        shared = (yield self.isShared(request))
+        shared = self.isShared()
         if shared and numRecords == 0:
             yield self.downgradeFromShare(request)
         elif not shared and numRecords != 0:
-            self.upgradeToShare()
+            yield self.upgradeToShare()
 
         # Create the multistatus response - only needed if some are bad
         if badusers:
@@ -1228,7 +1201,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # Calendars always start out transparent and with empty default alarms
         if isNewShare and shareeCollection.isCalendarCollection():
-            yield shareeCollection.writeProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()), request)
+            yield shareeCollection._newStoreObject.setUsedForFreeBusy(False)
             yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVEventDateTime.fromString(""), request)
             yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVEventDate.fromString(""), request)
             yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVToDoDateTime.fromString(""), request)
@@ -1286,14 +1259,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
         shareURL = joinURL(self.url(), share.name())
         shared = (yield request.locateResource(shareURL))
         displayname = shared.displayName()
-
-        if self.isCalendarCollection():
-            # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-            principal = (yield self.resourceOwnerPrincipal(request))
-            inboxURL = principal.scheduleInboxURL()
-            if inboxURL:
-                inbox = (yield request.locateResource(inboxURL))
-                inbox.processFreeBusyCalendar(shareURL, False)
 
         if share.direct():
             yield share._sharerHomeChild.unshareWith(share._shareeHomeChild.viewerHome())

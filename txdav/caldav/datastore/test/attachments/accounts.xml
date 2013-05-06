@@ -20,10 +20,17 @@ limitations under the License.
 
 <accounts realm="/Search">
   <user>
-    <uid>example</uid>
-    <guid>6423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
-    <password>example</password>
-    <name>Example User</name>
-    <email-address>example@example.com</email-address>
+    <uid>home1</uid>
+    <guid>home1</guid>
+    <password>home1</password>
+    <name>Example User 1</name>
+    <email-address>home1@example.com</email-address>
+  </user>
+  <user>
+    <uid>home2</uid>
+    <guid>home2</guid>
+    <password>home2</password>
+    <name>Example User 2</name>
+    <email-address>home2@example.com</email-address>
   </user>
 </accounts>

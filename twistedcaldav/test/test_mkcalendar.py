@@ -23,12 +23,11 @@ from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 from txdav.xml import element as davxml
 from twext.web2.dav.fileop import rmdir
-from twext.web2.test.test_server import SimpleRequest
 
 from twistedcaldav import caldavxml
-from twistedcaldav.test.util import HomeTestCase
+from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 
-class MKCALENDAR (HomeTestCase):
+class MKCALENDAR (StoreTestCase):
     """
     MKCALENDAR request
     """
@@ -40,13 +39,13 @@ class MKCALENDAR (HomeTestCase):
         """
         Make calendar
         """
-        uri  = "/calendar_make/"
+        uri = "/calendars/users/user01/calendar_make/"
         path = os.path.join(self.docroot, uri[1:])
 
         if os.path.exists(path):
             rmdir(path)
 
-        request = SimpleRequest(self.site, "MKCALENDAR", uri)
+        request = SimpleStoreRequest(self, "MKCALENDAR", uri, authid="user01")
 
         @inlineCallbacks
         def do_test(response):
@@ -65,11 +64,12 @@ class MKCALENDAR (HomeTestCase):
 
         return self.send(request, do_test)
 
+
     def test_make_calendar_with_props(self):
         """
         Make calendar with properties (CalDAV-access-09, section 5.3.1.2)
         """
-        uri  = "/calendar_prop/"
+        uri = "/calendars/users/user01/calendar_prop/"
         path = os.path.join(self.docroot, uri[1:])
 
         if os.path.exists(path):
@@ -110,7 +110,7 @@ class MKCALENDAR (HomeTestCase):
             tz = tz.calendar()
             self.failUnless(tz.resourceType() == "VTIMEZONE")
             self.failUnless(tuple(tz.subcomponents())[0].propertyValue("TZID") == "US-Eastern")
-        
+
         mk = caldavxml.MakeCalendar(
             davxml.Set(
                 davxml.PropertyContainer(
@@ -146,7 +146,7 @@ END:VCALENDAR
             )
         )
 
-        request = SimpleRequest(self.site, "MKCALENDAR", uri)
+        request = SimpleStoreRequest(self, "MKCALENDAR", uri, authid="user01")
         request.stream = MemoryStream(mk.toxml())
         return self.send(request, do_test)
 
@@ -155,11 +155,7 @@ END:VCALENDAR
         """
         Make calendar on existing collection
         """
-        uri  = "/calendar_on_resource/"
-        path = os.path.join(self.docroot, uri[1:])
-
-        if not os.path.exists(path):
-            os.mkdir(path)
+        uri = "/calendars/users/user01/calendar/"
 
         def do_test(response):
             response = IResponse(response)
@@ -169,18 +165,17 @@ END:VCALENDAR
 
             # FIXME: Check for DAV:resource-must-be-null element
 
-        request = SimpleRequest(self.site, "MKCALENDAR", uri)
+        request = SimpleStoreRequest(self, "MKCALENDAR", uri, authid="user01")
         return self.send(request, do_test)
+
 
     def test_make_calendar_in_calendar(self):
         """
         Make calendar in calendar
         """
-        first_uri  = "/calendar_in_calendar/"
-        first_path = os.path.join(self.docroot, first_uri[1:])
+        first_uri = "/calendars/users/user01/calendar_in_calendar/"
 
-        if os.path.exists(first_path): rmdir(first_path)
-
+        @inlineCallbacks
         def next(response):
             response = IResponse(response)
 
@@ -193,10 +188,10 @@ END:VCALENDAR
                 if response.code != responsecode.FORBIDDEN:
                     self.fail("Incorrect response to nested MKCALENDAR: %s" % (response.code,))
 
-            nested_uri  = os.path.join(first_uri, "nested")
+            nested_uri = os.path.join(first_uri, "nested")
 
-            request = SimpleRequest(self.site, "MKCALENDAR", nested_uri)
-            self.send(request, do_test)
+            request = SimpleStoreRequest(self, "MKCALENDAR", nested_uri, authid="user01")
+            yield self.send(request, do_test)
 
-        request = SimpleRequest(self.site, "MKCALENDAR", first_uri)
+        request = SimpleStoreRequest(self, "MKCALENDAR", first_uri, authid="user01")
         return self.send(request, next)
