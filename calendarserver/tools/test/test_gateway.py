@@ -113,6 +113,12 @@ class RunCommandTestCase(TestCase):
 class GatewayTestCase(RunCommandTestCase):
 
     @inlineCallbacks
+    def test_getLocationAndResourceList(self):
+        results = yield self.runCommand(command_getLocationAndResourceList)
+        self.assertEquals(len(results["result"]), 20)
+
+
+    @inlineCallbacks
     def test_getLocationList(self):
         results = yield self.runCommand(command_getLocationList)
         self.assertEquals(len(results["result"]), 10)
@@ -447,6 +453,16 @@ command_deleteResource = """<?xml version="1.0" encoding="UTF-8"?>
         <string>deleteResource</string>
         <key>GeneratedUID</key>
         <string>resource01</string>
+</dict>
+</plist>
+"""
+
+command_getLocationAndResourceList = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>getLocationAndResourceList</string>
 </dict>
 </plist>
 """
