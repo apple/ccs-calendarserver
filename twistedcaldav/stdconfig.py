@@ -644,6 +644,10 @@ DEFAULT_CONFIG = {
                 "X-APPLE-TRAVEL-RETURN-DURATION",
                 "X-APPLE-TRAVEL-RETURN",
             ],
+            "OrganizerPublicProperties"  : [     # Names of X- iCalendar properties that are sent from ORGANIZER to ATTENDEE
+                "X-APPLE-DROPBOX",
+                "X-APPLE-STRUCTURED-LOCATION",
+            ],
         },
 
         "iSchedule": {

@@ -20,12 +20,14 @@ from pycalendar.timezone import PyCalendarTimezone
 
 from twisted.trial import unittest
 
+from twistedcaldav.stdconfig import config
 from twistedcaldav.ical import Component
 
 from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTipGenerator
 
 import os
 
+hasattr(config, "Scheduling")   # Quell pyflakes
 
 class iTIPProcessing (unittest.TestCase):
     """
