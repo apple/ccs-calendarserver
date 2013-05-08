@@ -38,8 +38,6 @@ from twisted.python.log import err as logDefaultException
 from twisted.python.util import FancyEqMixin
 
 from twistedcaldav import customxml, carddavxml, caldavxml
-from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin, \
-    DisabledCacheNotifier
 from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance, \
     MaxInstances, NoUIDConflict
 from twistedcaldav.carddavxml import carddav_namespace, NoUIDConflict as NovCardUIDConflict
@@ -218,13 +216,12 @@ class _NewStoreFileMetaDataHelper(object):
 
 
 
-class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
+class _CommonHomeChildCollectionMixin(object):
     """
     Methods for things which are like calendars.
     """
 
     _childClass = None
-    cacheNotifierFactory = DisabledCacheNotifier
 
     def _initializeWithHomeChild(self, child, home):
         """
@@ -242,9 +239,6 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         self._dead_properties = _NewStorePropertiesWrapper(
             self._newStoreObject.properties()
         ) if self._newStoreObject else NonePropertyStore(self)
-        if self._newStoreObject:
-            self.cacheNotifier = self.cacheNotifierFactory(self)
-            self._newStoreObject.addNotifier(CacheStoreNotifier(self))
 
 
     def liveProperties(self):
@@ -972,8 +966,8 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             )
 
 
-    def notifierID(self, label="default"):
-        self._newStoreObject.notifierID(label)
+    def notifierID(self):
+        return "%s/%s" % self._newStoreObject.notifierID()
 
 
     def notifyChanged(self):
@@ -1229,44 +1223,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             returnValue(str(result))
         else:
             returnValue(None)
-
-
-    @inlineCallbacks
-    def storeRemove(self, request):
-        """
-        Delete this calendar collection resource, first deleting each contained
-        calendar resource.
-
-        This has to emulate the behavior in fileop.delete in that any errors
-        need to be reported back in a multistatus response.
-
-        @param request: The request used to locate child resources.  Note that
-            this is the request which I{triggered} the C{DELETE}, but which may
-            not actually be a C{DELETE} request itself.
-
-        @type request: L{twext.web2.iweb.IRequest}
-
-        @return: an HTTP response suitable for sending to a client (or
-            including in a multi-status).
-
-        @rtype: something adaptable to L{twext.web2.iweb.IResponse}
-        """
-
-        # Not allowed to delete the default calendar
-        default = (yield self.isDefaultCalendar(request))
-        if default:
-            log.err("Cannot DELETE default calendar: %s" % (self,))
-            raise HTTPError(ErrorResponse(
-                FORBIDDEN,
-                (caldav_namespace, "default-calendar-delete-allowed",),
-                "Cannot delete default calendar",
-            ))
-
-        response = (
-            yield super(CalendarCollectionResource, self).storeRemove(request)
-        )
-
-        returnValue(response)
 
 
     # FIXME: access control
@@ -3227,14 +3183,10 @@ class _NotificationChildHelper(object):
 
 
 
-class StoreNotificationCollectionResource(_NotificationChildHelper,
-                                          NotificationCollectionResource,
-                                          ResponseCacheMixin):
+class StoreNotificationCollectionResource(_NotificationChildHelper, NotificationCollectionResource):
     """
     Wrapper around a L{txdav.caldav.icalendar.ICalendar}.
     """
-
-    cacheNotifierFactory = DisabledCacheNotifier
 
     def __init__(self, notifications, homeResource, home, *args, **kw):
         """
@@ -3244,9 +3196,6 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
         super(StoreNotificationCollectionResource, self).__init__(*args, **kw)
         self._initializeWithNotifications(notifications, home)
         self._parentResource = homeResource
-        if self._newStoreNotifications:
-            self.cacheNotifier = self.cacheNotifierFactory(self)
-            self._newStoreNotifications.addNotifier(CacheStoreNotifier(self))
 
 
     def name(self):

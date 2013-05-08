@@ -110,12 +110,16 @@ class CommonDataStore(DataStore):
     """
     implements(ICalendarStore)
 
-    def __init__(self, path, notifierFactory,
-                 directoryService,
-                 enableCalendars=True,
-                 enableAddressBooks=True,
-                 quota=(2 ** 20),
-                 propertyStoreClass=XattrPropertyStore):
+    def __init__(
+        self,
+        path,
+        notifierFactories,
+        directoryService,
+        enableCalendars=True,
+        enableAddressBooks=True,
+        quota=(2 ** 20),
+        propertyStoreClass=XattrPropertyStore
+    ):
         """
         Create a store.
 
@@ -127,7 +131,7 @@ class CommonDataStore(DataStore):
         self._directoryService = IStoreDirectoryService(directoryService) if directoryService is not None else None
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
-        self._notifierFactory = notifierFactory
+        self._notifierFactories = notifierFactories if notifierFactories is not None else {}
         self._transactionClass = CommonStoreTransaction
         self._propertyStoreClass = propertyStoreClass
         self.quota = quota
@@ -163,7 +167,7 @@ class CommonDataStore(DataStore):
             name,
             self.enableCalendars,
             self.enableAddressBooks,
-            self._notifierFactory if self._enableNotifications else None,
+            self._notifierFactories if self._enableNotifications else None,
             self._migrating,
         )
         for callback in self._newTransactionCallbacks:
@@ -262,7 +266,7 @@ class CommonStoreTransaction(DataStoreTransaction):
 
     _homeClass = {}
 
-    def __init__(self, dataStore, name, enableCalendars, enableAddressBooks, notifierFactory, migrating=False):
+    def __init__(self, dataStore, name, enableCalendars, enableAddressBooks, notifierFactories, migrating=False):
         """
         Initialize a transaction; do not call this directly, instead call
         L{DataStore.newTransaction}.
@@ -280,7 +284,7 @@ class CommonStoreTransaction(DataStoreTransaction):
         self._calendarHomes = {}
         self._addressbookHomes = {}
         self._notificationHomes = {}
-        self._notifierFactory = notifierFactory
+        self._notifierFactories = notifierFactories
         self._notifiedAlready = set()
         self._bumpedAlready = set()
         self._migrating = migrating
@@ -596,12 +600,12 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
     _topPath = None
     _notifierPrefix = None
 
-    def __init__(self, uid, path, dataStore, transaction, notifiers):
+    def __init__(self, uid, path, dataStore, transaction):
         self._dataStore = dataStore
         self._uid = uid
         self._path = path
         self._transaction = transaction
-        self._notifiers = notifiers
+        self._notifiers = None
         self._shares = SharedCollectionsDatabase(StubResource(self))
         self._newChildren = {}
         self._removedChildren = set()
@@ -683,13 +687,9 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         else:
             homePath = childPath
 
-        if txn._notifierFactory:
-            notifiers = (txn._notifierFactory.newNotifier(id=uid,
-                prefix=cls._notifierPrefix),)
-        else:
-            notifiers = None
-
-        home = cls(uid, homePath, txn._dataStore, txn, notifiers)
+        home = cls(uid, homePath, txn._dataStore, txn)
+        for factory_name, factory in txn._notifierFactories.items():
+            home.addNotifier(factory_name, factory.newNotifier(home))
         if creating:
             home.createdHome()
             if withNotifications:
@@ -928,28 +928,18 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         self.properties()[PropertyName.fromElement(TwistedQuotaUsedProperty)] = TwistedQuotaUsedProperty(str(new_used))
 
 
-    def addNotifier(self, notifier):
+    def addNotifier(self, factory_name, notifier):
         if self._notifiers is None:
-            self._notifiers = ()
-        self._notifiers += (notifier,)
+            self._notifiers = {}
+        self._notifiers[factory_name] = notifier
 
 
-    def notifierID(self, label="default"):
-        if self._notifiers:
-            return self._notifiers[0].getID(label)
-        else:
-            return None
+    def getNotifier(self, factory_name):
+        return self._notifiers.get(factory_name)
 
 
-    @inlineCallbacks
-    def nodeName(self, label="default"):
-        if self._notifiers:
-            for notifier in self._notifiers:
-                name = (yield notifier.nodeName(label=label))
-                if name is not None:
-                    returnValue(name)
-        else:
-            returnValue(None)
+    def notifierID(self):
+        return (self._notifierPrefix, self.uid(),)
 
 
     def notifyChanged(self):
@@ -959,7 +949,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
         # Only send one set of change notifications per transaction
         if self._notifiers and not self._transaction.isNotifiedAlready(self):
-            for notifier in self._notifiers:
+            for notifier in self._notifiers.values():
                 self._transaction.postCommit(notifier.notify)
             self._transaction.notificationAddedForObject(self)
 
@@ -1004,12 +994,10 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         self._invites = None # Derived classes need to set this
         self._renamedName = realName
 
-        if home._notifiers:
-            childID = "%s/%s" % (home.uid(), name)
-            notifiers = [notifier.clone(label="collection", id=childID) for notifier in home._notifiers]
+        if self._home._notifiers:
+            self._notifiers = dict([(factory_name, notifier.clone(self),) for factory_name, notifier in self._home._notifiers.items()])
         else:
-            notifiers = None
-        self._notifiers = notifiers
+            self._notifiers = None
 
 
     @classmethod
@@ -1282,28 +1270,22 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         pass
 
 
-    def addNotifier(self, notifier):
+    def addNotifier(self, factory_name, notifier):
         if self._notifiers is None:
-            self._notifiers = ()
-        self._notifiers += (notifier,)
+            self._notifiers = {}
+        self._notifiers[factory_name] = notifier
 
 
-    def notifierID(self, label="default"):
-        if self._notifiers:
-            return self._notifiers[0].getID(label)
-        else:
-            return None
+    def getNotifier(self, factory_name):
+        return self._notifiers.get(factory_name)
 
 
-    @inlineCallbacks
-    def nodeName(self, label="default"):
-        if self._notifiers:
-            for notifier in self._notifiers:
-                name = (yield notifier.nodeName(label=label))
-                if name is not None:
-                    returnValue(name)
-        else:
-            returnValue(None)
+    def notifierID(self):
+        return (self.ownerHome()._notifierPrefix, "%s/%s" % (self.ownerHome().uid(), self.name(),),)
+
+
+    def parentNotifierID(self):
+        return self.ownerHome().notifierID()
 
 
     def notifyChanged(self):
@@ -1313,7 +1295,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
 
         # Only send one set of change notifications per transaction
         if self._notifiers and not self._transaction.isNotifiedAlready(self):
-            for notifier in self._notifiers:
+            for notifier in self._notifiers.values():
                 self._transaction.postCommit(notifier.notify)
             self._transaction.notificationAddedForObject(self)
 

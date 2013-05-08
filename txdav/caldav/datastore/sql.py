@@ -339,10 +339,10 @@ class CalendarHome(CommonHome):
 
     _cacher = Memcacher("SQL.calhome", pickle=True, key_normalization=False)
 
-    def __init__(self, transaction, ownerUID, notifiers):
+    def __init__(self, transaction, ownerUID):
 
         self._childClass = Calendar
-        super(CalendarHome, self).__init__(transaction, ownerUID, notifiers)
+        super(CalendarHome, self).__init__(transaction, ownerUID)
 
 
     @classmethod
@@ -554,11 +554,16 @@ class CalendarHome(CommonHome):
         # Check whether components type must be separate
         if config.RestrictCalendarsToOneComponentType:
             yield defaultCal.setSupportedComponents("VEVENT")
+            yield self.setDefaultCalendar(defaultCal, False)
 
             # Default tasks
             defaultTasks = yield self.createCalendarWithName("tasks")
             yield defaultTasks.setSupportedComponents("VTODO")
             yield defaultTasks.setUsedForFreeBusy(False)
+            yield self.setDefaultCalendar(defaultTasks, True)
+        else:
+            yield self.setDefaultCalendar(defaultCal, False)
+            yield self.setDefaultCalendar(defaultCal, True)
 
         inbox = yield self.createCalendarWithName("inbox")
         yield inbox.setUsedForFreeBusy(False)
@@ -662,6 +667,7 @@ class CalendarHome(CommonHome):
             Where=chm.RESOURCE_ID == self._resourceID,
         ).on(self._txn)
         yield self.invalidateQueryCache()
+        yield self.notifyChanged()
 
         returnValue(defaultCalendar)
 
@@ -697,13 +703,23 @@ class CalendarHome(CommonHome):
             Where=chm.RESOURCE_ID == self._resourceID,
         ).on(self._txn)
         yield self.invalidateQueryCache()
+        yield self.notifyChanged()
 
 
     @inlineCallbacks
-    def defaultCalendar(self, componentType):
+    def defaultCalendar(self, componentType, create=True):
         """
         Find the default calendar for the supplied iCalendar component type. If one does
         not exist, automatically provision it.
+
+        @param componentType: the name of the iCalendar component for the default, i.e. "VEVENT" or "VTODO"
+        @type componentType: C{str}
+        @param create: if C{True} and no default is found, create a calendar and make it the default, if C{False}
+            and there is no default, then return C{None}
+        @type create: C{bool}
+
+        @return: the default calendar or C{None} if none found and creation not requested
+        @rtype: L{Calendar} or C{None}
         """
 
         # Check any default calendar property first - this will create if none exists
@@ -741,9 +757,12 @@ class CalendarHome(CommonHome):
 
             # If none can be found, provision one
             if default is None:
-                new_name = "%ss" % (componentType.lower()[1:],)
-                default = yield self.createCalendarWithName(new_name)
-                yield default.setSupportedComponents(componentType.upper())
+                if not create:
+                    returnValue(None)
+                else:
+                    new_name = "%ss" % (componentType.lower()[1:],)
+                    default = yield self.createCalendarWithName(new_name)
+                    yield default.setSupportedComponents(componentType.upper())
 
             # Update the metadata
             chm = self._homeMetaDataSchema
@@ -788,6 +807,7 @@ class CalendarHome(CommonHome):
         return str(prop) if prop is not None else None
 
 
+    @inlineCallbacks
     def setDefaultAlarm(self, alarm, vevent, timed):
         """
         Set default alarm of the specified type.
@@ -806,6 +826,7 @@ class CalendarHome(CommonHome):
             prop = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
 
         self.properties()[PropertyName.fromElement(prop)] = prop.fromString(alarm)
+        yield self.notifyChanged()
 
 
 CalendarHome._register(ECALENDARTYPE)
@@ -975,6 +996,7 @@ class Calendar(CommonHomeChild):
         ).on(self._txn)
         self._supportedComponents = supported_components
         yield self.invalidateQueryCache()
+        yield self.notifyChanged()
 
 
     def getSupportedComponents(self):
@@ -1013,6 +1035,7 @@ class Calendar(CommonHomeChild):
             return str(prop)
 
 
+    @inlineCallbacks
     def setDefaultAlarm(self, alarm, vevent, timed):
         """
         Set default alarm of the specified type.
@@ -1031,6 +1054,7 @@ class Calendar(CommonHomeChild):
             prop = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
 
         self.properties()[PropertyName.fromElement(prop)] = prop.fromString(alarm)
+        yield self.notifyChanged()
 
 
     def isInbox(self):

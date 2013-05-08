@@ -21,8 +21,8 @@
 -- Calendar home related updates
 
 alter table ATTACHMENT
- add ("DEFAULT_EVENTS" integer default null,
- 	  "DEFAULT_TASKS"  integer default null);
+ add ("DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
+ 	  "DEFAULT_TASKS"  integer default null references CALENDAR on delete set null);
 
  	  
 -- Calendar bind related updates

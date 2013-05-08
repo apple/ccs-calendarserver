@@ -55,6 +55,14 @@ create table CALENDAR_HOME (
   DATAVERSION      integer      default 0 not null
 );
 
+--------------
+-- Calendar --
+--------------
+
+create table CALENDAR (
+  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
+);
+
 ----------------------------
 -- Calendar Home Metadata --
 ----------------------------
@@ -62,18 +70,10 @@ create table CALENDAR_HOME (
 create table CALENDAR_HOME_METADATA (
   RESOURCE_ID      integer      primary key references CALENDAR_HOME on delete cascade, -- implicit index
   QUOTA_USED_BYTES integer      default 0 not null,
-  DEFAULT_EVENTS   integer      default null,
-  DEFAULT_TASKS    integer      default null,
+  DEFAULT_EVENTS   integer      default null references CALENDAR on delete set null,
+  DEFAULT_TASKS    integer      default null references CALENDAR on delete set null,
   CREATED          timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED         timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
-);
-
---------------
--- Calendar --
---------------
-
-create table CALENDAR (
-  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
 );
 
 

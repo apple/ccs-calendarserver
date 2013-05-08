@@ -67,8 +67,8 @@ class AddressBookHome(CommonHome):
     _topPath = "addressbooks"
     _notifierPrefix = "CardDAV"
 
-    def __init__(self, uid, path, addressbookStore, transaction, notifiers):
-        super(AddressBookHome, self).__init__(uid, path, addressbookStore, transaction, notifiers)
+    def __init__(self, uid, path, addressbookStore, transaction):
+        super(AddressBookHome, self).__init__(uid, path, addressbookStore, transaction)
 
         self._childClass = AddressBook
 

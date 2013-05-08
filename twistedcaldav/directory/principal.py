@@ -899,6 +899,10 @@ class DirectoryPrincipalResource (
         return self.principalURL()
 
 
+    def notifierID(self):
+        return self.principalURL()
+
+
     @inlineCallbacks
     def isProxyFor(self, principal):
         """

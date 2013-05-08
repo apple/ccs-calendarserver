@@ -41,7 +41,7 @@ class StubHome(object):
         return []
 
 
-    def addNotifier(self, notifier):
+    def addNotifier(self, factory_name, notifier):
         pass
 
 

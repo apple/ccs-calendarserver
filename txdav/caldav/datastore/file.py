@@ -84,9 +84,8 @@ class CalendarHome(CommonHome):
     _topPath = "calendars"
     _notifierPrefix = "CalDAV"
 
-    def __init__(self, uid, path, calendarStore, transaction, notifiers):
-        super(CalendarHome, self).__init__(uid, path, calendarStore,
-                                           transaction, notifiers)
+    def __init__(self, uid, path, calendarStore, transaction):
+        super(CalendarHome, self).__init__(uid, path, calendarStore, transaction)
 
         self._childClass = Calendar
 

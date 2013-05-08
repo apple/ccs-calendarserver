@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.caldav.datastore.test.util import buildCalendarStore
-from txdav.caldav.icalendarstore import ComponentUpdateState, \
-    InvalidDefaultCalendar
 
 """
 Tests for txdav.caldav.datastore.postgres, mostly based on
@@ -44,7 +41,9 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
     test_event_text
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
+from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
+from txdav.caldav.icalendarstore import ComponentUpdateState, InvalidDefaultCalendar
 from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
@@ -1154,7 +1153,7 @@ END:VCALENDAR
 
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_defaults")
         self.assertEqual(home._default_events, default_events._resourceID)
-        self.assertEqual(home._default_tasks, default_tasks._resourceID)
+        self.assertEqual(home._default_tasks, None)
 
         default_tasks2 = yield home.defaultCalendar("VTODO")
         self.assertTrue(default_tasks2 is not None)
@@ -1208,6 +1207,44 @@ END:VCALENDAR
         home_other = yield self.homeUnderTest(name="home_splits")
         calendar1 = yield home_other.calendarWithName("calendar_1")
         yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, False), InvalidDefaultCalendar)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_defaultCalendar_delete(self):
+        """
+        Make sure a default_events calendar is assigned after existing one is deleted.
+        """
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        calendar1 = yield home.calendarWithName("calendar_1")
+        default_events = yield home.defaultCalendar("VEVENT")
+        self.assertTrue(default_events is not None)
+        self.assertEqual(home._default_events, calendar1._resourceID)
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        calendar1 = yield home.calendarWithName("calendar_1")
+        yield calendar1.remove()
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        self.assertEqual(home._default_events, None)
+        self.assertEqual(home._default_tasks, None)
+        calendars = yield home.listCalendars()
+        self.assertEqual(calendars, ["inbox", ])
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        default_events = yield home.defaultCalendar("VEVENT")
+        self.assertTrue(default_events is not None)
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        calendar1 = yield home.calendarWithName(default_events.name())
+        default_events = yield home.defaultCalendar("VEVENT")
+        self.assertTrue(default_events is not None)
+        self.assertEqual(home._default_events, calendar1._resourceID)
         yield self.commit()
 
 

@@ -168,7 +168,8 @@ class SQLStoreBuilder(object):
         cp.startService()
         reactor.addSystemEventTrigger("before", "shutdown", cp.stopService)
         cds = CommonDataStore(
-            cp.connection, StubNotifierFactory(),
+            cp.connection,
+            {"push": StubNotifierFactory(), },
             TestStoreDirectoryService(),
             attachmentRoot, "",
             quota=staticQuota
@@ -236,7 +237,7 @@ class SQLStoreBuilder(object):
         quota = deriveQuota(testCase)
         store = CommonDataStore(
             cp.connection,
-            notifierFactory,
+            {"push": notifierFactory} if notifierFactory is not None else {},
             directoryService,
             attachmentRoot,
             "https://example.com/calendars/__uids__/%(home)s/attachments/%(name)s",
@@ -706,28 +707,16 @@ class StubNotifierFactory(object):
         self.hostname = "example.com"
 
 
-    def newNotifier(self, label="default", id=None, prefix=None):
-        return Notifier(self, label=label, id=id, prefix=prefix)
+    def newNotifier(self, storeObject):
+        return Notifier(self, storeObject)
 
 
-    def pushKeyForId(self, id):
-        path = "/"
-
-        try:
-            prefix, id = id.split("|", 1)
-            path += "%s/" % (prefix,)
-        except ValueError:
-            # id has no prefix
-            pass
-
-        path += "%s/" % (self.hostname,)
-        if id:
-            path += "%s/" % (id,)
-        return path
+    def pushKeyForId(self, prefix, id):
+        return "/%s/%s/%s/" % (prefix, self.hostname, id)
 
 
-    def send(self, id):
-        self.history.append(id)
+    def send(self, prefix, id):
+        self.history.append(self.pushKeyForId(prefix, id))
 
 
     def reset(self):

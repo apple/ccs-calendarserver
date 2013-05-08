@@ -78,9 +78,12 @@ def setUpCalendarStore(test):
                             resource.setContent(resource.getContent() % {"now": nowYear})
 
     testID = test.id()
-    test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory,
-                                       buildDirectory(),
-                                       quota=deriveQuota(test))
+    test.calendarStore = CalendarStore(
+        storeRootPath,
+        {"push": test.notifierFactory} if test.notifierFactory else {},
+        buildDirectory(),
+        quota=deriveQuota(test),
+    )
     test.txn = test.calendarStore.newTransaction(testID + "(old)")
     assert test.calendarStore is not None, "No calendar store?"
 

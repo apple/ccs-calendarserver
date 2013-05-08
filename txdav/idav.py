@@ -27,6 +27,8 @@ __all__ = [
     "IDataStoreObject",
     "ITransaction",
     "INotifier",
+    "IStoreNotifierFactory",
+    "IStoreNotifier",
 ]
 
 from zope.interface import Attribute, Interface
@@ -40,6 +42,8 @@ class PropertyStoreError(RuntimeError):
     """
     Property store error.
     """
+
+
 
 class PropertyChangeNotAllowedError(PropertyStoreError):
     """
@@ -62,12 +66,13 @@ class IPropertyName(Interface):
     namespace = Attribute("Namespace")
     name = Attribute("Name")
 
-    def toString():
+    def toString(): #@NoSelf
         """
         Returns the string representation of the property name.
 
         @return: a string
         """
+
 
 
 class IPropertyStore(IMapping):
@@ -84,17 +89,18 @@ class IPropertyStore(IMapping):
     # FIXME: the type for values isn't quite right, there should be some more
     # specific interface for that.
 
-    def flush():
+    def flush(): #@NoSelf
         """
         Flush the property store.
         @return: C{None}
         """
 
-    def abort():
+    def abort(): #@NoSelf
         """
         Abort changes to the property store.
         @return: C{None}
         """
+
 
 
 class IDataStore(Interface):
@@ -102,7 +108,7 @@ class IDataStore(Interface):
     An L{IDataStore} is a storage of some objects.
     """
 
-    def newTransaction(label=None):
+    def newTransaction(label=None): #@NoSelf
         """
         Create a new transaction.
 
@@ -116,7 +122,7 @@ class IDataStore(Interface):
         @rtype: L{ITransaction}
         """
 
-    def setMigrating(state):
+    def setMigrating(state): #@NoSelf
         """
         Set the "migrating" state to either True or False.  This state is
         used to supress push notifications and etag changes.
@@ -126,12 +132,13 @@ class IDataStore(Interface):
         """
 
 
+
 class IDataStoreObject(Interface):
     """
     An L{IDataStoreObject} are the objects stored in an L{IDataStore}.
     """
 
-    def name():
+    def name(): #@NoSelf
         """
         Identify the name of the object
 
@@ -139,42 +146,42 @@ class IDataStoreObject(Interface):
         @rtype: C{str}
         """
 
-    def contentType():
+    def contentType(): #@NoSelf
         """
         The content type of the object's content.
 
         @rtype: L{MimeType}
         """
 
-    def md5():
+    def md5(): #@NoSelf
         """
         The MD5 hex digest of this object's content.
 
         @rtype: C{str}
         """
 
-    def size():
+    def size(): #@NoSelf
         """
         The octet-size of this object's content.
 
         @rtype: C{int}
         """
 
-    def created():
+    def created(): #@NoSelf
         """
         The creation date-time stamp of this object.
 
         @rtype: C{int}
         """
 
-    def modified():
+    def modified(): #@NoSelf
         """
         The last modification date-time stamp of this object.
 
         @rtype: C{int}
         """
 
-    def properties():
+    def properties(): #@NoSelf
         """
         Retrieve the property store for this object.
 
@@ -189,7 +196,7 @@ class ITransaction(Interface):
     its entirety.
     """
 
-    def abort():
+    def abort(): #@NoSelf
         """
         Abort this transaction.
 
@@ -197,8 +204,7 @@ class ITransaction(Interface):
             an 'abort' or 'commit' and cannot be aborted again.
         """
 
-
-    def commit():
+    def commit(): #@NoSelf
         """
         Perform this transaction.
 
@@ -206,20 +212,17 @@ class ITransaction(Interface):
             an 'abort' or 'commit' and cannot be committed again.
         """
 
-
-    def postCommit(operation):
+    def postCommit(operation): #@NoSelf
         """
         @see: L{IAsyncTransaction.postCommit}
         """
 
-
-    def postAbort(operation):
+    def postAbort(operation): #@NoSelf
         """
         @see: L{IAsyncTransaction.postAbort}
         """
 
-
-    def store():
+    def store(): #@NoSelf
         """
         The store that this transaction was initiated from.
 
@@ -230,49 +233,92 @@ class ITransaction(Interface):
 
 class INotifier(Interface):
     """
-    Push notification interface
+    Interface for an object that can send change notifications. Notifiers are associated with specific notifier factories
+    and stored in a dict with keys matching the factory name.
     """
 
-    def notifierID(label):
+    _notifiers = Attribute("Dict of L{IStoreNotifier}'s to send notifications to.")
+
+    def addNotifier(factory_name, notifier): #@NoSelf
         """
-        Return a push notification id.
+        Add an L{IStoreNotifier} to the list of notifiers for this object.
 
-        Data store objects can have an associated Notifier object which is
-        responsible for the actual communication with the outside world.
-        Clients determine what notification service to subscribe to by
-        querying the server for various DAV properties.  These properties
-        include unique IDs from each resource, and the source of truth for
-        these IDs is the data store.  This method returns the notification
-        related ID for a given data store object.
-
-        Sharing introduces the need for a data store object to have multiple
-        notifier IDs because a subscriber sees the ID for the particular
-        collection being shared while the sharer sees the ID of the parent
-        home.  Therefore there is a label parameter to identify which ID is
-        being requested: "default" (what a sharer sees), or "collection"
-        for the collection itself (what a subscriber sees).
-
-        @return: a string (or None if notifications are disabled)
+        @param factory_name: the "type" of notifier based on its factory name
+        @type factory_name: C{str}
+        @param notifier: the notifier
+        @type notifier: L{IStoreNotifier}
         """
 
-    def nodeName(label):
+    def getNotifier(factory_name): #@NoSelf
         """
-        Returns a pubsub node path.
+        Return a notifier for the specified factory name if it exists.
 
-        A pubsub node path is comprised of the following values:
+        @param factory_name: the factory name for a notifier to look for.
+        @type factory_name: C{str}
 
-        /<protocol>/<hostname>/<notifierID>/
+        @return: the notifier if found, else C{None}
+        @rtype: L{IStoreNotifier} or C{None}
+        """
 
-        <protocol> is either CalDAV or CardDAV
-        <hostname> is the name of the calendar server
-        <notifierID> is a unique string representing the resource
+    def notifyChanged(): #@NoSelf
+        """
+        Send a change notification to any notifiers assigned to the object.
+        """
 
-        This method builds this string based on pubsub configuration
-        that was passed to the NotifierFactory, and it also attempts
-        to create and configure the node in the pubsub server.  If that
-        fails, a value of None will be returned. This is used when a client
-        requests push-related DAV properties.
+    def notifierID(): #@NoSelf
+        """
+        Return a notification id. This is a tuple of two C{str}'s. The first item is the overall
+        service type "CalDAV" or "CardDAV". The second is the object identifier. For a home that
+        is the home's ownerUID, for a home child the ownerUID/name.
 
-        @return: a deferred to a string (or None if notifications are disabled
-        or the node could not be created)
+        @return: a tuple of two C[str}
+        """
+
+
+
+class IStoreNotifierFactory(Interface):
+    """
+    A factory class for a particular type of store notification. App-layer clients of the store may need
+    to be notified of changes happening to objects in the store, and act in a particular way when such changes
+    occur (e.g., send a push notification, invalidate an app-layer cache etc). To do that they create a class
+    for the interface defined here and pass that in when the store itself is created. When the store creates
+    a home object, it will pass in the list of factories and the home will instantiate an L{IStoreNotifier} to use
+    for sending notifications. Home child resources "inherit" notifiers from their home parent using the
+    IStoreNotifier.clone() method - object resources do not have notifiers.
+    """
+
+    store = Attribute("The store associated with the notifier factory")
+
+    def newNotifier(storeObject): #@NoSelf
+        """
+        Generate a notifier for the corresponding store object.
+
+        @param storeObject: the store object.
+        @type storeObject: L{CommonHome} or L{CommonHomeChild}
+        """
+
+
+
+class IStoreNotifier(Interface):
+    """
+    A notifier provided by the app-layer through an L{IStoreNotifierFactory} that the store uses to indicate
+    a change to a store home or home child object.
+    """
+
+    _storeObject = Attribute("The store object associated with the notifier: L{CommonHome} or L{CommonHomeChild}")
+
+    def notify(): #@NoSelf
+        """
+        Called by the store when the object associated with the notifier is changed.
+        """
+
+    def clone(storeObject): #@NoSelf
+        """
+        Called by the store when a home child is created and used to give the home child a notifier
+        "inherited" from the home.
+
+        @param label: a new label to use for the home child.
+        @type label: C{str}
+        @param storeObject: the store object associated with the notifier.
+        @type storeObject: L{CommonHome} or L{CommonHomeChild}
         """

@@ -453,11 +453,12 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertEquals(self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/notification",
-            ]
+        self.assertEquals(
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/notification/",
+            ])
         )
 
         notifications = yield self.transactionUnderTest().notificationsWithUID(
@@ -471,11 +472,12 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertEquals(self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/notification",
-            ]
+        self.assertEquals(
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/notification/",
+            ])
         )
 
 
@@ -533,17 +535,9 @@ class CommonTests(CommonCommonTests):
     @inlineCallbacks
     def test_notifierID(self):
         home = yield self.homeUnderTest()
-        self.assertEquals(home.notifierID(), "CalDAV|home1")
+        self.assertEquals(home.notifierID(), ("CalDAV", "home1",))
         calendar = yield home.calendarWithName("calendar_1")
-        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
-        self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
-
-
-    @inlineCallbacks
-    def test_nodeNameSuccess(self):
-        home = yield self.homeUnderTest()
-        name = yield home.nodeName()
-        self.assertEquals(name, "/CalDAV/example.com/home1/")
+        self.assertEquals(calendar.notifierID(), ("CalDAV", "home1/calendar_1",))
 
 
     @inlineCallbacks
@@ -706,7 +700,7 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue("CalDAV|home1" in self.notifierFactory.history)
+        self.assertTrue("/CalDAV/example.com/home1/" in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -746,15 +740,13 @@ class CommonTests(CommonCommonTests):
 
         # Make sure notification fired after commit
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_1",
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_2",
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_empty",
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/calendar_1/",
+                "/CalDAV/example.com/home1/calendar_2/",
+                "/CalDAV/example.com/home1/calendar_empty/",
+            ])
         )
 
 
@@ -926,11 +918,11 @@ class CommonTests(CommonCommonTests):
         # Make sure notifications are fired after commit
         yield self.commit()
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_1",
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/calendar_1/",
+            ])
         )
 
 
@@ -1096,17 +1088,15 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         home = yield self.homeUnderTest()
-        self.assertEquals(home.notifierID(), "CalDAV|home1")
+        self.assertEquals(home.notifierID(), ("CalDAV", "home1",))
         calendar = yield home.calendarWithName("calendar_1")
-        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
-        self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
+        self.assertEquals(calendar.notifierID(), ("CalDAV", "home1/calendar_1",))
         yield self.commit()
 
         home = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        self.assertEquals(home.notifierID(), "CalDAV|%s" % (OTHER_HOME_UID,))
+        self.assertEquals(home.notifierID(), ("CalDAV", OTHER_HOME_UID,))
         calendar = yield home.calendarWithName(self.sharedName)
-        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
-        self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
+        self.assertEquals(calendar.notifierID(), ("CalDAV", "home1/calendar_1",))
         yield self.commit()
 
 
@@ -1486,11 +1476,11 @@ END:VCALENDAR
 
         # Make sure notifications fire after commit
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_1",
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/calendar_1/",
+            ])
         )
 
 
@@ -1606,11 +1596,11 @@ END:VCALENDAR
 
         # Make sure notification fired after commit
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_1",
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/calendar_1/",
+            ])
         )
 
 

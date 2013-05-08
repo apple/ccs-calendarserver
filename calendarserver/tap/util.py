@@ -49,6 +49,7 @@ from twisted.python.reflect import namedClass
 # from twisted.python.failure import Failure
 
 from twistedcaldav.bind import doBind
+from twistedcaldav.cache import CacheStoreNotifierFactory
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
@@ -226,13 +227,12 @@ def storeFromConfig(config, txnFactory, directoryService=None):
     #
     # Configure NotifierFactory
     #
+    notifierFactories = {}
     if config.Notifications.Enabled:
-        # FIXME: NotifierFactory needs reference to the store in order
-        # to get a txn in order to create a Work item
-        notifierFactory = NotifierFactory(None, config.ServerHostName,
-            config.Notifications.CoalesceSeconds)
-    else:
-        notifierFactory = None
+        notifierFactories["push"] = NotifierFactory(config.ServerHostName, config.Notifications.CoalesceSeconds)
+
+    if config.EnableResponseCache and config.Memcached.Pools.Default.ClientEnabled:
+        notifierFactories["cache"] = CacheStoreNotifierFactory()
 
     if directoryService is None:
         directoryService = directoryFromConfig(config)
@@ -247,7 +247,7 @@ def storeFromConfig(config, txnFactory, directoryService=None):
             uri = "http://%s:%s" % (config.ServerHostName, config.HTTPPort,)
         attachments_uri = uri + "/calendars/__uids__/%(home)s/dropbox/%(dropbox_id)s/%(name)s"
         store = CommonSQLDataStore(
-            txnFactory, notifierFactory,
+            txnFactory, notifierFactories,
             directoryService,
             FilePath(config.AttachmentsRoot), attachments_uri,
             config.EnableCalDAV, config.EnableCardDAV,
@@ -266,11 +266,14 @@ def storeFromConfig(config, txnFactory, directoryService=None):
     else:
         store = CommonFileDataStore(
             FilePath(config.DocumentRoot),
-            notifierFactory, directoryService,
+            notifierFactories, directoryService,
             config.EnableCalDAV, config.EnableCardDAV,
             quota=quota
         )
-    if notifierFactory is not None:
+
+    # FIXME: NotifierFactories need a reference to the store in order
+    # to get a txn in order to possibly create a Work item
+    for notifierFactory in notifierFactories.values():
         notifierFactory.store = store
     return store
 

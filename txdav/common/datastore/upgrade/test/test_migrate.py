@@ -140,7 +140,7 @@ class HomeMigrationTests(TestCase):
         self.filesPath = CachingFilePath(self.mktemp())
         self.filesPath.createDirectory()
         fileStore = self.fileStore = CommonDataStore(
-            self.filesPath, StubNotifierFactory(), TestStoreDirectoryService(), True, True
+            self.filesPath, {"push": StubNotifierFactory()}, TestStoreDirectoryService(), True, True
         )
         self.sqlStore = yield theStoreBuilder.buildStore(
             self, StubNotifierFactory()

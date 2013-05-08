@@ -18,13 +18,19 @@
 Notification framework for Calendar Server
 """
 
-import datetime
-from twext.python.log import LoggingMixIn, Logger
-from twisted.internet.defer import inlineCallbacks, succeed
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.queue import WorkItem
-from txdav.common.datastore.sql_tables import schema
 from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.queue import WorkItem
+from twext.python.log import LoggingMixIn, Logger
+
+from twisted.internet.defer import inlineCallbacks
+
+from txdav.common.datastore.sql_tables import schema
+from txdav.idav import IStoreNotifierFactory, IStoreNotifier
+
+from zope.interface.declarations import implements
+
+import datetime
 
 
 log = Logger()
@@ -58,21 +64,12 @@ class Notifier(LoggingMixIn):
     L{NotifierFactory}.
     """
 
-    def __init__(self, notifierFactory, label="default", id=None, prefix=None):
+    implements(IStoreNotifier)
+
+    def __init__(self, notifierFactory, storeObject):
         self._notifierFactory = notifierFactory
-        self._ids = {label : self.normalizeID(id) }
+        self._storeObject = storeObject
         self._notify = True
-        self._prefix = prefix
-
-
-    def normalizeID(self, id):
-        urn = "urn:uuid:"
-        try:
-            if id.startswith(urn):
-                return id[len(urn):]
-        except AttributeError:
-            pass
-        return id
 
 
     def enableNotify(self, arg):
@@ -87,40 +84,43 @@ class Notifier(LoggingMixIn):
 
     @inlineCallbacks
     def notify(self):
-        for label in self._ids.iterkeys():
-            id = self.getID(label=label)
-            if id is not None:
-                if self._notify:
-                    self.log_debug("Notifications are enabled: %s %s" %
-                        (label, id))
-                    yield self._notifierFactory.send(id)
-                else:
-                    self.log_debug("Skipping notification for: %s" % (id,))
+        """
+        Send the notification. For a home object we just push using the home id. For a home
+        child we push both the owner home id and the owned home child id.
+        """
+        # Push ids from the store objects are a tuple of (prefix, name,) and we need to compose that
+        # into a single token.
+        ids = (self._storeObject.notifierID(),)
+
+        # For resources that are children of a home, we need to add the home id too.
+        if hasattr(self._storeObject, "parentNotifierID"):
+            ids += (self._storeObject.parentNotifierID(),)
+
+        for prefix, id in ids:
+            if self._notify:
+                self.log_debug("Notifications are enabled: %s %s/%s" % (self._storeObject, prefix, id,))
+                yield self._notifierFactory.send(prefix, id)
+            else:
+                self.log_debug("Skipping notification for: %s %s/%s" % (self._storeObject, prefix, id,))
 
 
-    def clone(self, label="default", id=None):
-        newNotifier = self.__class__(self._notifierFactory)
-        newNotifier._ids = self._ids.copy()
-        newNotifier._ids[label] = id
-        newNotifier._prefix = self._prefix
-        return newNotifier
+    def clone(self, storeObject):
+        return self.__class__(self._notifierFactory, storeObject)
 
 
-    def addID(self, label="default", id=None):
-        self._ids[label] = self.normalizeID(id)
-
-
-    def getID(self, label="default"):
-        id = self._ids.get(label, None)
-        if self._prefix is None:
-            return id
+    def nodeName(self):
+        """
+        The pushkey is the notifier id of the home collection for home and owned home child objects. For
+        a shared home child, the push key is the notifier if of the owner's home child.
+        """
+        if hasattr(self._storeObject, "ownerHome"):
+            if self._storeObject.owned():
+                prefix, id = self._storeObject.ownerHome().notifierID()
+            else:
+                prefix, id = self._storeObject.notifierID()
         else:
-            return "%s|%s" % (self._prefix, id)
-
-
-    def nodeName(self, label="default"):
-        id = self.getID(label=label)
-        return succeed(self._notifierFactory.pushKeyForId(id))
+            prefix, id = self._storeObject.notifierID()
+        return self._notifierFactory.pushKeyForId(prefix, id)
 
 
 
@@ -132,8 +132,10 @@ class NotifierFactory(LoggingMixIn):
     work queue.
     """
 
-    def __init__(self, store, hostname, coalesceSeconds, reactor=None):
-        self.store = store
+    implements(IStoreNotifierFactory)
+
+    def __init__(self, hostname, coalesceSeconds, reactor=None):
+        self.store = None   # Initialized after the store is created
         self.hostname = hostname
         self.coalesceSeconds = coalesceSeconds
 
@@ -143,42 +145,28 @@ class NotifierFactory(LoggingMixIn):
 
 
     @inlineCallbacks
-    def send(self, id):
+    def send(self, prefix, id):
         txn = self.store.newTransaction()
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(
-            seconds=self.coalesceSeconds)
-        yield txn.enqueue(PushNotificationWork, pushID=self.pushKeyForId(id),
-            notBefore=notBefore)
+        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.coalesceSeconds)
+        yield txn.enqueue(PushNotificationWork, pushID=self.pushKeyForId(prefix, id), notBefore=notBefore)
         yield txn.commit()
 
 
-    def newNotifier(self, label="default", id=None, prefix=None):
-        return Notifier(self, label=label, id=id, prefix=prefix)
+    def newNotifier(self, storeObject):
+        return Notifier(self, storeObject)
 
 
-    def pushKeyForId(self, id):
-        path = "/"
-
-        try:
-            prefix, id = id.split("|", 1)
-            path += "%s/" % (prefix,)
-        except ValueError:
-            # id has no prefix
-            pass
-
-        path += "%s/" % (self.hostname,)
-        if id:
-            path += "%s/" % (id,)
-        return path
+    def pushKeyForId(self, prefix, id):
+        return "/%s/%s/%s/" % (prefix, self.hostname, id)
 
 
 
-def getPubSubAPSConfiguration(pushKey, config):
+def getPubSubAPSConfiguration(notifierID, config):
     """
     Returns the Apple push notification settings specific to the pushKey
     """
     try:
-        protocol, ignored = pushKey.split("|", 1)
+        protocol, ignored = notifierID
     except ValueError:
         # id has no protocol, so we can't look up APS config
         return None

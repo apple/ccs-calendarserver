@@ -21,17 +21,17 @@ create table CALENDAR_HOME (
     "DATAVERSION" integer default 0 not null
 );
 
+create table CALENDAR (
+    "RESOURCE_ID" integer primary key
+);
+
 create table CALENDAR_HOME_METADATA (
     "RESOURCE_ID" integer primary key references CALENDAR_HOME on delete cascade,
     "QUOTA_USED_BYTES" integer default 0 not null,
-    "DEFAULT_EVENTS" integer default null,
-    "DEFAULT_TASKS" integer default null,
+    "DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
+    "DEFAULT_TASKS" integer default null references CALENDAR on delete set null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
-);
-
-create table CALENDAR (
-    "RESOURCE_ID" integer primary key
 );
 
 create table CALENDAR_METADATA (

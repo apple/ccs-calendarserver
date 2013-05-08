@@ -117,8 +117,9 @@ class CommonDataStore(Service, object):
     @ivar sqlTxnFactory: A 0-arg factory callable that produces an
         L{IAsyncTransaction}.
 
-    @ivar notifierFactory: a L{twistedcaldav.notify.NotifierFactory} (or
-        similar) that produces new notifiers for homes and collections.
+    @ivar _notifierFactories: a C{dict} of L{IStoreNotifierFactory} objects
+        from which the store can create notifiers for store objects. The keys
+        are "tokens" that determine the type of notifier.
 
     @ivar attachmentsPath: a L{FilePath} indicating a directory where
         attachments may be stored.
@@ -145,20 +146,31 @@ class CommonDataStore(Service, object):
 
     implements(ICalendarStore)
 
-    def __init__(self, sqlTxnFactory, notifierFactory,
-                 directoryService,
-                 attachmentsPath, attachmentsURIPattern,
-                 enableCalendars=True, enableAddressBooks=True,
-                 enableManagedAttachments=True,
-                 label="unlabeled", quota=(2 ** 20),
-                 logLabels=False, logStats=False, logStatsLogFile=None, logSQL=False,
-                 logTransactionWaits=0, timeoutTransactions=0,
-                 cacheQueries=True, cachePool="Default",
-                 cacheExpireSeconds=3600):
+    def __init__(self,
+        sqlTxnFactory,
+        notifierFactories,
+        directoryService,
+        attachmentsPath,
+        attachmentsURIPattern,
+        enableCalendars=True,
+        enableAddressBooks=True,
+        enableManagedAttachments=True,
+        label="unlabeled",
+        quota=(2 ** 20),
+        logLabels=False,
+        logStats=False,
+        logStatsLogFile=None,
+        logSQL=False,
+        logTransactionWaits=0,
+        timeoutTransactions=0,
+        cacheQueries=True,
+        cachePool="Default",
+        cacheExpireSeconds=3600
+    ):
         assert enableCalendars or enableAddressBooks
 
         self.sqlTxnFactory = sqlTxnFactory
-        self.notifierFactory = notifierFactory
+        self._notifierFactories = notifierFactories if notifierFactories is not None else {}
         self._directoryService = IStoreDirectoryService(directoryService) if directoryService is not None else None
         self.attachmentsPath = attachmentsPath
         self.attachmentsURIPattern = attachmentsURIPattern
@@ -255,7 +267,7 @@ class CommonDataStore(Service, object):
             self.sqlTxnFactory(),
             self.enableCalendars,
             self.enableAddressBooks,
-            self.notifierFactory if self._enableNotifications else None,
+            self._notifierFactories if self._enableNotifications else {},
             label,
             self._migrating,
             disableCache
@@ -433,12 +445,12 @@ class CommonStoreTransaction(object):
 
     def __init__(self, store, sqlTxn,
                  enableCalendars, enableAddressBooks,
-                 notifierFactory, label, migrating=False, disableCache=False):
+                 notifierFactories, label, migrating=False, disableCache=False):
         self._store = store
         self._calendarHomes = {}
         self._addressbookHomes = {}
         self._notificationHomes = {}
-        self._notifierFactory = notifierFactory
+        self._notifierFactories = notifierFactories
         self._notifiedAlready = set()
         self._bumpedAlready = set()
         self._label = label
@@ -867,11 +879,11 @@ class CommonStoreTransaction(object):
 
 
     def isNotifiedAlready(self, obj):
-        return obj in self._notifiedAlready
+        return obj.id() in self._notifiedAlready
 
 
     def notificationAddedForObject(self, obj):
-        self._notifiedAlready.add(obj)
+        self._notifiedAlready.add(obj.id())
 
 
     def isBumpedAlready(self, obj):
@@ -880,7 +892,7 @@ class CommonStoreTransaction(object):
         called for the given object, in order to facilitate calling
         bumpModified only once per object.
         """
-        return obj in self._bumpedAlready
+        return obj.id() in self._bumpedAlready
 
 
     def bumpAddedForObject(self, obj):
@@ -889,7 +901,7 @@ class CommonStoreTransaction(object):
         done, in order to facilitate calling bumpModified only once per
         object.
         """
-        self._bumpedAlready.add(obj)
+        self._bumpedAlready.add(obj.id())
 
     _savepointCounter = 0
 
@@ -1400,13 +1412,13 @@ class CommonHome(LoggingMixIn):
 
     _cacher = None  # Initialize in derived classes
 
-    def __init__(self, transaction, ownerUID, notifiers):
+    def __init__(self, transaction, ownerUID):
         self._txn = transaction
         self._ownerUID = ownerUID
         self._resourceID = None
         self._childrenLoaded = False
         self._children = {}
-        self._notifiers = notifiers
+        self._notifiers = None
         self._quotaUsedBytes = None
         self._created = None
         self._modified = None
@@ -1551,13 +1563,9 @@ class CommonHome(LoggingMixIn):
     @classmethod
     @inlineCallbacks
     def homeWithUID(cls, txn, uid, create=False):
-        if txn._notifierFactory:
-            notifiers = (txn._notifierFactory.newNotifier(
-                id=uid, prefix=cls._notifierPrefix
-            ),)
-        else:
-            notifiers = None
-        homeObject = cls(txn, uid, notifiers)
+        homeObject = cls(txn, uid)
+        for factory_type, factory in txn._notifierFactories.items():
+            homeObject.addNotifier(factory_type, factory.newNotifier(homeObject))
         homeObject = (yield homeObject.initFromStore())
         if homeObject is not None:
             returnValue(homeObject)
@@ -1585,7 +1593,9 @@ class CommonHome(LoggingMixIn):
                 yield savepoint.rollback(txn)
 
                 # Retry the query - row may exist now, if not re-raise
-                homeObject = cls(txn, uid, notifiers)
+                homeObject = cls(txn, uid)
+                for factory_type, factory in txn._notifierFactories.items():
+                    homeObject.addNotifier(factory_type, factory.newNotifier(homeObject))
                 homeObject = (yield homeObject.initFromStore())
                 if homeObject:
                     returnValue(homeObject)
@@ -1597,7 +1607,9 @@ class CommonHome(LoggingMixIn):
                 # Note that we must not cache the owner_uid->resource_id
                 # mapping in _cacher when creating as we don't want that to appear
                 # until AFTER the commit
-                home = cls(txn, uid, notifiers)
+                home = cls(txn, uid)
+                for factory_type, factory in txn._notifierFactories.items():
+                    home.addNotifier(factory_type, factory.newNotifier(home))
                 home = (yield home.initFromStore(no_cache=True))
                 yield home.createdHome()
                 returnValue(home)
@@ -2087,28 +2099,35 @@ class CommonHome(LoggingMixIn):
             self._quotaUsedBytes = 0
 
 
-    def addNotifier(self, notifier):
+    def addNotifier(self, factory_name, notifier):
         if self._notifiers is None:
-            self._notifiers = ()
-        self._notifiers += (notifier,)
+            self._notifiers = {}
+        self._notifiers[factory_name] = notifier
 
 
-    def notifierID(self, label="default"):
-        if self._notifiers:
-            return self._notifiers[0].getID(label)
-        else:
-            return None
+    def getNotifier(self, factory_name):
+        return self._notifiers.get(factory_name)
+
+
+    def notifierID(self):
+        return (self._notifierPrefix, self.uid(),)
 
 
     @inlineCallbacks
-    def nodeName(self, label="default"):
-        if self._notifiers:
-            for notifier in self._notifiers:
-                name = (yield notifier.nodeName(label=label))
-                if name is not None:
-                    returnValue(name)
-        else:
-            returnValue(None)
+    def notifyChanged(self):
+        """
+        Trigger a notification of a change
+        """
+
+        # Update modified if object still exists
+        if self._resourceID:
+            yield self.bumpModified()
+
+        # Only send one set of change notifications per transaction
+        if self._notifiers and not self._txn.isNotifiedAlready(self):
+            for notifier in self._notifiers.values():
+                self._txn.postCommit(notifier.notify)
+            self._txn.notificationAddedForObject(self)
 
 
     @classproperty
@@ -2159,23 +2178,6 @@ class CommonHome(LoggingMixIn):
 
         except AllRetriesFailed:
             log.debug("CommonHome.bumpModified failed")
-
-
-    @inlineCallbacks
-    def notifyChanged(self):
-        """
-        Trigger a notification of a change
-        """
-
-        # Update modified if object still exists
-        if self._resourceID:
-            yield self.bumpModified()
-
-        # Only send one set of change notifications per transaction
-        if self._notifiers and not self._txn.isNotifiedAlready(self):
-            for notifier in self._notifiers:
-                self._txn.postCommit(notifier.notify)
-            self._txn.notificationAddedForObject(self)
 
 
     @inlineCallbacks
@@ -2544,9 +2546,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         # a different token to subscribe to and thus would each need a separate push - whereas a common
         # token only requires one push (to multiple subscribers).
         if self._ownerHome._notifiers:
-            childID = "%s/%s" % (self._ownerHome.uid(), self._ownerName)
-            self._notifiers = [notifier.clone(label="collection", id=childID)
-                         for notifier in self._ownerHome._notifiers]
+            self._notifiers = dict([(factory_name, notifier.clone(self),) for factory_name, notifier in self._ownerHome._notifiers.items()])
         else:
             self._notifiers = None
 
@@ -2758,6 +2758,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
+        yield shareeHome.notifyChanged()
 
         returnValue(sharedName)
 
@@ -2832,6 +2833,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
             # Must send notification to ensure cache invalidation occurs
             yield self.notifyChanged()
+            yield shareeView.viewerHome().notifyChanged()
 
         returnValue(shareeView._name)
 
@@ -2879,6 +2881,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
+        yield shareeHome.notifyChanged()
 
         returnValue(resourceName)
 
@@ -3408,6 +3411,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
         # Change notification for a create is on the home collection
         yield home.notifyChanged()
+        yield child.notifyChanged()
         returnValue(child)
 
 
@@ -3538,10 +3542,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         yield self._renameSyncToken()
 
         yield self.notifyChanged()
-
-        # Make sure home collection modified is changed - not that we do not use _home.notifiedChanged() here
-        # since we are sending the notification on the existing child collection object
-        yield self._home.bumpModified()
+        yield self._home.notifyChanged()
 
 
     @classproperty
@@ -3555,6 +3556,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
     @inlineCallbacks
     def remove(self):
+
+        # Do before setting _resourceID making changes
+        yield self.notifyChanged()
 
         queryCacher = self._home._txn._queryCacher
         if queryCacher:
@@ -3572,11 +3576,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         self._modified = None
         self._objects = {}
 
-        yield self.notifyChanged()
-
-        # Make sure home collection modified is changed - not that we do not use _home.notifiedChanged() here
-        # since we are sending the notification on the previously existing child collection object
-        yield self._home.bumpModified()
+        yield self._home.notifyChanged()
 
 
     def ownerHome(self):
@@ -3987,28 +3987,39 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         return datetimeMktime(parseSQLTimestamp(self._modified)) if self._modified else None
 
 
-    def addNotifier(self, notifier):
+    def addNotifier(self, factory_name, notifier):
         if self._notifiers is None:
-            self._notifiers = ()
-        self._notifiers += (notifier,)
+            self._notifiers = {}
+        self._notifiers[factory_name] = notifier
 
 
-    def notifierID(self, label="default"):
-        if self._notifiers:
-            return self._notifiers[0].getID(label)
-        else:
-            return None
+    def getNotifier(self, factory_name):
+        return self._notifiers.get(factory_name)
+
+
+    def notifierID(self):
+        return (self.ownerHome()._notifierPrefix, "%s/%s" % (self.ownerHome().uid(), self._ownerName,),)
+
+
+    def parentNotifierID(self):
+        return self.ownerHome().notifierID()
 
 
     @inlineCallbacks
-    def nodeName(self, label="default"):
-        if self._notifiers:
-            for notifier in self._notifiers:
-                name = (yield notifier.nodeName(label=label))
-                if name is not None:
-                    returnValue(name)
-        else:
-            returnValue(None)
+    def notifyChanged(self):
+        """
+        Trigger a notification of a change
+        """
+
+        # Update modified if object still exists
+        if self._resourceID:
+            yield self.bumpModified()
+
+        # Only send one set of change notifications per transaction
+        if self._notifiers and not self._txn.isNotifiedAlready(self):
+            for notifier in self._notifiers.values():
+                self._txn.postCommit(notifier.notify)
+            self._txn.notificationAddedForObject(self)
 
 
     @classproperty
@@ -4059,23 +4070,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
         except AllRetriesFailed:
             log.debug("CommonHomeChild.bumpModified failed")
-
-
-    @inlineCallbacks
-    def notifyChanged(self):
-        """
-        Trigger a notification of a change
-        """
-
-        # Update modified if object still exists
-        if self._resourceID:
-            yield self.bumpModified()
-
-        # Only send one set of change notifications per transaction
-        if self._notifiers and not self._txn.isNotifiedAlready(self):
-            for notifier in self._notifiers:
-                self._txn.postCommit(notifier.notify)
-            self._txn.notificationAddedForObject(self)
 
 
 
@@ -4582,18 +4576,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
         # Make sure we have push notifications setup to push on this collection
         # as well as the home it is in
-        if txn._notifierFactory:
-            childID = "%s/%s" % (uid, "notification")
-            notifier = txn._notifierFactory.newNotifier(
-                label="collection",
-                id=childID,
-                prefix=txn._homeClass[txn._primaryHomeType]._notifierPrefix
-            )
-            notifier.addID(id=uid)
-            notifiers = (notifier,)
-        else:
-            notifiers = None
-        self._notifiers = notifiers
+        self._notifiers = dict([(factory_name, factory.newNotifier(self),) for factory_name, factory in txn._notifierFactories.items()])
 
     _resourceIDFromUIDQuery = Select(
         [_homeSchema.RESOURCE_ID], From=_homeSchema,
@@ -4652,6 +4635,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         yield collection._loadPropertyStore()
         if created:
             yield collection._initSyncToken()
+            yield collection.notifyChanged()
         returnValue(collection)
 
 
@@ -4760,6 +4744,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             yield self._insertRevision("%s.xml" % (uid,))
         else:
             yield self._updateRevision("%s.xml" % (uid,))
+        yield self.notifyChanged()
 
 
     def removeNotificationObjectWithName(self, name):
@@ -4778,6 +4763,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             self._txn, uid=uid, resourceID=self._resourceID)
         self._notifications.pop(uid, None)
         yield self._deleteRevision("%s.xml" % (uid,))
+        yield self.notifyChanged()
 
     _initSyncTokenQuery = Insert(
         {
@@ -4814,28 +4800,22 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         return self._propertyStore
 
 
-    def addNotifier(self, notifier):
+    def addNotifier(self, factory_name, notifier):
         if self._notifiers is None:
-            self._notifiers = ()
-        self._notifiers += (notifier,)
+            self._notifiers = {}
+        self._notifiers[factory_name] = notifier
 
 
-    def notifierID(self, label="default"):
-        if self._notifiers:
-            return self._notifiers[0].getID(label)
-        else:
-            return None
+    def getNotifier(self, factory_name):
+        return self._notifiers.get(factory_name)
 
 
-    @inlineCallbacks
-    def nodeName(self, label="default"):
-        if self._notifiers:
-            for notifier in self._notifiers:
-                name = (yield notifier.nodeName(label=label))
-                if name is not None:
-                    returnValue(name)
-        else:
-            returnValue(None)
+    def notifierID(self):
+        return (self._txn._homeClass[self._txn._primaryHomeType]._notifierPrefix, "%s/notification" % (self.ownerHome().uid(),),)
+
+
+    def parentNotifierID(self):
+        return (self._txn._homeClass[self._txn._primaryHomeType]._notifierPrefix, "%s" % (self.ownerHome().uid(),),)
 
 
     def notifyChanged(self):
@@ -4845,7 +4825,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
         # Only send one set of change notifications per transaction
         if self._notifiers and not self._txn.isNotifiedAlready(self):
-            for notifier in self._notifiers:
+            for notifier in self._notifiers.values():
                 self._txn.postCommit(notifier.notify)
             self._txn.notificationAddedForObject(self)
 

@@ -766,7 +766,7 @@ END:VALARM
 """
 
         home = (yield self.homeUnderTest(name="user01"))
-        home.setDefaultAlarm(alarm, True, True)
+        yield home.setDefaultAlarm(alarm, True, True)
         yield self.commit()
 
         data1 = """BEGIN:VCALENDAR
@@ -810,7 +810,7 @@ END:VALARM
 """
 
         home = (yield self.homeUnderTest(name="user02"))
-        home.setDefaultAlarm(alarm, True, True)
+        yield home.setDefaultAlarm(alarm, True, True)
         yield self.commit()
 
         # user01 shares calendar with user02

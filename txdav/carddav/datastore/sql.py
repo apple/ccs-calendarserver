@@ -84,10 +84,10 @@ class AddressBookHome(CommonHome):
 
     _cacher = Memcacher("SQL.adbkhome", pickle=True, key_normalization=False)
 
-    def __init__(self, transaction, ownerUID, notifiers):
+    def __init__(self, transaction, ownerUID):
 
         self._childClass = AddressBook
-        super(AddressBookHome, self).__init__(transaction, ownerUID, notifiers)
+        super(AddressBookHome, self).__init__(transaction, ownerUID)
 
     addressbooks = CommonHome.children
     listAddressbooks = CommonHome.listChildren

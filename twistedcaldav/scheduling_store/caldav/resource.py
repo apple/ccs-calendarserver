@@ -263,9 +263,12 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         prop_to_set = customxml.ScheduleDefaultTasksURL if tasks else caldavxml.ScheduleDefaultCalendarURL
 
         # This property now comes direct from the calendar home new store object
-        default = (yield self.parent._newStoreHome.defaultCalendar(componentType))
-        defaultURL = joinURL(self.parent.url(), default.name())
-        returnValue(prop_to_set(davxml.HRef(defaultURL)))
+        default = (yield self.parent._newStoreHome.defaultCalendar(componentType, create=False))
+        if default is None:
+            returnValue(prop_to_set())
+        else:
+            defaultURL = joinURL(self.parent.url(), default.name())
+            returnValue(prop_to_set(davxml.HRef(defaultURL)))
 
 
     @inlineCallbacks
@@ -315,10 +318,11 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         """
 
         # This property now comes direct from the calendar home new store object
-        default = (yield self.parent._newStoreHome.defaultCalendar(componentType))
+        default = (yield self.parent._newStoreHome.defaultCalendar(componentType, create=False))
 
         # Need L{DAVResource} object to return not new store object
-        default = (yield request.locateResource(joinURL(self.parent.url(), default.name())))
+        if default is not None:
+            default = (yield request.locateResource(joinURL(self.parent.url(), default.name())))
 
         returnValue(default)
 

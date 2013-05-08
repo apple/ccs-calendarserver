@@ -226,10 +226,9 @@ class CommonTests(CommonCommonTests):
     @inlineCallbacks
     def test_notifierID(self):
         home = yield self.homeUnderTest()
-        self.assertEquals(home.notifierID(), "CardDAV|home1")
+        self.assertEquals(home.notifierID(), ("CardDAV", "home1",))
         addressbook = yield home.addressbookWithName("addressbook_1")
-        self.assertEquals(addressbook.notifierID(), "CardDAV|home1")
-        self.assertEquals(addressbook.notifierID(label="collection"), "CardDAV|home1/addressbook_1")
+        self.assertEquals(addressbook.notifierID(), ("CardDAV", "home1/addressbook_1",))
 
 
     @inlineCallbacks
@@ -320,7 +319,7 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue("CardDAV|home1" in self.notifierFactory.history)
+        self.assertTrue("/CardDAV/example.com/home1/" in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -359,15 +358,15 @@ class CommonTests(CommonCommonTests):
 
         # Make sure notification fired after commit
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CardDAV|home1",
-                "CardDAV|home1/addressbook_1",
-                "CardDAV|home1",
-                "CardDAV|home1/addressbook_2",
-                "CardDAV|home1",
-                "CardDAV|home1/addressbook_empty"
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CardDAV/example.com/home1/",
+                "/CardDAV/example.com/home1/addressbook_1/",
+                "/CardDAV/example.com/home1/",
+                "/CardDAV/example.com/home1/addressbook_2/",
+                "/CardDAV/example.com/home1/",
+                "/CardDAV/example.com/home1/addressbook_empty/"
+            ])
         )
 
 
@@ -496,11 +495,11 @@ class CommonTests(CommonCommonTests):
         # Make sure notifications are fired after commit
         yield self.commit()
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CardDAV|home1",
-                "CardDAV|home1/addressbook_1",
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CardDAV/example.com/home1/",
+                "/CardDAV/example.com/home1/addressbook_1/",
+            ])
         )
 
 
@@ -674,11 +673,11 @@ class CommonTests(CommonCommonTests):
 
         # Make sure notifications fire after commit
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CardDAV|home1",
-                "CardDAV|home1/addressbook_1",
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CardDAV/example.com/home1/",
+                "/CardDAV/example.com/home1/addressbook_1/",
+            ])
         )
 
 
@@ -790,11 +789,11 @@ class CommonTests(CommonCommonTests):
 
         # Make sure notification fired after commit
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CardDAV|home1",
-                "CardDAV|home1/addressbook_1",
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CardDAV/example.com/home1/",
+                "/CardDAV/example.com/home1/addressbook_1/",
+            ])
         )
 
 

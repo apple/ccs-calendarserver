@@ -22,8 +22,8 @@
 -- Calendar home related updates
 
 alter table CALENDAR_HOME_METADATA
- add column DEFAULT_EVENTS integer default null,
- add column DEFAULT_TASKS integer default null;
+ add column DEFAULT_EVENTS integer default null references CALENDAR on delete set null,
+ add column DEFAULT_TASKS integer default null references CALENDAR on delete set null;
 
 
 -- Calendar bind related updates

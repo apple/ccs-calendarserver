@@ -59,8 +59,7 @@ from twext.web2.stream import MemoryStream
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav import carddavxml
-from twistedcaldav.cache import PropfindCacheMixin, DisabledCacheNotifier, \
-    CacheStoreNotifier
+from twistedcaldav.cache import PropfindCacheMixin
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
@@ -206,12 +205,11 @@ calendarPrivilegeSet = _calendarPrivilegeSet()
 def updateCacheTokenOnCallback(f):
     def fun(self, *args, **kwargs):
         def _updateToken(response):
-            return self.cacheNotifier.changed().addCallback(
-                lambda _: response)
+            return self.notifyChanged().addCallback(lambda _: response)
 
         d = maybeDeferred(f, self, *args, **kwargs)
 
-        if hasattr(self, 'cacheNotifier'):
+        if hasattr(self, 'notifyChanged'):
             d.addCallback(_updateToken)
 
         return d
@@ -579,14 +577,11 @@ class CalDAVResource (
 
                 # FIXME: is there a better way to get back to the associated
                 # datastore object?
-                dataObject = None
-                if hasattr(self, "_newStoreObject"):
-                    dataObject = getattr(self, "_newStoreObject")
-                if dataObject:
-                    label = "collection" if self.isShareeCollection() else "default"
-                    nodeName = (yield dataObject.nodeName(label=label))
-                    if nodeName:
-                        propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
+                dataObject = getattr(self, "_newStoreObject")
+                if dataObject is not None:
+                    notifier = dataObject.getNotifier("push")
+                    if notifier is not None:
+                        propVal = customxml.PubSubXMPPPushKeyProperty(notifier.nodeName())
                         returnValue(propVal)
 
                 returnValue(customxml.PubSubXMPPPushKeyProperty())
@@ -2009,7 +2004,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         server has inserted into this L{CommonHomeResource}.
     @type _provisionedLinks: L{dict} mapping L{bytes} to L{Resource}
     """
-    cacheNotifierFactory = DisabledCacheNotifier
 
     def __init__(self, parent, name, transaction, home):
         self.parent = parent
@@ -2019,8 +2013,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         self._provisionedLinks = {}
         self._setupProvisions()
         self._newStoreHome = home
-        self.cacheNotifier = self.cacheNotifierFactory(self)
-        self._newStoreHome.addNotifier(CacheStoreNotifier(self))
         CalDAVResource.__init__(self)
 
         from twistedcaldav.storebridge import _NewStorePropertiesWrapper
@@ -2242,7 +2234,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
             if config.Notifications.Services.APNS.Enabled:
 
-                nodeName = (yield self._newStoreHome.nodeName())
+                notifier = self._newStoreHome.getNotifier("push")
+                nodeName = notifier.nodeName() if notifier is not None else None
                 if nodeName:
                     notifierID = self._newStoreHome.notifierID()
                     if notifierID:
@@ -2277,9 +2270,9 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
             if (config.Notifications.Services.AMP.Enabled or
                 config.Notifications.Services.APNS.Enabled):
-                nodeName = (yield self._newStoreHome.nodeName())
-                if nodeName:
-                    returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))
+                notifier = self._newStoreHome.getNotifier("push")
+                if notifier is not None:
+                    returnValue(customxml.PubSubXMPPPushKeyProperty(notifier.nodeName()))
             returnValue(None)
 
         returnValue((yield super(CommonHomeResource, self).readProperty(property, request)))
@@ -2368,8 +2361,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         return self._newStoreHome.created() if self._newStoreHome else None
 
 
-    def notifierID(self, label="default"):
-        self._newStoreHome.notifierID(label)
+    def notifierID(self):
+        return "%s/%s" % self._newStoreHome.notifierID()
 
 
     def notifyChanged(self):

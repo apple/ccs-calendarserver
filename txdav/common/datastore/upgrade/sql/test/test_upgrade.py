@@ -143,7 +143,7 @@ class SchemaUpgradeTests(TestCase):
         """
 
         store = yield theStoreBuilder.buildStore(
-            self, StubNotifierFactory()
+            self, {"push": StubNotifierFactory()}
         )
 
         @inlineCallbacks
@@ -223,7 +223,7 @@ class SchemaUpgradeTests(TestCase):
         """
 
         store = yield theStoreBuilder.buildStore(
-            self, StubNotifierFactory()
+            self, {"push": StubNotifierFactory()}
         )
 
         @inlineCallbacks

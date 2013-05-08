@@ -61,7 +61,7 @@ def setUpAddressBookStore(test):
     storePath.copyTo(addressbookPath)
 
     test.notifierFactory = StubNotifierFactory()
-    test.addressbookStore = AddressBookStore(storeRootPath, test.notifierFactory, None)
+    test.addressbookStore = AddressBookStore(storeRootPath, {"push": test.notifierFactory}, None)
     test.txn = test.addressbookStore.newTransaction(test.id() + " (old)")
     assert test.addressbookStore is not None, "No addressbook store?"
 
