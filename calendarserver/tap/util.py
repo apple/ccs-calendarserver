@@ -125,6 +125,7 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
     return PostgresService(
         dbRoot, subServiceFactory, current_sql_schema,
         databaseName=config.Postgres.DatabaseName,
+        clusterName=config.Postgres.ClusterName,
         logFile=config.Postgres.LogFile,
         socketDir=config.RunRoot,
         listenAddresses=config.Postgres.ListenAddresses,

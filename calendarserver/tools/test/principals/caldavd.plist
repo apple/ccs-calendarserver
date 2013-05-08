@@ -81,6 +81,10 @@
     <key>DataRoot</key>
     <string>%(DataRoot)s</string>
 
+    <!-- Database root -->
+    <key>DatabaseRoot</key>
+    <string>%(DatabaseRoot)s</string>
+
     <!-- Document root -->
     <key>DocumentRoot</key>
     <string>%(DocumentRoot)s</string>

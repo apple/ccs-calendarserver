@@ -27,6 +27,7 @@ from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tools.util import getDirectory
+from txdav.common.datastore.test.util import SQLStoreBuilder
 
 
 class RunCommandTestCase(TestCase):
@@ -40,8 +41,11 @@ class RunCommandTestCase(TestCase):
         template = templateFile.read()
         templateFile.close()
 
+        # Use the same DatabaseRoot as the SQLStoreBuilder
+        databaseRoot = os.path.abspath(SQLStoreBuilder.SHARED_DB_PATH)
         newConfig = template % {
             "ServerRoot" : os.path.abspath(config.ServerRoot),
+            "DatabaseRoot" : databaseRoot,
             "WritablePlist" : os.path.join(os.path.abspath(config.ConfigRoot), "caldavd-writable.plist"),
         }
         configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
