@@ -94,7 +94,6 @@ usage ()
     echo "        -t Process type (Master, Slave or Combined)";
     echo "        -p Path to the desired pstats file.";
     echo "        -R The Twisted Reactor to run [${reactor}]";
-    echo "        -o Pass option through to server";
 
     if [ "${1-}" == "-" ]; then return 0; fi;
     exit 64;
