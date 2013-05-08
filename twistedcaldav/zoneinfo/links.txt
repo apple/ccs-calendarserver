@@ -62,6 +62,7 @@ US/Central	America/Chicago
 US/Pacific	America/Los_Angeles
 Portugal	Europe/Lisbon
 Europe/Tiraspol	Europe/Chisinau
+Europe/Busingen	Europe/Zurich
 Asia/Katmandu	Asia/Kathmandu
 Etc/GMT0	Etc/GMT
 Pacific/Ponape	Pacific/Pohnpei
