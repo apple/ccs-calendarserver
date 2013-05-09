@@ -104,7 +104,12 @@ class AuthHandlerAgent(object):
 
 
     def _parse(self, authorization):
-        scheme, rest = authorization.split(None, 1)
+        try:
+            scheme, rest = authorization.split(None, 1)
+        except ValueError:
+            # Probably "negotiate", which we don't support
+            scheme = authorization
+            rest = ""
         args = urllib2.parse_keqv_list(urllib2.parse_http_list(rest))
         challengeType = {
             'basic': BasicChallenge,
