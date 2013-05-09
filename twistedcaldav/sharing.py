@@ -1202,10 +1202,10 @@ class SharedHomeMixin(LinkFollowerMixIn):
         # Calendars always start out transparent and with empty default alarms
         if isNewShare and shareeCollection.isCalendarCollection():
             yield shareeCollection._newStoreObject.setUsedForFreeBusy(False)
-            yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVEventDateTime.fromString(""), request)
-            yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVEventDate.fromString(""), request)
-            yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVToDoDateTime.fromString(""), request)
-            yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVToDoDate.fromString(""), request)
+            yield shareeCollection._newStoreObject.setDefaultAlarm("empty", True, True)
+            yield shareeCollection._newStoreObject.setDefaultAlarm("empty", True, False)
+            yield shareeCollection._newStoreObject.setDefaultAlarm("empty", False, True)
+            yield shareeCollection._newStoreObject.setDefaultAlarm("empty", False, False)
 
         # Notify client of changes
         yield self.notifyChanged()

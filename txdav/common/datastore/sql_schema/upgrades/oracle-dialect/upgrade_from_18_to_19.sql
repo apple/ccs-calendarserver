@@ -22,13 +22,21 @@
 
 alter table ATTACHMENT
  add ("DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
- 	  "DEFAULT_TASKS"  integer default null references CALENDAR on delete set null);
+ 	  "DEFAULT_TASKS"  integer default null references CALENDAR on delete set null,
+      "ALARM_VEVENT_TIMED" nclob default null,
+      "ALARM_VEVENT_ALLDAY" nclob default null,
+      "ALARM_VTODO_TIMED" nclob default null,
+      "ALARM_VTODO_ALLDAY" nclob default null);
 
  	  
 -- Calendar bind related updates
 
 alter table CALENDAR_BIND
- add ("TRANSP" integer default 0 not null);
+ add ("TRANSP" integer default 0 not null,
+      "ALARM_VEVENT_TIMED" nclob default null,
+      "ALARM_VEVENT_ALLDAY" nclob default null,
+      "ALARM_VTODO_TIMED" nclob default null,
+      "ALARM_VTODO_ALLDAY" nclob default null);
 
 create table CALENDAR_TRANSP (
     "ID" integer primary key,

@@ -30,6 +30,10 @@ create table CALENDAR_HOME_METADATA (
     "QUOTA_USED_BYTES" integer default 0 not null,
     "DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
     "DEFAULT_TASKS" integer default null references CALENDAR on delete set null,
+    "ALARM_VEVENT_TIMED" nclob default null,
+    "ALARM_VEVENT_ALLDAY" nclob default null,
+    "ALARM_VTODO_TIMED" nclob default null,
+    "ALARM_VTODO_ALLDAY" nclob default null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
@@ -65,7 +69,11 @@ create table CALENDAR_BIND (
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "MESSAGE" nclob,
-    "TRANSP" integer default 0 not null, 
+    "TRANSP" integer default 0 not null,
+    "ALARM_VEVENT_TIMED" nclob default null,
+    "ALARM_VEVENT_ALLDAY" nclob default null,
+    "ALARM_VTODO_TIMED" nclob default null,
+    "ALARM_VTODO_ALLDAY" nclob default null, 
     primary key("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
     unique("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
 );

@@ -1214,6 +1214,64 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         return caldavxml.CalendarData
 
 
+    def _hasGlobalProperty(self, property, request):
+        """
+        Need to special case schedule-calendar-transp for backwards compatability.
+        """
+
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        # Force calendar collections to always appear to have the property
+        if qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            return succeed(self.getDefaultAlarmProperty(qname) is not None)
+
+        else:
+            return super(CalendarCollectionResource, self)._hasGlobalProperty(property, request)
+
+
+    @inlineCallbacks
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            returnValue(self.getDefaultAlarmProperty(qname))
+
+        result = (yield super(CalendarCollectionResource, self).readProperty(property, request))
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def _writeGlobalProperty(self, property, request):
+
+        if property.qname() in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            yield self.setDefaultAlarmProperty(property)
+            returnValue(None)
+
+        result = (yield super(CalendarCollectionResource, self)._writeGlobalProperty(property, request))
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def removeProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            result = (yield self.removeDefaultAlarmProperty(qname))
+            returnValue(result)
+
+        result = (yield super(CalendarCollectionResource, self).removeProperty(property, request))
+        returnValue(result)
+
+
     @inlineCallbacks
     def storeResourceData(self, newchild, component, returnChangedData=False):
 

@@ -1566,3 +1566,129 @@ END:VCALENDAR
         obj = (yield self.calendarObjectUnderTest())
         calendarObject = (yield home.objectResourceWithID(obj._resourceID))
         self.assertNotEquals(calendarObject, None)
+
+
+    @inlineCallbacks
+    def test_defaultAlarms(self):
+        """
+        L{ICalendarHome.objectResourceWithID} will return the calendar object..
+        """
+
+        alarmhome1 = """BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT1M
+END:VALARM
+"""
+
+        alarmhome2 = """BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT2M
+END:VALARM
+"""
+
+        alarmhome3 = """BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT3M
+END:VALARM
+"""
+
+        alarmhome4 = """BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT4M
+END:VALARM
+"""
+
+        alarmcalendar1 = """BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT1M
+END:VALARM
+"""
+
+        alarmcalendar2 = """BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT2M
+END:VALARM
+"""
+
+        alarmcalendar3 = """BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT3M
+END:VALARM
+"""
+
+        alarmcalendar4 = """BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT4M
+END:VALARM
+"""
+
+        detailshome = (
+            (True, True, alarmhome1,),
+            (True, False, alarmhome2,),
+            (False, True, alarmhome3,),
+            (False, False, alarmhome4,),
+        )
+
+        home = yield self.homeUnderTest()
+        for vevent, timed, _ignore_alarm in detailshome:
+            alarm_result = (yield home.getDefaultAlarm(vevent, timed))
+            self.assertEquals(alarm_result, None)
+
+        for vevent, timed, alarm in detailshome:
+            yield home.setDefaultAlarm(alarm, vevent, timed)
+
+        yield self.commit()
+
+        home = yield self.homeUnderTest()
+        for vevent, timed, alarm in detailshome:
+            alarm_result = (yield home.getDefaultAlarm(vevent, timed))
+            self.assertEquals(alarm_result, alarm)
+
+        for vevent, timed, alarm in detailshome:
+            yield home.setDefaultAlarm(None, vevent, timed)
+
+        yield self.commit()
+
+        home = yield self.homeUnderTest()
+        for vevent, timed, _ignore_alarm in detailshome:
+            alarm_result = (yield home.getDefaultAlarm(vevent, timed))
+            self.assertEquals(alarm_result, None)
+
+        yield self.commit()
+
+        detailscalendar = (
+            (True, True, alarmcalendar1,),
+            (True, False, alarmcalendar2,),
+            (False, True, alarmcalendar3,),
+            (False, False, alarmcalendar4,),
+        )
+
+        calendar = yield self.calendarUnderTest()
+        for vevent, timed, _ignore_alarm in detailscalendar:
+            alarm_result = (yield calendar.getDefaultAlarm(vevent, timed))
+            self.assertEquals(alarm_result, None)
+
+        for vevent, timed, alarm in detailscalendar:
+            yield calendar.setDefaultAlarm(alarm, vevent, timed)
+
+        yield self.commit()
+
+        calendar = yield self.calendarUnderTest()
+        for vevent, timed, alarm in detailscalendar:
+            alarm_result = (yield calendar.getDefaultAlarm(vevent, timed))
+            self.assertEquals(alarm_result, alarm)
+
+        yield self.commit()
+
+        calendar = yield self.calendarUnderTest()
+        for vevent, timed, alarm in detailscalendar:
+            yield calendar.setDefaultAlarm(None, vevent, timed)
+
+        yield self.commit()
+
+        calendar = yield self.calendarUnderTest()
+        for vevent, timed, _ignore_alarm in detailscalendar:
+            alarm_result = (yield calendar.getDefaultAlarm(vevent, timed))
+            self.assertEquals(alarm_result, None)
+
+        yield self.commit()

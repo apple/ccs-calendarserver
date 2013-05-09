@@ -530,21 +530,6 @@ class CalDAVResource (
         returnValue(res)
 
 
-    def _hasSharedProperty(self, qname, request):
-
-        # Always have default alarms on shared calendars
-        if qname in (
-            caldavxml.DefaultAlarmVEventDateTime.qname(),
-            caldavxml.DefaultAlarmVEventDate.qname(),
-            caldavxml.DefaultAlarmVToDoDateTime.qname(),
-            caldavxml.DefaultAlarmVToDoDate.qname(),
-        ) and self.isCalendarCollection():
-            return True
-
-        p = self.deadProperties().contains(qname)
-        return p
-
-
     def _hasGlobalProperty(self, property, request):
         """
         Need to special case schedule-calendar-transp for backwards compatability.
@@ -715,6 +700,8 @@ class CalDAVResource (
             "%r is not a WebDAVElement instance" % (property,)
         )
 
+        self._preProcessWriteProperty(property, request)
+
         res = (yield self._writeGlobalProperty(property, request))
         returnValue(res)
 
@@ -780,8 +767,6 @@ class CalDAVResource (
 
     @inlineCallbacks
     def _writeGlobalProperty(self, property, request):
-
-        self._preProcessWriteProperty(property, request)
 
         if property.qname() == caldavxml.ScheduleCalendarTransp.qname():
             yield self._newStoreObject.setUsedForFreeBusy(property == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
@@ -1962,32 +1947,67 @@ class DefaultAlarmPropertyMixin(object):
     the default alarm properties in a more useful way that using readProperty.
     In particular it will handle inheritance of the property from the home if a
     calendar does not explicitly have the property.
+
+    Important: we need to distinguish between the property not being present, or
+    present but empty, however the store by default is unable to distinguish between
+    None and and empty C{str}. So what we do is use the value "empty" to represent
+    a present but empty property.
     """
 
-    def getDefaultAlarm(self, vevent, timed):
+    ALARM_PROPERTIES = {
+        caldavxml.DefaultAlarmVEventDateTime.qname(): (True, True,),
+        caldavxml.DefaultAlarmVEventDate.qname(): (True, False,),
+        caldavxml.DefaultAlarmVToDoDateTime.qname(): (False, True,),
+        caldavxml.DefaultAlarmVToDoDate.qname(): (False, False,),
+    }
 
-        if vevent:
-            propname = caldavxml.DefaultAlarmVEventDateTime if timed else caldavxml.DefaultAlarmVEventDate
-        else:
-            propname = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
+    ALARM_PROPERTY_CLASSES = {
+        caldavxml.DefaultAlarmVEventDateTime.qname(): caldavxml.DefaultAlarmVEventDateTime,
+        caldavxml.DefaultAlarmVEventDate.qname(): caldavxml.DefaultAlarmVEventDate,
+        caldavxml.DefaultAlarmVToDoDateTime.qname(): caldavxml.DefaultAlarmVToDoDateTime,
+        caldavxml.DefaultAlarmVToDoDate.qname(): caldavxml.DefaultAlarmVToDoDate,
+    }
+
+    def getDefaultAlarmProperty(self, propname):
+
+        vevent, timed = DefaultAlarmPropertyMixin.ALARM_PROPERTIES[propname]
 
         if self.isCalendarCollection():
 
             # Get from calendar or inherit from home
-            try:
-                prop = self.deadProperties().get(propname.qname())
-            except HTTPError:
-                prop = None
-            if prop is None:
-                prop = self.parentResource().getDefaultAlarm(vevent, timed)
+            alarm = self._newStoreObject.getDefaultAlarm(vevent, timed)
+            if alarm is None:
+                return self.parentResource().getDefaultAlarmProperty(propname)
+            elif alarm == "empty":
+                return DefaultAlarmPropertyMixin.ALARM_PROPERTY_CLASSES[propname]()
         else:
             # Just return whatever is on the home
-            try:
-                prop = self.deadProperties().get(propname.qname())
-            except HTTPError:
-                prop = None
+            alarm = self._newStoreHome.getDefaultAlarm(vevent, timed)
 
-        return str(prop) if prop is not None else None
+        return DefaultAlarmPropertyMixin.ALARM_PROPERTY_CLASSES[propname](alarm) if alarm else None
+
+
+    @inlineCallbacks
+    def setDefaultAlarmProperty(self, prop):
+
+        vevent, timed = DefaultAlarmPropertyMixin.ALARM_PROPERTIES[prop.qname()]
+        alarm = str(prop)
+
+        if self.isCalendarCollection():
+            yield self._newStoreObject.setDefaultAlarm(alarm if alarm else "empty", vevent, timed)
+        else:
+            yield self._newStoreHome.setDefaultAlarm(alarm if alarm else "empty", vevent, timed)
+
+
+    @inlineCallbacks
+    def removeDefaultAlarmProperty(self, propname):
+
+        vevent, timed = DefaultAlarmPropertyMixin.ALARM_PROPERTIES[propname]
+
+        if self.isCalendarCollection():
+            yield self._newStoreObject.setDefaultAlarm(None, vevent, timed)
+        else:
+            yield self._newStoreHome.setDefaultAlarm(None, vevent, timed)
 
 
 
@@ -2416,6 +2436,24 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         return existing
 
 
+    def _hasGlobalProperty(self, property, request):
+        """
+        Need to special case schedule-calendar-transp for backwards compatability.
+        """
+
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        # Force calendar collections to always appear to have the property
+        if qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            return succeed(self.getDefaultAlarmProperty(qname) is not None)
+
+        else:
+            return super(CalendarHomeResource, self)._hasGlobalProperty(property, request)
+
+
     @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
@@ -2449,7 +2487,36 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             else:
                 returnValue(None)
 
+        elif qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            returnValue(self.getDefaultAlarmProperty(qname))
+
         result = (yield super(CalendarHomeResource, self).readProperty(property, request))
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def _writeGlobalProperty(self, property, request):
+
+        if property.qname() in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            yield self.setDefaultAlarmProperty(property)
+            returnValue(None)
+
+        result = (yield super(CalendarHomeResource, self)._writeGlobalProperty(property, request))
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def removeProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            result = (yield self.removeDefaultAlarmProperty(qname))
+            returnValue(result)
+
+        result = (yield super(CalendarHomeResource, self).removeProperty(property, request))
         returnValue(result)
 
 

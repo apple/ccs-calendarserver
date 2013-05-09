@@ -31,9 +31,9 @@ create sequence RESOURCE_ID_SEQ;
 -- Note that this must match the node info schema in twext.enterprise.queue.
 create table NODE_INFO (
   HOSTNAME  varchar(255) not null,
-  PID       integer not null,
-  PORT      integer not null,
-  TIME      timestamp not null default timezone('UTC', CURRENT_TIMESTAMP),
+  PID       integer      not null,
+  PORT      integer      not null,
+  TIME      timestamp    not null default timezone('UTC', CURRENT_TIMESTAMP),
 
   primary key (HOSTNAME, PORT)
 );
@@ -68,12 +68,16 @@ create table CALENDAR (
 ----------------------------
 
 create table CALENDAR_HOME_METADATA (
-  RESOURCE_ID      integer      primary key references CALENDAR_HOME on delete cascade, -- implicit index
-  QUOTA_USED_BYTES integer      default 0 not null,
-  DEFAULT_EVENTS   integer      default null references CALENDAR on delete set null,
-  DEFAULT_TASKS    integer      default null references CALENDAR on delete set null,
-  CREATED          timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED         timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
+  RESOURCE_ID              integer     primary key references CALENDAR_HOME on delete cascade, -- implicit index
+  QUOTA_USED_BYTES         integer     default 0 not null,
+  DEFAULT_EVENTS           integer     default null references CALENDAR on delete set null,
+  DEFAULT_TASKS            integer     default null references CALENDAR on delete set null,
+  ALARM_VEVENT_TIMED       text        default null,
+  ALARM_VEVENT_ALLDAY      text        default null,
+  ALARM_VTODO_TIMED        text        default null,
+  ALARM_VTODO_ALLDAY       text        default null,
+  CREATED                  timestamp   default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED                 timestamp   default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
 
@@ -82,10 +86,10 @@ create table CALENDAR_HOME_METADATA (
 -----------------------
 
 create table CALENDAR_METADATA (
-  RESOURCE_ID           integer   primary key references CALENDAR on delete cascade, -- implicit index
+  RESOURCE_ID           integer      primary key references CALENDAR on delete cascade, -- implicit index
   SUPPORTED_COMPONENTS  varchar(255) default null,
-  CREATED               timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED              timestamp default timezone('UTC', CURRENT_TIMESTAMP)
+  CREATED               timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
 
@@ -105,8 +109,8 @@ create table NOTIFICATION (
   XML_TYPE                      varchar(255) not null,
   XML_DATA                      text         not null,
   MD5                           char(32)     not null,
-  CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  CREATED                       timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
   unique(NOTIFICATION_UID, NOTIFICATION_HOME_RESOURCE_ID) -- implicit index
 );
@@ -127,7 +131,11 @@ create table CALENDAR_BIND (
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
   MESSAGE                   text,
-  TRANSP					integer		 default 0 not null, -- enum CALENDAR_TRANSP
+  TRANSP                    integer      default 0 not null, -- enum CALENDAR_TRANSP
+  ALARM_VEVENT_TIMED        text         default null,
+  ALARM_VEVENT_ALLDAY       text         default null,
+  ALARM_VTODO_TIMED         text         default null,
+  ALARM_VTODO_ALLDAY        text         default null,
 
   primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID), -- implicit index
   unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME)     -- implicit index
@@ -494,7 +502,7 @@ create index NOTIFICATION_OBJECT_REVISIONS_RESOURCE_ID_REVISION
 create table APN_SUBSCRIPTIONS (
   TOKEN                         varchar(255) not null,
   RESOURCE_KEY                  varchar(255) not null,
-  MODIFIED                      integer not null,
+  MODIFIED                      integer      not null,
   SUBSCRIBER_GUID               varchar(255) not null,
   USER_AGENT                    varchar(255) default null,
   IP_ADDR                       varchar(255) default null,
@@ -514,7 +522,7 @@ create table IMIP_TOKENS (
   ORGANIZER                     varchar(255) not null,
   ATTENDEE                      varchar(255) not null,
   ICALUID                       varchar(255) not null,
-  ACCESSED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  ACCESSED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
   primary key (ORGANIZER, ATTENDEE, ICALUID) -- implicit index
 );
@@ -533,7 +541,7 @@ create sequence WORKITEM_SEQ;
 ---------------------------
 
 create table IMIP_INVITATION_WORK (
-  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   FROM_ADDR                     varchar(255) not null,
   TO_ADDR                       varchar(255) not null,
@@ -545,7 +553,7 @@ create table IMIP_INVITATION_WORK (
 -----------------------
 
 create table IMIP_POLLING_WORK (
-  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
@@ -554,7 +562,7 @@ create table IMIP_POLLING_WORK (
 ---------------------
 
 create table IMIP_REPLY_WORK (
-  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   ORGANIZER                     varchar(255) not null,
   ATTENDEE                      varchar(255) not null,
@@ -566,7 +574,7 @@ create table IMIP_REPLY_WORK (
 ------------------------
 
 create table PUSH_NOTIFICATION_WORK (
-  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   PUSH_ID                       varchar(255) not null
 );
@@ -576,7 +584,7 @@ create table PUSH_NOTIFICATION_WORK (
 -----------------
 
 create table GROUP_CACHER_POLLING_WORK (
-  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
