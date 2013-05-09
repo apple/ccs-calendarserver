@@ -40,7 +40,7 @@ contain properties to identify the user and the UID of the VEVENT, VTODO it affe
 for each instance overridden by the per-user data. These per-user overridden components may not correspond to an
 actual overridden component. In that situation the server has to re-construct the per-user data appropriately:
 
-e.g., 
+e.g.,
 
 1. VEVENT contains an overridden instance, but X-CALENDARSERVER-PERUSER does not - server uses the must instance
 X-CALENDARSERVER-PERUSER data (if any) for the overridden instance.
@@ -59,23 +59,24 @@ class PerUserDataFilter(CalendarFilter):
     """
 
     # If any of these change also update usage in ical.py
-    PERUSER_COMPONENT     = "X-CALENDARSERVER-PERUSER"
-    PERUSER_UID           = "X-CALENDARSERVER-PERUSER-UID"
+    PERUSER_COMPONENT = "X-CALENDARSERVER-PERUSER"
+    PERUSER_UID = "X-CALENDARSERVER-PERUSER-UID"
     PERINSTANCE_COMPONENT = "X-CALENDARSERVER-PERINSTANCE"
 
-    PERUSER_PROPERTIES    = ("TRANSP",)
+    PERUSER_PROPERTIES = ("TRANSP",)
     PERUSER_SUBCOMPONENTS = ("VALARM",)
-    IGNORE_X_PROPERTIES   = ("X-CALENDARSERVER-HIDDEN-INSTANCE",)
+    IGNORE_X_PROPERTIES = ("X-CALENDARSERVER-HIDDEN-INSTANCE",)
 
     def __init__(self, uid):
         """
-        
-        @param uid: unique identifier of the user for whom the data is being filtered 
+
+        @param uid: unique identifier of the user for whom the data is being filtered
         @type uid: C{str}
         """
-        
+
         self.uid = uid
-    
+
+
     def filter(self, ical):
         """
         Filter the supplied iCalendar object using the request information.
@@ -83,10 +84,10 @@ class PerUserDataFilter(CalendarFilter):
 
         @param ical: iCalendar object - this will be modified and returned
         @type ical: L{Component} or C{str}
-        
+
         @return: L{Component} for the filtered calendar data
         """
-        
+
         # Make sure input is valid
         ical = self.validCalendar(ical)
 
@@ -94,7 +95,7 @@ class PerUserDataFilter(CalendarFilter):
         peruser_component = None
         for component in tuple(ical.subcomponents()):
             if component.name() == PerUserDataFilter.PERUSER_COMPONENT:
-                
+
                 # Check user id - remove if not matches
                 if component.propertyValue(PerUserDataFilter.PERUSER_UID) != self.uid:
                     ical.removeComponent(component)
@@ -110,6 +111,7 @@ class PerUserDataFilter(CalendarFilter):
 
         return ical
 
+
     def merge(self, icalnew, icalold):
         """
         Merge the new data with the old taking per-user information into account.
@@ -118,13 +120,13 @@ class PerUserDataFilter(CalendarFilter):
         @type icalnew: L{Component} or C{str}
         @param icalold: existing calendar data
         @type icalold: L{Component} or C{str}
-        
+
         @return: L{Component} for the merged calendar data
         """
 
         # Make sure input is valid
         icalnew = self.validCalendar(icalnew)
-        
+
         # There cannot be any X-CALENDARSERVER-PERUSER components in the new data
         for component in tuple(icalnew.subcomponents()):
             if component.name() == PerUserDataFilter.PERUSER_COMPONENT:
@@ -134,12 +136,13 @@ class PerUserDataFilter(CalendarFilter):
         self._splitPerUserData(icalnew)
         if icalold is None:
             return icalnew
-        
+
         # Make sure input is valid
         icalold = self.validCalendar(icalold)
 
         self._mergeRepresentations(icalnew, icalold)
         return icalnew
+
 
     def _mergeBack(self, ical, peruser):
         """
@@ -150,22 +153,22 @@ class PerUserDataFilter(CalendarFilter):
         @param peruser: the per-user data to merge in
         @type peruser: L{Component}
         """
-        
+
         # Iterate over each instance in the per-user data and build mapping
         peruser_recurrence_map = {}
         for subcomponent in peruser.subcomponents():
             if subcomponent.name() != PerUserDataFilter.PERINSTANCE_COMPONENT:
                 raise AssertionError("Wrong sub-component '%s' in a X-CALENDARSERVER-PERUSER component" % (subcomponent.name(),))
             peruser_recurrence_map[subcomponent.getRecurrenceIDUTC()] = subcomponent
-            
+
         ical_recurrence_set = set(ical.getComponentInstances())
         peruser_recurrence_set = set(peruser_recurrence_map.keys())
-        
+
         # Set operations to find union and differences
         union_set = ical_recurrence_set.intersection(peruser_recurrence_set)
         ical_only_set = ical_recurrence_set.difference(peruser_recurrence_set)
         peruser_only_set = peruser_recurrence_set.difference(ical_recurrence_set)
-        
+
         # For ones in per-user data but no main data, we synthesize an instance and copy over per-user data
         # NB We have to do this before we do any merge that may change the master
         if ical.masterComponent() is not None:
@@ -175,8 +178,9 @@ class PerUserDataFilter(CalendarFilter):
                 self._mergeBackComponent(ical_component, peruser_component)
                 ical.addComponent(ical_component)
         elif peruser_only_set:
-            raise AssertionError("Cannot derive a per-user instance when there is no master component.")
-                    
+            # We used to error out here, but instead we should silently ignore this error and keep going
+            pass
+
         # Process the unions by merging in per-user data
         for rid in union_set:
             ical_component = ical.overriddenComponent(rid)
@@ -190,7 +194,8 @@ class PerUserDataFilter(CalendarFilter):
                 for rid in ical_only_set:
                     ical_component = ical.overriddenComponent(rid)
                     self._mergeBackComponent(ical_component, peruser_master)
-                    
+
+
     def _mergeBackComponent(self, ical, peruser):
         """
         Copy all properties and sub-components from per-user data into the main component
@@ -199,16 +204,17 @@ class PerUserDataFilter(CalendarFilter):
         @param peruser:
         @type peruser:
         """
-        
+
         # Each sub-component
         for subcomponent in peruser.subcomponents():
             ical.addComponent(subcomponent)
-        
+
         # Each property except RECURRENCE-ID
         for property in peruser.properties():
             if property.name() == "RECURRENCE-ID":
                 continue
             ical.addProperty(property)
+
 
     def _splitPerUserData(self, ical):
         """
@@ -219,13 +225,13 @@ class PerUserDataFilter(CalendarFilter):
         @param ical: calendar data to process
         @type ical: L{Component}
         """
-        
+
         def init_peruser_component():
             peruser = Component(PerUserDataFilter.PERUSER_COMPONENT)
             peruser.addProperty(Property("UID", ical.resourceUID()))
             peruser.addProperty(Property(PerUserDataFilter.PERUSER_UID, self.uid))
             return peruser
-        
+
         components = tuple(ical.subcomponents())
         peruser_component = init_peruser_component() if self.uid else None
         perinstance_components = {}
@@ -245,7 +251,7 @@ class PerUserDataFilter(CalendarFilter):
                         perinstance_component.addProperty(property)
                     component.removeProperty(property)
                     perinstance_id_different = True
-            
+
             # Transfer per-user components from main component to per-instance component
             for subcomponent in tuple(component.subcomponents()):
                 if subcomponent.name() in PerUserDataFilter.PERUSER_SUBCOMPONENTS or subcomponent.name().startswith("X-"):
@@ -253,10 +259,10 @@ class PerUserDataFilter(CalendarFilter):
                         perinstance_component.addComponent(subcomponent)
                     component.removeComponent(subcomponent)
                     perinstance_id_different = True
-            
+
             if perinstance_id_different and perinstance_component:
                 perinstance_components[rid] = perinstance_component
-            
+
         if self.uid:
             # Add unique per-instance components into the per-user component
             peruser_component_different = False
@@ -271,11 +277,12 @@ class PerUserDataFilter(CalendarFilter):
                     perinstance.addProperty(Property("RECURRENCE-ID", rid))
                     peruser_component.addComponent(perinstance)
                     peruser_component_different = True
-            
+
             if peruser_component_different:
                 ical.addComponent(peruser_component)
 
             self._compactInstances(ical)
+
 
     def _compactInstances(self, ical):
         """
@@ -303,17 +310,19 @@ class PerUserDataFilter(CalendarFilter):
             if derived and derived == subcomponent:
                 ical.removeComponent(subcomponent)
 
+
     def _mergeRepresentations(self, icalnew, icalold):
-        
+
         # Test for simple case first
         if icalnew.isRecurring() and icalold.isRecurring():
-            # Test each instance from old data to see whether it is still valid in the new one 
+            # Test each instance from old data to see whether it is still valid in the new one
             self._complexMerge(icalnew, icalold)
         else:
             self._simpleMerge(icalnew, icalold)
-    
+
+
     def _simpleMerge(self, icalnew, icalold):
-        
+
         # Take all per-user components from old and add to new, except for our user
         new_recur = icalnew.isRecurring()
         old_recur = icalold.isRecurring()
@@ -322,7 +331,7 @@ class PerUserDataFilter(CalendarFilter):
             if component.name() == PerUserDataFilter.PERUSER_COMPONENT:
                 if component.propertyValue(PerUserDataFilter.PERUSER_UID) != self.uid and not new_recur_has_no_master:
                     newcomponent = component.duplicate()
-                    
+
                     # Only transfer the master components from the old data to the new when the old
                     # was recurring and the new is not recurring
                     if not new_recur and old_recur:
@@ -332,15 +341,16 @@ class PerUserDataFilter(CalendarFilter):
 
                     if len(tuple(newcomponent.subcomponents())):
                         icalnew.addComponent(newcomponent)
-    
+
+
     def _complexMerge(self, icalnew, icalold):
-        
+
         # Take all per-user components from old and add to new, except for our user
         for component in icalold.subcomponents():
             if component.name() == PerUserDataFilter.PERUSER_COMPONENT:
                 if component.propertyValue(PerUserDataFilter.PERUSER_UID) != self.uid:
                     newcomponent = component.duplicate()
-                    
+
                     # See which of the instances are still valid
                     old_rids = dict([(subcomponent.getRecurrenceIDUTC(), subcomponent,) for subcomponent in newcomponent.subcomponents()])
                     valid_rids = icalnew.validInstances(old_rids.keys())
