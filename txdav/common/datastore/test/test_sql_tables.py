@@ -87,7 +87,7 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         )
         schema = pathObj.getContent()
         pos = schema.find("('VERSION', '")
-        version = int(schema[pos+13:pos+15])
+        version = int(schema[pos + 13:pos + 15])
         self.assertIn("insert into CALENDARSERVER (NAME, VALUE) "
                       "values ('VERSION', '%s');" % version,
                       self.translated())
@@ -296,7 +296,7 @@ class SQLSplitterTests(TestCase):
         r2 = result.next()
         self.assertEquals(r2, "select bang from boop")
         self.assertRaises(StopIteration, result.next)
-        
+
 
     def test_returnOneComplexStatement(self):
         """
@@ -312,7 +312,7 @@ class SQLSplitterTests(TestCase):
            WHERE
               CL.CODE = I.CODE AND
               CL.CATEGORY = I.CATEGORY AND
-              CL.UP_DATE = 
+              CL.UP_DATE =
                 (SELECT
                    MAX(CL2.UP_DATE)
                  FROM
@@ -325,7 +325,7 @@ class SQLSplitterTests(TestCase):
                 I.EMISSION BETWEEN DATE1 AND DATE2;''')
         result = splitSQLString(bigSQL)
         r1 = result.next()
-        self.assertEquals(r1, bigSQL.rstrip(";")) 
+        self.assertEquals(r1, bigSQL.rstrip(";"))
         self.assertRaises(StopIteration, result.next)
 
 
@@ -354,8 +354,8 @@ class SQLSplitterTests(TestCase):
         """
         sql = dedent(
         '''SELECT EGM.Name, BioEntity.BioEntityId INTO AUX
-            FROM EGM 
-            INNER JOIN BioEntity 
+            FROM EGM
+            INNER JOIN BioEntity
                 ON EGM.name LIKE BioEntity.Name AND EGM.TypeId = BioEntity.TypeId
             OPTION (MERGE JOIN);''')
         plsql = dedent(
@@ -371,12 +371,13 @@ class SQLSplitterTests(TestCase):
            COMMIT;
            END;''')
         s2 = "BEGIN\nFOR i IN 1..10 LOOP\nIF MOD(i,2) = 0 THEN\nINSERT INTO temp VALUES (i, x, 'i is even');ELSE\nINSERT INTO temp VALUES (i, x, 'i is odd');END IF;x := x + 100;END LOOP;COMMIT;END;"
-        result = splitSQLString(sql+plsql)
+        result = splitSQLString(sql + plsql)
         r1 = result.next()
         self.assertEquals(r1, sql.rstrip(";"))
         r2 = result.next()
         self.assertEquals(r2, s2)
         self.assertRaises(StopIteration, result.next)
+
 
     def test_actualSchemaUpgrade(self):
         """

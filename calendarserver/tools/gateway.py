@@ -77,11 +77,10 @@ class RunnerService(WorkerService):
         if runner.validate():
             yield runner.run()
 
+
     def doWorkWithoutStore(self):
         respondWithError("Database is not available")
         return succeed(None)
-
-
 
 
 
@@ -200,7 +199,7 @@ class Runner(object):
 
 
     def command_getLocationList(self, command):
-        respondWithRecordsOfType(self.dir, command, "locations")
+        respondWithRecordsOfTypes(self.dir, command, ["locations"])
 
 
     @inlineCallbacks
@@ -221,7 +220,7 @@ class Runner(object):
         principal = principalForPrincipalID(record.guid, directory=self.dir)
         (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
 
-        respondWithRecordsOfType(self.dir, command, "locations")
+        respondWithRecordsOfTypes(self.dir, command, ["locations"])
 
 
     @inlineCallbacks
@@ -282,13 +281,13 @@ class Runner(object):
         except DirectoryError, e:
             respondWithError(str(e))
             return
-        respondWithRecordsOfType(self.dir, command, "locations")
+        respondWithRecordsOfTypes(self.dir, command, ["locations"])
 
     # Resources
 
 
     def command_getResourceList(self, command):
-        respondWithRecordsOfType(self.dir, command, "resources")
+        respondWithRecordsOfTypes(self.dir, command, ["resources"])
 
 
     @inlineCallbacks
@@ -309,7 +308,7 @@ class Runner(object):
         principal = principalForPrincipalID(record.guid, directory=self.dir)
         (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
 
-        respondWithRecordsOfType(self.dir, command, "resources")
+        respondWithRecordsOfTypes(self.dir, command, ["resources"])
 
 
     @inlineCallbacks
@@ -350,7 +349,12 @@ class Runner(object):
         except DirectoryError, e:
             respondWithError(str(e))
             return
-        respondWithRecordsOfType(self.dir, command, "resources")
+        respondWithRecordsOfTypes(self.dir, command, ["resources"])
+
+        
+    def command_getLocationAndResourceList(self, command):
+        respondWithRecordsOfTypes(self.dir, command, ["locations", "resources"])
+
 
     # Proxies
 
@@ -472,6 +476,7 @@ class Runner(object):
         respond(command, {'EventsRemoved' : eventCount, "RetainDays" : retainDays})
 
 
+
 @inlineCallbacks
 def respondWithProxies(directory, command, principal, proxyType):
     proxies = []
@@ -506,16 +511,19 @@ def recordToDict(record):
 
 
 
-def respondWithRecordsOfType(directory, command, recordType):
+def respondWithRecordsOfTypes(directory, command, recordTypes):
     result = []
-    for record in directory.listRecords(recordType):
-        recordDict = recordToDict(record)
-        result.append(recordDict)
+    for recordType in recordTypes:
+        for record in directory.listRecords(recordType):
+            recordDict = recordToDict(record)
+            result.append(recordDict)
     respond(command, result)
+
 
 
 def respond(command, result):
     sys.stdout.write(writePlistToString({'command' : command['command'], 'result' : result}))
+
 
 
 def respondWithError(msg, status=1):

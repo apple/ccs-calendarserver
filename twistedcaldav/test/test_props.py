@@ -14,20 +14,17 @@
 # limitations under the License.
 ##
 
+from twext.web2 import responsecode, http_headers
+from twext.web2.dav.util import davXMLFromStream
+from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 
-import os
-
-from twext.web2 import responsecode, http_headers
-from twext.web2.iweb import IResponse
-from txdav.xml import element as davxml
-from twext.web2.dav.util import davXMLFromStream
-from twext.web2.test.test_server import SimpleRequest
 from twistedcaldav import caldavxml
+from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 
-from twistedcaldav.test.util import HomeTestCase
+from txdav.xml import element as davxml
 
-class Properties(HomeTestCase):
+class Properties(StoreTestCase):
     """
     CalDAV properties
     """
@@ -35,8 +32,7 @@ class Properties(HomeTestCase):
         """
         Live CalDAV properties
         """
-        calendar_path, calendar_uri = self.mkdtemp("live_props")
-        os.rmdir(calendar_path)
+        calendar_uri = "/calendars/users/user01/test/"
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -116,7 +112,7 @@ class Properties(HomeTestCase):
                             cal_multiget = True
                         if report.childOfType(caldavxml.FreeBusyQuery) is not None:
                             cal_freebusy = True
-                        
+
                     if not cal_query:
                         self.fail("Expected CalDAV:CalendarQuery element; but got none.")
                     if not cal_multiget:
@@ -134,24 +130,25 @@ class Properties(HomeTestCase):
                         ),
                     )
 
-            request = SimpleRequest(
-                self.site,
+            request = SimpleStoreRequest(
+                self,
                 "PROPFIND",
                 calendar_uri,
-                headers=http_headers.Headers({"Depth":"0"}),
+                headers=http_headers.Headers({"Depth": "0"}),
+                authid="user01",
             )
             request.stream = MemoryStream(query.toxml())
             return self.send(request, propfind_cb)
 
-        request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="user01")
         return self.send(request, mkcalendar_cb)
+
 
     def test_all_props(self):
         """
         Live CalDAV properties
         """
-        calendar_path, calendar_uri = self.mkdtemp("all_props")
-        os.rmdir(calendar_path)
+        calendar_uri = "/calendars/users/user01/test/"
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -205,15 +202,15 @@ class Properties(HomeTestCase):
                 davxml.AllProperties(),
             )
 
-            request = SimpleRequest(
-                self.site,
+            request = SimpleStoreRequest(
+                self,
                 "PROPFIND",
                 calendar_uri,
-                headers=http_headers.Headers({"Depth":"0"}),
+                headers=http_headers.Headers({"Depth": "0"}),
+                authid="user01",
             )
             request.stream = MemoryStream(query.toxml())
             return self.send(request, propfind_cb)
 
-        request = SimpleRequest(self.site, "MKCALENDAR", calendar_uri)
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="user01")
         return self.send(request, mkcalendar_cb)
-        

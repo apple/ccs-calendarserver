@@ -15,19 +15,17 @@
 ##
 
 
-from calendarserver.tap.util import getRootResource
 from calendarserver.tools.purge import PurgePrincipalService
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import StoreTestCase
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 
-from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks
-from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
+from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 
 from twext.web2.http_headers import MimeType
@@ -227,7 +225,7 @@ END:VCALENDAR
 
 
 
-class CancelEventTestCase(TestCase):
+class CancelEventTestCase(StoreTestCase):
 
     def test_cancelRepeating(self):
         # A repeating event where purged CUA is organizer
@@ -779,7 +777,7 @@ END:VCALENDAR
 
 
 
-class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
+class PurgePrincipalTests(StoreTestCase):
     """
     Tests for purging the data belonging to a given principal
     """
@@ -808,10 +806,6 @@ class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
-        yield super(PurgePrincipalTests, self).setUp()
-        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
-        yield self.populate()
-
         self.patch(config.DirectoryService.params, "xmlFile",
             os.path.join(
                 os.path.dirname(__file__), "purge", "accounts.xml"
@@ -822,8 +816,7 @@ class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
                 os.path.dirname(__file__), "purge", "resources.xml"
             )
         )
-        self.rootResource = getRootResource(config, self._sqlCalendarStore)
-        self.directory = self.rootResource.getDirectory()
+        yield super(PurgePrincipalTests, self).setUp()
 
         txn = self._sqlCalendarStore.newTransaction()
 
@@ -861,13 +854,6 @@ class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlCalendarStore
 
 
     @inlineCallbacks

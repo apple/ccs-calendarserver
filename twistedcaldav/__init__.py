@@ -42,7 +42,6 @@ import twistedcaldav.carddavxml
 import twistedcaldav.mkcolxml
 import twistedcaldav.customxml
 import twistedcaldav.timezonexml
-import twistedcaldav.scheduling.ischedule.xml
 
 twistedcaldav # Shhh.. pyflakes
 

@@ -14,13 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twisted.python.constants import NamedConstant, Names
 
 """
 Calendar store interfaces
 """
 
 from txdav.common.icommondatastore import ICommonTransaction, \
-    IShareableCollection
+    IShareableCollection, CommonStoreError
 from txdav.idav import IDataStoreObject, IDataStore
 
 from twisted.internet.interfaces import ITransport
@@ -38,14 +39,33 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT as BIND_DIRECT
 __all__ = [
     # Interfaces
     "ICalendarTransaction",
+    "ICalendarStore",
     "ICalendarHome",
     "ICalendar",
     "ICalendarObject",
+    "IAttachmentStorageTransport",
+    "IAttachment",
 
     # Exceptions
+   #"InvalidCalendarComponentError",
+    "InvalidCalendarAccessError",
+    "TooManyAttendeesError",
+    "ResourceDeletedError",
+    "ValidOrganizerError",
+    "AttendeeAllowedError",
+    "ShareeAllowedError",
+    "InvalidPerUserDataMerge",
+    "InvalidDefaultCalendar",
+    "InvalidAttachmentOperation",
+    "AttachmentStoreFailed",
+    "AttachmentStoreValidManagedID",
+    "AttachmentRemoveFailed",
+    "AttachmentMigrationFailed",
+    "AttachmentDropboxNotAllowed",
     "QuotaExceeded",
     "TimeRangeLowerLimit",
     "TimeRangeUpperLimit",
+    "QueryMaxResources",
 
     # Enumerations
     "BIND_OWN",
@@ -56,67 +76,9 @@ __all__ = [
 
 
 
-class AttachmentStoreFailed(Exception):
-    """
-    Unable to store an attachment.
-    """
-
-
-
-class AttachmentStoreValidManagedID(Exception):
-    """
-    Specified attachment managed-id is not valid.
-    """
-
-
-
-class AttachmentRemoveFailed(Exception):
-    """
-    Unable to remove an attachment.
-    """
-
-
-
-class AttachmentMigrationFailed(Exception):
-    """
-    Unable to migrate an attachment.
-    """
-
-
-
-class AttachmentDropboxNotAllowed(Exception):
-    """
-    Dropbox attachments no longer allowed.
-    """
-
-
-
-class QuotaExceeded(Exception):
-    """
-    The quota for a particular user has been exceeded.
-    """
-
-
-
-class TimeRangeLowerLimit(Exception):
-    """
-    A request for time-range information too far in the past cannot be satisfied.
-    """
-
-    def __init__(self, lowerLimit):
-        self.limit = lowerLimit
-
-
-
-class TimeRangeUpperLimit(Exception):
-    """
-    A request for time-range information too far in the future cannot be satisfied.
-    """
-
-    def __init__(self, upperLimit):
-        self.limit = upperLimit
-
-
+#
+# Interfaces
+#
 
 class ICalendarTransaction(ICommonTransaction):
     """
@@ -179,10 +141,6 @@ class ICalendarStore(IDataStore):
 
 
 
-#
-# Interfaces
-#
-
 class ICalendarHome(INotifier, IDataStoreObject):
     """
     An L{ICalendarHome} is a collection of calendars which belongs to a
@@ -207,6 +165,7 @@ class ICalendarHome(INotifier, IDataStoreObject):
         """
 
 
+    # FIXME: This is the same interface as calendars().
     def loadCalendars():
         """
         Pre-load all calendars Depth:1.
@@ -299,6 +258,8 @@ class ICalendarHome(INotifier, IDataStoreObject):
         """
 
 
+    # FIXME: This should not be part of the interface.  The
+    # implementation should deal with this behind the scenes.
     def adjustQuotaUsedBytes(delta):
         """
         Increase or decrease the number of bytes that count towards the user's
@@ -335,10 +296,13 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
     read/write access.
     """
 
+    # FIXME: This should be setName(), and we should add name(),
+    # assuming this shouldn't be API on the hom instead.
     def rename(name):
         """
         Change the name of this calendar.
         """
+
 
     def displayName():
         """
@@ -347,12 +311,14 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         @return: a unicode string.
         """
 
+
     def setDisplayName(name):
         """
         Set the display name of this calendar.
 
         @param name: a C{unicode}.
         """
+
 
     def ownerCalendarHome():
         """
@@ -418,28 +384,6 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         """
 
 
-    def removeCalendarObjectWithName(name):
-        """
-        Remove the calendar object with the given C{name} from this
-        calendar.
-
-        @param name: a string.
-        @raise NoSuchCalendarObjectError: if no such calendar object
-            exists.
-        """
-
-
-    def removeCalendarObjectWithUID(uid):
-        """
-        Remove the calendar object with the given C{uid} from this
-        calendar.
-
-        @param uid: a string.
-        @raise NoSuchCalendarObjectError: if the calendar object does
-            not exist.
-        """
-
-
     def syncToken():
         """
         Retrieve the current sync token for this calendar.
@@ -491,6 +435,9 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         """
 
 
+    # FIXME: This module should define it's own constants and this
+    # method should return those.  Pulling constants from the SQL
+    # implementation is not good.
     def shareMode():
         """
         The sharing mode of this calendar; one of the C{BIND_*} constants in
@@ -501,6 +448,8 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         # TODO: implement this for the file store.
 
 
+    # FIXME: This should be calendarHome(), assuming we want to allow
+    # back-references.
     def viewerCalendarHome():
         """
         Retrieve the calendar home for the viewer of this calendar.  In other
@@ -536,16 +485,11 @@ class ICalendarObject(IDataStoreObject):
         """
 
 
-    def setComponent(component):
+    def uid():
         """
-        Rewrite this calendar object to match the given C{component}.
-        C{component} must have the same UID and be of the same
-        component type as this calendar object.
+        Retrieve the UID for this calendar object.
 
-        @param component: a C{VCALENDAR} L{VComponent}.
-        @raise InvalidCalendarComponentError: if the given
-            C{component} is not a valid C{VCALENDAR} L{VComponent} for
-            a calendar object.
+        @return: a string containing a UID.
         """
 
 
@@ -561,11 +505,16 @@ class ICalendarObject(IDataStoreObject):
         """
 
 
-    def uid():
+    def setComponent(component):
         """
-        Retrieve the UID for this calendar object.
+        Rewrite this calendar object to match the given C{component}.
+        C{component} must have the same UID and be of the same
+        component type as this calendar object.
 
-        @return: a string containing a UID.
+        @param component: a C{VCALENDAR} L{VComponent}.
+        @raise InvalidCalendarComponentError: if the given
+            C{component} is not a valid C{VCALENDAR} L{VComponent} for
+            a calendar object.
         """
 
 
@@ -583,8 +532,8 @@ class ICalendarObject(IDataStoreObject):
         @return: a string containing the component type.
         """
 
+    # FIXME: Ideally should return a URI object
     def organizer():
-        # FIXME: Ideally should return a URI object
         """
         Retrieve the organizer's calendar user address for this
         calendar object.
@@ -786,3 +735,226 @@ class IAttachment(IDataStoreObject):
             that the stream is complete to its C{connectionLost} method.
         @type protocol: L{IProtocol}
         """
+
+
+
+#
+# Exceptions
+#
+
+# FIXME: Clean these up:
+# * Exception names should end in "Error"
+# * Inherrit from common base class
+# * Possible structure inherritance a bit
+# * InvalidCalendarComponentError is AWOL
+
+class InvalidComponentTypeError(CommonStoreError):
+    """
+    Invalid object resource component type for collection.
+    """
+
+
+
+class InvalidCalendarAccessError(CommonStoreError):
+    """
+    Invalid access mode in calendar data.
+    """
+
+
+
+class TooManyAttendeesError(CommonStoreError):
+    """
+    Too many attendees in calendar data.
+    """
+
+
+
+class ResourceDeletedError(CommonStoreError):
+    """
+    The resource was determined to be redundant and was deleted by the server.
+    """
+
+
+
+class ValidOrganizerError(CommonStoreError):
+    """
+    Specified organizer is not valid.
+    """
+
+
+
+class AttendeeAllowedError(CommonStoreError):
+    """
+    Attendee is not allowed to make an implicit scheduling change.
+    """
+
+
+
+class ShareeAllowedError(CommonStoreError):
+    """
+    Sharee is not allowed to make an implicit scheduling change.
+    """
+
+
+
+class InvalidPerUserDataMerge(CommonStoreError):
+    """
+    Per-user data merge failed.
+    """
+
+
+
+class InvalidDefaultCalendar(CommonStoreError):
+    """
+    Setting a default calendar failed.
+    """
+
+
+
+class InvalidAttachmentOperation(Exception):
+    """
+    Unable to store an attachment because some aspect of the request is invalid.
+    """
+
+
+
+class AttachmentStoreFailed(Exception):
+    """
+    Unable to store an attachment.
+    """
+
+
+
+class AttachmentStoreValidManagedID(Exception):
+    """
+    Specified attachment managed-id is not valid.
+    """
+
+    def __str__(self):
+        return "Invalid Managed-ID parameter in calendar data"
+
+
+
+class AttachmentRemoveFailed(Exception):
+    """
+    Unable to remove an attachment.
+    """
+
+
+
+class AttachmentMigrationFailed(Exception):
+    """
+    Unable to migrate an attachment.
+    """
+
+
+
+class AttachmentDropboxNotAllowed(Exception):
+    """
+    Dropbox attachments no longer allowed.
+    """
+
+
+
+class QuotaExceeded(Exception):
+    """
+    The quota for a particular user has been exceeded.
+    """
+
+
+
+class TimeRangeLowerLimit(Exception):
+    """
+    A request for time-range information too far in the past cannot be satisfied.
+    """
+
+    def __init__(self, lowerLimit):
+        self.limit = lowerLimit
+
+
+
+class TimeRangeUpperLimit(Exception):
+    """
+    A request for time-range information too far in the future cannot be satisfied.
+    """
+
+    def __init__(self, upperLimit):
+        self.limit = upperLimit
+
+
+
+class QueryMaxResources(CommonStoreError):
+    """
+    A query-based request for resources returned more resources than the server is willing to deal with in one go.
+    """
+
+    def __init__(self, limit, actual):
+        super(QueryMaxResources, self).__init__("Query result count limit (%s) exceeded: %s" % (limit, actual,))
+
+
+
+#
+# FIXME: These may belong elsewhere.
+#
+
+class ComponentUpdateState(Names):
+    """
+    These are constants that define what type of component store operation is being done. This is used
+    in the .setComponent() api to determine what type of processing needs to occur.
+
+    NORMAL -                this is an application layer (user) generated store that should do all
+                            validation and implicit scheduling operations.
+
+    INBOX  -                the store is updating an inbox item as the result of an iTIP message.
+
+    ORGANIZER_ITIP_UPDATE - the store is an update to an organizer's data caused by processing an incoming
+                            iTIP message. Some validation and implicit scheduling is not done. Schedule-Tag
+                            is not changed.
+
+    ATTENDEE_ITIP_UPDATE  - the store is an update to an attendee's data caused by processing an incoming
+                            iTIP message. Some validation and implicit scheduling is not done. Schedule-Tag
+                            is changed.
+
+    ATTACHMENT_UPDATE     - change to a managed attachment that is re-writing calendar data.
+
+    RAW                   - store the supplied data as-is without any processing or validation. This is used
+                            for unit testing purposes only.
+    """
+
+    NORMAL = NamedConstant()
+    INBOX = NamedConstant()
+    ORGANIZER_ITIP_UPDATE = NamedConstant()
+    ATTENDEE_ITIP_UPDATE = NamedConstant()
+    ATTACHMENT_UPDATE = NamedConstant()
+    RAW = NamedConstant()
+
+    NORMAL.description = "normal"
+    INBOX.description = "inbox"
+    ORGANIZER_ITIP_UPDATE.description = "organizer-update"
+    ATTENDEE_ITIP_UPDATE.description = "attendee-update"
+    ATTACHMENT_UPDATE.description = "attachment-update"
+    RAW.description = "raw"
+
+
+
+class ComponentRemoveState(Names):
+    """
+    These are constants that define what type of component remove operation is being done. This is used
+    in the .remove() api to determine what type of processing needs to occur.
+
+    NORMAL -                this is an application layer (user) generated remove that should do all
+                            implicit scheduling operations.
+
+    NORMAL_NO_IMPLICIT -    this is an application layer (user) generated remove that deliberately turns
+                            off implicit scheduling operations.
+
+    INTERNAL -              remove the resource without implicit scheduling.
+    """
+
+    NORMAL = NamedConstant()
+    NORMAL_NO_IMPLICIT = NamedConstant()
+    INTERNAL = NamedConstant()
+
+    NORMAL.description = "normal"
+    NORMAL_NO_IMPLICIT.description = "normal-no-implicit"
+    INTERNAL.description = "internal"

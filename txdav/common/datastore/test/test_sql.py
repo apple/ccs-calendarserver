@@ -77,6 +77,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.assertEqual(len(version), 1)
         self.assertEqual(len(version[0]), 1)
 
+
     def test_logWaits(self):
         """
         CommonStoreTransactionMonitor logs waiting transactions.
@@ -149,6 +150,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.assertNotEqual(ctr[0], 0)
         self.assertNotEqual(ctr[1], 0)
         self.assertTrue(txn._sqlTxn._completed)
+
 
     @inlineCallbacks
     def test_subtransactionOK(self):
@@ -423,7 +425,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
 
 
 from uuid import UUID
-exampleUID = UUID("a"*32)
+exampleUID = UUID("a" * 32)
 denormalizedUID = str(exampleUID)
 normalizedUID = denormalizedUID.upper()
-

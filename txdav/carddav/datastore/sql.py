@@ -78,10 +78,10 @@ class AddressBookHome(CommonHome):
     _cacher = Memcacher("SQL.adbkhome", pickle=True, key_normalization=False)
 
 
-    def __init__(self, transaction, ownerUID, notifiers):
+    def __init__(self, transaction, ownerUID):
 
         self._childClass = AddressBook
-        super(AddressBookHome, self).__init__(transaction, ownerUID, notifiers)
+        super(AddressBookHome, self).__init__(transaction, ownerUID)
         self._addressbookPropertyStoreID = None
         self._addressbook = None
 
@@ -410,8 +410,6 @@ class AddressBook(CommonHomeChild, SharingMixIn):
     addressbookObjectWithName = CommonHomeChild.objectResourceWithName
     addressbookObjectWithUID = CommonHomeChild.objectResourceWithUID
     createAddressBookObjectWithName = CommonHomeChild.createObjectResourceWithName
-    removeAddressBookObjectWithName = CommonHomeChild.removeObjectResourceWithName
-    removeAddressBookObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
     addressbookObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
 
 
@@ -467,7 +465,8 @@ class AddressBook(CommonHomeChild, SharingMixIn):
         if self._resourceID == self._home._resourceID:
             # allow remove, as a way to reset the address book to an empty state
             for abo in (yield self.objectResources()):
-                yield self.removeObjectResource(abo)
+                yield abo.remove()
+                yield self.removedObjectResource(abo)
 
             yield self.unshare()  # storebridge should already have done this
 
@@ -1264,7 +1263,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
     #_homeChildMetaDataSchema = schema.ADDRESSBOOK_OBJECT
 
 
-    def __init__(self, addressbook, name, uid, resourceID=None, metadata=None):  #@UnusedVariable
+    def __init__(self, addressbook, name, uid, resourceID=None, options=None):  #@UnusedVariable
 
         self._kind = None
         self._ownerAddressBookResourceID = None
@@ -1276,7 +1275,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         self._bindStatus = None
         self._bindMessage = None
         self._bindName = None
-        super(AddressBookObject, self).__init__(addressbook, name, uid, resourceID)
+        super(AddressBookObject, self).__init__(addressbook, name, uid, resourceID, options)
 
 
     def __repr__(self):

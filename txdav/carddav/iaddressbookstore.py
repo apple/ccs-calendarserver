@@ -218,28 +218,6 @@ class IAddressBook(INotifier, IShareableCollection, IDataStoreObject):
         """
 
 
-    def removeAddressBookObjectWithName(name):
-        """
-        Remove the addressbook object with the given C{name} from this
-        addressbook.
-
-        @param name: a string.
-        @raise NoSuchAddressBookObjectError: if no such addressbook object
-            exists.
-        """
-
-
-    def removeAddressBookObjectWithUID(uid):
-        """
-        Remove the addressbook object with the given C{uid} from this
-        addressbook.
-
-        @param uid: a string.
-        @raise NoSuchAddressBookObjectError: if the addressbook object does
-            not exist.
-        """
-
-
     def syncToken():
         """
         Retrieve the current sync token for this addressbook.
@@ -278,7 +256,7 @@ class IAddressBookObject(IDataStoreObject):
     def setComponent(component):
         """
         Rewrite this addressbook object to match the given C{component}.
-        C{component} must have the same UID as this addressbook object.
+        C{component} must have the same UID and KIND as this addressbook object.
 
         @param component: a C{VCARD} L{VComponent}.
         @raise InvalidAddressBookComponentError: if the given

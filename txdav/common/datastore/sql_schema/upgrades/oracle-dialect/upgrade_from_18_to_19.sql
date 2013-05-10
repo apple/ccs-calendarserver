@@ -1,5 +1,5 @@
 ----
--- Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+-- Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -18,5 +18,26 @@
 -- Upgrade database schema from VERSION 18 to 19 --
 ---------------------------------------------------
 
+-- Calendar home related updates
+
+alter table ATTACHMENT
+ add ("DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
+ 	  "DEFAULT_TASKS"  integer default null references CALENDAR on delete set null);
+
+ 	  
+-- Calendar bind related updates
+
+alter table CALENDAR_BIND
+ add ("TRANSP" integer default 0 not null);
+
+create table CALENDAR_TRANSP (
+    "ID" integer primary key,
+    "DESCRIPTION" nvarchar2(16) unique
+);
+
+insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('opaque', 0);
+insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('transparent', 1);
+
 -- Now update the version
+-- No data upgrades
 update CALENDARSERVER set VALUE = '19' where NAME = 'VERSION';

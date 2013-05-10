@@ -1602,8 +1602,9 @@ class Update(_DMLStatement):
                     for (c, v) in sortedColumns]
             )
         )
-        result.append(SQLFragment(' where '))
-        result.append(self.Where.subSQL(queryGenerator, allTables))
+        if self.Where is not None:
+            result.append(SQLFragment(' where '))
+            result.append(self.Where.subSQL(queryGenerator, allTables))
         return self._returningClause(queryGenerator, result, allTables)
 
 

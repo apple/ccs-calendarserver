@@ -329,7 +329,7 @@ DEFAULT_CONFIG = {
     "LogRoot"                 : "/var/log/caldavd",
     "RunRoot"                 : "/var/run/caldavd",
     "WebCalendarRoot"         : "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd/webcal/public",
-    
+
     #
     # Quotas
     #
@@ -1093,7 +1093,6 @@ def _updateDataStore(configDict, reloading=False):
     except KeyError:
         pass
 
-
     for root, relativePath in RELATIVE_PATHS:
         if root in configDict:
             if isinstance(relativePath, str):
@@ -1140,6 +1139,7 @@ def _updateHostName(configDict, reloading=False):
         configDict.ServerHostName = hostname
 
 
+
 def _updateMultiProcess(configDict, reloading=False):
     """
     Dynamically compute ProcessCount if it's set to 0.  Always compute
@@ -1170,6 +1170,7 @@ def _updateMultiProcess(configDict, reloading=False):
     configDict.Postgres.MaxConnections = maxConnections
     configDict.Postgres.SharedBuffers = int(configDict.Postgres.MaxConnections *
         configDict.Postgres.BuffersToConnectionsRatio)
+
 
 
 def _preUpdateDirectoryService(configDict, items, reloading=False):
@@ -1486,7 +1487,7 @@ def _updateScheduling(configDict, reloading=False):
 
 
 def _updateServers(configDict, reloading=False):
-    from twistedcaldav.scheduling.ischedule.localservers import Servers
+    from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
     if configDict.Servers.Enabled:
         Servers.load()
         Servers.getThisServer().installReverseProxies(

@@ -508,7 +508,7 @@ END:VCARD
         self.assertEqual(foreignMemberRows, [])
 
 
-        yield adbk.removeAddressBookObjectWithName("sg.vcf")
+        yield subgroupObject.remove()
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
         self.assertEqual(memberRows, [])
 
@@ -594,7 +594,8 @@ END:VCARD
 
         # Remove address book object and check for no properties
         adbk1 = yield self.addressbookUnderTest()
-        yield adbk1.removeAddressBookObjectWithName(name)
+        abo = yield adbk1.objectWithName(name)
+        yield abo.remove()
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()

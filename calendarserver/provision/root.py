@@ -40,10 +40,7 @@ from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.resource import CalDAVComplianceMixIn
-from twistedcaldav.resource import CalendarHomeResource, AddressBookHomeResource
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
-from twistedcaldav.storebridge import CalendarCollectionResource,\
-    AddressBookCollectionResource, StoreNotificationCollectionResource
 from calendarserver.platform.darwin.wiki import usernameForAuthToken
 
 log = Logger()
@@ -89,12 +86,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             self.responseCache = MemcacheResponseCache(self.fp)
 
             # These class attributes need to be setup with our memcache notifier
-            CalendarHomeResource.cacheNotifierFactory = MemcacheChangeNotifier
-            AddressBookHomeResource.cacheNotifierFactory = MemcacheChangeNotifier
             DirectoryPrincipalResource.cacheNotifierFactory = MemcacheChangeNotifier
-            CalendarCollectionResource.cacheNotifierFactory = MemcacheChangeNotifier
-            AddressBookCollectionResource.cacheNotifierFactory = MemcacheChangeNotifier
-            StoreNotificationCollectionResource.cacheNotifierFactory = MemcacheChangeNotifier
         else:
             self.responseCache = DisabledCache()
 
@@ -110,6 +102,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 return response
             self.contentFilters.append((addConnectionClose, True))
 
+
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             # Get the property store from super
@@ -123,8 +116,10 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
         return self._dead_properties
 
+
     def defaultAccessControlList(self):
         return config.RootResourceACL
+
 
     @inlineCallbacks
     def checkSacl(self, request):
@@ -145,7 +140,6 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 request.remoteAddr
             ))
             raise HTTPError(response)
-
 
         # SACLs are enabled in the plist, but there may not actually
         # be a SACL group assigned to this service.  Let's see if
@@ -201,6 +195,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
         log.warn("User %r is not enabled with the %r SACL(s)" % (username, saclServices,))
         raise HTTPError(responsecode.FORBIDDEN)
+
 
     @inlineCallbacks
     def locateChild(self, request, segments):
@@ -311,7 +306,6 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                     )
                 raise HTTPError(response)
 
-
         # We don't want the /inbox resource to pay attention to SACLs because
         # we just want it to use the hard-coded ACL for the imip reply user.
         # The /timezones resource is used by the wiki web calendar, so open
@@ -378,7 +372,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                     if response is None:
                         request.notInCache = True
                         raise KeyError("Not found in cache.")
-        
+
                     returnValue((_CachedResponseResource(response), []))
             except KeyError:
                 pass
@@ -386,9 +380,17 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         child = (yield super(RootResource, self).locateChild(request, segments))
         returnValue(child)
 
-    def http_COPY       (self, request): return responsecode.FORBIDDEN
-    def http_MOVE       (self, request): return responsecode.FORBIDDEN
-    def http_DELETE     (self, request): return responsecode.FORBIDDEN
+
+    def http_COPY(self, request):
+        return responsecode.FORBIDDEN
+
+
+    def http_MOVE(self, request):
+        return responsecode.FORBIDDEN
+
+
+    def http_DELETE(self, request):
+        return responsecode.FORBIDDEN
 
 # So CheckSACL will be parameterized
 # We do this after RootResource is defined

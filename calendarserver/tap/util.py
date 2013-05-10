@@ -49,6 +49,7 @@ from twisted.python.reflect import namedClass
 # from twisted.python.failure import Failure
 
 from twistedcaldav.bind import doBind
+from twistedcaldav.cache import CacheStoreNotifierFactory
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
@@ -58,12 +59,12 @@ from twistedcaldav.directory.directory import GroupMembershipCache
 from twistedcaldav.directory.internal import InternalDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.wiki import WikiDirectoryService
-from calendarserver.push.notifier import NotifierFactory 
+from calendarserver.push.notifier import NotifierFactory
 from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import AuthenticationWrapper
-from twistedcaldav.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
-from twistedcaldav.scheduling.ischedule.resource import IScheduleInboxResource
+from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
+from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
 from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
@@ -215,7 +216,7 @@ class ConnectionDispenser(object):
 
 
 
-def storeFromConfig(config, txnFactory):
+def storeFromConfig(config, txnFactory, directoryService=None):
     """
     Produce an L{IDataStore} from the given configuration, transaction factory,
     and notifier factory.
@@ -226,13 +227,16 @@ def storeFromConfig(config, txnFactory):
     #
     # Configure NotifierFactory
     #
+    notifierFactories = {}
     if config.Notifications.Enabled:
-        # FIXME: NotifierFactory needs reference to the store in order
-        # to get a txn in order to create a Work item
-        notifierFactory = NotifierFactory(None, config.ServerHostName,
-            config.Notifications.CoalesceSeconds)
-    else:
-        notifierFactory = None
+        notifierFactories["push"] = NotifierFactory(config.ServerHostName, config.Notifications.CoalesceSeconds)
+
+    if config.EnableResponseCache and config.Memcached.Pools.Default.ClientEnabled:
+        notifierFactories["cache"] = CacheStoreNotifierFactory()
+
+    if directoryService is None:
+        directoryService = directoryFromConfig(config)
+
     quota = config.UserQuota
     if quota == 0:
         quota = None
@@ -243,7 +247,8 @@ def storeFromConfig(config, txnFactory):
             uri = "http://%s:%s" % (config.ServerHostName, config.HTTPPort,)
         attachments_uri = uri + "/calendars/__uids__/%(home)s/dropbox/%(dropbox_id)s/%(name)s"
         store = CommonSQLDataStore(
-            txnFactory, notifierFactory,
+            txnFactory, notifierFactories,
+            directoryService,
             FilePath(config.AttachmentsRoot), attachments_uri,
             config.EnableCalDAV, config.EnableCardDAV,
             config.EnableManagedAttachments,
@@ -261,10 +266,14 @@ def storeFromConfig(config, txnFactory):
     else:
         store = CommonFileDataStore(
             FilePath(config.DocumentRoot),
-            notifierFactory, config.EnableCalDAV, config.EnableCardDAV,
+            notifierFactories, directoryService,
+            config.EnableCalDAV, config.EnableCardDAV,
             quota=quota
         )
-    if notifierFactory is not None:
+
+    # FIXME: NotifierFactories need a reference to the store in order
+    # to get a txn in order to possibly create a Work item
+    for notifierFactory in notifierFactories.values():
         notifierFactory.store = store
     return store
 
@@ -367,7 +376,7 @@ def directoryFromConfig(config):
 
 
 
-def getRootResource(config, newStore, resources=None, directory=None):
+def getRootResource(config, newStore, resources=None):
     """
     Set up directory service and resource hierarchy based on config.
     Return root resource.
@@ -403,8 +412,7 @@ def getRootResource(config, newStore, resources=None, directory=None):
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
     apnSubscriptionResourceClass = APNSubscriptionResource
 
-    if directory is None:
-        directory = directoryFromConfig(config)
+    directory = newStore.directoryService()
 
     #
     # Setup the ProxyDB Service
@@ -766,8 +774,6 @@ def getDBPool(config):
 
 
 
-
-
 class FakeRequest(object):
 
     def __init__(self, rootResource, method, path, uri='/', transaction=None):
@@ -935,11 +941,12 @@ class MemoryLimitService(Service, object):
             self._delayedCall = self._reactor.callLater(self._seconds, self.checkMemory)
 
 
+
 def checkDirectories(config):
     """
     Make sure that various key directories exist (and create if needed)
     """
-    
+
     #
     # Verify that server root actually exists
     #
@@ -992,7 +999,6 @@ def checkDirectories(config):
 
 
 
-
 class Stepper(object):
     """
     Manages the sequential, deferred execution of "steps" which are objects
@@ -1006,14 +1012,14 @@ class Stepper(object):
             @param failure: a Failure encapsulating the exception from the
                 previous step
             @returns: Failure to continue down the errback chain, or a
-                Deferred returning a non-Failure to switch back to the 
+                Deferred returning a non-Failure to switch back to the
                 callback chain
 
     "Step" objects are added in order by calling addStep(), and when start()
     is called, the Stepper will call the stepWithResult() of the first step.
     If stepWithResult() doesn't raise an Exception, the Stepper will call the
     next step's stepWithResult().  If a stepWithResult() raises an Exception,
-    the Stepper will call the next step's stepWithFailure() -- if it's 
+    the Stepper will call the next step's stepWithFailure() -- if it's
     implemented -- passing it a Failure object.  If the stepWithFailure()
     decides it can handle the Failure and proceed, it can return a non-Failure
     which is an indicator to the Stepper to call the next step's
@@ -1027,6 +1033,7 @@ class Stepper(object):
         self.failure = None
         self.result = None
         self.running = False
+
 
     def addStep(self, step):
         """
@@ -1042,8 +1049,10 @@ class Stepper(object):
         self.steps.append(step)
         return self
 
+
     def defaultStepWithResult(self, result):
         return succeed(result)
+
 
     def defaultStepWithFailure(self, failure):
         log.warn(failure)
@@ -1057,6 +1066,7 @@ class Stepper(object):
     #             # TODO: how to turn Exception into Failure
     #             return Failure()
     #     return _protected
+
 
     def start(self, result=None):
         """
@@ -1074,8 +1084,8 @@ class Stepper(object):
 
             # See if we need to use a default implementation of the step methods:
             if hasattr(step, "stepWithResult"):
-               callBack = step.stepWithResult
-               # callBack = self.protectStep(step.stepWithResult)
+                callBack = step.stepWithResult
+                # callBack = self.protectStep(step.stepWithResult)
             else:
                 callBack = self.defaultStepWithResult
             if hasattr(step, "stepWithFailure"):
@@ -1090,4 +1100,3 @@ class Stepper(object):
         self.deferred.callback(result)
 
         return self.deferred
-

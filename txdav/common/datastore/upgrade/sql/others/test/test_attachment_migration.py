@@ -47,7 +47,7 @@ class AttachmentMigrationTests(TestCase):
         self.patch(config, "EnableManagedAttachments", enableManagedAttachments)
 
         store = yield theStoreBuilder.buildStore(
-            self, StubNotifierFactory()
+            self, {"push": StubNotifierFactory()}
         )
         store.enableManagedAttachments = enableManagedAttachments
 

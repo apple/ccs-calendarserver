@@ -245,6 +245,7 @@ class PostgresService(MultiService):
         self._initdb = initDB
         self._reactor = reactor
 
+
     @property
     def reactor(self):
         if self._reactor is None:
@@ -353,7 +354,6 @@ class PostgresService(MultiService):
             cursor.execute(sqlToExecute)
             connection.commit()
             connection.close()
-
 
         if self.shutdownDeferred is None:
             # Only continue startup if we've not begun shutdown

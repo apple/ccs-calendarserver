@@ -96,7 +96,7 @@ def getDirectory(config=config):
 
                 # Need a data store
                 _newStore = CommonDataStore(FilePath(config.DocumentRoot),
-                    notifierFactory, True, False)
+                    notifierFactory, self, True, False)
                 if notifierFactory is not None:
                     notifierFactory.store = _newStore
 
@@ -181,7 +181,7 @@ def getDirectory(config=config):
     root.putChild("principals", principalCollection)
 
     # Need a data store
-    _newStore = CommonDataStore(FilePath(config.DocumentRoot), None, True, False)
+    _newStore = CommonDataStore(FilePath(config.DocumentRoot), None, aggregate, True, False)
 
     from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
     calendarCollection = DirectoryCalendarHomeProvisioningResource(

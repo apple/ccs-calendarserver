@@ -168,7 +168,6 @@ class TestCRUD(TestCase):
         self.assertEquals(rec.zeta, datetime.datetime(2012, 12, 12, 12, 12, 12))
 
 
-
     @inlineCallbacks
     def test_tooManyAttributes(self):
         """
@@ -269,6 +268,7 @@ class TestCRUD(TestCase):
             sorted(data)
         )
 
+
     @inlineCallbacks
     def test_repr(self):
         """
@@ -327,7 +327,3 @@ class TestCRUD(TestCase):
         self.assertEqual(Record.namingConvention(u"like_this"), "likeThis")
         self.assertEqual(Record.namingConvention(u"LIKE_THIS"), "likeThis")
         self.assertEqual(Record.namingConvention(u"LIKE_THIS_ID"), "likeThisID")
-
-
-
-

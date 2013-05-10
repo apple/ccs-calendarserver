@@ -88,8 +88,7 @@ class SharedResourceMixin(object):
                 )
 
             # See if this property is on the shared calendar
-            isShared = self.isShared(request)
-            if isShared:
+            if self.isShared():
                 yield self.validateInvites(request)
                 invitations = yield self._allInvitations()
                 returnValue(customxml.Invite(
@@ -117,28 +116,21 @@ class SharedResourceMixin(object):
         returnValue(None)
 
 
+    @inlineCallbacks
     def upgradeToShare(self):
         """
         Set the resource-type property on this resource to indicate that this
         is the owner's version of a resource which has been shared.
         """
-        #FIXME: generate resource type dynamically
-        # Change resourcetype
-        rtype = self.resourceType()
-        rtype = element.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
-        self.writeDeadProperty(rtype)
+        # Change status on store object
+        yield self._newStoreObject.setShared(True)
 
 
     @inlineCallbacks
     def downgradeFromShare(self, request):
 
-        # Restore resource type (note this might be called after deleting a resource
-        # so we have to cope with that)
-        #FIXME: generate resource type dynamically
-        #self.removeDeadProperty((dav_namespace, "resourcetype"))
-        rtype = self.resourceType()
-        rtype = element.ResourceType(*([child for child in rtype.children if child != customxml.SharedOwner()]))
-        self.writeDeadProperty(rtype)
+        # Change status on store object
+        yield self._newStoreObject.setShared(False)
 
         # Remove all invitees
         for invitation in (yield self._allInvitations()):
@@ -149,8 +141,7 @@ class SharedResourceMixin(object):
 
     @inlineCallbacks
     def changeUserInviteState(self, request, inviteUID, shareeUID, state, summary=None):
-        shared = self.isShared(request)
-        if not shared:
+        if not self.isShared():
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (customxml.calendarserver_namespace, "valid-request"),
@@ -244,26 +235,11 @@ class SharedResourceMixin(object):
         returnValue(response)
 
 
-    def isShared(self, request): #@UnusedVariable
+    def isShared(self):
         """
-        Return True if this is an owner shared resource
-        Similar to self.isSpecialCollection() but also allows groups
+        Return True if this is an owner shared calendar collection.
         """
-        if not self.isCollection() and not self.isGroup():
-            return False
-
-        #FIXME: don't use dead properties, try:
-        # returnValue(bool(yield self._allInvitations()))
-
-        try:
-            resourcetype = self.resourceType()
-        except HTTPError, e:
-            assert e.response.code == responsecode.NOT_FOUND, (
-                "Unexpected response code: %s" % (e.response.code,)
-            )
-            return False
-
-        return bool(resourcetype.childrenOfType(customxml.SharedOwner))
+        return self._newStoreObject.isShared() if self._newStoreObject else False
 
 
     def setShare(self, share):
@@ -271,7 +247,7 @@ class SharedResourceMixin(object):
         Set the L{Share} associated with this L{SharedResourceMixin}.  (This
         is only invoked on the sharee's resource, not the owner's.)
         """
-        self._isShareeResource = True #  _isShareeResource attr is used by self tests
+        self._isShareeResource = True
         self._share = share
 
 
@@ -293,25 +269,6 @@ class SharedResourceMixin(object):
         elif self.isAddressBookCollection() or self.isGroup():
             shareeHome = yield sharee.addressBookHome(request)
         returnValue((yield shareeHome.removeShare(request, self._share)))
-
-
-    def resourceType(self):
-        superObject = super(SharedResourceMixin, self)
-        try:
-            superMethod = superObject.resourceType
-        except AttributeError:
-            rtype = element.ResourceType()
-        else:
-            rtype = superMethod()
-
-        if self.isShareeResource():
-            rtype = element.ResourceType(
-                *(
-                    tuple([child for child in rtype.children if child.qname() != customxml.SharedOwner.qname()]) +
-                    (customxml.Shared(),)
-                )
-            )
-        return rtype
 
 
     def sharedResourceType(self):
@@ -920,11 +877,11 @@ class SharedResourceMixin(object):
         numRecords = (yield self.validateInvites(request))
 
         # Set the sharing state on the collection
-        shared = self.isShared(request)
+        shared = self.isShared()
         if shared and numRecords == 0:
             yield self.downgradeFromShare(request)
         elif not shared and numRecords != 0:
-            self.upgradeToShare()
+            yield self.upgradeToShare()
 
         # Create the multistatus response - only needed if some are bad
         if badusers:

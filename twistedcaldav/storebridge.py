@@ -28,8 +28,7 @@ from twext.web2.http import HTTPError, StatusResponse, Response
 from twext.web2.http_headers import ETag, MimeType, MimeDisposition
 from twext.web2.responsecode import \
     FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED, \
-    BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE, \
-    INTERNAL_SERVER_ERROR
+    BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE
 from twext.web2.stream import ProducerStream, readStream, MemoryStream
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
@@ -39,32 +38,38 @@ from twisted.python.log import err as logDefaultException
 from twisted.python.util import FancyEqMixin
 
 from twistedcaldav import customxml, carddavxml, caldavxml
-from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin, \
-    DisabledCacheNotifier
-from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance, \
+    MaxInstances, NoUIDConflict
+from twistedcaldav.carddavxml import carddav_namespace, NoUIDConflict as NovCardUIDConflict
 from twistedcaldav.config import config
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
-    InvalidICalendarDataError, iCalendarProductID, allowedComponents
-from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
-from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
-from twistedcaldav.method.put_common import StoreCalendarObjectResource
+    InvalidICalendarDataError, iCalendarProductID, allowedComponents, Component
+from twistedcaldav.memcachelock import MemcacheLockTimeoutError
 from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
     DefaultAlarmPropertyMixin
-from twistedcaldav.scheduling.caldav.resource import ScheduleInboxResource
-from twistedcaldav.scheduling.implicit import ImplicitScheduler
+from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     AttachmentStoreValidManagedID, AttachmentRemoveFailed, \
-    AttachmentDropboxNotAllowed
+    AttachmentDropboxNotAllowed, InvalidComponentTypeError, \
+    TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError, \
+    InvalidPerUserDataMerge, \
+    AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation, \
+    ShareeAllowedError
 from txdav.carddav.iaddressbookstore import GroupWithUnsharedAddressNotAllowedError, \
     GroupForSharedAddressBookDeleteNotAllowedError, SharedGroupDeleteNotAllowedError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
     _BIND_MODE_DIRECT
-from txdav.common.icommondatastore import NoSuchObjectResourceError
+from txdav.common.icommondatastore import NoSuchObjectResourceError, \
+    TooManyObjectResourcesError, ObjectResourceTooBigError, \
+    InvalidObjectResourceError, ObjectResourceNameNotAllowedError, \
+    ObjectResourceNameAlreadyExistsError, UIDExistsError, \
+    UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove, \
+    InvalidComponentForStoreError
 from txdav.idav import PropertyChangeNotAllowedError
 from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
@@ -73,6 +78,12 @@ from urlparse import urlsplit
 import hashlib
 import time
 import uuid
+from twext.web2 import responsecode
+from twext.web2.iweb import IResponse
+from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.instance import InvalidOverriddenInstanceError, \
+    TooManyInstancesError
+from twisted.python.failure import Failure
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -142,6 +153,7 @@ class _NewStorePropertiesWrapper(object):
                 self._newPropertyStore.keys()]
 
 
+
 def requiresPermissions(*permissions, **kw):
     """
     A decorator to wrap http_ methods in, to indicate that they should not be
@@ -206,13 +218,12 @@ class _NewStoreFileMetaDataHelper(object):
 
 
 
-class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
+class _CommonHomeChildCollectionMixin(object):
     """
     Methods for things which are like calendars.
     """
 
     _childClass = None
-    cacheNotifierFactory = DisabledCacheNotifier
 
     def _initializeWithHomeChild(self, child, home):
         """
@@ -230,9 +241,6 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         self._dead_properties = _NewStorePropertiesWrapper(
             self._newStoreObject.properties()
         ) if self._newStoreObject else NonePropertyStore(self)
-        if self._newStoreObject:
-            self.cacheNotifier = self.cacheNotifierFactory(self)
-            self._newStoreObject.addNotifier(CacheStoreNotifier(self))
 
 
     def liveProperties(self):
@@ -309,6 +317,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             similar = self._childClass(
                 newStoreObject,
                 self._newStoreObject,
+                self,
                 name,
                 principalCollections=self._principalCollections
             )
@@ -417,12 +426,12 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             )
             log.err(msg)
             raise HTTPError(StatusResponse(BAD_REQUEST, msg))
-        response = (yield self.storeRemove(request, True, request.uri))
+        response = (yield self.storeRemove(request))
         returnValue(response)
 
 
     @inlineCallbacks
-    def storeRemove(self, request, viaRequest, where):
+    def storeRemove(self, request):
         """
         Delete this collection resource, first deleting each contained
         object resource.
@@ -451,7 +460,8 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         """
 
         # Check sharee collection first
-        if self.isShareeResource():
+        isShareeResource = self.isShareeResource()
+        if isShareeResource:
             log.debug("Removing shared collection %s" % (self,))
             yield self.removeShareeCollection(request)
             returnValue(NO_CONTENT)
@@ -461,11 +471,11 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         # 'deluri' is this resource's URI; I should be able to synthesize it
         # from 'self'.
 
-        errors = ResponseQueue(where, "DELETE", NO_CONTENT)
+        errors = ResponseQueue(request.uri, "DELETE", NO_CONTENT)
 
         for childname in (yield self.listChildren()):
 
-            childurl = joinURL(where, childname)
+            childurl = joinURL(request.uri, childname)
 
             # FIXME: use a more specific API; we should know what this child
             # resource is, and not have to look it up.  (Sharing information
@@ -473,7 +483,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             child = (yield request.locateChildResource(self, childname))
 
             try:
-                yield child.storeRemove(request, viaRequest, childurl)
+                yield child.storeRemove(request)
             except:
                 logDefaultException()
                 errors.add(childurl, BAD_REQUEST)
@@ -481,7 +491,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         # Now do normal delete
 
         # Handle sharing
-        wasShared = (yield self.isShared(request))
+        wasShared = self.isShared()
         if wasShared:
             yield self.downgradeFromShare(request)
 
@@ -539,6 +549,32 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         basename = destinationURI.rstrip("/").split("/")[-1]
         yield self._newStoreObject.rename(basename)
         returnValue(NO_CONTENT)
+
+
+    @inlineCallbacks
+    def POST_handler_add_member(self, request):
+        """
+        Handle a POST ;add-member request on this collection
+
+        @param request: the request object
+        @type request: L{Request}
+        """
+
+        # Create a name for the new child
+        name = str(uuid.uuid4()) + self.resourceSuffix()
+
+        # Get a resource for the new child
+        parentURL = request.path
+        newchildURL = joinURL(parentURL, name)
+        newchild = (yield request.locateResource(newchildURL))
+
+        # Treat as if it were a regular PUT to a new resource
+        response = (yield newchild.http_PUT(request))
+
+        # May need to add a location header
+        addLocation(request, request.unparseURL(path=newchildURL, params=""))
+
+        returnValue(response)
 
 
     @inlineCallbacks
@@ -613,7 +649,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)
                 newchild = (yield request.locateResource(newchildURL))
-                dataChanged = (yield self.storeResourceData(request, newchild, newchildURL, component, returnData=return_changed))
+                dataChanged = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
 
             except HTTPError, e:
                 # Extract the pre-condition
@@ -785,7 +821,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             # Get a resource for the new item
             newchildURL = joinURL(request.path, name)
             newchild = (yield request.locateResource(newchildURL))
-            yield self.storeResourceData(request, newchild, newchildURL, component, componentdata)
+            yield self.storeResourceData(newchild, component, componentdata)
 
             # FIXME: figure out return_changed behavior
 
@@ -846,7 +882,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             if ifmatch and ifmatch != etag.generate():
                 raise HTTPError(PRECONDITION_FAILED)
 
-            yield self.storeResourceData(request, updateResource, href, component, componentdata)
+            yield self.storeResourceData(updateResource, component, componentdata)
 
             # FIXME: figure out return_changed behavior
 
@@ -901,11 +937,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             if ifmatch and ifmatch != etag.generate():
                 raise HTTPError(PRECONDITION_FAILED)
 
-            yield deleteResource.storeRemove(
-                request,
-                True,
-                href,
-            )
+            yield deleteResource.storeRemove(request)
 
         except HTTPError, e:
             # Extract the pre-condition
@@ -936,8 +968,8 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             )
 
 
-    def notifierID(self, label="default"):
-        self._newStoreObject.notifierID(label)
+    def notifierID(self):
+        return "%s/%s" % self._newStoreObject.notifierID()
 
 
     def notifyChanged(self):
@@ -1048,6 +1080,15 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         Yes, it is a calendar collection.
         """
         return True
+
+
+    def resourceType(self):
+        if self.isShared():
+            return customxml.ResourceType.sharedownercalendar
+        elif self.isShareeResource():
+            return customxml.ResourceType.sharedcalendar
+        else:
+            return caldavxml.ResourceType.calendar
 
 
     @inlineCallbacks
@@ -1176,71 +1217,14 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
 
     @inlineCallbacks
-    def storeResourceData(self, request, newchild, newchildURL, component, returnData=False):
-        storer = StoreCalendarObjectResource(
-            request=request,
-            destination=newchild,
-            destination_uri=newchildURL,
-            destinationcal=True,
-            destinationparent=self,
-            calendar=component,
-            returnData=returnData,
-        )
-        yield storer.run()
+    def storeResourceData(self, newchild, component, returnChangedData=False):
 
-        returnValue(storer.storeddata if hasattr(storer, "storeddata") else None)
-
-
-    @inlineCallbacks
-    def storeRemove(self, request, implicitly, where):
-        """
-        Delete this calendar collection resource, first deleting each contained
-        calendar resource.
-
-        This has to emulate the behavior in fileop.delete in that any errors
-        need to be reported back in a multistatus response.
-
-        @param request: The request used to locate child resources.  Note that
-            this is the request which I{triggered} the C{DELETE}, but which may
-            not actually be a C{DELETE} request itself.
-
-        @type request: L{twext.web2.iweb.IRequest}
-
-        @param implicitly: Should implicit scheduling operations be triggered
-            as a resut of this C{DELETE}?
-
-        @type implicitly: C{bool}
-
-        @param where: the URI at which the resource is being deleted.
-        @type where: C{str}
-
-        @return: an HTTP response suitable for sending to a client (or
-            including in a multi-status).
-
-        @rtype: something adaptable to L{twext.web2.iweb.IResponse}
-        """
-
-        # Not allowed to delete the default calendar
-        default = (yield self.isDefaultCalendar(request))
-        if default:
-            log.err("Cannot DELETE default calendar: %s" % (self,))
-            raise HTTPError(ErrorResponse(
-                FORBIDDEN,
-                (caldav_namespace, "default-calendar-delete-allowed",),
-                "Cannot delete default calendar",
-            ))
-
-        response = (
-            yield super(CalendarCollectionResource, self).storeRemove(
-                request, implicitly, where
-            )
-        )
-
-        if response == NO_CONTENT:
-            # Do some clean up
-            yield self.deletedCalendar(request)
-
-        returnValue(response)
+        yield newchild.storeComponent(component)
+        if returnChangedData and newchild._newStoreObject._componentChanged:
+            result = (yield newchild.componentForUser())
+            returnValue(str(result))
+        else:
+            returnValue(None)
 
 
     # FIXME: access control
@@ -1250,22 +1234,8 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         Moving a calendar collection is allowed for the purposes of changing
         that calendar's name.
         """
-        defaultCalendarType = (yield self.isDefaultCalendar(request))
-
         result = (yield super(CalendarCollectionResource, self).http_MOVE(request))
-        if result == NO_CONTENT:
-            destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
-            destination = yield request.locateResource(destinationURI)
-            yield self.movedCalendar(request, defaultCalendarType,
-                               destination, destinationURI)
         returnValue(result)
-
-
-    def resourceType(self,):
-        if self.hasDeadProperty((dav_namespace, "resourcetype")):
-            return super(CalendarCollectionResource, self).resourceType()
-        else:
-            return caldavxml.ResourceType.calendar
 
 
 
@@ -1470,9 +1440,9 @@ class CalendarObjectDropbox(_GetChildHelper):
         attendees = [attendee.split("urn:uuid:")[-1] for attendee in attendees]
         document = yield davXMLFromStream(request.stream)
         for ace in document.root_element.children:
-            for element in ace.children:
-                if isinstance(element, davxml.Principal):
-                    for href in element.children:
+            for child in ace.children:
+                if isinstance(child, davxml.Principal):
+                    for href in child.children:
                         principalURI = href.children[0].data
                         uidsPrefix = '/principals/__uids__/'
                         if not principalURI.startswith(uidsPrefix):
@@ -1745,7 +1715,7 @@ class AttachmentsCollection(_GetChildHelper):
         return davxml.ACL(*aces)
 
 
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None): #@UnusedVariable
+    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
@@ -2123,7 +2093,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
     _componentFromStream = None
 
-    def __init__(self, storeObject, parentObject, name, *args, **kw):
+    def __init__(self, storeObject, parentObject, parentResource, name, *args, **kw):
         """
         Construct a L{_CommonObjectResource} from an L{CommonObjectResource}.
 
@@ -2132,6 +2102,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         """
         super(_CommonObjectResource, self).__init__(*args, **kw)
         self._initializeWithObject(storeObject, parentObject)
+        self._parentResource = parentResource
         self._name = name
         self._metadata = {}
 
@@ -2142,6 +2113,10 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         self._dead_properties = _NewStorePropertiesWrapper(
             self._newStoreObject.properties()
         ) if self._newStoreObject and self._newStoreParent.objectResourcesHaveProperties() else NonePropertyStore(self)
+
+
+    def url(self):
+        return joinURL(self._parentResource.url(), self.name())
 
 
     def isCollection(self):
@@ -2172,6 +2147,11 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         response.headers.setHeader("content-type", self.contentType())
         returnValue(response)
 
+    # The following are used to map store exceptions into HTTP error responses
+    StoreExceptionsStatusErrors = set()
+    StoreExceptionsErrors = {}
+    StoreMoveExceptionsStatusErrors = set()
+    StoreMoveExceptionsErrors = {}
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
@@ -2182,7 +2162,15 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             log.debug("Resource not found: %s" % (self,))
             raise HTTPError(NOT_FOUND)
 
-        return self.storeRemove(request, True, request.uri)
+        return self.storeRemove(request)
+
+
+    def http_COPY(self, request):
+        """
+        Copying of calendar data isn't allowed.
+        """
+        # FIXME: no direct tests
+        return FORBIDDEN
 
 
     @inlineCallbacks
@@ -2246,9 +2234,30 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         # May need to add a location header
         addLocation(request, destination_uri)
 
-        storer = self.storeResource(request, parent, destination, destination_uri, destinationparent, True, None)
-        result = (yield storer.move())
-        returnValue(result)
+        try:
+            response = (yield self.storeMove(request, destinationparent, destination.name()))
+            returnValue(response)
+
+        # Handle the various store errors
+        except Exception as err:
+
+            # Grab the current exception state here so we can use it in a re-raise - we need this because
+            # an inlineCallback might be called and that raises an exception when it returns, wiping out the
+            # original exception "context".
+            ex = Failure()
+
+            if type(err) in self.StoreMoveExceptionsStatusErrors:
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
+
+            elif type(err) in self.StoreMoveExceptionsErrors:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    self.StoreMoveExceptionsErrors[type(err)],
+                    str(err),
+                ))
+            else:
+                # Return the original failure (exception) state
+                ex.raiseException()
 
 
     def http_PROPPATCH(self, request):
@@ -2261,13 +2270,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             return FORBIDDEN
 
 
-    def storeResource(self, request, parent, destination, destination_uri, destination_parent, hasSource, component):
-        """
-        Create the appropriate StoreXXX class for storing of data.
-        """
-        raise NotImplementedError
-
-
     @inlineCallbacks
     def storeStream(self, stream):
 
@@ -2278,20 +2280,34 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
 
     @inlineCallbacks
-    def storeComponent(self, component):
+    def storeComponent(self, component, **kwargs):
 
-        if self._newStoreObject:
-            yield self._newStoreObject.setComponent(component)
-            returnValue(NO_CONTENT)
-        else:
-            self._newStoreObject = (yield self._newStoreParent.createObjectResourceWithName(
-                self.name(), component, self._metadata
-            ))
+        try:
+            if self._newStoreObject:
+                yield self._newStoreObject.setComponent(component, **kwargs)
+                returnValue(NO_CONTENT)
+            else:
+                self._newStoreObject = (yield self._newStoreParent.createObjectResourceWithName(
+                    self.name(), component, self._metadata
+                ))
 
-            # Re-initialize to get stuff setup again now we have no object
-            self._initializeWithObject(self._newStoreObject, self._newStoreParent)
+                # Re-initialize to get stuff setup again now we have no object
+                self._initializeWithObject(self._newStoreObject, self._newStoreParent)
+                returnValue(CREATED)
 
-            returnValue(CREATED)
+        # Map store exception to HTTP errors
+        except Exception as err:
+            if type(err) in self.StoreExceptionsStatusErrors:
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
+
+            elif type(err) in self.StoreExceptionsErrors:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    self.StoreExceptionsErrors[type(err)],
+                    str(err),
+                ))
+            else:
+                raise
 
 
     @inlineCallbacks
@@ -2307,17 +2323,12 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         @type destination_name: C{str}
         """
 
-        try:
-            yield self._newStoreObject.moveTo(destinationparent._newStoreObject, destination_name)
-        except Exception, e:
-            log.err(e)
-            raise HTTPError(INTERNAL_SERVER_ERROR)
-
+        yield self._newStoreObject.moveTo(destinationparent._newStoreObject, destination_name)
         returnValue(CREATED)
 
 
     @inlineCallbacks
-    def storeRemove(self, request, implicitly, where):
+    def storeRemove(self, request):
         """
         Delete this object.
 
@@ -2335,9 +2346,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         # Do delete
 
         try:
-            yield self._newStoreParent.removeObjectResourceWithName(
-                self._newStoreObject.name()
-            )
+            yield self._newStoreObject.remove()
         except NoSuchObjectResourceError:
             raise HTTPError(NOT_FOUND)
 
@@ -2454,6 +2463,10 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
     iCalendar = _CommonObjectResource.component
 
 
+    def componentForUser(self):
+        return self._newStoreObject.componentForUser()
+
+
     def validIfScheduleMatch(self, request):
         """
         Check to see if the given request's C{If-Schedule-Tag-Match} header
@@ -2472,106 +2485,206 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     "If-Schedule-Tag-Match: header value '%s' does not match resource value '%s'" %
                     (header, self.scheduleTag,))
                 raise HTTPError(PRECONDITION_FAILED)
+            return True
+
+        elif config.Scheduling.CalDAV.ScheduleTagCompatibility:
+            # Compatibility with old clients. Policy:
+            #
+            # 1. If If-Match header is not present, never do smart merge.
+            # 2. If If-Match is present and the specified ETag is
+            #    considered a "weak" match to the current Schedule-Tag,
+            #    then do smart merge, else reject with a 412.
+            #
+            # Actually by the time we get here the precondition will
+            # already have been tested and found to be OK, so we can just
+            # always do smart merge now if If-Match is present.
+            return request.headers.getHeader("If-Match") is not None
+
+        else:
+            return False
+
+    StoreExceptionsStatusErrors = set((
+        ObjectResourceNameNotAllowedError,
+        ObjectResourceNameAlreadyExistsError,
+    ))
+
+    StoreExceptionsErrors = {
+        TooManyObjectResourcesError: customxml.MaxResources(),
+        ObjectResourceTooBigError: (caldav_namespace, "max-resource-size"),
+        InvalidObjectResourceError: (caldav_namespace, "valid-calendar-data"),
+        InvalidComponentForStoreError: (caldav_namespace, "valid-calendar-object-resource"),
+        InvalidComponentTypeError: (caldav_namespace, "supported-component"),
+        TooManyAttendeesError: MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),
+        InvalidCalendarAccessError: (calendarserver_namespace, "valid-access-restriction"),
+        ValidOrganizerError: (calendarserver_namespace, "valid-organizer"),
+        UIDExistsError: NoUIDConflict(),
+        UIDExistsElsewhereError: (caldav_namespace, "unique-scheduling-object-resource"),
+        InvalidUIDError: NoUIDConflict(),
+        InvalidPerUserDataMerge: (caldav_namespace, "valid-calendar-data"),
+        AttendeeAllowedError: (caldav_namespace, "attendee-allowed"),
+        InvalidOverriddenInstanceError: (caldav_namespace, "valid-calendar-data"),
+        TooManyInstancesError: MaxInstances.fromString(str(config.MaxAllowedInstances)),
+        AttachmentStoreValidManagedID: (caldav_namespace, "valid-managed-id"),
+        ShareeAllowedError: (calendarserver_namespace, "sharee-privilege-needed",),
+    }
+
+    StoreMoveExceptionsStatusErrors = set((
+        ObjectResourceNameNotAllowedError,
+        ObjectResourceNameAlreadyExistsError,
+    ))
+
+    StoreMoveExceptionsErrors = {
+        TooManyObjectResourcesError: customxml.MaxResources(),
+        InvalidResourceMove: (calendarserver_namespace, "valid-move"),
+        InvalidComponentTypeError: (caldav_namespace, "supported-component"),
+    }
+
+    StoreAttachmentValidErrors = set((
+        AttachmentStoreFailed,
+        InvalidAttachmentOperation,
+    ))
+
+    StoreAttachmentExceptionsErrors = {
+        AttachmentStoreValidManagedID: (caldav_namespace, "valid-managed-id-parameter",),
+        AttachmentRemoveFailed: (caldav_namespace, "valid-attachment-remove",),
+    }
+
+    @inlineCallbacks
+    def http_PUT(self, request):
+
+        # Content-type check
+        content_type = request.headers.getHeader("content-type")
+        if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "calendar"):
+            log.err("MIME type %s not allowed in calendar collection" % (content_type,))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "supported-calendar-data"),
+                "Invalid MIME type for calendar collection",
+            ))
+
+        # Do schedule tag check
+        schedule_tag_match = self.validIfScheduleMatch(request)
+
+        # Read the calendar component from the stream
+        try:
+            calendardata = (yield allDataFromStream(request.stream))
+            if not hasattr(request, "extendedLogItems"):
+                request.extendedLogItems = {}
+            request.extendedLogItems["cl"] = str(len(calendardata)) if calendardata else "0"
+
+            # We must have some data at this point
+            if calendardata is None:
+                # Use correct DAV:error response
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="No calendar data"
+                ))
+
+            try:
+                component = Component.fromString(calendardata)
+            except ValueError, e:
+                log.err(str(e))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    "Can't parse calendar data"
+                ))
+
+            # storeComponent needs to know who the auth'd user is for access control
+            # TODO: this needs to be done in a better way - ideally when the txn is created for the request,
+            # we should set a txn.authzid attribute.
+            authz = None
+            authz_principal = self._parentResource.currentPrincipal(request).children[0]
+            if isinstance(authz_principal, davxml.HRef):
+                principalURL = str(authz_principal)
+                if principalURL:
+                    authz = (yield request.locateResource(principalURL))
+                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.guid
+
+            try:
+                response = (yield self.storeComponent(component, smart_merge=schedule_tag_match))
+            except ResourceDeletedError:
+                # This is OK - it just means the server deleted the resource during the PUT. We make it look
+                # like the PUT succeeded.
+                response = responsecode.CREATED if self.exists() else responsecode.NO_CONTENT
+
+                # Re-initialize to get stuff setup again now we have no object
+                self._initializeWithObject(None, self._newStoreParent)
+
+                returnValue(response)
+
+            response = IResponse(response)
+
+            if self._newStoreObject.isScheduleObject:
+                # Add a response header
+                response.headers.setHeader("Schedule-Tag", self._newStoreObject.scheduleTag)
+
+            # Must not set ETag in response if data changed
+            if self._newStoreObject._componentChanged:
+                def _removeEtag(request, response):
+                    response.headers.removeHeader('etag')
+                    return response
+                _removeEtag.handleErrors = True
+
+                request.addResponseFilter(_removeEtag, atEnd=True)
+
+            # Look for Prefer header
+            prefer = request.headers.getHeader("prefer", {})
+            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
+
+            if returnRepresentation and response.code / 100 == 2:
+                oldcode = response.code
+                response = (yield self.http_GET(request))
+                if oldcode == responsecode.CREATED:
+                    response.code = responsecode.CREATED
+                response.headers.removeHeader("content-location")
+                response.headers.setHeader("content-location", self.url())
+
+            returnValue(response)
+
+        # Handle the various store errors
+        except Exception as err:
+
+            if isinstance(err, ValueError):
+                log.err("Error while handling (calendar) PUT: %s" % (err,))
+                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(err)))
+            else:
+                raise
 
 
-    def storeResource(self, request, parent, destination, destination_uri, destination_parent, hasSource, component, attachmentProcessingDone=False):
-        return StoreCalendarObjectResource(
-            request=request,
-            source=self if hasSource else None,
-            source_uri=request.uri if hasSource else None,
-            sourceparent=parent if hasSource else None,
-            sourcecal=hasSource,
-            deletesource=hasSource,
-            destination=destination,
-            destination_uri=destination_uri,
-            destinationparent=destination_parent,
-            destinationcal=True,
-            calendar=component,
-            attachmentProcessingDone=attachmentProcessingDone,
-        )
+    @requiresPermissions(fromParent=[davxml.Unbind()])
+    def http_DELETE(self, request):
+        """
+        Override http_DELETE to do schedule tag behavior.
+        """
+        if not self.exists():
+            log.debug("Resource not found: %s" % (self,))
+            raise HTTPError(NOT_FOUND)
+
+        # Do schedule tag check
+        self.validIfScheduleMatch(request)
+
+        return self.storeRemove(request)
 
 
     @inlineCallbacks
-    def storeRemove(self, request, implicitly, where):
+    def http_MOVE(self, request):
         """
-        Delete this calendar object and do implicit scheduling actions if
-        required.
-
-        @param request: Unused by this implementation; present for signature
-            compatibility with L{CalendarCollectionResource.storeRemove}.
-
-        @type request: L{twext.web2.iweb.IRequest}
-
-        @param implicitly: Should implicit scheduling operations be triggered
-            as a result of this C{DELETE}?
-
-        @type implicitly: C{bool}
-
-        @param where: the URI at which the resource is being deleted.
-        @type where: C{str}
-
-        @return: an HTTP response suitable for sending to a client (or
-            including in a multi-status).
-
-         @rtype: something adaptable to L{twext.web2.iweb.IResponse}
+        Need If-Schedule-Tag-Match behavior
         """
 
-        # TODO: need to use transaction based delete on live scheduling object
-        # resources as the iTIP operation may fail and may need to prevent the
-        # delete from happening.
+        # Do some pre-flight checks - must exist, must be move to another
+        # CommonHomeChild in the same Home, destination resource must not exist
+        if not self.exists():
+            log.debug("Resource not found: %s" % (self,))
+            raise HTTPError(NOT_FOUND)
 
-        isinbox = self._newStoreObject._calendar.name() == "inbox"
-        transaction = self._newStoreObject.transaction()
+        # Do schedule tag check
+        self.validIfScheduleMatch(request)
 
-        # Do If-Schedule-Tag-Match behavior first
-        # Important: this should only ever be done when storeRemove is called
-        # directly as a result of an HTTP DELETE to ensure the proper If-
-        # header is used in this test.
-        if not isinbox and implicitly:
-            self.validIfScheduleMatch(request)
-
-        scheduler = None
-        lock = None
-        if not isinbox and implicitly:
-            # Get data we need for implicit scheduling
-            calendar = (yield self.iCalendarForUser(request))
-            scheduler = ImplicitScheduler()
-            do_implicit_action, _ignore = (
-                yield scheduler.testImplicitSchedulingDELETE(
-                    request, self, calendar
-                )
-            )
-            if do_implicit_action:
-                lock = MemcacheLock(
-                    "ImplicitUIDLock",
-                    calendar.resourceUID(),
-                    timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
-                    expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
-                )
-
-        try:
-            if lock:
-                yield lock.acquire()
-
-            yield super(CalendarObjectResource, self).storeRemove(request, implicitly, where)
-
-            # Do scheduling
-            if not isinbox and implicitly:
-                yield scheduler.doImplicitScheduling()
-
-        except MemcacheLockTimeoutError:
-            raise HTTPError(StatusResponse(
-                CONFLICT,
-                "Resource: %s currently in use on the server." % (where,))
-            )
-
-        finally:
-            if lock:
-                # Release lock after commit or abort
-                transaction.postCommit(lock.clean)
-                transaction.postAbort(lock.clean)
-
-        returnValue(NO_CONTENT)
+        result = (yield super(CalendarObjectResource, self).http_MOVE(request))
+        returnValue(result)
 
 
     @requiresPermissions(davxml.WriteContent())
@@ -2641,105 +2754,77 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             "attachment-remove": "valid-attachment-remove",
         }
 
-        # Only allow organizers to manipulate managed attachments for now
-        calendar = (yield self.iCalendarForUser(request))
-        scheduler = ImplicitScheduler()
-        is_attendee = (yield scheduler.testAttendeeEvent(request, self, calendar,))
-        if is_attendee and action in valid_preconditions:
-            raise HTTPError(ErrorResponse(
-                FORBIDDEN,
-                (caldav_namespace, valid_preconditions[action],),
-                "Attendees are not allowed to manipulate managed attachments",
-            ))
-
         # Dispatch to store object
-        if action == "attachment-add":
+        try:
+            if action == "attachment-add":
+                rids = _getRIDs()
+                content_type, filename = _getContentInfo()
+                attachment, location = (yield self._newStoreObject.addAttachment(rids, content_type, filename, request.stream))
+                post_result = Response(CREATED)
 
-            # Add an attachment property
-            rids = _getRIDs()
-            content_type, filename = _getContentInfo()
-            try:
-                attachment, location = (yield self._newStoreObject.addAttachment(rids, content_type, filename, request.stream, calendar))
-            except AttachmentStoreFailed:
+            elif action == "attachment-update":
+                mid = _getMID()
+                content_type, filename = _getContentInfo()
+                attachment, location = (yield self._newStoreObject.updateAttachment(mid, content_type, filename, request.stream))
+                post_result = Response(NO_CONTENT)
+
+            elif action == "attachment-remove":
+                rids = _getRIDs()
+                mid = _getMID()
+                yield self._newStoreObject.removeAttachment(rids, mid)
+                post_result = Response(NO_CONTENT)
+
+            else:
                 raise HTTPError(ErrorResponse(
                     FORBIDDEN,
-                    (caldav_namespace, "valid-attachment-add",),
-                    "Could not store the supplied attachment",
-                ))
-            except QuotaExceeded:
-                raise HTTPError(ErrorResponse(
-                    INSUFFICIENT_STORAGE_SPACE,
-                    (dav_namespace, "quota-not-exceeded"),
-                    "Could not store the supplied attachment because user quota would be exceeded",
+                    (caldav_namespace, "valid-action-parameter",),
+                    "The action parameter in the request-URI is not valid",
                 ))
 
-            post_result = Response(CREATED)
-
-        elif action == "attachment-update":
-            mid = _getMID()
-            content_type, filename = _getContentInfo()
-            try:
-                attachment, location = (yield self._newStoreObject.updateAttachment(mid, content_type, filename, request.stream, calendar))
-            except AttachmentStoreValidManagedID:
-                raise HTTPError(ErrorResponse(
-                    FORBIDDEN,
-                    (caldav_namespace, "valid-managed-id-parameter",),
-                    "The managed-id parameter does not refer to an attachment in this calendar object resource",
-                ))
-            except AttachmentStoreFailed:
-                raise HTTPError(ErrorResponse(
-                    FORBIDDEN,
-                    (caldav_namespace, "valid-attachment-update",),
-                    "Could not store the supplied attachment",
-                ))
-            except QuotaExceeded:
-                raise HTTPError(ErrorResponse(
-                    INSUFFICIENT_STORAGE_SPACE,
-                    (dav_namespace, "quota-not-exceeded"),
-                    "Could not store the supplied attachment because user quota would be exceeded",
-                ))
-
-            post_result = Response(NO_CONTENT)
-
-        elif action == "attachment-remove":
-            rids = _getRIDs()
-            mid = _getMID()
-            try:
-                yield self._newStoreObject.removeAttachment(rids, mid, calendar)
-            except AttachmentStoreValidManagedID:
-                raise HTTPError(ErrorResponse(
-                    FORBIDDEN,
-                    (caldav_namespace, "valid-managed-id-parameter",),
-                    "The managed-id parameter does not refer to an attachment in this calendar object resource",
-                ))
-            except AttachmentRemoveFailed:
-                raise HTTPError(ErrorResponse(
-                    FORBIDDEN,
-                    (caldav_namespace, "valid-attachment-remove",),
-                    "Could not remove the specified attachment",
-                ))
-
-            post_result = Response(NO_CONTENT)
-
-        else:
+        except QuotaExceeded:
             raise HTTPError(ErrorResponse(
-                FORBIDDEN,
-                (caldav_namespace, "valid-action-parameter",),
-                "The action parameter in the request-URI is not valid",
+                INSUFFICIENT_STORAGE_SPACE,
+                (dav_namespace, "quota-not-exceeded"),
+                "Could not store the supplied attachment because user quota would be exceeded",
             ))
 
-        # TODO: The storing piece here should go away once we do implicit in the store
-        # Store new resource
-        parent = (yield request.locateResource(parentForURL(request.path)))
-        storer = self.storeResource(request, None, self, request.uri, parent, False, calendar, attachmentProcessingDone=True)
-        result = (yield storer.run())
+        # Map store exception to HTTP errors
+        except Exception as err:
+
+            if type(err) in self.StoreAttachmentValidErrors:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, valid_preconditions[action],),
+                    str(err),
+                ))
+
+            elif type(err) in self.StoreAttachmentExceptionsErrors:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    self.StoreAttachmentExceptionsErrors[type(err)],
+                    str(err),
+                ))
+
+            elif type(err) in self.StoreExceptionsStatusErrors:
+                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
+
+            elif type(err) in self.StoreExceptionsErrors:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    self.StoreExceptionsErrors[type(err)],
+                    str(err),
+                ))
+
+            else:
+                raise
 
         # Look for Prefer header
         prefer = request.headers.getHeader("prefer", {})
         returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
-        if returnRepresentation and result.code / 100 == 2:
+        if returnRepresentation:
             result = (yield self.render(request))
             result.code = OK
+            result.headers.removeHeader("content-location")
             result.headers.setHeader("content-location", request.path)
         else:
             result = post_result
@@ -2787,6 +2872,14 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         return True
 
 
+    def resourceType(self):
+        if self.isShared():
+            return customxml.ResourceType.sharedowneraddressbook
+        elif self.isShareeResource():
+            return customxml.ResourceType.sharedaddressbook
+        else:
+            return carddavxml.ResourceType.addressbook
+
     createAddressBookCollection = _CommonHomeChildCollectionMixin.createCollection
 
 
@@ -2809,20 +2902,52 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     @inlineCallbacks
-    def storeResourceData(self, request, newchild, newchildURL, component, returnData=False):
-        storer = StoreAddressObjectResource(
-            request=request,
-            sourceadbk=False,
-            destination=newchild,
-            destination_uri=newchildURL,
-            destinationadbk=True,
-            destinationparent=self,
-            vcard=component,
-            returnData=returnData,
-        )
-        yield storer.run()
+    def storeResourceData(self, newchild, component, returnChangedData=False):
 
-        returnValue(storer.returndata if hasattr(storer, "returndata") else None)
+        yield newchild.storeComponent(component)
+        if returnChangedData and newchild._newStoreObject._componentChanged:
+            result = (yield newchild.component())
+            returnValue(str(result))
+        else:
+            returnValue(None)
+
+
+    @inlineCallbacks
+    def storeRemove(self, request):
+        """
+        Delete this collection resource, first deleting each contained
+        object resource.
+
+        This has to emulate the behavior in fileop.delete in that any errors
+        need to be reported back in a multistatus response.
+
+        @param request: The request used to locate child resources.  Note that
+            this is the request which I{triggered} the C{DELETE}, but which may
+            not actually be a C{DELETE} request itself.
+
+        @type request: L{twext.web2.iweb.IRequest}
+
+        @return: an HTTP response suitable for sending to a client (or
+            including in a multi-status).
+
+        @rtype: something adaptable to L{twext.web2.iweb.IResponse}
+        """
+
+        # Not allowed to delete the default address book
+        default = (yield self.isDefaultAddressBook(request))
+        if default:
+            log.err("Cannot DELETE default address book: %s" % (self,))
+            raise HTTPError(ErrorResponse(
+                FORBIDDEN,
+                (carddav_namespace, "default-addressbook-delete-allowed",),
+                "Cannot delete default address book",
+            ))
+
+        response = (
+            yield super(AddressBookCollectionResource, self).storeRemove(request)
+        )
+
+        returnValue(response)
 
 
     def http_MOVE(self, request):
@@ -2830,13 +2955,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         Addressbooks may not be renamed.
         """
         return FORBIDDEN
-
-
-    def resourceType(self,):
-        if self.hasDeadProperty((dav_namespace, "resourcetype")):
-            return super(AddressBookCollectionResource, self).resourceType()
-        else:
-            return carddavxml.ResourceType.addressbook
 
 
 
@@ -2866,21 +2984,30 @@ class AddressBookObjectResource(_CommonObjectResource):
 
     vCard = _CommonObjectResource.component
 
+    StoreExceptionsStatusErrors = set((
+        ObjectResourceNameNotAllowedError,
+        ObjectResourceNameAlreadyExistsError,
+    ))
 
-    def storeResource(self, request, parent, destination, destination_uri, destination_parent, hasSource, component):
-        return StoreAddressObjectResource(
-            request=request,
-            source=self if hasSource else None,
-            source_uri=request.uri if hasSource else None,
-            sourceparent=parent if hasSource else None,
-            sourceadbk=hasSource,
-            deletesource=hasSource,
-            destination=destination,
-            destination_uri=destination_uri,
-            destinationparent=destination_parent,
-            destinationadbk=True,
-            vcard=component,
-        )
+    StoreExceptionsErrors = {
+        TooManyObjectResourcesError: customxml.MaxResources(),
+        ObjectResourceTooBigError: (carddav_namespace, "max-resource-size"),
+        InvalidObjectResourceError: (carddav_namespace, "valid-address-data"),
+        InvalidComponentForStoreError: (carddav_namespace, "valid-addressbook-object-resource"),
+        UIDExistsError: NovCardUIDConflict(),
+        InvalidUIDError: NovCardUIDConflict(),
+        InvalidPerUserDataMerge: (carddav_namespace, "valid-address-data"),
+    }
+
+    StoreMoveExceptionsStatusErrors = set((
+        ObjectResourceNameNotAllowedError,
+        ObjectResourceNameAlreadyExistsError,
+    ))
+
+    StoreMoveExceptionsErrors = {
+        TooManyObjectResourcesError: customxml.MaxResources(),
+        InvalidResourceMove: (calendarserver_namespace, "valid-move"),
+    }
 
 
     @inlineCallbacks
@@ -2900,19 +3027,110 @@ class AddressBookObjectResource(_CommonObjectResource):
         )
 
         returnValue(response)
-
-
+        
+        
     @inlineCallbacks
     def http_PUT(self, request):
 
-        try:
-            returnValue((yield super(AddressBookObjectResource, self).http_PUT(request)))
+        # Content-type check
+        content_type = request.headers.getHeader("content-type")
+        if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "vcard"):
+            log.err("MIME type %s not allowed in vcard collection" % (content_type,))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (carddav_namespace, "supported-address-data"),
+                "Invalid MIME type for vcard collection",
+            ))
 
+        # Read the vcard from the stream
+        try:
+            vcarddata = (yield allDataFromStream(request.stream))
+            if not hasattr(request, "extendedLogItems"):
+                request.extendedLogItems = {}
+            request.extendedLogItems["cl"] = str(len(vcarddata)) if vcarddata else "0"
+
+            # We must have some data at this point
+            if vcarddata is None:
+                # Use correct DAV:error response
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (carddav_namespace, "valid-address-data"),
+                    description="No vcard data"
+                ))
+
+            try:
+                component = VCard.fromString(vcarddata)
+            except ValueError, e:
+                log.err(str(e))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (carddav_namespace, "valid-address-data"),
+                    "Could not parse vCard",
+                ))
+
+            # storeComponent needs to know who the auth'd user is for access control
+            # TODO: this needs to be done in a better way - ideally when the txn is created for the request,
+            # we should set a txn.authzid attribute.
+            authz = None
+            authz_principal = self._parentResource.currentPrincipal(request).children[0]
+            if isinstance(authz_principal, davxml.HRef):
+                principalURL = str(authz_principal)
+                if principalURL:
+                    authz = (yield request.locateResource(principalURL))
+                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.guid
+
+            try:
+                response = (yield self.storeComponent(component))
+            except ResourceDeletedError:
+                # This is OK - it just means the server deleted the resource during the PUT. We make it look
+                # like the PUT succeeded.
+                response = responsecode.CREATED if self.exists() else responsecode.NO_CONTENT
+
+                # Re-initialize to get stuff setup again now we have no object
+                self._initializeWithObject(None, self._newStoreParent)
+
+                returnValue(response)
+
+            response = IResponse(response)
+
+            # Must not set ETag in response if data changed
+            if self._newStoreObject._componentChanged:
+                def _removeEtag(request, response):
+                    response.headers.removeHeader('etag')
+                    return response
+                _removeEtag.handleErrors = True
+
+                request.addResponseFilter(_removeEtag, atEnd=True)
+
+            # Look for Prefer header
+            prefer = request.headers.getHeader("prefer", {})
+            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
+
+            if returnRepresentation and response.code / 100 == 2:
+                oldcode = response.code
+                response = (yield self.http_GET(request))
+                if oldcode == responsecode.CREATED:
+                    response.code = responsecode.CREATED
+                response.headers.removeHeader("content-location")
+                response.headers.setHeader("content-location", self.url())
+
+            returnValue(response)
+
+        # Handle the various store errors
         except GroupWithUnsharedAddressNotAllowedError:
             raise HTTPError(StatusResponse(
                 FORBIDDEN,
                 "Sharee cannot add unshared group members",)
             )
+
+        except Exception as err:
+
+            if isinstance(err, ValueError):
+                log.err("Error while handling (vCard) PUT: %s" % (err,))
+                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(err)))
+            else:
+                raise
+
 
     @inlineCallbacks
     def http_DELETE(self, request):
@@ -3059,14 +3277,10 @@ class _NotificationChildHelper(object):
 
 
 
-class StoreNotificationCollectionResource(_NotificationChildHelper,
-                                          NotificationCollectionResource,
-                                          ResponseCacheMixin):
+class StoreNotificationCollectionResource(_NotificationChildHelper, NotificationCollectionResource):
     """
     Wrapper around a L{txdav.caldav.icalendar.ICalendar}.
     """
-
-    cacheNotifierFactory = DisabledCacheNotifier
 
     def __init__(self, notifications, homeResource, home, *args, **kw):
         """
@@ -3076,9 +3290,6 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
         super(StoreNotificationCollectionResource, self).__init__(*args, **kw)
         self._initializeWithNotifications(notifications, home)
         self._parentResource = homeResource
-        if self._newStoreNotifications:
-            self.cacheNotifier = self.cacheNotifierFactory(self)
-            self._newStoreNotifications.addNotifier(CacheStoreNotifier(self))
 
 
     def name(self):
@@ -3205,7 +3416,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             log.debug("Resource not found: %s" % (self,))
             raise HTTPError(NOT_FOUND)
 
-        return self.storeRemove(request, request.uri)
+        return self.storeRemove(request)
 
 
     def http_PROPPATCH(self, request):
@@ -3216,7 +3427,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
 
     @inlineCallbacks
-    def storeRemove(self, request, where):
+    def storeRemove(self, request):
         """
         Remove this notification object.
         """
@@ -3234,7 +3445,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             self._initializeWithObject(None)
 
         except MemcacheLockTimeoutError:
-            raise HTTPError(StatusResponse(CONFLICT, "Resource: %s currently in use on the server." % (where,)))
+            raise HTTPError(StatusResponse(CONFLICT, "Resource: %s currently in use on the server." % (request.uri,)))
         except NoSuchObjectResourceError:
             raise HTTPError(NOT_FOUND)
 

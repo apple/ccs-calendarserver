@@ -155,32 +155,43 @@ class Step(object):
         self._recordCallback = recordCallback
         self._shouldFail = shouldFail
 
+
     def stepWithResult(self, result):
         self._recordCallback(self.successValue, None)
         if self._shouldFail:
-            1/0
+            1 / 0
         return succeed(result)
+
 
     def stepWithFailure(self, failure):
         self._recordCallback(self.errorValue, failure)
         if self._shouldFail:
             return failure
 
+
+
 class StepOne(Step):
     successValue = "one success"
     errorValue = "one failure"
+
+
 
 class StepTwo(Step):
     successValue = "two success"
     errorValue = "two failure"
 
+
+
 class StepThree(Step):
     successValue = "three success"
     errorValue = "three failure"
 
+
+
 class StepFour(Step):
     successValue = "four success"
     errorValue = "four failure"
+
 
 
 class StepperTestCase(TestCase):
@@ -189,8 +200,10 @@ class StepperTestCase(TestCase):
         self.history = []
         self.stepper = Stepper()
 
+
     def _record(self, value, failure):
-        self.history.append(value) 
+        self.history.append(value)
+
 
     @inlineCallbacks
     def test_allSuccess(self):
@@ -206,7 +219,8 @@ class StepperTestCase(TestCase):
         result = (yield self.stepper.start("abc"))
         self.assertEquals(result, "abc") # original result passed through
         self.assertEquals(self.history,
-            ['one success', 'two success', 'three success', 'four success'])    
+            ['one success', 'two success', 'three success', 'four success'])
+
 
     def test_allFailure(self):
         self.stepper.addStep(StepOne(self._record, True))
@@ -216,6 +230,7 @@ class StepperTestCase(TestCase):
         self.failUnlessFailure(self.stepper.start(), ZeroDivisionError)
         self.assertEquals(self.history,
             ['one success', 'two failure', 'three failure', 'four failure'])
+
 
     @inlineCallbacks
     def test_partialFailure(self):

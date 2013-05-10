@@ -23,7 +23,8 @@ import os
 
 from zope.interface.declarations import implements
 
-from txdav.caldav.icalendarstore import IAttachmentStorageTransport
+from txdav.caldav.icalendarstore import IAttachmentStorageTransport, \
+    ComponentUpdateState
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
@@ -95,6 +96,35 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting, mi
             component.validOrganizerForScheduling(doFix=True)
     except InvalidICalendarDataError, e:
         raise InvalidObjectResourceError(e)
+
+
+
+def normalizationLookup(cuaddr, recordFunction, config):
+    """
+    Lookup function to be passed to ical.normalizeCalendarUserAddresses.
+    Returns a tuple of (Full name, guid, and calendar user address list)
+    for the given cuaddr.  The recordFunction is called to retrieve the
+    record for the cuaddr.
+    """
+    try:
+        record = recordFunction(cuaddr)
+    except Exception, e:
+        log.debug("Lookup of %s failed: %s" % (cuaddr, e))
+        record = None
+
+    if record is None:
+        return (None, None, None)
+    else:
+        # RFC5545 syntax does not allow backslash escaping in
+        # parameter values. A double-quote is thus not allowed
+        # in a parameter value except as the start/end delimiters.
+        # Single quotes are allowed, so we convert any double-quotes
+        # to single-quotes.
+        return (
+            record.fullName.replace('"', "'"),
+            record.uid,
+            record.calendarUserAddresses,
+        )
 
 
 
@@ -189,7 +219,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
             mightConflict = yield outHome.hasCalendarResourceUIDSomewhereElse(
                 calendarObject.uid(), None, "schedule"
             )
-            if mightConflict:
+            if mightConflict is not None:
                 log.warn(
                     "Not migrating object %s/%s/%s due to potential conflict" %
                     (outHome.uid(), outCalendar.name(), calendarObject.name())
@@ -199,10 +229,11 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
             # Must account for metadata
             component = yield getComponent(calendarObject)
             component.md5 = calendarObject.md5()
-            yield outCalendar.createCalendarObjectWithName(
+            yield outCalendar._createCalendarObjectWithNameInternal(
                 calendarObject.name(),
                 component,
-                metadata=calendarObject.getMetadata(),
+                internal_state=ComponentUpdateState.RAW,
+                options=calendarObject.getMetadata(),
             )
 
             # Only the owner's properties are migrated, since previous releases of
@@ -414,12 +445,11 @@ class CalendarObjectBase(object):
         @return: a L{Deferred} which fires with a
             L{twistedcaldav.ical.Component}.
         """
-        component = yield self.component()
+        component = yield self.componentForUser(accessUID)
         calendar = self.calendar()
         isOwner = asAdmin or (calendar.owned() and
                               calendar.ownerCalendarHome().uid() == accessUID)
         for data_filter in [
-            PerUserDataFilter(accessUID),
             HiddenInstanceFilter(),
             PrivateEventFilter(self.accessMode, isOwner),
         ]:

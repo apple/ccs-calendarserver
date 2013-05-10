@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.caldav.datastore.test.util import buildCalendarStore
 
 """
 Tests for txdav.caldav.datastore.util.
@@ -28,9 +29,9 @@ from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 
-from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
+from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 
-from txdav.caldav.datastore.util import dropboxIDFromCalendarObject,\
+from txdav.caldav.datastore.util import dropboxIDFromCalendarObject, \
     StorageTransportBase, migrateHome
 
 from txdav.common.icommondatastore import HomeChildNameAlreadyExistsError
@@ -322,7 +323,7 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(HomeMigrationTests, self).setUp()
-        self.theStore = yield buildStore(self, self.notifierFactory)
+        self.theStore = yield buildCalendarStore(self, self.notifierFactory, homes=("conflict1", "conflict2",))
 
 
     def storeUnderTest(self):

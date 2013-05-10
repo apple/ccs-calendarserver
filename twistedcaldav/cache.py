@@ -14,23 +14,25 @@
 # limitations under the License.
 ##
 
-import cPickle
-import hashlib
-import uuid
-
-from zope.interface import implements
-
-from twisted.internet.defer import succeed, maybeDeferred, inlineCallbacks, \
-    returnValue
+from twext.python.log import LoggingMixIn
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.http import Response
 from twext.web2.iweb import IResource
 from twext.web2.stream import MemoryStream
 
-from twext.python.log import LoggingMixIn
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
-from twistedcaldav.memcachepool import CachePoolUserMixIn, defaultCachePool
 from twistedcaldav.config import config
+from twistedcaldav.memcachepool import CachePoolUserMixIn, defaultCachePool
+
+from txdav.idav import IStoreNotifierFactory, IStoreNotifier
+
+from zope.interface import implements
+
+import cPickle
+import hashlib
+import urllib
+import uuid
 
 """
 The basic principals of the PROPFIND cache are this:
@@ -52,7 +54,6 @@ in effect at the time the entry was cached, together with the response that was 
   - childTokens - tokens for any child resources the request uri depends on (for depth:1)
 
   The current principalToken, uriToken and childTokens values are themselves stored in the cache using the key prefix 'cacheToken:'.
-When the 'changeCache' api is called the cached value for the matching token is updated.
 
 (4) When a request is being checked in the cache, the response cache entry key is first computed and any value extracted. The
 tokens in the value are then checked against the current set of tokens in the cache. If there is any mismatch between tokens, the
@@ -101,6 +102,9 @@ class URINotFoundException(Exception):
 
 
 class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
+    """
+    A change notifier used by resources (not store objects).
+    """
 
     def __init__(self, resource, cachePool=None, cacheHandle="Default"):
         self._resource = resource
@@ -120,10 +124,7 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
         """
 
         # For shared resources we use the owner URL as the cache key
-        if hasattr(self._resource, "owner_url"):
-            url = self._resource.owner_url()
-        else:
-            url = self._resource.url()
+        url = self._resource.url()
 
         self.log_debug("Changing Cache Token for %r" % (url,))
         return self.getCachePool().set(
@@ -243,15 +244,19 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         self._cachePool = cachePool
 
 
+    @inlineCallbacks
     def _tokenForURI(self, uri, cachePoolHandle=None):
         """
         Get the current token for a particular URI.
         """
 
         if cachePoolHandle:
-            return defaultCachePool(cachePoolHandle).get('cacheToken:%s' % (uri,))
+            result = (yield defaultCachePool(cachePoolHandle).get('cacheToken:%s' % (uri,)))
         else:
-            return self.getCachePool().get('cacheToken:%s' % (uri,))
+            result = (yield self.getCachePool().get('cacheToken:%s' % (uri,)))
+        if result is not None:
+            _ignore_flags, result = result
+        returnValue(result)
 
 
     @inlineCallbacks
@@ -322,9 +327,14 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                 self.log_debug("Not in cache: %r" % (key,))
                 returnValue(None)
 
-            self.log_debug("Found in cache: %r = %r" % (key, value))
-
             (principalToken, directoryToken, uriToken, childTokens, (code, headers, body)) = cPickle.loads(value)
+            self.log_debug("Found in cache: %r = %r" % (key, (
+                principalToken,
+                directoryToken,
+                uriToken,
+                childTokens,
+            )))
+
             currentTokens = (yield self._getTokens(request))
 
             if currentTokens[0] != principalToken:
@@ -362,8 +372,8 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                             token))
                     returnValue(None)
 
-            r = Response(code,
-                         stream=MemoryStream(body))
+            self.log_debug("Response cache matched")
+            r = Response(code, stream=MemoryStream(body))
 
             for key, value in headers.iteritems():
                 r.headers.setRawHeaders(key, value)
@@ -405,7 +415,12 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                     responseBody
                 )
             ))
-            self.log_debug("Adding to cache: %r = %r" % (key, cacheEntry))
+            self.log_debug("Adding to cache: %r = tokens - %r" % (key, (
+                pToken,
+                dToken,
+                uToken,
+                cTokens,
+            )))
             yield self.getCachePool().set(key, cacheEntry,
                 expireTime=config.ResponseCacheTimeout * 60)
 
@@ -440,62 +455,81 @@ class PropfindCacheMixin(object):
     A mixin that causes a resource's PROPFIND response to be cached. It also adds an api to change the
     resource's uriToken - this must be used whenever something changes to cause the cache to be invalidated.
     """
+
+    @inlineCallbacks
     def renderHTTP(self, request):
-        def _cacheResponse(responseCache, response):
-            return responseCache.cacheResponseForRequest(request, response)
-
-        def _getResponseCache(response):
-            d1 = request.locateResource("/")
-            d1.addCallback(lambda resource: resource.responseCache)
-            d1.addCallback(_cacheResponse, response)
-            return d1
-
-        d = maybeDeferred(super(PropfindCacheMixin, self).renderHTTP, request)
+        response = (yield super(PropfindCacheMixin, self).renderHTTP(request))
 
         if request.method == 'PROPFIND':
-            d.addCallback(_getResponseCache)
-        return d
+            resource = (yield request.locateResource("/"))
 
+            # responseCache might not be present during unit tests
+            if hasattr(resource, "responseCache"):
+                yield resource.responseCache.cacheResponseForRequest(request, response)
 
-    def changeCache(self):
-        if hasattr(self, 'cacheNotifier'):
-            return self.cacheNotifier.changed()
-        else:
-            self.log_debug("%r does not have a cacheNotifier but was changed" % (self,))
+        returnValue(response)
 
 
 
-class ResponseCacheMixin(object):
+class CacheStoreNotifierFactory(LoggingMixIn, CachePoolUserMixIn):
     """
-    This is a mixin for a child resource that does not itself cache PROPFINDs, but needs to invalidate a parent
-    resource's PROPFIND cache by virtue of a change to its own childToken.
+    A notifier factory specifically for store object notifications. This is handed of to
+    the data store object, which calls .newNotifier() each time a home object is created
+    and gives the new notifier to the home. That object is also inherited by home child
+    objects created from the home.
+
+    This object uses a memcachepool for setting new cache tokens.
     """
 
-    def changeCache(self):
-        if hasattr(self, 'cacheNotifier'):
-            return self.cacheNotifier.changed()
-        else:
-            self.log_debug("%r does not have a cacheNotifier but was changed" % (self,))
+    implements(IStoreNotifierFactory)
+
+    def newNotifier(self, storeObject):
+        return CacheStoreNotifier(self, storeObject)
+
+
+    def _newCacheToken(self):
+        return str(uuid.uuid4())
+
+
+    def changed(self, cache_id):
+        """
+        Change the cache token for a store object.
+
+        return: A L{Deferred} that fires when the token has been changed.
+        """
+
+        self.log_debug("Changing Cache Token for %r" % (cache_id,))
+        return self.getCachePool().set(
+            'cacheToken:%s' % (cache_id,),
+            self._newCacheToken(), expireTime=config.ResponseCacheTimeout * 60)
 
 
 
 class CacheStoreNotifier(object):
+    """
+    A notifier for store objects. Store objects will call .notify() when they change.
+    """
 
-    def __init__(self, resource):
-        self.resource = resource
+    implements(IStoreNotifier)
 
-
-    def notify(self, op="update"):
-        self.resource.changeCache()
-
-
-    def clone(self, label="default", id=None):
-        return self
+    def __init__(self, notifierFactory, storeObject):
+        self._notifierFactory = notifierFactory
+        self._storeObject = storeObject
 
 
-    def getID(self, label="default"):
-        return None
+    def notify(self):
+        """
+        We need to convert the store object notifier ID into a URI, since the cache uses URIs.
+        """
+
+        prefix, id = self._storeObject.notifierID()
+        if prefix == "CalDAV":
+            uri = "/calendars/__uids__/%s/" % (id,)
+        elif prefix == "CardDAV":
+            uri = "/addressbooks/__uids__/%s/" % (id,)
+        uri = urllib.quote(uri)
+        return self._notifierFactory.changed(uri)
 
 
-    def nodeName(self, label="default"):
-        return succeed(None)
+    def clone(self, storeObject):
+        return self.__class__(self._notifierFactory, storeObject)

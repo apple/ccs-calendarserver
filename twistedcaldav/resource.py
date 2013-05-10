@@ -57,9 +57,9 @@ from twext.web2.dav.http import ErrorResponse
 from twext.web2.http_headers import MimeType, ETag
 from twext.web2.stream import MemoryStream
 
-from twistedcaldav import caldavxml, customxml, carddavxml
-from twistedcaldav.cache import PropfindCacheMixin, DisabledCacheNotifier, \
-    CacheStoreNotifier
+from twistedcaldav import caldavxml, customxml
+from twistedcaldav import carddavxml
+from twistedcaldav.cache import PropfindCacheMixin
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
@@ -205,12 +205,11 @@ calendarPrivilegeSet = _calendarPrivilegeSet()
 def updateCacheTokenOnCallback(f):
     def fun(self, *args, **kwargs):
         def _updateToken(response):
-            return self.cacheNotifier.changed().addCallback(
-                lambda _: response)
+            return self.notifyChanged().addCallback(lambda _: response)
 
         d = maybeDeferred(f, self, *args, **kwargs)
 
-        if hasattr(self, 'cacheNotifier'):
+        if hasattr(self, 'notifyChanged'):
             d.addCallback(_updateToken)
 
         return d
@@ -578,14 +577,11 @@ class CalDAVResource (
 
                 # FIXME: is there a better way to get back to the associated
                 # datastore object?
-                dataObject = None
-                if hasattr(self, "_newStoreObject"):
-                    dataObject = getattr(self, "_newStoreObject")
-                if dataObject:
-                    label = "collection" if self.isShareeResource() else "default"
-                    nodeName = (yield dataObject.nodeName(label=label))
-                    if nodeName:
-                        propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
+                dataObject = getattr(self, "_newStoreObject")
+                if dataObject is not None:
+                    notifier = dataObject.getNotifier("push")
+                    if notifier is not None:
+                        propVal = customxml.PubSubXMPPPushKeyProperty(notifier.nodeName())
                         returnValue(propVal)
 
                 returnValue(customxml.PubSubXMPPPushKeyProperty())
@@ -669,17 +665,7 @@ class CalDAVResource (
                 ))
 
         elif qname == caldavxml.ScheduleCalendarTransp.qname() and self.isCalendarCollection():
-            # For backwards compatibility, if the property does not exist we need to create
-            # it and default to the old free-busy-set value.
-            if not self.hasDeadProperty(property):
-                # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-                principal = (yield self.resourceOwnerPrincipal(request))
-                fbset = (yield principal.calendarFreeBusyURIs(request))
-                fbset = [fburl.rstrip("/") for fburl in fbset]
-                url = (yield self.canonicalURL(request))
-                url = url.rstrip("/")
-                opaque = url in fbset
-                self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
+            returnValue(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if self._newStoreObject.isUsedForFreeBusy() else caldavxml.Transparent()))
 
         elif qname == carddavxml.SupportedAddressData.qname() and self.isAddressBookCollection():
             # CardDAV, section 6.2.2
@@ -731,7 +717,6 @@ class CalDAVResource (
         returnValue(res)
 
 
-    @inlineCallbacks
     def _preProcessWriteProperty(self, property, request, isShare=False):
         if property.qname() == caldavxml.SupportedCalendarComponentSet.qname():
             if not self.isPseudoCalendarCollection():
@@ -790,21 +775,16 @@ class CalDAVResource (
                     "Property %s may only be set on calendar collection." % (property,)
                 ))
 
-            # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-            principal = (yield self.resourceOwnerPrincipal(request))
-
-            # Map owner to their inbox
-            inboxURL = principal.scheduleInboxURL()
-            if inboxURL:
-                inbox = (yield request.locateResource(inboxURL))
-                myurl = (yield self.canonicalURL(request))
-                inbox.processFreeBusyCalendar(myurl, property.children[0] == caldavxml.Opaque())
-
 
     @inlineCallbacks
     def _writeGlobalProperty(self, property, request):
 
-        yield self._preProcessWriteProperty(property, request)
+        self._preProcessWriteProperty(property, request)
+
+        if property.qname() == caldavxml.ScheduleCalendarTransp.qname():
+            yield self._newStoreObject.setUsedForFreeBusy(property == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
+            returnValue(None)
+
         result = (yield super(CalDAVResource, self).writeProperty(property, request))
         returnValue(result)
 
@@ -1066,69 +1046,11 @@ class CalDAVResource (
 
     findSpecialCollections = findSpecialCollectionsFaster
 
-    @inlineCallbacks
-    def deletedCalendar(self, request):
-        """
-        Calendar has been deleted. Need to do some extra clean-up.
-
-        @param request:
-        @type request:
-        """
-
-        # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-        principal = (yield self.resourceOwnerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
-        if inboxURL:
-            inbox = (yield request.locateResource(inboxURL))
-            inbox.processFreeBusyCalendar(request.path, False)
-
-
-    @inlineCallbacks
-    def movedCalendar(self, request, defaultCalendarType, destination, destination_uri):
-        """
-        Calendar has been moved. Need to do some extra clean-up.
-        """
-
-        # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-        principal = (yield self.resourceOwnerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
-        if inboxURL:
-            (_ignore_scheme, _ignore_host, destination_path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(destination_uri))
-
-            inbox = (yield request.locateResource(inboxURL))
-            inbox.processFreeBusyCalendar(request.path, False)
-            inbox.processFreeBusyCalendar(destination_uri, destination.isCalendarOpaque())
-
-            # Adjust the default calendar setting if necessary
-            if defaultCalendarType is not None:
-                yield inbox.writeProperty(defaultCalendarType(element.HRef(destination_path)), request)
-
-
-    def isCalendarOpaque(self):
-
-        assert self.isCalendarCollection()
-
-        if self.hasDeadProperty((caldav_namespace, "schedule-calendar-transp")):
-            property = self.readDeadProperty((caldav_namespace, "schedule-calendar-transp"))
-            return property.children[0] == caldavxml.Opaque()
-        else:
-            return False
-
-
-    @inlineCallbacks
     def isDefaultCalendar(self, request):
 
         assert self.isCalendarCollection()
 
-        # Not allowed to delete the default calendar
-        principal = (yield self.resourceOwnerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
-        if inboxURL:
-            inbox = (yield request.locateResource(inboxURL))
-            result = (yield inbox.isDefaultCalendar(request, self))
-            returnValue(result)
-
-        returnValue(None)
+        return self._newStoreParentHome.isDefaultCalendar(self._newStoreObject)
 
 
     @inlineCallbacks
@@ -2075,7 +1997,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         server has inserted into this L{CommonHomeResource}.
     @type _provisionedLinks: L{dict} mapping L{bytes} to L{Resource}
     """
-    cacheNotifierFactory = DisabledCacheNotifier
 
     def __init__(self, parent, name, transaction, home):
         self.parent = parent
@@ -2085,8 +2006,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         self._provisionedLinks = {}
         self._setupProvisions()
         self._newStoreHome = home
-        self.cacheNotifier = self.cacheNotifierFactory(self)
-        self._newStoreHome.addNotifier(CacheStoreNotifier(self))
         CalDAVResource.__init__(self)
 
         from twistedcaldav.storebridge import _NewStorePropertiesWrapper
@@ -2098,11 +2017,9 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     @classmethod
     @inlineCallbacks
     def createHomeResource(cls, parent, name, transaction):
-        home, created = yield cls.homeFromTransaction(
+        home, _ignored_created = yield cls.homeFromTransaction(
             transaction, name)
         resource = cls(parent, name, transaction, home)
-        if created:
-            yield resource.postCreateHome()
         returnValue(resource)
 
 
@@ -2120,10 +2037,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
 
     def _setupProvisions(self):
-        pass
-
-
-    def postCreateHome(self):
         pass
 
 
@@ -2314,7 +2227,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
             if config.Notifications.Services.APNS.Enabled:
 
-                nodeName = (yield self._newStoreHome.nodeName())
+                notifier = self._newStoreHome.getNotifier("push")
+                nodeName = notifier.nodeName() if notifier is not None else None
                 if nodeName:
                     notifierID = self._newStoreHome.notifierID()
                     if notifierID:
@@ -2342,16 +2256,16 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                                 )
                             )
 
-
                         returnValue(customxml.PubSubPushTransportsProperty(*children))
+
             returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
             if (config.Notifications.Services.AMP.Enabled or
                 config.Notifications.Services.APNS.Enabled):
-                nodeName = (yield self._newStoreHome.nodeName())
-                if nodeName:
-                    returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))
+                notifier = self._newStoreHome.getNotifier("push")
+                if notifier is not None:
+                    returnValue(customxml.PubSubXMPPPushKeyProperty(notifier.nodeName()))
             returnValue(None)
 
         returnValue((yield super(CommonHomeResource, self).readProperty(property, request)))
@@ -2440,8 +2354,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         return self._newStoreHome.created() if self._newStoreHome else None
 
 
-    def notifierID(self, label="default"):
-        self._newStoreHome.notifierID(label)
+    def notifierID(self):
+        return "%s/%s" % self._newStoreHome.notifierID()
 
 
     def notifyChanged(self):
@@ -2538,7 +2452,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         from twistedcaldav.storebridge import StoreScheduleInboxResource
         self._provisionedChildren["inbox"] = StoreScheduleInboxResource.maybeCreateInbox
 
-        from twistedcaldav.scheduling.caldav.resource import ScheduleOutboxResource
+        from twistedcaldav.scheduling_store.caldav.resource import ScheduleOutboxResource
         self._provisionedChildren["outbox"] = ScheduleOutboxResource
 
         if config.EnableDropBox and not config.EnableManagedAttachments:
@@ -2556,16 +2470,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
             from twistedcaldav.notifications import NotificationCollectionResource
             self._provisionedChildren["notification"] = NotificationCollectionResource
-
-
-    @inlineCallbacks
-    def postCreateHome(self):
-        # This is a bit of a hack.  Really we ought to be always generating
-        # this URL live from a back-end method that tells us what the
-        # default calendar is.
-        inbox = yield self.getChild("inbox")
-        childURL = joinURL(self.url(), "calendar")
-        inbox.processFreeBusyCalendar(childURL, True)
 
 
     def canShare(self):

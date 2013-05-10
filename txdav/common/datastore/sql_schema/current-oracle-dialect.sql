@@ -21,15 +21,17 @@ create table CALENDAR_HOME (
     "DATAVERSION" integer default 0 not null
 );
 
+create table CALENDAR (
+    "RESOURCE_ID" integer primary key
+);
+
 create table CALENDAR_HOME_METADATA (
     "RESOURCE_ID" integer primary key references CALENDAR_HOME on delete cascade,
     "QUOTA_USED_BYTES" integer default 0 not null,
+    "DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
+    "DEFAULT_TASKS" integer default null references CALENDAR on delete set null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
-);
-
-create table CALENDAR (
-    "RESOURCE_ID" integer primary key
 );
 
 create table CALENDAR_METADATA (
@@ -62,7 +64,8 @@ create table CALENDAR_BIND (
     "CALENDAR_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
-    "MESSAGE" nclob, 
+    "MESSAGE" nclob,
+    "TRANSP" integer default 0 not null, 
     primary key("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
     unique("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
 );
@@ -85,6 +88,13 @@ insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('invited', 0);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('accepted', 1);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('declined', 2);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('invalid', 3);
+create table CALENDAR_TRANSP (
+    "ID" integer primary key,
+    "DESCRIPTION" nvarchar2(16) unique
+);
+
+insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('opaque', 0);
+insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('transparent', 1);
 create table CALENDAR_OBJECT (
     "RESOURCE_ID" integer primary key,
     "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
@@ -336,9 +346,9 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '19');
-insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
-insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '20');
+insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '4');
+insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '3');
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
     NOTIFICATION_HOME_RESOURCE_ID
 );

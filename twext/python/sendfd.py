@@ -43,6 +43,7 @@ def sendfd(socketfd, fd, description):
     )
 
 
+
 def recvfd(socketfd):
     """
     Receive a file descriptor from a L{sendmsg} message on the given C{AF_UNIX}
@@ -57,8 +58,8 @@ def recvfd(socketfd):
 
     @rtype: 2-tuple of (C{int}, C{str})
     """
-    data, flags, ancillary = recvmsg(socketfd)
-    [(cmsg_level, cmsg_type, packedFD)] = ancillary
+    data, _ignore_flags, ancillary = recvmsg(socketfd)
+    [(_ignore_cmsg_level, _ignore_cmsg_type, packedFD)] = ancillary
     # cmsg_level and cmsg_type really need to be SOL_SOCKET / SCM_RIGHTS, but
     # since those are the *only* standard values, there's not much point in
     # checking.

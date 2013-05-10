@@ -57,6 +57,13 @@ create table CALENDAR_HOME (
   DATAVERSION      integer      default 0 not null
 );
 
+--------------
+-- Calendar --
+--------------
+
+create table CALENDAR (
+  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
+);
 
 ----------------------------
 -- Calendar Home Metadata --
@@ -65,17 +72,10 @@ create table CALENDAR_HOME (
 create table CALENDAR_HOME_METADATA (
   RESOURCE_ID      integer      primary key references CALENDAR_HOME on delete cascade, -- implicit index
   QUOTA_USED_BYTES integer      default 0 not null,
+  DEFAULT_EVENTS   integer      default null references CALENDAR on delete set null,
+  DEFAULT_TASKS    integer      default null references CALENDAR on delete set null,
   CREATED          timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED         timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
-);
-
-
---------------
--- Calendar --
---------------
-
-create table CALENDAR (
-  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
 );
 
 
@@ -130,6 +130,7 @@ create table CALENDAR_BIND (
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
   MESSAGE                   text,
+  TRANSP					integer		 default 0 not null, -- enum CALENDAR_TRANSP
 
   primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID), -- implicit index
   unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME)     -- implicit index
@@ -160,6 +161,17 @@ insert into CALENDAR_BIND_STATUS values (0, 'invited' );
 insert into CALENDAR_BIND_STATUS values (1, 'accepted');
 insert into CALENDAR_BIND_STATUS values (2, 'declined');
 insert into CALENDAR_BIND_STATUS values (3, 'invalid');
+
+
+-- Enumeration of transparency
+
+create table CALENDAR_TRANSP (
+  ID          integer     primary key,
+  DESCRIPTION varchar(16) not null unique
+);
+
+insert into CALENDAR_TRANSP values (0, 'opaque' );
+insert into CALENDAR_TRANSP values (1, 'transparent');
 
 
 ---------------------
@@ -637,6 +649,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '19');
-insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
-insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
+insert into CALENDARSERVER values ('VERSION', '20');
+insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '4');
+insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '3');

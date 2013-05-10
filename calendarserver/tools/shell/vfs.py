@@ -59,10 +59,10 @@ class ListEntry(object):
     """
 
     def __init__(self, parent, Class, Name, **fields):
-        self.parent    = parent # The class implementing list()
+        self.parent = parent # The class implementing list()
         self.fileClass = Class
-        self.fileName  = Name
-        self.fields    = fields
+        self.fileName = Name
+        self.fields = fields
 
         fields["Name"] = Name
 
@@ -133,7 +133,7 @@ class File(object):
         assert type(path) is tuple
 
         self.service = service
-        self.path    = path
+        self.path = path
 
     def __str__(self):
         return "/" + "/".join(self.path)
@@ -385,7 +385,7 @@ class PrincipalHomeFolder(Folder):
             try:
                 if (
                     self.record is not None and
-                    self.service.config.EnableCalDAV and 
+                    self.service.config.EnableCalDAV and
                     self.record.enabledForCalendaring
                 ):
                     create = True
@@ -420,7 +420,7 @@ class PrincipalHomeFolder(Folder):
 
                 if (
                     self.record is not None and
-                    self.service.config.EnableCardDAV and 
+                    self.service.config.EnableCardDAV and
                     self.record.enabledForAddressBooks
                 ):
                     create = True
@@ -481,7 +481,7 @@ class CalendarHomeFolder(Folder):
     def __init__(self, service, path, home, record):
         Folder.__init__(self, service, path)
 
-        self.home   = home
+        self.home = home
         self.record = record
 
     @inlineCallbacks
@@ -515,13 +515,13 @@ class CalendarHomeFolder(Folder):
         #
         # Attributes
         #
-        uid          = (yield self.home.uid())
-        created      = (yield self.home.created())
-        modified     = (yield self.home.modified())
-        quotaUsed    = (yield self.home.quotaUsedBytes())
+        uid = (yield self.home.uid())
+        created = (yield self.home.created())
+        modified = (yield self.home.modified())
+        quotaUsed = (yield self.home.quotaUsedBytes())
         quotaAllowed = (yield self.home.quotaAllowedBytes())
 
-        recordType      = (yield self.record.recordType)
+        recordType = (yield self.record.recordType)
         recordShortName = (yield self.record.shortNames[0])
 
         rows = []
@@ -611,14 +611,13 @@ class CalendarFolder(Folder):
         returnValue("\n".join(description))
 
     def delete(self, implicit=True):
-        calendar = self.calendarObject.calendar()
 
         if implicit:
             # We need data store-level scheduling support to implement
             # this.
             raise NotImplementedError("Delete not implemented.")
         else:
-            calendar.removeCalendarObjectWithUID(self.uid)
+            self.calendarObject.remove()
 
 
 class CalendarObject(File):
@@ -629,7 +628,7 @@ class CalendarObject(File):
         File.__init__(self, service, path)
 
         self.object = calendarObject
-        self.uid    = uid
+        self.uid = uid
 
     @inlineCallbacks
     def lookup(self):
@@ -642,14 +641,14 @@ class CalendarObject(File):
                 assert self.uid == mainComponent.propertyValue("UID")
 
                 self.componentType = mainComponent.name()
-                self.summary       = mainComponent.propertyValue("SUMMARY")
+                self.summary = mainComponent.propertyValue("SUMMARY")
                 self.mainComponent = mainComponent
 
             except InvalidICalendarDataError, e:
                 log.err("%s: %s" % (self.path, e))
 
                 self.componentType = "?"
-                self.summary       = "** Invalid data **"
+                self.summary = "** Invalid data **"
                 self.mainComponent = None
 
             self.component = component
@@ -683,13 +682,13 @@ class CalendarObject(File):
         rows.append(("UID", self.uid))
         rows.append(("Component Type", self.componentType))
         rows.append(("Summary", self.summary))
-        
+
         organizer = self.mainComponent.getProperty("ORGANIZER")
         if organizer:
             organizerName = organizer.parameterValue("CN")
             organizerEmail = organizer.parameterValue("EMAIL")
 
-            name  = " (%s)" % (organizerName ,) if organizerName  else ""
+            name = " (%s)" % (organizerName ,) if organizerName  else ""
             email = " <%s>" % (organizerEmail,) if organizerEmail else ""
 
             rows.append(("Organizer", "%s%s%s" % (organizer.value(), name, email)))
@@ -736,7 +735,7 @@ class AddressBookHomeFolder(Folder):
     def __init__(self, service, path, home, record):
         Folder.__init__(self, service, path)
 
-        self.home   = home
+        self.home = home
         self.record = record
 
     # FIXME

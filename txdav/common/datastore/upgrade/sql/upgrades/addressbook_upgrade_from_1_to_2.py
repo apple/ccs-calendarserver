@@ -15,14 +15,16 @@
 # limitations under the License.
 # #
 
-from twisted.internet.defer import inlineCallbacks
-#from txdav.carddav.datastore.util import validateAddressBookComponent
-from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
-    _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema
-    #KIND, RESOURCE_ID
-from txdav.common.datastore.upgrade.sql.upgrades.util import updateAddressBookDataVersion, \
-    doToEachHomeNotAtVersion
 from twext.enterprise.dal.syntax import Update
+
+from twisted.internet.defer import inlineCallbacks
+
+from txdav.base.propertystore.base import PropertyName
+from txdav.common.datastore.sql_tables import _ABO_KIND_GROUP, schema
+from txdav.common.datastore.upgrade.sql.upgrades.util import updateAddressBookDataVersion, \
+    doToEachHomeNotAtVersion, removeProperty, cleanPropertyStore
+from txdav.xml import element
+
 """
 AddressBook Data upgrade from database version 1 to 2
 """
@@ -34,14 +36,15 @@ def doUpgrade(sqlStore):
     """
     fill in members tables and increment data version
     """
-    yield populateMembersTables(sqlStore)
+    yield populateMemberTables(sqlStore)
+    yield removeResourceType(sqlStore)
 
     # bump data version
     yield updateAddressBookDataVersion(sqlStore, UPGRADE_TO_VERSION)
 
 
 @inlineCallbacks
-def populateMembersTables(sqlStore):
+def populateMemberTables(sqlStore):
     """
     Set the group kind and and members tables
     """
@@ -72,3 +75,10 @@ def populateMembersTables(sqlStore):
 
     # Do this to each calendar home not already at version 2
     yield doToEachHomeNotAtVersion(sqlStore, schema.ADDRESSBOOK_HOME, UPGRADE_TO_VERSION, doIt)
+
+@inlineCallbacks
+def removeResourceType(sqlStore):
+    sqlTxn = sqlStore.newTransaction()
+    yield removeProperty(sqlTxn, PropertyName.fromElement(element.ResourceType))
+    yield sqlTxn.commit()
+    yield cleanPropertyStore()

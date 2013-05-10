@@ -78,7 +78,7 @@ from twistedcaldav import memcachepool
 from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
 
 from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
-from calendarserver.tap.util import directoryFromConfig, checkDirectories
+from calendarserver.tap.util import checkDirectories
 from calendarserver.tap.util import Stepper
 
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
@@ -110,7 +110,7 @@ from calendarserver.tap.util import oracleConnectorFromConfig
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
-from twistedcaldav.scheduling.imip.inbound import MailRetriever
+from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 
 try:
     from calendarserver.version import version
@@ -255,7 +255,7 @@ class CalDAVService (ErrorLoggingMultiService):
     connectionServiceName = "ConnectionService"
 
     def __init__(self, logObserver):
-        self.logObserver = logObserver  # accesslog observer
+        self.logObserver = logObserver # accesslog observer
         MultiService.__init__(self)
 
 
@@ -418,7 +418,6 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         self.checkDirectories(config)
 
-
         #
         # Nuke the file log observer's time format.
         #
@@ -543,12 +542,13 @@ class ReExecService(MultiService, LoggingMixIn):
         MultiService.stopService(self)
 
 
+
 class PreProcessingService(Service):
     """
     A Service responsible for running any work that needs to be finished prior
     to the main service starting.  Once that work is done, it instantiates the
     main service and adds it to the Service hierarchy (specifically to its
-    parent).  If the final work step does not return a Failure, that is an 
+    parent).  If the final work step does not return a Failure, that is an
     indication the store is ready and it is passed to the main service.
     Otherwise, None is passed to the main service in place of a store.  This
     is mostly useful in the case of command line utilities that need to do
@@ -575,6 +575,7 @@ class PreProcessingService(Service):
             from twisted.internet import reactor
         self.reactor = reactor
 
+
     def stepWithResult(self, result):
         """
         The final "step"; if we get here we know our store is ready, so
@@ -585,6 +586,7 @@ class PreProcessingService(Service):
         if self.parent is not None:
             self.reactor.callLater(0, service.setServiceParent, self.parent)
         return succeed(None)
+
 
     def stepWithFailure(self, failure):
         """
@@ -601,6 +603,7 @@ class PreProcessingService(Service):
 
         return succeed(None)
 
+
     def addStep(self, step):
         """
         Hand the step to our Stepper
@@ -609,6 +612,7 @@ class PreProcessingService(Service):
         """
         self.stepper.addStep(step)
         return self
+
 
     def startService(self):
         """
@@ -619,15 +623,20 @@ class PreProcessingService(Service):
         self.stepper.start()
 
 
+
 class PostUpgradeStopRequested(Exception):
     """
     Raised when we've been asked to stop just after upgrade has completed.
     """
 
+
+
 class StoreNotAvailable(Exception):
     """
     Raised when we want to give up because the store is not available
     """
+
+
 
 class QuitAfterUpgradeStep(object):
 
@@ -637,11 +646,13 @@ class QuitAfterUpgradeStep(object):
             from twisted.internet import reactor
         self.reactor = reactor
 
+
     def removeTriggerFile(self):
         try:
             os.remove(self.triggerFile)
         except OSError:
             pass
+
 
     def stepWithResult(self, result):
         if os.path.exists(self.triggerFile):
@@ -651,6 +662,7 @@ class QuitAfterUpgradeStep(object):
         else:
             return succeed(result)
 
+
     def stepWithFailure(self, failure):
         if os.path.exists(self.triggerFile):
             self.removeTriggerFile()
@@ -658,6 +670,7 @@ class QuitAfterUpgradeStep(object):
             raise PostUpgradeStopRequested()
         else:
             return failure
+
 
 
 class CalDAVServiceMaker (LoggingMixIn):
@@ -758,7 +771,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         store = storeFromConfig(config, txnFactory)
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)
-        directory = result.rootResource.getDirectory()
+        directory = store.directoryService()
         if pool is not None:
             pool.setServiceParent(result)
 
@@ -985,7 +998,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 requestFactory, int(config.MetaFD), contextFactory
             ).setServiceParent(connectionService)
 
-        else:  # Not inheriting, therefore we open our own:
+        else: # Not inheriting, therefore we open our own:
             for bindAddress in self._allBindAddresses():
                 self._validatePortConfig()
                 if config.EnableSSL:
@@ -1080,7 +1093,6 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             result = self.requestProcessingService(options, store, logObserver)
 
-
             # Optionally set up push notifications
             pushDistributor = None
             if config.Notifications.Enabled:
@@ -1100,7 +1112,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 if observers:
                     pushDistributor = PushDistributor(observers)
 
-            directory = result.rootResource.getDirectory()
+            directory = store.directoryService()
 
             # Optionally set up mail retrieval
             if config.Scheduling.iMIP.Enabled:
@@ -1242,6 +1254,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                         failIfUpgradeNeeded=config.FailIfUpgradeNeeded
                     )
                 )
+
                 pps.addStep(
                     UpgradeDatabaseAddressBookDataStep(
                         store, uid=overrideUID, gid=overrideGID
@@ -1291,7 +1304,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         if config.UseDatabase:
 
-            if os.getuid() == 0:  # Only override if root
+            if os.getuid() == 0: # Only override if root
                 overrideUID = uid
                 overrideGID = gid
             else:
@@ -1415,7 +1428,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                 monitor.addProcess('memcached-%s' % (name,), memcachedArgv,
                                    env=PARENT_ENVIRONMENT)
 
-
         # Open the socket(s) to be inherited by the slaves
         inheritFDs = []
         inheritSSLFDs = []
@@ -1426,7 +1438,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                                     config.MultiProcess.ProcessCount))
             dispatcher = cl.dispatcher
         else:
-            s._inheritedSockets = []  # keep a reference to these so they don't close
+            s._inheritedSockets = [] # keep a reference to these so they don't close
             dispatcher = None
 
         for bindAddress in self._allBindAddresses():
@@ -1533,7 +1545,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             if config.UseMetaFD:
                 cl.setServiceParent(multi)
 
-            directory = directoryFromConfig(config)
+            directory = store.directoryService()
             rootResource = getRootResource(config, store, [])
 
             # Optionally set up mail retrieval
@@ -2073,7 +2085,7 @@ class DelayedStartupLineLogger(object):
     MAX_LENGTH = 1024
     CONTINUED_TEXT = " (truncated, continued)"
     tag = None
-    exceeded = False  # Am I in the middle of parsing a long line?
+    exceeded = False            # Am I in the middle of parsing a long line?
     _buffer = ''
 
     def makeConnection(self, transport):
@@ -2132,7 +2144,7 @@ class DelayedStartupLineLogger(object):
         segments = []
         for i in range(numSegments):
             msg = line[i * self.MAX_LENGTH:(i + 1) * self.MAX_LENGTH]
-            if i < numSegments - 1:  # not the last segment
+            if i < numSegments - 1: # not the last segment
                 msg += self.CONTINUED_TEXT
             segments.append(msg)
         return segments

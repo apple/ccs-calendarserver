@@ -21,6 +21,10 @@ Store test utility functions
 
 from __future__ import print_function
 
+from zope.interface.declarations import implements
+from txdav.common.idirectoryservice import IStoreDirectoryService, \
+    IStoreDirectoryRecord
+
 from calendarserver.push.notifier import Notifier
 
 from hashlib import md5
@@ -50,6 +54,7 @@ from twistedcaldav.vcard import Component as ABComponent
 from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
 from txdav.base.datastore.subpostgres import PostgresService
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql import CommonDataStore, current_sql_schema
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.icommondatastore import NoSuchHomeChildError
@@ -83,6 +88,35 @@ def dumpConnectionStatus():
     for connection in allInstancesOf(DiagnosticConnectionWrapper):
         print(connection.label, connection.state)
     print("--- CONNECTIONS END ---")
+
+
+
+class TestStoreDirectoryService(object):
+
+    implements(IStoreDirectoryService)
+
+    def __init__(self):
+        self.records = {}
+
+
+    def recordWithUID(self, uid):
+        return self.records.get(uid)
+
+
+    def addRecord(self, record):
+        self.records[record.uid] = record
+
+
+
+class TestStoreDirectoryRecord(object):
+
+    implements(IStoreDirectoryRecord)
+
+    def __init__(self, uid, shortNames, fullName):
+        self.uid = uid
+        self.shortNames = shortNames
+        self.fullName = fullName
+        self.displayName = self.fullName if self.fullName else self.shortNames[0]
 
 
 
@@ -134,14 +168,16 @@ class SQLStoreBuilder(object):
         cp.startService()
         reactor.addSystemEventTrigger("before", "shutdown", cp.stopService)
         cds = CommonDataStore(
-            cp.connection, StubNotifierFactory(),
+            cp.connection,
+            {"push": StubNotifierFactory(), },
+            TestStoreDirectoryService(),
             attachmentRoot, "",
             quota=staticQuota
         )
         return cds
 
 
-    def buildStore(self, testCase, notifierFactory):
+    def buildStore(self, testCase, notifierFactory, directoryService=None):
         """
         Do the necessary work to build a store for a particular test case.
 
@@ -150,11 +186,13 @@ class SQLStoreBuilder(object):
         disableMemcacheForTest(testCase)
         dbRoot = CachingFilePath(self.SHARED_DB_PATH)
         attachmentRoot = dbRoot.child("attachments")
+        if directoryService is None:
+            directoryService = TestStoreDirectoryService()
         if self.sharedService is None:
             ready = Deferred()
             def getReady(connectionFactory):
                 self.makeAndCleanStore(
-                    testCase, notifierFactory, attachmentRoot
+                    testCase, notifierFactory, directoryService, attachmentRoot
                 ).chainDeferred(ready)
                 return Service()
             self.sharedService = self.createService(getReady)
@@ -168,7 +206,7 @@ class SQLStoreBuilder(object):
             result = ready
         else:
             result = self.makeAndCleanStore(
-                testCase, notifierFactory, attachmentRoot
+                testCase, notifierFactory, directoryService, attachmentRoot
             )
         def cleanUp():
             def stopit():
@@ -179,7 +217,7 @@ class SQLStoreBuilder(object):
 
 
     @inlineCallbacks
-    def makeAndCleanStore(self, testCase, notifierFactory, attachmentRoot):
+    def makeAndCleanStore(self, testCase, notifierFactory, directoryService, attachmentRoot):
         """
         Create a L{CommonDataStore} specific to the given L{TestCase}.
 
@@ -199,7 +237,8 @@ class SQLStoreBuilder(object):
         quota = deriveQuota(testCase)
         store = CommonDataStore(
             cp.connection,
-            notifierFactory,
+            {"push": notifierFactory} if notifierFactory is not None else {},
+            directoryService,
             attachmentRoot,
             "https://example.com/calendars/__uids__/%(home)s/attachments/%(name)s",
             quota=quota
@@ -415,10 +454,11 @@ def populateCalendarsFrom(requirements, store, migrating=False):
                     calendar = yield home.calendarWithName(calendarName)
                     for objectName in calendarObjNames:
                         objData, metadata = calendarObjNames[objectName]
-                        yield calendar.createCalendarObjectWithName(
+                        yield calendar._createCalendarObjectWithNameInternal(
                             objectName,
                             VComponent.fromString(updateToCurrentYear(objData)),
-                            metadata=metadata,
+                            internal_state=ComponentUpdateState.RAW,
+                            options=metadata,
                         )
     yield populateTxn.commit()
 
@@ -559,18 +599,18 @@ class CommonCommonTests(object):
     savedStore = None
     assertProvides = assertProvides
 
-    def transactionUnderTest(self):
+    def transactionUnderTest(self, txn=None):
         """
         Create a transaction from C{storeUnderTest} and save it as
         C{lastTransaction}.  Also makes sure to use the same store, saving the
         value from C{storeUnderTest}.
         """
         if self.lastTransaction is None:
-            self.lastTransaction = self.concurrentTransaction()
+            self.lastTransaction = self.concurrentTransaction(txn)
         return self.lastTransaction
 
 
-    def concurrentTransaction(self):
+    def concurrentTransaction(self, txn=None):
         """
         Create a transaction from C{storeUnderTest} and save it for later
         clean-up.
@@ -578,9 +618,12 @@ class CommonCommonTests(object):
         if self.savedStore is None:
             self.savedStore = self.storeUnderTest()
         self.counter += 1
-        txn = self.savedStore.newTransaction(
-            self.id() + " #" + str(self.counter)
-        )
+        if txn is None:
+            txn = self.savedStore.newTransaction(
+                self.id() + " #" + str(self.counter)
+            )
+        else:
+            txn._label = self.id() + " #" + str(self.counter)
         @inlineCallbacks
         def maybeCommitThis():
             try:
@@ -644,12 +687,12 @@ class CommonCommonTests(object):
 
 
     @inlineCallbacks
-    def calendarObjectUnderTest(self, name="1.ics", txn=None):
+    def calendarObjectUnderTest(self, txn=None, name="1.ics", calendar_name="calendar_1", home="home1"):
         """
         Get the calendar detailed by
-        C{requirements['home1']['calendar_1'][name]}.
+        C{requirements[home][calendar_name][name]}.
         """
-        returnValue((yield (yield self.calendarUnderTest(txn))
+        returnValue((yield (yield self.calendarUnderTest(txn, name=calendar_name, home=home))
                      .calendarObjectWithName(name)))
 
 
@@ -664,28 +707,16 @@ class StubNotifierFactory(object):
         self.hostname = "example.com"
 
 
-    def newNotifier(self, label="default", id=None, prefix=None):
-        return Notifier(self, label=label, id=id, prefix=prefix)
+    def newNotifier(self, storeObject):
+        return Notifier(self, storeObject)
 
 
-    def pushKeyForId(self, id):
-        path = "/"
-
-        try:
-            prefix, id = id.split("|", 1)
-            path += "%s/" % (prefix,)
-        except ValueError:
-            # id has no prefix
-            pass
-
-        path += "%s/" % (self.hostname,)
-        if id:
-            path += "%s/" % (id,)
-        return path
+    def pushKeyForId(self, prefix, id):
+        return "/%s/%s/%s/" % (prefix, self.hostname, id)
 
 
-    def send(self, id):
-        self.history.append(id)
+    def send(self, prefix, id):
+        self.history.append(self.pushKeyForId(prefix, id))
 
 
     def reset(self):

@@ -7370,8 +7370,6 @@ END:VCALENDAR
             component.getAttendeeProperty(("http://example.com/baz",)).value())
 
 
-
-
     def test_normalizeCalendarUserAddressesAndLocationChange(self):
         """
         Ensure http(s) and /path CUA values are tucked away into the property

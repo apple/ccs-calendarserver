@@ -89,7 +89,7 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         maker = serviceMaker()
 
         # Only perform post-import duties if someone has explicitly said to
-        maker.doPostImport =  getattr(maker, "doPostImport", False)
+        maker.doPostImport = getattr(maker, "doPostImport", False)
 
         options = CalDAVOptions
         service = maker.makeService(options)
@@ -155,6 +155,7 @@ class WorkerService(Service):
             raise
         finally:
             reactor.stop()
+
 
     def doWorkWithoutStore(self):
         """

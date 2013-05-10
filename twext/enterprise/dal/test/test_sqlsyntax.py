@@ -60,6 +60,7 @@ class FakeCXOracleModule(object):
     TIMESTAMP = 'for timestamps!'
 
 
+
 class CatchSQL(object):
     """
     L{IAsyncTransaction} emulator that records the SQL executed on it.
@@ -136,7 +137,6 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
     Tests for syntactic helpers to generate SQL queries.
     """
 
-
     def test_simplestSelect(self):
         """
         L{Select} generates a 'select' statement, by default, asking for all
@@ -153,7 +153,6 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         """
         self.assertEquals(self.schema.FOO, self.schema.FOO)
         self.assertNotEquals(self.schema.FOO, self.schema.BOZ)
-
 
 
     def test_simpleWhereClause(self):
@@ -587,7 +586,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
             Select(
                 From=self.schema.FOO,
                 Where=(self.schema.FOO.BAR == 1),
-                SetExpression= Union(
+                SetExpression=Union(
                     Select(
                         From=self.schema.FOO,
                         Where=(self.schema.FOO.BAR == 2),
@@ -659,7 +658,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
             Select(
                 From=self.schema.FOO,
                 Where=(self.schema.FOO.BAR == 1),
-                SetExpression= Union(
+                SetExpression=Union(
                     Select(
                         From=self.schema.FOO,
                         Where=(self.schema.FOO.BAR == 2),
@@ -713,7 +712,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
                     [self.schema.FOO.BAR],
                     From=self.schema.FOO,
                     Where=(self.schema.FOO.BAR == 1),
-                    SetExpression= Union(
+                    SetExpression=Union(
                         Select(
                             [self.schema.FOO.BAR],
                             From=self.schema.FOO,
@@ -724,6 +723,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
             ).toSQL(),
             SQLFragment(
                 "select max(BAR) from ((select BAR from FOO where BAR = ?) UNION (select BAR from FOO where BAR = ?)) genid_1", [1, 2]))
+
 
     def test_selectColumnAliases(self):
         """
@@ -837,13 +837,13 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         self.assertRaises(DALError, self.schema.FOO.BAR.In, Parameter("names"))
 
         # count=0 not allowed
-        self.assertRaises(DALError, Parameter,"names", 0)
+        self.assertRaises(DALError, Parameter, "names", 0)
 
         # Mismatched count and len(items)
         self.assertRaises(
             DALError,
             Select(From=self.schema.FOO, Where=self.schema.FOO.BAR.In(Parameter("names", len(items)))).toSQL().bind,
-            names=["a", "b", "c",]
+            names=["a", "b", "c", ]
         )
 
 
@@ -1321,12 +1321,14 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         self.assertEquals(Savepoint("test").toSQL(),
                           SQLFragment("savepoint test"))
 
+
     def test_rollbacktosavepoint(self):
         """
         L{RollbackToSavepoint} generates a ('rollback to savepoint') statement.
         """
         self.assertEquals(RollbackToSavepoint("test").toSQL(),
                           SQLFragment("rollback to savepoint test"))
+
 
     def test_releasesavepoint(self):
         """
@@ -1432,8 +1434,8 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         sequence default value.
         """
         addSQLToSchema(
-            schema=self.schema.model, schemaData=
-            "create table DFLTR (a varchar(255), "
+            schema=self.schema.model,
+            schemaData="create table DFLTR (a varchar(255), "
             "b integer default nextval('A_SEQ'));"
         )
         self.assertEquals(
@@ -1744,7 +1746,6 @@ class OracleConnectionTests(ConnectionPoolHelper, ExampleSchemaHelper,
 
 
 
-
 class OracleNetConnectionTests(NetworkedPoolHelper, ExampleSchemaHelper,
                                OracleConnectionMethods, TestCase):
 
@@ -1755,5 +1756,3 @@ class OracleNetConnectionTests(NetworkedPoolHelper, ExampleSchemaHelper,
         super(OracleNetConnectionTests, self).setUp()
         ExampleSchemaHelper.setUp(self)
         self.pump.client.dialect = ORACLE_DIALECT
-
-

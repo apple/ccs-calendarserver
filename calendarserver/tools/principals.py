@@ -96,6 +96,7 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 class PrincipalService(WorkerService):
     """
     Executes principals-related functions in a context which has access to the store
@@ -113,7 +114,8 @@ class PrincipalService(WorkerService):
         if self.function is not None:
             rootResource = self.rootResource()
             directory = rootResource.getDirectory()
-            yield self.function(rootResource, directory, self.store, *self.params) 
+            yield self.function(rootResource, directory, self.store, *self.params)
+
 
 
 def main():
@@ -256,10 +258,8 @@ def main():
         elif opt in ("", "--get-auto-accept-group"):
             principalActions.append((action_getAutoAcceptGroup,))
 
-
         else:
             raise NotImplementedError(opt)
-
 
     #
     # List principals
@@ -270,7 +270,6 @@ def main():
 
         function = runListPrincipalTypes
         params = ()
-
 
     elif addType:
 
@@ -294,7 +293,6 @@ def main():
         function = runAddPrincipal
         params = (addType, guid, shortNames, fullName)
 
-
     elif listPrincipals:
         try:
             listPrincipals = matchStrings(listPrincipals, ["users", "groups",
@@ -308,7 +306,6 @@ def main():
 
         function = runListPrincipals
         params = (listPrincipals,)
-
 
     elif searchPrincipals:
         function = runSearch
@@ -331,16 +328,17 @@ def main():
         function = runPrincipalActions
         params = (args, principalActions)
 
-
     PrincipalService.function = function
     PrincipalService.params = params
     utilityMain(configFileName, PrincipalService, verbose=verbose)
+
 
 
 def runListPrincipalTypes(service, rootResource, directory, store):
     for recordType in directory.recordTypes():
         print(recordType)
     return succeed(None)
+
 
 
 def runListPrincipals(service, rootResource, directory, store, listPrincipals):
@@ -353,6 +351,7 @@ def runListPrincipals(service, rootResource, directory, store, listPrincipals):
     except UnknownRecordTypeError, e:
         usage(e)
     return succeed(None)
+
 
 
 @inlineCallbacks
@@ -376,6 +375,7 @@ def runPrincipalActions(service, rootResource, directory, store, principalIDs,
             print("")
 
 
+
 @inlineCallbacks
 def runSearch(service, rootResource, directory, store, searchTerm):
 
@@ -389,10 +389,10 @@ def runSearch(service, rootResource, directory, store, searchTerm):
         print("%d matches found:" % (len(records),))
         for record in records:
             print("\n%s (%s)" % (record.fullName,
-                { "users"     : "User",
-                  "groups"    : "Group",
-                  "locations" : "Place",
-                  "resources" : "Resource",
+                {"users" : "User",
+                 "groups" : "Group",
+                 "locations" : "Place",
+                 "resources" : "Resource",
                 }.get(record.recordType),
             ))
             print("   GUID: %s" % (record.guid,))
@@ -407,6 +407,7 @@ def runSearch(service, rootResource, directory, store, searchTerm):
     print("")
 
 
+
 @inlineCallbacks
 def runAddPrincipal(service, rootResource, directory, store, addType, guid,
     shortNames, fullName):
@@ -416,6 +417,7 @@ def runAddPrincipal(service, rootResource, directory, store, addType, guid,
         print("Added '%s'" % (fullName,))
     except DirectoryError, e:
         print(e)
+
 
 
 def action_removePrincipal(rootResource, directory, store, principal):
@@ -428,12 +430,15 @@ def action_removePrincipal(rootResource, directory, store, principal):
     print("Removed '%s' %s %s" % (fullName, shortName, guid))
 
 
+
 @inlineCallbacks
 def action_readProperty(rootResource, directory, store, resource, qname):
     property = (yield resource.readProperty(qname, None))
     print("%r on %s:" % (encodeXMLName(*qname), resource))
     print("")
     print(property.toxml())
+
+
 
 @inlineCallbacks
 def action_listProxies(rootResource, directory, store, principal, *proxyTypes):
@@ -463,6 +468,8 @@ def action_listProxies(rootResource, directory, store, principal, *proxyTypes):
             print("No %s proxies for %s" % (proxyType,
                 prettyPrincipal(principal)))
 
+
+
 @inlineCallbacks
 def action_addProxy(rootResource, directory, store, principal, proxyType, *proxyIDs):
     for proxyID in proxyIDs:
@@ -470,10 +477,8 @@ def action_addProxy(rootResource, directory, store, principal, proxyType, *proxy
         if proxyPrincipal is None:
             print("Invalid principal ID: %s" % (proxyID,))
         else:
-            (yield action_addProxyPrincipal(rootResource, directory, store, 
+            (yield action_addProxyPrincipal(rootResource, directory, store,
                 principal, proxyType, proxyPrincipal))
-
-
 
 
 
@@ -509,6 +514,7 @@ def setProxies(store, principal, readProxyPrincipals, writeProxyPrincipals, dire
             yield schedulePolledGroupCachingUpdate(store)
 
 
+
 @inlineCallbacks
 def getProxies(principal, directory=None):
     """
@@ -532,6 +538,7 @@ def getProxies(principal, directory=None):
     returnValue((proxies['read'], proxies['write']))
 
 
+
 @inlineCallbacks
 def action_removeProxy(rootResource, directory, store, principal, *proxyIDs, **kwargs):
     for proxyID in proxyIDs:
@@ -541,7 +548,6 @@ def action_removeProxy(rootResource, directory, store, principal, *proxyIDs, **k
         else:
             (yield action_removeProxyPrincipal(rootResource, directory, store,
                 principal, proxyPrincipal, **kwargs))
-
 
 
 
@@ -555,7 +561,7 @@ def action_setAutoSchedule(rootResource, directory, store, principal, autoSchedu
 
     else:
         print("Setting auto-schedule to %s for %s" % (
-            { True: "true", False: "false" }[autoSchedule],
+            {True: "true", False: "false"}[autoSchedule],
             prettyPrincipal(principal),
         ))
 
@@ -568,12 +574,16 @@ def action_setAutoSchedule(rootResource, directory, store, principal, autoSchedu
             **principal.record.extras
         ))
 
+
+
 def action_getAutoSchedule(rootResource, directory, store, principal):
     autoSchedule = principal.getAutoSchedule()
     print("Auto-schedule for %s is %s" % (
         prettyPrincipal(principal),
-        { True: "true", False: "false" }[autoSchedule],
+        {True: "true", False: "false"}[autoSchedule],
     ))
+
+
 
 @inlineCallbacks
 def action_setAutoScheduleMode(rootResource, directory, store, principal, autoScheduleMode):
@@ -598,6 +608,8 @@ def action_setAutoScheduleMode(rootResource, directory, store, principal, autoSc
             **principal.record.extras
         ))
 
+
+
 def action_getAutoScheduleMode(rootResource, directory, store, principal):
     autoScheduleMode = principal.getAutoScheduleMode()
     if not autoScheduleMode:
@@ -606,6 +618,8 @@ def action_getAutoScheduleMode(rootResource, directory, store, principal):
         prettyPrincipal(principal),
         autoScheduleMode,
     ))
+
+
 
 @inlineCallbacks
 def action_setAutoAcceptGroup(rootResource, directory, store, principal, autoAcceptGroup):
@@ -634,6 +648,8 @@ def action_setAutoAcceptGroup(rootResource, directory, store, principal, autoAcc
                 **principal.record.extras
             ))
 
+
+
 def action_getAutoAcceptGroup(rootResource, directory, store, principal):
     autoAcceptGroup = principal.getAutoAcceptGroup()
     if autoAcceptGroup:
@@ -651,6 +667,7 @@ def action_getAutoAcceptGroup(rootResource, directory, store, principal):
         print("No auto-accept-group assigned to %s" % (prettyPrincipal(principal),))
 
 
+
 def abort(msg, status=1):
     sys.stdout.write("%s\n" % (msg,))
     try:
@@ -658,6 +675,7 @@ def abort(msg, status=1):
     except RuntimeError:
         pass
     sys.exit(status)
+
 
 
 def parseCreationArgs(args):
@@ -687,6 +705,7 @@ def parseCreationArgs(args):
     return fullName, shortName, guid
 
 
+
 def isUUID(value):
     try:
         UUID(value)
@@ -694,12 +713,15 @@ def isUUID(value):
     except:
         return False
 
+
+
 def matchStrings(value, validValues):
     for validValue in validValues:
         if validValue.startswith(value):
             return validValue
 
     raise ValueError("'%s' is not a recognized value" % (value,))
+
 
 
 def printRecordList(records):
@@ -725,7 +747,7 @@ def updateRecord(create, directory, recordType, **kwargs):
     """
 
     assignAutoSchedule = False
-    if kwargs.has_key("autoSchedule"):
+    if "autoSchedule" in kwargs:
         assignAutoSchedule = True
         autoSchedule = kwargs["autoSchedule"]
         del kwargs["autoSchedule"]
@@ -734,7 +756,7 @@ def updateRecord(create, directory, recordType, **kwargs):
         autoSchedule = recordType in ("locations", "resources")
 
     assignAutoScheduleMode = False
-    if kwargs.has_key("autoScheduleMode"):
+    if "autoScheduleMode" in kwargs:
         assignAutoScheduleMode = True
         autoScheduleMode = kwargs["autoScheduleMode"]
         del kwargs["autoScheduleMode"]
@@ -743,7 +765,7 @@ def updateRecord(create, directory, recordType, **kwargs):
         autoScheduleMode = None
 
     assignAutoAcceptGroup = False
-    if kwargs.has_key("autoAcceptGroup"):
+    if "autoAcceptGroup" in kwargs:
         assignAutoAcceptGroup = True
         autoAcceptGroup = kwargs["autoAcceptGroup"]
         del kwargs["autoAcceptGroup"]

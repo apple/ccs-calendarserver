@@ -23,14 +23,11 @@ bind methods to CalDAVResource.
 
 __all__ = [
     "acl",
-    "copymove",
-    "delete",
     "get",
     "mkcalendar",
     "mkcol",
     "post",
     "propfind",
-    "put",
     "report",
     "report_freebusy",
     "report_calendar_multiget",

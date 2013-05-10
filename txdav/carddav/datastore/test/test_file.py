@@ -29,7 +29,6 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError
 from txdav.common.icommondatastore import ObjectResourceNameNotAllowedError
 from txdav.common.icommondatastore import ObjectResourceUIDAlreadyExistsError
 from txdav.common.icommondatastore import NoSuchHomeChildError
-from txdav.common.icommondatastore import NoSuchObjectResourceError
 
 from txdav.carddav.datastore.file import AddressBookStore, AddressBookHome
 from txdav.carddav.datastore.file import AddressBook, AddressBookObject
@@ -63,7 +62,7 @@ def setUpAddressBookStore(test):
     storePath.copyTo(addressbookPath)
 
     test.notifierFactory = StubNotifierFactory()
-    test.addressbookStore = AddressBookStore(storeRootPath, test.notifierFactory)
+    test.addressbookStore = AddressBookStore(storeRootPath, {"push": test.notifierFactory}, None)
     test.txn = test.addressbookStore.newTransaction(test.id() + " (old)")
     assert test.addressbookStore is not None, "No addressbook store?"
 
@@ -278,24 +277,11 @@ class AddressBookTest(unittest.TestCase):
         Removing a addressbook object should not immediately remove the underlying
         file; it should only be removed upon commit() of the transaction.
         """
-        self.addressbook1.removeAddressBookObjectWithName("2.vcf")
+        obj1 = self.addressbook1.addressbookObjectWithName("2.vcf")
+        obj1.remove()
         self.failUnless(self.addressbook1._path.child("2.vcf").exists())
         self.txn.commit()
         self.failIf(self.addressbook1._path.child("2.vcf").exists())
-
-
-    def test_removeAddressBookObjectWithName_dot(self):
-        """
-        Filenames starting with "." are reserved by this
-        implementation, so no addressbook object names may start with
-        ".".
-        """
-        name = ".foo"
-        self.addressbook1._path.child(name).touch()
-        self.assertRaises(
-            NoSuchObjectResourceError,
-            self.addressbook1.removeAddressBookObjectWithName, name
-        )
 
 
     @inlineCallbacks
@@ -385,29 +371,10 @@ class AddressBookTest(unittest.TestCase):
         self.txn.commit()
 
 
-    @featureUnimplemented
-    def test_removeAddressBookObjectWithUID_absent(self):
-        """
-        Attempt to remove an non-existing addressbook object should raise.
-        """
-        self.assertRaises(
-            NoSuchObjectResourceError,
-            self.addressbook1.removeAddressBookObjectWithUID, "xyzzy"
-        )
-
-
     @testUnimplemented
     def test_syncToken(self):
         """
         Sync token is correct.
-        """
-        raise NotImplementedError()
-
-
-    @testUnimplemented
-    def test_addressbookObjectsInTimeRange(self):
-        """
-        Find addressbook objects occuring in a given time range.
         """
         raise NotImplementedError()
 
