@@ -320,7 +320,6 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
                     self._txn, resourceID=self._resourceID, value=value_str,
                     name=key_str, uid=uid)
 
-
         # Reload from the DB
         self._cached = {}
         self._cacher.delete(str(self._resourceID))

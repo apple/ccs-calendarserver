@@ -2853,12 +2853,11 @@ class SharingMixIn(object):
 
         result = []
         for row in acceptedRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = row[6:]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = row[:6]  #@UnusedVariable
             home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
             new = yield home.objectWithShareUID(bindName)
-
-            yield new.initFromStore()
             result.append(new)
+
         returnValue(result)
 
 
@@ -3139,13 +3138,17 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         dataRows = (yield cls._childrenAndMetadataForHomeID.on(home._txn, homeID=home._resourceID))
 
         if dataRows:
-            # Get property stores for all these child resources
+            # Get property stores
             childResourceIDs = [dataRow[2] for dataRow in dataRows]
             propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
                 home.uid(), home._txn, childResourceIDs
             )
+            print("loadAllObjects:%s dataRows=%s, childResourceID=%s, propertyStores=%s" % (cls, dataRows, childResourceIDs, propertyStores))
+
+            # Get revisions
             revisions = (yield cls._revisionsForResourceIDs(childResourceIDs).on(home._txn, resourceIDs=childResourceIDs))
             revisions = dict(revisions)
+            print("loadAllObjects:%s dataRows=%s, childResourceID=%s, revisions=%s" % (cls, dataRows, childResourceIDs, revisions))
 
         # Create the actual objects merging in properties
         for items in dataRows:
@@ -3221,7 +3224,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = row[:6]  #@UnusedVariable
         if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
             returnValue(None)
-        additionalBind = row [8:]
+        additionalBind = row[6:6 + len(cls.additionalBindColumns())]
 
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home

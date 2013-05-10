@@ -651,4 +651,4 @@ create table CALENDARSERVER (
 
 insert into CALENDARSERVER values ('VERSION', '20');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '4');
-insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '3');
+insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');

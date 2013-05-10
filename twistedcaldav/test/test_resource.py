@@ -188,7 +188,7 @@ class DefaultAddressBook (StoreTestCase):
     @inlineCallbacks
     def test_pick_default_addressbook(self):
         """
-        Make calendar
+        Get adbk
         """
 
         request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authid="wsanchez")
@@ -213,63 +213,13 @@ class DefaultAddressBook (StoreTestCase):
 
 
     @inlineCallbacks
-    def test_pick_default_other(self):
-        """
-        Make adbk
-        """
-
-        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authid="wsanchez")
-        home = yield request.locateResource("/addressbooks/users/wsanchez")
-
-        # default property not present
-        try:
-            home.readDeadProperty(carddavxml.DefaultAddressBookURL)
-        except HTTPError:
-            pass
-        else:
-            self.fail("carddavxml.DefaultAddressBookURL is not empty")
-
-        # Create a new default adbk
-        newadbk = yield request.locateResource("/addressbooks/users/wsanchez/newadbk")
-        yield newadbk.createAddressBookCollection()
-        home.writeDeadProperty(carddavxml.DefaultAddressBookURL(
-            HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
-        ))
-
-        # Delete the normal adbk
-        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authid="wsanchez")
-        home = yield request.locateResource("/addressbooks/users/wsanchez")
-        adbk = yield request.locateResource("/addressbooks/users/wsanchez/addressbook")
-        yield adbk.storeRemove(request)
-
-        home.removeDeadProperty(carddavxml.DefaultAddressBookURL)
-
-        # default property not present
-        try:
-            home.readDeadProperty(carddavxml.DefaultAddressBookURL)
-        except HTTPError:
-            pass
-        else:
-            self.fail("carddavxml.DefaultAddressBookURL is not empty")
-
-        yield self.commit()
-
-        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authid="wsanchez")
-        home = yield request.locateResource("/addressbooks/users/wsanchez")
-        yield home.pickNewDefaultAddressBook(request)
-
-        try:
-            default = home.readDeadProperty(carddavxml.DefaultAddressBookURL)
-        except HTTPError:
-            self.fail("carddavxml.DefaultAddressBookURL is not present")
-        else:
-            self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
-
-
-    @inlineCallbacks
     def test_fix_shared_default(self):
+        # I think this would include a test of http_GET()
+        raise NotImplementedError()
+    test_fix_shared_default.todo = "Rewrite with real shared address book"
+    '''
         """
-        Make calendar
+        Get adbk
         """
 
         request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authid="wsanchez")
@@ -297,3 +247,4 @@ class DefaultAddressBook (StoreTestCase):
             self.fail("carddavxml.DefaultAddressBookURL is not present")
         else:
             self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/addressbook/")
+    '''

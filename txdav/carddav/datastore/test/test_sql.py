@@ -578,7 +578,7 @@ END:VCARD
         adbk1 = yield self.addressbookUnderTest()
         name = "4.vcf"
         component = VComponent.fromString(vcard4_text)
-        addressobject = yield adbk1.createAddressBookObjectWithName(name, component, metadata={})
+        addressobject = yield adbk1.createAddressBookObjectWithName(name, component, options={})
         resourceID = addressobject._resourceID
 
         prop = schema.RESOURCE_PROPERTY
