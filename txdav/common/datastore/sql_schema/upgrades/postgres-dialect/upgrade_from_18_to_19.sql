@@ -22,14 +22,22 @@
 -- Calendar home related updates
 
 alter table CALENDAR_HOME_METADATA
- add column DEFAULT_EVENTS integer default null references CALENDAR on delete set null,
- add column DEFAULT_TASKS integer default null references CALENDAR on delete set null;
+ add column DEFAULT_EVENTS           integer     default null references CALENDAR on delete set null,
+ add column DEFAULT_TASKS            integer     default null references CALENDAR on delete set null,
+ add column ALARM_VEVENT_TIMED       text        default null,
+ add column ALARM_VEVENT_ALLDAY      text        default null,
+ add column ALARM_VTODO_TIMED        text        default null,
+ add column ALARM_VTODO_ALLDAY       text        default null;
 
 
 -- Calendar bind related updates
 
 alter table CALENDAR_BIND
- add column TRANSP integer default 0 not null;
+ add column TRANSP                   integer     default 0 not null,
+ add column ALARM_VEVENT_TIMED       text        default null,
+ add column ALARM_VEVENT_ALLDAY      text        default null,
+ add column ALARM_VTODO_TIMED        text        default null,
+ add column ALARM_VTODO_ALLDAY       text        default null;
 
 create table CALENDAR_TRANSP (
   ID          integer     primary key,

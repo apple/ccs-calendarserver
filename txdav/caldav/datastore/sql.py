@@ -346,6 +346,10 @@ class CalendarHome(CommonHome):
         return (
             cls._homeMetaDataSchema.DEFAULT_EVENTS,
             cls._homeMetaDataSchema.DEFAULT_TASKS,
+            cls._homeMetaDataSchema.ALARM_VEVENT_TIMED,
+            cls._homeMetaDataSchema.ALARM_VEVENT_ALLDAY,
+            cls._homeMetaDataSchema.ALARM_VTODO_TIMED,
+            cls._homeMetaDataSchema.ALARM_VTODO_ALLDAY,
             cls._homeMetaDataSchema.CREATED,
             cls._homeMetaDataSchema.MODIFIED,
         )
@@ -364,6 +368,10 @@ class CalendarHome(CommonHome):
         return (
             "_default_events",
             "_default_tasks",
+            "_alarm_vevent_timed",
+            "_alarm_vevent_allday",
+            "_alarm_vtodo_timed",
+            "_alarm_vtodo_allday",
             "_created",
             "_modified",
         )
@@ -772,6 +780,12 @@ class CalendarHome(CommonHome):
         # Not allowed to delete the default calendar
         return calendar._resourceID in (self._default_events, self._default_tasks)
 
+    ALARM_DETAILS = {
+        (True, True): (_homeMetaDataSchema.ALARM_VEVENT_TIMED, "_alarm_vevent_timed"),
+        (True, False): (_homeMetaDataSchema.ALARM_VEVENT_ALLDAY, "_alarm_vevent_allday"),
+        (False, True): (_homeMetaDataSchema.ALARM_VTODO_TIMED, "_alarm_vtodo_timed"),
+        (False, False): (_homeMetaDataSchema.ALARM_VTODO_ALLDAY, "_alarm_vtodo_allday"),
+    }
 
     def getDefaultAlarm(self, vevent, timed):
         """
@@ -781,18 +795,12 @@ class CalendarHome(CommonHome):
         @type vevent: C{bool}
         @param timed: timed ({C{True}) or all-day ({C{False})
         @type timed: C{bool}
+
         @return: the alarm (text)
         @rtype: C{str}
         """
 
-        if vevent:
-            propname = caldavxml.DefaultAlarmVEventDateTime if timed else caldavxml.DefaultAlarmVEventDate
-        else:
-            propname = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
-
-        prop = self.properties().get(PropertyName.fromElement(propname))
-
-        return str(prop) if prop is not None else None
+        return getattr(self, self.ALARM_DETAILS[(vevent, timed)][1])
 
 
     @inlineCallbacks
@@ -808,12 +816,16 @@ class CalendarHome(CommonHome):
         @type timed: C{bool}
         """
 
-        if vevent:
-            prop = caldavxml.DefaultAlarmVEventDateTime if timed else caldavxml.DefaultAlarmVEventDate
-        else:
-            prop = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
+        colname, attr_alarm = self.ALARM_DETAILS[(vevent, timed)]
 
-        self.properties()[PropertyName.fromElement(prop)] = prop.fromString(alarm)
+        setattr(self, attr_alarm, alarm)
+
+        chm = self._homeMetaDataSchema
+        yield Update(
+            {colname: alarm},
+            Where=chm.RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
         yield self.notifyChanged()
 
 
@@ -894,6 +906,10 @@ class Calendar(CommonHomeChild):
 
         return (
             cls._bindSchema.TRANSP,
+            cls._bindSchema.ALARM_VEVENT_TIMED,
+            cls._bindSchema.ALARM_VEVENT_ALLDAY,
+            cls._bindSchema.ALARM_VTODO_TIMED,
+            cls._bindSchema.ALARM_VTODO_ALLDAY,
         )
 
 
@@ -907,6 +923,10 @@ class Calendar(CommonHomeChild):
 
         return (
             "_transp",
+            "_alarm_vevent_timed",
+            "_alarm_vevent_allday",
+            "_alarm_vtodo_timed",
+            "_alarm_vtodo_allday",
         )
 
 
@@ -989,6 +1009,12 @@ class Calendar(CommonHomeChild):
         else:
             return True
 
+    ALARM_DETAILS = {
+        (True, True): (_bindSchema.ALARM_VEVENT_TIMED, "_alarm_vevent_timed"),
+        (True, False): (_bindSchema.ALARM_VEVENT_ALLDAY, "_alarm_vevent_allday"),
+        (False, True): (_bindSchema.ALARM_VTODO_TIMED, "_alarm_vtodo_timed"),
+        (False, False): (_bindSchema.ALARM_VTODO_ALLDAY, "_alarm_vtodo_allday"),
+    }
 
     def getDefaultAlarm(self, vevent, timed):
         """
@@ -1002,17 +1028,7 @@ class Calendar(CommonHomeChild):
         @rtype: C{str}
         """
 
-        if vevent:
-            propname = caldavxml.DefaultAlarmVEventDateTime if timed else caldavxml.DefaultAlarmVEventDate
-        else:
-            propname = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
-
-        prop = self.properties().get(PropertyName.fromElement(propname))
-
-        if prop is None:
-            return self.viewerHome().getDefaultAlarm(vevent, timed)
-        else:
-            return str(prop)
+        return getattr(self, self.ALARM_DETAILS[(vevent, timed)][1])
 
 
     @inlineCallbacks
@@ -1028,12 +1044,16 @@ class Calendar(CommonHomeChild):
         @type timed: C{bool}
         """
 
-        if vevent:
-            prop = caldavxml.DefaultAlarmVEventDateTime if timed else caldavxml.DefaultAlarmVEventDate
-        else:
-            prop = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
+        colname, attr_alarm = self.ALARM_DETAILS[(vevent, timed)]
 
-        self.properties()[PropertyName.fromElement(prop)] = prop.fromString(alarm)
+        setattr(self, attr_alarm, alarm)
+
+        cal = self._bindSchema
+        yield Update(
+            {colname: alarm},
+            Where=(cal.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cal.CALENDAR_RESOURCE_ID == self._resourceID)
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
         yield self.notifyChanged()
 
 
@@ -1060,9 +1080,7 @@ class Calendar(CommonHomeChild):
         self._transp = _TRANSP_OPAQUE if use_it else _TRANSP_TRANSPARENT
         cal = self._bindSchema
         yield Update(
-            {
-                cal.TRANSP : self._transp
-            },
+            {cal.TRANSP : self._transp},
             Where=(cal.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cal.CALENDAR_RESOURCE_ID == self._resourceID)
         ).on(self._txn)
         yield self.invalidateQueryCache()
@@ -1778,7 +1796,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # See if default exists and add using appropriate logic
         alarm = self.calendar().getDefaultAlarm(vevent, timed)
-        if alarm and component.addAlarms(alarm):
+        if alarm is None:
+            alarm = self.calendar().viewerHome().getDefaultAlarm(vevent, timed)
+        if alarm and alarm != "empty" and component.addAlarms(alarm):
             self._componentChanged = True
 
 

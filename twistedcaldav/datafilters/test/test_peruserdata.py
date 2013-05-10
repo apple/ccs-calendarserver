@@ -122,7 +122,7 @@ END:VCALENDAR
 class PerUserDataFilterTestNotRecurring (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -137,14 +137,15 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").filter(item)), data)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), data)
 
+
     def test_public_oneuser(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -205,7 +206,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").filter(item)), result01)
         for item in (data, Component.fromString(data),):
@@ -238,7 +239,7 @@ END:VCALENDAR
 class PerUserDataFilterTestRecurring (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -264,14 +265,15 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").filter(item)), data)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), data)
 
+
     def test_public_oneuser_master(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -371,16 +373,17 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").filter(item)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user02").filter(item)), result02)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
+
 
     def test_public_oneuser_master_and_override(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -489,16 +492,17 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").filter(item)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user02").filter(item)), result02)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
+
 
     def test_public_oneuser_override(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -593,7 +597,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").filter(item)), result01)
         for item in (data, Component.fromString(data),):
@@ -601,8 +605,9 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
 
+
     def test_public_oneuser_master_derived_override(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -691,7 +696,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").filter(item)), result01)
         for item in (data, Component.fromString(data),):
@@ -699,8 +704,9 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
 
+
     def test_public_oneuser_master_derived_override_x2(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -847,7 +853,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").filter(item)), result01)
         for item in (data, Component.fromString(data),):
@@ -855,8 +861,9 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result03)
 
+
     def test_public_oneuser_no_master_and_override(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -921,7 +928,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").filter(item)), result01)
         for item in (data, Component.fromString(data),):
@@ -929,22 +936,44 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
 
-class PerUserDataMergeTestNewNotRecurring (twistedcaldav.test.util.TestCase):
 
-    def test_public_noperuser(self):
-        
+    def test_public_oneuser_no_master_and_override_bogus_peruser(self):
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
 ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
 DTSTAMP:20080601T120000Z
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080602T120000Z
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test-override
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080603T120000Z
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test-override
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
         result01 = """BEGIN:VCALENDAR
@@ -952,8 +981,30 @@ VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:12345-67890
-DTSTART:20080601T120000Z
-DTEND:20080601T130000Z
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test-override
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        result02 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
 ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
 DTSTAMP:20080601T120000Z
@@ -961,14 +1012,17 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
-            self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
+            self.assertEqual(str(PerUserDataFilter("user01").filter(item)), result01)
         for item in (data, Component.fromString(data),):
-            self.assertEqual(str(PerUserDataFilter("").merge(item, None)), data)
+            self.assertEqual(str(PerUserDataFilter("user02").filter(item)), result02)
+        for item in (data, Component.fromString(data),):
+            self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
+
 
     def test_public_oneuser(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1029,14 +1083,15 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
 
+
     def test_prevent_injection(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1057,7 +1112,7 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             filter = PerUserDataFilter("user01")
             self.assertRaises(ValueError, filter.merge, item, None)
@@ -1065,10 +1120,12 @@ END:VCALENDAR
             filter = PerUserDataFilter("")
             self.assertRaises(ValueError, filter.merge, item, None)
 
+
+
 class PerUserDataMergeTestNewRecurring (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1119,14 +1176,15 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), data)
 
+
     def test_public_oneuser_master(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1226,14 +1284,15 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
+
 
     def test_public_oneuser_master_and_override(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1342,14 +1401,15 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
+
 
     def test_public_oneuser_override(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1444,14 +1504,15 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
+
 
     def test_public_oneuser_master_compact_override(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1550,14 +1611,15 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
 
+
     def test_public_oneuser_master_noncompact_override(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1666,16 +1728,18 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("user01").merge(item, None)), result01)
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PerUserDataFilter("").merge(item, None)), result02)
+
+
 
 class PerUserDataMergeTestExistingNotRecurring (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1718,13 +1782,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
 
+
     def test_public_oneuser(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1797,13 +1862,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_twousers(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1900,13 +1966,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
     def test_public_twousers_removal(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1985,15 +2052,17 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
+
 
 class PerUserDataMergeTestExistingNowRecurring (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser_master(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -2038,13 +2107,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
+
 
     def test_public_noperuser_master_with_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -2109,13 +2179,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
+
 
     def test_public_noperuser_only_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -2160,13 +2231,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
 
+
     def test_public_oneuser_master(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -2241,13 +2313,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_oneuser_master_with_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -2357,13 +2430,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_oneuser_only_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -2441,13 +2515,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_twousers_master(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -2546,13 +2621,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_twousers_master_with_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -2686,13 +2762,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_twousers_only_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -2780,13 +2857,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_twousers_removal_master(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -2867,13 +2945,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
     def test_public_twousers_removal_master_with_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -2974,14 +3053,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
 
     def test_public_twousers_removal_only_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3050,15 +3129,17 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
+
 
 class PerUserDataMergeTestExistingWasRecurring (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser_master(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3104,13 +3185,14 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
+
 
     def test_public_noperuser_master_with_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3166,13 +3248,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
+
 
     def test_public_noperuser_only_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3216,13 +3299,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
 
+
     def test_public_oneuser_master(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3296,13 +3380,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_oneuser_master_with_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3386,13 +3471,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_oneuser_only_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3467,13 +3553,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
     def test_public_twousers_master(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3571,13 +3658,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
     def test_public_twousers_master_with_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3703,13 +3791,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
     def test_public_twousers_only_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3797,13 +3886,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_twousers_removal_master(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3884,13 +3974,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
     def test_public_twousers_removal_master_with_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -3991,14 +4082,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
 
     def test_public_twousers_removal_only_override(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -4068,15 +4159,17 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
+
 class PerUserDataMergeTestBothRecurringMasterOnly (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -4122,13 +4215,14 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
 
+
     def test_public_oneuser(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -4204,13 +4298,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_twousers(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -4310,13 +4405,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_twousers_removal(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -4398,13 +4494,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
     def test_public_twousers_invalid_instance(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -4495,15 +4592,17 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
+
 
 class PerUserDataMergeTestBothRecurringMasterWithOverride (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -4579,13 +4678,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
 
+
     def test_public_oneuser(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -4715,13 +4815,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_twousers(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -4884,13 +4985,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
     def test_public_twousers_removal(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -5020,15 +5122,17 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
+
 
 class PerUserDataMergeTestBothRecurringOverrideOnly (twistedcaldav.test.util.TestCase):
 
     def test_public_noperuser(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -5074,13 +5178,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), newresult)
 
+
     def test_public_oneuser(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -5158,13 +5263,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_twousers(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -5255,13 +5361,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
     def test_public_twousers_removal(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -5333,15 +5440,17 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
+
 
 class PerUserDataMergeTestBothRecurringSpecialCase (twistedcaldav.test.util.TestCase):
 
     def test_public_twousers_recurrence_truncation(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -5468,13 +5577,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
+
 
     def test_public_twousers_recurrence_shift(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -5592,13 +5702,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
     def test_public_twousers_rdate_removed(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -5708,13 +5819,14 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
+
     def test_public_twousers_exdate_added(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -5825,16 +5937,17 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for olditem in (olddata, Component.fromString(olddata),):
             for newitem in (newdata, Component.fromString(newdata),):
                 self.assertEqual(str(PerUserDataFilter("user01").merge(newitem, olditem)), result01)
 
 
+
 class PerUserDataMergeTestCompact (twistedcaldav.test.util.TestCase):
 
     def test_merge_vevent_compact(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -5908,7 +6021,7 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         filtered = PerUserDataFilter("user01").merge(newdata, None)
         self.assertEqual(str(filtered), result)
         unfiltered = PerUserDataFilter("user01").filter(filtered)
@@ -5916,7 +6029,7 @@ END:VCALENDAR
 
 
     def test_merge_vevent_all_day_compact(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -5990,7 +6103,7 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         filtered = PerUserDataFilter("user01").merge(newdata, None)
         self.assertEqual(str(filtered), result)
         unfiltered = PerUserDataFilter("user01").filter(filtered)
@@ -5998,7 +6111,7 @@ END:VCALENDAR
 
 
     def test_merge_peruser_compact(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -6073,7 +6186,7 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         filtered = PerUserDataFilter("user01").merge(newdata, None)
         self.assertEqual(str(filtered), result)
         unfiltered = PerUserDataFilter("user01").filter(filtered)
@@ -6081,7 +6194,7 @@ END:VCALENDAR
 
 
     def test_merge_peruser_all_day_compact(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -6158,7 +6271,7 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         filtered = PerUserDataFilter("user01").merge(newdata, None)
         self.assertEqual(str(filtered), result)
         unfiltered = PerUserDataFilter("user01").filter(filtered)
@@ -6166,7 +6279,7 @@ END:VCALENDAR
 
 
     def test_merge_both_compact(self):
-        
+
         newdata = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -6231,7 +6344,7 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         unfiltered_result = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -6253,7 +6366,7 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         filtered = PerUserDataFilter("user01").merge(newdata, None)
         self.assertEqual(str(filtered), result)
         unfiltered = PerUserDataFilter("user01").filter(filtered)

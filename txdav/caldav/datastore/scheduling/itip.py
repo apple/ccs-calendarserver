@@ -864,7 +864,7 @@ class iTipGenerator(object):
         # Component properties - remove all X- except for those specified
         if not reply:
             # Organizer properties that need to go to the Attendees
-            keep_properties = ("X-APPLE-DROPBOX",)
+            keep_properties = config.Scheduling.CalDAV.OrganizerPublicProperties
         else:
             # Attendee properties that need to go to the Organizer
             keep_properties = ("X-CALENDARSERVER-PRIVATE-COMMENT",)

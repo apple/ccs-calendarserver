@@ -573,7 +573,7 @@ class SharedResourceMixin(object):
             returnValue([])
 
         #TODO: Cache
-        if True:#not hasattr(self, "_invitations"):
+        if True:  #not hasattr(self, "_invitations"):
 
             acceptedHomeChildren = yield self._newStoreObject.asShared()
             # remove direct shares (it might be OK not to remove these, but that would be different from legacy code)
@@ -1221,11 +1221,11 @@ class SharedHomeMixin(LinkFollowerMixIn):
                         yield shareeCalender.writeProperty(customxml.CalendarColor.fromString(color), request)
 
                 # Calendars always start out transparent and with empty default alarms
-                yield shareeCalender.writeProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()), request)
-                yield shareeCalender.writeProperty(caldavxml.DefaultAlarmVEventDateTime.fromString(""), request)
-                yield shareeCalender.writeProperty(caldavxml.DefaultAlarmVEventDate.fromString(""), request)
-                yield shareeCalender.writeProperty(caldavxml.DefaultAlarmVToDoDateTime.fromString(""), request)
-                yield shareeCalender.writeProperty(caldavxml.DefaultAlarmVToDoDate.fromString(""), request)
+                yield shareeCalender._newStoreObject.setUsedForFreeBusy(False)
+                yield shareeCalender._newStoreObject.setDefaultAlarm("empty", True, True)
+                yield shareeCalender._newStoreObject.setDefaultAlarm("empty", True, False)
+                yield shareeCalender._newStoreObject.setDefaultAlarm("empty", False, True)
+                yield shareeCalender._newStoreObject.setDefaultAlarm("empty", False, False)
 
         elif sharedResource.isAddressBookCollection():
             shareeHomeResource = yield sharee.addressBookHome(request)
@@ -1291,15 +1291,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
         shareURL = joinURL(self.url(), share.name())
         shared = (yield request.locateResource(shareURL))
         displayname = shared.displayName()
-
-        #FIXME: Remove! Probably obsolete
-        if self.isCalendarCollection():
-            # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-            principal = (yield self.resourceOwnerPrincipal(request))
-            inboxURL = principal.scheduleInboxURL()
-            if inboxURL:
-                inbox = (yield request.locateResource(inboxURL))
-                inbox.processFreeBusyCalendar(shareURL, False)
 
         if share.direct():
             yield share._ownerStoreObject.unshareWith(share._shareeStoreObject.viewerHome())

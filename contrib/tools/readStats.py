@@ -303,15 +303,15 @@ def printHistogramSummary(stat, index):
     for i in ("T", "T-RESP-WR",):
         table.addRow((
             "Overall Response" if i == "T" else "Response Write",
-            (stat[i]["<10ms"], safeDivision(stat[i]["<10ms"], stat["requests"], 100.0)),
-            (stat[i]["10ms<->100ms"], safeDivision(stat[i]["10ms<->100ms"], stat["requests"], 100.0)),
-            (stat[i]["100ms<->1s"], safeDivision(stat[i]["100ms<->1s"], stat["requests"], 100.0)),
-            (stat[i]["1s<->10s"], safeDivision(stat[i]["1s<->10s"], stat["requests"], 100.0)),
-            (stat[i]["10s<->30s"], safeDivision(stat[i]["10s<->30s"], stat["requests"], 100.0)),
-            (stat[i]["30s<->60s"], safeDivision(stat[i]["30s<->60s"], stat["requests"], 100.0)),
-            (stat[i][">60s"], safeDivision(stat[i][">60s"], stat["requests"], 100.0)),
-            safeDivision(stat[i]["Over 1s"], stat["requests"], 100.0),
-            safeDivision(stat[i]["Over 10s"], stat["requests"], 100.0),
+            (stat[i]["<10ms"], safeDivision(stat[i]["<10ms"], stat[i]["requests"], 100.0)),
+            (stat[i]["10ms<->100ms"], safeDivision(stat[i]["10ms<->100ms"], stat[i]["requests"], 100.0)),
+            (stat[i]["100ms<->1s"], safeDivision(stat[i]["100ms<->1s"], stat[i]["requests"], 100.0)),
+            (stat[i]["1s<->10s"], safeDivision(stat[i]["1s<->10s"], stat[i]["requests"], 100.0)),
+            (stat[i]["10s<->30s"], safeDivision(stat[i]["10s<->30s"], stat[i]["requests"], 100.0)),
+            (stat[i]["30s<->60s"], safeDivision(stat[i]["30s<->60s"], stat[i]["requests"], 100.0)),
+            (stat[i][">60s"], safeDivision(stat[i][">60s"], stat[i]["requests"], 100.0)),
+            safeDivision(stat[i]["Over 1s"], stat[i]["requests"], 100.0),
+            safeDivision(stat[i]["Over 10s"], stat[i]["requests"], 100.0),
         ))
     os = StringIO()
     table.printTable(os=os)
@@ -389,8 +389,9 @@ def printMultiMethodCounts(stats, index):
     for stat in stats:
         for method in stat[index]["method"]:
             methods[method] += stat[index]["method"][method]
-        for method_time in stat[index]["method-t"]:
-            method_times[method_time] += stat[index]["method-t"][method_time]
+        if "method-t" in stat[index]:
+            for method_time in stat[index]["method-t"]:
+                method_times[method_time] += stat[index]["method-t"][method_time]
 
     printMethodCounts({"method": methods, "method-t": method_times})
 

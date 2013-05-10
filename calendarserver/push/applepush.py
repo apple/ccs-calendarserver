@@ -368,13 +368,13 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
 
         self.transport.write(
             struct.pack("!BIIH32sH%ds" % (payloadLength,),
-                self.COMMAND_ENHANCED,  # Command
-                identifier,             # Identifier
-                0,                      # Expiry
-                32,                     # Token Length
-                binaryToken,            # Token
-                payloadLength,          # Payload Length
-                payload,                # Payload in JSON format
+                self.COMMAND_ENHANCED,           # Command
+                identifier,                      # Identifier
+                int(time.time()) + 72 * 60 * 60, # Expires in 72 hours
+                32,                              # Token Length
+                binaryToken,                     # Token
+                payloadLength,                   # Payload Length
+                payload,                         # Payload in JSON format
             )
         )
 

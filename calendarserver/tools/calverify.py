@@ -1598,7 +1598,8 @@ class SchedulingMismatchService(CalVerifyService):
 
             # Look at each attendee in the organizer's meeting
             for organizerAttendee, organizerViewOfStatus in organizerViewOfAttendees.iteritems():
-                broken = False
+                missing = False
+                mismatch = False
 
                 self.matched_attendee_to_organizer[uid].add(organizerAttendee)
 
@@ -1627,7 +1628,7 @@ class SchedulingMismatchService(CalVerifyService):
                             if partstat not in ("DECLINED", "CANCELLED"):
                                 results_mismatch.append((uid, resid, organizer, org_created, org_modified, organizerAttendee, att_created, att_modified))
                                 self.results.setdefault("Mismatch Attendee", set()).add((uid, organizer, organizerAttendee,))
-                                broken = True
+                                mismatch = True
                                 if self.options["details"]:
                                     self.output.write("Mismatch: on Organizer's side:\n")
                                     self.output.write("          UID: %s\n" % (uid,))
@@ -1638,10 +1639,10 @@ class SchedulingMismatchService(CalVerifyService):
                         # Check that the difference is only cancelled on the attendees side
                         for _attendeeInstance, partstat in attendeeOwnStatus.difference(organizerViewOfStatus):
                             if partstat not in ("CANCELLED",):
-                                if not broken:
+                                if not mismatch:
                                     results_mismatch.append((uid, resid, organizer, org_created, org_modified, organizerAttendee, att_created, att_modified))
                                     self.results.setdefault("Mismatch Attendee", set()).add((uid, organizer, organizerAttendee,))
-                                broken = True
+                                mismatch = True
                                 if self.options["details"]:
                                     self.output.write("Mismatch: on Attendee's side:\n")
                                     self.output.write("          Organizer: %s\n" % (organizer,))
@@ -1655,12 +1656,19 @@ class SchedulingMismatchService(CalVerifyService):
                         if partstat not in ("DECLINED", "CANCELLED"):
                             results_missing.append((uid, resid, organizer, organizerAttendee, org_created, org_modified))
                             self.results.setdefault("Missing Attendee", set()).add((uid, organizer, organizerAttendee,))
-                            broken = True
+                            missing = True
                             break
 
                 # If there was a problem we can fix it
-                if broken and self.fix:
-                    yield self.fixByReinvitingAttendee(resid, attendeeResIDs.get((organizerAttendee, uid)), organizerAttendee)
+                if (missing or mismatch) and self.fix:
+                    fix_result = (yield self.fixByReinvitingAttendee(resid, attendeeResIDs.get((organizerAttendee, uid)), organizerAttendee))
+                    if fix_result:
+                        if missing:
+                            self.fixAttendeesForOrganizerMissing += 1
+                        else:
+                            self.fixAttendeesForOrganizerMismatch += 1
+                    else:
+                        self.fixFailed += 1
 
         yield self.txn.commit()
         self.txn = None
@@ -1803,7 +1811,11 @@ class SchedulingMismatchService(CalVerifyService):
 
                 # If there is a mismatch we fix by re-inviting the attendee
                 if self.fix:
-                    yield self.fixByReinvitingAttendee(self.organized_byuid[uid][1], resid, attendee)
+                    fix_result = (yield self.fixByReinvitingAttendee(self.organized_byuid[uid][1], resid, attendee))
+                    if fix_result:
+                        self.fixOrganizersForAttendeeMismatch += 1
+                    else:
+                        self.fixFailed += 1
 
         yield self.txn.commit()
         self.txn = None
