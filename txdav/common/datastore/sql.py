@@ -3143,12 +3143,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
                 home.uid(), home._txn, childResourceIDs
             )
-            print("loadAllObjects:%s dataRows=%s, childResourceID=%s, propertyStores=%s" % (cls, dataRows, childResourceIDs, propertyStores))
 
             # Get revisions
             revisions = (yield cls._revisionsForResourceIDs(childResourceIDs).on(home._txn, resourceIDs=childResourceIDs))
             revisions = dict(revisions)
-            print("loadAllObjects:%s dataRows=%s, childResourceID=%s, revisions=%s" % (cls, dataRows, childResourceIDs, revisions))
 
         # Create the actual objects merging in properties
         for items in dataRows:
@@ -3156,7 +3154,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             additionalBind = items[6:6 + len(cls.additionalBindColumns())]
             metadata = items[6 + len(cls.additionalBindColumns()):]
 
-            if bindStatus == _BIND_MODE_OWN:
+            if bindMode == _BIND_MODE_OWN:
                 ownerHome = home
                 ownerName = bindName
             else:
@@ -3179,7 +3177,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
             # We have to re-adjust the property store object to account for possible shared
             # collections as previously we loaded them all as if they were owned
-            if bindStatus != _BIND_MODE_OWN:
+
+            if bindMode != _BIND_MODE_OWN:
                 propstore._setDefaultUserUID(ownerHome.uid())
             yield child._loadPropertyStore(propstore)
             results.append(child)

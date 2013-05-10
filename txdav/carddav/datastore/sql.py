@@ -652,7 +652,6 @@ END:VCARD
         # get ownerHomeIDs
         for dataRow in dataRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = dataRow[:6]  #@UnusedVariable
-            assert bindStatus != _BIND_MODE_OWN
             ownerHome = yield home.ownerHomeWithChildID(resourceID)
             ownerHomeToDataRowMap[ownerHome] = dataRow
 
