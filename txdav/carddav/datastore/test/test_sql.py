@@ -594,8 +594,8 @@ END:VCARD
 
         # Remove address book object and check for no properties
         adbk1 = yield self.addressbookUnderTest()
-        abo = yield adbk1.objectWithName(name)
-        yield abo.remove()
+        obj1 = yield adbk1.addressbookObjectWithName(name)
+        yield obj1.remove()
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()

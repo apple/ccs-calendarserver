@@ -317,21 +317,6 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_createAddressBookWithName_exists(self):
-        """
-        L{IAddressBookHome.createAddressBookWithName} raises
-        L{AddressBookAlreadyExistsError} when the name conflicts with an already-
-        existing address book.
-        """
-        for name in home1_addressbookNames:
-            yield self.failUnlessFailure(
-                maybeDeferred(
-                    (yield self.homeUnderTest()).createAddressBookWithName, name),
-                HomeChildNameAlreadyExistsError,
-            )
-
-
-    @inlineCallbacks
     def test_removeAddressBookWithName_exists(self):
         """
         L{IAddressBookHome.removeAddressBookWithName} removes a addressbook that already
@@ -872,7 +857,8 @@ class CommonTests(CommonCommonTests):
         home3 = yield self.transactionUnderTest().addressbookHomeWithUID(
             "home3", create=True
         )
-        self.assertIdentical((yield home3.addressbookWithName("addressbook")), None)
+        ab = yield home3.addressbookWithName("addressbook")
+        self.assertEquals((yield ab.addressbookObjects()), [])
 
 
     @inlineCallbacks
@@ -882,11 +868,11 @@ class CommonTests(CommonCommonTests):
         user's via uid or name queries.
         """
         home1 = yield self.homeUnderTest()
-        home2 = yield self.transactionUnderTest().addressbookHomeWithUID(
+        home3 = yield self.transactionUnderTest().addressbookHomeWithUID(
             "home3", create=True)
         addressbook1 = yield home1.addressbookWithName("addressbook")
-        addressbook2 = yield home2.addressbookWithName("addressbook")
-        objects = list((yield (yield home2.addressbookWithName("addressbook")).addressbookObjects()))
+        addressbook2 = yield home3.addressbookWithName("addressbook")
+        objects = list((yield (yield home3.addressbookWithName("addressbook")).addressbookObjects()))
         self.assertEquals(objects, [])
         for resourceName in self.requirements['home1']['addressbook'].keys():
             obj = yield addressbook1.addressbookObjectWithName(resourceName)
