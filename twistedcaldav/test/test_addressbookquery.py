@@ -42,7 +42,7 @@ class AddressBookQuery(StoreTestCase):
         uid = "ED7A5AEC-AB19-4CE0-AD6A-2923A3E5C4E1:ABPerson"
 
         return self.simple_vcard_query(
-            "/addressbook_query_uid/",
+            "/addressbook/",
             carddavxml.PropertyFilter(
                 carddavxml.TextMatch.fromString(uid),
                 name="UID",
@@ -57,7 +57,7 @@ class AddressBookQuery(StoreTestCase):
         """
         uids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
 
-        return self.simple_vcard_query("/addressbook_query_vcards/", None, uids)
+        return self.simple_vcard_query("/addressbook/", None, uids)
 
 
     def test_addressbook_query_limited_with_data(self):
@@ -77,7 +77,7 @@ class AddressBookQuery(StoreTestCase):
 
         uids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
 
-        d = self.simple_vcard_query("/addressbook_query_vcards/", None, uids, limit=1)
+        d = self.simple_vcard_query("/addressbook/", None, uids, limit=1)
         d.addCallbacks(_restoreValueOK, _restoreValueError)
         return d
 
@@ -99,7 +99,7 @@ class AddressBookQuery(StoreTestCase):
 
         uids = [r[0] for r in (os.path.splitext(f) for f in os.listdir(self.vcards_dir)) if r[1] == ".vcf"]
 
-        d = self.simple_vcard_query("/addressbook_query_vcards/", None, uids, withData=False)
+        d = self.simple_vcard_query("/addressbook/", None, uids, withData=False)
         d.addCallbacks(_restoreValueOK, _restoreValueError)
         return d
 
@@ -174,7 +174,7 @@ class AddressBookQuery(StoreTestCase):
 
     @inlineCallbacks
     def addressbook_query(self, addressbook_uri, query, got_xml):
-
+        '''
         mkcol = """<?xml version="1.0" encoding="utf-8" ?>
 <D:mkcol xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
 <D:set>
@@ -190,7 +190,7 @@ class AddressBookQuery(StoreTestCase):
 
         if response.code != responsecode.CREATED:
             self.fail("MKCOL failed: %s" % (response.code,))
-
+        '''
         # Add vCards to addressbook
         for child in FilePath(self.vcards_dir).children():
             if os.path.splitext(child.basename())[1] != ".vcf":

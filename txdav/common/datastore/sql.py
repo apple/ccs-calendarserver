@@ -1763,10 +1763,12 @@ class CommonHome(LoggingMixIn):
         if child is None:
             raise NoSuchHomeChildError()
 
-        resourceID = child._resourceID
+        #resourceID = child._resourceID
         yield child.remove()
         self._children.pop(name, None)
-        self._children.pop(resourceID, None)
+        # FIX ME:  need to keep resourceID around so that default calendars work:
+        # see twistedcaldav.scheduling_store.caldav.test.test_resource.DefaultCalendar.test_missing_default_vevent_calendar
+        # self._children.pop(resourceID, None)
 
 
     @classproperty
@@ -2693,6 +2695,7 @@ class SharingMixIn(object):
 
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
+        yield shareeHome.notifyChanged()
 
         returnValue(bindName)
 
@@ -2771,6 +2774,7 @@ class SharingMixIn(object):
 
             # Must send notification to ensure cache invalidation occurs
             yield self.notifyChanged()
+            yield shareeView.viewerHome().notifyChanged()
 
         returnValue(shareeView._name)
 
@@ -2798,6 +2802,7 @@ class SharingMixIn(object):
 
                 # Must send notification to ensure cache invalidation occurs
                 yield self.notifyChanged()
+                yield shareeHome.notifyChanged()
                 break
 
         # delete binds including invites
