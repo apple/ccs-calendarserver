@@ -1594,6 +1594,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
     @inlineCallbacks
     def setComponent(self, component, inserting=False):
 
+        self._componentChanged = False
         validateAddressBookComponent(self, self._addressbook, component, inserting)
         yield self.updateDatabase(component, inserting=inserting)
         yield self._changeAddressBookRevision(self._addressbook, inserting)
@@ -1610,7 +1611,10 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 # update revisions table of shared group's containing address book
                 yield self._changeAddressBookRevision(self.ownerHome().addressbook(), inserting)
 
+        # TODO:  a better job here!
+        self._componentChanged = (self._component != component)
         self._component = component
+        returnValue(self._componentChanged)
 
 
     @classmethod

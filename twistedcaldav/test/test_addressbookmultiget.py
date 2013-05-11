@@ -46,7 +46,7 @@ class AddressBookMultiget (StoreTestCase):
 
         baduids = ["12345%40example.com", "67890%40example.com"]
 
-        return self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids)
+        return self.simple_vcard_multiget("/addressbook/", okuids, baduids)
 
 
     def test_multiget_all_vcards(self):
@@ -57,7 +57,7 @@ class AddressBookMultiget (StoreTestCase):
 
         baduids = ["12345%40example.com", "67890%40example.com"]
 
-        return self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids)
+        return self.simple_vcard_multiget("/addressbook/", okuids, baduids)
 
 
     def test_multiget_limited_with_data(self):
@@ -78,7 +78,7 @@ class AddressBookMultiget (StoreTestCase):
 
         baduids = ["12345%40example.com", "67890%40example.com"]
 
-        d = self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids)
+        d = self.simple_vcard_multiget("/addressbook/", okuids, baduids)
         d.addCallbacks(_restoreValueOK, _restoreValueError)
         return d
 
@@ -101,7 +101,7 @@ class AddressBookMultiget (StoreTestCase):
 
         baduids = ["12345%40example.com", "67890%40example.com"]
 
-        return self.simple_vcard_multiget("/addressbook_multiget_vcards/", okuids, baduids, withData=False)
+        return self.simple_vcard_multiget("/addressbook/", okuids, baduids, withData=False)
 
 
     def simple_vcard_multiget(self, vcard_uri, okuids, baduids, data=None, no_init=False, withData=True):
@@ -195,6 +195,7 @@ class AddressBookMultiget (StoreTestCase):
     def addressbook_query(self, addressbook_uri, query, got_xml, data, no_init):
 
         if not no_init:
+            '''
             mkcol = """<?xml version="1.0" encoding="utf-8" ?>
 <D:mkcol xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
 <D:set>
@@ -210,7 +211,7 @@ class AddressBookMultiget (StoreTestCase):
 
             if response.code != responsecode.CREATED:
                 self.fail("MKCOL failed: %s" % (response.code,))
-
+            '''
             if data:
                 for filename, icaldata in data.iteritems():
                     request = SimpleStoreRequest(self, "PUT", joinURL(addressbook_uri, filename + ".vcf"), authid="wsanchez")

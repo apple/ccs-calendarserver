@@ -23,7 +23,7 @@ from twistedcaldav import caldavxml, customxml
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
-from txdav.common.datastore.upgrade.sql.upgrades.util import rowsForProperty, updateDataVersion, \
+from txdav.common.datastore.upgrade.sql.upgrades.util import rowsForProperty, updateCalendarDataVersion, \
     updateAllCalendarHomeDataVersions, removeProperty, cleanPropertyStore
 from txdav.xml.parser import WebDAVDocument
 from txdav.xml import element
@@ -47,7 +47,7 @@ def doUpgrade(sqlStore):
     yield removeResourceType(sqlStore)
 
     # Always bump the DB value
-    yield updateDataVersion(sqlStore, "CALENDAR-DATAVERSION", UPGRADE_TO_VERSION)
+    yield updateCalendarDataVersion(sqlStore, UPGRADE_TO_VERSION)
     yield updateAllCalendarHomeDataVersions(sqlStore, UPGRADE_TO_VERSION)
 
 
