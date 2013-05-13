@@ -398,11 +398,6 @@ class AddressBook(CommonHomeChild, SharingMixIn):
         return ResourceType.addressbook  #@UndefinedVariable
 
 
-    #FIXME: Only used for shared group resouretype in SharedResourceMixin.upgradeToShare() and SharedResourceMixin.downgradeFromShare()
-    def objectResourcesHaveProperties(self):
-        return True
-
-
     ownerAddressBookHome = CommonHomeChild.ownerHome
     viewerAddressBookHome = CommonHomeChild.viewerHome
     addressbookObjects = CommonHomeChild.objectResources
@@ -1612,7 +1607,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 yield self._changeAddressBookRevision(self.ownerHome().addressbook(), inserting)
 
         # TODO:  a better job here!
-        self._componentChanged = (self._component != component)
+        #self._componentChanged = (self._component != component)
         self._component = component
         returnValue(self._componentChanged)
 

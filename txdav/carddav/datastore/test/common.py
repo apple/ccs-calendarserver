@@ -32,7 +32,7 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.carddav.iaddressbookstore import IAddressBookObject, IAddressBookHome, \
     IAddressBook, IAddressBookTransaction
 from txdav.common.datastore.test.util import CommonCommonTests
-from txdav.common.icommondatastore import HomeChildNameAlreadyExistsError, InvalidUIDError
+from txdav.common.icommondatastore import InvalidUIDError
 from txdav.common.icommondatastore import ICommonTransaction
 from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError

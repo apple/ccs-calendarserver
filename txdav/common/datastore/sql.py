@@ -3145,9 +3145,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         if dataRows:
             # Get property stores
             childResourceIDs = [dataRow[2] for dataRow in dataRows]
-            propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
-                home.uid(), home._txn, childResourceIDs
-            )
+
+            # FIXME: The following returns {} for twistedcaldav.test.test_sharing.SharingTests.test_noWikiAccess
+            # propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
+            #    home.uid(), home._txn, childResourceIDs
+            #)
+            propertyStores = (yield PropertyStore.forMultipleResources(
+                home.uid(), home._txn,
+                cls._bindSchema.RESOURCE_ID, cls._bindSchema.HOME_RESOURCE_ID,
+                home._resourceID
+            ))
 
             # Get revisions
             revisions = (yield cls._revisionsForResourceIDs(childResourceIDs).on(home._txn, resourceIDs=childResourceIDs))

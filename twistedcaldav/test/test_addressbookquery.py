@@ -174,7 +174,7 @@ class AddressBookQuery(StoreTestCase):
 
     @inlineCallbacks
     def addressbook_query(self, addressbook_uri, query, got_xml):
-        '''
+        ''' FIXME: clear address book, possibly by removing
         mkcol = """<?xml version="1.0" encoding="utf-8" ?>
 <D:mkcol xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
 <D:set>

@@ -2969,7 +2969,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         else:
             returnValue(None)
 
-
+    ''' DELETE just re-creates addressbook
     @inlineCallbacks
     def storeRemove(self, request):
         """
@@ -3006,6 +3006,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         )
 
         returnValue(response)
+    '''
 
 
     def http_MOVE(self, request):
@@ -3207,7 +3208,7 @@ class AddressBookObjectResource(_CommonObjectResource):
                 FORBIDDEN,
                 "Sharee cannot delete a shared group",)
             )
-
+    
     @inlineCallbacks
     def accessControlList(self, request, *a, **kw):
         """
