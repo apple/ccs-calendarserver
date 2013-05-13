@@ -349,6 +349,7 @@ class BaseServiceMakerTests(StoreTestCase):
         self.config.Memcached.Pools.Default.ClientEnabled = False
         self.config.Memcached.Pools.Default.ServerEnabled = False
         self.config.DirectoryAddressBook.Enabled = False
+        self.config.UsePackageTimezones = True
 
         if self.configOptions:
             self.config.update(self.configOptions)

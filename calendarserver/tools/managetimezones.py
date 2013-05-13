@@ -25,6 +25,9 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.filepath import FilePath
 
+from calendarserver.tools.util import loadConfig
+from twistedcaldav.config import ConfigurationError
+from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezonestdservice import PrimaryTimezoneDatabase, \
     SecondaryTimezoneDatabase
 
@@ -36,6 +39,7 @@ import sys
 import tarfile
 import tempfile
 import urllib
+from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 
 def _doPrimaryActions(action, tzpath, xmlfile, changed, tzvers):
@@ -68,10 +72,9 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
 
     print("Downloading latest data from IANA")
     if tzvers:
-        path = "http://www.iana.org/time-zones/repository/releases/tzdata%s.tar.gz" % (tzvers,)
+        path = "https://www.iana.org/time-zones/repository/releases/tzdata%s.tar.gz" % (tzvers,)
     else:
-        path = "http://www.iana.org/time-zones/repository/tzdata-latest.tar.gz"
-        tzvers = "Latest (%s)" % (PyCalendarDateTime.getToday().getText(),)
+        path = "https://www.iana.org/time-zones/repository/tzdata-latest.tar.gz"
     data = urllib.urlretrieve(path)
     print("Extract data at: %s" % (data[0]))
     rootdir = tempfile.mkdtemp()
@@ -79,7 +82,21 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
     os.mkdir(zonedir)
     with tarfile.open(data[0], "r:gz") as t:
         t.extractall(zonedir)
-    print("Converting data at: %s" % (zonedir,))
+
+    # Get the version from the Makefile
+    try:
+        makefile = open(os.path.join(zonedir, "Makefile")).read()
+        lines = makefile.splitlines()
+        for line in lines:
+            if line.startswith("VERSION="):
+                tzvers = line[8:].strip()
+                break
+    except IOError:
+        pass
+
+    if not tzvers:
+        tzvers = PyCalendarDateTime.getToday().getText()
+    print("Converting data (version: %s) at: %s" % (tzvers, zonedir,))
     startYear = 1800
     endYear = PyCalendarDateTime.getToday().getYear() + 10
     PyCalendar.sProdID = "-//calendarserver.org//Zonal//EN"
@@ -106,7 +123,7 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
     versfile = os.path.join(os.path.dirname(xmlfile), "version.txt")
     print("Updating version file at: %s" % (versfile,))
     with open(versfile, "w") as f:
-        f.write("Olson data source: %s\n" % (tzvers,))
+        f.write(TimezoneCache.IANA_VERSION_PREFIX + tzvers)
 
 
 
@@ -212,26 +229,29 @@ def usage(error_msg=None):
     print("""Usage: managetimezones [options]
 Options:
     -h            Print this help and exit
-    -f            XML file path
+    -f            config file path [REQUIRED]
+    -x            XML file path
     -z            zoneinfo file path
+    --tzvers      year/release letter of IANA data to refresh
+                  default: use the latest release
+    --url         URL or domain of secondary service
 
     # Primary service
     --refresh     refresh data from IANA
+    --refreshpkg  refresh package data from IANA
     --create      create new XML file
     --update      update XML file
     --list        list timezones in XML file
     --changed     changed since timestamp
 
-    --tzvers      year/release letter of IANA data to refresh
-                  default: use the latest release
 
     # Secondary service
-    --url         URL or domain of service
     --cache       Cache data from service
 
 Description:
-    This utility will create, update or list an XML timezone database
-    summary file, or refresh iCalendar timezone from IANA (Olson).
+    This utility will create, update, or list an XML timezone database
+    summary file, or refresh iCalendar timezone from IANA (Olson). It can
+    also be used to update the server's own zoneinfo database from IANA.
 
 """)
 
@@ -243,6 +263,7 @@ Description:
 
 
 def main():
+    configFileName = DEFAULT_CONFIG_FILE
     primary = False
     secondary = False
     action = None
@@ -251,13 +272,15 @@ def main():
     changed = None
     url = None
     tzvers = None
+    updatepkg = False
 
     # Get options
     options, _ignore_args = getopt.getopt(
         sys.argv[1:],
-        "hf:z:",
+        "f:hx:z:",
         [
             "refresh",
+            "refreshpkg",
             "create",
             "update",
             "list",
@@ -272,12 +295,18 @@ def main():
         if option == "-h":
             usage()
         elif option == "-f":
+            configFileName = value
+        elif option == "-x":
             xmlfile = value
         elif option == "-z":
             tzpath = value
         elif option == "--refresh":
             action = "refresh"
             primary = True
+        elif option == "--refreshpkg":
+            action = "refresh"
+            primary = True
+            updatepkg = True
         elif option == "--create":
             action = "create"
             primary = True
@@ -302,16 +331,29 @@ def main():
         else:
             usage("Unrecognized option: %s" % (option,))
 
+    if configFileName is None:
+        usage("A configuration file must be specified")
+    try:
+        loadConfig(configFileName)
+    except ConfigurationError, e:
+        sys.stdout.write("%s\n" % (e,))
+        sys.exit(1)
+
     if action is None:
         action = "list"
         primary = True
     if tzpath is None:
-        try:
-            import pkg_resources
-        except ImportError:
-            tzpath = os.path.join(os.path.dirname(__file__), "zoneinfo")
+        if updatepkg:
+            try:
+                import pkg_resources
+            except ImportError:
+                tzpath = os.path.join(os.path.dirname(__file__), "zoneinfo")
+            else:
+                tzpath = pkg_resources.resource_filename("twistedcaldav", "zoneinfo") #@UndefinedVariable
         else:
-            tzpath = pkg_resources.resource_filename("twistedcaldav", "zoneinfo") #@UndefinedVariable
+            # Setup the correct zoneinfo path based on the config
+            tzpath = TimezoneCache.getDBPath()
+            TimezoneCache.validatePath()
     if xmlfile is None:
         xmlfile = os.path.join(tzpath, "timezones.xml")
 

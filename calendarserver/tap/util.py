@@ -588,6 +588,10 @@ def getRootResource(config, newStore, resources=None):
         resource = FileResource(info["path"])
         root.putChild(name, resource)
 
+    # Need timezone cache before setting up any timezone service
+    log.info("Setting up Timezone Cache")
+    TimezoneCache.create()
+
     # Timezone service is optional
     if config.EnableTimezoneService:
         log.info("Setting up time zone service resource: %r"
@@ -678,9 +682,6 @@ def getRootResource(config, newStore, resources=None):
     #
     # Configure ancillary data
     #
-    log.info("Setting up Timezone Cache")
-    TimezoneCache.create()
-
     log.info("Configuring authentication wrapper")
 
     overrides = {}

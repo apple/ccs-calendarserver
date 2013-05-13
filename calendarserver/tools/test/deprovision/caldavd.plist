@@ -688,6 +688,9 @@
     <key>EnableTimezoneService</key>
     <true/>
 
+	<key>UsePackageTimezones</key>
+	<true/>
+
 
     <!--
         Miscellaneous items

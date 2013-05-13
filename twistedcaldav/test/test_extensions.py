@@ -16,16 +16,17 @@
 ##
 
 from twext.python.filepath import CachingFilePath as FilePath
-from txdav.xml.element import WebDAVElement, ResourceType
-from txdav.xml.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
 from twext.web2.static import MetaDataMixin
 
 from twisted.internet.defer import inlineCallbacks, Deferred, succeed
-from twisted.trial.unittest import TestCase
 from twisted.web.microdom import parseString
 
 from twistedcaldav.extensions import DAVFile, DAVResourceWithChildrenMixin, extractCalendarServerPrincipalSearchData
+from twistedcaldav.test.util import TestCase
+
+from txdav.xml.element import WebDAVElement, ResourceType
+from txdav.xml.parser import WebDAVDocument
 
 from xml.etree.cElementTree import XML
 
@@ -37,6 +38,7 @@ class UnicodeProperty(WebDAVElement):
     name = u'unicode'
 
     allowed_children = {}
+
 
 
 class StrProperty(WebDAVElement):
@@ -74,7 +76,7 @@ class SimpleFakeRequest(object):
 def browserHTML2ETree(htmlString):
     """
     Loosely interpret an HTML string as XML and return an ElementTree object for it.
-    
+
     We're not promising strict XML (in fact, we're specifically saying HTML) in
     the content-type of certain responses, but it's much easier to work with
     the ElementTree data structures present in Python 2.5+ for testing; so
@@ -222,6 +224,7 @@ class ChildTraversalTests(TestCase):
         self.assertEquals(result[1], ['burger'])
 
 
+
 class CalendarServerPrincipalSearchTests(TestCase):
     def test_extractCalendarServerPrincipalSearchData(self):
         """
@@ -237,12 +240,11 @@ class CalendarServerPrincipalSearchTests(TestCase):
 </B:calendarserver-principal-search>
 """
         doc = WebDAVDocument.fromString(data)
-        tokens, context, applyTo, clientLimit, propElement =  extractCalendarServerPrincipalSearchData(doc.root_element)
+        tokens, context, applyTo, clientLimit, _ignore_propElement = extractCalendarServerPrincipalSearchData(doc.root_element)
         self.assertEquals(tokens, ["morgen"])
         self.assertEquals(context, "attendee")
         self.assertFalse(applyTo)
         self.assertEquals(clientLimit, None)
-
 
         data = """<B:calendarserver-principal-search xmlns:A="DAV:" xmlns:B="http://calendarserver.org/ns/">
   <B:search-token>morgen</B:search-token>
@@ -258,7 +260,7 @@ class CalendarServerPrincipalSearchTests(TestCase):
 </B:calendarserver-principal-search>
 """
         doc = WebDAVDocument.fromString(data)
-        tokens, context, applyTo, clientLimit, propElement =  extractCalendarServerPrincipalSearchData(doc.root_element)
+        tokens, context, applyTo, clientLimit, _ignore_propElement = extractCalendarServerPrincipalSearchData(doc.root_element)
         self.assertEquals(tokens, ["morgen", "sagen"])
         self.assertEquals(context, None)
         self.assertTrue(applyTo)
