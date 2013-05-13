@@ -85,10 +85,16 @@ class _PostgresMonitor(ProcessProtocol):
 
 
     def processEnded(self, reason):
-        log.warn("postgres process ended %r" % (reason,))
-        result = (reason.value.status == 0)
+        log.warn("postgres process ended with status %d" % (reason.value.status,))
+        # If pg_ctl exited with zero, we were successful in starting postgres
+        # If pg_ctl exited with nonzero, we need to give up.
         self.lineReceiver.connectionLost(reason)
-        self.completionDeferred.callback(result)
+
+        if reason.value.status == 0:
+            self.completionDeferred.callback(None)
+        else:
+            log.warn("Could not start postgres; see postgres.log")
+            self.completionDeferred.errback(reason)
 
 
 
@@ -446,13 +452,14 @@ class PostgresService(MultiService):
         )
         self.monitor = monitor
         def gotReady(result):
-            log.warn("%s successful" % (pgCtl,))
-            self.shouldStopDatabase = result
+            log.warn("%s exited" % (pgCtl,))
+            self.shouldStopDatabase = True
             self.ready(*createConnection())
             self.deactivateDelayedShutdown()
         def reportit(f):
             log.err(f)
             self.deactivateDelayedShutdown()
+            self.reactor.stop()
         self.monitor.completionDeferred.addCallback(
             gotReady).addErrback(reportit)
 
