@@ -1772,9 +1772,11 @@ class CommonHome(LoggingMixIn):
         child = yield self.childWithName(name)
         if child is None:
             raise NoSuchHomeChildError()
+        resourceID = child._resourceID
 
         yield child.remove()
         self._children.pop(name, None)
+        self._children.pop(resourceID, None)
 
 
     @classproperty

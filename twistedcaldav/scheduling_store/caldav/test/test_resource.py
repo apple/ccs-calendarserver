@@ -158,7 +158,7 @@ class DefaultCalendar (StoreTestCase):
     @inlineCallbacks
     def test_missing_default_vevent_calendar(self):
         """
-        Test that pickNewDefaultCalendar will create a missing default calendar.
+        Test that readProperty will not create a missing default calendar.
         """
 
         request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
@@ -174,8 +174,9 @@ class DefaultCalendar (StoreTestCase):
         names = [calendarName for calendarName in (yield home._newStoreHome.listCalendars())]
         self.assertTrue("calendar" not in names)
 
+        # Property is empty now
         default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)
-        self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
+        self.assertEqual(len(default.children), 0)
 
         yield self.abort()
 
@@ -183,7 +184,7 @@ class DefaultCalendar (StoreTestCase):
     @inlineCallbacks
     def test_missing_default_vtodo_calendar(self):
         """
-        Test that pickNewDefaultCalendar will create a missing default tasks calendar.
+        Test that readProperty will not create a missing default calendar.
         """
 
         request = SimpleStoreRequest(self, "GET", "/calendars/users/wsanchez/")
@@ -199,8 +200,9 @@ class DefaultCalendar (StoreTestCase):
         names = [calendarName for calendarName in (yield home._newStoreHome.listCalendars())]
         self.assertTrue("tasks" not in names)
 
+        # Property is empty now
         default = yield inbox.readProperty(customxml.ScheduleDefaultTasksURL, request)
-        self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/tasks")
+        self.assertEqual(len(default.children), 0)
 
         yield self.abort()
 
