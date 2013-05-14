@@ -372,6 +372,20 @@ class AddressBook(CommonHomeChild, SharingMixIn):
     def __repr__(self):
         return '<%s: %s("%s")>' % (self.__class__.__name__, self._resourceID, self.name())
 
+    @inlineCallbacks
+    def _init_isShared(self):
+        """
+            Temporary hack to set isShared on the owner addressbook
+            1) This is not up to spec because an addressbook can be shared even without invitations
+            2) This should be setup in AddressBookHome.initFromStore, but calling asShared() from there creates a loop
+            3) It would be a better hack to change self.addressbook() to a deferred. But his is sufficient for now.
+        """
+        if not hasattr(self, "_isShared_inited"):
+            isShared = bool((yield self.asShared())) or bool((yield self.asInvited()))
+            yield self.setShared(isShared)
+            self._isShared_inited = True
+        else:
+            yield None
 
     def getCreated(self):
         return self.ownerHome()._created
@@ -641,7 +655,9 @@ END:VCARD
         operations to keep this constant wrt the number of children.  This is an
         optimization for Depth:1 operations on the home.
         """
-        results = [home.addressbook(), ]
+        addressbook = home.addressbook()
+        yield addressbook._init_isShared()
+        results = [addressbook]
         ownerHomeToDataRowMap = {}
 
         # Load from the main table first
@@ -721,7 +737,9 @@ END:VCARD
             exists.
         """
         if accepted and name == home.addressbook().name():
-            returnValue(home.addressbook())
+            addressbook = home.addressbook()
+            yield addressbook._init_isShared()
+            returnValue(addressbook)
 
         #all shared address books now
         rows = None
@@ -851,7 +869,9 @@ END:VCARD
             exists.
         """
         if home._resourceID == resourceID:
-            returnValue(home.addressbook())
+            addressbook = home.addressbook()
+            yield addressbook._init_isShared()
+            returnValue(addressbook)
 
         bindRows = yield cls._bindForResourceIDAndHomeID.on(
             home._txn, resourceID=resourceID, homeID=home._resourceID
@@ -1431,6 +1451,20 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @inlineCallbacks
+    def _init_isShared(self):
+        """
+            Temporary hack to set isShared on the owner group
+            1) This is not up to spec because an group can be shared even without invitations
+        """
+        if not hasattr(self, "_isShared_inited"):
+            isShared = bool((yield self.asShared())) or bool((yield self.asInvited()))
+            yield self.setShared(isShared)
+            self._isShared_inited = True
+        else:
+            yield None
+
+
+    @inlineCallbacks
     def initFromStore(self):
         """
         Initialise this object from the store. We read in and cache all the
@@ -1512,6 +1546,9 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                     self._bindStatus = bindStatus
                     self._bindMessage = bindMessage
                     self._bindName = bindName
+
+                    if self.owned():
+                        yield self._init_isShared()
 
             yield self._loadPropertyStore()
 
