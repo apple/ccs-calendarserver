@@ -29,6 +29,7 @@ from uuid import uuid4
 
 from twext.enterprise.dal.syntax import Delete, Insert, Len, Parameter, \
     Update, Union, Max, Select, utcNowSQL
+from twext.enterprise.locking import NamedLock
 from twext.python.clsprop import classproperty
 from twext.web2.http import HTTPError
 from twext.web2.http_headers import MimeType
@@ -37,13 +38,13 @@ from twext.web2.responsecode import FORBIDDEN
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import hashlib
 from twistedcaldav import carddavxml, customxml
+from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError, \
     vCardProductID, Property
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.sql import PropertyStore
-from txdav.carddav.datastore.util import validateAddressBookComponent
 from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook, \
     IAddressBookObject, GroupForSharedAddressBookDeleteNotAllowedError, \
     GroupWithUnsharedAddressNotAllowedError, SharedGroupDeleteNotAllowedError
@@ -55,7 +56,10 @@ from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
     _BIND_MODE_OWN, _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, \
     _BIND_STATUS_DECLINED, _BIND_STATUS_INVITED
 from txdav.common.icommondatastore import InternalDataStoreError, \
+    InvalidUIDError, UIDExistsError, ObjectResourceTooBigError, \
+    InvalidObjectResourceError, InvalidComponentForStoreError, \
     AllRetriesFailed
+
 from txdav.xml.rfc2518 import ResourceType
 
 from zope.interface.declarations import implements
@@ -1586,11 +1590,81 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         yield addressbook.notifyChanged()
 
 
+    # Stuff from put_addressbook_common
+    def fullValidation(self, component, inserting):
+        """
+        Do full validation of source and destination calendar data.
+        """
+
+        # Basic validation
+
+        # Valid data sizes
+        if config.MaxResourceSize:
+            vcardsize = len(str(component))
+            if vcardsize > config.MaxResourceSize:
+                raise ObjectResourceTooBigError()
+
+        # Valid calendar data checks
+        self.validAddressDataCheck(component, inserting)
+
+
+    def validAddressDataCheck(self, component, inserting):  #@UnusedVariable
+        """
+        Check that the calendar data is valid iCalendar.
+        @return:         tuple: (True/False if the calendar data is valid,
+                                 log message string).
+        """
+
+        # Valid calendar data checks
+        if not isinstance(component, VCard):
+            raise InvalidObjectResourceError("Wrong type of object: %s" % (type(component),))
+
+        try:
+            component.validVCardData()
+        except InvalidVCardDataError, e:
+            raise InvalidObjectResourceError(str(e))
+        try:
+            component.validForCardDAV()
+        except InvalidVCardDataError, e:
+            raise InvalidComponentForStoreError(str(e))
+
+
+    @inlineCallbacks
+    def _lockUID(self, component, inserting):
+        """
+        Create a lock on the component's UID and verify, after getting the lock, that the incoming UID
+        meets the requirements of the store.
+        """
+
+        new_uid = component.resourceUID()
+        yield NamedLock.acquire(self._txn, "vCardUIDLock:%s" % (hashlib.md5(new_uid).hexdigest(),))
+
+        # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
+        # try to write the same calendar data to two different resource URIs.
+
+        # Cannot overwrite a resource with different UID
+        if not inserting:
+            if self._uid != new_uid:
+                raise InvalidUIDError("Cannot change the UID in an existing resource.")
+        else:
+            # New UID must be unique for the owner - no need to do this on an overwrite as we can assume
+            # the store is already consistent in this regard
+            elsewhere = (yield self.addressbook().addressbookObjectWithUID(new_uid))
+            if elsewhere is not None:
+                raise UIDExistsError("UID already exists in same addressbook.")
+
+
     @inlineCallbacks
     def setComponent(self, component, inserting=False):
 
         self._componentChanged = False
-        validateAddressBookComponent(self, self._addressbook, component, inserting)
+
+        # Handle all validation operations here.
+        self.fullValidation(component, inserting)
+
+        # UID lock - this will remain active until the end of the current txn
+        yield self._lockUID(component, inserting)
+
         yield self.updateDatabase(component, inserting=inserting)
         yield self._changeAddressBookRevision(self._addressbook, inserting)
 
@@ -1606,8 +1680,6 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 # update revisions table of shared group's containing address book
                 yield self._changeAddressBookRevision(self.ownerHome().addressbook(), inserting)
 
-        # TODO:  a better job here!
-        #self._componentChanged = (self._component != component)
         self._component = component
         returnValue(self._componentChanged)
 
@@ -1720,6 +1792,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
             # don't store group members in object text
 
+            orginialComponent = str(component)
             # sort addresses in component text
             memberAddresses = component.resourceMemberAddresses()
             component.removeProperties("X-ADDRESSBOOKSERVER-MEMBER")
@@ -1730,6 +1803,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             componentText = str(component)
             self._md5 = hashlib.md5(componentText).hexdigest()
             self._size = len(componentText)
+            self._componentChanged = componentText != orginialComponent
 
             # remove members from component get new text
             component.removeProperties("X-ADDRESSBOOKSERVER-MEMBER")

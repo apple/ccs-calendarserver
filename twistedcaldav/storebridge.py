@@ -460,8 +460,7 @@ class _CommonHomeChildCollectionMixin(object):
         """
 
         # Check sharee collection first
-        isShareeResource = self.isShareeResource()
-        if isShareeResource:
+        if self.isShareeResource():
             log.debug("Removing shared collection %s" % (self,))
             yield self.removeShareeCollection(request)
             returnValue(NO_CONTENT)

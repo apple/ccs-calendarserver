@@ -3048,6 +3048,16 @@ class SharingMixIn(object):
         )
 
 
+    @inlineCallbacks
+    def invalidateQueryCache(self):
+        queryCacher = self._txn._queryCacher
+        if queryCacher is not None:
+            cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
+            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+            cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, self._name)
+            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+
+
 
 class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
     """
@@ -3410,16 +3420,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
-
-
-    @inlineCallbacks
-    def invalidateQueryCache(self):
-        queryCacher = self._txn._queryCacher
-        if queryCacher is not None:
-            cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
-            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-            cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, self._name)
-            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
 
     def exists(self):
