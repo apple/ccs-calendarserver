@@ -2901,7 +2901,7 @@ class SharingMixIn(object):
         Set an owned collection to shared or unshared state. Technically this is not useful as "shared"
         really means it has invitees, but the current sharing spec supports a notion of a shared collection
         that has not yet had invitees added. For the time being we will support that option by using a new
-        BINS_STATUS value to indicate an owned collection that is "shared".
+        MESSAGE value to indicate an owned collection that is "shared".
 
         @param shared: whether or not the owned collection is "shared"
         @type shared: C{bool}

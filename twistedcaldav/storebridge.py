@@ -3060,14 +3060,22 @@ class AddressBookObjectResource(_CommonObjectResource):
     }
 
 
+    def resourceType(self):
+        if self.isShared():
+            return customxml.ResourceType.sharedownergroup
+        elif self.isShareeResource():
+            return customxml.ResourceType.sharedgroup
+        else:
+            return super(AddressBookObjectResource, self).resourceType()
+
+
     @inlineCallbacks
     def storeRemove(self, request):
         """
         Remove this address book object
         """
         # Handle sharing
-        wasShared = (yield self.isShared())
-        if wasShared:
+        if self.isShared():
             yield self.downgradeFromShare(request)
 
         response = (

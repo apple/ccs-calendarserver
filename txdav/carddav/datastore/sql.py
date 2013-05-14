@@ -896,6 +896,33 @@ END:VCARD
         return not self.owned() and self._bindStatus == _BIND_STATUS_ACCEPTED
 
 
+    @inlineCallbacks
+    def setShared(self, shared):
+        """
+        Set an owned collection to shared or unshared state. Technically this is not useful as "shared"
+        really means it has invitees, but the current sharing spec supports a notion of a shared collection
+        that has not yet had invitees added. For the time being we will support that option by using a new
+        MESSAGE value to indicate an owned collection that is "shared".
+
+        @param shared: whether or not the owned collection is "shared"
+        @type shared: C{bool}
+        """
+        assert self.owned()
+
+        self._bindMessage = "shared" if shared else None
+
+        ''' FIXME:  Make shared persistent:  Owned group does not have a bind table
+        bind = self._bindSchema
+        yield Update(
+            {bind.MESSAGE: self._bindMessage},
+            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
+                  .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+        ).on(self._txn, resourceID=self._resourceID, homeID=self.viewerHome()._resourceID)
+        '''
+        yield self.invalidateQueryCache()
+        yield self.notifyChanged()
+
+
     @classmethod
     @inlineCallbacks
     def listObjects(cls, home):
@@ -1223,8 +1250,8 @@ END:VCARD
             )))
             if acceptedBindCount == 1:
                 sharedAddressBook._deletedSyncToken(sharedRemoval=True)
-                shareeHome._children.pop(self.sharedAddressBook.name(), None)
-                shareeHome._children.pop(self.sharedAddressBook._resourceID, None)
+                shareeHome._children.pop(sharedAddressBook.name(), None)
+                shareeHome._children.pop(sharedAddressBook._resourceID, None)
             elif not sharedAddressBook.fullyShared():
                 #FIXME: remove objects for this group only using self.removeObjectResource
                 self._objectNames = None
@@ -2037,6 +2064,32 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         @see: L{ICalendar.shareUID}
         """
         return self._bindName
+
+    @inlineCallbacks
+    def setShared(self, shared):
+        """
+        Set an owned collection to shared or unshared state. Technically this is not useful as "shared"
+        really means it has invitees, but the current sharing spec supports a notion of a shared collection
+        that has not yet had invitees added. For the time being we will support that option by using a new
+        MESSAGE value to indicate an owned collection that is "shared".
+
+        @param shared: whether or not the owned collection is "shared"
+        @type shared: C{bool}
+        """
+        assert self.owned()
+
+        self._bindMessage = "shared" if shared else None
+
+        ''' FIXME:  Make shared persistent:  Owned address book does not have a bind table
+        bind = self._bindSchema
+        yield Update(
+            {bind.MESSAGE: self._bindMessage},
+            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
+                  .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+        ).on(self._txn, resourceID=self._resourceID, homeID=self.viewerHome()._resourceID)
+        '''
+        yield self.invalidateQueryCache()
+        yield self.notifyChanged()
 
     @classmethod
     def metadataColumns(cls):
