@@ -2001,6 +2001,17 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         returnValue(self._component)
 
 
+    def moveValidation(self, destination, name):
+        """
+        Validate whether a move to the specified collection is allowed.
+
+        @param destination: destination address book collection
+        @type destination: L{AddressBookCollection}
+        @param name: name of new resource
+        @type name: C{str}
+        """
+        pass
+
     # IDataStoreObject
     def contentType(self):
         """

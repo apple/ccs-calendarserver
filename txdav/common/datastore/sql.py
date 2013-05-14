@@ -1839,30 +1839,6 @@ class CommonHome(LoggingMixIn):
             )
         )
 
-    ''' temp for diff
-    @inlineCallbacks
-    def changesSinceToken(self, token):
-        """
-        return list of (path, name, wasdeleted) of changes since token
-        Subclasses may override
-        """
-        results = [
-            (
-                path if path else (collection if collection else ""),
-                name if name else "",
-                wasdeleted
-            )
-            for path, collection, name, wasdeleted in (
-                yield self._changesQuery.on(
-                    self._txn,
-                    resourceID=self._resourceID,
-                    token=token
-                )
-            )
-        ]
-        returnValue(results)
-    '''
-
 
     @inlineCallbacks
     def resourceNamesSinceToken(self, token, depth):  #@UnusedVariable

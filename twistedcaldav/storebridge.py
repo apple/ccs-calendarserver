@@ -445,14 +445,6 @@ class _CommonHomeChildCollectionMixin(object):
 
         @type request: L{twext.web2.iweb.IRequest}
 
-        @param viaRequest: Indicates if the delete was a direct result of an http_DELETE
-        which for calendars at least will require implicit cancels to be sent.
-
-        @type request: C{bool}
-
-        @param where: the URI at which the resource is being deleted.
-        @type where: C{str}
-
         @return: an HTTP response suitable for sending to a client (or
             including in a multi-status).
 
@@ -1415,7 +1407,7 @@ class DropboxCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome # @UndefinedVariable
+        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
 
 
     def listChildren(self):
@@ -1467,7 +1459,7 @@ class CalendarObjectDropbox(_GetChildHelper):
 
 
     def resourceType(self):
-        return davxml.ResourceType.dropbox # @UndefinedVariable
+        return davxml.ResourceType.dropbox  # @UndefinedVariable
 
 
     @inlineCallbacks
@@ -1712,7 +1704,7 @@ class AttachmentsCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome # @UndefinedVariable
+        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
 
 
     def listChildren(self):
@@ -1815,7 +1807,7 @@ class AttachmentsChildCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropbox # @UndefinedVariable
+        return davxml.ResourceType.dropbox  # @UndefinedVariable
 
 
     @inlineCallbacks
@@ -2007,7 +1999,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
     def __init__(self, calendarObject, attachment, attachmentName, managed, **kw):
         super(CalendarAttachment, self).__init__(**kw)
-        self._newStoreCalendarObject = calendarObject # This can be None for a managed attachment
+        self._newStoreCalendarObject = calendarObject  # This can be None for a managed attachment
         self._newStoreAttachment = self._newStoreObject = attachment
         self._managed = managed
         self._dead_properties = NonePropertyStore(self)
@@ -3069,24 +3061,24 @@ class AddressBookObjectResource(_CommonObjectResource):
 
 
     @inlineCallbacks
-    def storeRemove(self, request, viaRequest, where):
+    def storeRemove(self, request):
         """
         Remove this address book object
         """
         # Handle sharing
-        wasShared = (yield self.isShared(request))
+        wasShared = (yield self.isShared())
         if wasShared:
             yield self.downgradeFromShare(request)
 
         response = (
             yield super(AddressBookObjectResource, self).storeRemove(
-                request, viaRequest, where
+                request
             )
         )
 
         returnValue(response)
-        
-        
+
+
     @inlineCallbacks
     def http_PUT(self, request):
 
@@ -3207,7 +3199,7 @@ class AddressBookObjectResource(_CommonObjectResource):
                 FORBIDDEN,
                 "Sharee cannot delete a shared group",)
             )
-    
+
     @inlineCallbacks
     def accessControlList(self, request, *a, **kw):
         """
