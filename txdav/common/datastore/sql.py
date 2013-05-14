@@ -1841,6 +1841,18 @@ class CommonHome(LoggingMixIn):
 
 
     @inlineCallbacks
+    def doChangesQuery(self, token):
+        """
+            Do the changes query.
+            Subclasses may override.
+        """
+        result = yield self._changesQuery.on(self._txn,
+                                         resourceID=self._resourceID,
+                                         token=token)
+        returnValue(result)
+
+
+    @inlineCallbacks
     def resourceNamesSinceToken(self, token, depth):  #@UnusedVariable
 
         results = [
@@ -1850,9 +1862,7 @@ class CommonHome(LoggingMixIn):
                 wasdeleted
             )
             for path, collection, name, wasdeleted in
-            (yield self._changesQuery.on(self._txn,
-                                         resourceID=self._resourceID,
-                                         token=token))
+            (yield self.doChangesQuery(token))
         ]
 
         deleted = []
