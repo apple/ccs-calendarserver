@@ -252,6 +252,7 @@ class StoreTestCase(CommonCommonTests, twext.web2.dav.test.util.TestCase):
         memcacher.Memcacher.allowTestCache = True
         memcacher.Memcacher.memoryCacheInstance = None
         config.DirectoryAddressBook.Enabled = False
+        config.UsePackageTimezones = True
 
         accounts = FilePath(config.DataRoot).child("accounts.xml")
         accounts.setContent(xmlFile.getContent())
@@ -338,6 +339,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         memcacher.Memcacher.allowTestCache = True
         memcacher.Memcacher.memoryCacheInstance = None
         config.DirectoryAddressBook.Enabled = False
+        config.UsePackageTimezones = True
 
 
     @property

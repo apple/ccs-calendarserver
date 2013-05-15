@@ -1,0 +1,107 @@
+.\"
+.\" Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+.\"
+.\" Licensed under the Apache License, Version 2.0 (the "License");
+.\" you may not use this file except in compliance with the License.
+.\" You may obtain a copy of the License at
+.\"
+.\"     http://www.apache.org/licenses/LICENSE-2.0
+.\"
+.\" Unless required by applicable law or agreed to in writing, software
+.\" distributed under the License is distributed on an "AS IS" BASIS,
+.\" WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+.\" See the License for the specific language governing permissions and
+.\" limitations under the License.
+.\"
+.\" The following requests are required for all man pages.
+.Dd May 11, 2013
+.Dt CALENDARSERVER_MANAGE_TIMEZONES 8
+.Os
+.Sh NAME
+.Nm calendarserver_manage_timezones
+.Nd Calendar Server timezone database management utility
+.Sh SYNOPSIS
+.Nm
+.Op Fl f Ar file
+.Op Fl h
+.Op Fl x Ar file
+.Op Fl z Ar directory
+.Op Fl -tzvers Ar tzdb-version
+.Op Fl -url Ar url
+.Op Fl -refresh
+.Op Fl -refreshpkg
+.Op Fl -create
+.Op Fl -update
+.Op Fl -list
+.Op Fl -changed Ar date
+.Op Fl -cache
+.Sh DESCRIPTION
+.Nm
+This utility will create, update, or list an XML timezone database
+summary XML file, or refresh timezone data from IANA, or refresh
+timezone data from another timezone server.
+.Pp
+It can also be used to update the server's own zoneinfo database
+from IANA.
+.Pp
+It should be run as a user with the same privileges as the Calendar
+Server itself, as it needs to read and write data that belongs to the
+server. If using the --refreshpkg option it will need to write to
+the actual python package data so will need to be run as root.
+.Pp
+Actions to perform are specified via the options below.  Only one
+action is allowed.
+.Sh OPTIONS
+.Bl -tag -width flag
+.It Fl h
+Displays usage information
+.It Fl f Ar FILE
+Use the Calendar Server configuration specified in the given file.
+Defaults to /etc/caldavd/caldavd.plist.
+.It Fl x Ar FILE
+Update the timezone database XML file at the specified location.
+Defaults to timezones.xml in the zoneinfo directory.
+.It Fl z Ar DIRECTORY
+Path to a zoneinfo directory where timezone data is stored.
+Defaults to the configuration file's Data/zoneinfo directory.
+.It Fl -tzvers Ar version
+Name of IANA timezone data version to use (e.g., '2013a').
+.It Fl -url
+If the server is configured as a secondary timezone zone, use this URL
+as the URL of the secondary server to pull timezone data from.
+.El
+.Sh ACTIONS
+.Bl -tag -width flag
+.It Fl -refresh
+Update the zoneinfo data from the IANA registry.
+.It Fl -refreshpkg
+Update the server's zoneinfo package data from the IANA registry.
+This updates twistedcaldav.zoneinfo and should only be used by
+server developers wishing to update the server repository.
+.It Fl -create
+Create a new timezone database XML file based on the timezone data
+currently in the zoneinfo directory.
+.It Fl -update
+Update the timezone database XML file based on the timezone data
+currently in the zoneinfo directory.
+.It Fl -list
+List the timezones specified in the timezone database XML file.
+.It Fl -changed Ar date
+List the timezones in the timezone database XML file that have changed
+since the specified date value (YYYYMMHH).
+.It Fl -cache
+Update the server's timezone database by pulling data from a primary
+timezone server.
+.El
+.Sh EXAMPLES
+Update the server's timezone data from the latest IANA data:
+.Pp
+.Dl "calendarserver_manage_timezones --refesh"
+.Pp
+.Sh FILES
+.Bl -tag -width flag
+.It /etc/caldavd/caldavd.plist
+The Calendar Server configuration file.
+.El
+.Sh SEE ALSO
+.Xr caldavd 8

@@ -1763,12 +1763,10 @@ class CommonHome(LoggingMixIn):
         if child is None:
             raise NoSuchHomeChildError()
 
-        #resourceID = child._resourceID
+        resourceID = child._resourceID
         yield child.remove()
         self._children.pop(name, None)
-        # FIX ME:  need to keep resourceID around so that default calendars work:
-        # see twistedcaldav.scheduling_store.caldav.test.test_resource.DefaultCalendar.test_missing_default_vevent_calendar
-        # self._children.pop(resourceID, None)
+        self._children.pop(resourceID, None)
 
 
     @classproperty

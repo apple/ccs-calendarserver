@@ -548,7 +548,7 @@ DEFAULT_CONFIG = {
     "TimezoneService"         : {    # New standard timezone service
         "Enabled"       : False, # Overall on/off switch
         "Mode"          : "primary", # Can be "primary" or "secondary"
-        "BasePath"      : "", # Path to zoneinfo - if None use default package path
+        "BasePath"      : "", # Path to directory containing a zoneinfo - if None use default package path
                                      # secondary service MUST define its own writable path
         "XMLInfoPath"   : "", # Path to db cache info - if None use default package path
                                      # secondary service MUST define its own writable path if
@@ -564,6 +564,7 @@ DEFAULT_CONFIG = {
     },
 
     "EnableTimezonesByReference" : False, # Strip out VTIMEZONES that are known
+    "UsePackageTimezones" : False, # Use timezone data from twistedcaldav.zoneinfo - don't copy to Data directory
 
     "EnableBatchUpload"       : True, # POST batch uploads
     "MaxResourcesBatchUpload" : 100, # Maximum number of resources in a batch POST

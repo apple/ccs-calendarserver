@@ -850,6 +850,9 @@
     	</dict>
     </dict>
 
+	<key>UsePackageTimezones</key>
+	<true/>
+
     <!-- Batch Upload via POST -->
     <key>EnableBatchUpload</key>
     <true/>

@@ -102,6 +102,7 @@ install::
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_principals.8"      "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_push.8"           "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_shell.8"                 "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_timezones.8"      "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) gzip -9 -f "$(DSTROOT)$(SIPP)$(MANDIR)/man8/"*.[0-9]
 	@echo "Installing launchd config..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/Server/Calendar and Contacts"

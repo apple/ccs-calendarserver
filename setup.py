@@ -144,7 +144,7 @@ def doSetup():
                             #"bin/calendarserver_manage_postgres",
                              "bin/calendarserver_manage_principals",
                              "bin/calendarserver_manage_push",
-                            #"bin/calendarserver_manage_timezones",
+                             "bin/calendarserver_manage_timezones",
                              "bin/calendarserver_migrate_resources",
                             #"bin/calendarserver_monitor_amp_notifications",
                             #"bin/calendarserver_monitor_notifications",
