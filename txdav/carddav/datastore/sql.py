@@ -1538,8 +1538,8 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                     self._bindMessage = bindMessage
                     self._bindName = bindName
 
-                    if self.owned():
-                        yield self._init_isShared()
+                if self.owned():
+                    yield self._init_isShared()
 
             yield self._loadPropertyStore()
 

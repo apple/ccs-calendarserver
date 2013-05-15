@@ -2900,7 +2900,7 @@ class SharingMixIn(object):
         @return: C{True} if shared, C{False} otherwise
         @rtype: C{bool}
         """
-        return self._bindMode == _BIND_MODE_OWN and self._bindMessage == "shared"
+        return self.owned() and self._bindMessage == "shared"
 
 
     @inlineCallbacks
