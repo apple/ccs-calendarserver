@@ -25,6 +25,7 @@ import re
 from twext.python.log import LoggingMixIn
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.failure import Failure
 from twisted.python.modules import getModule
 from twisted.python.reflect import namedObject
 
@@ -124,9 +125,10 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
             yield sqlTxn.commit()
         except (RuntimeError, ValueError):
             self.log_error("Database key %s cannot be determined." % (self.versionKey,))
+            f = Failure()
             yield sqlTxn.abort()
             if self.defaultKeyValue is None:
-                raise
+                f.raiseException()
             else:
                 actual_version = self.defaultKeyValue
 
@@ -264,8 +266,9 @@ class UpgradeDatabaseSchemaStep(UpgradeDatabaseCoreStep):
             yield sqlTxn.execSQLBlock(sql)
             yield sqlTxn.commit()
         except RuntimeError:
+            f = Failure()
             yield sqlTxn.abort()
-            raise
+            f.raiseException()
 
 
 
