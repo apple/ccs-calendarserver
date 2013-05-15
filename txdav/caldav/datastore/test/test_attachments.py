@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from calendarserver.tap.util import getRootResource, directoryFromConfig
+from calendarserver.tap.util import directoryFromConfig
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.value import PyCalendarValue
@@ -1403,9 +1403,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
 
         self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory, directoryFromConfig(config))
         yield self.populate()
-
-        self.rootResource = getRootResource(config, self._sqlCalendarStore)
-        self.directory = self._sqlCalendarStore.directoryService()
 
 
     @inlineCallbacks

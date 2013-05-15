@@ -195,6 +195,7 @@ class AddressBookHome(CommonHome):
     def createdHome(self):
         # initialize synctoken
         yield self.addressbook()._initSyncToken()
+        yield self.addressbook()._initBindRevision()
 
 
     @inlineCallbacks
@@ -317,17 +318,17 @@ class AddressBookHome(CommonHome):
              rev.RESOURCE_NAME,
              rev.DELETED],
             From=rev,
-            Where=(rev.REVISION > Parameter("token")).And(
+            Where=(rev.REVISION > Parameter("revision")).And(
                 rev.HOME_RESOURCE_ID == Parameter("resourceID")).And(
                 rev.RESOURCE_ID == rev.HOME_RESOURCE_ID)
         )
 
     @inlineCallbacks
-    def doChangesQuery(self, token):
+    def doChangesQuery(self, revision):
 
         rows = yield self._changesQuery.on(self._txn,
                                          resourceID=self._resourceID,
-                                         token=token)
+                                         revision=revision)
 
         bindName = self.addressbook().name()
         result = [[bindName] + row for row in rows]
@@ -657,7 +658,7 @@ END:VCARD
         )
         # get ownerHomeIDs
         for dataRow in dataRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = dataRow[:6]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = dataRow[:cls.bindColumnCount]  #@UnusedVariable
             ownerHome = yield home.ownerHomeWithChildID(resourceID)
             ownerHomeToDataRowMap[ownerHome] = dataRow
 
@@ -666,7 +667,7 @@ END:VCARD
             home._txn, homeID=home._resourceID
         )
         for groupBindRow in groupBindRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRow[:6]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:cls.bindColumnCount]  #@UnusedVariable
             ownerAddressBookID = yield AddressBookObject.ownerAddressBookFromGroupID(home._txn, resourceID)
             ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
             if ownerHome not in ownerHomeToDataRowMap:
@@ -688,14 +689,15 @@ END:VCARD
 
             # Create the actual objects merging in properties
             for ownerHome, dataRow in ownerHomeToDataRowMap.iteritems():
-                bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = dataRow[:6]  #@UnusedVariable
-                metadata = dataRow[6:]
+                bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = dataRow[:cls.bindColumnCount]  #@UnusedVariable
+                metadata = dataRow[cls.bindColumnCount:]
 
                 child = cls(
                     home=home,
                     name=ownerHome.shareeAddressBookName(),
                     resourceID=ownerHome._resourceID,
                     mode=bindMode, status=bindStatus,
+                    revision=bindRevision,
                     message=bindMessage, ownerHome=ownerHome,
                     bindName=bindName
                 )
@@ -777,7 +779,7 @@ END:VCARD
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, bindName, bindStatus, bindMessage, ownerAddressBookID, cachedBindStatus = rows[0]  #@UnusedVariable
+        bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage, ownerAddressBookID, cachedBindStatus = rows[0]  #@UnusedVariable
         # if wrong status, exit here.  Item is in queryCache
         if (cachedBindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
             returnValue(None)
@@ -788,6 +790,7 @@ END:VCARD
                 home=home,
                 name=ownerAddressBook.shareeAddressBookName(), resourceID=ownerAddressBookID,
                 mode=bindMode, status=bindStatus,
+                revision=bindRevision,
                 message=bindMessage, ownerHome=ownerHome,
                 bindName=bindName,
             )
@@ -811,7 +814,7 @@ END:VCARD
         """
         bindRows = yield cls._bindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
         if bindRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = bindRows[0]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = bindRows[0]  #@UnusedVariable
             if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
                 returnValue(None)
 
@@ -827,7 +830,7 @@ END:VCARD
             home._txn, name=name, homeID=home._resourceID
         )
         if groupBindRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRows[0]  #@UnusedVariable
             if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
                 returnValue(None)
 
@@ -868,7 +871,7 @@ END:VCARD
             home._txn, resourceID=resourceID, homeID=home._resourceID
         )
         if bindRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = bindRows[0]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = bindRows[0]  #@UnusedVariable
             if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
                 returnValue(None)
 
@@ -882,7 +885,7 @@ END:VCARD
                     home._txn, homeID=home._resourceID, addressbookID=resourceID
         )
         if groupBindRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRows[0]  #@UnusedVariable
             if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
                 returnValue(None)
 
@@ -929,9 +932,11 @@ END:VCARD
             Where=(bind.RESOURCE_ID == Parameter("resourceID"))
                   .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
         ).on(self._txn, resourceID=self._resourceID, homeID=self.viewerHome()._resourceID)
-        '''
+
         yield self.invalidateQueryCache()
         yield self.notifyChanged()
+        '''
+        yield None
 
 
     @classmethod
@@ -950,7 +955,7 @@ END:VCARD
         rows.extend((yield AddressBookObject._acceptedBindForHomeID.on(
             home._txn, homeID=home._resourceID
         )))
-        for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in rows:  #@UnusedVariable
+        for bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage in rows:  #@UnusedVariable
             ownerHome = yield home._txn.homeWithResourceID(home._homeType, homeID)
             names |= set([ownerHome.shareeAddressBookName()])
         returnValue(tuple(names))
@@ -995,7 +1000,7 @@ END:VCARD
             groupBindRows = yield AddressBookObject._unacceptedBindWithHomeIDAndAddressBookID.on(
                     self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
             )
-            #for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in groupBindRows: #@UnusedVariable
+            #for bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage in groupBindRows: #@UnusedVariable
             returnValue([groupBindRow[2] for groupBindRow in groupBindRows])
 
 
@@ -1007,7 +1012,7 @@ END:VCARD
             groupBindRows = yield AddressBookObject._acceptedBindWithHomeIDAndAddressBookID.on(
                     self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
             )
-            #for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in groupBindRows: #@UnusedVariable
+            #for bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage in groupBindRows: #@UnusedVariable
             returnValue([groupBindRow[2] for groupBindRow in groupBindRows])
 
 
@@ -1021,7 +1026,7 @@ END:VCARD
             )
             readWriteGroupIDs = []
             readOnlyGroupIDs = []
-            for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in groupBindRows:  #@UnusedVariable
+            for bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage in groupBindRows:  #@UnusedVariable
                 if bindMode == _BIND_MODE_WRITE:
                     readWriteGroupIDs.append(resourceID)
                 else:
@@ -1067,7 +1072,7 @@ END:VCARD
         )
         readWriteGroupIDs = []
         readOnlyGroupIDs = []
-        for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in groupBindRows:  #@UnusedVariable
+        for bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage in groupBindRows:  #@UnusedVariable
             if bindMode == _BIND_MODE_WRITE:
                 readWriteGroupIDs.append(resourceID)
             else:
@@ -1162,6 +1167,7 @@ END:VCARD
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
                     if 0 == previouslyAcceptedBindCount:
                         yield shareeView._initSyncToken()
+                        yield shareeView._initBindRevision()
                         shareeView._home._children[shareeView._name] = shareeView
                         shareeView._home._children[shareeView._resourceID] = shareeView
                 elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
@@ -1205,7 +1211,7 @@ END:VCARD
             bindRows = yield self._sharedBindForResourceID.on(
                 self._txn, resourceID=self._resourceID, homeID=self._home._resourceID
             )
-            for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in bindRows:  #@UnusedVariable
+            for bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage in bindRows:  #@UnusedVariable
                 home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
                 new = yield home.childWithName(self.shareeAddressBookName())
                 result.append(new)
@@ -1231,7 +1237,7 @@ END:VCARD
             bindRows = yield self._unacceptedBindForResourceID.on(
                 self._txn, resourceID=self._resourceID
             )
-            for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in bindRows:  #@UnusedVariable
+            for bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage in bindRows:  #@UnusedVariable
                 home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
                 new = yield self.objectWithName(home, self.shareeAddressBookName(), accepted=False)
                 result.append(new)
@@ -1532,7 +1538,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 )
 
                 if groupBindRows:
-                    bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0]  #@UnusedVariable
+                    bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRows[0]  #@UnusedVariable
                     self._bindMode = bindMode
                     self._bindStatus = bindStatus
                     self._bindMessage = bindMessage
@@ -2115,9 +2121,11 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             Where=(bind.RESOURCE_ID == Parameter("resourceID"))
                   .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
         ).on(self._txn, resourceID=self._resourceID, homeID=self.viewerHome()._resourceID)
-        '''
+
         yield self.invalidateQueryCache()
         yield self.notifyChanged()
+        '''
+        yield None
 
     @classmethod
     def metadataColumns(cls):
@@ -2138,7 +2146,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
     def _childrenAndMetadataForHomeID(cls):  #@NoSelf
         bind = cls._bindSchema
         child = cls._objectSchema
-        columns = cls._bindColumns() + cls.metadataColumns()
+        columns = cls.bindColumns() + cls.metadataColumns()
         return Select(columns,
                      From=child.join(
                          bind, child.RESOURCE_ID == bind.RESOURCE_ID,
@@ -2171,7 +2179,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             groupBindRows = yield self._sharedBindForResourceID.on(
                 self._txn, resourceID=self._resourceID, homeID=self._home._resourceID
             )
-            for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in groupBindRows:  #@UnusedVariable
+            for bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage in groupBindRows:  #@UnusedVariable
                 home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
                 addressbook = yield home.childWithName(self._home.shareeAddressBookName())
                 new = yield addressbook.objectResourceWithID(resourceID)
@@ -2199,7 +2207,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             groupBindRows = yield self._unacceptedBindForResourceID.on(
                 self._txn, resourceID=self._resourceID
             )
-            for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in groupBindRows:  #@UnusedVariable
+            for bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage in groupBindRows:  #@UnusedVariable
                 home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
                 addressbook = yield home.childWithName(self._home.shareeAddressBookName())
                 if not addressbook:
@@ -2330,16 +2338,21 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             returnValue(newName)
         try:
             bindName = yield self._txn.subtransaction(doInsert)
+            if status == _BIND_STATUS_ACCEPTED:
+                shareeView = yield shareeHome.objectWithShareUID(bindName)
+                yield shareeView._initSyncToken()
+                yield shareeView._initBindRevision()
+
         except AllRetriesFailed:
             # FIXME: catch more specific exception
             groupBindRows = yield self._bindForResourceIDAndHomeID.on(
                 self._txn, resourceID=self._resourceID, homeID=shareeHome._resourceID
             )
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRows[0]  #@UnusedVariable
             if bindStatus == _BIND_STATUS_ACCEPTED:
-                group = yield shareeHome.objectForShareUID(bindName)
+                group = yield shareeHome.objectWithShareUID(bindName)
             else:
-                group = yield shareeHome.invitedObjectForShareUID(bindName)
+                group = yield shareeHome.invitedObjectWithShareUID(bindName)
             bindName = yield self.updateShare(
                 group, mode=mode, status=status,
                 message=message
@@ -2416,6 +2429,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
                     if 0 == previouslyAcceptedBindCount:
                         yield shareeView._addressbook._initSyncToken()
+                        yield shareeView._addressbook._initBindRevision()
                         shareeView._home._children[shareeView._addressbook._name] = shareeView._addressbook
                         shareeView._home._children[shareeView._addressbook._resourceID] = shareeView._addressbook
                 elif shareeView._bindStatus != _BIND_STATUS_INVITED:
@@ -2446,7 +2460,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         bind = cls._bindSchema
         abo = cls._objectSchema
         return Select(
-                  cls._bindColumns(),
+                  cls.bindColumns(),
                   From=bind.join(abo),
                   Where=(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
                         .And(bind.RESOURCE_ID == abo.RESOURCE_ID)
@@ -2460,7 +2474,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         bind = cls._bindSchema
         abo = cls._objectSchema
         return Select(
-                  cls._bindColumns(),
+                  cls.bindColumns(),
                   From=bind.join(abo),
                   Where=(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
                         .And(bind.RESOURCE_ID == abo.RESOURCE_ID)
@@ -2474,7 +2488,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         bind = cls._bindSchema
         abo = cls._objectSchema
         return Select(
-                  cls._bindColumns(),
+                  cls.bindColumns(),
                   From=bind.join(abo),
                   Where=(bind.RESOURCE_ID == abo.RESOURCE_ID)
                         .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))

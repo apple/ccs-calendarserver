@@ -1542,6 +1542,9 @@ def _updateCompliance(configDict, reloading=False):
     compliance += customxml.calendarserver_principal_property_search_compliance
     compliance += customxml.calendarserver_principal_search_compliance
 
+    # Home Depth:1 sync report will include WebDAV property changes on home child resources
+    compliance += customxml.calendarserver_home_sync_compliance
+
     configDict.CalDAVComplianceClasses = compliance
 
 

@@ -451,7 +451,7 @@ class CommonStoreTransaction(object):
         self._notificationHomes = {}
         self._notifierFactories = notifierFactories
         self._notifiedAlready = set()
-        self._bumpedAlready = set()
+        self._bumpedRevisionAlready = set()
         self._label = label
         self._migrating = migrating
         self._primaryHomeType = None
@@ -885,22 +885,20 @@ class CommonStoreTransaction(object):
         self._notifiedAlready.add(obj.id())
 
 
-    def isBumpedAlready(self, obj):
+    def isRevisionBumpedAlready(self, obj):
         """
-        Indicates whether or not bumpAddedForObject has already been
-        called for the given object, in order to facilitate calling
-        bumpModified only once per object.
+        Indicates whether or not bumpRevisionForObject has already been
+        called for the given object, in order to facilitate changing the
+        revision only once per object.
         """
-        return obj.id() in self._bumpedAlready
+        return obj.id() in self._bumpedRevisionAlready
 
 
-    def bumpAddedForObject(self, obj):
+    def bumpRevisionForObject(self, obj):
         """
-        Records the fact that a bumpModified( ) call has already been
-        done, in order to facilitate calling bumpModified only once per
-        object.
+        Records the fact that a revision token for the object has been bumped.
         """
-        self._bumpedAlready.add(obj.id())
+        self._bumpedRevisionAlready.add(obj.id())
 
     _savepointCounter = 0
 
@@ -1762,8 +1760,8 @@ class CommonHome(LoggingMixIn):
         child = yield self.childWithName(name)
         if child is None:
             raise NoSuchHomeChildError()
-
         resourceID = child._resourceID
+
         yield child.remove()
         self._children.pop(name, None)
         self._children.pop(resourceID, None)
@@ -1773,6 +1771,14 @@ class CommonHome(LoggingMixIn):
     def _syncTokenQuery(cls):  #@NoSelf
         """
         DAL Select statement to find the sync token.
+
+        This is the max(REVISION) from the union of:
+
+        1) REVISION's for all object resources in all home child collections in the targeted home
+        2) REVISION's for all child collections in the targeted home
+
+        Note the later is needed to track changes directly to the home child themselves (e.g.
+        property changes, deletion etc).
         """
         rev = cls._revisionsSchema
         bind = cls._bindSchema
@@ -1802,6 +1808,16 @@ class CommonHome(LoggingMixIn):
         )
 
 
+    def revisionFromToken(self, token):
+        if token is None:
+            return 0
+        elif isinstance(token, str):
+            _ignore_uuid, revision = token.split("_", 1)
+            return int(revision)
+        else:
+            return token
+
+
     @inlineCallbacks
     def syncToken(self):
         """
@@ -1820,38 +1836,68 @@ class CommonHome(LoggingMixIn):
         bind = cls._bindSchema
         rev = cls._revisionsSchema
         return Select(
-            [bind.RESOURCE_NAME,
-             rev.COLLECTION_NAME,
-             rev.RESOURCE_NAME,
-             rev.DELETED],
+            [
+                bind.RESOURCE_NAME,
+                rev.COLLECTION_NAME,
+                rev.RESOURCE_NAME,
+                rev.DELETED,
+            ],
             From=rev.join(
                 bind,
-                (
-                    bind.HOME_RESOURCE_ID == Parameter("resourceID")).And(
-                    rev.RESOURCE_ID == bind.RESOURCE_ID
-                ), 'left outer'
+                (bind.HOME_RESOURCE_ID == Parameter("resourceID")).And
+                (rev.RESOURCE_ID == bind.RESOURCE_ID),
+                'left outer'
             ),
-            Where=(rev.REVISION > Parameter("token")).And(
-                rev.HOME_RESOURCE_ID ==
-                Parameter("resourceID")
-            )
+            Where=(rev.REVISION > Parameter("revision")).And
+                  (rev.HOME_RESOURCE_ID == Parameter("resourceID"))
         )
 
 
     @inlineCallbacks
-    def doChangesQuery(self, token):
+    def doChangesQuery(self, revision):
         """
             Do the changes query.
             Subclasses may override.
         """
         result = yield self._changesQuery.on(self._txn,
                                          resourceID=self._resourceID,
-                                         token=token)
+                                         revision=revision)
         returnValue(result)
 
 
+    def resourceNamesSinceToken(self, token, depth):
+        """
+        Return the changed and deleted resources since a particular sync-token. This simply extracts
+        the revision from from the token then calls L{resourceNamesSinceRevision}.
+
+        @param revision: the revision to determine changes since
+        @type revision: C{int}
+        """
+
+        return self.resourceNamesSinceRevision(self.revisionFromToken(token), depth)
+
+
     @inlineCallbacks
-    def resourceNamesSinceToken(self, token, depth):  #@UnusedVariable
+    def resourceNamesSinceRevision(self, revision, depth):
+        """
+        Determine the list of child resources that have changed since the specified sync revision.
+        We do the same SQL query for both depth "1" and "infinity", but filter the results for
+        "1" to only account for a collection change.
+
+        We need to handle shared collection a little differently from owned ones. When a shared collection
+        is bound into a home we record a revision for it using the sharee home id and sharee collection name.
+        That revision is the "starting point" for changes: so if sync occurs with a revision earlier than
+        that, we return the list of all resources in the shared collection since they are all "new" as far
+        as the client is concerned since the shared collection has just appeared. For a later revision, we
+        just report the changes since that one. When a shared collection is removed from a home, we again
+        record a revision for the sharee home and sharee collection name with the "deleted" flag set. That way
+        the shared collection can be reported as removed.
+
+        @param revision: the sync revision to compare to
+        @type revision: C{str}
+        @param depth: depth for determine what changed
+        @type depth: C{str}
+        """
 
         results = [
             (
@@ -1860,57 +1906,81 @@ class CommonHome(LoggingMixIn):
                 wasdeleted
             )
             for path, collection, name, wasdeleted in
-            (yield self.doChangesQuery(token))
+            (yield self.doChangesQuery(revision))
         ]
 
-        deleted = []
+        changed = set()
+        deleted = set()
         deleted_collections = set()
         changed_collections = set()
         for path, name, wasdeleted in results:
             if wasdeleted:
-                if token:
-                    deleted.append("%s/%s" % (path, name,))
-                if not name:
-                    deleted_collections.add(path)
+                if revision:
+                    if name:
+                        # Resource deleted - for depth "1" report collection as changed,
+                        # otherwise report resource as deleted
+                        if depth == "1":
+                            changed.add("%s/" % (path,))
+                        else:
+                            deleted.add("%s/%s" % (path, name,))
+                    else:
+                        # Collection was deleted
+                        deleted.add("%s/" % (path,))
+                        deleted_collections.add(path)
 
-        changed = []
         for path, name, wasdeleted in results:
             if path not in deleted_collections:
-                changed.append("%s/%s" % (path, name,))
-                if not name:
+                # Always report collection as changed
+                changed.add("%s/" % (path,))
+                if name:
+                    # Resource changed - for depth "infinity" report resource as changed
+                    if depth != "1":
+                        changed.add("%s/%s" % (path, name,))
+                else:
+                    # Collection was changed
                     changed_collections.add(path)
 
         # Now deal with shared collections
+        # TODO: think about whether this can be done in one query rather than looping over each share
+        bind = self._bindSchema
         rev = self._revisionsSchema
-        for share in (yield self.children()):
+        shares = yield self.children()
+        for share in shares:
             if not share.owned():
-                sharetoken = 0 if share.name() in changed_collections else token
+                sharerevision = 0 if revision < share._bindRevision else revision
+                shareID = (yield Select(
+                    [bind.RESOURCE_ID], From=bind,
+                    Where=(bind.RESOURCE_NAME == share.name()).And(
+                        bind.HOME_RESOURCE_ID == self._resourceID).And(
+                            bind.BIND_MODE != _BIND_MODE_OWN)
+                ).on(self._txn))[0][0]
                 results = [
                     (
                         share.name(),
                         name if name else "",
                         wasdeleted
                     )
-                    for name, wasdeleted in (
-                        yield Select(
-                            [rev.RESOURCE_NAME, rev.DELETED],
-                            From=rev,
-                            Where=(rev.REVISION > sharetoken).And(
-                                    rev.RESOURCE_ID == share._resourceID)
-                        ).on(self._txn)
-                    ) if name
+                    for name, wasdeleted in
+                    (yield Select([rev.RESOURCE_NAME, rev.DELETED],
+                                     From=rev,
+                                    Where=(rev.REVISION > sharerevision).And(
+                                    rev.RESOURCE_ID == shareID)).on(self._txn))
+                    if name
                 ]
 
                 for path, name, wasdeleted in results:
                     if wasdeleted:
-                        if sharetoken:
-                            deleted.append("%s/%s" % (path, name,))
+                        if sharerevision:
+                            if depth == "1":
+                                changed.add("%s/" % (path,))
+                            else:
+                                deleted.add("%s/%s" % (path, name,))
 
                 for path, name, wasdeleted in results:
-                    changed.append("%s/%s" % (path, name,))
+                    changed.add("%s/%s" % (path, "" if depth == "1" else name,))
 
-        changed.sort()
-        deleted.sort()
+        changed = sorted(changed)
+        deleted = sorted(deleted)
         returnValue((changed, deleted))
 
 
@@ -2117,18 +2187,22 @@ class CommonHome(LoggingMixIn):
     @inlineCallbacks
     def notifyChanged(self):
         """
-        Trigger a notification of a change
+        Send notifications, change sync token and bump last modified because the resource has changed. We ensure
+        we only do this once per object per transaction.
         """
+
+        if self._txn.isNotifiedAlready(self):
+            returnValue(None)
+        self._txn.notificationAddedForObject(self)
 
         # Update modified if object still exists
         if self._resourceID:
             yield self.bumpModified()
 
-        # Only send one set of change notifications per transaction
-        if self._notifiers and not self._txn.isNotifiedAlready(self):
+        # Send notifications
+        if self._notifiers:
             for notifier in self._notifiers.values():
                 self._txn.postCommit(notifier.notify)
-            self._txn.notificationAddedForObject(self)
 
 
     @classproperty
@@ -2159,10 +2233,6 @@ class CommonHome(LoggingMixIn):
         ignoring the deadlock error. We use SELECT FOR UPDATE NOWAIT to ensure we do not
         delay the transaction whilst waiting for deadlock detection to kick in.
         """
-
-        if self._txn.isBumpedAlready(self):
-            returnValue(None)
-        self._txn.bumpAddedForObject(self)
 
         # NB if modified is bumped we know that sync token will have changed too, so invalidate the cached value
         self._syncTokenRevision = None
@@ -2225,8 +2295,13 @@ class _SharedSyncLogic(object):
 
 
     def revisionFromToken(self, token):
-        _ignore_uuid, revision = token.split("_", 1)
-        return int(revision)
+        if token is None:
+            return 0
+        elif isinstance(token, str):
+            _ignore_uuid, revision = token.split("_", 1)
+            return int(revision)
+        else:
+            return token
 
 
     @inlineCallbacks
@@ -2253,19 +2328,32 @@ class _SharedSyncLogic(object):
                           rev.RESOURCE_ID == Parameter("resourceID")))
 
 
-    @inlineCallbacks
     def resourceNamesSinceToken(self, token):
+        """
+        Return the changed and deleted resources since a particular sync-token. This simply extracts
+        the revision from from the token then calls L{resourceNamesSinceRevision}.
 
-        if token is None:
-            token = 0
-        elif isinstance(token, str):
-            token = self.revisionFromToken(token)
+        @param revision: the revision to determine changes since
+        @type revision: C{int}
+        """
+
+        return self.resourceNamesSinceRevision(self.revisionFromToken(token))
+
+
+    @inlineCallbacks
+    def resourceNamesSinceRevision(self, revision):
+        """
+        Return the changed and deleted resources since a particular revision.
+
+        @param revision: the revision to determine changes since
+        @type revision: C{int}
+        """
 
         results = [
             (name if name else "", deleted)
             for name, deleted in
             (yield self._objectNamesSinceRevisionQuery.on(
-                self._txn, revision=token, resourceID=self._resourceID))
+                self._txn, revision=revision, resourceID=self._resourceID))
         ]
         results.sort(key=lambda x: x[1])
 
@@ -2274,7 +2362,7 @@ class _SharedSyncLogic(object):
         for name, wasdeleted in results:
             if name:
                 if wasdeleted:
-                    if token:
+                    if revision:
                         deleted.append(name)
                 else:
                     changed.append(name)
@@ -2312,6 +2400,7 @@ class _SharedSyncLogic(object):
             self._addNewRevision.on(self._txn, homeID=self._home._resourceID,
                                     resourceID=self._resourceID,
                                     collectionName=self._name)))[0][0]
+        self._txn.bumpRevisionForObject(self)
 
 
     @classproperty
@@ -2321,11 +2410,13 @@ class _SharedSyncLogic(object):
         resource name).
         """
         rev = cls._revisionsSchema
-        return Update({
-            rev.REVISION: schema.REVISION_SEQ,
-            rev.COLLECTION_NAME: Parameter("name")},
-            Where=(rev.RESOURCE_ID == Parameter("resourceID")
-                  ).And(rev.RESOURCE_NAME == None),
+        return Update(
+            {
+                rev.REVISION: schema.REVISION_SEQ,
+                rev.COLLECTION_NAME: Parameter("name")
+            },
+            Where=(rev.RESOURCE_ID == Parameter("resourceID")).And
+                  (rev.RESOURCE_NAME == None),
             Return=rev.REVISION
         )
 
@@ -2334,6 +2425,30 @@ class _SharedSyncLogic(object):
     def _renameSyncToken(self):
         self._syncTokenRevision = (yield self._renameSyncTokenQuery.on(
             self._txn, name=self._name, resourceID=self._resourceID))[0][0]
+        self._txn.bumpRevisionForObject(self)
+
+
+    @classproperty
+    def _bumpSyncTokenQuery(cls):  #@NoSelf
+        """
+        DAL query to change collection sync token.
+        """
+        rev = cls._revisionsSchema
+        return Update(
+            {rev.REVISION: schema.REVISION_SEQ, },
+            Where=(rev.RESOURCE_ID == Parameter("resourceID")).And
+                  (rev.RESOURCE_NAME == None),
+            Return=rev.REVISION
+        )
+
+
+    @inlineCallbacks
+    def _bumpSyncToken(self):
+
+        if not self._txn.isRevisionBumpedAlready(self):
+            self._txn.bumpRevisionForObject(self)
+            self._syncTokenRevision = (yield self._bumpSyncTokenQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
 
 
     @classproperty
@@ -2342,10 +2457,12 @@ class _SharedSyncLogic(object):
         DAL query to update a sync revision to be a tombstone instead.
         """
         rev = cls._revisionsSchema
-        return Delete(From=rev, Where=(
-            rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
-                rev.RESOURCE_ID == Parameter("resourceID")).And(
-                rev.COLLECTION_NAME == None))
+        return Delete(
+            From=rev,
+            Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And
+                  (rev.RESOURCE_ID == Parameter("resourceID")).And
+                  (rev.COLLECTION_NAME == None)
+        )
 
 
     @classproperty
@@ -2561,20 +2678,9 @@ class SharingMixIn(object):
 
 
     @classmethod
-    def _bindColumns(cls):
-        bind = cls._bindSchema
-        return (bind.BIND_MODE,
-                bind.HOME_RESOURCE_ID,
-                bind.RESOURCE_ID,
-                bind.RESOURCE_NAME,
-                bind.BIND_STATUS,
-                bind.MESSAGE,)
-
-
-    @classmethod
     def _bindFor(cls, condition):  #@NoSelf
         bind = cls._bindSchema
-        columns = cls._bindColumns() + cls.additionalBindColumns()
+        columns = cls.bindColumns() + cls.additionalBindColumns()
         return Select(
             columns,
             From=bind,
@@ -2667,6 +2773,11 @@ class SharingMixIn(object):
             returnValue(newName)
         try:
             bindName = yield self._txn.subtransaction(doInsert)
+            if status == _BIND_STATUS_ACCEPTED:
+                shareeView = yield shareeHome.objectWithShareUID(bindName)
+                yield shareeView._initSyncToken()
+                yield shareeView._initBindRevision()
+
         except AllRetriesFailed:
             # FIXME: catch more specific exception
             child = yield shareeHome.childWithID(self._resourceID)
@@ -2725,7 +2836,6 @@ class SharingMixIn(object):
 
         if len(columnMap):
 
-            #TODO:  with bit of parameter wrangling, call shareWith() here instead.
             sharedname = yield self._updateBindColumnsQuery(columnMap).on(
                             self._txn,
                             resourceID=self._resourceID, homeID=shareeView._home._resourceID
@@ -2739,6 +2849,7 @@ class SharingMixIn(object):
                 shareeView._bindStatus = columnMap[bind.BIND_STATUS]
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
                     yield shareeView._initSyncToken()
+                    yield shareeView._initBindRevision()
                     shareeView._home._children[shareeView._name] = shareeView
                     shareeView._home._children[shareeView._resourceID] = shareeView
                 elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
@@ -2842,7 +2953,7 @@ class SharingMixIn(object):
 
         result = []
         for row in acceptedRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = row[:6]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:self.bindColumnCount]  #@UnusedVariable
             home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
             new = yield home.objectWithShareUID(bindName)
             result.append(new)
@@ -2871,12 +2982,29 @@ class SharingMixIn(object):
 
         result = []
         for row in rows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = row[:6]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:self.bindColumnCount]  #@UnusedVariable
             home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
             new = yield home.invitedObjectWithShareUID(bindName)
             result.append(new)
 
         returnValue(result)
+
+
+    @inlineCallbacks
+    def _initBindRevision(self):
+        bind = self._bindSchema
+        self._bindRevision = self._syncTokenRevision
+        yield Update(
+            {bind.BIND_REVISION : Parameter("revision"), },
+            Where=(bind.RESOURCE_ID == Parameter("resourceID")).And
+                  (bind.HOME_RESOURCE_ID == Parameter("homeID")),
+        ).on(
+            self._txn,
+            revision=self._bindRevision,
+            resourceID=self._resourceID,
+            homeID=self.viewerHome()._resourceID,
+        )
+        yield self.invalidateQueryCache()
 
 
     def shareMode(self):
@@ -2983,6 +3111,26 @@ class SharingMixIn(object):
 
 
     @classmethod
+    def bindColumns(cls):
+        """
+        Return a list of column names for retrieval during creation. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        return (
+            cls._bindSchema.BIND_MODE,
+            cls._bindSchema.HOME_RESOURCE_ID,
+            cls._bindSchema.RESOURCE_ID,
+            cls._bindSchema.RESOURCE_NAME,
+            cls._bindSchema.BIND_STATUS,
+            cls._bindSchema.BIND_REVISION,
+            cls._bindSchema.MESSAGE
+        )
+
+    bindColumnCount = 7
+
+    @classmethod
     def additionalBindColumns(cls):
         """
         Return a list of column names for retrieval during creation. This allows
@@ -3009,7 +3157,7 @@ class SharingMixIn(object):
         child = cls._homeChildSchema
         childMetaData = cls._homeChildMetaDataSchema
 
-        columns = cls._bindColumns() + cls.additionalBindColumns() + cls.metadataColumns()
+        columns = cls.bindColumns() + cls.additionalBindColumns() + cls.metadataColumns()
         return Select(columns,
                      From=child.join(
                          bind, child.RESOURCE_ID == bind.RESOURCE_ID,
@@ -3064,13 +3212,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
     _objectSchema = None
 
 
-    def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None, ownerName=None):
+    def __init__(self, home, name, resourceID, mode, status, revision=0, message=None, ownerHome=None, ownerName=None):
 
         self._home = home
         self._name = name
         self._resourceID = resourceID
         self._bindMode = mode
         self._bindStatus = status
+        self._bindRevision = revision
         self._bindMessage = message
         self._ownerHome = home if ownerHome is None else ownerHome
         self._ownerName = name if ownerName is None else ownerName
@@ -3156,9 +3305,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
         # Create the actual objects merging in properties
         for items in dataRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = items[:6]  #@UnusedVariable
-            additionalBind = items[6:6 + len(cls.additionalBindColumns())]
-            metadata = items[6 + len(cls.additionalBindColumns()):]
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = items[:cls.bindColumnCount]  #@UnusedVariable
+            additionalBind = items[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
+            metadata = items[cls.bindColumnCount + len(cls.additionalBindColumns()):]
 
             if bindMode == _BIND_MODE_OWN:
                 ownerHome = home
@@ -3171,6 +3320,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 home=home,
                 name=bindName, resourceID=resourceID,
                 mode=bindMode, status=bindStatus,
+                revision=bindRevision,
                 message=bindMessage, ownerHome=ownerHome,
                 ownerName=ownerName,
             )
@@ -3226,10 +3376,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             returnValue(None)
 
         row = rows[0]
-        bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = row[:6]  #@UnusedVariable
+        bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount]  #@UnusedVariable
         if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
             returnValue(None)
-        additionalBind = row[6:6 + len(cls.additionalBindColumns())]
+        additionalBind = row[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
 
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
@@ -3241,6 +3391,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             home=home,
             name=name, resourceID=resourceID,
             mode=bindMode, status=bindStatus,
+            revision=bindRevision,
             message=bindMessage, ownerHome=ownerHome,
             ownerName=ownerName
         )
@@ -3266,7 +3417,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             returnValue(None)
 
         row = rows[0]
-        bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = row[:6]  #@UnusedVariable]
+        bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount]  #@UnusedVariable]
         if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
             returnValue(None)
 
@@ -3834,6 +3985,22 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         return False
 
 
+    def resourceNamesSinceRevision(self, revision):
+        """
+        Return the changed and deleted resources since a particular revision. This implementation takes
+        into account sharing by making use of the bindRevision attribute to determine if the requested
+        revision is earlier than the share acceptance. If so, then we need to return all resources in
+        the results since the collection is in effect "new".
+
+        @param revision: the revision to determine changes since
+        @type revision: C{int}
+        """
+
+        if revision < self._bindRevision:
+            revision = 0
+        return super(CommonHomeChild, self).resourceNamesSinceRevision(revision)
+
+
     @inlineCallbacks
     def _loadPropertyStore(self, props=None):
         if props is None:
@@ -3904,18 +4071,25 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
     @inlineCallbacks
     def notifyChanged(self):
         """
-        Trigger a notification of a change
+        Send notifications, change sync token and bump last modified because the resource has changed. We ensure
+        we only do this once per object per transaction.
         """
+
+        if self._txn.isNotifiedAlready(self):
+            returnValue(None)
+        self._txn.notificationAddedForObject(self)
 
         # Update modified if object still exists
         if self._resourceID:
             yield self.bumpModified()
 
-        # Only send one set of change notifications per transaction
-        if self._notifiers and not self._txn.isNotifiedAlready(self):
+            # We now also bump the collection level sync token on any change
+            yield self._bumpSyncToken()
+
+        # Send notifications
+        if self._notifiers:
             for notifier in self._notifiers.values():
                 self._txn.postCommit(notifier.notify)
-            self._txn.notificationAddedForObject(self)
 
 
     @classproperty
@@ -3946,10 +4120,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         ignoring the deadlock error. We use SELECT FOR UPDATE NOWAIT to ensure we do not
         delay the transaction whilst waiting for deadlock detection to kick in.
         """
-
-        if self._txn.isBumpedAlready(self):
-            returnValue(None)
-        self._txn.bumpAddedForObject(self)
 
         @inlineCallbacks
         def _bumpModified(subtxn):
@@ -4729,14 +4899,18 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     def notifyChanged(self):
         """
-        Trigger a notification of a change
+        Send notifications, change sync token and bump last modified because the resource has changed. We ensure
+        we only do this once per object per transaction.
         """
 
-        # Only send one set of change notifications per transaction
-        if self._notifiers and not self._txn.isNotifiedAlready(self):
+        if self._txn.isNotifiedAlready(self):
+            returnValue(None)
+        self._txn.notificationAddedForObject(self)
+
+        # Send notifications
+        if self._notifiers:
             for notifier in self._notifiers.values():
                 self._txn.postCommit(notifier.notify)
-            self._txn.notificationAddedForObject(self)
 
 
     @classproperty

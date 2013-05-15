@@ -624,11 +624,8 @@ class CalendarHome(CommonHome):
         pick another from the calendar home.
         """
 
-        chm = self._homeMetaDataSchema
         componentType = "VTODO" if tasks else "VEVENT"
         test_name = "tasks" if tasks else "calendar"
-        attribute_to_test = "_default_tasks" if tasks else "_default_events"
-        column_to_set = chm.DEFAULT_TASKS if tasks else chm.DEFAULT_EVENTS
 
         defaultCalendar = (yield self.calendarWithName(test_name))
         if defaultCalendar is None or not defaultCalendar.owned():
@@ -657,13 +654,7 @@ class CalendarHome(CommonHome):
                     # Failed to even create a default - bad news...
                     raise RuntimeError("No valid calendars to use as a default %s calendar." % (componentType,))
 
-        setattr(self, attribute_to_test, defaultCalendar._resourceID)
-        yield Update(
-            {column_to_set: defaultCalendar._resourceID},
-            Where=chm.RESOURCE_ID == self._resourceID,
-        ).on(self._txn)
-        yield self.invalidateQueryCache()
-        yield self.notifyChanged()
+        yield self.setDefaultCalendar(defaultCalendar, tasks)
 
         returnValue(defaultCalendar)
 
@@ -700,6 +691,11 @@ class CalendarHome(CommonHome):
         ).on(self._txn)
         yield self.invalidateQueryCache()
         yield self.notifyChanged()
+
+        # CalDAV stores the default calendar properties on the inbox so we also need to send a changed notification on that
+        inbox = (yield self.calendarWithName("inbox"))
+        if inbox is not None:
+            yield inbox.notifyChanged()
 
 
     @inlineCallbacks
@@ -761,14 +757,7 @@ class CalendarHome(CommonHome):
                     yield default.setSupportedComponents(componentType.upper())
 
             # Update the metadata
-            chm = self._homeMetaDataSchema
-            column_to_set = chm.DEFAULT_TASKS if componentType == "VTODO" else chm.DEFAULT_EVENTS
-            setattr(self, attribute_to_test, default._resourceID)
-            yield Update(
-                {column_to_set: default._resourceID},
-                Where=chm.RESOURCE_ID == self._resourceID,
-            ).on(self._txn)
-            yield self.invalidateQueryCache()
+            yield self.setDefaultCalendar(default, componentType == "VTODO")
 
         returnValue(default)
 

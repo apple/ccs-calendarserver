@@ -133,6 +133,7 @@ create table CALENDAR_BIND (
   CALENDAR_RESOURCE_NAME    varchar(255) not null,
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
+  BIND_REVISION				integer      default 0 not null,
   MESSAGE                   text,
   TRANSP                    integer      default 0 not null, -- enum CALENDAR_TRANSP
   ALARM_VEVENT_TIMED        text         default null,
@@ -392,6 +393,7 @@ create table SHARED_ADDRESSBOOK_BIND (
   ADDRESSBOOK_RESOURCE_NAME    			varchar(255) 	not null,
   BIND_MODE                    			integer      	not null,	-- enum CALENDAR_BIND_MODE
   BIND_STATUS                  			integer      	not null,	-- enum CALENDAR_BIND_STATUS
+  BIND_REVISION				   			integer      	default 0 not null,
   MESSAGE                      			text,                  		-- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_ADDRESSBOOK_HOME_RESOURCE_ID), -- implicit index
@@ -473,6 +475,7 @@ create table SHARED_GROUP_BIND (
   GROUP_ADDRESSBOOK_RESOURCE_NAME	varchar(255) not null,
   BIND_MODE                    		integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                  		integer      not null, -- enum CALENDAR_BIND_STATUS
+  BIND_REVISION				   		integer      default 0 not null,
   MESSAGE                      		text,                  -- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_RESOURCE_ID), -- implicit index

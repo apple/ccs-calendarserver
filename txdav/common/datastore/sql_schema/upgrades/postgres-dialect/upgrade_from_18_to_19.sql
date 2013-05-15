@@ -33,6 +33,7 @@ alter table CALENDAR_HOME_METADATA
 -- Calendar bind related updates
 
 alter table CALENDAR_BIND
+ add column BIND_REVISION			 integer     default 0 not null,
  add column TRANSP                   integer     default 0 not null,
  add column ALARM_VEVENT_TIMED       text        default null,
  add column ALARM_VEVENT_ALLDAY      text        default null,
@@ -46,6 +47,13 @@ create table CALENDAR_TRANSP (
 
 insert into CALENDAR_TRANSP values (0, 'opaque' );
 insert into CALENDAR_TRANSP values (1, 'transparent');
+
+
+-- Addressbook bind related updates
+
+alter table ADDRESSBOOK_BIND
+ add column BIND_REVISION			 integer     default 0 not null;
+
 
 -- Now update the version
 -- No data upgrades

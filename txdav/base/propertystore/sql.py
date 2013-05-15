@@ -250,9 +250,12 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
                     name=key_str, uid=uid)
             self._cacher.delete(str(self._resourceID))
 
-        # Call the registered notification callback
+        # Call the registered notification callback - we need to do this as a preCommit since it involves
+        # a bunch of deferred operations, but this propstore api is not deferred. preCommit will execute
+        # the deferreds properly, and it is fine to wait until everything else is done before sending the
+        # notifications.
         if hasattr(self, "_notifyCallback") and self._notifyCallback is not None:
-            self._notifyCallback()
+            self._txn.preCommit(self._notifyCallback)
 
         def justLogIt(f):
             f.trap(AllRetriesFailed)
@@ -278,6 +281,14 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
                                  name=key_str, uid=uid
                                 )
             self._cacher.delete(str(self._resourceID))
+
+        # Call the registered notification callback - we need to do this as a preCommit since it involves
+        # a bunch of deferred operations, but this propstore api is not deferred. preCommit will execute
+        # the deferreds properly, and it is fine to wait until everything else is done before sending the
+        # notifications.
+        if hasattr(self, "_notifyCallback") and self._notifyCallback is not None:
+            self._txn.preCommit(self._notifyCallback)
+
         def justLogIt(f):
             f.trap(AllRetriesFailed)
             self.log_error("setting a property failed; probably nothing.")
