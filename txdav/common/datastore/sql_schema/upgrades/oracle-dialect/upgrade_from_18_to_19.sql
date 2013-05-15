@@ -32,7 +32,8 @@ alter table ATTACHMENT
 -- Calendar bind related updates
 
 alter table CALENDAR_BIND
- add ("TRANSP" integer default 0 not null,
+ add ("BIND_REVISION" integer default 0 not null,
+      "TRANSP" integer default 0 not null,
       "ALARM_VEVENT_TIMED" nclob default null,
       "ALARM_VEVENT_ALLDAY" nclob default null,
       "ALARM_VTODO_TIMED" nclob default null,
@@ -46,6 +47,13 @@ create table CALENDAR_TRANSP (
 insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('opaque', 0);
 insert into CALENDAR_TRANSP (DESCRIPTION, ID) values ('transparent', 1);
 
+ 	  
+-- Addressbook bind related updates
+
+alter table ADDRESSBOOK_BIND
+ add ("BIND_REVISION" integer default 0 not null);
+
+ 
 -- Now update the version
 -- No data upgrades
 update CALENDARSERVER set VALUE = '19' where NAME = 'VERSION';

@@ -535,24 +535,6 @@ class DirectoryRenderingMixIn(object):
 
 
 
-def updateCacheTokenOnCallback(f):
-    def wrapper(self, *args, **kwargs):
-        if hasattr(self, "notifyChanged"):
-            def updateToken(response):
-                d = self.notifyChanged()
-                d.addCallback(lambda _: response)
-                return d
-
-            d = maybeDeferred(f, self, *args, **kwargs)
-            d.addCallback(updateToken)
-            return d
-        else:
-            return f(self, *args, **kwargs)
-
-    return wrapper
-
-
-
 class DAVResource (DirectoryPrincipalPropertySearchMixIn,
                    SuperDAVResource, LoggingMixIn,
                    DirectoryRenderingMixIn, StaticRenderMixin):
@@ -562,20 +544,6 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn,
     Note we add StaticRenderMixin as a base class because we need all the etag etc behavior
     that is currently in static.py but is actually applicable to any type of resource.
     """
-
-    @updateCacheTokenOnCallback
-    def http_PROPPATCH(self, request):
-        return super(DAVResource, self).http_PROPPATCH(request)
-
-
-    @updateCacheTokenOnCallback
-    def http_DELETE(self, request):
-        return super(DAVResource, self).http_DELETE(request)
-
-
-    @updateCacheTokenOnCallback
-    def http_ACL(self, request):
-        return super(DAVResource, self).http_ACL(request)
 
     http_REPORT = http_REPORT
 

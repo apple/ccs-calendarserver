@@ -72,6 +72,10 @@ calendarserver_partstat_changes_compliance = (
     "calendarserver-partstat-changes",
 )
 
+calendarserver_home_sync_compliance = (
+    "calendarserver-home-sync",
+)
+
 
 @registerElement
 class TwistedCalendarSupportedComponents (WebDAVTextElement):

@@ -1733,15 +1733,16 @@ END:VCALENDAR
         home = yield self.homeUnderTest()
 
         changed, deleted = yield home.resourceNamesSinceToken(
-            self.token2revision(st), "depth_is_ignored")
+            self.token2revision(st), "infinity")
 
-        self.assertEquals(set(changed), set(["calendar_1/new.ics",
+        self.assertEquals(set(changed), set(["calendar_1/",
+                                             "calendar_1/new.ics",
                                              "calendar_1/2.ics",
                                              "other-calendar/"]))
         self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
 
         changed, deleted = yield home.resourceNamesSinceToken(
-            self.token2revision(st2), "depth_is_ignored")
+            self.token2revision(st2), "infinity")
         self.assertEquals(changed, [])
         self.assertEquals(deleted, [])
 

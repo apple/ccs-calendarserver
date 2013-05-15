@@ -202,21 +202,6 @@ def _calendarPrivilegeSet():
 
 calendarPrivilegeSet = _calendarPrivilegeSet()
 
-def updateCacheTokenOnCallback(f):
-    def fun(self, *args, **kwargs):
-        def _updateToken(response):
-            return self.notifyChanged().addCallback(lambda _: response)
-
-        d = maybeDeferred(f, self, *args, **kwargs)
-
-        if hasattr(self, 'notifyChanged'):
-            d.addCallback(_updateToken)
-
-        return d
-
-    return fun
-
-
 
 class CalDAVResource (
         CalDAVComplianceMixIn, SharedCollectionMixin,
@@ -389,21 +374,6 @@ class CalDAVResource (
                                   (self,))
 
     # End transitional new-store interface
-
-
-    @updateCacheTokenOnCallback
-    def http_PROPPATCH(self, request):
-        return super(CalDAVResource, self).http_PROPPATCH(request)
-
-
-    @updateCacheTokenOnCallback
-    def http_DELETE(self, request):
-        return super(CalDAVResource, self).http_DELETE(request)
-
-
-    @updateCacheTokenOnCallback
-    def http_ACL(self, request):
-        return super(CalDAVResource, self).http_ACL(request)
 
 
     ##

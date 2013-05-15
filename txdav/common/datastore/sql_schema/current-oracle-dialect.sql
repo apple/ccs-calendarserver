@@ -68,6 +68,7 @@ create table CALENDAR_BIND (
     "CALENDAR_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
+    "BIND_REVISION" integer default 0 not null,
     "MESSAGE" nclob,
     "TRANSP" integer default 0 not null,
     "ALARM_VEVENT_TIMED" nclob default null,
@@ -228,6 +229,7 @@ create table ADDRESSBOOK_BIND (
     "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
+    "BIND_REVISION" integer default 0 not null,
     "MESSAGE" nclob, 
     primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_ID"), 
     unique("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
