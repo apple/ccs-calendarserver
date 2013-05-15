@@ -137,10 +137,8 @@ update ADDRESSBOOK_HOME
 --------------------------------
 
 alter table ADDRESSBOOK_OBJECT
-	add column	KIND	integer;  -- enum ADDRESSBOOK_OBJECT_KIND
-
-alter table ADDRESSBOOK_OBJECT
-	add column	ADDRESSBOOK_HOME_RESOURCE_ID	integer	references ADDRESSBOOK_HOME on delete cascade;
+	add column	KIND	integer,  -- enum ADDRESSBOOK_OBJECT_KIND
+	add column	ADDRESSBOOK_HOME_RESOURCE_ID	integer references ADDRESSBOOK_HOME on delete cascade;
 
 update ADDRESSBOOK_OBJECT
 	set	ADDRESSBOOK_HOME_RESOURCE_ID = (
@@ -175,14 +173,8 @@ delete
   	
 -- add non null constraints after update and delete are complete
 alter table ADDRESSBOOK_OBJECT
-	alter column KIND
-		set not null;
-
-alter table ADDRESSBOOK_OBJECT
-	alter column ADDRESSBOOK_HOME_RESOURCE_ID
-		set not null;
-
-alter table ADDRESSBOOK_OBJECT
+	alter column KIND set not null,
+	alter column ADDRESSBOOK_HOME_RESOURCE_ID set not null,
 	drop column	ADDRESSBOOK_RESOURCE_ID;
 
 	

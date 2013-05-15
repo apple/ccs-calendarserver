@@ -30,19 +30,19 @@
 -- Joins sharee ADDRESSBOOK_HOME and owner ADDRESSBOOK_HOME
 
 create table SHARED_ADDRESSBOOK_BIND (
-  ADDRESSBOOK_HOME_RESOURCE_ID			integer			not null references ADDRESSBOOK_HOME,
-  OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer      	not null references ADDRESSBOOK_HOME on delete cascade,
-  ADDRESSBOOK_RESOURCE_NAME    			varchar(255) 	not null,
-  BIND_MODE                    			integer      	not null,	-- enum CALENDAR_BIND_MODE
-  BIND_STATUS                  			integer      	not null,	-- enum CALENDAR_BIND_STATUS
-  MESSAGE                      			text,                  		-- FIXME: xml?
-
-  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_ADDRESSBOOK_HOME_RESOURCE_ID), -- implicit index
-  unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
+    "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
+    "OWNER_ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
+    "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
+    "BIND_MODE" integer not null,
+    "BIND_STATUS" integer not null,
+    "MESSAGE" nclob, 
+    primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_ADDRESSBOOK_HOME_RESOURCE_ID"), 
+    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
 );
 
-create index SHARED_ADDRESSBOOK_BIND_RESOURCE_ID on
-  SHARED_ADDRESSBOOK_BIND(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID);
+create index SHARED_ADDRESSBOOK_BI_e9a2e6d4 on SHARED_ADDRESSBOOK_BIND (
+    OWNER_ADDRESSBOOK_HOME_RESOURCE_ID
+);
 
 
 -----------------------
@@ -51,20 +51,20 @@ create index SHARED_ADDRESSBOOK_BIND_RESOURCE_ID on
 
 -- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_OBJECT (kind == group)
 
-create table SHARED_GROUP_BIND (	
-  ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
-  GROUP_RESOURCE_ID      			integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
-  GROUP_ADDRESSBOOK_RESOURCE_NAME	varchar(255) not null,
-  BIND_MODE                    		integer      not null, -- enum CALENDAR_BIND_MODE
-  BIND_STATUS                  		integer      not null, -- enum CALENDAR_BIND_STATUS
-  MESSAGE                      		text,                  -- FIXME: xml?
-
-  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_RESOURCE_ID), -- implicit index
-  unique (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
+create table SHARED_GROUP_BIND (
+    "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
+    "GROUP_RESOURCE_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
+    "GROUP_ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
+    "BIND_MODE" integer not null,
+    "BIND_STATUS" integer not null,
+    "MESSAGE" nclob, 
+    primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_RESOURCE_ID"), 
+    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_ADDRESSBOOK_RESOURCE_NAME")
 );
 
-create index SHARED_GROUP_BIND_RESOURCE_ID on
-  SHARED_GROUP_BIND(GROUP_RESOURCE_ID);
+create index SHARED_GROUP_BIND_RES_cf52f95d on SHARED_GROUP_BIND (
+    GROUP_RESOURCE_ID
+);
 
   
 -----------------------------
@@ -72,14 +72,14 @@ create index SHARED_GROUP_BIND_RESOURCE_ID on
 -----------------------------
 
 create table ADDRESSBOOK_OBJECT_KIND (
-  ID          integer     primary key,
-  DESCRIPTION varchar(16) not null unique
+    "ID" integer primary key,
+    "DESCRIPTION" nvarchar2(16) unique
 );
 
-insert into ADDRESSBOOK_OBJECT_KIND values (0, 'person');
-insert into ADDRESSBOOK_OBJECT_KIND values (1, 'group' );
-insert into ADDRESSBOOK_OBJECT_KIND values (2, 'resource');
-insert into ADDRESSBOOK_OBJECT_KIND values (3, 'location');
+insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('person', 0);
+insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('group', 1);
+insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('resource', 2);
+insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('location', 3);
 
 
 ---------------------------------
@@ -87,10 +87,10 @@ insert into ADDRESSBOOK_OBJECT_KIND values (3, 'location');
 ---------------------------------
 
 create table ABO_MEMBERS (
-    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
-    MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
-    primary key (GROUP_ID, MEMBER_ID) -- implicit index
+    "GROUP_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
+    "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
+    "MEMBER_ID" integer not null references ADDRESSBOOK_OBJECT, 
+    primary key("GROUP_ID", "MEMBER_ID")
 );
 
 
@@ -99,10 +99,10 @@ create table ABO_MEMBERS (
 ------------------------------------------
 
 create table ABO_FOREIGN_MEMBERS (
-    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
-    MEMBER_ADDRESS  	  varchar(255) not null, 													-- member AddressBook Object's 'calendar' address
-    primary key (GROUP_ID, MEMBER_ADDRESS) -- implicit index
+    "GROUP_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
+    "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
+    "MEMBER_ADDRESS" nvarchar2(255), 
+    primary key("GROUP_ID", "MEMBER_ADDRESS")
 );
 
 
@@ -112,7 +112,7 @@ create table ABO_FOREIGN_MEMBERS (
 -----------------------------
 
 alter table ADDRESSBOOK_HOME
-	add (ADDRESSBOOK_PROPERTY_STORE_ID	integer	default nextval('RESOURCE_ID_SEQ') not null);
+	add ("ADDRESSBOOK_PROPERTY_STORE_ID" integer not null);
 
 update ADDRESSBOOK_HOME
 	set	ADDRESSBOOK_PROPERTY_STORE_ID = (
@@ -138,10 +138,8 @@ update ADDRESSBOOK_HOME
 --------------------------------
 
 alter table ADDRESSBOOK_OBJECT
-	add (KIND	integer);  -- enum ADDRESSBOOK_OBJECT_KIND
-
-alter table ADDRESSBOOK_OBJECT
-	add (ADDRESSBOOK_HOME_RESOURCE_ID	integer	references ADDRESSBOOK_HOME on delete cascade);
+	add ("KIND"	integer);  -- enum ADDRESSBOOK_OBJECT_KIND
+	add ("ADDRESSBOOK_HOME_RESOURCE_ID"	integer	references ADDRESSBOOK_HOME on delete cascade);
 
 update ADDRESSBOOK_OBJECT
 	set	ADDRESSBOOK_HOME_RESOURCE_ID = (
@@ -176,13 +174,9 @@ delete
   	
 -- add non null constraints after update and delete are complete
 alter table ADDRESSBOOK_OBJECT
-	add (KIND not null);
-
-alter table ADDRESSBOOK_OBJECT
-	add (ADDRESSBOOK_HOME_RESOURCE_ID not null)
-
-alter table ADDRESSBOOK_OBJECT
-	drop (ADDRESSBOOK_RESOURCE_ID);
+	modify ("KIND" not null,
+            "ADDRESSBOOK_HOME_RESOURCE_ID" not null)
+	drop ("ADDRESSBOOK_RESOURCE_ID");
 
 	
 ------------------------------------------
@@ -190,7 +184,7 @@ alter table ADDRESSBOOK_OBJECT
 ------------------------------------------
 
 alter table ADDRESSBOOK_OBJECT_REVISIONS
-	add (OWNER_ADDRESSBOOK_HOME_RESOURCE_ID	integer	references ADDRESSBOOK_HOME)Œ;
+	add ("OWNER_ADDRESSBOOK_HOME_RESOURCE_ID"	integer	references ADDRESSBOOK_HOME);
 
 update ADDRESSBOOK_OBJECT_REVISIONS
 	set	OWNER_ADDRESSBOOK_HOME_RESOURCE_ID = (
@@ -224,7 +218,7 @@ delete
   	);
 
 alter table ADDRESSBOOK_OBJECT_REVISIONS
-	drop (ADDRESSBOOK_RESOURCE_ID);
+	drop ("ADDRESSBOOK_RESOURCE_ID");
 
 
 -------------------------------
