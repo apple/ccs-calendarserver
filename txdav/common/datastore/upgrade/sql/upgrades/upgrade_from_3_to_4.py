@@ -109,7 +109,9 @@ def _processDefaultCalendarProperty(sqlStore, propname, colname):
 
                                 calendar = (yield calendarHome.calendarWithName(calendarName))
                                 if calendar is not None:
-                                    yield calendarHome.setDefaultCalendar(calendar, tasks=(propname == sqlStore, customxml.ScheduleDefaultTasksURL))
+                                    yield calendarHome.setDefaultCalendar(
+                                        calendar, tasks=(propname ==
+                                            customxml.ScheduleDefaultTasksURL))
 
                 # Always delete the row so that batch processing works correctly
                 yield Delete(
