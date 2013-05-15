@@ -66,6 +66,7 @@ create table SHARED_GROUP_BIND (
 create index SHARED_GROUP_BIND_RESOURCE_ID on
   SHARED_GROUP_BIND(GROUP_RESOURCE_ID);
 
+  
 -----------------------------
 -- AddressBook Object kind --
 -----------------------------
@@ -111,7 +112,7 @@ create table ABO_FOREIGN_MEMBERS (
 -----------------------------
 
 alter table ADDRESSBOOK_HOME
-	add column	ADDRESSBOOK_PROPERTY_STORE_ID	integer	default nextval('RESOURCE_ID_SEQ') not null;
+	add (ADDRESSBOOK_PROPERTY_STORE_ID	integer	default nextval('RESOURCE_ID_SEQ') not null);
 
 update ADDRESSBOOK_HOME
 	set	ADDRESSBOOK_PROPERTY_STORE_ID = (
@@ -137,10 +138,10 @@ update ADDRESSBOOK_HOME
 --------------------------------
 
 alter table ADDRESSBOOK_OBJECT
-	add column	KIND	integer;  -- enum ADDRESSBOOK_OBJECT_KIND
+	add (KIND	integer);  -- enum ADDRESSBOOK_OBJECT_KIND
 
 alter table ADDRESSBOOK_OBJECT
-	add column	ADDRESSBOOK_HOME_RESOURCE_ID	integer	references ADDRESSBOOK_HOME on delete cascade;
+	add (ADDRESSBOOK_HOME_RESOURCE_ID	integer	references ADDRESSBOOK_HOME on delete cascade);
 
 update ADDRESSBOOK_OBJECT
 	set	ADDRESSBOOK_HOME_RESOURCE_ID = (
@@ -175,15 +176,13 @@ delete
   	
 -- add non null constraints after update and delete are complete
 alter table ADDRESSBOOK_OBJECT
-	alter column KIND
-		set not null;
+	add (KIND not null);
 
 alter table ADDRESSBOOK_OBJECT
-	alter column ADDRESSBOOK_HOME_RESOURCE_ID
-		set not null;
+	add (ADDRESSBOOK_HOME_RESOURCE_ID not null)
 
 alter table ADDRESSBOOK_OBJECT
-	drop column	ADDRESSBOOK_RESOURCE_ID;
+	drop (ADDRESSBOOK_RESOURCE_ID);
 
 	
 ------------------------------------------
@@ -191,7 +190,7 @@ alter table ADDRESSBOOK_OBJECT
 ------------------------------------------
 
 alter table ADDRESSBOOK_OBJECT_REVISIONS
-	add column	OWNER_ADDRESSBOOK_HOME_RESOURCE_ID	integer	references ADDRESSBOOK_HOME;
+	add (OWNER_ADDRESSBOOK_HOME_RESOURCE_ID	integer	references ADDRESSBOOK_HOME)Œ;
 
 update ADDRESSBOOK_OBJECT_REVISIONS
 	set	OWNER_ADDRESSBOOK_HOME_RESOURCE_ID = (
@@ -225,7 +224,7 @@ delete
   	);
 
 alter table ADDRESSBOOK_OBJECT_REVISIONS
-	drop column	ADDRESSBOOK_RESOURCE_ID;
+	drop (ADDRESSBOOK_RESOURCE_ID);
 
 
 -------------------------------
