@@ -12,7 +12,7 @@ class Subscription(object):
     def issue(self, issue):
         self.subscriber(issue)
 
-        
+
 
 class Periodical(object):
     def __init__(self):

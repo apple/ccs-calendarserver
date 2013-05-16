@@ -34,7 +34,7 @@ class Tests(twistedcaldav.test.util.TestCase):
             )]
         )
         filter = addressbookqueryfilter.Filter(filter)
-        
+
         sql, args = sqladdressbookquery(filter)
         self.assertTrue(sql.find("UID") != -1)
         self.assertTrue("*Example*" in args)

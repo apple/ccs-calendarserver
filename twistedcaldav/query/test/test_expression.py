@@ -88,9 +88,10 @@ class Tests(twistedcaldav.test.util.TestCase):
                 "((is(A, 1, True) OR is(B, 2, True)) AND is(C, 3, True))"
             ),
         )
-        
+
         for expr1, expr2, result in tests:
             self.assertEqual(str(expr1.andWith(expr2)), result, msg="Failed on %s" % (result,))
+
 
     def test_orWith(self):
 
@@ -161,6 +162,6 @@ class Tests(twistedcaldav.test.util.TestCase):
                 "(is(A, 1, True) OR is(B, 2, True) OR is(C, 3, True))"
             ),
         )
-        
+
         for expr1, expr2, result in tests:
             self.assertEqual(str(expr1.orWith(expr2)), result, msg="Failed on %s" % (result,))

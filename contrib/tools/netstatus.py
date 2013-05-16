@@ -38,27 +38,27 @@ stateNames = (
 )
 
 if __name__ == '__main__':
-    
+
     pendingq = {}
     while True:
         timestamp = time.time()
         output = commands.getoutput("netstat -n")
-    
+
         states = [(0, 0, 0)] * len(stateNames)
 
         newqs = {}
         for line in output.split("\n"):
-            
+
             if not line.startswith("tcp4 ") and not line.startswith("tcp "):
                 continue
             splits = line.split()
             if not splits[3].endswith("8443") and not splits[3].endswith("8008"):
                 continue
             for ctr, items in enumerate(stateNames):
-                
+
                 for item in items:
                     if item in line:
-                        
+
                         total, recvq, sendq = states[ctr]
                         total += 1
                         if splits[1] != "0":
@@ -69,7 +69,7 @@ if __name__ == '__main__':
                             newqs[splits[4]] = (splits[1], splits[2],)
                         states[ctr] = (total, recvq, sendq,)
                         break
-        
+
         oldqs = set(pendingq.keys())
         for key in oldqs.difference(newqs.keys()):
             del pendingq[key]
@@ -87,10 +87,10 @@ if __name__ == '__main__':
         print("State        Total    RecvQ    SendQ")
         for ctr, items in enumerate(stateNames):
             print("%11s  %5d    %5d    %5d" % (items[0], states[ctr][0], states[ctr][1], states[ctr][2]))
-    
+
         print("")
         print("Source IP              Established (secs)    RecvQ    SendQ")
-        for key, value in sorted(pendingq.iteritems(), key=lambda x:x[1]):
+        for key, value in sorted(pendingq.iteritems(), key=lambda x: x[1]):
             startedat, recv, sendq = value
             deltatime = timestamp - startedat
             if deltatime > 0:

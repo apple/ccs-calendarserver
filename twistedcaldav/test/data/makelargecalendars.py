@@ -40,20 +40,23 @@ if __name__ == "__main__":
             print "Unrecognized option: %s" % (option,)
             raise ValueError
 
-    
-    for ctr in (xrange(user_one, user_one + 1) if user_one else xrange(1, user_max + 1)): 
+    for ctr in (xrange(user_one, user_one + 1) if user_one else xrange(1, user_max + 1)):
         path = os.path.join(document_root, "calendars/__uids__/us/er/user%02d" % (ctr,))
-    
-        try: os.makedirs(path)
-        except OSError: pass
-    
-        try: os.makedirs(path)
-        except OSError: pass
-    
+
+        try:
+            os.makedirs(path)
+        except OSError:
+            pass
+
+        try:
+            os.makedirs(path)
+        except OSError:
+            pass
+
         for calendar in calendars:
             if not os.path.isdir(os.path.join(path, calendar)):
                 print "Expanding %s to %s" % (calendar, path)
-                cmd = "tar -C %r -zx -f %r" % (path, 
-                                               os.path.join(wd, 
+                cmd = "tar -C %r -zx -f %r" % (path,
+                                               os.path.join(wd,
                                                             calendar + ".tgz"))
                 os.system(cmd)

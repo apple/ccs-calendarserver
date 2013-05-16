@@ -38,7 +38,7 @@ It will execute a series of HTTP requests against a test server configuration an
 count the total number of SQL statements per request, the total number of rows
 returned per request and the total SQL execution time per request. Each series
 will be repeated against a varying calendar size so the variation in SQL use
-with calendar size can be plotted. 
+with calendar size can be plotted.
 """
 
 EVENT_COUNTS = (0, 1, 5, 10, 50, 100, 500, 1000, 5000)
@@ -77,17 +77,18 @@ END:VCALENDAR
 """.replace("\n", "\r\n")
 
 class SQLUsageSession(CalDAVSession):
-    
+
     def __init__(self, server, port=None, ssl=False, user="", pswd="", principal=None, root=None, logging=False):
 
         super(SQLUsageSession, self).__init__(server, port, ssl, user, pswd, principal, root, logging)
         self.homeHref = "/calendars/users/%s/" % (self.user,)
         self.calendarHref = "/calendars/users/%s/calendar/" % (self.user,)
         self.inboxHref = "/calendars/users/%s/inbox/" % (self.user,)
-        
+
+
 
 class SQLUsage(object):
-    
+
     def __init__(self, server, port, users, pswds, logFilePath):
         self.server = server
         self.port = port
@@ -98,8 +99,9 @@ class SQLUsage(object):
         self.results = {}
         self.currentCount = 0
 
+
     def runLoop(self, counts):
-        
+
         # Make the sessions
         sessions = [
             SQLUsageSession(self.server, self.port, user=user, pswd=pswd, root="/")
@@ -125,7 +127,7 @@ class SQLUsage(object):
         for session in sessions:
             session.getPropertiesOnHierarchy(URL(path=session.homeHref), props)
             session.getPropertiesOnHierarchy(URL(path=session.calendarHref), props)
-        
+
         # Now loop over sets of events
         for count in counts:
             print("Testing count = %d" % (count,))
@@ -135,16 +137,18 @@ class SQLUsage(object):
                 print("  Test = %s" % (request.label,))
                 result[request.label] = request.execute()
             self.results[count] = result
-    
+
+
     def report(self):
-        
+
         self._printReport("SQL Statement Count", "count", "%d")
         self._printReport("SQL Rows Returned", "rows", "%d")
         self._printReport("SQL Time", "timing", "%.1f")
-            
+
+
     def _printReport(self, title, attr, colFormat):
         table = tables.Table()
-        
+
         print(title)
         headers = ["Events"] + self.requestLabels
         table.addHeader(headers)
@@ -158,11 +162,12 @@ class SQLUsage(object):
         table.printTable(os=os)
         print(os.getvalue())
         print("")
-            
+
+
     def ensureEvents(self, session, calendarhref, n):
         """
         Make sure the required number of events are present in the calendar.
-    
+
         @param n: number of events
         @type n: C{int}
         """
@@ -171,8 +176,10 @@ class SQLUsage(object):
             index = self.currentCount + i + 1
             href = joinURL(calendarhref, "%d.ics" % (index,))
             session.writeData(URL(path=href), ICAL % (now.getYear() + 1, index,), "text/calendar")
-            
+
         self.currentCount = n
+
+
 
 def usage(error_msg=None):
     if error_msg:
@@ -200,7 +207,7 @@ This utility will analyze the output of s pg_stat_statement table.
         sys.exit(0)
 
 if __name__ == '__main__':
-    
+
     server = "localhost"
     port = 8008
     users = ("user01", "user02",)
@@ -208,7 +215,7 @@ if __name__ == '__main__':
     file = "sqlstats.logs"
     counts = EVENT_COUNTS
 
-    options, args = getopt.getopt(sys.argv[1:], "h", ["server=", "port=", "user=", "pswd=", "counts=",])
+    options, args = getopt.getopt(sys.argv[1:], "h", ["server=", "port=", "user=", "pswd=", "counts=", ])
 
     for option, value in options:
         if option == "-h":

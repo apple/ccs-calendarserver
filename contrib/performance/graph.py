@@ -25,7 +25,7 @@ def main():
     fig = pyplot.figure()
     ax = fig.add_subplot(111)
 
-    data = [samples for (stat, samples) in load_stats(sys.argv[1:])]
+    data = [samples for (_ignore_stat, samples) in load_stats(sys.argv[1:])]
 
     bars = []
     color = iter('rgbcmy').next

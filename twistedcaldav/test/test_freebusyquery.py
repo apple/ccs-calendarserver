@@ -47,12 +47,14 @@ class FreeBusyQuery (twistedcaldav.test.util.TestCase):
         """
         raise SkipTest("test unimplemented")
 
+
     def test_free_busy_recurring(self):
         """
         Free-busy on recurring events.
         (CalDAV-access-09, section 7.8)
         """
         raise SkipTest("test unimplemented")
+
 
     def test_free_busy_statustransp(self):
         """
@@ -61,6 +63,7 @@ class FreeBusyQuery (twistedcaldav.test.util.TestCase):
         """
         raise SkipTest("test unimplemented")
 
+
     def test_free_busy_free_busy(self):
         """
         Free-busy on free busy components.
@@ -68,8 +71,9 @@ class FreeBusyQuery (twistedcaldav.test.util.TestCase):
         """
         raise SkipTest("test unimplemented")
 
+
     def simple_free_busy_query(self, cal_uri, start, end):
-        
+
         query_timerange = caldavxml.TimeRange(
             start=start,
             end=end,
@@ -107,4 +111,3 @@ class FreeBusyQuery (twistedcaldav.test.util.TestCase):
             got_calendar
         )
         returnValue(result)
-

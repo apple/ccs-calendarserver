@@ -13,17 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from __future__ import print_function
-
-import sys, pickle
-
+from benchlib import select
 from twisted.internet import reactor
 from twisted.internet.task import coiterate
-from twisted.python.usage import UsageError
 from twisted.python.log import err
-
-from benchlib import select
+from twisted.python.usage import UsageError
 from upload import UploadOptions, upload
+import sys
+import pickle
 
 class MassUploadOptions(UploadOptions):
     optParameters = [
@@ -35,6 +34,7 @@ class MassUploadOptions(UploadOptions):
     def parseArgs(self, filename):
         self['filename'] = filename
         UploadOptions.parseArgs(self)
+
 
 
 def main():
@@ -53,6 +53,7 @@ def main():
     else:
         benchmarks = options['benchmarks'].split()
 
+
     def go():
         for benchmark in benchmarks:
             for param in raw[benchmark].keys():
@@ -61,13 +62,13 @@ def main():
                         raw, benchmark, param, statistic)
                     samples = stat.squash(samples)
                     yield upload(
-                        reactor, 
+                        reactor,
                         options['url'], options['project'],
                         options['revision'], options['revision-date'],
                         benchmark, param, statistic,
                         options['backend'], options['environment'],
                         samples)
-                    
+
                     # This is somewhat hard-coded to the currently
                     # collected stats.
                     if statistic == 'SQL':
@@ -75,13 +76,12 @@ def main():
                             raw, benchmark, param, 'execute')
                         samples = stat.squash(samples, 'count')
                         yield upload(
-                            reactor, 
+                            reactor,
                             options['url'], options['project'],
                             options['revision'], options['revision-date'],
                             benchmark, param, statistic + 'count',
                             options['backend'], options['environment'],
                             samples)
-
 
     d = coiterate(go())
     d.addErrback(err, "Mass upload failed")

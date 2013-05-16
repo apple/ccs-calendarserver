@@ -54,7 +54,7 @@ class SummarizingMixin(object):
         # Determine PASS/FAIL
         failure = False
         count = len(data)
-        
+
         if failed * 100.0 / count > self._fail_cut_off:
             failure = True
 

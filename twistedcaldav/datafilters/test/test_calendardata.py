@@ -16,14 +16,14 @@
 
 import twistedcaldav.test.util
 from twistedcaldav.datafilters.calendardata import CalendarDataFilter
-from twistedcaldav.caldavxml import CalendarData, CalendarComponent,\
+from twistedcaldav.caldavxml import CalendarData, CalendarComponent, \
     AllComponents, AllProperties, Property
 from twistedcaldav.ical import Component
 
 class CalendarDataTest (twistedcaldav.test.util.TestCase):
 
     def test_empty(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -37,13 +37,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         empty = CalendarData()
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(empty).filter(item)), data)
 
+
     def test_vcalendar_no_effect(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -57,7 +58,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         no_effect = CalendarData(
             CalendarComponent(
                 name="VCALENDAR"
@@ -65,7 +66,7 @@ END:VCALENDAR
         )
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(no_effect).filter(item)), data)
- 
+
         no_effect = CalendarData(
             CalendarComponent(
                 AllComponents(),
@@ -75,9 +76,10 @@ END:VCALENDAR
         )
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(no_effect).filter(item)), data)
+
 
     def test_vcalendar_no_props(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -92,7 +94,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         result = """BEGIN:VCALENDAR
 BEGIN:VEVENT
 UID:12345-67890
@@ -104,7 +106,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         empty = CalendarData(
             CalendarComponent(
                 AllComponents(),
@@ -114,8 +116,9 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(empty).filter(item)), result)
 
+
     def test_vcalendar_no_comp(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -130,14 +133,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         result = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 X-WR-CALNAME:Help
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         empty = CalendarData(
             CalendarComponent(
                 AllProperties(),
@@ -147,8 +150,9 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(empty).filter(item)), result)
 
+
     def test_vevent_no_effect(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -162,7 +166,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         no_effect = CalendarData(
             CalendarComponent(
                 CalendarComponent(
@@ -175,8 +179,9 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(no_effect).filter(item)), data)
 
+
     def test_vevent_other_component(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -190,13 +195,13 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         result = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         other_component = CalendarData(
             CalendarComponent(
                 CalendarComponent(
@@ -209,8 +214,9 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(other_component).filter(item)), result)
 
+
     def test_vevent_no_props(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -229,7 +235,7 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         result = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -242,7 +248,7 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         empty = CalendarData(
             CalendarComponent(
                 CalendarComponent(
@@ -253,14 +259,15 @@ END:VCALENDAR
                 name="VCALENDAR"
             )
         )
-        
+
         for item in (data, Component.fromString(data),):
             filtered = str(CalendarDataFilter(empty).filter(item))
             filtered = "".join([line for line in filtered.splitlines(True) if not line.startswith("UID:")])
             self.assertEqual(filtered, result)
 
+
     def test_vevent_no_comp(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -279,7 +286,7 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         result = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -293,7 +300,7 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         empty = CalendarData(
             CalendarComponent(
                 CalendarComponent(
@@ -307,8 +314,9 @@ END:VCALENDAR
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(empty).filter(item)), result)
 
+
     def test_vevent_some_props(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -327,7 +335,7 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         result = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -343,7 +351,7 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         empty = CalendarData(
             CalendarComponent(
                 CalendarComponent(
@@ -363,7 +371,6 @@ END:VCALENDAR
                 name="VCALENDAR"
             )
         )
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(CalendarDataFilter(empty).filter(item)), result)
-

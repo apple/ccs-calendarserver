@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from __future__ import print_function
-
-import sys, pickle
-
 from benchlib import select
+import sys
+import pickle
+
 
 def main():
     if len(sys.argv) < 5:
@@ -31,4 +32,3 @@ def main():
             print('\t' + '\n\t'.join(stat.commands))
         else:
             print(getattr(stat, sys.argv[5])(samples, *sys.argv[6:]))
-

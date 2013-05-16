@@ -26,7 +26,7 @@ dataset = []
 initialDate = None
 
 def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
-    
+
     print("Analyzing data for %s" % (fpath,))
     data = []
     firstDate = None
@@ -35,11 +35,11 @@ def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
         for line in f:
             try:
                 if line.startswith("2010/0"):
-                    
+
                     date = line[:10]
                     if startDate and date < startDate or endDate and date > endDate:
                         continue
-                    
+
                     if noweekends:
                         dt = datetime.date(int(date[0:4]), int(date[5:7]), int(date[8:10]))
                         if dt.weekday() > 4:
@@ -51,7 +51,7 @@ def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
                             f.next()
                         continue
                     dtstamp = line[:19]
-                    
+
                     if firstDate is None:
                         firstDate = date.replace("/", "")
                         if initialDate is None:
@@ -61,27 +61,27 @@ def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
                         lqnon = line[len("2010/05/12 22:27:24 Listenq (ssl+non): "):].split("+", 1)[1]
                     else:
                         lqnon = line[len("2010/01/05 19:47:23 Listen queue: "):]
-                        
+
                     lqnon = int(lqnon.split(" ", 1)[0])
-                    
+
                     line = f.next()
                     cpu = int(line[len("CPU idle %: "):].split(" ", 1)[0])
-                    
+
                     line = f.next()
                     if line.startswith("Memory"):
                         line = f.next()
                     reqs = int(float(line.split(" ", 1)[0]))
-    
+
                     line = f.next()
                     resp = line[len("Response time: average "):].split(" ", 1)[0]
-                    resp = int(float(resp)/10.0) * 10
-    
+                    resp = int(float(resp) / 10.0) * 10
+
                     if reqs <= 80:
                         data.append((dtstamp, reqs, resp, lqnon, cpu))
                     #print("%s %d %d %d %d" % (dtstamp, reqs, resp, lqnon, cpu))
             except StopIteration:
                 break
-    
+
     if not title:
         if startDate and endDate:
             title = "Between %s and %s" % (startDate, endDate,)
@@ -93,8 +93,10 @@ def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
             title = "Start at %s" % (firstDate,)
 
     dataset.append((title, data,))
-    
+
     print("Stored %d data points" % (len(data),))
+
+
 
 def plotListenQBands(data, first, last, xlim, ylim):
 
@@ -104,7 +106,7 @@ def plotListenQBands(data, first, last, xlim, ylim):
     y2 = []
     x3 = []
     y3 = []
-    for datetime, reqs, resp, lq, cpu in data:
+    for datetime, reqs, resp, lq, _ignore_cpu in data:
         if lq == 0:
             x1.append(reqs)
             y1.append(resp)
@@ -114,9 +116,9 @@ def plotListenQBands(data, first, last, xlim, ylim):
         else:
             x3.append(reqs)
             y3.append(resp)
-    
+
     plt.plot(x1, y1, "b+", x2, y2, "g+", x3, y3, "y+")
-    
+
     if first:
         plt.legend(('ListenQ at zero', 'ListenQ < 50', 'ListenQ >= 50'),
                'upper left', shadow=True, fancybox=True)
@@ -126,11 +128,13 @@ def plotListenQBands(data, first, last, xlim, ylim):
     plt.xlim(0, xlim)
     plt.ylim(0, ylim)
 
+
+
 def plotCPUBands(data, first, last, xlim, ylim):
 
     x = [[], [], [], []]
     y = [[], [], [], []]
-    for datetime, reqs, resp, lq, cpu in data:
+    for datetime, reqs, resp, _ignore_lq, cpu in data:
         if cpu > 75:
             x[0].append(reqs)
             y[0].append(resp)
@@ -143,14 +147,14 @@ def plotCPUBands(data, first, last, xlim, ylim):
         else:
             x[3].append(reqs)
             y[3].append(resp)
-    
+
     plt.plot(
         x[0], y[0], "b+",
         x[1], y[1], "g+",
         x[2], y[2], "y+",
         x[3], y[3], "m+",
     )
-    
+
     if first:
         plt.legend(('CPU < 1/4', 'CPU < 1/2', 'CPU < 3/4', "CPU High"),
                'upper left', shadow=True, fancybox=True)
@@ -160,28 +164,32 @@ def plotCPUBands(data, first, last, xlim, ylim):
     plt.xlim(0, xlim)
     plt.ylim(0, ylim)
 
+
+
 def plot(figure, noshow, nosave, pngDir, xlim, ylim):
-    
+
     print("Plotting data")
-    
+
     plt.figure(figure, figsize=(16, 5 * len(dataset)))
 
     nplots = len(dataset)
-    subplot = nplots*100 + 20
-    
+    subplot = nplots * 100 + 20
+
     for ctr, item in enumerate(dataset):
-        
+
         title, data = item
         if not title:
-            title = "#%d" % (ctr+1,)
+            title = "#%d" % (ctr + 1,)
 
-        plt.subplot(subplot + 2*ctr + 1)
-        plotListenQBands(data, first=(ctr == 0), last=(ctr+1 == len(dataset)), xlim=xlim, ylim=ylim)
+        plt.subplot(subplot + 2 * ctr + 1)
+        plotListenQBands(data, first=(ctr == 0), last=(ctr + 1 == len(dataset)), xlim=xlim, ylim=ylim)
         plt.title("ListenQ %s" % (title,))
-        
-        plt.subplot(subplot + 2*ctr + 2)
-        plotCPUBands(data, first=(ctr == 0), last=(ctr+1 == len(dataset)), xlim=xlim, ylim=ylim)
+
+        plt.subplot(subplot + 2 * ctr + 2)
+        plotCPUBands(data, first=(ctr == 0), last=(ctr + 1 == len(dataset)), xlim=xlim, ylim=ylim)
         plt.title("CPU %s" % (title,))
+
+
 
 def argPath(path):
     fpath = os.path.expanduser(path)
@@ -189,8 +197,12 @@ def argPath(path):
         fpath = os.path.join(pwd, fpath)
     return fpath
 
+
+
 def expandDate(date):
     return "%s/%s/%s" % (date[0:4], date[4:6], date[6:8],)
+
+
 
 def usage(error_msg=None):
     if error_msg:
@@ -260,7 +272,7 @@ if __name__ == "__main__":
 
     if not nosave and not os.path.isdir(pngDir):
         usage("Must have a valid -d path for saving images")
-        
+
     # Process arguments
     if len(args) == 0 and scanDir is None:
         usage("Must have arguments")
@@ -285,7 +297,7 @@ if __name__ == "__main__":
                 if not nosave:
                     plt.savefig(os.path.expanduser(os.path.join(pngDir, "Monitor-%s" % (trailer,))))
                 count += 1
-    
+
         if not noshow:
             plt.show()
     else:
@@ -309,10 +321,10 @@ if __name__ == "__main__":
             else:
                 start = (None,)
                 end = (None,)
-            
+
             for i in range(len(start)):
                 analyze(argPath(arg), noweekends, start[i], end[i])
-    
+
         plot(1, noshow, nosave, pngDir, xlim, ylim)
         if not nosave:
             plt.savefig(os.path.expanduser(os.path.join(pngDir, "Monitor-%s" % (initialDate,))))

@@ -63,7 +63,8 @@ class SyncTest(HTTPTestBase):
         self.full = full
         self.count = count
         self.synctoken = ""
-    
+
+
     def prepare(self):
         """
         Do some setup prior to the real request.
@@ -72,12 +73,13 @@ class SyncTest(HTTPTestBase):
             # Get current sync token
             results, _ignore_bad = self.sessions[0].getProperties(URL(path=self.sessions[0].calendarHref), (davxml.sync_token,))
             self.synctoken = results[davxml.sync_token]
-            
+
             # Add resources to create required number of changes
             now = PyCalendarDateTime.getNowUTC()
             for i in range(self.count):
-                href = joinURL(self.sessions[0].calendarHref, "sync-collection-%d.ics" % (i+1,))
-                self.sessions[0].writeData(URL(path=href), ICAL % (now.getYear() + 1, i+1,), "text/calendar")
+                href = joinURL(self.sessions[0].calendarHref, "sync-collection-%d.ics" % (i + 1,))
+                self.sessions[0].writeData(URL(path=href), ICAL % (now.getYear() + 1, i + 1,), "text/calendar")
+
 
     def doRequest(self):
         """
@@ -91,6 +93,7 @@ class SyncTest(HTTPTestBase):
         # Run sync collection
         self.sessions[0].syncCollection(URL(path=self.sessions[0].calendarHref), self.synctoken, props)
 
+
     def cleanup(self):
         """
         Do some cleanup after the real request.
@@ -98,5 +101,5 @@ class SyncTest(HTTPTestBase):
         if not self.full:
             # Remove created resources
             for i in range(self.count):
-                href = joinURL(self.sessions[0].calendarHref, "sync-collection-%d.ics" % (i+1,))
+                href = joinURL(self.sessions[0].calendarHref, "sync-collection-%d.ics" % (i + 1,))
                 self.sessions[0].deleteResource(URL(path=href))

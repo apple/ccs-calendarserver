@@ -24,12 +24,13 @@ class HTTPTestBase(object):
     """
 
     class SQLResults(object):
-        
+
         def __init__(self, count, rows, timing):
             self.count = count
             self.rows = rows
             self.timing = timing
-        
+
+
     def __init__(self, label, sessions, logFilePath):
         """
         @param label: label used to identify the test
@@ -40,11 +41,12 @@ class HTTPTestBase(object):
         self.logFilePath = logFilePath
         self.result = None
 
+
     def execute(self):
         """
         Execute the HTTP request and read the results.
         """
-        
+
         self.prepare()
         self.clearLog()
         self.doRequest()
@@ -52,11 +54,13 @@ class HTTPTestBase(object):
         self.cleanup()
         return self.result
 
+
     def prepare(self):
         """
         Do some setup prior to the real request.
         """
         pass
+
 
     def clearLog(self):
         """
@@ -64,24 +68,26 @@ class HTTPTestBase(object):
         """
         open(self.logFilePath, "w").write("")
 
+
     def doRequest(self):
         """
         Execute the actual HTTP request. Sub-classes override.
         """
         raise NotImplementedError
 
+
     def collectResults(self):
         """
         Parse the server log file to extract the details we need.
         """
-        
+
         def extractInt(line):
             pos = line.find(": ")
-            return int(line[pos+2:])
+            return int(line[pos + 2:])
 
         def extractFloat(line):
             pos = line.find(": ")
-            return float(line[pos+2:])
+            return float(line[pos + 2:])
 
         data = open(self.logFilePath).read()
         lines = data.splitlines()
@@ -89,6 +95,7 @@ class HTTPTestBase(object):
         rows = extractInt(lines[5])
         timing = extractFloat(lines[6])
         self.result = HTTPTestBase.SQLResults(count, rows, timing)
+
 
     def cleanup(self):
         """

@@ -156,7 +156,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-INBOX_REPLY =  """\
+INBOX_REPLY = """\
 BEGIN:VCALENDAR
 METHOD:REPLY
 VERSION:2.0
@@ -175,12 +175,14 @@ class AnyUser(object):
         return _AnyRecord(index)
 
 
+
 class _AnyRecord(object):
     def __init__(self, index):
         self.uid = u"user%02d" % (index,)
         self.password = u"user%02d" % (index,)
         self.commonName = u"User %02d" % (index,)
         self.email = u"user%02d@example.com" % (index,)
+
 
 
 class Deterministic(object):
@@ -243,17 +245,17 @@ class StubClient(BaseClient):
         """
         if self.serializePath is None or not os.path.isdir(self.serializePath):
             return None
-        
+
         key = "%s-%s" % (self.record.uid, "StubClient")
         path = os.path.join(self.serializePath, key)
         if not os.path.exists(path):
             os.mkdir(path)
         elif not os.path.isdir(path):
             return None
-        
+
         return path
 
-    
+
     def addEvent(self, href, vevent):
         self._events[href] = Event(self.serializePath, href, None, vevent)
         return succeed(None)
@@ -272,6 +274,7 @@ class StubClient(BaseClient):
             return fail(failureObject)
         else:
             return succeed(None)
+
 
     def updateEvent(self, href):
         self.rescheduled.remove(href)
@@ -363,10 +366,10 @@ class InviterTests(TestCase):
         userNumber = 13
         client = StubClient(userNumber, self.mktemp())
 
-        inviter = Inviter(None, self.sim, client, userNumber, **{"enabled":False})
+        inviter = Inviter(None, self.sim, client, userNumber, **{"enabled": False})
         self.assertEqual(inviter.enabled, False)
 
-        inviter = Inviter(None, self.sim, client, userNumber, **{"enabled":True})
+        inviter = Inviter(None, self.sim, client, userNumber, **{"enabled": True})
         self.assertEqual(inviter.enabled, True)
 
 
@@ -437,7 +440,6 @@ class InviterTests(TestCase):
             self.assertEqual(attendees[0].parameterValue(paramname), paramvalue)
 
 
-
     def test_doNotAddSelfToEvent(self):
         """
         If the inviter randomly selects its own user to be added to
@@ -464,7 +466,6 @@ class InviterTests(TestCase):
         }.items():
             self.assertTrue(attendees[0].hasParameter(paramname))
             self.assertEqual(attendees[0].parameterValue(paramname), paramvalue)
-
 
 
     def test_doNotAddExistingToEvent(self):
@@ -561,11 +562,12 @@ class RealisticInviterTests(TestCase):
         userNumber = 13
         client = StubClient(userNumber, self.mktemp())
 
-        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled":False})
+        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled": False})
         self.assertEqual(inviter.enabled, False)
 
-        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled":True})
+        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled": True})
         self.assertEqual(inviter.enabled, True)
+
 
     def test_doNotAddInviteToInbox(self):
         """
@@ -578,7 +580,7 @@ class RealisticInviterTests(TestCase):
         client = StubClient(userNumber, self.mktemp())
         client._calendars.update({calendar.url: calendar})
 
-        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled":False})
+        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled": False})
         inviter._invite()
 
         self.assertEquals(client._events, {})
@@ -616,11 +618,10 @@ class RealisticInviterTests(TestCase):
         inviter._invite()
         self.assertEquals(len(client._events), 1)
         attendees = tuple(client._events.values()[0].component.mainComponent().properties('ATTENDEE'))
-        expected = set(("mailto:user%02d@example.com" %  (userNumber,), "mailto:user%02d@example.com" %  (userNumber + 1,),))
+        expected = set(("mailto:user%02d@example.com" % (userNumber,), "mailto:user%02d@example.com" % (userNumber + 1,),))
         for attendee in attendees:
             expected.remove(attendee.value())
         self.assertEqual(len(expected), 0)
-
 
 
     def test_doNotAddSelfToEvent(self):
@@ -645,11 +646,10 @@ class RealisticInviterTests(TestCase):
         inviter._invite()
         self.assertEquals(len(client._events), 1)
         attendees = tuple(client._events.values()[0].component.mainComponent().properties('ATTENDEE'))
-        expected = set(("mailto:user%02d@example.com" %  (selfNumber,), "mailto:user%02d@example.com" %  (otherNumber,),))
+        expected = set(("mailto:user%02d@example.com" % (selfNumber,), "mailto:user%02d@example.com" % (otherNumber,),))
         for attendee in attendees:
             expected.remove(attendee.value())
         self.assertEqual(len(expected), 0)
-
 
 
     def test_doNotAddExistingToEvent(self):
@@ -676,9 +676,9 @@ class RealisticInviterTests(TestCase):
         self.assertEquals(len(client._events), 1)
         attendees = tuple(client._events.values()[0].component.mainComponent().properties('ATTENDEE'))
         expected = set((
-            "mailto:user%02d@example.com" %  (selfNumber,),
-            "mailto:user%02d@example.com" %  (inviteeNumber,),
-            "mailto:user%02d@example.com" %  (anotherNumber,),
+            "mailto:user%02d@example.com" % (selfNumber,),
+            "mailto:user%02d@example.com" % (inviteeNumber,),
+            "mailto:user%02d@example.com" % (anotherNumber,),
         ))
         for attendee in attendees:
             expected.remove(attendee.value())
@@ -719,11 +719,12 @@ class AccepterTests(TestCase):
         userNumber = 13
         client = StubClient(userNumber, self.mktemp())
 
-        accepter = Accepter(None, self.sim, client, userNumber, **{"enabled":False})
+        accepter = Accepter(None, self.sim, client, userNumber, **{"enabled": False})
         self.assertEqual(accepter.enabled, False)
 
-        accepter = Accepter(None, self.sim, client, userNumber, **{"enabled":True})
+        accepter = Accepter(None, self.sim, client, userNumber, **{"enabled": True})
         self.assertEqual(accepter.enabled, True)
+
 
     def test_ignoreEventOnUnknownCalendar(self):
         """
@@ -812,7 +813,7 @@ class AccepterTests(TestCase):
 
         inboxEvent = Event(client.serializeLocation(), inboxURL + u'4321.ics', None, vevent)
         client._setEvent(inboxEvent.url, inboxEvent)
-        accepter = Accepter(clock, self.sim, client, userNumber) 
+        accepter = Accepter(clock, self.sim, client, userNumber)
         accepter.eventChanged(inboxEvent.url)
         clock.advance(3)
         self.assertNotIn(inboxEvent.url, client._events)
@@ -841,7 +842,7 @@ class AccepterTests(TestCase):
                     Response(
                         ('HTTP', 1, 1), PRECONDITION_FAILED,
                         'Precondition Failed', None, None)))
-        accepter = Accepter(clock, self.sim, client, userNumber) 
+        accepter = Accepter(clock, self.sim, client, userNumber)
         accepter.eventChanged(inboxEvent.url)
         clock.advance(3)
         self.assertNotIn(inboxEvent.url, client._events)
@@ -967,8 +968,6 @@ class AccepterTests(TestCase):
 
 
 
-
-
 class EventerTests(TestCase):
     """
     Tests for loadtest.profiles.Eventer, a profile which adds new
@@ -983,11 +982,12 @@ class EventerTests(TestCase):
         userNumber = 13
         client = StubClient(userNumber, self.mktemp())
 
-        eventer = Eventer(None, self.sim, client, None, **{"enabled":False})
+        eventer = Eventer(None, self.sim, client, None, **{"enabled": False})
         self.assertEqual(eventer.enabled, False)
 
-        eventer = Eventer(None, self.sim, client, None, **{"enabled":True})
+        eventer = Eventer(None, self.sim, client, None, **{"enabled": True})
         self.assertEqual(eventer.enabled, True)
+
 
     def test_doNotAddEventOnInbox(self):
         """

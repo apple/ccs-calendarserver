@@ -149,7 +149,7 @@ class Populator(object):
         """
         Generate individuals such as might be randomly selected from a
         population with the given parameters.
-        
+
         @type parameters: L{PopulationParameters}
         @rtype: generator of L{ClientType} instances
         """
@@ -176,6 +176,7 @@ class CalendarClientSimulator(object):
 
         TimezoneCache.create()
 
+
     def getUserRecord(self, index):
         return self._records[index]
 
@@ -201,7 +202,7 @@ class CalendarClientSimulator(object):
             uri=self.server,
             user=user.encode('utf-8'),
             passwd=record.password.encode('utf-8'))
-        return user, {"basic": authBasic, "digest": authDigest,}
+        return user, {"basic": authBasic, "digest": authDigest, }
 
 
     def stop(self):
@@ -223,7 +224,7 @@ class CalendarClientSimulator(object):
     def add(self, numClients, clientsPerUser):
         for _ignore_n in range(numClients):
             number = self._nextUserNumber()
-            
+
             for _ignore_peruser in range(clientsPerUser):
                 clientType = self._pop.next()
                 if (number % self.workerCount) != self.workerIndex:
@@ -231,9 +232,9 @@ class CalendarClientSimulator(object):
                     # we have to skip all but every Nth request (since every node
                     # runs the same arrival policy).
                     continue
-    
+
                 _ignore_user, auth = self._createUser(number)
-    
+
                 reactor = loggedReactor(self.reactor)
                 client = clientType.new(
                     reactor,
@@ -246,7 +247,7 @@ class CalendarClientSimulator(object):
                 self.clients.append(client)
                 d = client.run()
                 d.addErrback(self._clientFailure, reactor)
-    
+
                 for profileType in clientType.profileTypes:
                     profile = profileType(reactor, self, client, number)
                     if profile.enabled:
@@ -334,6 +335,7 @@ class SimpleStatistics(StatisticsBase):
         self._failures = collections.defaultdict(int)
         self._simFailures = collections.defaultdict(int)
 
+
     def eventReceived(self, event):
         self._times.append(event['duration'])
         if len(self._times) == 200:
@@ -352,6 +354,7 @@ class SimpleStatistics(StatisticsBase):
         self._simFailures[event] += 1
 
 
+
 class ReportStatistics(StatisticsBase, SummarizingMixin):
     """
 
@@ -363,21 +366,21 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
     # the response time thresholds to display together with failing % count threshold
     _thresholds_default = {
-        "requests":{
-            "limits":     [   0.1,   0.5,   1.0,   3.0,   5.0,  10.0,  30.0],
-            "thresholds":{
-                "default":[ 100.0, 100.0, 100.0,   5.0,   1.0,   0.5,   0.0],
+        "requests": {
+            "limits": [0.1, 0.5, 1.0, 3.0, 5.0, 10.0, 30.0],
+            "thresholds": {
+                "default": [100.0, 100.0, 100.0, 5.0, 1.0, 0.5, 0.0],
             }
         }
     }
-    _fail_cut_off = 1.0     # % of total count at which failed requests will cause a failure 
+    _fail_cut_off = 1.0     # % of total count at which failed requests will cause a failure
 
     _fields_init = [
         ('request', -25, '%-25s'),
         ('count', 8, '%8s'),
         ('failed', 8, '%8s'),
     ]
-    
+
     _fields_extend = [
         ('mean', 8, '%8.4f'),
         ('median', 8, '%8.4f'),
@@ -393,7 +396,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self._failed_sim = collections.defaultdict(int)
         self._startTime = datetime.now()
 
-        # Load parameters from config 
+        # Load parameters from config
         if "thresholdsPath" in params:
             jsondata = json.load(open(params["thresholdsPath"]))
         elif "thresholds" in params:
@@ -404,7 +407,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         for ctr, item in enumerate(self._thresholds):
             for k, v in jsondata["requests"]["thresholds"].items():
                 item[1][k] = v[ctr]
-            
+
         self._fields = self._fields_init[:]
         for threshold, _ignore_fail_at in self._thresholds:
             self._fields.append(('>%g sec' % (threshold,), 10, '%10s'))
@@ -447,7 +450,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
     def printMiscellaneous(self, output, items):
         maxColumnWidth = str(len(max(items.iterkeys(), key=len)))
-        fmt = "%"+maxColumnWidth+"s : %-s\n"
+        fmt = "%" + maxColumnWidth + "s : %-s\n"
         for k in sorted(items.iterkeys()):
             output.write(fmt % (k.title(), items[k],))
 
@@ -469,7 +472,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             'Users': self.countUsers(),
             'Clients': self.countClients(),
             'Start time': self._startTime.strftime('%m/%d %H:%M:%S'),
-            'Run time': "%02d:%02d:%02d" % (runHours,runMinutes,runSeconds),
+            'Run time': "%02d:%02d:%02d" % (runHours, runMinutes, runSeconds),
             'CPU Time': "user %-5.2f sys %-5.2f total %02d:%02d:%02d" % (cpuUser, cpuSys, cpuHours, cpuMinutes, cpuSeconds,)
         }
         if self.countClientFailures() > 0:
@@ -513,7 +516,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             checks = [
                 (failures, self._fail_cut_off, self._FAILED_REASON),
                 ]
-            
+
             for ctr, item in enumerate(self._thresholds):
                 threshold, fail_at = item
                 fail_at = fail_at.get(method, fail_at["default"])

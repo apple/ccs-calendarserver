@@ -22,7 +22,7 @@ from twistedcaldav.ical import Component
 class PrivateEventsTest (twistedcaldav.test.util.TestCase):
 
     def test_public_default(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -36,13 +36,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_PUBLIC, True).filter(item)), data)
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_PUBLIC, False).filter(item)), data)
 
+
     def test_public_none(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -56,13 +57,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PrivateEventFilter(None, True).filter(item)), data)
             self.assertEqual(str(PrivateEventFilter(None, False).filter(item)), data)
 
+
     def test_public(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -77,13 +79,14 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_PUBLIC, True).filter(item)), data)
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_PUBLIC, False).filter(item)), data)
 
+
     def test_private(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -98,14 +101,15 @@ ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_PRIVATE, True).filter(item)), data)
             pfilter = PrivateEventFilter(Component.ACCESS_PRIVATE, False)
             self.assertRaises(HTTPError, pfilter.filter, item)
 
+
     def test_confidential(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -123,7 +127,7 @@ SUMMARY:Confidential
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         filtered = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -135,13 +139,14 @@ DTEND:20080601T130000Z
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_CONFIDENTIAL, True).filter(item)), data)
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_CONFIDENTIAL, False).filter(item)), filtered)
 
+
     def test_restricted(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -159,7 +164,7 @@ SUMMARY:Confidential
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         filtered = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -173,7 +178,7 @@ SUMMARY:Confidential
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-        
+
         for item in (data, Component.fromString(data),):
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_RESTRICTED, True).filter(item)), data)
             self.assertEqual(str(PrivateEventFilter(Component.ACCESS_RESTRICTED, False).filter(item)), filtered)

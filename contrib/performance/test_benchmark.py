@@ -152,7 +152,7 @@ class BenchmarkOptionsTests(TestCase):
             str(exc),
             "host-index must be less than hosts-count")
 
- 
+
     def test_hostIndexAndCount(self):
         """
         If I{--hosts-count} and I{--host-index} are supplied, of the

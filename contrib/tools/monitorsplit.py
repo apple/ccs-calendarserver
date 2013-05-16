@@ -27,7 +27,7 @@ fileCount = 0
 lastWeek = None
 
 def split(fpath, outputDir):
-    
+
     global outputFile, fileCount, lastWeek
 
     print("Splitting data for %s" % (fpath,))
@@ -37,9 +37,9 @@ def split(fpath, outputDir):
             date = line[:10]
             date = date.replace("/", "")
             hours = line[11:13]
-            
+
             dt = datetime.date(int(date[0:4]), int(date[4:6]), int(date[6:8]))
-            
+
             currentWeek = dt.isocalendar()[1]
             if dt.weekday() == 0 and hours <= "06":
                 currentWeek -= 1
@@ -50,7 +50,7 @@ def split(fpath, outputDir):
                 fileCount += 1
                 lastWeek = currentWeek
                 print("Changed to week of %s" % (date,))
-        
+
             output = ["-----\n"]
             output.append(line)
             try:
@@ -65,14 +65,20 @@ def split(fpath, outputDir):
             outputFile.write("".join(output))
     f.close()
 
+
+
 def argPath(path):
     fpath = os.path.expanduser(path)
     if not fpath.startswith("/"):
         fpath = os.path.join(pwd, fpath)
     return fpath
 
+
+
 def expandDate(date):
     return "%s/%s/%s" % (date[0:4], date[4:6], date[6:8],)
+
+
 
 def usage(error_msg=None):
     if error_msg:
@@ -125,5 +131,5 @@ if __name__ == "__main__":
 
     for arg in args:
         split(argPath(arg), outputDir)
-    
+
     print("Created %d files" % (fileCount,))

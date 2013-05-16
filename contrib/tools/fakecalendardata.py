@@ -87,7 +87,7 @@ rrules_template = (
 )
 
 def makeVEVENT(recurring, atendees, date, hour, count):
-    
+
     subs = {
         "UID": str(uuid.uuid4()),
         "START" : "",
@@ -99,21 +99,25 @@ def makeVEVENT(recurring, atendees, date, hour, count):
 
     if recurring:
         subs["RRULE"] = random.choice(rrules_template)
-    
+
     if attendees:
         subs["ORGANIZER"] = organizer_template % {"SEQUENCE": 1}
         for ctr in range(2, random.randint(2, 10)):
             subs["ATTENDEES"] += attendee_template % {"SEQUENCE": ctr}
-    
+
     subs["START"] = "%04d%02d%02dT%02d0000" % (date.year, date.month, date.day, hour)
 
-    return vevent_template % subs 
+    return vevent_template % subs
+
+
 
 def argPath(path):
     fpath = os.path.expanduser(path)
     if not fpath.startswith("/"):
         fpath = os.path.join(pwd, fpath)
     return fpath
+
+
 
 def usage(error_msg=None):
     if error_msg:
@@ -182,7 +186,7 @@ if __name__ == "__main__":
     totalRecurring = (totalCount * percentRecurring) / 100
     totalRecurringWithAttendees = (totalRecurring * percentWithAttendees) / 100
     totalRecurringWithoutAttendees = totalRecurring - totalRecurringWithAttendees
-    
+
     totalNonRecurring = totalCount - totalRecurring
     totalNonRecurringWithAttendees = (totalNonRecurring * percentWithAttendees) / 100
     totalNonRecurringWithoutAttendees = totalNonRecurring - totalNonRecurringWithAttendees
@@ -196,8 +200,8 @@ if __name__ == "__main__":
 
     totalYears = yearsPast + yearsFuture
     totalDays = totalYears * 365
-    
-    startDate = datetime.date.today() - datetime.timedelta(days=yearsPast*365)
+
+    startDate = datetime.date.today() - datetime.timedelta(days=yearsPast * 365)
 
     for i in range(len(eventTypes)):
         eventTypes[i] += (
@@ -208,6 +212,6 @@ if __name__ == "__main__":
     vevents = []
     for count, (recurring, attendees, date, hour) in enumerate(eventTypes):
         #print(recurring, attendees, date, hour)
-        vevents.append(makeVEVENT(recurring, attendees, date, hour, count+1))
+        vevents.append(makeVEVENT(recurring, attendees, date, hour, count + 1))
 
     print(calendar_template % {"VEVENTS" : "".join(vevents)})

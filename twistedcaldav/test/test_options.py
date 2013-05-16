@@ -32,7 +32,8 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             response = IResponse(response)
 
             dav = response.headers.getHeader("dav")
-            if not dav: self.fail("no DAV header: %s" % (response.headers,))
+            if not dav:
+                self.fail("no DAV header: %s" % (response.headers,))
             self.assertIn("1", dav, "no DAV level 1 header")
             self.assertIn("access-control", dav, "no DAV access-control header")
             self.assertIn("calendar-access", dav, "no DAV calendar-access header")
@@ -45,6 +46,7 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
 
         return self.send(request, do_test)
 
+
     def test_dav_header_implicit_caldav(self):
         """
         DAV header advertises CalDAV
@@ -53,7 +55,8 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             response = IResponse(response)
 
             dav = response.headers.getHeader("dav")
-            if not dav: self.fail("no DAV header: %s" % (response.headers,))
+            if not dav:
+                self.fail("no DAV header: %s" % (response.headers,))
             self.assertIn("1", dav, "no DAV level 1 header")
             self.assertIn("access-control", dav, "no DAV access-control header")
             self.assertIn("calendar-access", dav, "no DAV calendar-access header")
@@ -65,6 +68,7 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
 
         return self.send(request, do_test)
 
+
     def test_allow_header_caldav(self):
         """
         Allow header advertises MKCALENDAR
@@ -73,12 +77,14 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             response = IResponse(response)
 
             allow = response.headers.getHeader("allow")
-            if not allow: self.fail("no Allow header: %s" % (response.headers,))
+            if not allow:
+                self.fail("no Allow header: %s" % (response.headers,))
             self.assertNotIn("MKCALENDAR", allow, "no MKCALENDAR support")
 
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
         return self.send(request, do_test)
+
 
     def test_allow_header_acl(self):
         """
@@ -88,12 +94,14 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             response = IResponse(response)
 
             allow = response.headers.getHeader("allow")
-            if not allow: self.fail("no Allow header: %s" % (response.headers,))
+            if not allow:
+                self.fail("no Allow header: %s" % (response.headers,))
             self.assertIn("ACL", allow, "no ACL support")
 
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
         return self.send(request, do_test)
+
 
     def test_allow_header_deltav(self):
         """
@@ -103,12 +111,14 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             response = IResponse(response)
 
             allow = response.headers.getHeader("allow")
-            if not allow: self.fail("no Allow header: %s" % (response.headers,))
+            if not allow:
+                self.fail("no Allow header: %s" % (response.headers,))
             self.assertIn("REPORT", allow, "no REPORT support")
 
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
         return self.send(request, do_test)
+
 
     def test_dav_header_caldav_disabled(self):
         """
@@ -118,13 +128,15 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             response = IResponse(response)
 
             dav = response.headers.getHeader("dav")
-            if not dav: self.fail("no DAV header: %s" % (response.headers,))
+            if not dav:
+                self.fail("no DAV header: %s" % (response.headers,))
             self.assertIn("1", dav, "no DAV level 1 header")
             self.assertNotIn("calendar-access", dav, "DAV calendar-access header")
         self.patch(config, "EnableCalDAV", False)
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
         return self.send(request, do_test)
+
 
     def test_dav_header_carddav_disabled(self):
         """
@@ -134,7 +146,8 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
             response = IResponse(response)
 
             dav = response.headers.getHeader("dav")
-            if not dav: self.fail("no DAV header: %s" % (response.headers,))
+            if not dav:
+                self.fail("no DAV header: %s" % (response.headers,))
             self.assertIn("1", dav, "no DAV level 1 header")
             self.assertNotIn("addressbook", dav, "DAV addressbook header")
 
@@ -142,4 +155,3 @@ class OPTIONS (twistedcaldav.test.util.TestCase):
         request = SimpleRequest(self.site, "OPTIONS", "/")
 
         return self.send(request, do_test)
-

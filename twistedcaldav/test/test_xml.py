@@ -20,7 +20,7 @@ from twisted.trial.unittest import SkipTest
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarqueryfilter
 import twistedcaldav.test.util
-from twistedcaldav.caldavxml import ComponentFilter, PropertyFilter, TextMatch,\
+from twistedcaldav.caldavxml import ComponentFilter, PropertyFilter, TextMatch, \
     Filter, TimeRange
 
 class XML (twistedcaldav.test.util.TestCase):
@@ -41,8 +41,10 @@ class XML (twistedcaldav.test.util.TestCase):
             ("VEVENT", True),
             ("VTODO", False),
         ):
-            if has: no = "no "
-            else:   no = ""
+            if has:
+                no = "no "
+            else:
+                no = ""
 
             if has != calendarqueryfilter.ComponentFilter(
                 ComponentFilter(
@@ -54,6 +56,7 @@ class XML (twistedcaldav.test.util.TestCase):
             ).match(self.calendar, None):
                 self.fail("Calendar has %s%s?" % (no, component_name))
 
+
     def test_PropertyFilter(self):
         """
         Property filter element.
@@ -62,8 +65,10 @@ class XML (twistedcaldav.test.util.TestCase):
             ("UID", True),
             ("BOOGER", False),
         ):
-            if has: no = "no "
-            else:   no = ""
+            if has:
+                no = "no "
+            else:
+                no = ""
 
             if has != calendarqueryfilter.ComponentFilter(
                 ComponentFilter(
@@ -78,11 +83,13 @@ class XML (twistedcaldav.test.util.TestCase):
             ).match(self.calendar, None):
                 self.fail("Calendar has %sVEVENT with %s?" % (no, property_name))
 
+
     def test_ParameterFilter(self):
         """
         Parameter filter element.
         """
         raise SkipTest("test unimplemented")
+
 
     def test_TextMatch(self):
         """
@@ -94,8 +101,10 @@ class XML (twistedcaldav.test.util.TestCase):
             ("BOOGER", False, False),
             ("BOOGER", True, False),
         ):
-            if has: no = "no "
-            else:   no = ""
+            if has:
+                no = "no "
+            else:
+                no = ""
 
             if has != calendarqueryfilter.ComponentFilter(
                 ComponentFilter(
@@ -110,6 +119,7 @@ class XML (twistedcaldav.test.util.TestCase):
                 )
             ).match(self.calendar, None):
                 self.fail("Calendar has %sVEVENT with UID %s? (caseless=%s)" % (no, uid, caseless))
+
 
     def test_TimeRange(self):
         """
@@ -133,8 +143,10 @@ class XML (twistedcaldav.test.util.TestCase):
             ("20030102", "20030103", False),
             ("20021201", "20030101", False), # End is non-inclusive
         ):
-            if has: no = "no "
-            else:   no = ""
+            if has:
+                no = "no "
+            else:
+                no = ""
 
             if has != calendarqueryfilter.Filter(
                 Filter(

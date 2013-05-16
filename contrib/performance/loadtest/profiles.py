@@ -22,7 +22,8 @@ Implementation of specific end-user behaviors.
 from __future__ import division
 
 import json
-import sys, random
+import random
+import sys
 from uuid import uuid4
 
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
@@ -65,9 +66,9 @@ class ProfileBase(object):
 
     def _calendarsOfType(self, calendarType, componentType):
         return [
-            cal 
-            for cal 
-            in self._client._calendars.itervalues() 
+            cal
+            for cal
+            in self._client._calendars.itervalues()
             if cal.resourceType == calendarType and componentType in cal.componentTypes]
 
 
@@ -143,6 +144,8 @@ class CannotAddAttendee(Exception):
     """
     Indicates no new attendees can be invited to a particular event.
     """
+    pass
+
 
 
 def loopWithDistribution(reactor, distribution, function):
@@ -150,6 +153,7 @@ def loopWithDistribution(reactor, distribution, function):
 
     def repeat(ignored):
         reactor.callLater(distribution.sample(), iterate)
+
 
     def iterate():
         d = function()
@@ -231,10 +235,10 @@ class Inviter(ProfileBase):
             otherwise a L{Deferred} which fires when the attendee
             change has been made.
         """
-        
+
         if not self._client.started:
             return succeed(None)
-            
+
         # Find calendars which are eligible for invites
         calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
 
@@ -301,7 +305,7 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n"))
 
-    
+
     def setParameters(
         self,
         enabled=True,
@@ -387,7 +391,7 @@ END:VCALENDAR
 
         if not self._client.started:
             return succeed(None)
-            
+
         # Find calendars which are eligible for invites
         calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
 
@@ -409,7 +413,7 @@ END:VCALENDAR
             vevent.replaceProperty(Property("DTSTART", dtstart))
             vevent.replaceProperty(Property("DTEND", dtend))
             vevent.replaceProperty(Property("UID", uid))
-            
+
             rrule = self._recurrenceDistribution.sample()
             if rrule is not None:
                 vevent.addProperty(Property(None, None, None, pycalendar=rrule))
@@ -428,6 +432,8 @@ END:VCALENDAR
             href = '%s%s.ics' % (calendar.url, uid)
             d = self._client.addInvite(href, vcalendar)
             return self._newOperation("invite", d)
+
+
 
 class Accepter(ProfileBase):
     """
@@ -465,6 +471,7 @@ class Accepter(ProfileBase):
             self.calendarEventChanged(calendar, href)
         else:
             return
+
 
     def calendarEventChanged(self, calendar, href):
         if href in self._accepting:
@@ -554,6 +561,7 @@ class Accepter(ProfileBase):
             passthrough = passthrough.value.response
         return passthrough
 
+
     def _handleCancel(self, href):
 
         uid = self._client._events[href].getUID()
@@ -629,7 +637,7 @@ END:VCALENDAR
     def _addEvent(self):
         if not self._client.started:
             return succeed(None)
-            
+
         calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
 
         while calendars:
@@ -648,7 +656,7 @@ END:VCALENDAR
             vevent.replaceProperty(Property("DTSTART", dtstart))
             vevent.replaceProperty(Property("DTEND", dtend))
             vevent.replaceProperty(Property("UID", uid))
-            
+
             rrule = self._recurrenceDistribution.sample()
             if rrule is not None:
                 vevent.addProperty(Property(None, None, None, pycalendar=rrule))
@@ -656,6 +664,7 @@ END:VCALENDAR
             href = '%s%s.ics' % (calendar.url, uid)
             d = self._client.addEvent(href, vcalendar)
             return self._newOperation("create", d)
+
 
 
 class Tasker(ProfileBase):
@@ -697,7 +706,7 @@ END:VCALENDAR
     def _addTask(self):
         if not self._client.started:
             return succeed(None)
-            
+
         calendars = self._calendarsOfType(caldavxml.calendar, "VTODO")
 
         while calendars:
@@ -720,6 +729,7 @@ END:VCALENDAR
             return self._newOperation("create", d)
 
 
+
 class OperationLogger(SummarizingMixin):
     """
     Profiles will initiate operations which may span multiple requests.  Start
@@ -736,22 +746,22 @@ class OperationLogger(SummarizingMixin):
 
     # the response time thresholds to display together with failing % count threshold
     _thresholds_default = {
-        "operations":{
-            "limits":     [   0.1,   0.5,   1.0,   3.0,   5.0,  10.0,  30.0],
-            "thresholds":{
-                "default":[ 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0],
+        "operations": {
+            "limits": [0.1, 0.5, 1.0, 3.0, 5.0, 10.0, 30.0],
+            "thresholds": {
+                "default": [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0],
             }
         }
     }
-    _lag_cut_off = 1.0      # Maximum allowed median scheduling latency, seconds 
-    _fail_cut_off = 1.0     # % of total count at which failed requests will cause a failure 
+    _lag_cut_off = 1.0      # Maximum allowed median scheduling latency, seconds
+    _fail_cut_off = 1.0     # % of total count at which failed requests will cause a failure
 
     _fields_init = [
         ('operation', -25, '%-25s'),
         ('count', 8, '%8s'),
         ('failed', 8, '%8s'),
     ]
-    
+
     _fields_extend = [
         ('mean', 8, '%8.4f'),
         ('median', 8, '%8.4f'),
@@ -766,8 +776,8 @@ class OperationLogger(SummarizingMixin):
         if outfile is None:
             outfile = sys.stdout
         self._outfile = outfile
-        
-        # Load parameters from config 
+
+        # Load parameters from config
         if "thresholdsPath" in params:
             jsondata = json.load(open(params["thresholdsPath"]))
         elif "thresholds" in params:
@@ -778,7 +788,7 @@ class OperationLogger(SummarizingMixin):
         for ctr, item in enumerate(self._thresholds):
             for k, v in jsondata["operations"]["thresholds"].items():
                 item[1][k] = v[ctr]
-            
+
         self._fields = self._fields_init[:]
         for threshold, _ignore_fail_at in self._thresholds:
             self._fields.append(('>%g sec' % (threshold,), 10, '%10s'))
@@ -789,6 +799,7 @@ class OperationLogger(SummarizingMixin):
 
         if "failCutoff" in params:
             self._fail_cut_off = params["failCutoff"]
+
 
     def observe(self, event):
         if event.get("type") == "operation":
@@ -808,6 +819,7 @@ class OperationLogger(SummarizingMixin):
             elif lag is not None:
                 dataset = self._perOperationLags.setdefault(event[u'label'], [])
                 dataset.append(lag)
+
 
     def _summarizeData(self, operation, data):
         avglag = mean(self._perOperationLags.get(operation, [0.0])) * 1000.0

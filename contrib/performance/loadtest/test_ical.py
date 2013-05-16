@@ -1272,6 +1272,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
             self.client._parseMultiStatus(CALENDAR_HOME_PROPFIND_RESPONSE_XMPP_MISSING), home)
         self.assertEqual({}, self.client.xmpp)
 
+
     def test_changeEventAttendee(self):
         """
         OS_X_10_6.changeEventAttendee removes one attendee from an
@@ -1377,13 +1378,13 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
 
             consumer = MemoryConsumer()
             yield body.startProducing(consumer)
-            
+
             response = MemoryResponse(
                 ('HTTP', '1', '1'), MULTI_STATUS, "MultiStatus", Headers({}),
                 StringProducer("<?xml version='1.0' encoding='UTF-8'?><multistatus xmlns='DAV:' />"))
-            
+
             returnValue(response)
-            
+
         @inlineCallbacks
         def _testPost(*args, **kwargs):
             expectedResponseCode, method, url, headers, body = args
@@ -1396,19 +1397,19 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
             consumer = MemoryConsumer()
             yield body.startProducing(consumer)
             self.assertNotEqual(consumer.value().find(kwargs["attendee"]), -1)
-            
+
             response = MemoryResponse(
                 ('HTTP', '1', '1'), OK, "OK", Headers({}),
                 StringProducer(""))
-            
+
             returnValue(response)
-        
+
         def _testPost02(*args, **kwargs):
             return _testPost(*args, attendee="ATTENDEE:mailto:user02@example.com", **kwargs)
-        
+
         def _testPost03(*args, **kwargs):
             return _testPost(*args, attendee="ATTENDEE:mailto:user03@example.com", **kwargs)
-        
+
         @inlineCallbacks
         def _testPut(*args, **kwargs):
             expectedResponseCode, method, url, headers, body = args
@@ -1423,20 +1424,21 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
             self.assertEqual(
                 Component.fromString(consumer.value()),
                 Component.fromString(EVENT_INVITE))
-            
+
             response = MemoryResponse(
                 ('HTTP', '1', '1'), CREATED, "Created", Headers({}),
                 StringProducer(""))
-            
+
             returnValue(response)
-        
-        requests = [_testReport, _testPost02, _testReport, _testPost03, _testPut,]
-        
+
+        requests = [_testReport, _testPost02, _testReport, _testPost03, _testPut, ]
+
         def _requestHandler(*args, **kwargs):
             handler = requests.pop(0)
             return handler(*args, **kwargs)
         self.client._request = _requestHandler
         yield self.client.addInvite('/mumble/frotz.ics', vcalendar)
+
 
     def test_deleteEvent(self):
         """
@@ -1528,56 +1530,56 @@ END:VCALENDAR
         self.client.serialize()
         self.assertTrue(os.path.exists(clientPath))
         self.assertTrue(os.path.exists(indexPath))
-        self.assertEqual(open(indexPath).read(), """{
+        self.assertEqual(open(indexPath).read().replace(" \n", "\n"), """{
   "calendars": [
     {
-      "changeToken": "123", 
-      "name": "calendar", 
-      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar", 
+      "changeToken": "123",
+      "name": "calendar",
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar",
       "componentTypes": [
         "VEVENT"
-      ], 
-      "url": "/home/calendar/", 
+      ],
+      "url": "/home/calendar/",
       "events": [
         "1.ics"
       ]
-    }, 
+    },
     {
-      "changeToken": "789", 
-      "name": "calendar", 
-      "resourceType": "{urn:ietf:params:xml:ns:caldav}schedule-inbox", 
+      "changeToken": "789",
+      "name": "calendar",
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}schedule-inbox",
       "componentTypes": [
-        "VEVENT", 
+        "VEVENT",
         "VTODO"
-      ], 
-      "url": "/home/inbox/", 
+      ],
+      "url": "/home/inbox/",
       "events": [
         "i1.ics"
       ]
-    }, 
+    },
     {
-      "changeToken": "456", 
-      "name": "tasks", 
-      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar", 
+      "changeToken": "456",
+      "name": "tasks",
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar",
       "componentTypes": [
         "VTODO"
-      ], 
-      "url": "/home/tasks/", 
+      ],
+      "url": "/home/tasks/",
       "events": []
     }
-  ], 
-  "principalURL": null, 
+  ],
+  "principalURL": null,
   "events": [
     {
-      "url": "/home/calendar/1.ics", 
-      "scheduleTag": null, 
-      "etag": "123.123", 
+      "url": "/home/calendar/1.ics",
+      "scheduleTag": null,
+      "etag": "123.123",
       "uid": "004f8e41-b071-4b30-bb3b-6aada4adcc10"
-    }, 
+    },
     {
-      "url": "/home/inbox/i1.ics", 
-      "scheduleTag": null, 
-      "etag": "123.123", 
+      "url": "/home/inbox/i1.ics",
+      "scheduleTag": null,
+      "etag": "123.123",
       "uid": "00a79cad-857b-418e-a54a-340b5686d747"
     }
   ]
@@ -1633,53 +1635,53 @@ END:VCALENDAR
         open(indexPath, "w").write("""{
   "calendars": [
     {
-      "changeToken": "321", 
-      "name": "calendar", 
-      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar", 
+      "changeToken": "321",
+      "name": "calendar",
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar",
       "componentTypes": [
         "VEVENT"
-      ], 
-      "url": "/home/calendar/", 
+      ],
+      "url": "/home/calendar/",
       "events": [
         "2.ics"
       ]
-    }, 
+    },
     {
-      "changeToken": "987", 
-      "name": "calendar", 
-      "resourceType": "{urn:ietf:params:xml:ns:caldav}schedule-inbox", 
+      "changeToken": "987",
+      "name": "calendar",
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}schedule-inbox",
       "componentTypes": [
-        "VEVENT", 
+        "VEVENT",
         "VTODO"
-      ], 
-      "url": "/home/inbox/", 
+      ],
+      "url": "/home/inbox/",
       "events": [
         "i2.ics"
       ]
-    }, 
+    },
     {
-      "changeToken": "654", 
-      "name": "tasks", 
-      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar", 
+      "changeToken": "654",
+      "name": "tasks",
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar",
       "componentTypes": [
         "VTODO"
-      ], 
-      "url": "/home/tasks/", 
+      ],
+      "url": "/home/tasks/",
       "events": []
     }
-  ], 
-  "principalURL": null, 
+  ],
+  "principalURL": null,
   "events": [
     {
-      "url": "/home/calendar/2.ics", 
-      "scheduleTag": null, 
-      "etag": "321.321", 
+      "url": "/home/calendar/2.ics",
+      "scheduleTag": null,
+      "etag": "321.321",
       "uid": "004f8e41-b071-4b30-bb3b-6aada4adcc10"
-    }, 
+    },
     {
-      "url": "/home/inbox/i2.ics", 
-      "scheduleTag": null, 
-      "etag": "987.987", 
+      "url": "/home/inbox/i2.ics",
+      "scheduleTag": null,
+      "etag": "987.987",
       "uid": "00a79cad-857b-418e-a54a-340b5686d747"
     }
   ]
@@ -1714,6 +1716,7 @@ END:VCALENDAR
         self.assertEqual(self.client._events["/home/inbox/i2.ics"].etag, "987.987")
         self.assertEqual(self.client._events["/home/inbox/i2.ics"].getUID(), "00a79cad-857b-418e-a54a-340b5686d747")
         self.assertEqual(str(self.client._events["/home/inbox/i2.ics"].component), cal2)
+
 
 
 class UpdateCalendarTests(OS_X_10_6Mixin, TestCase):
@@ -1864,7 +1867,7 @@ END:VCALENDAR
             MemoryResponse(
                 ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
                 StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)))
-        
+
         result, req = requests.pop(0)
         expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
         self.assertEqual('REPORT', method)
@@ -1907,7 +1910,7 @@ END:VCALENDAR
             MemoryResponse(
                 ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
                 StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)))
-        
+
         result, req = requests.pop(0)
         expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
         self.assertEqual('REPORT', method)
@@ -1921,7 +1924,7 @@ END:VCALENDAR
 
         self.assertTrue(self.client._events['/something/anotherthing.ics'].etag is not None)
         self.assertTrue(self.client._events['/something/else.ics'].etag is None)
-        
+
         result, req = requests.pop(0)
         expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
         self.assertEqual('REPORT', method)
@@ -1935,6 +1938,7 @@ END:VCALENDAR
 
         self.assertTrue(self.client._events['/something/anotherthing.ics'].etag is not None)
         self.assertTrue(self.client._events['/something/else.ics'].etag is not None)
+
 
 
 class VFreeBusyTests(OS_X_10_6Mixin, TestCase):
@@ -1996,7 +2000,7 @@ ORGANIZER:mailto:user01@example.com
 SUMMARY:Availability for urn:uuid:user05, urn:uuid:user10
 END:VFREEBUSY
 END:VCALENDAR
-""".replace('\n', '\r\n') % {'uid': uid, 'dtstamp': dtstamp},consumer.value())
+""".replace('\n', '\r\n') % {'uid': uid, 'dtstamp': dtstamp}, consumer.value())
 
         finished.addCallback(cbFinished)
 
@@ -2008,4 +2012,3 @@ END:VCALENDAR
         finished.addCallback(requested)
 
         return d
-

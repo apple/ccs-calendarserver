@@ -66,7 +66,6 @@ if __name__ == '__main__':
     if segments[2] != "__uids__":
         usage("Must provide a /.../__uids__/... path.")
 
-
     datatype = segments[1]
     uid = segments[5 if len(segments[3]) == 2 else 3]
     collection = segments[6 if len(segments[3]) == 2 else 4]
@@ -94,9 +93,9 @@ if __name__ == '__main__':
 
             "bind_home_id"      : "ADDRESSBOOK_HOME_RESOURCE_ID",
             "bind_name"         : "ADDRESSBOOK_RESOURCE_NAME",
-            "bind_id"           : "OWNER_ADDRESSBOOK_HOME_RESOURCE_ID",
+            "bind_id"           : "ADDRESSBOOK_RESOURCE_ID",
 
-            "object_bind_id"    : "ADDRESSBOOK_HOME_RESOURCE_ID",
+            "object_bind_id"    : "ADDRESSBOOK_RESOURCE_ID",
             "object_name"       : "RESOURCE_NAME",
             "object_data"       : "VCARD_TEXT",
         },
@@ -113,4 +112,3 @@ if __name__ == '__main__':
                 select RESOURCE_ID from %(home_table)s where OWNER_UID = '%(uid)s'
             )
     );""" % sqlstrings[datatype])
-

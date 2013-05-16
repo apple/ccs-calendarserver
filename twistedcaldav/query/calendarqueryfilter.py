@@ -42,11 +42,14 @@ class FilterBase(object):
     def __init__(self, xml_element):
         self.xmlelement = xml_element
 
+
     def match(self, item, access=None):
         raise NotImplementedError
 
+
     def valid(self, level=0):
         raise NotImplementedError
+
 
 
 class Filter(FilterBase):
@@ -63,6 +66,7 @@ class Filter(FilterBase):
             raise ValueError("Invalid CALDAV:filter element: %s" % (xml_element,))
 
         self.child = ComponentFilter(xml_element.children[0])
+
 
     def match(self, component, access=None):
         """
@@ -95,6 +99,7 @@ class Filter(FilterBase):
         # <filter> contains exactly one <comp-filter>
         return self.child.match(component, access)
 
+
     def valid(self):
         """
         Indicate whether this filter element's structure is valid wrt iCalendar
@@ -105,7 +110,8 @@ class Filter(FilterBase):
 
         # Must have one child element for VCALENDAR
         return self.child.valid(0)
-        
+
+
     def settimezone(self, tzelement):
         """
         Set the default timezone to use with this query.
@@ -119,12 +125,14 @@ class Filter(FilterBase):
         self.child.settzinfo(tz)
         return tz
 
+
     def getmaxtimerange(self):
         """
         Get the date farthest into the future in any time-range elements
         """
 
         return self.child.getmaxtimerange(None, False)
+
 
     def getmintimerange(self):
         """
@@ -133,6 +141,7 @@ class Filter(FilterBase):
         """
 
         return self.child.getmintimerange(None, False)
+
 
 
 class FilterChildBase(FilterBase):
@@ -189,6 +198,7 @@ class FilterChildBase(FilterBase):
             raise ValueError("Test must be only one of anyof, allof")
         self.filter_test = filter_test
 
+
     def match(self, item, access=None):
         """
         Returns True if the given calendar item (either a component, property or parameter value)
@@ -197,9 +207,11 @@ class FilterChildBase(FilterBase):
 
         # Always return True for the is-not-defined case as the result of this will
         # be negated by the caller
-        if not self.defined: return True
+        if not self.defined:
+            return True
 
-        if self.qualifier and not self.qualifier.match(item, access): return False
+        if self.qualifier and not self.qualifier.match(item, access):
+            return False
 
         if len(self.filters) > 0:
             allof = self.filter_test == "allof"
@@ -209,6 +221,7 @@ class FilterChildBase(FilterBase):
             return allof
         else:
             return True
+
 
 
 class ComponentFilter (FilterChildBase):
@@ -226,9 +239,11 @@ class ComponentFilter (FilterChildBase):
 
         # Always return True for the is-not-defined case as the result of this will
         # be negated by the caller
-        if not self.defined: return True
+        if not self.defined:
+            return True
 
-        if self.qualifier and not self.qualifier.matchinstance(item, self.instances): return False
+        if self.qualifier and not self.qualifier.matchinstance(item, self.instances):
+            return False
 
         if len(self.filters) > 0:
             allof = self.filter_test == "allof"
@@ -238,6 +253,7 @@ class ComponentFilter (FilterChildBase):
             return allof
         else:
             return True
+
 
     def _match(self, component, access):
         # At least one subcomponent must match (or is-not-defined is set)
@@ -249,13 +265,17 @@ class ComponentFilter (FilterChildBase):
 
             # Try to match the component name
             if isinstance(self.filter_name, str):
-                if subcomponent.name() != self.filter_name: continue
+                if subcomponent.name() != self.filter_name:
+                    continue
             else:
-                if subcomponent.name() not in self.filter_name: continue
-            if self.match(subcomponent, access): break
+                if subcomponent.name() not in self.filter_name:
+                    continue
+            if self.match(subcomponent, access):
+                break
         else:
             return not self.defined
         return self.defined
+
 
     def setInstances(self, instances):
         """
@@ -266,11 +286,12 @@ class ComponentFilter (FilterChildBase):
         for compfilter in [x for x in self.filters if isinstance(x, ComponentFilter)]:
             compfilter.setInstances(instances)
 
+
     def valid(self, level):
         """
         Indicate whether this filter element's structure is valid wrt iCalendar
         data object model.
-        
+
         @param level: the nesting level of this filter element, 0 being the top comp-filter.
         @return:      True if valid, False otherwise
         """
@@ -326,6 +347,7 @@ class ComponentFilter (FilterChildBase):
 
         return True
 
+
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
@@ -340,10 +362,11 @@ class ComponentFilter (FilterChildBase):
         for x in self.filters:
             x.settzinfo(tzinfo)
 
+
     def getmaxtimerange(self, currentMaximum, currentIsStartTime):
         """
         Get the date farthest into the future in any time-range elements
-        
+
         @param currentMaximum: current future value to compare with
         @type currentMaximum: L{PyCalendarDateTime}
         """
@@ -362,6 +385,7 @@ class ComponentFilter (FilterChildBase):
             currentMaximum, currentIsStartTime = x.getmaxtimerange(currentMaximum, currentIsStartTime)
 
         return currentMaximum, currentIsStartTime
+
 
     def getmintimerange(self, currentMinimum, currentIsEndTime):
         """
@@ -385,6 +409,7 @@ class ComponentFilter (FilterChildBase):
         return currentMinimum, currentIsEndTime
 
 
+
 class PropertyFilter (FilterChildBase):
     """
     Limits a search to specific properties.
@@ -405,16 +430,18 @@ class PropertyFilter (FilterChildBase):
             # Apply access restrictions, if any.
             if allowedProperties is not None and property.name().upper() not in allowedProperties:
                 continue
-            if property.name().upper() == self.filter_name.upper() and self.match(property, access): break
+            if property.name().upper() == self.filter_name.upper() and self.match(property, access):
+                break
         else:
             return not self.defined
         return self.defined
+
 
     def valid(self):
         """
         Indicate whether this filter element's structure is valid wrt iCalendar
         data object model.
-        
+
         @return:      True if valid, False otherwise
         """
 
@@ -434,6 +461,7 @@ class PropertyFilter (FilterChildBase):
         # No other tests
         return True
 
+
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
@@ -444,10 +472,11 @@ class PropertyFilter (FilterChildBase):
         if isinstance(self.qualifier, TimeRange):
             self.qualifier.settzinfo(tzinfo)
 
+
     def getmaxtimerange(self, currentMaximum, currentIsStartTime):
         """
-        Get the date furthest into the future in any time-range elements
-        
+        Get the date farthest into the future in any time-range elements
+
         @param currentMaximum: current future value to compare with
         @type currentMaximum: L{PyCalendarDateTime}
         """
@@ -462,6 +491,7 @@ class PropertyFilter (FilterChildBase):
                 currentIsStartTime = isStartTime
 
         return currentMaximum, currentIsStartTime
+
 
     def getmintimerange(self, currentMinimum, currentIsEndTime):
         """
@@ -481,6 +511,7 @@ class PropertyFilter (FilterChildBase):
         return currentMinimum, currentIsEndTime
 
 
+
 class ParameterFilter (FilterChildBase):
     """
     Limits a search to specific parameters.
@@ -498,6 +529,7 @@ class ParameterFilter (FilterChildBase):
         return result
 
 
+
 class IsNotDefined (FilterBase):
     """
     Specifies that the named iCalendar item does not exist.
@@ -509,6 +541,7 @@ class IsNotDefined (FilterBase):
         # Actually this method should never be called as we special case the
         # is-not-defined option.
         return True
+
 
 
 class TextMatch (FilterBase):
@@ -551,13 +584,15 @@ class TextMatch (FilterBase):
         else:
             self.match_type = "contains"
 
+
     def match(self, item, access):
         """
         Match the text for the item.
         If the item is a property, then match the property value,
         otherwise it may be a list of parameter values - try to match anyone of those
         """
-        if item is None: return False
+        if item is None:
+            return False
 
         if isinstance(item, Property):
             values = [item.strvalue()]
@@ -597,6 +632,7 @@ class TextMatch (FilterBase):
         return self.negate
 
 
+
 class TimeRange (FilterBase):
     """
     Specifies a time for testing components against.
@@ -614,6 +650,7 @@ class TimeRange (FilterBase):
         self.end = PyCalendarDateTime.parseText(xml_element.attributes["end"]) if "end" in xml_element.attributes else None
         self.tzinfo = None
 
+
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
@@ -623,10 +660,11 @@ class TimeRange (FilterBase):
         # Give tzinfo to any TimeRange we have
         self.tzinfo = tzinfo
 
+
     def valid(self, level=0):
         """
         Indicate whether the time-range is valid (must be date-time in UTC).
-        
+
         @return:      True if valid, False otherwise
         """
 
@@ -646,6 +684,7 @@ class TimeRange (FilterBase):
         # No other tests
         return True
 
+
     def match(self, property, access=None):
         """
         NB This is only called when doing a time-range match on a property.
@@ -654,6 +693,7 @@ class TimeRange (FilterBase):
             return False
         else:
             return property.containsTimeRange(self.start, self.end, self.tzinfo)
+
 
     def matchinstance(self, component, instances):
         """

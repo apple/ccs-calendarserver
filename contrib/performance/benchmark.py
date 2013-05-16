@@ -14,26 +14,23 @@
 # limitations under the License.
 ##
 from __future__ import print_function
-
-import sys, os, plistlib
-from os.path import dirname
-
-from signal import SIGINT
-from pickle import dump
-
+from contrib.performance.stats import SQLDuration, Bytes
 from datetime import datetime
-
-from twisted.python.filepath import FilePath
-from twisted.python.usage import UsageError, Options, portCoerce
+from os.path import dirname
+from pickle import dump
+from signal import SIGINT
+from twisted.internet import reactor
+from twisted.internet.defer import Deferred, inlineCallbacks, gatherResults
 from twisted.internet.protocol import ProcessProtocol
 from twisted.protocols.basic import LineReceiver
-from twisted.internet.defer import (
-    Deferred, inlineCallbacks, gatherResults)
-from twisted.internet import reactor
+from twisted.python.filepath import FilePath
 from twisted.python.log import msg
 from twisted.python.modules import getModule
+from twisted.python.usage import UsageError, Options, portCoerce
+import sys
+import os
+import plistlib
 
-from contrib.performance.stats import SQLDuration, Bytes
 
 
 class DTraceBug(Exception):
@@ -55,7 +52,7 @@ class IOMeasureConsumer(ProcessProtocol):
         self._out = ''
         self._err = ''
 
-        
+
     def mark(self):
         return self.parser.mark()
 
@@ -88,8 +85,10 @@ class IOMeasureConsumer(ProcessProtocol):
             self.started.errback(RuntimeError("Exited too soon: %r/%r" % (self._out, self._err)))
 
 
+
 def masterPID(directory):
     return int(directory.child('caldavd.pid').getContent())
+
 
 
 def instancePIDs(directory):
@@ -100,6 +99,7 @@ def instancePIDs(directory):
             pid = int(pidtext)
             pids.append(pid)
     return pids
+
 
 
 class _DTraceParser(LineReceiver):
@@ -183,6 +183,7 @@ class _DTraceParser(LineReceiver):
 
     def _op_WRITE(self, cmd, rest):
         self.collector._write.append(int(rest))
+
 
 
 class DTraceCollector(object):
@@ -299,7 +300,7 @@ class DTraceCollector(object):
 
     def mark(self):
         marks = []
-        for (process, protocol) in self.dtraces.itervalues():
+        for (_ignore_process, protocol) in self.dtraces.itervalues():
             marks.append(protocol.mark())
         d = gatherResults(marks)
         d.addCallback(lambda ign: self.stats())
@@ -309,11 +310,10 @@ class DTraceCollector(object):
         except OSError:
             pass
         return d
-        
 
 
     def stop(self):
-        for (process, protocol) in self.dtraces.itervalues():
+        for (process, _ignore_protocol) in self.dtraces.itervalues():
             process.signalProcess(SIGINT)
         d = gatherResults(self.finished)
         d.addCallback(lambda ign: self.stats())
@@ -347,11 +347,13 @@ def benchmark(host, port, pids, label, scalingParameters, benchmarks):
     fObj.close()
 
 
+
 def logsCoerce(directory):
     path = FilePath(directory)
     if not path.isdir():
         raise ValueError("%r is not a directory" % (path.path,))
     return path
+
 
 
 class BenchmarkOptions(Options):
@@ -396,9 +398,9 @@ class BenchmarkOptions(Options):
             if index >= count:
                 raise UsageError("host-index must be less than hosts-count")
             benchmarks = [
-                benchmark 
-                for (i, benchmark) 
-                in enumerate(benchmarks) 
+                benchmark
+                for (i, benchmark)
+                in enumerate(benchmarks)
                 if i % self['hosts-count'] == self['host-index']]
         return benchmarks
 
@@ -438,6 +440,7 @@ def resolveBenchmark(name):
         if module.name == ".".join((_benchmarks.name, name)):
             return module.load()
     raise ValueError("Unknown benchmark: %r" % (name,))
+
 
 
 def main():

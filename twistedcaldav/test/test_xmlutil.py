@@ -16,14 +16,14 @@
 
 import twistedcaldav.test.util
 from cStringIO import StringIO
-from twistedcaldav.xmlutil import readXML, writeXML, addSubElement,\
+from twistedcaldav.xmlutil import readXML, writeXML, addSubElement, \
     changeSubElementText, createElement, elementToXML, readXMLString
 
 class XMLUtil(twistedcaldav.test.util.TestCase):
     """
     XML Util tests
     """
-    
+
     data1 = """<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE test SYSTEM "test.dtd">
 <test>
@@ -87,53 +87,61 @@ class XMLUtil(twistedcaldav.test.util.TestCase):
         writeXML(xmlfile, node)
         newdata = open(xmlfile).read()
         self.assertEqual(newdata, data)
-        
+
+
     def test_readXML_noverify(self):
-        
+
         io = StringIO(XMLUtil.data1)
         etree, root = readXML(io)
         self.assertEqual(etree.getroot(), root)
         self.assertEqual(root.tag, "test")
 
+
     def test_readXML_verify_ok(self):
-        
+
         io = StringIO(XMLUtil.data1)
         etree, root = readXML(io, expectedRootTag="test")
         self.assertEqual(etree.getroot(), root)
         self.assertEqual(root.tag, "test")
 
+
     def test_readXML_verify_bad(self):
-        
+
         io = StringIO(XMLUtil.data1)
         self.assertRaises(ValueError, readXML, io, "test1")
 
+
     def test_readXML_data_bad(self):
-        
+
         io = StringIO(XMLUtil.data2)
         self.assertRaises(ValueError, readXML, io)
 
+
     def test_writeXML(self):
-        
+
         io = StringIO(XMLUtil.data1)
         _ignore_etree, root = readXML(io)
         self._checkXML(root, XMLUtil.data3)
 
+
     def test_addElement(self):
-        
+
         io = StringIO(XMLUtil.data1)
         _ignore_etree, root = readXML(io)
         addSubElement(root, "added", "added text")
         self._checkXML(root, XMLUtil.data4)
 
+
     def test_changeElement_existing(self):
-        
+
         io = StringIO(XMLUtil.data1)
         _ignore_etree, root = readXML(io)
         changeSubElementText(root, "help", "changed text")
         self._checkXML(root, XMLUtil.data5)
 
+
     def test_changeElement_new(self):
-        
+
         io = StringIO(XMLUtil.data1)
         _ignore_etree, root = readXML(io)
         changeSubElementText(root, "new", "new text")

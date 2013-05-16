@@ -34,15 +34,19 @@ if __name__ == "__main__":
             print "Unrecognized option: %s" % (option,)
             raise ValueError
 
-    for ctr in xrange(1, user_max + 1): 
+    for ctr in xrange(1, user_max + 1):
         path = "calendars/users/user%02d" % (ctr,)
-    
-        try: os.makedirs(path)
-        except OSError: pass
-    
-        try: os.makedirs(os.path.join(path, "calendar"))
-        except OSError: pass
-    
+
+        try:
+            os.makedirs(path)
+        except OSError:
+            pass
+
+        try:
+            os.makedirs(os.path.join(path, "calendar"))
+        except OSError:
+            pass
+
         inboxname = os.path.join(path, "inbox")
         attrs = xattr.xattr(inboxname)
         attrs["WebDAV:{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"] = """<?xml version='1.0' encoding='UTF-8'?>

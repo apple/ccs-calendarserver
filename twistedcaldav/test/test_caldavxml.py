@@ -21,32 +21,32 @@ class CustomXML (twistedcaldav.test.util.TestCase):
 
 
     def test_TimeRange(self):
-        
+
         self.assertRaises(ValueError, caldavxml.CalDAVTimeRangeElement)
 
         tr = caldavxml.CalDAVTimeRangeElement(start="20110201T120000Z")
         self.assertTrue(tr.valid())
-        
+
         tr = caldavxml.CalDAVTimeRangeElement(start="20110201T120000")
         self.assertFalse(tr.valid())
-        
+
         tr = caldavxml.CalDAVTimeRangeElement(start="20110201")
         self.assertFalse(tr.valid())
 
         tr = caldavxml.CalDAVTimeRangeElement(end="20110201T120000Z")
         self.assertTrue(tr.valid())
-        
+
         tr = caldavxml.CalDAVTimeRangeElement(end="20110201T120000")
         self.assertFalse(tr.valid())
-        
+
         tr = caldavxml.CalDAVTimeRangeElement(end="20110201")
         self.assertFalse(tr.valid())
 
         tr = caldavxml.CalDAVTimeRangeElement(start="20110201T120000Z", end="20110202T120000Z")
         self.assertTrue(tr.valid())
-        
+
         tr = caldavxml.CalDAVTimeRangeElement(start="20110201T120000Z", end="20110202T120000")
         self.assertFalse(tr.valid())
-        
+
         tr = caldavxml.CalDAVTimeRangeElement(start="20110201T120000Z", end="20110202")
         self.assertFalse(tr.valid())

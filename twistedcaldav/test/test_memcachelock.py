@@ -21,10 +21,10 @@ class MemCacheTestCase(TestCase):
     """
 
     class FakedMemcacheLock(MemcacheLock):
-        
+
         def __init__(self, faked, namespace, locktoken, timeout=5.0, retry_interval=0.1, expire_time=0):
             """
-            
+
             @param namespace: a unique namespace for this lock's tokens
             @type namespace: C{str}
             @param locktoken: the name of the locktoken
@@ -36,14 +36,15 @@ class MemCacheTestCase(TestCase):
             @param expiryTime: the time in seconds for the lock to expire. Zero: no expiration.
             @type expiryTime: C{float}
             """
-    
+
             super(MemCacheTestCase.FakedMemcacheLock, self).__init__(namespace, locktoken, timeout, retry_interval, expire_time)
             self.faked = faked
 
         def _getMemcacheProtocol(self):
-            
+
             return self.faked
-        
+
+
     def setUp(self):
         """
         Create a memcache client, connect it to a string protocol, and make it
@@ -82,6 +83,7 @@ class MemCacheTestCase(TestCase):
         self.proto.dataReceived(recv)
         return d
 
+
     def test_get(self):
         """
         L{MemCacheProtocol.get} should return a L{Deferred} which is
@@ -96,6 +98,7 @@ class MemCacheTestCase(TestCase):
             "bar"
         )
 
+
     def test_set(self):
         """
         L{MemCacheProtocol.get} should return a L{Deferred} which is
@@ -109,6 +112,7 @@ class MemCacheTestCase(TestCase):
             "STORED\r\n",
             True
         )
+
 
     @inlineCallbacks
     def test_acquire(self):
@@ -126,6 +130,7 @@ class MemCacheTestCase(TestCase):
         )
         self.assertTrue(lock._hasLock)
 
+
     @inlineCallbacks
     def test_acquire_ok_timeout_0(self):
         """
@@ -141,6 +146,7 @@ class MemCacheTestCase(TestCase):
             True
         )
         self.assertTrue(lock._hasLock)
+
 
     @inlineCallbacks
     def test_acquire_fails_timeout_0(self):
@@ -165,6 +171,7 @@ class MemCacheTestCase(TestCase):
             self.fail("No timeout exception thrown")
         self.assertFalse(lock._hasLock)
 
+
     @inlineCallbacks
     def test_acquire_release(self):
         """
@@ -188,6 +195,7 @@ class MemCacheTestCase(TestCase):
         )
         self.assertFalse(lock._hasLock)
 
+
     @inlineCallbacks
     def test_acquire_clean(self):
         """
@@ -209,6 +217,7 @@ class MemCacheTestCase(TestCase):
             True
         )
 
+
     @inlineCallbacks
     def test_acquire_unicode(self):
         """
@@ -225,6 +234,7 @@ class MemCacheTestCase(TestCase):
         )
         self.assertTrue(lock._hasLock)
 
+
     @inlineCallbacks
     def test_acquire_invalid_token1(self):
         """
@@ -232,7 +242,7 @@ class MemCacheTestCase(TestCase):
         called back with the value and the flag associated with the given key
         if the server returns a successful result.
         """
-        
+
         try:
             lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", 1)
             yield lock.acquire()

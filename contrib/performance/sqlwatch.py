@@ -13,16 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from __future__ import print_function
-
-import sys, signal, time
-
-from twisted.python.log import err
-from twisted.python.failure import Failure
-from twisted.internet.defer import Deferred, inlineCallbacks
-from twisted.internet import reactor
-
 from benchmark import DTraceCollector, instancePIDs
+from twisted.internet import reactor
+from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.python.failure import Failure
+from twisted.python.log import err
+import sys
+import signal
+import time
 
 
 class Stop(Exception):
@@ -48,6 +48,7 @@ def waitForInterrupt():
     return d
 
 
+
 @inlineCallbacks
 def collect(directory):
     while True:
@@ -67,6 +68,7 @@ def collect(directory):
             if s.name == 'execute':
                 s.statements(stats[s])
         print('Stopped')
+
 
 
 def main():
