@@ -37,11 +37,15 @@ class FilterBase(object):
     def __init__(self, xml_element):
         self.xmlelement = xml_element
 
+
     def match(self, item, access=None):
         raise NotImplementedError
 
+
     def valid(self, level=0):
         raise NotImplementedError
+
+
 
 class Filter(FilterBase):
     """
@@ -55,17 +59,18 @@ class Filter(FilterBase):
         filter_test = xml_element.attributes.get("test", "anyof")
         if filter_test not in ("anyof", "allof"):
             raise ValueError("Test must be only one of anyof, allof")
-        
+
         self.filter_test = filter_test
 
         self.children = [PropertyFilter(child) for child in xml_element.children]
+
 
     def match(self, vcard):
         """
         Returns True if the given address property matches this filter, False
         otherwise. Empty element means always match.
         """
-        
+
         if len(self.children) > 0:
             allof = self.filter_test == "allof"
             for propfilter in self.children:
@@ -75,20 +80,23 @@ class Filter(FilterBase):
         else:
             return True
 
+
     def valid(self):
         """
         Indicate whether this filter element's structure is valid wrt vCard
         data object model.
-        
+
         @return: True if valid, False otherwise
         """
-        
+
         # Test each property
         for propfilter in self.children:
             if not propfilter.valid():
                 return False
         else:
             return True
+
+
 
 class FilterChildBase(FilterBase):
     """
@@ -104,7 +112,7 @@ class FilterChildBase(FilterBase):
 
         for child in xml_element.children:
             qname = child.qname()
-            
+
             if qname in (
                 (carddav_namespace, "is-not-defined"),
             ):
@@ -122,7 +130,7 @@ class FilterChildBase(FilterBase):
 
         if qualifier and isinstance(qualifier, IsNotDefined) and (len(filters) != 0):
             raise ValueError("No other tests allowed when CardDAV:is-not-defined is present")
-            
+
         if xml_element.qname() == (carddav_namespace, "prop-filter"):
             propfilter_test = xml_element.attributes.get("test", "anyof")
             if propfilter_test not in ("anyof", "allof"):
@@ -138,17 +146,20 @@ class FilterChildBase(FilterBase):
             self.filter_name = self.filter_name.encode("utf-8")
         self.defined = not self.qualifier or not isinstance(qualifier, IsNotDefined)
 
+
     def match(self, item):
         """
         Returns True if the given address book item (either a property or parameter value)
         matches this filter, False otherwise.
         """
-        
+
         # Always return True for the is-not-defined case as the result of this will
         # be negated by the caller
-        if not self.defined: return True
+        if not self.defined:
+            return True
 
-        if self.qualifier and not self.qualifier.match(item): return False
+        if self.qualifier and not self.qualifier.match(item):
+            return False
 
         if len(self.filters) > 0:
             allof = self.propfilter_test == "allof"
@@ -159,6 +170,8 @@ class FilterChildBase(FilterBase):
         else:
             return True
 
+
+
 class PropertyFilter (FilterChildBase):
     """
     Limits a search to specific properties.
@@ -167,21 +180,25 @@ class PropertyFilter (FilterChildBase):
     def _match(self, vcard):
         # At least one property must match (or is-not-defined is set)
         for property in vcard.properties():
-            if property.name().upper() == self.filter_name.upper() and self.match(property): break
+            if property.name().upper() == self.filter_name.upper() and self.match(property):
+                break
         else:
             return not self.defined
         return self.defined
+
 
     def valid(self):
         """
         Indicate whether this filter element's structure is valid wrt vCard
         data object model.
-        
+
         @return:      True if valid, False otherwise
         """
-        
+
         # No tests
         return True
+
+
 
 class ParameterFilter (FilterChildBase):
     """
@@ -199,6 +216,8 @@ class ParameterFilter (FilterChildBase):
 
         return result
 
+
+
 class IsNotDefined (FilterBase):
     """
     Specifies that the named iCalendar item does not exist.
@@ -210,6 +229,8 @@ class IsNotDefined (FilterBase):
         # Actually this method should never be called as we special case the
         # is-not-defined option.
         return True
+
+
 
 class TextMatch (FilterBase):
     """
@@ -246,13 +267,15 @@ class TextMatch (FilterBase):
         else:
             self.match_type = "contains"
 
+
     def _match(self, item):
         """
         Match the text for the item.
         If the item is a property, then match the property value,
         otherwise it may be a list of parameter values - try to match anyone of those
         """
-        if item is None: return False
+        if item is None:
+            return False
 
         if isinstance(item, Property):
             values = [item.strvalue()]
@@ -261,14 +284,15 @@ class TextMatch (FilterBase):
 
         test = unicode(self.text, "utf-8").lower()
 
+
         def _textCompare(s):
             # Currently ignores the collation and does caseless matching
             s = s.lower()
-            
+
             if self.match_type == "equals":
                 return s == test
             elif self.match_type == "contains":
-                return s.find(test) != -1 
+                return s.find(test) != -1
             elif self.match_type == "starts-with":
                 return s.startswith(test)
             elif self.match_type == "ends-with":
@@ -286,5 +310,5 @@ class TextMatch (FilterBase):
             else:
                 if _textCompare(unicode(value, "utf-8")):
                     return not self.negate
-        
+
         return self.negate

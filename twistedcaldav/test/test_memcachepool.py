@@ -45,7 +45,6 @@ class StubConnectionPool(object):
         self.shutdown_requested = False
 
 
-
     def clientFree(self, client):
         """
         Record a C{'free'} call for C{client}.
@@ -79,7 +78,6 @@ class StubConnector(object):
         A L{IConnector.connect} implementation that doesn't do anything.
         """
 
-
     def stopConnecting(self):
         """
         A L{IConnector.stopConnecting} that doesn't do anything.
@@ -104,8 +102,9 @@ class StubReactor(object):
         return StubConnector()
 
 
-    def addSystemEventTrigger(*args, **kwds):
+    def addSystemEventTrigger(self, *args, **kwds):
         pass
+
 
 
 class PooledMemCacheProtocolTests(TestCase):
@@ -125,6 +124,7 @@ class PooledMemCacheProtocolTests(TestCase):
 
         p.connectionMade()
         return d
+
 
 
 class MemCacheClientFactoryTests(TestCase):
@@ -148,6 +148,7 @@ class MemCacheClientFactoryTests(TestCase):
         self.factory = MemCacheClientFactory()
         self.factory.connectionPool = self.pool
         self.protocol = self.factory.buildProtocol(None)
+
 
     def test_clientConnectionFailedNotifiesPool(self):
         """
@@ -303,7 +304,7 @@ class MemCachePoolTests(TestCase):
         d = self.pool.performRequest('get', 'foo')
         d.addCallback(results.append)
 
-        args, kwargs = self.reactor.calls.pop()
+        args, _ignore_kwargs = self.reactor.calls.pop()
 
         self.assertEquals(args[:2], (MC_ADDRESS.host, MC_ADDRESS.port))
 
@@ -374,12 +375,11 @@ class MemCachePoolTests(TestCase):
         p1 = InMemoryMemcacheProtocol()
         p1.set('foo', 'baz')
 
-
         self.pool.clientBusy(p)
 
         self.pool.performRequest('get', 'foo')
 
-        args, kwargs = self.reactor.calls.pop()
+        args, _ignore_kwargs = self.reactor.calls.pop()
 
         self.assertEquals(args[:2], (MC_ADDRESS.host, MC_ADDRESS.port))
 
@@ -394,7 +394,7 @@ class MemCachePoolTests(TestCase):
 
         self.pool.performRequest('get', 'foo')
 
-        args, kwargs = self.reactor.calls.pop()
+        args, _ignore_kwargs = self.reactor.calls.pop()
 
         self.assertEquals(args[:2], (MC_ADDRESS.host, MC_ADDRESS.port))
 

@@ -27,12 +27,16 @@ import getopt
 def safePercent(x, y, multiplier=100):
     return ((multiplier * x) / y) if y else 0
 
+
+
 def _is_literal(token):
     if token.ttype in sqlparse.tokens.Literal:
         return True
     if token.ttype == sqlparse.tokens.Keyword and token.value in (u'True', u'False'):
         return True
     return False
+
+
 
 def _substitute(expression, replacement):
     try:
@@ -48,6 +52,8 @@ def _substitute(expression, replacement):
         else:
             _substitute(token, replacement)
 
+
+
 def sqlnormalize(sql):
     try:
         statements = sqlparse.parse(sql)
@@ -58,13 +64,13 @@ def sqlnormalize(sql):
     _substitute(statements[0], qmark)
     return sqlparse.format(statements[0].to_unicode().encode('ascii'))
 
-COLUMN_userid = 0 
+COLUMN_userid = 0
 COLUMN_dbid = 1
 COLUMN_query = 2
 COLUMN_calls = 3
 COLUMN_total_time = 4
 COLUMN_rows = 5
-COLUMN_shared_blks_hit = 6 
+COLUMN_shared_blks_hit = 6
 COLUMN_shared_blks_read = 7
 COLUMN_shared_blks_written = 8
 COLUMN_local_blks_hit = 9
@@ -74,7 +80,7 @@ COLUMN_temp_blks_read = 12
 COLUMN_temp_blks_written = 13
 
 def sqlStatementsReport(entries):
-    
+
     dcount = collections.defaultdict(int)
     dtime = collections.defaultdict(float)
     drows = collections.defaultdict(int)
@@ -82,10 +88,10 @@ def sqlStatementsReport(entries):
         dcount[entry[COLUMN_query]] += int(entry[COLUMN_calls])
         dtime[entry[COLUMN_query]] += float(entry[COLUMN_total_time])
         drows[entry[COLUMN_query]] += int(entry[COLUMN_rows])
-    
+
     daverage = {}
     for k in dcount.keys():
-        daverage[k] = dtime[k]/dcount[k]
+        daverage[k] = dtime[k] / dcount[k]
 
     counttotal = sum(dcount.values())
     timetotal = sum(dtime.values())
@@ -99,7 +105,7 @@ def sqlStatementsReport(entries):
         table = tables.Table()
         table.addHeader(("Statement", "Count", "Count %", "Total Time", "Total Time %", "Av. Time", "Av. Time %", "Av. rows",))
         table.setDefaultColumnFormats((
-            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY), 
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.2f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -108,9 +114,9 @@ def sqlStatementsReport(entries):
             tables.Table.ColumnFormat("%.2f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
         ))
-    
+
         for key in sortedkeys:
-            
+
             keylines = textwrap.wrap(key, 72, subsequent_indent="  ")
             table.addRow((
                 keylines[0],
@@ -120,9 +126,9 @@ def sqlStatementsReport(entries):
                 safePercent(dtime[key], timetotal, 100.0),
                 daverage[key],
                 safePercent(daverage[key], averagetotal, 100.0),
-                float(drows[key])/dcount[key],
+                float(drows[key]) / dcount[key],
             ))
-            
+
             for keyline in keylines[1:]:
                 table.addRow((
                     keyline,
@@ -138,15 +144,17 @@ def sqlStatementsReport(entries):
         print("Queries sorted by %s" % (sorttype,))
         table.printTable()
         print("")
- 
+
+
+
 def parseStats(logFilePath, donormlize=True, verbose=False):
-    
+
     fpath = os.path.expanduser(logFilePath)
     if fpath.endswith(".gz"):
         f = GzipFile(fpath)
     else:
         f = open(fpath)
-    
+
     # Punt past data
     for line in f:
         if line.startswith("---"):
@@ -160,14 +168,14 @@ def parseStats(logFilePath, donormlize=True, verbose=False):
                 line = f.next()
                 newbits = line.split("|")
                 bits[COLUMN_query] = bits[COLUMN_query][:-1] + newbits[COLUMN_query]
-                
+
             pos = bits[COLUMN_query].find("BEGIN:VCALENDAR")
             if pos != -1:
                 bits[COLUMN_query] = bits[COLUMN_query][:pos]
-            
+
             if donormlize:
                 bits[COLUMN_query] = sqlnormalize(bits[COLUMN_query].strip())
-            
+
             if bits[COLUMN_query] not in (
                 "BEGIN",
                 "COMMIT",
@@ -179,12 +187,14 @@ def parseStats(logFilePath, donormlize=True, verbose=False):
                     print("%d entries" % (len(entries),))
                 #if float(bits[COLUMN_total_time]) > 1:
                 #    print(bits[COLUMN_total_time], bits[COLUMN_query])
-    
+
     if verbose:
         print("Read %d entries" % (len(entries,)))
-    
+
     sqlStatementsReport(entries)
-            
+
+
+
 def usage(error_msg=None):
     if error_msg:
         print(error_msg)
@@ -208,10 +218,10 @@ This utility will analyze the output of s pg_stat_statement table.
         sys.exit(0)
 
 if __name__ == '__main__':
-    
+
     normalize = True
     verbose = False
-    options, args = getopt.getopt(sys.argv[1:], "hv", ["no-normalize",])
+    options, args = getopt.getopt(sys.argv[1:], "hv", ["no-normalize", ])
 
     for option, value in options:
         if option == "-h":

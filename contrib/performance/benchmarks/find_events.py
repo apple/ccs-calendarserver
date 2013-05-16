@@ -52,7 +52,8 @@ def uploadEvents(numEvents, agent, uri, cal):
                 StringProducer(event))
     worker = worker()
     return gatherResults([
-            cooperate(worker).whenDone() for i in range(3)])
+            cooperate(worker).whenDone() for _ignore_i in range(3)])
+
 
 
 @inlineCallbacks

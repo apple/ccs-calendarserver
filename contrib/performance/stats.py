@@ -13,20 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from __future__ import print_function
-
-import random, time
-
-from zope.interface import Interface, implements
-
-from twisted.python.util import FancyEqMixin
-
-import sqlparse
+from math import log, sqrt
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
-from pycalendar.timezone import PyCalendarTimezone
 from pycalendar.property import PyCalendarProperty
-from math import log, sqrt
+from pycalendar.timezone import PyCalendarTimezone
+from twisted.python.util import FancyEqMixin
+from zope.interface import Interface, implements
+import random
+import time
+import sqlparse
+
 
 NANO = 1000000000.0
 
@@ -35,18 +34,22 @@ def mean(samples):
     return sum(samples) / len(samples)
 
 
+
 def median(samples):
     return sorted(samples)[len(samples) / 2]
+
 
 
 def residuals(samples, from_):
     return [from_ - s for s in samples]
 
 
+
 def stddev(samples):
     m = mean(samples)
     variance = sum([datum ** 2 for datum in residuals(samples, m)]) / len(samples)
     return variance ** 0.5
+
 
 
 def mad(samples):
@@ -56,6 +59,7 @@ def mad(samples):
     med = median(samples)
     res = map(abs, residuals(samples, med))
     return median(res)
+
 
 
 class _Statistic(object):
@@ -118,6 +122,7 @@ class SQLDuration(_Statistic):
             return True
         return False
 
+
     def _substitute(self, expression, replacement):
         try:
             expression.tokens
@@ -171,7 +176,7 @@ class SQLDuration(_Statistic):
             times.append(total / NANO * 1000)
         return ''.join([
                 '%d: %s\n' % (count, statement)
-                for (statement, count) 
+                for (statement, count)
                 in statements.iteritems()]) + _Statistic.summarize(self, times)
 
 
@@ -203,7 +208,8 @@ class SQLDuration(_Statistic):
         for (sql, _ignore_interval) in data:
             statements.append(self.normalize(sql))
         return '\n'.join(statements) + '\n'
-            
+
+
 
 class Bytes(_Statistic):
     def squash(self, samples):
@@ -212,6 +218,7 @@ class Bytes(_Statistic):
 
     def summarize(self, samples):
         return _Statistic.summarize(self, self.squash(samples))
+
 
 
 def quantize(data):
@@ -224,14 +231,16 @@ def quantize(data):
     return []
 
 
+
 class IPopulation(Interface):
     def sample(): #@NoSelf
         pass
 
 
+
 class UniformDiscreteDistribution(object, FancyEqMixin):
     """
-    
+
     """
     implements(IPopulation)
 
@@ -264,7 +273,7 @@ class LogNormalDistribution(object, FancyEqMixin):
     compareAttributes = ['_mu', '_sigma', '_maximum']
 
     def __init__(self, mu=None, sigma=None, mean=None, mode=None, median=None, maximum=None):
-        
+
         if mu is not None and sigma is not None:
             scale = 1.0
         elif not (mu is None and sigma is None):
@@ -285,7 +294,7 @@ class LogNormalDistribution(object, FancyEqMixin):
             sigma = sqrt(log(mean) - log(mode) / 2.0)
         else:
             raise ValueError("When using mode one of median or mean must be defined")
-               
+
         self._mu = mu
         self._sigma = sigma
         self._scale = scale
@@ -304,6 +313,7 @@ class LogNormalDistribution(object, FancyEqMixin):
         return result
 
 
+
 class FixedDistribution(object, FancyEqMixin):
     """
     """
@@ -317,6 +327,7 @@ class FixedDistribution(object, FancyEqMixin):
 
     def sample(self):
         return self._value
+
 
 
 class NearFutureDistribution(object, FancyEqMixin):
@@ -420,32 +431,34 @@ class WorkDistribution(object, FancyEqMixin):
             offset.setDuration(offset.getTotalSeconds() - (end - start).getTotalSeconds())
             beginning = end
 
+
+
 class RecurrenceDistribution(object, FancyEqMixin):
     compareAttributes = ["_allowRecurrence", "_weights"]
 
     _model_rrules = {
-        "none":        None,
-        "daily":       "RRULE:FREQ=DAILY",
-        "weekly":      "RRULE:FREQ=WEEKLY",
-        "monthly":     "RRULE:FREQ=MONTHLY",
-        "yearly":      "RRULE:FREQ=YEARLY",
-        "dailylimit":  "RRULE:FREQ=DAILY;COUNT=14",
+        "none": None,
+        "daily": "RRULE:FREQ=DAILY",
+        "weekly": "RRULE:FREQ=WEEKLY",
+        "monthly": "RRULE:FREQ=MONTHLY",
+        "yearly": "RRULE:FREQ=YEARLY",
+        "dailylimit": "RRULE:FREQ=DAILY;COUNT=14",
         "weeklylimit": "RRULE:FREQ=WEEKLY;COUNT=4",
-        "workdays":    "RRULE:FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR"
-    } 
+        "workdays": "RRULE:FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR"
+    }
 
     def __init__(self, allowRecurrence, weights={}):
         self._allowRecurrence = allowRecurrence
         self._rrules = []
         if self._allowRecurrence:
-            for rrule, count in sorted(weights.items(), key=lambda x:x[0]):
+            for rrule, count in sorted(weights.items(), key=lambda x: x[0]):
                 for _ignore in range(count):
                     self._rrules.append(self._model_rrules[rrule])
-        self._helperDistribution = UniformIntegerDistribution(0, len(self._rrules)-1)
+        self._helperDistribution = UniformIntegerDistribution(0, len(self._rrules) - 1)
 
 
     def sample(self):
-        
+
         if self._allowRecurrence:
             index = self._helperDistribution.sample()
             rrule = self._rrules[index]
@@ -453,11 +466,11 @@ class RecurrenceDistribution(object, FancyEqMixin):
                 prop = PyCalendarProperty()
                 prop.parse(rrule)
                 return prop
-        
+
         return None
 
 if __name__ == '__main__':
-    
+
     from collections import defaultdict
     mu = 1.5
     sigma = 1.22
@@ -468,11 +481,10 @@ if __name__ == '__main__':
         if s > 300:
             continue
         result[s] += 1
-    
-    total = 0
-    for k, v in sorted(result.items(), key=lambda x:x[0]):
-        print("%d\t%.5f" % (k, float(v)/result[1]))
-        total += k * v
-        
-    print("Average: %.2f" % (float(total) / sum(result.values()),))
 
+    total = 0
+    for k, v in sorted(result.items(), key=lambda x: x[0]):
+        print("%d\t%.5f" % (k, float(v) / result[1]))
+        total += k * v
+
+    print("Average: %.2f" % (float(total) / sum(result.values()),))

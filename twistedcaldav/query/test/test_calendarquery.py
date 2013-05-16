@@ -32,17 +32,18 @@ class Tests(twistedcaldav.test.util.TestCase):
                 *[caldavxml.ComponentFilter(
                     **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
                 )],
-                **{"name":"VCALENDAR"}
+                **{"name": "VCALENDAR"}
             )
         )
         filter = calendarqueryfilter.Filter(filter)
         filter.child.settzinfo(PyCalendarTimezone(tzid="America/New_York"))
-        
+
         sql, args = sqlcalendarquery(filter)
         self.assertTrue(sql.find("RESOURCE") != -1)
         self.assertTrue(sql.find("TIMESPAN") == -1)
         self.assertTrue(sql.find("TRANSPARENCY") == -1)
         self.assertTrue("VEVENT" in args)
+
 
     def test_query_timerange(self):
         """
@@ -55,17 +56,18 @@ class Tests(twistedcaldav.test.util.TestCase):
                     *[caldavxml.TimeRange(**{"start":"20060605T160000Z", "end":"20060605T170000Z"})],
                     **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
                 )],
-                **{"name":"VCALENDAR"}
+                **{"name": "VCALENDAR"}
             )
         )
         filter = calendarqueryfilter.Filter(filter)
         filter.child.settzinfo(PyCalendarTimezone(tzid="America/New_York"))
-        
+
         sql, args = sqlcalendarquery(filter)
         self.assertTrue(sql.find("RESOURCE") != -1)
         self.assertTrue(sql.find("TIMESPAN") != -1)
         self.assertTrue(sql.find("TRANSPARENCY") == -1)
         self.assertTrue("VEVENT" in args)
+
 
     def test_query_not_extended(self):
         """
@@ -82,12 +84,12 @@ class Tests(twistedcaldav.test.util.TestCase):
                         **{"name":("VTODO")}
                     ),
                 ],
-                **{"name":"VCALENDAR"}
+                **{"name": "VCALENDAR"}
             )
         )
         filter = calendarqueryfilter.Filter(filter)
         filter.child.settzinfo(PyCalendarTimezone(tzid="America/New_York"))
-        
+
         sql, args = sqlcalendarquery(filter)
         self.assertTrue(sql.find("RESOURCE") != -1)
         self.assertTrue(sql.find("TIMESPAN") == -1)
@@ -95,6 +97,7 @@ class Tests(twistedcaldav.test.util.TestCase):
         self.assertTrue(sql.find(" OR ") == -1)
         self.assertTrue("VEVENT" in args)
         self.assertTrue("VTODO" in args)
+
 
     def test_query_extended(self):
         """
@@ -105,19 +108,19 @@ class Tests(twistedcaldav.test.util.TestCase):
             caldavxml.ComponentFilter(
                 *[
                     caldavxml.ComponentFilter(
-                        *[caldavxml.TimeRange(**{"start":"20060605T160000Z",})],
+                        *[caldavxml.TimeRange(**{"start":"20060605T160000Z", })],
                         **{"name":("VEVENT")}
                     ),
                     caldavxml.ComponentFilter(
                         **{"name":("VTODO")}
                     ),
                 ],
-                **{"name":"VCALENDAR", "test":"anyof"}
+                **{"name": "VCALENDAR", "test": "anyof"}
             )
         )
         filter = calendarqueryfilter.Filter(filter)
         filter.child.settzinfo(PyCalendarTimezone(tzid="America/New_York"))
-        
+
         sql, args = sqlcalendarquery(filter)
         self.assertTrue(sql.find("RESOURCE") != -1)
         self.assertTrue(sql.find("TIMESPAN") != -1)
@@ -125,4 +128,3 @@ class Tests(twistedcaldav.test.util.TestCase):
         self.assertTrue(sql.find(" OR ") != -1)
         self.assertTrue("VEVENT" in args)
         self.assertTrue("VTODO" in args)
-        

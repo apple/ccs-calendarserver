@@ -17,7 +17,7 @@
 from twext.web2.client.http import ClientRequest
 from twext.web2.http import HTTPError
 from twext.web2.test.test_server import SimpleRequest
-from twistedcaldav.client.pool import _clientPools 
+from twistedcaldav.client.pool import _clientPools
 from twistedcaldav.client.reverseproxy import ReverseProxyResource
 from twistedcaldav.config import config
 import twistedcaldav.test.util
@@ -28,9 +28,9 @@ class ReverseProxyNoLoop (twistedcaldav.test.util.TestCase):
     """
 
     def setUp(self):
-        
+
         class DummyPool(object):
-            
+
             def submitRequest(self, request):
                 return request
 
@@ -38,10 +38,12 @@ class ReverseProxyNoLoop (twistedcaldav.test.util.TestCase):
 
         super(ReverseProxyNoLoop, self).setUp()
 
+
     def test_No_Header(self):
         proxy = ReverseProxyResource("pool")
         request = SimpleRequest(proxy, "GET", "/")
         self.assertIsInstance(proxy.renderHTTP(request), ClientRequest)
+
 
     def test_Header_Other_Server(self):
         proxy = ReverseProxyResource("pool")
@@ -49,11 +51,13 @@ class ReverseProxyNoLoop (twistedcaldav.test.util.TestCase):
         request.headers.addRawHeader("x-forwarded-server", "foobar.example.com")
         self.assertIsInstance(proxy.renderHTTP(request), ClientRequest)
 
+
     def test_Header_Other_Servers(self):
         proxy = ReverseProxyResource("pool")
         request = SimpleRequest(proxy, "GET", "/")
         request.headers.setHeader("x-forwarded-server", ("foobar.example.com", "bar.example.com",))
         self.assertIsInstance(proxy.renderHTTP(request), ClientRequest)
+
 
     def test_Header_Our_Server(self):
         proxy = ReverseProxyResource("pool")
@@ -61,11 +65,13 @@ class ReverseProxyNoLoop (twistedcaldav.test.util.TestCase):
         request.headers.addRawHeader("x-forwarded-server", config.ServerHostName)
         self.assertRaises(HTTPError, proxy.renderHTTP, request)
 
+
     def test_Header_Our_Server_Moxied(self):
         proxy = ReverseProxyResource("pool")
         request = SimpleRequest(proxy, "GET", "/")
         request.headers.setHeader("x-forwarded-server", ("foobar.example.com", "bar.example.com", config.ServerHostName,))
         self.assertRaises(HTTPError, proxy.renderHTTP, request)
+
 
     def test_Header_Our_Server_Allowed(self):
         proxy = ReverseProxyResource("pool")

@@ -66,6 +66,7 @@ class PutTest(HTTPTestBase):
         href = joinURL(self.sessions[0].calendarHref, "put.ics")
         self.sessions[0].writeData(URL(path=href), ICAL % (now.getYear() + 1,), "text/calendar")
 
+
     def cleanup(self):
         """
         Do some cleanup after the real request.

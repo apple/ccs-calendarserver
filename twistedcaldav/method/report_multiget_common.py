@@ -38,7 +38,7 @@ from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.method import report_common
 from txdav.common.icommondatastore import ConcurrentModification
-from twistedcaldav.method.report_common import COLLECTION_TYPE_CALENDAR,\
+from twistedcaldav.method.report_common import COLLECTION_TYPE_CALENDAR, \
     COLLECTION_TYPE_ADDRESSBOOK
 from twistedcaldav.query import addressbookqueryfilter
 
@@ -53,7 +53,7 @@ def multiget_common(self, request, multiget, collection_type):
     # Make sure target resource is of the right type
     if not self.isCollection():
         parent = (yield self.locateParent(request, request.uri))
-        
+
         if collection_type == COLLECTION_TYPE_CALENDAR:
             if not parent.isPseudoCalendarCollection():
                 log.err("calendar-multiget report is not allowed on a resource outside of a calendar collection %s" % (self,))
@@ -66,12 +66,12 @@ def multiget_common(self, request, multiget, collection_type):
     responses = []
 
     propertyreq = multiget.property
-    resources  = multiget.resources
+    resources = multiget.resources
 
     if not hasattr(request, "extendedLogItems"):
         request.extendedLogItems = {}
     request.extendedLogItems["rcount"] = len(resources)
-    
+
     hasData = False
     if propertyreq.qname() == ("DAV:", "allprop"):
         propertiesForResource = report_common.allPropertiesForResource
@@ -81,7 +81,7 @@ def multiget_common(self, request, multiget, collection_type):
 
     elif propertyreq.qname() == ("DAV:", "prop"):
         propertiesForResource = report_common.propertyListForResource
-        
+
         if collection_type == COLLECTION_TYPE_CALENDAR:
             # Verify that any calendar-data element matches what we can handle
             result, message, hasData = report_common.validPropertyListCalendarDataTypeVersion(propertyreq)
@@ -113,14 +113,14 @@ def multiget_common(self, request, multiget, collection_type):
 
     """
     Three possibilities exist:
-        
+
         1. The request-uri is a calendar collection, in which case all the hrefs
         MUST be one-level below that collection and must be calendar object resources.
-        
+
         2. The request-uri is a regular collection, in which case all the hrefs
         MUST be children of that (at any depth) but MUST also be calendar object
         resources (i.e. immediate child of a calendar collection).
-        
+
         3. The request-uri is a resource, in which case there MUST be
         a single href equal to the request-uri, and MUST be a calendar
         object resource.
@@ -133,11 +133,11 @@ def multiget_common(self, request, multiget, collection_type):
         # Do some optimisation of access control calculation by determining any inherited ACLs outside of
         # the child resource loop and supply those to the checkPrivileges on each child.
         filteredaces = (yield self.inheritedACEsforChildren(request))
-    
+
         # Check for disabled access
         if filteredaces is None:
             disabled = True
-            
+
         # Check private events access status
         isowner = (yield self.isOwner(request))
 
@@ -147,7 +147,7 @@ def multiget_common(self, request, multiget, collection_type):
         # Do some optimisation of access control calculation by determining any inherited ACLs outside of
         # the child resource loop and supply those to the checkPrivileges on each child.
         filteredaces = (yield self.inheritedACEsforChildren(request))
-    
+
         # Check for disabled access
         if filteredaces is None:
             disabled = True
@@ -167,7 +167,7 @@ def multiget_common(self, request, multiget, collection_type):
 
         @inlineCallbacks
         def doResponse():
-            
+
             # Special for addressbooks
             if collection_type == COLLECTION_TYPE_ADDRESSBOOK:
                 if self.isDirectoryBackedAddressBookCollection() and self.directory.liveQuery:
@@ -185,7 +185,7 @@ def multiget_common(self, request, multiget, collection_type):
                     valid_names.append(name)
             if not valid_names:
                 returnValue(None)
-        
+
             # Now determine which valid resources are readable and which are not
             ok_resources = []
             bad_resources = []
@@ -234,12 +234,12 @@ def multiget_common(self, request, multiget, collection_type):
             # Indicate error for all missing resources
             for href in missing_resources:
                 responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
-    
+
         @inlineCallbacks
         def doDirectoryAddressBookResponse():
-            
+
             directoryAddressBookLock = None
-            try: 
+            try:
                 # Verify that requested resources are immediate children of the request-URI
                 # and get vCardFilters ;similar to "normal" case below but do not call getChild()
                 vCardFilters = []
@@ -250,22 +250,22 @@ def multiget_common(self, request, multiget, collection_type):
                     if self._isChildURI(request, resource_uri) and resource_name.endswith(".vcf") and len(resource_name) > 4:
                         valid_hrefs.append(href)
                         vCardFilters.append(carddavxml.PropertyFilter(
-                                                carddavxml.TextMatch.fromString(resource_name[:-4]), 
+                                                carddavxml.TextMatch.fromString(resource_name[:-4]),
                                                 name="UID", # attributes
                                             ))
                     elif not self.directory.cacheQuery:
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
-                       
-                # exit if not valid           
+
+                # exit if not valid
                 if not vCardFilters or not valid_hrefs:
-                    returnValue( None )
-                     
-                addressBookFilter = carddavxml.Filter( *vCardFilters )
+                    returnValue(None)
+
+                addressBookFilter = carddavxml.Filter(*vCardFilters)
                 addressBookFilter = addressbookqueryfilter.Filter(addressBookFilter)
                 if self.directory.cacheQuery:
                     # add vcards to directory address book and run "normal case" below
                     limit = config.DirectoryAddressBook.MaxQueryResults
-                    directoryAddressBookLock, limited = (yield  self.directory.cacheVCardsForAddressBookQuery(addressBookFilter, propertyreq, limit) )
+                    directoryAddressBookLock, limited = (yield  self.directory.cacheVCardsForAddressBookQuery(addressBookFilter, propertyreq, limit))
                     if limited:
                         log.err("Too many results in multiget report: %d" % len(resources))
                         raise HTTPError(ErrorResponse(
@@ -276,7 +276,7 @@ def multiget_common(self, request, multiget, collection_type):
                 else:
                     #get vCards and filter
                     limit = config.DirectoryAddressBook.MaxQueryResults
-                    vCardRecords, limited = (yield self.directory.vCardRecordsForAddressBookQuery( addressBookFilter, propertyreq, limit ))
+                    vCardRecords, limited = (yield self.directory.vCardRecordsForAddressBookQuery(addressBookFilter, propertyreq, limit))
                     if limited:
                         log.err("Too many results in multiget report: %d" % len(resources))
                         raise HTTPError(ErrorResponse(
@@ -284,13 +284,13 @@ def multiget_common(self, request, multiget, collection_type):
                             (dav_namespace, "number-of-matches-within-limits"),
                             "Too many results",
                         ))
-                   
+
                     for href in valid_hrefs:
                         matchingRecord = None
                         for vCardRecord in vCardRecords:
                             if href == vCardRecord.hRef(): # might need to compare urls instead - also case sens ok?
                                 matchingRecord = vCardRecord
-                                break;
+                                break
 
                         if matchingRecord:
                             yield report_common.responseForHref(request, responses, href, matchingRecord, propertiesForResource, propertyreq, vcard=matchingRecord.vCard())
@@ -304,30 +304,30 @@ def multiget_common(self, request, multiget, collection_type):
             yield doResponse()
         else:
             for href in resources:
-    
+
                 resource_uri = str(href)
-    
+
                 # Do href checks
                 if requestURIis == "calendar":
                     pass
                 elif requestURIis == "addressbook":
                     pass
-        
+
                 # TODO: we can optimize this one in a similar manner to the calendar case
                 elif requestURIis == "collection":
                     name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
                     if not self._isChildURI(request, resource_uri, False):
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                         continue
-     
+
                     child = (yield request.locateResource(resource_uri))
-    
+
                     if not child or not child.exists():
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                         continue
-    
+
                     parent = (yield child.locateParent(request, resource_uri))
-    
+
                     if collection_type == COLLECTION_TYPE_CALENDAR:
                         if not parent.isCalendarCollection() or not (yield parent.index().resourceExists(name)):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
@@ -336,18 +336,18 @@ def multiget_common(self, request, multiget, collection_type):
                         if not parent.isAddressBookCollection() or not (yield parent.index().resourceExists(name)):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                             continue
-                    
+
                     # Check privileges on parent - must have at least DAV:read
                     try:
                         yield parent.checkPrivileges(request, (davxml.Read(),))
                     except AccessDeniedError:
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                         continue
-                    
+
                     # Cache the last parent's inherited aces for checkPrivileges optimization
                     if lastParent != parent:
                         lastParent = parent
-                
+
                         # Do some optimisation of access control calculation by determining any inherited ACLs outside of
                         # the child resource loop and supply those to the checkPrivileges on each child.
                         filteredaces = (yield parent.inheritedACEsforChildren(request))
@@ -359,9 +359,9 @@ def multiget_common(self, request, multiget, collection_type):
                     if (resource_uri != request.uri) or not self.exists():
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                         continue
-    
+
                     parent = (yield self.locateParent(request, resource_uri))
-    
+
                     if collection_type == COLLECTION_TYPE_CALENDAR:
                         if not parent.isPseudoCalendarCollection() or not (yield parent.index().resourceExists(name)):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
@@ -371,21 +371,21 @@ def multiget_common(self, request, multiget, collection_type):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                             continue
                     child = self
-            
+
                     # Do some optimisation of access control calculation by determining any inherited ACLs outside of
                     # the child resource loop and supply those to the checkPrivileges on each child.
                     filteredaces = (yield parent.inheritedACEsforChildren(request))
 
                     # Check private events access status
                     isowner = (yield parent.isOwner(request))
-        
+
                 # Check privileges - must have at least DAV:read
                 try:
                     yield child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces)
                 except AccessDeniedError:
                     responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                     continue
-        
+
                 yield report_common.responseForHref(request, responses, href, child, propertiesForResource, propertyreq, isowner=isowner)
 
     returnValue(MultiStatusResponse(responses))

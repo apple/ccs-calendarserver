@@ -26,9 +26,9 @@ class Database (twistedcaldav.test.util.TestCase):
     """
     Test abstract SQL DB class
     """
-    
+
     class TestDB(ADBAPISqliteMixin, AbstractADBAPIDatabase):
-        
+
         def __init__(self, path, persistent=False, version="1"):
             self.version = version
             self.dbpath = path
@@ -39,19 +39,19 @@ class Database (twistedcaldav.test.util.TestCase):
             @return: the schema version assigned to this index.
             """
             return self.version
-            
+
         def _db_type(self):
             """
             @return: the collection type assigned to this index.
             """
             return "TESTTYPE"
-            
+
         def _db_init_data_tables(self):
             """
             Initialise the underlying database tables.
             @param q:           a database cursor to use.
             """
-    
+
             #
             # TESTTYPE table
             #
@@ -67,8 +67,9 @@ class Database (twistedcaldav.test.util.TestCase):
         def _db_remove_data_tables(self):
             return self._db_execute("drop table TESTTYPE")
 
+
     class TestDBRecreateUpgrade(TestDB):
-        
+
         class RecreateDBException(Exception):
             pass
         class UpgradeDBException(Exception):
@@ -80,8 +81,9 @@ class Database (twistedcaldav.test.util.TestCase):
         def _db_recreate(self):
             raise self.RecreateDBException()
 
+
     class TestDBCreateIndexOnUpgrade(TestDB):
-        
+
         def __init__(self, path, persistent=False):
             super(Database.TestDBCreateIndexOnUpgrade, self).__init__(path, persistent, version="2")
 
@@ -92,12 +94,14 @@ class Database (twistedcaldav.test.util.TestCase):
                 """
             )
 
+
     class TestDBPauseInInit(TestDB):
-        
+
         def _db_init(self):
-            
+
             time.sleep(1)
             super(Database.TestDBPauseInInit, self)._db_init()
+
 
     @inlineCallbacks
     def inlineCallbackRaises(self, exc, f, *args, **kwargs):
@@ -110,6 +114,7 @@ class Database (twistedcaldav.test.util.TestCase):
         else:
             self.fail("%s not raised" % (exc,))
 
+
     @inlineCallbacks
     def test_connect(self):
         """
@@ -120,6 +125,7 @@ class Database (twistedcaldav.test.util.TestCase):
         yield db.open()
         self.assertTrue(db.initialized)
 
+
     @inlineCallbacks
     def test_connectFailure(self):
         """
@@ -127,7 +133,7 @@ class Database (twistedcaldav.test.util.TestCase):
         """
         db = Database.TestDB(self.mktemp())
         # Make _db_init fail
-        db._db_init = lambda : 1/0
+        db._db_init = lambda : 1 / 0
         self.assertFalse(db.initialized)
         try:
             yield db.open()
@@ -135,6 +141,7 @@ class Database (twistedcaldav.test.util.TestCase):
             pass
         self.assertFalse(db.initialized)
         self.assertEquals(db.pool, None)
+
 
     @inlineCallbacks
     def test_readwrite(self):
@@ -148,6 +155,7 @@ class Database (twistedcaldav.test.util.TestCase):
         items = (yield db.queryList("SELECT * from TESTTYPE"))
         self.assertEqual(items, ("FOO",))
 
+
     @inlineCallbacks
     def test_close(self):
         """
@@ -159,13 +167,14 @@ class Database (twistedcaldav.test.util.TestCase):
         db.close()
         self.assertFalse(db.initialized)
         db.close()
-        
+
+
     @inlineCallbacks
     def test_version_upgrade_nonpersistent(self):
         """
         Connect to database and create table
         """
-        
+
         db_file = self.mktemp()
 
         db = Database.TestDB(db_file)
@@ -180,6 +189,7 @@ class Database (twistedcaldav.test.util.TestCase):
         yield self.inlineCallbackRaises(Database.TestDBRecreateUpgrade.RecreateDBException, db.open)
         items = (yield db.query("SELECT * from TESTTYPE"))
         self.assertEqual(items, ())
+
 
     def test_version_upgrade_persistent(self):
         """
@@ -204,6 +214,7 @@ class Database (twistedcaldav.test.util.TestCase):
         yield db.open()
         items = (yield db.query("SELECT * from TESTTYPE"))
         self.assertEqual(items, (("FOO", "BAR")))
+
 
     def test_version_upgrade_persistent_add_index(self):
         """

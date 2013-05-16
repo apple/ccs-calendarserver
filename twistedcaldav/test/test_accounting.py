@@ -29,64 +29,71 @@ class AccountingITIP (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(AccountingITIP, self).setUp()
         config.AccountingCategories.iTIP = True
-        config.AccountingPrincipals = ["*",]
+        config.AccountingPrincipals = ["*", ]
         os.mkdir(config.AccountingLogRoot)
 
+
     class _Principal(object):
-        
+
         class _Record(object):
-            
+
             def __init__(self, guid):
                 self.guid = guid
-                
+
         def __init__(self, guid):
-            
+
             self.record = self._Record(guid)
+
 
     def test_permissions_makedirs(self):
         """
         Test permissions when creating accounting
         """
-        
+
         # Make log root non-writeable
         os.chmod(config.AccountingLogRoot, stat.S_IRUSR)
-        
+
         emitAccounting("iTIP", self._Principal("1234-5678"), "bogus")
+
 
     def test_file_instead_of_directory(self):
         """
         Test permissions when creating accounting
         """
-        
+
         # Make log root a file
         config.AccountingLogRoot = "other"
         open(config.AccountingLogRoot, "w").close()
         emitAccounting("iTIP", self._Principal("1234-5678"), "bogus")
 
+
+
 class AccountingHTTP (twistedcaldav.test.util.TestCase):
 
     def setUp(self):
-        
+
         super(AccountingHTTP, self).setUp()
         config.AccountingCategories.HTTP = True
-        config.AccountingPrincipals = ["*",]
+        config.AccountingPrincipals = ["*", ]
+
 
     def test_channel_request(self):
         """
         Test permissions when creating accounting
         """
-        
+
         # Make channel request object
         channelRequest = HTTPLoggingChannelRequest(HTTPChannel())
         self.assertTrue(channelRequest != None)
+
 
     def test_logging(self):
         """
         Test permissions when creating accounting
         """
-        
+
         class FakeRequest(object):
-            
+
             def handleContentChunk(self, data):
                 pass
             def handleContentComplete(self):
@@ -101,6 +108,6 @@ class AccountingHTTP (twistedcaldav.test.util.TestCase):
         channelRequest.lineReceived("Content-Length:5")
         channelRequest.handleContentChunk("Bogus")
         channelRequest.handleContentComplete()
-        channelRequest.writeHeaders(200, http_headers.Headers({"Content-Type":http_headers.MimeType('text', 'plain'),"Content-Length":"4"}))
+        channelRequest.writeHeaders(200, http_headers.Headers({"Content-Type": http_headers.MimeType('text', 'plain'), "Content-Length": "4"}))
         channelRequest.transport.write("Data")
         channelRequest.finish()

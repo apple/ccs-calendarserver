@@ -157,7 +157,7 @@ class CalendarClientSimulatorTests(TestCase):
 
             def stop(self):
                 return succeed(None)
-                
+
         class BrokenProfile(object):
             def __init__(self, reactor, simulator, client, userNumber, runResult):
                 self._runResult = runResult
@@ -209,6 +209,7 @@ class Reactor(object):
         self._triggers.append((phase, event, thunk))
 
 
+
 class Observer(object):
     def __init__(self):
         self.reported = False
@@ -225,6 +226,7 @@ class Observer(object):
 
     def failures(self):
         return []
+
 
 
 class NullArrival(object):
@@ -326,6 +328,7 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(sim.records[98].commonName, 'User 99')
         self.assertEqual(sim.records[98].email, 'user99@example.com')
 
+
     def test_generateRecordsDefaultPatterns(self):
         """
         L{LoadSimulator.fromCommandLine} takes an account loader from the
@@ -352,6 +355,7 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(sim.records[1].password, 'user2')
         self.assertEqual(sim.records[1].commonName, 'User 2')
         self.assertEqual(sim.records[1].email, 'user2@example.com')
+
 
     def test_generateRecordsNonDefaultPatterns(self):
         """
@@ -383,6 +387,7 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(sim.records[2].password, 'PASSWORD003')
         self.assertEqual(sim.records[2].commonName, 'Test User 003')
         self.assertEqual(sim.records[2].email, 'USER003@example2.com')
+
 
     def test_specifyRuntime(self):
         """
@@ -472,7 +477,7 @@ class LoadSimulatorTests(TestCase):
                                     "class": "contrib.performance.loadtest.profiles.Eventer"}],
                             "weight": 3,
                             }]}))
-                            
+
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         expectedParameters = PopulationParameters()
         expectedParameters.addClient(
@@ -481,7 +486,7 @@ class LoadSimulatorTests(TestCase):
                             "eventStartDistribution": NormalDistribution(123, 456)})]))
         self.assertEquals(sim.parameters, expectedParameters)
 
-        
+
     def test_requireClient(self):
         """
         At least one client is required, so if a configuration with an
@@ -504,7 +509,7 @@ class LoadSimulatorTests(TestCase):
         """
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({
-            "observers": [{"type":"contrib.performance.loadtest.population.SimpleStatistics", "params":{},},]
+            "observers": [{"type":"contrib.performance.loadtest.population.SimpleStatistics", "params":{}, }, ]
         }))
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         self.assertEquals(len(sim.observers), 1)
@@ -531,4 +536,3 @@ class LoadSimulatorTests(TestCase):
         self.assertTrue(observers[0].reported)
         self.assertEquals(
             observers[0].events[0]['message'], (Reactor.message,))
-

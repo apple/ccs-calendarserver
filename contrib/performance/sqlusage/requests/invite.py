@@ -71,6 +71,7 @@ class InviteTest(HTTPTestBase):
         href = joinURL(self.sessions[1].calendarHref, "organizer.ics")
         self.sessions[1].writeData(URL(path=href), ICAL % (now.getYear() + 1,), "text/calendar")
 
+
     def cleanup(self):
         """
         Do some cleanup after the real request.
@@ -89,4 +90,3 @@ class InviteTest(HTTPTestBase):
         for href in results.keys():
             if href != self.sessions[0].inboxHref:
                 self.sessions[0].deleteResource(URL(path=href))
-        

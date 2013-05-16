@@ -29,23 +29,24 @@ class AddressDataFilter(AddressFilter):
 
     def __init__(self, addressdata):
         """
-        
+
         @param addressdata: the XML element describing how to filter
         @type addressdata: L{AddressData}
         """
-        
+
         self.addressdata = addressdata
-    
+
+
     def filter(self, vcard):
         """
         Filter the supplied vCard object using the request information.
 
         @param vcard: vCard object
         @type vcard: L{Component} or C{str}
-        
+
         @return: L{Component} for the filtered vcard data
         """
-        
+
         # Empty element: get all data
         if not self.addressdata.children:
             return vcard
@@ -56,8 +57,9 @@ class AddressDataFilter(AddressFilter):
         # Filter data based on any provided CARDAV:prop element, or use all current data
         if self.addressdata.properties:
             vcard = self.propFilter(self.addressdata.properties, vcard)
-        
+
         return vcard
+
 
     def propFilter(self, properties, vcard):
         """
@@ -81,13 +83,14 @@ class AddressDataFilter(AddressFilter):
                     name = xml_property.property_name
                     for vcard_property in vcard.properties(name):
                         result.addProperty(vcard_property)
-                        
+
                 # add required properties
                 for requiredProperty in ('N', 'FN', 'VERSION'):
                     if not result.hasProperty(requiredProperty):
                         result.addProperty(vcard.getProperty(requiredProperty))
 
         return result
+
 
     def merge(self, vcardnew, vcardold):
         """

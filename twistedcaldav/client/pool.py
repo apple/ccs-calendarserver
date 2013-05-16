@@ -57,6 +57,7 @@ class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
         self.onConnect = Deferred()
         self.afterConnect = Deferred()
 
+
     def clientConnectionLost(self, connector, reason):
         """
         Notify the connectionPool that we've lost our connection.
@@ -70,6 +71,7 @@ class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
             # The reactor is stopping; don't reconnect
             return
 
+
     def clientConnectionFailed(self, connector, reason):
         """
         Notify the connectionPool that we're unable to connect
@@ -80,6 +82,7 @@ class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
         elif hasattr(self, "afterConnect"):
             self.reactor.callLater(0, self.afterConnect.errback, reason)
             del self.afterConnect
+
 
     def buildProtocol(self, addr):
         self.instance = self.protocol()
@@ -125,7 +128,7 @@ class HTTPClientPool(LoggingMixIn):
         @param reactor: An L{IReactorTCP} provider used to initiate new
             connections.
         """
-        
+
         self._name = name
         self._scheme = scheme
         self._endpoint = endpoint
@@ -145,6 +148,7 @@ class HTTPClientPool(LoggingMixIn):
         self._pendingConnects = 0
         self._pendingRequests = []
 
+
     def _isIdle(self):
         return (
             len(self._busyClients) == 0 and
@@ -152,12 +156,14 @@ class HTTPClientPool(LoggingMixIn):
             self._pendingConnects == 0
         )
 
+
     def _shutdownCallback(self):
         self.shutdown_requested = True
         if self._isIdle():
             return None
         self.shutdown_deferred = Deferred()
         return self.shutdown_deferred
+
 
     def _newClientConnection(self):
         """
@@ -198,8 +204,9 @@ class HTTPClientPool(LoggingMixIn):
 
         d = factory.onConnect
         d.addCallbacks(_doneOK, _doneError)
-        
+
         return d
+
 
     def _performRequestOnClient(self, client, request, *args, **kwargs):
         """
@@ -231,6 +238,7 @@ class HTTPClientPool(LoggingMixIn):
         d.addCallbacks(_freeClientAfterRequest, _goneClientAfterError)
         return d
 
+
     @inlineCallbacks
     def submitRequest(self, request, *args, **kwargs):
         """
@@ -260,12 +268,12 @@ class HTTPClientPool(LoggingMixIn):
                 response = (yield self._submitRequest(request, args, kwargs))
 
             except (ConnectionLost, ConnectionDone, ConnectError), e:
-                self.log_error("HTTP pooled client connection error (attempt: %d) - retrying: %s" % (ctr+1, e,))
+                self.log_error("HTTP pooled client connection error (attempt: %d) - retrying: %s" % (ctr + 1, e,))
                 continue
-            
+
             # TODO: find the proper cause of these assertions and fix
             except (AssertionError,), e:
-                self.log_error("HTTP pooled client connection assertion error (attempt: %d) - retrying: %s" % (ctr+1, e,))
+                self.log_error("HTTP pooled client connection assertion error (attempt: %d) - retrying: %s" % (ctr + 1, e,))
                 continue
 
             else:
@@ -273,6 +281,7 @@ class HTTPClientPool(LoggingMixIn):
         else:
             self.log_error("HTTP pooled client connection error - exhausted retry attempts.")
             raise HTTPError(StatusResponse(responsecode.BAD_GATEWAY, "Could not connect to HTTP pooled client host."))
+
 
     def _submitRequest(self, request, *args, **kwargs):
         """
@@ -303,6 +312,7 @@ class HTTPClientPool(LoggingMixIn):
 
         return d
 
+
     def _logClientStats(self):
         self.log_debug("Clients #free: %d, #busy: %d, "
                        "#pending: %d, #queued: %d" % (
@@ -310,6 +320,7 @@ class HTTPClientPool(LoggingMixIn):
                 len(self._busyClients),
                 self._pendingConnects,
                 len(self._pendingRequests)))
+
 
     def clientGone(self, client):
         """
@@ -328,6 +339,7 @@ class HTTPClientPool(LoggingMixIn):
 
         self._processPending()
 
+
     def clientBusy(self, client):
         """
         Notify that the given client is being used to complete a request.
@@ -342,6 +354,7 @@ class HTTPClientPool(LoggingMixIn):
 
         self.log_debug("Busied client: %r" % (client,))
         self._logClientStats()
+
 
     def clientFree(self, client):
         """
@@ -362,6 +375,7 @@ class HTTPClientPool(LoggingMixIn):
 
         self._processPending()
 
+
     def _processPending(self):
         if len(self._pendingRequests) > 0:
             d, request, args, kwargs = self._pendingRequests.pop(0)
@@ -373,6 +387,7 @@ class HTTPClientPool(LoggingMixIn):
             _ign_d = self._submitRequest(request, *args, **kwargs)
 
             _ign_d.addCallbacks(d.callback, d.errback)
+
 
     def suggestMaxClients(self, maxClients):
         """
@@ -386,7 +401,7 @@ class HTTPClientPool(LoggingMixIn):
 _clientPools = {}     # Maps a host:port to a pool object
 
 def installPools(hosts, maxClients=5, reactor=None):
-    
+
     for name, url in hosts:
         installPool(
             name,

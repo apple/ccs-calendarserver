@@ -61,29 +61,32 @@ class LocalizationTests(TestCase):
             self.assertEquals(_("All day"), "Allway ayday")
 
             self.assertEquals(_("%(startTime)s to %(endTime)s") %
-                { 'startTime' : 'a', 'endTime' : 'b' },
+                {'startTime': 'a', 'endTime': 'b'},
                 "a otay b"
             )
+
 
     def test_TimeFormattingAMPM(self):
 
         with translationTo('en', localeDir=localeDir) as t:
 
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1,  0,  0, 0)), "12:00 AM")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 12,  0, 0)), "12:00 PM")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 0, 0, 0)), "12:00 AM")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 12, 0, 0)), "12:00 PM")
             self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 23, 59, 0)), "11:59 PM")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1,  6,  5, 0)), "6:05 AM")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 16,  5, 0)), "4:05 PM")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 6, 5, 0)), "6:05 AM")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 16, 5, 0)), "4:05 PM")
+
 
     def test_TimeFormatting24Hour(self):
 
         with translationTo('pig', localeDir=localeDir) as t:
 
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1,  0,  0, 0)), "00:00")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 12,  0, 0)), "12:00")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 0, 0, 0)), "00:00")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 12, 0, 0)), "12:00")
             self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 23, 59, 0)), "23:59")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1,  6,  5, 0)), "06:05")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 16,  5, 0)), "16:05")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 6, 5, 0)), "06:05")
+            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 16, 5, 0)), "16:05")
+
 
     def test_CalendarFormatting(self):
 
@@ -159,8 +162,8 @@ class LocalizationTests(TestCase):
             self.assertEquals(t.time(comp),
                 (u'11:05 otay 12:15 (PDT)', u'2 aysday 1 ourhay 10 inutesmay'))
 
-
             self.assertEquals(t.monthAbbreviation(1), "ANJAY")
+
 
     def test_getLanguage(self):
         """

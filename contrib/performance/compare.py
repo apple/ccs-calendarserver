@@ -44,6 +44,7 @@ except ImportError:
         return (t, p)
 
 
+
 def trim(sequence, amount):
     sequence.sort()
     n = len(sequence)
@@ -57,8 +58,9 @@ def trim(sequence, amount):
     return sequence
 
 
+
 def main():
-    [(stat, first), (stat, second)] = load_stats(sys.argv[1:])
+    [(_ignore_stat, first), (_ignore_stat, second)] = load_stats(sys.argv[1:])
 
     # Attempt to increase robustness by dropping the outlying 10% of values.
     first = trim(first, 0.1)

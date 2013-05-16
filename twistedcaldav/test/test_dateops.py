@@ -18,8 +18,8 @@ import twistedcaldav.test.util
 from twisted.trial.unittest import SkipTest
 from pycalendar.datetime import PyCalendarDateTime
 
-from twistedcaldav.dateops import parseSQLTimestampToPyCalendar,\
-    parseSQLDateToPyCalendar, pyCalendarTodatetime,\
+from twistedcaldav.dateops import parseSQLTimestampToPyCalendar, \
+    parseSQLDateToPyCalendar, pyCalendarTodatetime, \
     normalizeForExpand, normalizeForIndex, normalizeToUTC, timeRangesOverlap
 
 import datetime
@@ -41,14 +41,14 @@ class Dateops(twistedcaldav.test.util.TestCase):
         """
         Test that dateops.normalizeForIndex works correctly on all four types of date/time: date only, floating, UTC and local time.
         """
-        
+
         data = (
             (PyCalendarDateTime(2012, 1, 1), PyCalendarDateTime(2012, 1, 1, 0, 0, 0)),
             (PyCalendarDateTime(2012, 1, 1, 10, 0, 0), PyCalendarDateTime(2012, 1, 1, 10, 0, 0)),
             (PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)), PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True))),
             (PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(tzid="America/New_York")), PyCalendarDateTime(2012, 1, 1, 17, 0, 0, tzid=PyCalendarTimezone(utc=True))),
         )
-        
+
         for value, result in data:
             self.assertEqual(normalizeForIndex(value), result)
 
@@ -57,14 +57,14 @@ class Dateops(twistedcaldav.test.util.TestCase):
         """
         Test that dateops.normalizeToUTC works correctly on all four types of date/time: date only, floating, UTC and local time.
         """
-        
+
         data = (
             (PyCalendarDateTime(2012, 1, 1), PyCalendarDateTime(2012, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))),
             (PyCalendarDateTime(2012, 1, 1, 10, 0, 0), PyCalendarDateTime(2012, 1, 1, 10, 0, 0, tzid=PyCalendarTimezone(utc=True))),
             (PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)), PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True))),
             (PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(tzid="America/New_York")), PyCalendarDateTime(2012, 1, 1, 17, 0, 0, tzid=PyCalendarTimezone(utc=True))),
         )
-        
+
         for value, result in data:
             self.assertEqual(normalizeToUTC(value), result)
 
@@ -73,14 +73,14 @@ class Dateops(twistedcaldav.test.util.TestCase):
         """
         Test that dateops.normalizeForExpand works correctly on all four types of date/time: date only, floating, UTC and local time.
         """
-        
+
         data = (
             (PyCalendarDateTime(2012, 1, 1), PyCalendarDateTime(2012, 1, 1)),
             (PyCalendarDateTime(2012, 1, 1, 10, 0, 0), PyCalendarDateTime(2012, 1, 1, 10, 0, 0)),
             (PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)), PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True))),
             (PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(tzid="America/New_York")), PyCalendarDateTime(2012, 1, 1, 17, 0, 0, tzid=PyCalendarTimezone(utc=True))),
         )
-        
+
         for value, result in data:
             self.assertEqual(normalizeForExpand(value), result)
 
@@ -88,17 +88,21 @@ class Dateops(twistedcaldav.test.util.TestCase):
     def test_floatoffset(self):
         raise SkipTest("test unimplemented")
 
+
     def test_adjustFloatingToTimezone(self):
         raise SkipTest("test unimplemented")
+
 
     def test_compareDateTime(self):
         raise SkipTest("test unimplemented")
 
+
     def test_differenceDateTime(self):
         raise SkipTest("test unimplemented")
 
+
     def test_timeRangesOverlap(self):
-        
+
         data = (
             # Timed
             (
@@ -165,7 +169,7 @@ class Dateops(twistedcaldav.test.util.TestCase):
                 PyCalendarDateTime(2012, 1, 3, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
                 True,
             ),
-            
+
             # All day
             (
                 "All day: Start within, end within - overlap",
@@ -232,13 +236,14 @@ class Dateops(twistedcaldav.test.util.TestCase):
                 True,
             ),
         )
-        
+
         for title, start1, end1, start2, end2, result in data:
             self.assertEqual(timeRangesOverlap(start1, end1, start2, end2), result, msg="Failed: %s" % (title,))
-            
+
 
     def test_normalizePeriodList(self):
         raise SkipTest("test unimplemented")
+
 
     def test_clipPeriod(self):
         raise SkipTest("test unimplemented")
@@ -269,11 +274,12 @@ class Dateops(twistedcaldav.test.util.TestCase):
         for sqlStr, result in tests:
             self.assertEqual(parseSQLTimestampToPyCalendar(sqlStr), result)
 
+
     def test_parseSQLDateToPyCalendar(self):
         """
         dateops.parseSQLDateToPyCalendar
         """
-        
+
         tests = (
             ("2012-04-04", PyCalendarDateTime(2012, 4, 4)),
             ("2012-12-31 00:00:00", PyCalendarDateTime(2012, 12, 31)),
@@ -282,6 +288,6 @@ class Dateops(twistedcaldav.test.util.TestCase):
         for sqlStr, result in tests:
             self.assertEqual(parseSQLDateToPyCalendar(sqlStr), result)
 
+
     def test_datetimeMktime(self):
         raise SkipTest("test unimplemented")
-

@@ -45,20 +45,20 @@ provided filestore or HTTP path. Path must be a __uids__ path.
         sys.exit(0)
 
 if __name__ == '__main__':
-    
+
     options, args = getopt.getopt(sys.argv[1:], "", [])
     if options:
         usage("No options allowed")
-    
+
     if len(args) != 1:
         usage("One argument only must be provided.")
-        
+
     # Determine the type of path
     segments = args[0].split("/")
 
     if len(segments) not in (6, 8,):
         usage("Must provide a path to a calendar or addressbook object resource.")
-        
+
     if segments[0] != "":
         usage("Must provide a /calendars/... or /addressbooks/... path.")
     if segments[1] not in ("calendars", "addressbooks",):
@@ -66,12 +66,11 @@ if __name__ == '__main__':
     if segments[2] != "__uids__":
         usage("Must provide a /.../__uids__/... path.")
 
-        
     datatype = segments[1]
     uid = segments[5 if len(segments[3]) == 2 else 3]
     collection = segments[6 if len(segments[3]) == 2 else 4]
     resource = segments[7 if len(segments[3]) == 2 else 5]
-    
+
     sqlstrings = {
         "calendars": {
             "home_table"        : "CALENDAR_HOME",
@@ -81,7 +80,7 @@ if __name__ == '__main__':
             "bind_home_id"      : "CALENDAR_HOME_RESOURCE_ID",
             "bind_name"         : "CALENDAR_RESOURCE_NAME",
             "bind_id"           : "CALENDAR_RESOURCE_ID",
-            
+
             "object_bind_id"    : "CALENDAR_RESOURCE_ID",
             "object_name"       : "RESOURCE_NAME",
             "object_data"       : "ICALENDAR_TEXT",
@@ -95,13 +94,13 @@ if __name__ == '__main__':
             "bind_home_id"      : "ADDRESSBOOK_HOME_RESOURCE_ID",
             "bind_name"         : "ADDRESSBOOK_RESOURCE_NAME",
             "bind_id"           : "ADDRESSBOOK_RESOURCE_ID",
-            
+
             "object_bind_id"    : "ADDRESSBOOK_RESOURCE_ID",
             "object_name"       : "RESOURCE_NAME",
             "object_data"       : "VCARD_TEXT",
         },
     }
-    
+
     sqlstrings[datatype]["uid"] = uid
     sqlstrings[datatype]["collection"] = collection
     sqlstrings[datatype]["resource"] = resource
@@ -113,4 +112,3 @@ if __name__ == '__main__':
                 select RESOURCE_ID from %(home_table)s where OWNER_UID = '%(uid)s'
             )
     );""" % sqlstrings[datatype])
-    

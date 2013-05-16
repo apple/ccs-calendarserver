@@ -20,7 +20,7 @@ CalDAV calendar-query report
 
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_query"]
 
-from twisted.internet.defer import inlineCallbacks, returnValue,\
+from twisted.internet.defer import inlineCallbacks, returnValue, \
     maybeDeferred
 
 from twext.python.log import Logger
@@ -34,7 +34,7 @@ from twext.web2.http import HTTPError, StatusResponse
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace, MaxInstances
 from twistedcaldav.config import config
-from txdav.common.icommondatastore import IndexedSearchException,\
+from txdav.common.icommondatastore import IndexedSearchException, \
     ConcurrentModification
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.method import report_common
@@ -66,10 +66,10 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
 
     xmlfilter = calendar_query.filter
     filter = calendarqueryfilter.Filter(xmlfilter)
-    props  = calendar_query.props
+    props = calendar_query.props
 
     assert props is not None
-    
+
     # Get the original timezone provided in the query, if any, and validate it now
     query_timezone = None
     query_tz = calendar_query.timezone
@@ -95,7 +95,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
 
     elif props.qname() == ("DAV:", "prop"):
         propertiesForResource = report_common.propertyListForResource
-        
+
         # Verify that any calendar-data element matches what we can handle
         result, message, generate_calendar_data = report_common.validPropertyListCalendarDataTypeVersion(props)
         if not result:
@@ -105,7 +105,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 (caldav_namespace, "supported-calendar-data"),
                 "Invalid calendar-data",
             ))
-        
+
     else:
         raise AssertionError("We shouldn't be here")
 
@@ -119,8 +119,8 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         ))
 
     matchcount = [0]
-    max_number_of_results = [config.MaxQueryWithDataResults if generate_calendar_data else None,]
-    
+    max_number_of_results = [config.MaxQueryWithDataResults if generate_calendar_data else None, ]
+
     @inlineCallbacks
     def doQuery(calresource, uri):
         """
@@ -129,7 +129,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         @param calresource: the L{CalDAVResource} for a calendar collection.
         @param uri: the uri for the calendar collection resource.
         """
-        
+
         @inlineCallbacks
         def queryCalendarObjectResource(resource, uri, name, calendar, timezone, query_ok=False, isowner=True):
             """
@@ -139,7 +139,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             @param name: the name of the resource.
             @param calendar: the L{Component} calendar read from the resource.
             """
-            
+
             # Handle private events access restrictions
             if not isowner:
                 access = resource.accessMode
@@ -156,7 +156,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     href = davxml.HRef.fromString(joinURL(uri, name))
                 else:
                     href = davxml.HRef.fromString(uri)
-            
+
                 try:
                     yield report_common.responseForHref(request, responses, href, resource, propertiesForResource, props, isowner, calendar=calendar, timezone=timezone)
                 except ConcurrentModification:
@@ -166,7 +166,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     # case, we ignore the now missing resource rather
                     # than raise an error for the entire report.
                     log.err("Missing resource during query: %s" % (href,))
-    
+
         # Check whether supplied resource is a calendar or a calendar object resource
         if calresource.isPseudoCalendarCollection():
             # Get the timezone property from the collection if one was not set in the query,
@@ -199,7 +199,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
 
                 if not names:
                     returnValue(True)
-                  
+
                 # Now determine which valid resources are readable and which are not
                 ok_resources = []
                 yield calresource.findChildrenFaster(
@@ -212,17 +212,17 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     (davxml.Read(),),
                     inherited_aces=filteredaces
                 )
-                
+
                 for child, child_uri in ok_resources:
                     child_uri_name = child_uri[child_uri.rfind("/") + 1:]
-                    
+
                     if generate_calendar_data or not index_query_ok:
                         calendar = (yield child.iCalendarForUser(request))
                         assert calendar is not None, "Calendar %s is missing from calendar collection %r" % (child_uri_name, self)
                     else:
                         calendar = None
-                    
-                    yield queryCalendarObjectResource(child, uri, child_uri_name, calendar, timezone, query_ok = index_query_ok, isowner=isowner)
+
+                    yield queryCalendarObjectResource(child, uri, child_uri_name, calendar, timezone, query_ok=index_query_ok, isowner=isowner)
         else:
             # Get the timezone property from the collection if one was not set in the query,
             # and store in the query object for later use
@@ -276,7 +276,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             caldavxml.MaxDateTime(),
             "Time-range value too far in the future. Must be on or before %s." % (str(e.limit),)
         ))
-    
+
     if not hasattr(request, "extendedLogItems"):
         request.extendedLogItems = {}
     request.extendedLogItems["responses"] = len(responses)

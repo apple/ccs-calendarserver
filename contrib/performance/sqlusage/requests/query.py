@@ -63,7 +63,8 @@ class QueryTest(HTTPTestBase):
     def __init__(self, label, sessions, logFilePath, count):
         super(QueryTest, self).__init__(label, sessions, logFilePath)
         self.count = count
-    
+
+
     def prepare(self):
         """
         Do some setup prior to the real request.
@@ -74,8 +75,9 @@ class QueryTest(HTTPTestBase):
         self.end = self.start.duplicate()
         self.end.offsetHours(1)
         for i in range(self.count):
-            href = joinURL(self.sessions[0].calendarHref, "tr-query-%d.ics" % (i+1,))
-            self.sessions[0].writeData(URL(path=href), ICAL % (self.start.getText(), i+1,), "text/calendar")
+            href = joinURL(self.sessions[0].calendarHref, "tr-query-%d.ics" % (i + 1,))
+            self.sessions[0].writeData(URL(path=href), ICAL % (self.start.getText(), i + 1,), "text/calendar")
+
 
     def doRequest(self):
         """
@@ -90,15 +92,16 @@ class QueryTest(HTTPTestBase):
         request = QueryVEVENTTimeRange(self.sessions[0], self.sessions[0].calendarHref, self.start.getText(), self.end.getText(), props)
         result = ResponseDataString()
         request.setOutput(result)
-    
+
         # Process it
         self.sessions[0].runSession(request)
-    
+
         # If its a 207 we want to parse the XML
         if request.getStatusCode() == statuscodes.MultiStatus:
             pass
         else:
             raise RuntimeError("Query request failed: %s" % (request.getStatusCode(),))
+
 
     def cleanup(self):
         """
@@ -106,5 +109,5 @@ class QueryTest(HTTPTestBase):
         """
         # Remove created resources
         for i in range(self.count):
-            href = joinURL(self.sessions[0].calendarHref, "tr-query-%d.ics" % (i+1,))
+            href = joinURL(self.sessions[0].calendarHref, "tr-query-%d.ics" % (i + 1,))
             self.sessions[0].deleteResource(URL(path=href))

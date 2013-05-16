@@ -56,7 +56,7 @@ from twisted.protocols.amp import AMP, Command, String, Unicode
 
 from twext.enterprise.adbapi2 import Pickle
 
-from contrib.performance.loadtest.sim import _DirectoryRecord,  LoadSimulator
+from contrib.performance.loadtest.sim import _DirectoryRecord, LoadSimulator
 
 class Configure(Command):
     """
@@ -187,4 +187,3 @@ class Manager(AMP):
         #self.output.write(pformat(event)+"\n")
         msg(**event)
         return {}
-

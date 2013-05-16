@@ -74,4 +74,3 @@ def measure(host, port, dtrace, attendeeCount, samples):
         agent, (('DELETE', url) for url in urls).next,
         NO_CONTENT)
     returnValue(samples)
-

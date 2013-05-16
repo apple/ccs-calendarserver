@@ -27,9 +27,9 @@ import sys
 import tables
 
 class Dtrace(object):
-    
+
     class DtraceLine(object):
-        
+
         prefix_maps = {
             "/usr/share/caldavd/lib/python/": "{caldavd}/",
             "/System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.6": "{Python}",
@@ -41,19 +41,19 @@ class Dtrace(object):
         }
         contains_maps = {
             "/CalendarServer": "{caldavd}",
-            "/Twisted":        "{Twisted}",
-            "/pycalendar":     "{pycalendar}",
+            "/Twisted": "{Twisted}",
+            "/pycalendar": "{pycalendar}",
         }
 
         def __init__(self, line, lineno):
-            
+
             self.entering = True
             self.function_name = ""
             self.file_location = ""
             self.parent = None
             self.children = []
             self.lineno = lineno
-            
+
             re_matched = re.match("(..) ([^ ]+) \(([^\)]+)\)", line)
             if re_matched is None:
                 print(line)
@@ -64,7 +64,7 @@ class Dtrace(object):
                 self.entering = True
             else:
                 raise ValueError("Invalid start of line at %d" % (lineno,))
-            
+
             self.function_name = results[1]
             self.file_location = results[2]
             for key, value in Dtrace.DtraceLine.prefix_maps.iteritems():
@@ -75,13 +75,13 @@ class Dtrace(object):
                 for key, value in Dtrace.DtraceLine.contains_maps.iteritems():
                     found1 = self.file_location.find(key)
                     if found1 != -1:
-                        found2 = self.file_location[found1+1:].find('/')
+                        found2 = self.file_location[found1 + 1:].find('/')
                         if found2 != -1:
-                            self.file_location = value + self.file_location[found1+found2+1:]
+                            self.file_location = value + self.file_location[found1 + found2 + 1:]
                         else:
                             self.file_location = value
                         break
-                    
+
         def __repr__(self):
             return "%s (%s)" % self.getKey()
 
@@ -106,7 +106,7 @@ class Dtrace(object):
             return self.file_location[0:self.file_location.rfind(':')]
 
         def prettyPrint(self, indent, indents, sout):
-            
+
             indenter = ""
             for level in indents:
                 if level > 0:
@@ -120,8 +120,9 @@ class Dtrace(object):
         def stackName(self):
             return self.function_name, self.filePath()
 
+
     class DtraceStack(object):
-        
+
         def __init__(self, lines, no_collapse):
             self.start_indent = 0
             self.stack = []
@@ -129,9 +130,9 @@ class Dtrace(object):
             self.call_into = {}
 
             self.processLines(lines, no_collapse)
-            
+
         def processLines(self, lines, no_collapse):
-            
+
             new_lines = []
             last_line = None
             for line in lines:
@@ -174,14 +175,15 @@ class Dtrace(object):
                         while backstack and indent and stackName != backstack[-1]:
                             indent -= 1
                             backstack.pop()
-                        if backstack: backstack.pop()
+                        if backstack:
+                            backstack.pop()
                         if indent < 0:
                             print("help")
                     current_line = current_line.parent if current_line else None
                 min_indent = min(min_indent, indent)
 
             for block in blocks:
-                self.stack.extend(block) 
+                self.stack.extend(block)
             if min_indent < 0:
                 self.start_indent = -min_indent
             else:
@@ -190,10 +192,10 @@ class Dtrace(object):
             self.generateCallInfo()
 
         def generateCallInfo(self):
-            
+
             for _ignore, line in self.stack:
                 key = line.getKey()
-                
+
                 if line.parent:
                     parent_key = line.parent.getKey()
                     parent_calls = self.called_by.setdefault(key, {}).get(parent_key, 0)
@@ -210,7 +212,7 @@ class Dtrace(object):
             maxctr = len(self.stack) - 1
             for indent, line in self.stack:
                 current_indent = self.start_indent + indent
-                next_indent = (self.start_indent + self.stack[ctr+1][0]) if ctr < maxctr else 10000
+                next_indent = (self.start_indent + self.stack[ctr + 1][0]) if ctr < maxctr else 10000
                 if len(indents) == current_indent:
                     pass
                 elif len(indents) < current_indent:
@@ -222,16 +224,18 @@ class Dtrace(object):
                 line.prettyPrint(self.start_indent + indent, indents, sout)
                 ctr += 1
 
+
     def __init__(self, filepath):
-        
+
         self.filepath = filepath
         self.calltimes = collections.defaultdict(lambda: [0, 0, 0])
         self.exclusiveTotal = 0
 
+
     def analyze(self, do_stack, no_collapse):
-        
+
         print("Parsing dtrace output.")
-        
+
         # Parse the trace lines first and look for the start of the call times
         lines = []
         traces = True
@@ -253,17 +257,18 @@ class Dtrace(object):
                         self.parseCallTimeLine(line, index)
 
         self.printTraceDetails(lines, do_stack, no_collapse)
-        
+
         for ctr, title in enumerate(("Sorted by Count", "Sorted by Exclusive", "Sorted by Inclusive",)):
             print(title)
             self.printCallTimeTotals(ctr)
+
 
     def printTraceDetails(self, lines, do_stack, no_collapse):
 
         print("Found %d lines" % (len(lines),))
         print("============================")
         print("")
-        
+
         self.stack = Dtrace.DtraceStack(lines, no_collapse)
         if do_stack:
             with file("stacked.txt", "w") as f:
@@ -285,7 +290,7 @@ class Dtrace(object):
                 stats[key] = counts
             else:
                 last_exit = line.getPartialKey()
-        
+
         print("Function Call Counts")
         print("")
         table = tables.Table()
@@ -327,8 +332,9 @@ class Dtrace(object):
         table.printTable()
         print("")
 
+
     def parseCallTimeLine(self, line, index):
-    
+
         file, type, name, value = line.split()
         if file in ("-", "FILE"):
             return
@@ -336,22 +342,23 @@ class Dtrace(object):
             self.calltimes[(file, name)][index] = int(value)
             if index == 1:
                 self.exclusiveTotal += int(value)
-    
+
+
     def printCallTimeTotals(self, sortIndex):
-        
+
         table = tables.Table()
-    
+
         table.setDefaultColumnFormats((
-            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY), 
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
         ))
-    
+
         table.addHeader(("File", "Name", "Count", "Inclusive", "Exclusive", "Children",))
-        for key, value in sorted(self.calltimes.items(), key=lambda x:x[1][sortIndex], reverse=True):
+        for key, value in sorted(self.calltimes.items(), key=lambda x: x[1][sortIndex], reverse=True):
             table.addRow((
                 key[0],
                 key[1],
@@ -369,9 +376,11 @@ class Dtrace(object):
             self.exclusiveTotal,
             "",
         ))
-    
+
         table.printTable()
         print("")
+
+
 
 def usage(error_msg=None):
     if error_msg:
@@ -393,7 +402,7 @@ Description:
 
     To use this do the following (where PID is the pid of the
     Python process to monitor:
-    
+
     > sudo ./trace.d PID > results.txt
     ...
     > ./dtraceanalyze.py results.txt
@@ -428,11 +437,11 @@ if __name__ == "__main__":
             usage("Must have one argument")
         else:
             fname = args[0]
-        
+
         filepath = os.path.expanduser(fname)
         if not os.path.exists(filepath):
             usage("File '%s' does not exist" % (filepath,))
-            
+
         print("CalendarServer dtrace analysis tool tool")
         print("=====================================")
         print("")
@@ -444,7 +453,7 @@ if __name__ == "__main__":
             print("Consecutive function calls will be removed.")
         print("============================")
         print("")
-    
+
         Dtrace(filepath).analyze(do_stack, no_collapse)
 
     except Exception, e:

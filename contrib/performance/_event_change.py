@@ -85,7 +85,6 @@ def _selfish_sample(dtrace, replacer, agent, host, port, user, calendar, fieldNa
     for (event, url) in events:
         yield agent.request('PUT', url, headers, StringProducer(event))
 
-
     # Sample changing the event according to the replacer.
     samples = yield sample(
         dtrace, samples,

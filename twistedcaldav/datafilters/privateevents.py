@@ -16,7 +16,7 @@
 
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
-from twistedcaldav.caldavxml import Property, CalendarData, CalendarComponent,\
+from twistedcaldav.caldavxml import Property, CalendarData, CalendarComponent, \
     AllProperties, AllComponents
 from twistedcaldav.datafilters.calendardata import CalendarDataFilter
 from twistedcaldav.datafilters.filter import CalendarFilter
@@ -33,30 +33,31 @@ class PrivateEventFilter(CalendarFilter):
 
     def __init__(self, accessRestriction, isowner):
         """
-        
+
         @param accessRestriction: one of the access levels in L{Component}
         @type accessRestriction: C{str}
         @param isowner: whether the current user is the owner of the data
         @type isowner: C{bool}
         """
-        
+
         self.accessRestriction = accessRestriction
         self.isowner = isowner
-    
+
+
     def filter(self, ical):
         """
         Filter the supplied iCalendar object using the request information.
 
         @param ical: iCalendar object
         @type ical: L{Component} or C{str}
-        
+
         @return: L{Component} for the filtered calendar data
         """
-        
+
         if self.isowner or self.accessRestriction == Component.ACCESS_PUBLIC or not self.accessRestriction:
             # No need to filter for the owner or public event
             return ical
-        
+
         elif self.accessRestriction == Component.ACCESS_PRIVATE:
             # We should never get here because ACCESS_PRIVATE is protected via an ACL
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Access Denied"))
@@ -66,7 +67,7 @@ class PrivateEventFilter(CalendarFilter):
         elif self.accessRestriction in (Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED):
             # Create a CALDAV:calendar-data element with the appropriate iCalendar Component/Property
             # filter in place for the access restriction in use
-            
+
             extra_access = ()
             if self.accessRestriction == Component.ACCESS_RESTRICTED:
                 extra_access = (
@@ -76,7 +77,7 @@ class PrivateEventFilter(CalendarFilter):
 
             calendardata = CalendarData(
                 CalendarComponent(
-                    
+
                     # VCALENDAR properties
                     Property(name="PRODID"),
                     Property(name="VERSION"),
@@ -99,9 +100,9 @@ class PrivateEventFilter(CalendarFilter):
                         Property(name="EXRULE"),
                         Property(name="EXDATE"),
                         *extra_access,
-                        **{"name":"VEVENT"}
+                        **{"name": "VEVENT"}
                     ),
-                    
+
                     # VTODO
                     CalendarComponent(
                         Property(name="UID"),
@@ -118,9 +119,9 @@ class PrivateEventFilter(CalendarFilter):
                         Property(name="EXRULE"),
                         Property(name="EXDATE"),
                         *extra_access,
-                        **{"name":"VTODO"}
+                        **{"name": "VTODO"}
                     ),
-                    
+
                     # VJOURNAL
                     CalendarComponent(
                         Property(name="UID"),
@@ -135,9 +136,9 @@ class PrivateEventFilter(CalendarFilter):
                         Property(name="EXRULE"),
                         Property(name="EXDATE"),
                         *extra_access,
-                        **{"name":"VJOURNAL"}
+                        **{"name": "VJOURNAL"}
                     ),
-                    
+
                     # VFREEBUSY
                     CalendarComponent(
                         Property(name="UID"),
@@ -147,9 +148,9 @@ class PrivateEventFilter(CalendarFilter):
                         Property(name="DURATION"),
                         Property(name="FREEBUSY"),
                         *extra_access,
-                        **{"name":"VFREEBUSY"}
+                        **{"name": "VFREEBUSY"}
                     ),
-                    
+
                     # VTIMEZONE
                     CalendarComponent(
                         AllProperties(),
@@ -165,7 +166,8 @@ class PrivateEventFilter(CalendarFilter):
         else:
             # Unknown access restriction
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Access Denied"))
-    
+
+
     def merge(self, icalnew, icalold):
         """
         Private event merging does not happen

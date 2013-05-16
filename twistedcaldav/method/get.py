@@ -34,7 +34,7 @@ from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
-from twistedcaldav.resource import isPseudoCalendarCollectionResource,\
+from twistedcaldav.resource import isPseudoCalendarCollectionResource, \
     CalDAVResource
 
 @inlineCallbacks
@@ -43,7 +43,7 @@ def http_GET(self, request):
     if self.exists():
         # Special sharing request on a calendar or address book
         if self.isCalendarCollection() or self.isAddressBookCollection():
-            
+
             # Check for action=share
             if request.args:
                 action = request.args.get("action", ("",))
@@ -54,51 +54,51 @@ def http_GET(self, request):
                         "Invalid action parameter: %s" % (action,),
                     ))
                 action = action[0]
-                    
+
                 dispatch = {
                     "share"   : self.directShare,
                 }.get(action, None)
-                
+
                 if dispatch is None:
                     raise HTTPError(ErrorResponse(
                         responsecode.BAD_REQUEST,
                         (calendarserver_namespace, "supported-action"),
                         "Action not supported: %s" % (action,),
                     ))
-        
+
                 response = (yield dispatch(request))
                 returnValue(response)
-        
+
         else:
             # Look for calendar access restriction on existing resource.
             parentURL = parentForURL(request.uri)
             parent = (yield request.locateResource(parentURL))
             if isPseudoCalendarCollectionResource(parent):
-        
+
                 # Check authorization first
                 yield self.authorize(request, (davxml.Read(),))
-    
+
                 caldata = (yield self.iCalendarForUser(request))
-    
-                # Filter any attendee hidden instances        
+
+                # Filter any attendee hidden instances
                 caldata = HiddenInstanceFilter().filter(caldata)
 
                 if self.accessMode:
-            
+
                     # Non DAV:owner's have limited access to the data
                     isowner = (yield self.isOwner(request))
-                    
+
                     # Now "filter" the resource calendar data
                     caldata = PrivateEventFilter(self.accessMode, isowner).filter(caldata)
 
                 response = Response()
                 response.stream = MemoryStream(caldata.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference))
                 response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
-        
+
                 # Add Schedule-Tag header if property is present
                 if self.scheduleTag:
                     response.headers.setHeader("Schedule-Tag", self.scheduleTag)
-            
+
                 returnValue(response)
 
     # Do normal GET behavior

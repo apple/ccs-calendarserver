@@ -21,7 +21,7 @@ def measure(host, port, dtrace, attendeeCount, samples):
         """
         Add C{i} new attendees to the given event.
         """
-        for n in range(attendeeCount):
+        for _ignore_n in range(attendeeCount):
             # Find the beginning of an ATTENDEE line
             attendee = event.find('ATTENDEE')
             # And the end of it

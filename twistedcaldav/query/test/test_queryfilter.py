@@ -26,12 +26,13 @@ class Tests(twistedcaldav.test.util.TestCase):
 
         xml_element = caldavxml.Filter(
             caldavxml.ComponentFilter(
-                **{"name":"VCALENDAR"}
+                **{"name": "VCALENDAR"}
             )
         )
 
         calendarqueryfilter.Filter(xml_element)
-        
+
+
     def test_simpleSummaryRangeQuery(self):
 
         xml_element = caldavxml.Filter(
@@ -39,53 +40,56 @@ class Tests(twistedcaldav.test.util.TestCase):
                 caldavxml.ComponentFilter(
                     caldavxml.PropertyFilter(
                         caldavxml.TextMatch.fromString("test"),
-                        **{"name":"SUMMARY",}
+                        **{"name": "SUMMARY", }
                     ),
-                    **{"name":"VEVENT"}
+                    **{"name": "VEVENT"}
                 ),
-                **{"name":"VCALENDAR"}
+                **{"name": "VCALENDAR"}
             )
         )
 
         calendarqueryfilter.Filter(xml_element)
-        
+
+
     def test_simpleTimeRangeQuery(self):
 
         xml_element = caldavxml.Filter(
             caldavxml.ComponentFilter(
                 caldavxml.ComponentFilter(
-                    caldavxml.TimeRange(**{"start":"20060605T160000Z", "end":"20060605T170000Z"}),
-                    **{"name":"VEVENT"}
+                    caldavxml.TimeRange(**{"start": "20060605T160000Z", "end": "20060605T170000Z"}),
+                    **{"name": "VEVENT"}
                 ),
-                **{"name":"VCALENDAR"}
+                **{"name": "VCALENDAR"}
             )
         )
 
         calendarqueryfilter.Filter(xml_element)
-        
+
+
     def test_multipleTimeRangeQuery(self):
 
         xml_element = caldavxml.Filter(
             caldavxml.ComponentFilter(
                 caldavxml.ComponentFilter(
-                    caldavxml.TimeRange(**{"start":"20060605T160000Z", "end":"20060605T170000Z"}),
-                    **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
+                    caldavxml.TimeRange(**{"start": "20060605T160000Z", "end": "20060605T170000Z"}),
+                    **{"name": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
                 ),
-                **{"name":"VCALENDAR"}
+                **{"name": "VCALENDAR"}
             )
         )
 
         calendarqueryfilter.Filter(xml_element)
+
 
     def test_queryWithTimezone(self):
 
         xml_element = caldavxml.Filter(
             caldavxml.ComponentFilter(
                 caldavxml.ComponentFilter(
-                    caldavxml.TimeRange(**{"start":"20060605T160000Z", "end":"20060605T170000Z"}),
-                    **{"name":"VEVENT"}
+                    caldavxml.TimeRange(**{"start": "20060605T160000Z", "end": "20060605T170000Z"}),
+                    **{"name": "VEVENT"}
                 ),
-                **{"name":"VCALENDAR"}
+                **{"name": "VCALENDAR"}
             )
         )
 
