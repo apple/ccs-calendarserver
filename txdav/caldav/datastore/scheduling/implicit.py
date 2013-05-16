@@ -1156,10 +1156,6 @@ class ImplicitScheduler(object):
             log.debug("Implicit - missing attendee is removing UID without server scheduling: '%s'" % (self.uid,))
 
         else:
-            # We will allow the attendee to do anything in this case, but we will mark the organizer
-            # with an schedule-status error and schedule-agent none
-            log.debug("Missing attendee is allowed to update UID: '%s' with invalid organizer '%s'" % (self.uid, self.organizer))
-
             # Make sure ORGANIZER is not changed if originally SCHEDULE-AGENT=SERVER
             if self.resource is not None:
                 self.oldcalendar = (yield self.resource.componentForUser())
@@ -1172,6 +1168,19 @@ class ImplicitScheduler(object):
                         (caldav_namespace, "valid-attendee-change"),
                         "Cannot change organizer",
                     ))
+
+            # Never allow a missing attendee with a locally hosted organizer
+            if isinstance(self.organizerAddress, LocalCalendarUser):
+                log.error("Cannot remove ATTENDEE: UID:%s" % (self.uid,))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-attendee-change"),
+                    "Cannot remove attendee",
+                ))
+
+            # We will allow the attendee to do anything in this case, but we will mark the organizer
+            # with an schedule-status error and schedule-agent none
+            log.debug("Missing attendee is allowed to update UID: '%s' with invalid organizer '%s'" % (self.uid, self.organizer))
 
             # Check SCHEDULE-AGENT and coerce SERVER to NONE
             if self.calendar.getOrganizerScheduleAgent():
