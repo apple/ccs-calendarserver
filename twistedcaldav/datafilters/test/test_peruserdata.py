@@ -17,6 +17,7 @@
 import twistedcaldav.test.util
 from twistedcaldav.ical import Component
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
+from twistedcaldav.timezones import TimezoneCache
 
 dataForTwoUsers = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -6371,3 +6372,255 @@ END:VCALENDAR
         self.assertEqual(str(filtered), result)
         unfiltered = PerUserDataFilter("user01").filter(filtered)
         self.assertEqual(str(unfiltered), unfiltered_result)
+
+
+
+class PerUserDataFilterTestTimezonechange (twistedcaldav.test.util.TestCase):
+    """
+    Make sure per-user data saved with one version of a timezone is still valid when the timezone
+    rules change causing the UTC time of a per-user component to be different.
+    """
+
+    def test_public_oneuser_master(self):
+
+        data01 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:PERUSER
+BEGIN:STANDARD
+DTSTART:20070101T000000
+TZNAME:EST
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=PERUSER:20080601T120000
+DTEND;TZID=PERUSER:20080601T130000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+TRANSP:OPAQUE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID;TZID=PERUSER:20080602T120000
+DTSTART;TZID=PERUSER:20080602T130000
+DTEND;TZID=PERUSER:20080602T140000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:OPAQUE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        data02 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:PERUSER
+BEGIN:STANDARD
+DTSTART:20070101T000000
+TZNAME:EST
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=PERUSER:20080601T120000
+DTEND;TZID=PERUSER:20080601T130000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID;TZID=PERUSER:20080602T120000
+DTSTART;TZID=PERUSER:20080602T130000
+DTEND;TZID=PERUSER:20080602T140000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        tzchange = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:PERUSER
+BEGIN:STANDARD
+DTSTART:20070101T000000
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0400
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:tzchange
+DTSTART;TZID=PERUSER:20080601T120000
+DTEND;TZID=PERUSER:20080601T130000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        # Create the per-user component for two different users
+        peruser = PerUserDataFilter("user01").merge(Component.fromString(data01), None)
+        peruser = PerUserDataFilter("user02").merge(Component.fromString(data02), peruser)
+
+        # Change the timezone
+        TimezoneCache.clear()
+        Component.fromString(tzchange)
+        peruser = Component.fromString(str(peruser))
+
+        # Now undo per user data
+        result01 = PerUserDataFilter("user01").filter(peruser.duplicate())
+        self.assertEqual(str(result01), data01)
+        result02 = PerUserDataFilter("user02").filter(peruser.duplicate())
+        self.assertEqual(str(result02), data02)
+        TimezoneCache.clear()
+
+
+    def test_public_oneuser_master_override(self):
+
+        data01 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:PERUSER
+BEGIN:STANDARD
+DTSTART:20070101T000000
+TZNAME:EST
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=PERUSER:20080601T120000
+DTEND;TZID=PERUSER:20080601T130000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID;TZID=PERUSER:20080602T120000
+DTSTART;TZID=PERUSER:20080602T130000
+DTEND;TZID=PERUSER:20080602T140000
+ATTENDEE;PARTSTAT=DECLINED:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        data02 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:PERUSER
+BEGIN:STANDARD
+DTSTART:20070101T000000
+TZNAME:EST
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=PERUSER:20080601T120000
+DTEND;TZID=PERUSER:20080601T130000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID;TZID=PERUSER:20080602T120000
+DTSTART;TZID=PERUSER:20080602T130000
+DTEND;TZID=PERUSER:20080602T140000
+ATTENDEE;PARTSTAT=DECLINED:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        tzchange = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:PERUSER
+BEGIN:STANDARD
+DTSTART:20070101T000000
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0400
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:tzchange
+DTSTART;TZID=PERUSER:20080601T120000
+DTEND;TZID=PERUSER:20080601T130000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        # Create the per-user component for two different users
+        peruser = PerUserDataFilter("user01").merge(Component.fromString(data01), None)
+        peruser = PerUserDataFilter("user02").merge(Component.fromString(data02), peruser)
+
+        # Change the timezone
+        TimezoneCache.clear()
+        Component.fromString(tzchange)
+        peruser = Component.fromString(str(peruser))
+
+        # Now undo per user data
+        result01 = PerUserDataFilter("user01").filter(peruser.duplicate())
+        self.assertEqual(str(result01), data01)
+        result02 = PerUserDataFilter("user02").filter(peruser.duplicate())
+        self.assertEqual(str(result02), data02)
+        TimezoneCache.clear()
