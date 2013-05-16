@@ -28,8 +28,7 @@ from twisted.internet.defer import Deferred
 
 from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor, \
     CommonHome, CommonHomeChild, ECALENDARTYPE
-from txdav.common.datastore.sql_tables import schema, CALENDAR_BIND_TABLE, \
-    CALENDAR_OBJECT_REVISIONS_TABLE
+from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import CommonCommonTests, buildStore
 from txdav.common.icommondatastore import AllRetriesFailed
 from twext.enterprise.dal.syntax import Insert
@@ -290,16 +289,13 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
 
         class TestCommonHome(CommonHome):
-            _bindTable = CALENDAR_BIND_TABLE
-            _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
+            pass
 
         class TestCommonHomeChild(CommonHomeChild):
             _homeChildSchema = schema.CALENDAR
             _homeChildMetaDataSchema = schema.CALENDAR_METADATA
             _bindSchema = schema.CALENDAR_BIND
             _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
-            _bindTable = CALENDAR_BIND_TABLE
-            _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
 
             def resourceType(self):
                 return davxml.ResourceType.calendar

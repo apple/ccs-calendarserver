@@ -56,6 +56,7 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
 
         self.versionKey = None
         self.versionDescriptor = ""
+        self.upgradeFilePrefix = ""
         self.upgradeFileSuffix = ""
         self.defaultKeyValue = None
 
@@ -177,8 +178,8 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
 
         fp = self.getPathToUpgrades(dialect)
         upgrades = []
-        regex = re.compile("upgrade_from_(\d+)_to_(\d+)%s" % (self.upgradeFileSuffix,))
-        for child in fp.globChildren("upgrade_*%s" % (self.upgradeFileSuffix,)):
+        regex = re.compile("%supgrade_from_(\d+)_to_(\d+)%s" % (self.upgradeFilePrefix, self.upgradeFileSuffix,))
+        for child in fp.globChildren("%supgrade_*%s" % (self.upgradeFilePrefix, self.upgradeFileSuffix,)):
             matched = regex.match(child.basename())
             if matched is not None:
                 fromV = int(matched.group(1))
@@ -272,7 +273,7 @@ class UpgradeDatabaseSchemaStep(UpgradeDatabaseCoreStep):
 
 
 
-class UpgradeDatabaseDataStep(UpgradeDatabaseCoreStep):
+class _UpgradeDatabaseDataStep(UpgradeDatabaseCoreStep):
     """
     Checks and upgrades the database data. This assumes there are a bunch of
     upgrade python modules that we can execute against the database to
@@ -282,19 +283,6 @@ class UpgradeDatabaseDataStep(UpgradeDatabaseCoreStep):
 
     @type sqlStore: L{txdav.idav.IDataStore}
     """
-
-    def __init__(self, sqlStore, **kwargs):
-        """
-        Initialize the Step.
-
-        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
-        """
-        super(UpgradeDatabaseDataStep, self).__init__(sqlStore, **kwargs)
-
-        self.versionKey = "CALENDAR-DATAVERSION"
-        self.versionDescriptor = "data"
-        self.upgradeFileSuffix = ".py"
-
 
     def getPathToUpgrades(self, dialect):
         return self.pyLocation.child("upgrades")
@@ -318,6 +306,59 @@ class UpgradeDatabaseDataStep(UpgradeDatabaseCoreStep):
 
         self.log_warn("Applying data upgrade: %s" % (module,))
         yield doUpgrade(self.sqlStore)
+
+
+
+class UpgradeDatabaseAddressBookDataStep(_UpgradeDatabaseDataStep):
+    """
+    Checks and upgrades the database data. This assumes there are a bunch of
+    upgrade python modules that we can execute against the database to
+    accomplish the upgrade.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+    """
+
+    def __init__(self, sqlStore, **kwargs):
+        """
+        Initialize the Step.
+
+        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
+        """
+        super(UpgradeDatabaseAddressBookDataStep, self).__init__(sqlStore, **kwargs)
+
+        self.versionKey = "ADDRESSBOOK-DATAVERSION"
+        self.versionDescriptor = "addressbook data"
+        self.upgradeFilePrefix = "addressbook_"
+        self.upgradeFileSuffix = ".py"
+
+
+
+class UpgradeDatabaseCalendarDataStep(_UpgradeDatabaseDataStep):
+    """
+    Checks and upgrades the database data. This assumes there are a bunch of
+    upgrade python modules that we can execute against the database to
+    accomplish the upgrade.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+    """
+
+    def __init__(self, sqlStore, **kwargs):
+        """
+        Initialize the service.
+
+        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
+        @param service:  Wrapped service. Can be C{None} when doing unit tests.
+        """
+        super(UpgradeDatabaseCalendarDataStep, self).__init__(sqlStore, **kwargs)
+
+        self.versionKey = "CALENDAR-DATAVERSION"
+        self.versionDescriptor = "calendar data"
+        self.upgradeFilePrefix = "calendar_"
+        self.upgradeFileSuffix = ".py"
 
 
 

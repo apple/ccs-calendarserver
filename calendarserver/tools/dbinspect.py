@@ -814,12 +814,10 @@ class Purge(Cmd):
 
             schema.ADDRESSBOOK_OBJECT_REVISIONS,
 
-            schema.ADDRESSBOOK,
-            #schema.ADDRESSBOOK_BIND, - cascades
-            #schema.ADDRESSBOOK_OBJECT, - cascades
-
             schema.ADDRESSBOOK_HOME,
             #schema.ADDRESSBOOK_HOME_METADATA, - cascades
+            #schema.ADDRESSBOOK_BIND, - cascades
+            #schema.ADDRESSBOOK_OBJECT, - cascades
 
             schema.NOTIFICATION_HOME,
             schema.NOTIFICATION,

@@ -75,7 +75,7 @@ from twistedcaldav.ical import Component
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
 from calendarserver.push.notifier import getPubSubAPSConfiguration
-from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
+from twistedcaldav.sharing import SharedResourceMixin, SharedHomeMixin
 from twistedcaldav.util import normalizationLookup
 from twistedcaldav.vcard import Component as vComponent
 
@@ -204,7 +204,7 @@ calendarPrivilegeSet = _calendarPrivilegeSet()
 
 
 class CalDAVResource (
-        CalDAVComplianceMixIn, SharedCollectionMixin,
+        CalDAVComplianceMixIn, SharedResourceMixin,
         DAVResourceWithChildrenMixin, DAVResource, LoggingMixIn
     ):
     """
@@ -653,9 +653,7 @@ class CalDAVResource (
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
 
         elif qname == customxml.SharedURL.qname():
-            isShareeCollection = self.isShareeCollection()
-
-            if isShareeCollection:
+            if self.isShareeResource():
                 returnValue(customxml.SharedURL(element.HRef.fromString(self._share.url())))
             else:
                 returnValue(None)
@@ -768,8 +766,7 @@ class CalDAVResource (
     def accessControlList(self, request, *args, **kwargs):
 
         acls = None
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        if self.isShareeResource():
             acls = (yield self.shareeAccessControlList(request, *args, **kwargs))
 
         if acls is None:
@@ -825,8 +822,7 @@ class CalDAVResource (
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
 
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        if self.isShareeResource():
             parent = (yield self.locateParent(request, self._share.url()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
@@ -842,8 +838,7 @@ class CalDAVResource (
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        if self.isShareeResource():
             parent = (yield self.locateParent(request, self._share.url()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
@@ -1219,15 +1214,13 @@ class CalDAVResource (
         """
 
         sharedParent = None
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        if self.isShareeResource():
             # A sharee collection's quota root is the resource owner's root
             sharedParent = (yield request.locateResource(parentForURL(self._share.url())))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if isCalendarCollectionResource(parent) or isAddressBookCollectionResource(parent):
-                isShareeCollection = parent.isShareeCollection()
-                if isShareeCollection:
+                if parent.isShareeResource():
                     # A sharee collection's quota root is the resource owner's root
                     sharedParent = (yield request.locateResource(parentForURL(parent._share.url())))
 
@@ -2677,6 +2670,14 @@ class AddressBookHomeResource (CommonHomeResource):
     Address book home collection resource.
     """
 
+
+    def __init__(self, *args, **kw):
+        super(AddressBookHomeResource, self).__init__(*args, **kw)
+        # get some Access header items
+        self.http_MKCOL = None
+        self.http_MKCALENDAR = None
+        
+
     @classmethod
     @inlineCallbacks
     def homeFromTransaction(cls, transaction, uid):
@@ -2712,7 +2713,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if defaultAddressBookProperty and len(defaultAddressBookProperty.children) == 1:
                 defaultAddressBook = str(defaultAddressBookProperty.children[0])
                 adbk = (yield request.locateResource(str(defaultAddressBook)))
-                if adbk is not None and isAddressBookCollectionResource(adbk) and adbk.exists() and not adbk.isShareeCollection():
+                if adbk is not None and isAddressBookCollectionResource(adbk) and adbk.exists() and not adbk.isShareeResource():
                     returnValue(defaultAddressBookProperty)
 
             # Default is not valid - we have to try to pick one
@@ -2735,7 +2736,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if len(new_adbk) == 1:
                 adbkURI = str(new_adbk[0])
                 adbk = (yield request.locateResource(str(new_adbk[0])))
-            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk) or adbk.isShareeCollection():
+            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk) or adbk.isShareeResource():
                 # Validate that href's point to a valid addressbook.
                 raise HTTPError(ErrorResponse(
                     responsecode.CONFLICT,

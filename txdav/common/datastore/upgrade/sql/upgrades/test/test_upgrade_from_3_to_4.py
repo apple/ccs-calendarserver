@@ -19,7 +19,7 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.test.util import CommonStoreTests
 from txdav.xml.element import HRef
 from twext.enterprise.dal.syntax import Update
-from txdav.common.datastore.upgrade.sql.upgrades.upgrade_from_3_to_4 import moveDefaultCalendarProperties, \
+from txdav.common.datastore.upgrade.sql.upgrades.calendar_upgrade_from_3_to_4 import moveDefaultCalendarProperties, \
     moveCalendarTranspProperties, removeResourceType, moveDefaultAlarmProperties
 from txdav.xml import element
 from twistedcaldav import caldavxml

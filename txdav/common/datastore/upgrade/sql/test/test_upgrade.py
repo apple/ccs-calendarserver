@@ -24,7 +24,7 @@ from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
 from txdav.common.datastore.test.util import theStoreBuilder, StubNotifierFactory
 from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaStep, \
-    UpgradeDatabaseDataStep
+    UpgradeDatabaseAddressBookDataStep, UpgradeDatabaseCalendarDataStep
 import re
 
 class SchemaUpgradeTests(TestCase):
@@ -212,13 +212,13 @@ class SchemaUpgradeTests(TestCase):
 
 
     @inlineCallbacks
-    def _dbDataUpgrades(self, version):
+    def _dbDataUpgrades(self, version, versionKey, upgraderClass):
         """
         This does a full DB test of all possible data upgrade paths. For each old schema, it loads it into the DB
         then runs the data upgrade service. This ensures all the upgrade_XX.py files work correctly - at least for
         postgres.
 
-        TODO: this currently does not create any calendar data to test with. It simply runs the upgrade on an empty
+        TODO: this currently does not create any data to test with. It simply runs the upgrade on an empty
         store.
         """
 
@@ -236,13 +236,13 @@ class SchemaUpgradeTests(TestCase):
             yield startTxn.execSQL("create schema test_dbUpgrades;")
             yield startTxn.execSQL("set search_path to test_dbUpgrades;")
             yield startTxn.execSQL(path.getContent())
-            yield startTxn.execSQL("update CALENDARSERVER set VALUE = '%s' where NAME = 'CALENDAR-DATAVERSION';" % (oldVersion,))
+            yield startTxn.execSQL("update CALENDARSERVER set VALUE = '%s' where NAME = '%s';" % (oldVersion, versionKey,))
             yield startTxn.commit()
 
         @inlineCallbacks
         def _loadVersion():
             startTxn = store.newTransaction("test_dbUpgrades")
-            new_version = yield startTxn.execSQL("select value from calendarserver where name = 'CALENDAR-DATAVERSION';")
+            new_version = yield startTxn.execSQL("select value from calendarserver where name = '%s';" % (versionKey,))
             yield startTxn.commit()
             returnValue(int(new_version[0][0]))
 
@@ -263,16 +263,17 @@ class SchemaUpgradeTests(TestCase):
         self.addCleanup(_cleanupOldData)
 
         test_upgrader = UpgradeDatabaseSchemaStep(None)
-        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), "CALENDAR-DATAVERSION")
+        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), versionKey)
 
         oldVersion = version
-        upgrader = UpgradeDatabaseDataStep(store)
+        upgrader = upgraderClass(store)
         yield _loadOldData(test_upgrader.schemaLocation.child("current.sql"), oldVersion)
         yield upgrader.databaseUpgrade()
         new_version = yield _loadVersion()
         yield _unloadOldData()
 
         self.assertEqual(new_version, expected_version)
+
 
 test_upgrader = UpgradeDatabaseSchemaStep(None)
 
@@ -282,6 +283,16 @@ for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).g
         return self._dbSchemaUpgrades(lchild)
     setattr(SchemaUpgradeTests, "test_dbSchemaUpgrades_%s" % (child.basename().split(".", 1)[0],), f)
 
+# Bind test methods for each addressbook data version
+versions = set()
+for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
+    version = SchemaUpgradeTests._getRawSchemaVersion(child, "ADDRESSBOOK-DATAVERSION")
+    versions.add(version if version else 1)
+for version in sorted(versions):
+    def f(self, lversion=version):
+        return self._dbDataUpgrades(lversion, "ADDRESSBOOK-DATAVERSION", UpgradeDatabaseAddressBookDataStep)
+    setattr(SchemaUpgradeTests, "test_dbAddressBookDataUpgrades_%s" % (version,), f)
+
 # Bind test methods for each calendar data version
 versions = set()
 for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
@@ -289,5 +300,5 @@ for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).g
     versions.add(version if version else 1)
 for version in sorted(versions):
     def f(self, lversion=version):
-        return self._dbDataUpgrades(lversion)
-    setattr(SchemaUpgradeTests, "test_dbDataUpgrades_%s" % (version,), f)
+        return self._dbDataUpgrades(lversion, "CALENDAR-DATAVERSION", UpgradeDatabaseCalendarDataStep)
+    setattr(SchemaUpgradeTests, "test_dbCalendarDataUpgrades_%s" % (version,), f)

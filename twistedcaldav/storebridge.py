@@ -60,6 +60,8 @@ from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     InvalidPerUserDataMerge, \
     AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation, \
     ShareeAllowedError
+from txdav.carddav.iaddressbookstore import GroupWithUnsharedAddressNotAllowedError, \
+    GroupForSharedAddressBookDeleteNotAllowedError, SharedGroupDeleteNotAllowedError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
     _BIND_MODE_DIRECT
 from txdav.common.icommondatastore import NoSuchObjectResourceError, \
@@ -272,7 +274,7 @@ class _CommonHomeChildCollectionMixin(object):
 
 
     def owner_url(self):
-        if self.isShareeCollection():
+        if self.isShareeResource():
             return joinURL(self._share.url(), "/")
         else:
             return self.url()
@@ -443,14 +445,6 @@ class _CommonHomeChildCollectionMixin(object):
 
         @type request: L{twext.web2.iweb.IRequest}
 
-        @param viaRequest: Indicates if the delete was a direct result of an http_DELETE
-        which for calendars at least will require implicit cancels to be sent.
-
-        @type request: C{bool}
-
-        @param where: the URI at which the resource is being deleted.
-        @type where: C{str}
-
         @return: an HTTP response suitable for sending to a client (or
             including in a multi-status).
 
@@ -458,8 +452,7 @@ class _CommonHomeChildCollectionMixin(object):
         """
 
         # Check sharee collection first
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        if self.isShareeResource():
             log.debug("Removing shared collection %s" % (self,))
             yield self.removeShareeCollection(request)
             returnValue(NO_CONTENT)
@@ -1083,7 +1076,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
     def resourceType(self):
         if self.isShared():
             return customxml.ResourceType.sharedownercalendar
-        elif self.isShareeCollection():
+        elif self.isShareeResource():
             return customxml.ResourceType.sharedcalendar
         else:
             return caldavxml.ResourceType.calendar
@@ -1414,7 +1407,7 @@ class DropboxCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome # @UndefinedVariable
+        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
 
 
     def listChildren(self):
@@ -1466,7 +1459,7 @@ class CalendarObjectDropbox(_GetChildHelper):
 
 
     def resourceType(self):
-        return davxml.ResourceType.dropbox # @UndefinedVariable
+        return davxml.ResourceType.dropbox  # @UndefinedVariable
 
 
     @inlineCallbacks
@@ -1711,7 +1704,7 @@ class AttachmentsCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome # @UndefinedVariable
+        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
 
 
     def listChildren(self):
@@ -1814,7 +1807,7 @@ class AttachmentsChildCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropbox # @UndefinedVariable
+        return davxml.ResourceType.dropbox  # @UndefinedVariable
 
 
     @inlineCallbacks
@@ -2006,7 +1999,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
     def __init__(self, calendarObject, attachment, attachmentName, managed, **kw):
         super(CalendarAttachment, self).__init__(**kw)
-        self._newStoreCalendarObject = calendarObject # This can be None for a managed attachment
+        self._newStoreCalendarObject = calendarObject  # This can be None for a managed attachment
         self._newStoreAttachment = self._newStoreObject = attachment
         self._managed = managed
         self._dead_properties = NonePropertyStore(self)
@@ -2925,16 +2918,13 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     def isAddressBookCollection(self):
-        """
-        Yes, it is a calendar collection.
-        """
         return True
 
 
     def resourceType(self):
         if self.isShared():
             return customxml.ResourceType.sharedowneraddressbook
-        elif self.isShareeCollection():
+        elif self.isShareeResource():
             return customxml.ResourceType.sharedaddressbook
         else:
             return carddavxml.ResourceType.addressbook
@@ -2970,7 +2960,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         else:
             returnValue(None)
 
-
+    ''' DELETE just re-creates addressbook
     @inlineCallbacks
     def storeRemove(self, request):
         """
@@ -3007,24 +2997,14 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         )
 
         returnValue(response)
+    '''
 
 
-    # FIXME: access control
-    @inlineCallbacks
     def http_MOVE(self, request):
         """
-        Moving an address book collection is allowed for the purposes of changing
-        that address book's name.
+        Addressbooks may not be renamed.
         """
-        defaultAddressBook = (yield self.isDefaultAddressBook(request))
-
-        result = (yield super(AddressBookCollectionResource, self).http_MOVE(request))
-        if result == NO_CONTENT:
-            destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
-            destination = yield request.locateResource(destinationURI)
-            yield self.movedAddressBook(request, defaultAddressBook,
-                               destination, destinationURI)
-        returnValue(result)
+        return FORBIDDEN
 
 
 
@@ -3078,6 +3058,34 @@ class AddressBookObjectResource(_CommonObjectResource):
         TooManyObjectResourcesError: customxml.MaxResources(),
         InvalidResourceMove: (calendarserver_namespace, "valid-move"),
     }
+
+
+    def resourceType(self):
+        if self.isShared():
+            return customxml.ResourceType.sharedownergroup
+        elif self.isShareeResource():
+            return customxml.ResourceType.sharedgroup
+        else:
+            return super(AddressBookObjectResource, self).resourceType()
+
+
+    @inlineCallbacks
+    def storeRemove(self, request):
+        """
+        Remove this address book object
+        """
+        # Handle sharing
+        if self.isShared():
+            yield self.downgradeFromShare(request)
+
+        response = (
+            yield super(AddressBookObjectResource, self).storeRemove(
+                request
+            )
+        )
+
+        returnValue(response)
+
 
     @inlineCallbacks
     def http_PUT(self, request):
@@ -3167,6 +3175,12 @@ class AddressBookObjectResource(_CommonObjectResource):
             returnValue(response)
 
         # Handle the various store errors
+        except GroupWithUnsharedAddressNotAllowedError:
+            raise HTTPError(StatusResponse(
+                FORBIDDEN,
+                "Sharee cannot add unshared group members",)
+            )
+
         except Exception as err:
 
             if isinstance(err, ValueError):
@@ -3174,6 +3188,86 @@ class AddressBookObjectResource(_CommonObjectResource):
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(err)))
             else:
                 raise
+
+
+    @inlineCallbacks
+    def http_DELETE(self, request):
+
+        try:
+            returnValue((yield super(AddressBookObjectResource, self).http_DELETE(request)))
+
+        except GroupForSharedAddressBookDeleteNotAllowedError:
+            raise HTTPError(StatusResponse(
+                FORBIDDEN,
+                "Sharee cannot delete the group for a shared address book",)
+            )
+
+        except SharedGroupDeleteNotAllowedError:
+            raise HTTPError(StatusResponse(
+                FORBIDDEN,
+                "Sharee cannot delete a shared group",)
+            )
+
+    @inlineCallbacks
+    def accessControlList(self, request, *a, **kw):
+        """
+        Return WebDAV ACLs appropriate for the current user accessing the
+        a vcard in a shared addressbook or shared group.
+        
+        Items in an "invite" share get read-onlly privileges.
+        (It's not clear if that case ever occurs)
+        
+        "direct" shares are not supported.
+
+        @param request: the request used to locate the owner resource.
+        @type request: L{twext.web2.iweb.IRequest}
+
+        @param args: The arguments for
+            L{twext.web2.dav.idav.IDAVResource.accessControlList}
+
+        @param kwargs: The keyword arguments for
+            L{twext.web2.dav.idav.IDAVResource.accessControlList}, plus
+            keyword-only arguments.
+
+        @return: the appropriate WebDAV ACL for the sharee
+        @rtype: L{davxml.ACL}
+        """
+        if not self.exists():
+            log.debug("Resource not found: %s" % (self,))
+            raise HTTPError(NOT_FOUND)
+
+        if self._newStoreObject.addressbook().owned():
+            returnValue((yield super(AddressBookObjectResource, self).accessControlList(request, *a, **kw)))
+
+        # Direct shares use underlying privileges of shared collection
+        userprivs = []
+        userprivs.append(davxml.Privilege(davxml.Read()))
+        userprivs.append(davxml.Privilege(davxml.ReadACL()))
+        userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
+
+        if (yield self._newStoreObject.readWriteAccess()):
+            userprivs.append(davxml.Privilege(davxml.Write()))
+        else:
+            userprivs.append(davxml.Privilege(davxml.WriteProperties()))
+
+        sharee = self.principalForUID(self._newStoreObject.viewerHome().uid())
+        aces = (
+            # Inheritable specific access for the resource's associated principal.
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(sharee.principalURL())),
+                davxml.Grant(*userprivs),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ),
+        )
+
+        # Give read access to config.ReadPrincipals
+        aces += config.ReadACEs
+
+        # Give all access to config.AdminPrincipals
+        aces += config.AdminACEs
+
+        returnValue(davxml.ACL(*aces))
 
 
 

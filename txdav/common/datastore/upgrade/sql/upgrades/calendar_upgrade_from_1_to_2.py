@@ -21,10 +21,10 @@ from twisted.internet.defer import inlineCallbacks
 from twistedcaldav import caldavxml
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrades.util import rowsForProperty,\
-    removeProperty, updateDataVersion, doToEachCalendarHomeNotAtVersion
+    removeProperty, updateCalendarDataVersion, doToEachHomeNotAtVersion
 
 """
-Data upgrade from database version 1 to 2
+Calendar data upgrade from database version 1 to 2
 """
 
 UPGRADE_TO_VERSION = 2
@@ -38,7 +38,7 @@ def doUpgrade(sqlStore):
     yield splitCalendars(sqlStore)
 
     # Always bump the DB value
-    yield updateDataVersion(sqlStore, "CALENDAR-DATAVERSION", UPGRADE_TO_VERSION)
+    yield updateCalendarDataVersion(sqlStore, UPGRADE_TO_VERSION)
 
 
 
@@ -79,11 +79,12 @@ def splitCalendars(sqlStore):
     """
 
     @inlineCallbacks
-    def doIt(home):
+    def doIt(txn, homeResourceID):
         """
         Split each regular calendar in the home.
         """
+        home = yield txn.calendarHomeWithResourceID(homeResourceID)
         yield home.splitCalendars()
-
+            
     # Do this to each calendar home not already at version 2
-    yield doToEachCalendarHomeNotAtVersion(sqlStore, UPGRADE_TO_VERSION, doIt)
+    yield doToEachHomeNotAtVersion(sqlStore, schema.CALENDAR_HOME, UPGRADE_TO_VERSION, doIt)

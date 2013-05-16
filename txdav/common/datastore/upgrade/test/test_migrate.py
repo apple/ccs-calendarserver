@@ -360,7 +360,7 @@ class HomeMigrationTests(TestCase):
 
         # Want metadata preserved
         home = (yield txn.addressbookHomeWithUID("home1"))
-        adbk = (yield home.addressbookWithName("addressbook_1"))
+        adbk = (yield home.addressbookWithName("addressbook"))
         for name, md5 in (
             ("1.vcf", ABCommonTests.md5Values[0]),
             ("2.vcf", ABCommonTests.md5Values[1]),

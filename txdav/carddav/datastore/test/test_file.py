@@ -49,6 +49,7 @@ def _todo(f, why):
 featureUnimplemented = lambda f: _todo(f, "Feature unimplemented")
 testUnimplemented = lambda f: _todo(f, "Test unimplemented")
 todo = lambda why: lambda f: _todo(f, why)
+fixFile = lambda f: _todo(f, "fix file implementation")
 
 
 def setUpAddressBookStore(test):
@@ -78,7 +79,7 @@ def setUpHome1(test):
 @inlineCallbacks
 def setUpAddressBook1(test):
     yield setUpHome1(test)
-    test.addressbook1 = yield test.home1.addressbookWithName("addressbook_1")
+    test.addressbook1 = yield test.home1.addressbookWithName("addressbook")
     assert test.addressbook1 is not None, "No addressbook?"
 
 
@@ -291,7 +292,7 @@ class AddressBookTest(unittest.TestCase):
         """
         self.txn = self.addressbookStore.newTransaction(self.id())
         self.home1 = yield self.txn.addressbookHomeWithUID("home1")
-        self.addressbook1 = yield self.home1.addressbookWithName("addressbook_1")
+        self.addressbook1 = yield self.home1.addressbookWithName("addressbook")
 
 
     @inlineCallbacks
@@ -457,3 +458,23 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         ((yield self.addressbookUnderTest())._path.child("not-a-vcard")
          .createDirectory())
         yield self.test_addressbookObjects()
+
+
+    @inlineCallbacks
+    @fixFile
+    def test_createAddressBookWithName_absent(self):
+        """
+        L{IAddressBookHome.createAddressBookWithName} creates a new L{IAddressBook} that
+        can be retrieved with L{IAddressBookHome.addressbookWithName}.
+        """
+        pass
+
+
+    @inlineCallbacks
+    @fixFile
+    def test_removeAddressBookWithName_exists(self):
+        """
+        L{IAddressBookHome.removeAddressBookWithName} removes a addressbook that already
+        exists.
+        """
+        pass

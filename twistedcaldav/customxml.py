@@ -1464,5 +1464,7 @@ ResourceType.sharedownercalendar = ResourceType(Collection(), caldavxml.Calendar
 ResourceType.sharedcalendar = ResourceType(Collection(), caldavxml.Calendar(), Shared())
 ResourceType.sharedowneraddressbook = ResourceType(Collection(), carddavxml.AddressBook(), SharedOwner())
 ResourceType.sharedaddressbook = ResourceType(Collection(), carddavxml.AddressBook(), Shared())
+ResourceType.sharedownergroup = ResourceType(SharedOwner())
+ResourceType.sharedgroup = ResourceType(Shared())
 
 ResourceType.link = ResourceType(Link())

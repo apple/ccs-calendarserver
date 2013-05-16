@@ -66,7 +66,8 @@ from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
-    UpgradeDatabaseSchemaStep, UpgradeDatabaseDataStep, UpgradeDatabaseOtherStep,
+    UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
+    UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
 )
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
 
@@ -1255,7 +1256,12 @@ class CalDAVServiceMaker (LoggingMixIn):
                 )
 
                 pps.addStep(
-                    UpgradeDatabaseDataStep(
+                    UpgradeDatabaseAddressBookDataStep(
+                        store, uid=overrideUID, gid=overrideGID
+                    )
+                )
+                pps.addStep(
+                    UpgradeDatabaseCalendarDataStep(
                         store, uid=overrideUID, gid=overrideGID
                     )
                 )

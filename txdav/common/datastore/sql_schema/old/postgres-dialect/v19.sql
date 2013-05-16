@@ -16,13 +16,11 @@
 -- limitations under the License.
 ----
 
-
 -----------------
 -- Resource ID --
 -----------------
 
 create sequence RESOURCE_ID_SEQ;
-
 
 -------------------------
 -- Cluster Bookkeeping --
@@ -119,7 +117,6 @@ create table NOTIFICATION (
 
 create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
   NOTIFICATION(NOTIFICATION_HOME_RESOURCE_ID);
-
 
 -------------------
 -- Calendar Bind --
@@ -254,7 +251,6 @@ insert into CALENDAR_ACCESS_TYPE values (2, 'private'      );
 insert into CALENDAR_ACCESS_TYPE values (3, 'confidential' );
 insert into CALENDAR_ACCESS_TYPE values (4, 'restricted'   );
 
-
 -----------------
 -- Instance ID --
 -----------------
@@ -362,12 +358,10 @@ create table RESOURCE_PROPERTY (
 ----------------------
 
 create table ADDRESSBOOK_HOME (
-  RESOURCE_ID      				integer			primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  ADDRESSBOOK_PROPERTY_STORE_ID	integer      	default nextval('RESOURCE_ID_SEQ') not null, 	-- implicit index
-  OWNER_UID        				varchar(255) 	not null unique,                                -- implicit index
-  DATAVERSION      				integer      	default 0 not null
+  RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
+  OWNER_UID        varchar(255) not null unique,                                -- implicit index
+  DATAVERSION      integer      default 0 not null
 );
-
 
 -------------------------------
 -- AddressBook Home Metadata --
@@ -380,117 +374,72 @@ create table ADDRESSBOOK_HOME_METADATA (
   MODIFIED         timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
+-----------------
+-- AddressBook --
+-----------------
 
------------------------------
--- Shared AddressBook Bind --
------------------------------
+create table ADDRESSBOOK (
+  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
+);
 
--- Joins sharee ADDRESSBOOK_HOME and owner ADDRESSBOOK_HOME
 
-create table SHARED_ADDRESSBOOK_BIND (
-  ADDRESSBOOK_HOME_RESOURCE_ID			integer			not null references ADDRESSBOOK_HOME,
-  OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer      	not null references ADDRESSBOOK_HOME on delete cascade,
-  ADDRESSBOOK_RESOURCE_NAME    			varchar(255) 	not null,
-  BIND_MODE                    			integer      	not null,	-- enum CALENDAR_BIND_MODE
-  BIND_STATUS                  			integer      	not null,	-- enum CALENDAR_BIND_STATUS
-  BIND_REVISION				   			integer      	default 0 not null,
-  MESSAGE                      			text,                  		-- FIXME: xml?
+--------------------------
+-- AddressBook Metadata --
+--------------------------
 
-  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_ADDRESSBOOK_HOME_RESOURCE_ID), -- implicit index
+create table ADDRESSBOOK_METADATA (
+  RESOURCE_ID integer   primary key references ADDRESSBOOK on delete cascade, -- implicit index
+  CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
+);
+
+
+----------------------
+-- AddressBook Bind --
+----------------------
+
+-- Joins ADDRESSBOOK_HOME and ADDRESSBOOK
+
+create table ADDRESSBOOK_BIND (
+  ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
+  ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK on delete cascade,
+  ADDRESSBOOK_RESOURCE_NAME    varchar(255) not null,
+  BIND_MODE                    integer      not null, -- enum CALENDAR_BIND_MODE
+  BIND_STATUS                  integer      not null, -- enum CALENDAR_BIND_STATUS
+  BIND_REVISION				   integer      default 0 not null,
+  MESSAGE                      text,                  -- FIXME: xml?
+
+  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
-create index SHARED_ADDRESSBOOK_BIND_RESOURCE_ID on
-  SHARED_ADDRESSBOOK_BIND(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID);
-
-
-------------------------
--- AddressBook Object --
-------------------------
+create index ADDRESSBOOK_BIND_RESOURCE_ID on
+  ADDRESSBOOK_BIND(ADDRESSBOOK_RESOURCE_ID);
 
 create table ADDRESSBOOK_OBJECT (
-  RESOURCE_ID             		integer   		primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
-  ADDRESSBOOK_HOME_RESOURCE_ID 	integer      	not null references ADDRESSBOOK_HOME on delete cascade,
-  RESOURCE_NAME           		varchar(255) 	not null,
-  VCARD_TEXT              		text         	not null,
-  VCARD_UID               		varchar(255) 	not null,
-  KIND 			  		  		integer      	not null,  -- enum ADDRESSBOOK_OBJECT_KIND
-  MD5                     		char(32)     	not null,
-  CREATED                 		timestamp    	default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED                		timestamp    	default timezone('UTC', CURRENT_TIMESTAMP),
+  RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
+  ADDRESSBOOK_RESOURCE_ID integer      not null references ADDRESSBOOK on delete cascade,
+  RESOURCE_NAME           varchar(255) not null,
+  VCARD_TEXT              text         not null,
+  VCARD_UID               varchar(255) not null,
+  MD5                     char(32)     not null,
+  CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
-  unique (ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME), -- implicit index
-  unique (ADDRESSBOOK_HOME_RESOURCE_ID, VCARD_UID)      -- implicit index
+  unique (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
+  unique (ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
 );
-
-
------------------------------
--- AddressBook Object kind --
------------------------------
-
-create table ADDRESSBOOK_OBJECT_KIND (
-  ID          integer     primary key,
-  DESCRIPTION varchar(16) not null unique
-);
-
-insert into ADDRESSBOOK_OBJECT_KIND values (0, 'person');
-insert into ADDRESSBOOK_OBJECT_KIND values (1, 'group' );
-insert into ADDRESSBOOK_OBJECT_KIND values (2, 'resource');
-insert into ADDRESSBOOK_OBJECT_KIND values (3, 'location');
-
-
----------------------------------
--- Address Book Object Members --
----------------------------------
-
-create table ABO_MEMBERS (
-    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
-    MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
-    primary key (GROUP_ID, MEMBER_ID) -- implicit index
-);
-
-
-------------------------------------------
--- Address Book Object Foreign Members  --
-------------------------------------------
-
-create table ABO_FOREIGN_MEMBERS (
-    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
-    MEMBER_ADDRESS  	  varchar(255) not null, 													-- member AddressBook Object's 'calendar' address
-    primary key (GROUP_ID, MEMBER_ADDRESS) -- implicit index
-);
-
-
------------------------
--- Shared Group Bind --
------------------------
-
--- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_OBJECT (kind == group)
-
-create table SHARED_GROUP_BIND (	
-  ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
-  GROUP_RESOURCE_ID      			integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
-  GROUP_ADDRESSBOOK_RESOURCE_NAME	varchar(255) not null,
-  BIND_MODE                    		integer      not null, -- enum CALENDAR_BIND_MODE
-  BIND_STATUS                  		integer      not null, -- enum CALENDAR_BIND_STATUS
-  BIND_REVISION				   		integer      default 0 not null,
-  MESSAGE                      		text,                  -- FIXME: xml?
-
-  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_RESOURCE_ID), -- implicit index
-  unique (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
-);
-
-create index SHARED_GROUP_BIND_RESOURCE_ID on
-  SHARED_GROUP_BIND(GROUP_RESOURCE_ID);
-
 
 ---------------
 -- Revisions --
 ---------------
 
 create sequence REVISION_SEQ;
+
+
+---------------
+-- Revisions --
+---------------
 
 create table CALENDAR_OBJECT_REVISIONS (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
@@ -510,29 +459,27 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
 create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
   on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, REVISION);
 
-
-----------------------------------
+-------------------------------
 -- AddressBook Object Revisions --
-----------------------------------
+-------------------------------
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
-  ADDRESSBOOK_HOME_RESOURCE_ID 			integer			not null references ADDRESSBOOK_HOME,
-  OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer     	references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_NAME             			varchar(255) 	default null,
-  RESOURCE_NAME                			varchar(255),
-  REVISION                     			integer     	default nextval('REVISION_SEQ') not null,
-  DELETED                      			boolean      	not null
+  ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
+  ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK,
+  ADDRESSBOOK_NAME             varchar(255) default null,
+  RESOURCE_NAME                varchar(255),
+  REVISION                     integer      default nextval('REVISION_SEQ') not null,
+  DELETED                      boolean      not null
 );
 
-create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_ADDRESSBOOK_HOME_RESOURCE_ID
-  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_ADDRESSBOOK_HOME_RESOURCE_ID);
+create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_ADDRESSBOOK_RESOURCE_ID
+  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID);
 
-create index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_RESOURCE_NAME
-  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME);
+create index ADDRESSBOOK_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
+  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME);
 
-create index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_REVISION
-  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID, REVISION);
-
+create index ADDRESSBOOK_OBJECT_REVISIONS_RESOURCE_ID_REVISION
+  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_RESOURCE_ID, REVISION);
 
 -----------------------------------
 -- Notification Object Revisions --
@@ -549,7 +496,6 @@ create table NOTIFICATION_OBJECT_REVISIONS (
 
 create index NOTIFICATION_OBJECT_REVISIONS_RESOURCE_ID_REVISION
   on NOTIFICATION_OBJECT_REVISIONS(NOTIFICATION_HOME_RESOURCE_ID, REVISION);
-
 
 -------------------------------------------
 -- Apple Push Notification Subscriptions --
@@ -569,7 +515,6 @@ create table APN_SUBSCRIPTIONS (
 create index APN_SUBSCRIPTIONS_RESOURCE_KEY
    on APN_SUBSCRIPTIONS(RESOURCE_KEY);
 
-   
 -----------------
 -- IMIP Tokens --
 -----------------
@@ -587,13 +532,11 @@ create table IMIP_TOKENS (
 create index IMIP_TOKENS_TOKEN
    on IMIP_TOKENS(TOKEN);
 
-   
 ----------------
 -- Work Items --
 ----------------
 
 create sequence WORKITEM_SEQ;
-
 
 ---------------------------
 -- IMIP Inivitation Work --
@@ -607,7 +550,6 @@ create table IMIP_INVITATION_WORK (
   ICALENDAR_TEXT                text         not null
 );
 
-
 -----------------------
 -- IMIP Polling Work --
 -----------------------
@@ -616,7 +558,6 @@ create table IMIP_POLLING_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
-
 
 ---------------------
 -- IMIP Reply Work --
@@ -629,7 +570,6 @@ create table IMIP_REPLY_WORK (
   ATTENDEE                      varchar(255) not null,
   ICALENDAR_TEXT                text         not null
 );
-
 
 ------------------------
 -- Push Notifications --
@@ -660,6 +600,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '20');
+insert into CALENDARSERVER values ('VERSION', '19');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '4');
-insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
+insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

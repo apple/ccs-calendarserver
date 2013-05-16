@@ -78,12 +78,8 @@ from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator, \
     PostgresLegacyInboxIndexEmulator
-from txdav.common.datastore.sql_tables import CALENDAR_TABLE, \
-    CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE, \
-    _ATTACHMENTS_MODE_NONE, _ATTACHMENTS_MODE_WRITE, \
-    CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE, \
-    CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE, \
-    CALENDAR_OBJECT_AND_BIND_TABLE, schema, _BIND_MODE_OWN, \
+from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
+    _ATTACHMENTS_MODE_WRITE, schema, _BIND_MODE_OWN, \
     _ATTACHMENTS_MODE_READ, _TRANSP_OPAQUE, _TRANSP_TRANSPARENT
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
@@ -326,15 +322,7 @@ class CalendarHome(CommonHome):
     _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
     _objectSchema = schema.CALENDAR_OBJECT
 
-    # string mappings (old, removing)
-    _homeTable = CALENDAR_HOME_TABLE
-    _homeMetaDataTable = CALENDAR_HOME_METADATA_TABLE
-    _childTable = CALENDAR_TABLE
-    _bindTable = CALENDAR_BIND_TABLE
-    _objectBindTable = CALENDAR_OBJECT_AND_BIND_TABLE
     _notifierPrefix = "CalDAV"
-    _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-
     _dataVersionKey = "CALENDAR-DATAVERSION"
 
     _cacher = Memcacher("SQL.calhome", pickle=True, key_normalization=False)
@@ -849,14 +837,6 @@ class Calendar(CommonHomeChild):
     _objectSchema = schema.CALENDAR_OBJECT
     _timeRangeSchema = schema.TIME_RANGE
 
-    # string mappings (old, removing)
-    _bindTable = CALENDAR_BIND_TABLE
-    _homeChildTable = CALENDAR_TABLE
-    _homeChildBindTable = CALENDAR_AND_CALENDAR_BIND
-    _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-    _revisionsBindTable = CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE
-    _objectTable = CALENDAR_OBJECT_TABLE
-
     _supportedComponents = None
 
     def __init__(self, *args, **kw):
@@ -1285,7 +1265,7 @@ class Calendar(CommonHomeChild):
 
 
     @classproperty
-    def _moveTimeRangeUpdateQuery(cls): # @NoSelf
+    def _moveTimeRangeUpdateQuery(cls):  # @NoSelf
         """
         DAL query to update a child to be in a new parent.
         """
@@ -1306,13 +1286,6 @@ class Calendar(CommonHomeChild):
             newParentID=newparent._resourceID,
             resourceID=child._resourceID
         )
-
-
-    def unshare(self):
-        """
-        Unshares a collection, regardless of which "direction" it was shared.
-        """
-        return super(Calendar, self).unshare(ECALENDARTYPE)
 
 
     def creatingResourceCheckAttachments(self, component):
@@ -1358,7 +1331,6 @@ def _pathToName(path):
 class CalendarObject(CommonObjectResource, CalendarObjectBase):
     implements(ICalendarObject)
 
-    _objectTable = CALENDAR_OBJECT_TABLE
     _objectSchema = schema.CALENDAR_OBJECT
 
     def __init__(self, calendar, name, uid, resourceID=None, options=None):
@@ -2479,7 +2451,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @classproperty
-    def _recurrenceMinMaxByIDQuery(cls): # @NoSelf
+    def _recurrenceMinMaxByIDQuery(cls):  # @NoSelf
         """
         DAL query to load RECURRANCE_MIN, RECURRANCE_MAX via an object's resource ID.
         """
@@ -2513,7 +2485,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @classproperty
-    def _instanceQuery(cls): # @NoSelf
+    def _instanceQuery(cls):  # @NoSelf
         """
         DAL query to load TIME_RANGE data via an object's resource ID.
         """
@@ -3024,11 +2996,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # We need to know the resource_ID of the home collection of the owner
         # (not sharee) of this event
-        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        ownerHomeID = (yield self._parentCollection.ownerHome().id())
         managedID = str(uuid.uuid4())
         returnValue((
             yield ManagedAttachment.create(
-                self._txn, managedID, sharerHomeID, self._resourceID,
+                self._txn, managedID, ownerHomeID, self._resourceID,
             )
         ))
 
@@ -3038,10 +3010,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # We need to know the resource_ID of the home collection of the owner
         # (not sharee) of this event
-        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        ownerHomeID = (yield self._parentCollection.ownerHome().id())
         returnValue((
             yield ManagedAttachment.update(
-                self._txn, managedID, sharerHomeID, self._resourceID, oldattachment._attachmentID,
+                self._txn, managedID, ownerHomeID, self._resourceID, oldattachment._attachmentID,
             )
         ))
 
@@ -3100,11 +3072,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # We need to know the resource_ID of the home collection of the owner
         # (not sharee) of this event
-        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        ownerHomeID = (yield self._parentCollection.ownerHome().id())
         dropboxID = (yield self.dropboxID())
         returnValue((
             yield DropBoxAttachment.create(
-                self._txn, dropboxID, name, sharerHomeID,
+                self._txn, dropboxID, name, ownerHomeID,
             )
         ))
 
@@ -3349,7 +3321,7 @@ class Attachment(object):
 
 
     def properties(self):
-        pass # stub
+        pass  # stub
 
 
     def store(self, contentType, dispositionName=None):

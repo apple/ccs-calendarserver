@@ -1727,13 +1727,13 @@ END:VALARM
         normalCal = yield self.calendarUnderTest()
         self.assertEqual(normalCal._bindRevision, 0)
         otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield Calendar.invitedObjectWithName(otherHome, newCalName)
+        otherCal = yield otherHome.invitedObjectWithShareUID(newCalName)
         self.assertEqual(otherCal._bindRevision, 0)
         yield self.commit()
 
         normalCal = yield self.calendarUnderTest()
         otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield Calendar.invitedObjectWithName(otherHome, newCalName)
+        otherCal = yield otherHome.invitedObjectWithShareUID(newCalName)
         yield normalCal.updateShare(otherCal, status=_BIND_STATUS_ACCEPTED)
         yield self.commit()
 

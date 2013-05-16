@@ -304,10 +304,11 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
         prop, Where=(prop.RESOURCE_ID == Parameter("resourceID"))
     )
 
+    @inlineCallbacks
     def _removeResource(self):
 
         self._cached = {}
-        self._deleteResourceQuery.on(self._txn, resourceID=self._resourceID)
+        yield self._deleteResourceQuery.on(self._txn, resourceID=self._resourceID)
         self._cacher.delete(str(self._resourceID))
 
 
