@@ -239,7 +239,8 @@ class PerUserDataFilter(CalendarFilter):
         for component in components:
             if component.name() == "VTIMEZONE":
                 continue
-            rid = component.getRecurrenceIDUTC()
+            rid = component.propertyValue("RECURRENCE-ID")
+            rid = rid.duplicate() if rid is not None else None
 
             perinstance_component = Component(PerUserDataFilter.PERINSTANCE_COMPONENT) if self.uid else None
             perinstance_id_different = False

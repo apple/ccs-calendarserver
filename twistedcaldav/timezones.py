@@ -72,7 +72,7 @@ class TimezoneCache(object):
         if TimezoneCache.dirName is None:
             if config.TimezoneService.Enabled and config.TimezoneService.BasePath:
                 TimezoneCache.dirName = config.TimezoneService.BasePath
-            elif config.UsePackageTimezones:
+            elif config.UsePackageTimezones or not os.path.exists(config.DataRoot):
                 TimezoneCache.dirName = TimezoneCache._getPackageDBPath()
             else:
                 TimezoneCache.dirName = os.path.join(config.DataRoot, "zoneinfo")
