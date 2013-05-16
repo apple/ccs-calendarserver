@@ -2667,7 +2667,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _deleteBindWithResourceIDAndHomeID(cls):  #@NoSelf
+    def _deleteBindForResourceIDAndHomeID(cls):  #@NoSelf
         bind = cls._bindSchema
         return Delete(
             From=bind,
@@ -2773,11 +2773,6 @@ class SharingMixIn(object):
             returnValue(newName)
         try:
             bindName = yield self._txn.subtransaction(doInsert)
-            if status == _BIND_STATUS_ACCEPTED:
-                shareeView = yield shareeHome.objectWithShareUID(bindName)
-                yield shareeView._initSyncToken()
-                yield shareeView._initBindRevision()
-
         except AllRetriesFailed:
             # FIXME: catch more specific exception
             child = yield shareeHome.childWithID(self._resourceID)
@@ -2787,6 +2782,11 @@ class SharingMixIn(object):
                 child, mode=mode, status=status,
                 message=message
             )
+        else:
+            if status == _BIND_STATUS_ACCEPTED:
+                shareeView = yield shareeHome.objectWithShareUID(bindName)
+                yield shareeView._initSyncToken()
+                yield shareeView._initBindRevision()
 
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
@@ -2901,7 +2901,7 @@ class SharingMixIn(object):
                 break
 
         # delete binds including invites
-        deletedBindNameRows = yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
+        deletedBindNameRows = yield self._deleteBindForResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
              homeID=shareeHome._resourceID)
 
         if deletedBindNameRows:
@@ -3304,10 +3304,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             revisions = dict(revisions)
 
         # Create the actual objects merging in properties
-        for items in dataRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = items[:cls.bindColumnCount]  #@UnusedVariable
-            additionalBind = items[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
-            metadata = items[cls.bindColumnCount + len(cls.additionalBindColumns()):]
+        for dataRow in dataRows:
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = dataRow[:cls.bindColumnCount]  #@UnusedVariable
+            additionalBind = dataRow[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
+            metadata = dataRow[cls.bindColumnCount + len(cls.additionalBindColumns()):]
 
             if bindMode == _BIND_MODE_OWN:
                 ownerHome = home
