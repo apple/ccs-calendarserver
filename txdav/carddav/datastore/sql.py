@@ -354,9 +354,9 @@ class AddressBook(CommonHomeChild, SharingMixIn):
     _objectSchema = schema.ADDRESSBOOK_OBJECT
 
 
-    def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None, bindName=None):
+    def __init__(self, home, name, resourceID, mode, status, revision=0, message=None, ownerHome=None, bindName=None):
         ownerName = ownerHome.addressbook().name() if ownerHome else None
-        super(AddressBook, self).__init__(home, name, resourceID, mode, status, message=message, ownerHome=ownerHome, ownerName=ownerName)
+        super(AddressBook, self).__init__(home, name, resourceID, mode, status, revision=revision, message=message, ownerHome=ownerHome, ownerName=ownerName)
         self._index = PostgresLegacyABIndexEmulator(self)
         self._bindName = bindName
 
