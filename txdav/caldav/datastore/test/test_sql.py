@@ -38,7 +38,6 @@ from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarqueryfilter
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.datastore.sql import Calendar
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
     test_event_text, OTHER_HOME_UID
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
