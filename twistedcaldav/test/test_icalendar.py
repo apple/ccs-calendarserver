@@ -5317,6 +5317,108 @@ END:VCALENDAR
             self.assertEqual(len(unfixed), result_unfixed, "Failed unfixed: %s %s" % (title, unfixed,))
 
 
+    def test_fix_invalid_recurrence_id(self):
+
+        data = (
+            (
+                "Recurring with override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=US/Pacific:20071114T120000
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID;TZID=US/Pacific:20071115T000000
+DTSTART;TZID=US/Pacific:20071115T130000
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;TZID=US/Pacific:20071114T120000
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID;TZID=US/Pacific:20071115T120000
+DTSTART;TZID=US/Pacific:20071115T130000
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 20, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 21, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 15, 21, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 15, 22, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                )
+            ),
+        )
+
+        for description, original, fixed, results in data:
+            component = Component.fromString(original)
+            instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances=False)
+            self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
+            periods = tuple([(instance.start, instance.end) for instance in sorted(instances.instances.values(), key=lambda x:x.start)])
+            self.assertEqual(periods, results)
+            for start, end in periods:
+                self.assertEqual(start.isDateOnly(), results[0][0].isDateOnly(), "%s: %s wrong date/time start state" % (description, start,))
+                self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
+            self.assertEqual(str(component), fixed.replace("\n", "\r\n"))
+
+
     def test_mismatched_until(self):
         invalid = (
             """BEGIN:VCALENDAR
