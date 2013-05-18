@@ -38,13 +38,15 @@ from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.idav import IPropertyStore, IDataStore
-from txdav.xml.element import WebDAVUnknownElement, ResourceType
+from txdav.xml.element import WebDAVUnknownElement
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
 
-homeRoot = storePath.child("ho").child("me").child("home1")
+home1Root = storePath.child("ho").child("me").child("home1")
+home2Root = storePath.child("ho").child("me").child("home2")
 
-adbk1Root = homeRoot.child("addressbook")
+adbk1Root = home1Root.child("addressbook")
+adbk2Root = home2Root.child("addressbook")
 
 addressbook1_objectNames = [
     "1.vcf",
@@ -54,6 +56,19 @@ addressbook1_objectNames = [
 
 
 home1_addressbookNames = [
+    "addressbook",
+]
+
+addressbook2_objectNames = [
+    "1.vcf",
+    "2.vcf",
+    "3.vcf",
+    "4.vcf",
+    "5.vcf",
+]
+
+
+home2_addressbookNames = [
     "addressbook",
 ]
 
@@ -105,15 +120,26 @@ class CommonTests(CommonCommonTests):
         hashlib.md5("1234").hexdigest(),
         hashlib.md5("5678").hexdigest(),
         hashlib.md5("9ABC").hexdigest(),
+        hashlib.md5("DEFG").hexdigest(),
+        hashlib.md5("HIJK").hexdigest(),
     )
     requirements = {
         "home1": {
             "addressbook": {
                 "1.vcf": adbk1Root.child("1.vcf").getContent(),
                 "2.vcf": adbk1Root.child("2.vcf").getContent(),
-                "3.vcf": adbk1Root.child("3.vcf").getContent()
+                "3.vcf": adbk1Root.child("3.vcf").getContent(),
             },
             "not_a_addressbook": None
+        },
+        "home2": {
+            "addressbook": {
+                "1.vcf": adbk2Root.child("1.vcf").getContent(),
+                "2.vcf": adbk2Root.child("2.vcf").getContent(),
+                "3.vcf": adbk2Root.child("3.vcf").getContent(),
+                "4.vcf": adbk2Root.child("4.vcf").getContent(),
+                "5.vcf": adbk2Root.child("5.vcf").getContent(),
+            },
         },
         "not_a_home": None
     }
@@ -125,6 +151,15 @@ class CommonTests(CommonCommonTests):
                 "3.vcf": md5Values[2],
             },
             "not_a_addressbook": None
+        },
+        "home2": {
+            "addressbook": {
+                "1.vcf": md5Values[0],
+                "2.vcf": md5Values[1],
+                "3.vcf": md5Values[2],
+                "4.vcf": md5Values[3],
+                "5.vcf": md5Values[4],
+            },
         },
         "not_a_home": None
     }
@@ -141,30 +176,34 @@ class CommonTests(CommonCommonTests):
         raise NotImplementedError()
 
 
-    def homeUnderTest(self):
+    def homeUnderTest(self, txn=None, name=None):
         """
         Get the addressbook home detailed by C{requirements['home1']}.
         """
-        return self.transactionUnderTest().addressbookHomeWithUID("home1")
+        return (
+            txn.addressbookHomeWithUID(name if name else "home1")
+                if txn
+                else self.transactionUnderTest().addressbookHomeWithUID(name if name else "home1")
+        )
 
 
     @inlineCallbacks
-    def addressbookUnderTest(self):
+    def addressbookUnderTest(self, txn=None, name=None):
         """
         Get the addressbook detailed by C{requirements['home1']['addressbook']}.
         """
-        returnValue((yield (yield self.homeUnderTest())
-            .addressbookWithName("addressbook")))
+        returnValue((yield (yield self.homeUnderTest(txn=txn))
+            .addressbookWithName(name if name else "addressbook")))
 
 
     @inlineCallbacks
-    def addressbookObjectUnderTest(self):
+    def addressbookObjectUnderTest(self, txn=None, name=None):
         """
         Get the addressbook detailed by
         C{requirements['home1']['addressbook']['1.vcf']}.
         """
-        returnValue((yield (yield self.addressbookUnderTest())
-                    .addressbookObjectWithName("1.vcf")))
+        returnValue((yield (yield self.addressbookUnderTest(txn=txn))
+                    .addressbookObjectWithName(name if name else "1.vcf")))
 
 
     def test_addressbookStoreProvides(self):
@@ -295,17 +334,6 @@ class CommonTests(CommonCommonTests):
         #self.assertIdentical((yield home.addressbookWithName(name)), None)
         yield home.removeAddressBookWithName(name)
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
-        @inlineCallbacks
-        def checkProperties():
-            addressbookProperties = (yield home.addressbookWithName(name)).properties()
-            addressbookType = ResourceType.addressbook
-            self.assertEquals(
-                addressbookProperties[
-                    PropertyName.fromString(ResourceType.sname())
-                ],
-                addressbookType
-            )
-        yield checkProperties()
         yield self.commit()
 
         # Make sure notification fired after commit

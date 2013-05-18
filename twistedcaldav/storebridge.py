@@ -2960,45 +2960,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         else:
             returnValue(None)
 
-    ''' DELETE just re-creates addressbook
-    @inlineCallbacks
-    def storeRemove(self, request):
-        """
-        Delete this collection resource, first deleting each contained
-        object resource.
-
-        This has to emulate the behavior in fileop.delete in that any errors
-        need to be reported back in a multistatus response.
-
-        @param request: The request used to locate child resources.  Note that
-            this is the request which I{triggered} the C{DELETE}, but which may
-            not actually be a C{DELETE} request itself.
-
-        @type request: L{twext.web2.iweb.IRequest}
-
-        @return: an HTTP response suitable for sending to a client (or
-            including in a multi-status).
-
-        @rtype: something adaptable to L{twext.web2.iweb.IResponse}
-        """
-
-        # Not allowed to delete the default address book
-        default = (yield self.isDefaultAddressBook(request))
-        if default:
-            log.err("Cannot DELETE default address book: %s" % (self,))
-            raise HTTPError(ErrorResponse(
-                FORBIDDEN,
-                (carddav_namespace, "default-addressbook-delete-allowed",),
-                "Cannot delete default address book",
-            ))
-
-        response = (
-            yield super(AddressBookCollectionResource, self).storeRemove(request)
-        )
-
-        returnValue(response)
-    '''
-
 
     def http_MOVE(self, request):
         """

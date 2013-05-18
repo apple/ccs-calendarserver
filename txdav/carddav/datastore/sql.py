@@ -484,9 +484,6 @@ class AddressBook(CommonHomeChild, SharingMixIn):
             # yield self._loadPropertyStore()
             for prop in self.properties():
                 self.properties().pop(prop, None)
-            self.properties()[
-                PropertyName.fromElement(ResourceType)
-            ] = self.resourceType()
 
             yield self.notifyChanged()
             yield self._home.bumpModified()
@@ -683,8 +680,9 @@ END:VCARD
             propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
                 home.uid(), home._txn, addressbookPropertyStoreIDs
             )
-            addressbookResourceIDs = [ownerHome._resourceID for ownerHome in ownerHomeToDataRowMap]
-            revisions = yield cls._revisionsForResourceIDs(addressbookPropertyStoreIDs).on(home._txn, resourceIDs=addressbookResourceIDs)
+
+            addressbookResourceIDs = [ownerHome.addressbook()._resourceID for ownerHome in ownerHomeToDataRowMap]
+            revisions = yield cls._revisionsForResourceIDs(addressbookResourceIDs).on(home._txn, resourceIDs=addressbookResourceIDs)
             revisions = dict(revisions)
 
             # Create the actual objects merging in properties
@@ -711,7 +709,8 @@ END:VCARD
                 propstore = propertyStores.get(ownerHome._addressbookPropertyStoreID, None)
                 # We have to re-adjust the property store object to account for possible shared
                 # collections as previously we loaded them all as if they were owned
-                propstore._setDefaultUserUID(ownerHome.uid())
+                if propstore:
+                    propstore._setDefaultUserUID(ownerHome.uid())
                 yield child._loadPropertyStore(propstore)
                 results.append(child)
 
@@ -737,7 +736,7 @@ END:VCARD
             yield addressbook._init_isShared()
             returnValue(addressbook)
 
-        #all shared address books now
+        # all shared address books now
         rows = None
         queryCacher = home._txn._queryCacher
         ownerHome = None
@@ -758,8 +757,8 @@ END:VCARD
                     home._txn, resourceID=ownerAddressBook._resourceID, homeID=home._resourceID
                 )
                 if rows:
-                    rows[0].append(ownerAddressBook._resourceID)
-                    rows[0].append(rows[0][4])  # cachedStatus = bindStatus
+                    rows[0].insert(cls.bindColumnCount, ownerAddressBook._resourceID)
+                    rows[0].insert(cls.bindColumnCount + 1, rows[0][4])  # cachedStatus = bindStatus
                 else:
                     groupBindRows = yield AddressBookObject._bindForHomeIDAndAddressBookID.on(
                             home._txn, homeID=home._resourceID, addressbookID=ownerAddressBook._resourceID
@@ -771,8 +770,8 @@ END:VCARD
                         groupBindRow[3] = None  # bindName
                         groupBindRow[4] = None  # bindStatus
                         groupBindRow[5] = None  # bindMessage
-                        groupBindRow.append(ownerAddressBook._resourceID)
-                        groupBindRow.append(cachedBindStatus)
+                        groupBindRow.insert(cls.bindColumnCount, ownerAddressBook._resourceID)
+                        groupBindRow.insert(cls.bindColumnCount + 1, cachedBindStatus)
                         rows = [groupBindRow]
 
             if rows and queryCacher:
@@ -782,7 +781,7 @@ END:VCARD
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage, ownerAddressBookID, cachedBindStatus = rows[0]  #@UnusedVariable
+        bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage, ownerAddressBookID, cachedBindStatus = rows[0][:cls.bindColumnCount + 2]  #@UnusedVariable
         # if wrong status, exit here.  Item is in queryCache
         if (cachedBindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
             returnValue(None)
@@ -960,7 +959,7 @@ END:VCARD
         )))
         for row in rows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount]  #@UnusedVariable
-            ownerHome = yield home._txn.homeWithResourceID(home._homeType, homeID)
+            ownerHome = yield home._txn.homeWithResourceID(home._homeType, resourceID)
             names |= set([ownerHome.shareeAddressBookName()])
         returnValue(tuple(names))
 
@@ -1705,7 +1704,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         """
 
         new_uid = component.resourceUID()
-        yield NamedLock.acquire(self._txn, "vCardUIDLock:%s" % (hashlib.md5(new_uid).hexdigest(),))
+        yield NamedLock.acquire(self._txn, "vCardUIDLock:%s/%s/%s" % (self._home.uid(), self._addressbook.name(), hashlib.md5(new_uid).hexdigest(),))
 
         # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
         # try to write the same calendar data to two different resource URIs.

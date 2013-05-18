@@ -1950,7 +1950,7 @@ class CommonHome(LoggingMixIn):
                 sharerevision = 0 if revision < share._bindRevision else revision
                 shareID = (yield Select(
                     [bind.RESOURCE_ID], From=bind,
-                    Where=(bind.RESOURCE_NAME == share.name()).And(
+                    Where=(bind.RESOURCE_NAME == share.shareUID()).And(
                         bind.HOME_RESOURCE_ID == self._resourceID).And(
                             bind.BIND_MODE != _BIND_MODE_OWN)
                 ).on(self._txn))[0][0]
@@ -3289,15 +3289,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             # Get property stores
             childResourceIDs = [dataRow[2] for dataRow in dataRows]
 
-            # FIXME: The following returns {} for twistedcaldav.test.test_sharing.SharingTests.test_noWikiAccess
-            # propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
-            #    home.uid(), home._txn, childResourceIDs
-            #)
-            propertyStores = (yield PropertyStore.forMultipleResources(
-                home.uid(), home._txn,
-                cls._bindSchema.RESOURCE_ID, cls._bindSchema.HOME_RESOURCE_ID,
-                home._resourceID
-            ))
+            propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
+                home.uid(), home._txn, childResourceIDs
+            )
 
             # Get revisions
             revisions = (yield cls._revisionsForResourceIDs(childResourceIDs).on(home._txn, resourceIDs=childResourceIDs))
@@ -3330,11 +3324,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
                 setattr(child, attr, value)
             child._syncTokenRevision = revisions[resourceID]
             propstore = propertyStores.get(resourceID, None)
-
             # We have to re-adjust the property store object to account for possible shared
             # collections as previously we loaded them all as if they were owned
-
-            if bindMode != _BIND_MODE_OWN:
+            if propstore and bindMode != _BIND_MODE_OWN:
                 propstore._setDefaultUserUID(ownerHome.uid())
             yield child._loadPropertyStore(propstore)
             results.append(child)

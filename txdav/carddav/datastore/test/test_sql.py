@@ -21,7 +21,9 @@ L{txdav.carddav.datastore.test.common}.
 
 from twext.enterprise.dal.syntax import Select, Parameter
 
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.task import deferLater
 
 from twisted.trial import unittest
 
@@ -30,32 +32,35 @@ from twistedcaldav.vcard import Component as VCard
 from twistedcaldav.vcard import Component as VComponent
 
 from txdav.base.propertystore.base import PropertyName
+
 from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests, \
     vcard4_text
 from txdav.carddav.datastore.test.test_file import setUpAddressBookStore
 from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
-from txdav.common.datastore.sql import EADDRESSBOOKTYPE
+
+from txdav.common.icommondatastore import NoSuchObjectResourceError
+from txdav.common.datastore.sql import EADDRESSBOOKTYPE, CommonObjectResource
 from txdav.common.datastore.sql_tables import  _ABO_KIND_PERSON, _ABO_KIND_GROUP, \
-    schema
+    schema, _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED, _BIND_MODE_WRITE, \
+    _BIND_STATUS_INVITED
 from txdav.common.datastore.test.util import buildStore
-from txdav.xml.rfc2518 import GETContentLanguage
+
+from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 
-def _todo(f, why):
-    f.todo = why
-    return f
-fixMigration = lambda f: _todo(f, "fix migration to shared groups")
 
 class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     """
     AddressBook SQL storage tests.
     """
 
+
     @inlineCallbacks
     def setUp(self):
         yield super(AddressBookSQLStorageTests, self).setUp()
         self._sqlStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()
+
 
     @inlineCallbacks
     def populate(self):
@@ -64,13 +69,9 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
             addressbooks = self.requirements[homeUID]
             if addressbooks is not None:
                 home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
-                # We don't want the default addressbook to appear unless it's
-                # explicitly listed.
-                addressbookName = (yield home.addressbook()).name()
-                yield home.removeAddressBookWithName(addressbookName)
-                addressbook = yield home.addressbook()
+                addressbook = home.addressbook()
 
-                addressbookObjNames = addressbooks[addressbookName]
+                addressbookObjNames = addressbooks[addressbook.name()]
                 if addressbookObjNames is not None:
                     for objectName in addressbookObjNames:
                         objData = addressbookObjNames[objectName]
@@ -80,7 +81,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
         yield populateTxn.commit()
         self.notifierFactory.reset()
-
 
 
     def storeUnderTest(self):
@@ -171,7 +171,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    @fixMigration
     def test_migrateHomeFromFile(self):
         """
         L{migrateHome} will migrate an L{IAddressbookHome} provider from one
@@ -188,6 +187,10 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         (yield fromHome.addressbookWithName("addressbook")).properties()[
             key] = (
             GETContentLanguage("pig-latin")
+        )
+        (yield fromHome.addressbookWithName("addressbook")).properties()[
+            PropertyName.fromElement(ResourceType)] = (
+            carddavxml.ResourceType.addressbook
         )
         toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
             "new-home", create=True
@@ -207,7 +210,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
     def test_addressBookHomeVersion(self):
         """
-        The DATAVERSION column for new calendar homes must match the
+        The DATAVERSION column for new addressbook homes must match the
         ADDRESSBOOK-DATAVERSION value.
         """
 
@@ -224,6 +227,62 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
             Where=ch.OWNER_UID == "home_version",
         ).on(txn)[0][0]
         self.assertEqual(int(homeVersion, version))
+
+
+    @inlineCallbacks
+    def test_homeProvisioningConcurrency(self):
+        """
+        Test that two concurrent attempts to provision a addressbook home do not
+        cause a race-condition whereby the second commit results in a second
+        C{INSERT} that violates a unique constraint. Also verify that, while
+        the two provisioning attempts are happening and doing various lock
+        operations, that we do not block other reads of the table.
+        """
+
+        addressbookStore = self._sqlStore
+
+        txn1 = addressbookStore.newTransaction()
+        txn2 = addressbookStore.newTransaction()
+        txn3 = addressbookStore.newTransaction()
+
+        # Provision one home now - we will use this to later verify we can do
+        # reads of existing data in the table
+        home_uid2 = yield txn3.homeWithUID(EADDRESSBOOKTYPE, "uid2", create=True)
+        self.assertNotEqual(home_uid2, None)
+        yield txn3.commit()
+
+        home_uid1_1 = yield txn1.homeWithUID(
+            EADDRESSBOOKTYPE, "uid1", create=True
+        )
+
+        @inlineCallbacks
+        def _defer_home_uid1_2():
+            home_uid1_2 = yield txn2.homeWithUID(
+                EADDRESSBOOKTYPE, "uid1", create=True
+            )
+            yield txn2.commit()
+            returnValue(home_uid1_2)
+        d1 = _defer_home_uid1_2()
+
+        @inlineCallbacks
+        def _pause_home_uid1_1():
+            yield deferLater(reactor, 1.0, lambda : None)
+            yield txn1.commit()
+        d2 = _pause_home_uid1_1()
+
+        # Verify that we can still get to the existing home - i.e. the lock
+        # on the table allows concurrent reads
+        txn4 = addressbookStore.newTransaction()
+        home_uid2 = yield txn4.homeWithUID(EADDRESSBOOKTYPE, "uid2", create=True)
+        self.assertNotEqual(home_uid2, None)
+        yield txn4.commit()
+
+        # Now do the concurrent provision attempt
+        yield d2
+        home_uid1_2 = yield d1
+
+        self.assertNotEqual(home_uid1_1, None)
+        self.assertNotEqual(home_uid1_2, None)
 
 
     @inlineCallbacks
@@ -267,7 +326,7 @@ UID:uid1
 END:VCARD
 """.replace("\n", "\r\n")
             ))
-            yield txn1.commit() # FIXME: CONCURRENT
+            yield txn1.commit()  # FIXME: CONCURRENT
         d1 = _defer1()
 
         @inlineCallbacks
@@ -286,11 +345,52 @@ UID:uid2
 END:VCARD
 """.replace("\n", "\r\n")
             ))
-            yield txn2.commit() # FIXME: CONCURRENT
+            yield txn2.commit()  # FIXME: CONCURRENT
         d2 = _defer2()
 
         yield d1
         yield d2
+
+
+    @inlineCallbacks
+    def test_notificationsProvisioningConcurrency(self):
+        """
+        Test that two concurrent attempts to provision a notifications collection do not
+        cause a race-condition whereby the second commit results in a second
+        C{INSERT} that violates a unique constraint.
+        """
+
+        addressbookStore = self._sqlStore
+
+        txn1 = addressbookStore.newTransaction()
+        txn2 = addressbookStore.newTransaction()
+
+        notification_uid1_1 = yield txn1.notificationsWithUID(
+           "uid1",
+        )
+
+        @inlineCallbacks
+        def _defer_notification_uid1_2():
+            notification_uid1_2 = yield txn2.notificationsWithUID(
+                "uid1",
+            )
+            yield txn2.commit()
+            returnValue(notification_uid1_2)
+        d1 = _defer_notification_uid1_2()
+
+        @inlineCallbacks
+        def _pause_notification_uid1_1():
+            yield deferLater(reactor, 1.0, lambda : None)
+            yield txn1.commit()
+        d2 = _pause_notification_uid1_1()
+
+        # Now do the concurrent provision attempt
+        yield d2
+        notification_uid1_2 = yield d1
+
+        self.assertNotEqual(notification_uid1_1, None)
+        self.assertNotEqual(notification_uid1_2, None)
+
 
     @inlineCallbacks
     def test_addressbookObjectUID(self):
@@ -536,12 +636,11 @@ END:VCARD
 
         # Create address book and add a property
         home = yield self.homeUnderTest()
-        name = "addressbook"
-        addressbook = yield home.createAddressBookWithName(name)
+        addressbook = home.addressbook()
         resourceID = home._addressbookPropertyStoreID
 
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
-        self.assertEqual(len(tuple(rows)), 1)
+        self.assertEqual(len(tuple(rows)), 0)
 
         addressbookProperties = addressbook.properties()
         prop = carddavxml.AddressBookDescription.fromString("Address Book prop to be removed")
@@ -551,20 +650,21 @@ END:VCARD
         # Check that two properties are present
         home = yield self.homeUnderTest()
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
-        self.assertEqual(len(tuple(rows)), 2)
+        self.assertEqual(len(tuple(rows)), 1)
         yield self.commit()
 
         # Remove address book and check for no properties
         home = yield self.homeUnderTest()
-        yield home.removeAddressBookWithName(name)
+        yield home.removeAddressBookWithName(addressbook.name())
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
-        self.assertEqual(len(tuple(rows)), 1)
+        self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
 
         # Recheck it
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
-        self.assertEqual(len(tuple(rows)), 1)
+        self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
+
 
     @inlineCallbacks
     def test_removeAddressBookObjectPropertiesOnDelete(self):
@@ -604,4 +704,254 @@ END:VCARD
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
+
+
+    @inlineCallbacks
+    def test_directShareCreateConcurrency(self):
+        """
+        Test that two concurrent attempts to create a direct shared addressbook
+        work concurrently without an exception.
+        """
+
+        addressbookStore = self._sqlStore
+
+        # Provision the home and addressbook now
+        txn = addressbookStore.newTransaction()
+        sharerHome = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        self.assertNotEqual(sharerHome, None)
+        ab = yield sharerHome.addressbookWithName("addressbook")
+        self.assertNotEqual(ab, None)
+        shareeHome = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid2", create=True)
+        self.assertNotEqual(shareeHome, None)
+        yield txn.commit()
+
+        txn1 = addressbookStore.newTransaction()
+        txn2 = addressbookStore.newTransaction()
+
+        sharerHome1 = yield txn1.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        self.assertNotEqual(sharerHome1, None)
+        ab1 = yield sharerHome1.addressbookWithName("addressbook")
+        self.assertNotEqual(ab1, None)
+        shareeHome1 = yield txn1.homeWithUID(EADDRESSBOOKTYPE, "uid2", create=True)
+        self.assertNotEqual(shareeHome1, None)
+
+        sharerHome2 = yield txn2.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        self.assertNotEqual(sharerHome2, None)
+        ab2 = yield sharerHome2.addressbookWithName("addressbook")
+        self.assertNotEqual(ab2, None)
+        shareeHome2 = yield txn1.homeWithUID(EADDRESSBOOKTYPE, "uid2", create=True)
+        self.assertNotEqual(shareeHome2, None)
+
+        @inlineCallbacks
+        def _defer1():
+            yield ab1.shareWith(shareeHome=sharerHome1, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, message="Shared Wiki AddressBook")
+            yield txn1.commit()
+        d1 = _defer1()
+
+        @inlineCallbacks
+        def _defer2():
+            yield ab2.shareWith(shareeHome=sharerHome2, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, message="Shared Wiki AddressBook")
+            yield txn2.commit()
+        d2 = _defer2()
+
+        yield d1
+        yield d2
+
+
+    @inlineCallbacks
+    def test_resourceLock(self):
+        """
+        Test CommonObjectResource.lock to make sure it locks, raises on missing resource,
+        and raises when locked and wait=False used.
+        """
+
+        # Valid object
+        resource = yield self.addressbookObjectUnderTest()
+
+        # Valid lock
+        yield resource.lock()
+        self.assertTrue(resource._locked)
+
+        # Setup a new transaction to verify the lock and also verify wait behavior
+        newTxn = self._sqlStore.newTransaction()
+        newResource = yield self.addressbookObjectUnderTest(txn=newTxn)
+        try:
+            yield newResource.lock(wait=False)
+        except:
+            pass  # OK
+        else:
+            self.fail("Expected an exception")
+        self.assertFalse(newResource._locked)
+        yield newTxn.abort()
+
+        # Commit existing transaction and verify we can get the lock using
+        yield self.commit()
+
+        resource = yield self.addressbookObjectUnderTest()
+        yield resource.lock()
+        self.assertTrue(resource._locked)
+
+        # Setup a new transaction to verify the lock but pass in an alternative txn directly
+        newTxn = self._sqlStore.newTransaction()
+
+        # FIXME: not sure why, but without this statement here, this portion of the test fails in a funny way.
+        # Basically the query in the try block seems to execute twice, failing each time, one of which is caught,
+        # and the other not - causing the test to fail. Seems like some state on newTxn is not being initialized?
+        yield self.addressbookObjectUnderTest(txn=newTxn, name="2.vcf")
+
+        try:
+            yield resource.lock(wait=False, useTxn=newTxn)
+        except:
+            pass  # OK
+        else:
+            self.fail("Expected an exception")
+        self.assertTrue(resource._locked)
+
+        # Test missing resource
+        resource2 = yield self.addressbookObjectUnderTest(name="2.vcf")
+        resource2._resourceID = 123456789
+        try:
+            yield resource2.lock()
+        except NoSuchObjectResourceError:
+            pass  # OK
+        except:
+            self.fail("Expected a NoSuchObjectResourceError exception")
+        else:
+            self.fail("Expected an exception")
+        self.assertFalse(resource2._locked)
+
+
+    @inlineCallbacks
+    def test_loadObjectResourcesWithName(self):
+        """
+        L{CommonHomeChild.objectResourcesWithNames} returns the correct set of object resources
+        properly configured with a loaded property store. make sure batching works.
+        """
+
+        @inlineCallbacks
+        def _tests(ab):
+            resources = yield ab.objectResourcesWithNames(("1.vcf",))
+            self.assertEqual(set([resource.name() for resource in resources]), set(("1.vcf",)))
+
+            resources = yield ab.objectResourcesWithNames(("1.vcf", "2.vcf",))
+            self.assertEqual(set([resource.name() for resource in resources]), set(("1.vcf", "2.vcf",)))
+
+            resources = yield ab.objectResourcesWithNames(("1.vcf", "2.vcf", "3.vcf",))
+            self.assertEqual(set([resource.name() for resource in resources]), set(("1.vcf", "2.vcf", "3.vcf",)))
+
+            resources = yield ab.objectResourcesWithNames(("bogus1.vcf",))
+            self.assertEqual(set([resource.name() for resource in resources]), set())
+
+            resources = yield ab.objectResourcesWithNames(("bogus1.vcf", "2.vcf",))
+            self.assertEqual(set([resource.name() for resource in resources]), set(("2.vcf",)))
+
+        # Basic load tests
+        ab = yield self.addressbookUnderTest()
+        yield _tests(ab)
+
+        # Adjust batch size and try again
+        self.patch(CommonObjectResource, "BATCH_LOAD_SIZE", 2)
+        yield _tests(ab)
+
+        yield self.commit()
+
+
+
+    @inlineCallbacks
+    def test_objectResourceWithID(self):
+        """
+        L{IAddressBookHome.objectResourceWithID} will return the addressbook object..
+        """
+        home = yield self.homeUnderTest()
+        addressbookObject = (yield home.objectResourceWithID(9999))
+        self.assertEquals(addressbookObject, None)
+
+        obj = (yield self.addressbookObjectUnderTest())
+        addressbookObject = (yield home.objectResourceWithID(obj._resourceID))
+        self.assertNotEquals(addressbookObject, None)
+
+
+    @inlineCallbacks
+    def test_shareWithRevision(self):
+        """
+        Verify that bindRevision on addressbooks and shared addressbooks has the correct value.
+        """
+        ab = yield self.addressbookUnderTest()
+        self.assertEqual(ab._bindRevision, 0)
+        other = yield self.homeUnderTest(name="home2")
+        newABShareUID = yield ab.shareWith(other, _BIND_MODE_WRITE)
+        yield self.commit()
+
+        normalAB = yield self.addressbookUnderTest()
+        self.assertEqual(normalAB._bindRevision, 0)
+        otherHome = yield self.homeUnderTest(name="home2")
+        otherAB = yield otherHome.objectWithShareUID(newABShareUID)
+        self.assertNotEqual(otherAB._bindRevision, 0)
+
+
+    @inlineCallbacks
+    def test_updateShareRevision(self):
+        """
+        Verify that bindRevision on addressbooks and shared addressbooks has the correct value.
+        """
+        ab = yield self.addressbookUnderTest()
+        self.assertEqual(ab._bindRevision, 0)
+        other = yield self.homeUnderTest(name="home2")
+        newABShareUID = yield ab.shareWith(other, _BIND_MODE_WRITE, status=_BIND_STATUS_INVITED)
+        yield self.commit()
+
+        normalAB = yield self.addressbookUnderTest()
+        self.assertEqual(normalAB._bindRevision, 0)
+        otherHome = yield self.homeUnderTest(name="home2")
+        otherAB = yield otherHome.invitedObjectWithShareUID(newABShareUID)
+        self.assertEqual(otherAB._bindRevision, 0)
+        yield self.commit()
+
+        normalAB = yield self.addressbookUnderTest()
+        otherHome = yield self.homeUnderTest(name="home2")
+        otherAB = yield otherHome.invitedObjectWithShareUID(newABShareUID)
+        yield normalAB.updateShare(otherAB, status=_BIND_STATUS_ACCEPTED)
+        yield self.commit()
+
+        normalAB = yield self.addressbookUnderTest()
+        self.assertEqual(normalAB._bindRevision, 0)
+        otherHome = yield self.homeUnderTest(name="home2")
+        otherAB = yield otherHome.objectWithShareUID(newABShareUID)
+        self.assertNotEqual(otherAB._bindRevision, 0)
+
+
+    @inlineCallbacks
+    def test_sharedRevisions(self):
+        """
+        Verify that resourceNamesSinceRevision returns all resources after initial bind and sync.
+        """
+        ab = yield self.addressbookUnderTest()
+        self.assertEqual(ab._bindRevision, 0)
+        other = yield self.homeUnderTest(name="home2")
+        newABShareUID = yield ab.shareWith(other, _BIND_MODE_WRITE)
+        yield self.commit()
+
+        normalAB = yield self.addressbookUnderTest()
+        self.assertEqual(normalAB._bindRevision, 0)
+        otherHome = yield self.homeUnderTest(name="home2")
+        otherAB = yield otherHome.objectWithShareUID(newABShareUID)
+        self.assertNotEqual(otherAB._bindRevision, 0)
+
+        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision - 1)
+        self.assertNotEqual(len(changed), 0)
+        self.assertEqual(len(deleted), 0)
+
+        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
+        self.assertEqual(len(changed), 0)
+        self.assertEqual(len(deleted), 0)
+
+        for depth in ("1", "infinity",):
+            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision - 1, depth)
+            self.assertNotEqual(len(changed), 0)
+            self.assertEqual(len(deleted), 0)
+
+            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
+            self.assertEqual(len(changed), 0)
+            self.assertEqual(len(deleted), 0)
+
 
