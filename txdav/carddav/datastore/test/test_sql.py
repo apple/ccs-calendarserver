@@ -54,7 +54,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     AddressBook SQL storage tests.
     """
 
-
     @inlineCallbacks
     def setUp(self):
         yield super(AddressBookSQLStorageTests, self).setUp()
@@ -97,7 +96,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         events).
         """
         @inlineCallbacks
-        def namesAndComponents(x, filter=lambda x:x.component()):
+        def namesAndComponents(x, filter=lambda x: x.component()):
             fromObjs = yield x.addressbookObjects()
             returnValue(dict([(fromObj.name(), (yield filter(fromObj)))
                               for fromObj in fromObjs]))
@@ -113,7 +112,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         """
         Assert that two objects with C{properties} methods have similar
         properties.
-        
+
         @param disregard: a list of L{PropertyName} keys to discard from both
             input and output.
         """
@@ -607,7 +606,6 @@ END:VCARD
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
         self.assertEqual(foreignMemberRows, [])
 
-
         yield subgroupObject.remove()
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
         self.assertEqual(memberRows, [])
@@ -619,7 +617,6 @@ END:VCARD
 
         yield home.removeAddressBookWithName("addressbook")
         yield txn.commit()
-
 
 
     @inlineCallbacks
@@ -856,7 +853,6 @@ END:VCARD
         yield self.commit()
 
 
-
     @inlineCallbacks
     def test_objectResourceWithID(self):
         """
@@ -953,5 +949,3 @@ END:VCARD
             changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
-
-

@@ -39,19 +39,24 @@ class PropertyStore(AbstractPropertyStore):
         validKey(key)
         raise KeyError(key)
 
+
     def __setitem__(self, key, value):
         validKey(key)
         raise PropertyChangeNotAllowedError("Property store is read-only.", (key,))
+
 
     def __delitem__(self, key):
         validKey(key)
         raise KeyError(key)
 
+
     def keys(self):
         return ()
 
+
     def _removeResource(self):
         pass
+
 
     #
     # I/O
@@ -59,6 +64,7 @@ class PropertyStore(AbstractPropertyStore):
 
     def flush(self):
         return None
+
 
     def abort(self):
         return None

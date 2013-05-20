@@ -377,6 +377,7 @@ def _translateSchema(out, schema=schema):
         out.write('\n);\n\n')
 
 
+
 def splitSQLString(sqlString):
     """
     Strings which mix zero or more sql statements with zero or more pl/sql

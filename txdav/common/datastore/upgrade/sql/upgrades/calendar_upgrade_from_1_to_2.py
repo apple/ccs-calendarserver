@@ -85,6 +85,6 @@ def splitCalendars(sqlStore):
         """
         home = yield txn.calendarHomeWithResourceID(homeResourceID)
         yield home.splitCalendars()
-            
+
     # Do this to each calendar home not already at version 2
     yield doToEachHomeNotAtVersion(sqlStore, schema.CALENDAR_HOME, UPGRADE_TO_VERSION, doIt)

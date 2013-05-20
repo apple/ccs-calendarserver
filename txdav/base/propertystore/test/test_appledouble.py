@@ -129,6 +129,3 @@ class PropertyStoreTests(TestCase):
         sample.setContent("")
         props = PropertyStore("nobody", lambda : sample)
         self.assertEqual(props.attrs, {})
-
-
-

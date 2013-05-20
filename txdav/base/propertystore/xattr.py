@@ -36,7 +36,7 @@ from twisted.python.reflect import namedAny
 
 from txdav.xml.base import encodeXMLName
 from txdav.xml.parser import WebDAVDocument
-from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName,\
+from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName, \
         validKey
 from txdav.idav import PropertyStoreError
 
@@ -51,6 +51,7 @@ if sys.platform in ("darwin", "freebsd8", "freebsd9"):
     _ERRNO_NO_ATTR = getattr(errno, "ENOATTR", 93)
 else:
     _ERRNO_NO_ATTR = errno.ENODATA
+
 
 
 class PropertyStore(AbstractPropertyStore):
@@ -71,16 +72,16 @@ class PropertyStore(AbstractPropertyStore):
     # compress/expand overly long namespaces to help stay under that limit now
     # that GUIDs are also encoded in the keys.
     _namespaceCompress = {
-        "urn:ietf:params:xml:ns:caldav"                       :"CALDAV:",
-        "urn:ietf:params:xml:ns:carddav"                      :"CARDDAV:",
-        "http://calendarserver.org/ns/"                       :"CS:",
-        "http://cal.me.com/_namespace/"                       :"ME:",
-        "http://twistedmatrix.com/xml_namespace/dav/"         :"TD:",
-        "http://twistedmatrix.com/xml_namespace/dav/private/" :"TDP:",
+        "urn:ietf:params:xml:ns:caldav": "CALDAV:",
+        "urn:ietf:params:xml:ns:carddav": "CARDDAV:",
+        "http://calendarserver.org/ns/": "CS:",
+        "http://cal.me.com/_namespace/": "ME:",
+        "http://twistedmatrix.com/xml_namespace/dav/": "TD:",
+        "http://twistedmatrix.com/xml_namespace/dav/private/": "TDP:",
     }
 
     _namespaceExpand = dict(
-        [ (v, k) for k, v in _namespaceCompress.iteritems() ]
+        [(v, k) for k, v in _namespaceCompress.iteritems()]
     )
 
     def __init__(self, defaultuser, pathFactory):
@@ -102,12 +103,15 @@ class PropertyStore(AbstractPropertyStore):
     def path(self):
         return self._pathFactory()
 
+
     @property
     def attrs(self):
         return xattr(self.path.path)
 
+
     def __str__(self):
         return "<%s %s>" % (self.__class__.__name__, self.path.path)
+
 
     def _encodeKey(self, effective, compressNamespace=True):
 
@@ -123,6 +127,7 @@ class PropertyStore(AbstractPropertyStore):
         r = self.deadPropertyXattrPrefix + result
         return r
 
+
     def _decodeKey(self, name):
 
         name = urllib.unquote(name[len(self.deadPropertyXattrPrefix):])
@@ -130,7 +135,7 @@ class PropertyStore(AbstractPropertyStore):
         index1 = name.find("{")
         index2 = name.find("}")
 
-        if (index1 is - 1 or index2 is - 1 or not len(name) > index2):
+        if (index1 is -1 or index2 is -1 or not len(name) > index2):
             raise ValueError("Invalid encoded name: %r" % (name,))
         if index1 == 0:
             uid = self._defaultUser
@@ -141,6 +146,7 @@ class PropertyStore(AbstractPropertyStore):
         propname = name[index2 + 1:]
 
         return PropertyName(propnamespace, propname), uid
+
 
     #
     # Required implementations
@@ -226,6 +232,7 @@ class PropertyStore(AbstractPropertyStore):
 
         return doc.root_element
 
+
     def _setitem_uid(self, key, value, uid):
         validKey(key)
         effectiveKey = (key, uid)
@@ -233,6 +240,7 @@ class PropertyStore(AbstractPropertyStore):
         if effectiveKey in self.removed:
             self.removed.remove(effectiveKey)
         self.modified[effectiveKey] = value
+
 
     def _delitem_uid(self, key, uid):
         validKey(key)
@@ -244,6 +252,7 @@ class PropertyStore(AbstractPropertyStore):
             raise KeyError(key)
 
         self.removed.add(effectiveKey)
+
 
     def _keys_uid(self, uid):
         seen = set()
@@ -267,11 +276,13 @@ class PropertyStore(AbstractPropertyStore):
             if effectivekey[1] == uid and effectivekey not in seen:
                 yield effectivekey[0]
 
+
     def _removeResource(self):
         # xattrs are removed when the underlying file is deleted so just clear
         # out cached changes
         self.removed.clear()
         self.modified.clear()
+
 
     #
     # I/O
@@ -310,9 +321,11 @@ class PropertyStore(AbstractPropertyStore):
         self.removed.clear()
         self.modified.clear()
 
+
     def abort(self):
         self.removed.clear()
         self.modified.clear()
+
 
     def copyAllProperties(self, other):
         """

@@ -53,6 +53,7 @@ class cached(object):
         return inner
 
 
+
 class QueryCacher(Memcacher):
     """
     A Memcacher for the object-with-name query (more to come)
@@ -62,8 +63,10 @@ class QueryCacher(Memcacher):
         super(QueryCacher, self).__init__(cachePool, pickle=True)
         self.cacheExpireSeconds = cacheExpireSeconds
 
+
     def set(self, key, value):
         return super(QueryCacher, self).set(key, value, expireTime=self.cacheExpireSeconds)
+
 
     def delete(self, key):
         return super(QueryCacher, self).delete(key)
@@ -72,6 +75,7 @@ class QueryCacher(Memcacher):
     def setAfterCommit(self, transaction, key, value):
         transaction.postCommit(lambda: self.set(key, value))
 
+
     def invalidateAfterCommit(self, transaction, key):
         # Invalidate now (so that operations within this transaction see it)
         # and *also* post-commit (because there could be a scheduled setAfterCommit
@@ -79,15 +83,18 @@ class QueryCacher(Memcacher):
         transaction.postCommit(lambda: self.delete(key))
         return self.delete(key)
 
+
     # Home child objects by name
 
     def keyForObjectWithName(self, homeResourceID, name):
         return "objectWithName:%s:%s" % (homeResourceID, name)
 
+
     # Home metadata (Created/Modified)
 
     def keyForHomeMetaData(self, homeResourceID):
         return "homeMetaData:%s" % (homeResourceID)
+
 
     # HomeChild metadata (Created/Modified (and SUPPORTED_COMPONENTS))
 
@@ -139,6 +146,3 @@ def normalizeUUIDOrNot(somestr):
             return uuu + normalForm
         else:
             return normalForm
-
-
-

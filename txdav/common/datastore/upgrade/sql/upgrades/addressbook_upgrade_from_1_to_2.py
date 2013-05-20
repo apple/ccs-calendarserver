@@ -43,6 +43,7 @@ def doUpgrade(sqlStore):
     yield updateAddressBookDataVersion(sqlStore, UPGRADE_TO_VERSION)
 
 
+
 @inlineCallbacks
 def populateMemberTables(sqlStore):
     """
@@ -61,7 +62,7 @@ def populateMemberTables(sqlStore):
         abObjectResources = yield home.addressbook().objectResources()
         for abObject in abObjectResources:
             component = yield abObject.component()
-            lcResourceKind = component.resourceKind().lower() if component.resourceKind() else component.resourceKind();
+            lcResourceKind = component.resourceKind().lower() if component.resourceKind() else component.resourceKind()
             if lcResourceKind == "group":
                 # update kind
                 abo = schema.ADDRESSBOOK_OBJECT
@@ -72,9 +73,10 @@ def populateMemberTables(sqlStore):
                 #update rest
                 yield abObject.setComponent(component)
 
-
     # Do this to each calendar home not already at version 2
     yield doToEachHomeNotAtVersion(sqlStore, schema.ADDRESSBOOK_HOME, UPGRADE_TO_VERSION, doIt)
+
+
 
 @inlineCallbacks
 def removeResourceType(sqlStore):

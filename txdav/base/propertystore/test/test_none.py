@@ -26,25 +26,32 @@ from txdav.base.propertystore.test import base
 
 
 class PropertyStoreTest(base.NonePropertyStoreTest):
+
     def setUp(self):
         self.propertyStore = PropertyStore("user01")
+
 
     def test_set(self):
         def doSet():
             self.propertyStore[propertyName("foo")] = propertyValue("bar")
         self.assertRaises(PropertyChangeNotAllowedError, doSet)
 
+
     def test_get(self):
         self.assertRaises(KeyError, lambda: self.propertyStore[propertyName("foo")])
+
 
     def test_len(self):
         self.assertEquals(len(self.propertyStore), 0)
 
+
     def test_keys(self):
         self.assertEquals(self.propertyStore.keys(), ())
 
+
     def test_flush(self):
         self.propertyStore.flush()
+
 
     def test_abort(self):
         self.propertyStore.abort()

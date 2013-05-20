@@ -39,4 +39,3 @@ def doUpgrade(sqlStore):
     yield updateCalendarDataVersion(
         sqlStore, UPGRADE_TO_VERSION
     )
-

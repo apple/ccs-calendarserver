@@ -43,8 +43,10 @@ def isValidName(name):
     return not name.startswith(".")
 
 
+
 def hidden(path):
     return path.sibling('.' + path.basename())
+
 
 
 def writeOperation(thunk):
@@ -78,8 +80,10 @@ class DataStore(LoggingMixIn):
             # FIXME: Add DataStoreNotFoundError?
 #            raise NotFoundError("No such data store")
 
+
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path.path)
+
 
     def newTransaction(self, name='no name'):
         """
@@ -100,6 +104,7 @@ class _CommitTracker(object):
         self.name = name
         self.done = False
         self.info = []
+
 
     def __del__(self):
         if not self.done and self.info:
@@ -203,9 +208,9 @@ class DataStoreTransaction(LoggingMixIn):
 
 
 class FileMetaDataMixin(object):
-    
+
     implements(IDataStoreObject)
-    
+
     def name(self):
         """
         Identify the name of the object
@@ -215,6 +220,7 @@ class FileMetaDataMixin(object):
         """
 
         return self._path.basename()
+
 
     def contentType(self):
         """
@@ -226,6 +232,7 @@ class FileMetaDataMixin(object):
             return self.properties()[PropertyName.fromElement(GETContentType)].mimeType()
         except KeyError:
             return None
+
 
     def md5(self):
         """
@@ -246,6 +253,7 @@ class FileMetaDataMixin(object):
             md5 = hashlib.md5(data).hexdigest()
             return md5
 
+
     def size(self):
         """
         The octet-size of this object's content.
@@ -257,6 +265,7 @@ class FileMetaDataMixin(object):
         else:
             return 0
 
+
     def created(self):
         """
         The creation date-time stamp of this object.
@@ -267,6 +276,7 @@ class FileMetaDataMixin(object):
             return self._path.getmtime() # No creation time on POSIX
         else:
             return None
+
 
     def modified(self):
         """
