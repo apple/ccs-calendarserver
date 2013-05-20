@@ -166,6 +166,17 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
         )
         rows = yield query.on(txn, resourceIDs=resourceIDs)
         stores = cls._createMultipleStores(defaultUser, txn, rows)
+
+        # Make sure we have a store for each resourceID even if no properties exist
+        for resourceID in resourceIDs:
+            if resourceID not in stores:
+                store = cls.__new__(cls)
+                super(PropertyStore, store).__init__(defaultUser)
+                store._txn = txn
+                store._resourceID = resourceID
+                store._cached = {}
+                stores[resourceID] = store
+
         returnValue(stores)
 
 
