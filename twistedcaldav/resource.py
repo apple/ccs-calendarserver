@@ -2657,9 +2657,12 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
             noti_changed, noti_deleted, noti_notallowed = yield (yield self.getChild("notification"))._indexWhatChanged(revision, depth)
 
-            changed.extend([joinURL("notification", name) for name in noti_changed])
-            deleted.extend([joinURL("notification", name) for name in noti_deleted])
-            notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
+            if noti_changed or noti_deleted:
+                changed.append("notification")
+            if depth == "infinity":
+                changed.extend([joinURL("notification", name) for name in noti_changed])
+                deleted.extend([joinURL("notification", name) for name in noti_deleted])
+                notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
 
         returnValue((changed, deleted, notallowed))
 
@@ -2670,13 +2673,12 @@ class AddressBookHomeResource (CommonHomeResource):
     Address book home collection resource.
     """
 
-
     def __init__(self, *args, **kw):
         super(AddressBookHomeResource, self).__init__(*args, **kw)
         # get some Access header items
         self.http_MKCOL = None
         self.http_MKCALENDAR = None
-        
+
 
     @classmethod
     @inlineCallbacks

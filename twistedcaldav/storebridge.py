@@ -3169,15 +3169,16 @@ class AddressBookObjectResource(_CommonObjectResource):
                 "Sharee cannot delete a shared group",)
             )
 
+
     @inlineCallbacks
     def accessControlList(self, request, *a, **kw):
         """
         Return WebDAV ACLs appropriate for the current user accessing the
         a vcard in a shared addressbook or shared group.
-        
-        Items in an "invite" share get read-onlly privileges.
+
+        Items in an "invite" share get read-only privileges.
         (It's not clear if that case ever occurs)
-        
+
         "direct" shares are not supported.
 
         @param request: the request used to locate the owner resource.
