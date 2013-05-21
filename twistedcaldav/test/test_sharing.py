@@ -29,7 +29,7 @@ from twistedcaldav.sharing import WikiDirectoryService
 from twistedcaldav.test.test_cache import StubResponseCacheResource
 from twistedcaldav.test.util import norequest, StoreTestCase, SimpleStoreRequest
 
-from txdav.caldav.icalendarstore import BIND_DIRECT
+from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT
 from txdav.xml import element as davxml
 from txdav.xml.parser import WebDAVDocument
 
@@ -718,7 +718,7 @@ class SharingTests(StoreTestCase):
         sharee = yield self.homeUnderTest(name="user01")
         sharer = yield txn.calendarHomeWithUID("wiki-testing")
         cal = yield sharer.calendarWithName("calendar")
-        sharedName = yield cal.shareWith(sharee, BIND_DIRECT)
+        sharedName = yield cal.shareWith(sharee, _BIND_MODE_DIRECT)
         returnValue(sharedName)
 
 

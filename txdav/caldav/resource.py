@@ -58,12 +58,14 @@ class CalDAVResource(DAVResource, LoggingMixIn):
     )
 
 
+
 class CalendarHomeResource(CalDAVResource):
     """
     Calendar home resource.
 
     This resource is backed by an L{ICalendarHome} implementation.
     """
+
 
 
 class CalendarCollectionResource(CalDAVResource):
@@ -104,7 +106,7 @@ class CalendarCollectionResource(CalDAVResource):
             # Render a monolithic iCalendar file
             if request.path[-1] != "/":
                 # Redirect to include trailing '/' in URI
-                return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/'))
+                return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/') + '/'))
 
             def _defer(data):
                 response = Response()
@@ -118,18 +120,18 @@ class CalendarCollectionResource(CalDAVResource):
 
         return super(CalDAVResource, self).render(request)
 
+
     #
     # WebDAV
     #
 
     def liveProperties(self):
-        
-        return super(CalendarCollectionResource, self).liveProperties() + (
-            (dav_namespace,    "owner"),               # Private Events needs this but it is also OK to return empty
-            (caldav_namespace, "supported-calendar-component-set"),
-            (caldav_namespace, "supported-calendar-data"         ),
-        )
 
+        return super(CalendarCollectionResource, self).liveProperties() + (
+            (dav_namespace, "owner"),               # Private Events needs this but it is also OK to return empty
+            (caldav_namespace, "supported-calendar-component-set"),
+            (caldav_namespace, "supported-calendar-data"),
+        )
 
 
 
@@ -141,12 +143,14 @@ class CalendarObjectResource(CalDAVResource):
     """
 
 
+
 class ScheduleInboxResource(CalDAVResource):
     """
     Schedule inbox resource.
 
     This resource is backed by an XXXXXXX implementation.
     """
+
 
 
 class ScheduleOutboxResource(CalDAVResource):

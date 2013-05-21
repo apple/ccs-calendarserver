@@ -36,9 +36,10 @@ from twistedcaldav import customxml
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.notifications import NotificationsDatabase as OldNotificationIndex
-from txdav.caldav.icalendarstore import ICalendarStore, BIND_OWN
+from txdav.caldav.icalendarstore import ICalendarStore
 
 from txdav.common.datastore.common import HomeChildBase
+from txdav.common.datastore.sql_tables import _BIND_MODE_OWN
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     InternalDataStoreError, ObjectResourceNameNotAllowedError, \
@@ -1026,10 +1027,9 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
 
     def shareMode(self):
         """
-        Stub implementation of L{ICalendar.shareMode}; always returns
-        L{BIND_OWN}.
+        Stub implementation of L{ICalendar.shareMode}; always returns L{_BIND_MODE_OWN}.
         """
-        return BIND_OWN
+        return _BIND_MODE_OWN
 
 
     def owned(self):

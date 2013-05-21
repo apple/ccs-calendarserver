@@ -43,12 +43,14 @@ class CardDAVResource(DAVResource, LoggingMixIn):
         )
 
 
+
 class AddressBookHomeResource(CardDAVResource):
     """
     AddressBook home resource.
 
     This resource is backed by an L{IAddressBookHome} implementation.
     """
+
 
 
 class AddressBookCollectionResource(CardDAVResource):
@@ -66,12 +68,11 @@ class AddressBookCollectionResource(CardDAVResource):
     #
 
     def liveProperties(self):
-        
+
         return super(AddressBookCollectionResource, self).liveProperties() + (
-            (dav_namespace,     "owner"),
+            (dav_namespace, "owner"),
             (carddav_namespace, "supported-addressbook-data"),
         )
-
 
 
 
