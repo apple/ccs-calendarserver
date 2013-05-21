@@ -1942,18 +1942,11 @@ class CommonHome(LoggingMixIn):
 
         # Now deal with shared collections
         # TODO: think about whether this can be done in one query rather than looping over each share
-        bind = self._bindSchema
         rev = self._revisionsSchema
         shares = yield self.children()
         for share in shares:
             if not share.owned():
                 sharerevision = 0 if revision < share._bindRevision else revision
-                shareID = (yield Select(
-                    [bind.RESOURCE_ID], From=bind,
-                    Where=(bind.RESOURCE_NAME == share.shareUID()).And(
-                        bind.HOME_RESOURCE_ID == self._resourceID).And(
-                            bind.BIND_MODE != _BIND_MODE_OWN)
-                ).on(self._txn))[0][0]
                 results = [
                     (
                         share.name(),
@@ -1964,7 +1957,7 @@ class CommonHome(LoggingMixIn):
                     (yield Select([rev.RESOURCE_NAME, rev.DELETED],
                                      From=rev,
                                     Where=(rev.REVISION > sharerevision).And(
-                                    rev.RESOURCE_ID == shareID)).on(self._txn))
+                                    rev.RESOURCE_ID == share._resourceID)).on(self._txn))
                     if name
                 ]
 

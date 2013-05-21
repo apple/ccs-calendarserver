@@ -316,8 +316,7 @@ class AddressBookHome(CommonHome):
              rev.DELETED],
             From=rev,
             Where=(rev.REVISION > Parameter("revision")).And(
-                rev.HOME_RESOURCE_ID == Parameter("resourceID")).And(
-                rev.RESOURCE_ID == rev.HOME_RESOURCE_ID)
+                rev.HOME_RESOURCE_ID == Parameter("resourceID"))
         )
 
 
@@ -328,8 +327,10 @@ class AddressBookHome(CommonHome):
                                          resourceID=self._resourceID,
                                          revision=revision)
 
-        bindName = self.addressbook().name()
-        result = [[bindName] + row for row in rows]
+        # If the collection name is None that means we have a change to the owner's default address book,
+        # so substitute in the name of that. If collection name is not None, then we have a revision
+        # for the owned or a shared address book itself.
+        result = [[row[0] if row[0] is not None else self.addressbook().name()] + row for row in rows]
         returnValue(result)
 
 
