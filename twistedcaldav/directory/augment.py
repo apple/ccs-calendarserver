@@ -109,7 +109,7 @@ class AugmentDB(object):
                 old = yield self._lookupAugmentRecord(uid)
                 new = copy.deepcopy(old)
                 new.uid = uid.upper()
-                remove.append(old)
+                remove.append(uid)
                 add.append(new)
         try:
             yield self.removeAugmentRecords(remove)
@@ -404,8 +404,8 @@ class AugmentXMLDB(AugmentDB):
         """
         Remove AugmentRecords with the specified UIDs.
 
-        @param uid: directory UID to lookup
-        @type uid: C{list} of C{str}
+        @param uids: list of uids to remove
+        @type uids: C{list} of C{str}
         
         @return: L{Deferred}
         """
@@ -610,6 +610,14 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
 
     @inlineCallbacks
     def removeAugmentRecords(self, uids):
+        """
+        Remove AugmentRecords with the specified UIDs.
+
+        @param uids: list of uids to remove
+        @type uids: C{list} of C{str}
+        
+        @return: L{Deferred}
+        """
 
         for uid in uids:
             yield self.execute("delete from AUGMENTS where UID = :1", (uid,))
