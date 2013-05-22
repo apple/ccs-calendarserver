@@ -63,6 +63,7 @@ from sys import stdout, stderr
 import inspect
 import logging
 
+from twisted.python.reflect import safe_str
 from twisted.python.log import msg as twistedLogMessage
 from twisted.python.log import addObserver, removeObserver
 
@@ -211,11 +212,15 @@ class Logger (object):
         kwargs["logLevel"] = logLevel
         kwargs["namespace"] = self.namespace
 
-        twistedLogMessage(
-            # FIXME: This formatting should be done by the log observer(s)
-            "[%s#%s] %s" % (self.namespace, level, message),
-            **kwargs
-        )
+        if message:
+            kwargs["legacyMessage"] = message
+            kwargs["format"] = "%(legacyMessage)s"
+
+        if "format" in kwargs:
+            prefix = "[%(namespace)s#%(level)s] "
+            kwargs["format"] = "%s%s" % (prefix, kwargs["format"])
+
+        twistedLogMessage(**kwargs)
 
     def level(self):
         """
@@ -237,6 +242,15 @@ class Logger (object):
             level.
         """
         return cmpLogLevels(self.level(), level) <= 0
+
+
+    def msg(self, *message, **kw):
+        if message:
+            message = " ".join(map(safe_str, message))
+        else:
+            message = None
+        return self.emit("info", message, **kw)
+
 
 
 class LoggingMixIn (object):
@@ -261,7 +275,8 @@ class LoggingMixIn (object):
 
     logger = property(_getLogger, _setLogger)
 
-for level in logLevels:
+
+def bindEmit(level):
     doc = """
     Emit a log message at log level C{%s}.
     @param message: The message to emit.
@@ -270,32 +285,29 @@ for level in logLevels:
     #
     # Attach methods to Logger
     #
-    def log_emit(self, message, __level__=level, raiseException=None, **kwargs):
-        self.emit(__level__, message, **kwargs)
+    def log_emit(self, message, raiseException=None, **kwargs):
+        self.emit(level, message, **kwargs)
         if raiseException:
             raise raiseException(message)
 
-    def will_emit(self, __level__=level):
-        return self.willLogAtLevel(__level__)
+    def will_emit(self):
+        return self.willLogAtLevel(level)
 
     log_emit.__doc__ = doc
 
     setattr(Logger, level, log_emit)
     setattr(Logger, level + "_enabled", property(will_emit))
 
-    del log_emit
-    del will_emit
-
     #
     # Attach methods to LoggingMixIn
     #
-    def log_emit(self, message, __level__=level, raiseException=None, **kwargs):
-        self.logger.emit(__level__, message, **kwargs)
+    def log_emit(self, message, raiseException=None, **kwargs):
+        self.logger.emit(level, message, **kwargs)
         if raiseException:
             raise raiseException(message)
 
-    def will_emit(self=log_emit, __level__=level):
-        return self.logger.willLogAtLevel(__level__)
+    def will_emit(self=log_emit):
+        return self.logger.willLogAtLevel(level)
 
     log_emit.__doc__ = doc
     log_emit.enabled = will_emit
@@ -303,14 +315,15 @@ for level in logLevels:
     setattr(LoggingMixIn, "log_" + level, log_emit)
     setattr(LoggingMixIn, "log_" + level + "_enabled", property(will_emit))
 
-    del log_emit
-    del will_emit
 
+for level in logLevels: 
+    bindEmit(level)
 del level
 
+
 # Add some compatibility with twisted's log module
-Logger.msg = Logger.info
 Logger.err = Logger.error
+
 
 ##
 # Errors
@@ -320,6 +333,7 @@ class InvalidLogLevelError (RuntimeError):
     def __init__(self, level):
         super(InvalidLogLevelError, self).__init__(str(level))
         self.level = level
+
 
 ##
 # Observers
