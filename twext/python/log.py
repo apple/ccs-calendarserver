@@ -63,6 +63,7 @@ from sys import stdout, stderr
 import inspect
 import logging
 
+from twisted.python.failure import Failure
 from twisted.python.reflect import safe_str
 from twisted.python.log import msg as twistedLogMessage
 from twisted.python.log import addObserver, removeObserver
@@ -109,7 +110,7 @@ def pythonLogLevelForLevel(level):
     raise InvalidLogLevelError(level)
 
 #    #
-#    # In case we add log levels that don't map to pythong logging levels:
+#    # In case we add log levels that don't map to python logging levels:
 #    #
 #    for l in logLevels:
 #        print("Trying %s: %s, %s" % (l, l in pythonLogLevelMapping, cmpLogLevels(level, l) <= 0))
@@ -196,7 +197,7 @@ class Logger (object):
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.namespace)
 
-    def emit(self, level, message, **kwargs):
+    def emit(self, level, message=None, **kwargs):
         """
         Called internally to emit log messages at a given log level.
         """
@@ -216,8 +217,17 @@ class Logger (object):
             kwargs["legacyMessage"] = message
             kwargs["format"] = "%(legacyMessage)s"
 
+        prefix = "[%(namespace)s#%(level)s] "
+
+        if "failure" in kwargs:
+            # Handle unfortunate logic in twisted.log.textFromEventDict()
+            # in which format is ignored if we have a failure and no why.
+            why = kwargs.get("why", None)
+            if not why:
+                why = "Unhandled Error"
+            kwargs["why"] = "%s%s" % (prefix % kwargs, why)
+
         if "format" in kwargs:
-            prefix = "[%(namespace)s#%(level)s] "
             kwargs["format"] = "%s%s" % (prefix, kwargs["format"])
 
         twistedLogMessage(**kwargs)
@@ -244,12 +254,28 @@ class Logger (object):
         return cmpLogLevels(self.level(), level) <= 0
 
 
-    def msg(self, *message, **kw):
+    def msg(self, *message, **kwargs):
         if message:
             message = " ".join(map(safe_str, message))
         else:
             message = None
-        return self.emit("info", message, **kw)
+        return self.emit("info", message, **kwargs)
+
+
+    def err(self, _stuff=None, _why=None, **kwargs):
+        if _stuff is None:
+            _stuff = Failure()
+        elif isinstance(_stuff, Exception):
+            _stuff = Failure(_stuff)
+
+        # FIXME: We are setting isError=0 below to work around
+        # existing bugs, should be =1.
+
+        if isinstance(_stuff, Failure):
+            self.emit("error", failure=_stuff, why=_why, isError=0, **kwargs)
+        else:
+            # We got called with an invalid _stuff.
+            self.emit("error", repr(_stuff), why=_why, isError=0, **kwargs)
 
 
 
@@ -319,10 +345,6 @@ def bindEmit(level):
 for level in logLevels: 
     bindEmit(level)
 del level
-
-
-# Add some compatibility with twisted's log module
-Logger.err = Logger.error
 
 
 ##

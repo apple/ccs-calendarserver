@@ -108,9 +108,13 @@ class Logging (TestCase):
             if log.willLogAtLevel(level):
                 self.assertEquals(log.eventDict["level"], level)
                 self.assertEquals(log.eventDict["logLevel"], pythonLogLevelForLevel(level))
-                # FIXME: this checks the end of message because we do formatting in emit()
-                self.assertEquals(log.eventDict["message"][0][-len(message):], message)
                 self.assertEquals(log.eventDict["junk"], message)
+
+                # FIXME: this checks the end of message because we do formatting in emit()
+                self.assertEquals(
+                    twistedLogging.textFromEventDict(log.eventDict)[-len(message):],
+                    message
+                )
             else:
                 self.assertFalse(hasattr(log, "eventDict"))
 
@@ -136,9 +140,13 @@ class Logging (TestCase):
             if object.logger.willLogAtLevel(level):
                 self.assertEquals(object.logger.eventDict["level"], level)
                 self.assertEquals(object.logger.eventDict["logLevel"], pythonLogLevelForLevel(level))
-                # FIXME: this checks the end of message because we do formatting in emit()
-                self.assertEquals(object.logger.eventDict["message"][0][-len(message):], message)
                 self.assertEquals(object.logger.eventDict["junk"], message)
+
+                # FIXME: this checks the end of message because we do formatting in emit()
+                self.assertEquals(
+                    twistedLogging.textFromEventDict(object.logger.eventDict)[-len(message):],
+                    message
+                )
             else:
                 self.assertFalse(hasattr(object.logger, "eventDict"))
 
