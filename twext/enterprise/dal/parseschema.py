@@ -95,6 +95,21 @@ def schemaFromPath(path):
 
 
 
+def schemaFromString(data):
+    """
+    Get a L{Schema}.
+
+    @param data: a C{str} containing SQL.
+
+    @return: a L{Schema} object with the contents of the given C{str} parsed
+        and added to it as L{Table} objects.
+    """
+    schema = Schema()
+    addSQLToSchema(schema, data)
+    return schema
+
+
+
 def addSQLToSchema(schema, schemaData):
     """
     Add new SQL to an existing schema.
@@ -124,14 +139,28 @@ def addSQLToSchema(schema, schemaData):
             elif createType == u'SEQUENCE':
                 Sequence(schema,
                          stmt.token_next(2, True).get_name().encode('utf-8'))
-            elif createType == u'INDEX':
+            elif createType in (u'INDEX', u'UNIQUE'):
                 signifindex = iterSignificant(stmt)
                 expect(signifindex, ttype=Keyword.DDL, value='CREATE')
-                expect(signifindex, ttype=Keyword, value='INDEX')
+                token = signifindex.next()
+                unique = False
+                if token.match(Keyword, "UNIQUE"):
+                    unique = True
+                    token = signifindex.next()
+                if not token.match(Keyword, "INDEX"):
+                    raise ViolatedExpectation("INDEX or UNQIUE", token.value)
                 indexName = nameOrIdentifier(signifindex.next())
                 expect(signifindex, ttype=Keyword, value='ON')
-                [tableName, columnArgs] = iterSignificant(expect(signifindex,
-                                                                 cls=Function))
+                token = signifindex.next()
+                if isinstance(token, Function):
+                    [tableName, columnArgs] = iterSignificant(token)
+                else:
+                    tableName = token
+                    token = signifindex.next()
+                    if token.match(Keyword, "USING"):
+                        [_ignore, columnArgs] = iterSignificant(expect(signifindex, cls=Function))
+                    else:
+                        raise ViolatedExpectation('USING', token)
                 tableName = nameOrIdentifier(tableName)
                 arggetter = iterSignificant(columnArgs)
 
@@ -143,7 +172,7 @@ def addSQLToSchema(schema, schemaData):
                     valuelist = [valueOrValues]
                 expect(arggetter, ttype=Punctuation, value=u')')
 
-                idx = Index(schema, indexName, schema.tableNamed(tableName))
+                idx = Index(schema, indexName, schema.tableNamed(tableName), unique)
                 for token in valuelist:
                     columnName = nameOrIdentifier(token)
                     idx.addColumn(idx.table.columnNamed(columnName))

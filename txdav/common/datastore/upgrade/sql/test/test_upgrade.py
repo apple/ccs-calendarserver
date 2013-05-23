@@ -18,10 +18,12 @@
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
 """
 
+from twext.enterprise.dal.parseschema import schemaFromPath
 from twext.enterprise.ienterprise import ORACLE_DIALECT, POSTGRES_DIALECT
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
+from txdav.common.datastore.sql_dump import dumpSchema
 from txdav.common.datastore.test.util import theStoreBuilder, StubNotifierFactory
 from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaStep, \
     UpgradeDatabaseAddressBookDataStep, UpgradeDatabaseCalendarDataStep
@@ -166,6 +168,13 @@ class SchemaUpgradeTests(TestCase):
             returnValue(int(new_version[0][0]))
 
         @inlineCallbacks
+        def _loadSchemaFromDatabase():
+            startTxn = store.newTransaction("test_dbUpgrades")
+            schema = yield dumpSchema(startTxn, "Upgraded from %s" % (child.basename(),), "test_dbUpgrades")
+            yield startTxn.commit()
+            returnValue(schema)
+
+        @inlineCallbacks
         def _unloadOldSchema():
             startTxn = store.newTransaction("test_dbUpgrades")
             yield startTxn.execSQL("set search_path to public;")
@@ -189,6 +198,13 @@ class SchemaUpgradeTests(TestCase):
         yield _loadOldSchema(child)
         yield upgrader.databaseUpgrade()
         new_version = yield _loadVersion()
+
+        # Compare the upgraded schema with the expected current schema
+        new_schema = yield _loadSchemaFromDatabase()
+        currentSchema = schemaFromPath(test_upgrader.schemaLocation.child("current.sql"))
+        mismatched = currentSchema.compare(new_schema)
+        self.assertEqual(len(mismatched), 0, "Schema mismatch:\n" + "\n".join(mismatched))
+
         yield _unloadOldSchema()
 
         self.assertEqual(new_version, expected_version)

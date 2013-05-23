@@ -348,7 +348,8 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
             create table z (c integer); -- make sure we get the right table
 
             create index idx_a_b on a(b);
-            create index idx_a_b_c on a(c, b);
+            create index idx_a_b_c on a (c, b);
+            create index idx_c on z using btree (c);
             """)
 
         a = s.tableNamed("a")
@@ -358,3 +359,25 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
         self.assertEquals(b.columns, [a.columnNamed("b")])
         self.assertEquals(bc.table, a)
         self.assertEquals(bc.columns, [a.columnNamed("c"), a.columnNamed("b")])
+
+
+    def test_pseudoIndexes(self):
+        """
+        A implicit and explicit indexes are listed.
+        """
+        s = self.schemaFromString(
+            """
+            create table q (b integer); -- noise
+            create table a (b integer primary key, c integer);
+            create table z (c integer, unique(c) );
+
+            create unique index idx_a_c on a(c);
+            create index idx_a_b_c on a (c, b);
+            """)
+
+        self.assertEqual(set([pseudo.name for pseudo in s.pseudoIndexes()]), set((
+            "a-unique:(c)",
+            "a:(c,b)",
+            "a-unique:(b)",
+            "z-unique:(c)",
+        )))

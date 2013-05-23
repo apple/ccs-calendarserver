@@ -35,6 +35,7 @@ create table SHARED_ADDRESSBOOK_BIND (
     "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
+    "BIND_REVISION" integer default 0 not null,
     "MESSAGE" nclob, 
     primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_ADDRESSBOOK_HOME_RESOURCE_ID"), 
     unique("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
@@ -57,6 +58,7 @@ create table SHARED_GROUP_BIND (
     "GROUP_ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
+    "BIND_REVISION" integer default 0 not null,
     "MESSAGE" nclob, 
     primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_RESOURCE_ID"), 
     unique("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_ADDRESSBOOK_RESOURCE_NAME")
@@ -178,7 +180,11 @@ alter table ADDRESSBOOK_OBJECT
             "ADDRESSBOOK_HOME_RESOURCE_ID" not null)
 	drop ("ADDRESSBOOK_RESOURCE_ID");
 
-	
+
+alter table ADDRESSBOOK_OBJECT
+	add unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "RESOURCE_NAME")
+	    unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "VCARD_UID");
+
 ------------------------------------------
 -- change  ADDRESSBOOK_OBJECT_REVISIONS --
 ------------------------------------------
@@ -219,6 +225,22 @@ delete
 
 alter table ADDRESSBOOK_OBJECT_REVISIONS
 	drop ("ADDRESSBOOK_RESOURCE_ID");
+
+-- New indexes
+create index ADDRESSBOOK_OBJECT_RE_40cc2d73 on ADDRESSBOOK_OBJECT_REVISIONS (
+    ADDRESSBOOK_HOME_RESOURCE_ID,
+    OWNER_ADDRESSBOOK_HOME_RESOURCE_ID
+);
+
+create index ADDRESSBOOK_OBJECT_RE_980b9872 on ADDRESSBOOK_OBJECT_REVISIONS (
+    OWNER_ADDRESSBOOK_HOME_RESOURCE_ID,
+    RESOURCE_NAME
+);
+
+create index ADDRESSBOOK_OBJECT_RE_45004780 on ADDRESSBOOK_OBJECT_REVISIONS (
+    OWNER_ADDRESSBOOK_HOME_RESOURCE_ID,
+    REVISION
+);
 
 
 -------------------------------

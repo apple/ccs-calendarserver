@@ -35,6 +35,7 @@ create table SHARED_ADDRESSBOOK_BIND (
   ADDRESSBOOK_RESOURCE_NAME    			varchar(255) 	not null,
   BIND_MODE                    			integer      	not null,	-- enum CALENDAR_BIND_MODE
   BIND_STATUS                  			integer      	not null,	-- enum CALENDAR_BIND_STATUS
+  BIND_REVISION				   			integer      	default 0 not null,
   MESSAGE                      			text,                  		-- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_ADDRESSBOOK_HOME_RESOURCE_ID), -- implicit index
@@ -57,6 +58,7 @@ create table SHARED_GROUP_BIND (
   GROUP_ADDRESSBOOK_RESOURCE_NAME	varchar(255) not null,
   BIND_MODE                    		integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                  		integer      not null, -- enum CALENDAR_BIND_STATUS
+  BIND_REVISION				   		integer      default 0 not null,
   MESSAGE                      		text,                  -- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_RESOURCE_ID), -- implicit index
@@ -175,7 +177,9 @@ delete
 alter table ADDRESSBOOK_OBJECT
 	alter column KIND set not null,
 	alter column ADDRESSBOOK_HOME_RESOURCE_ID set not null,
-	drop column	ADDRESSBOOK_RESOURCE_ID;
+	drop column	ADDRESSBOOK_RESOURCE_ID,
+	add unique (ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME),
+	add unique (ADDRESSBOOK_HOME_RESOURCE_ID, VCARD_UID);
 
 	
 ------------------------------------------
@@ -218,6 +222,16 @@ delete
 
 alter table ADDRESSBOOK_OBJECT_REVISIONS
 	drop column	ADDRESSBOOK_RESOURCE_ID;
+
+-- New indexes
+create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_ADDRESSBOOK_HOME_RESOURCE_ID
+  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_ADDRESSBOOK_HOME_RESOURCE_ID);
+
+create index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_RESOURCE_NAME
+  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME);
+
+create index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_REVISION
+  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID, REVISION);
 
 
 -------------------------------
