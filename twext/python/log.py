@@ -33,15 +33,15 @@ Or in a class:
         def oops(self):
             self.log_error("Oops!")
 
-C{Logger}s have namespaces, for which logging can be configured
-independently.  Namespaces may be specified by passing in a
-C{namespace} argument to L{Logger} when instantiating it, but if none
-is given, the logger will derive its own namespace by using the module
-name of the callable that instantiating it, or, in the case of a
-L{LoggingMixIn}, by using the fully qualified name of the class.
+C{Logger}s have namespaces, for which logging can be configured independently.
+Namespaces may be specified by passing in a C{namespace} argument to L{Logger}
+when instantiating it, but if none is given, the logger will derive its own
+namespace by using the module name of the callable that instantiated it, or, in
+the case of a class using L{LoggingMixIn}, by using the fully qualified name of
+the class.
 
-In the first example above, the namespace would be C{some.module}, and
-in the second example, it would be C{some.module.Foo}.
+In the first example above, the namespace would be C{some.module}, and in the
+second example, it would be C{some.module.Foo}.
 """
 
 __all__ = [
@@ -68,6 +68,8 @@ from twisted.python.reflect import safe_str
 from twisted.python.log import msg as twistedLogMessage
 from twisted.python.log import addObserver, removeObserver
 
+
+
 logLevels = (
     "debug",
     "info",
@@ -75,7 +77,9 @@ logLevels = (
     "error",
 )
 
+
 logLevelIndexes = dict(zip(logLevels, xrange(0, len(logLevels))))
+
 
 def cmpLogLevels(a, b):
     """
@@ -87,10 +91,11 @@ def cmpLogLevels(a, b):
     """
     return cmp(logLevelIndexes[a], logLevelIndexes[b])
 
-##
-# Mappings to Python's logging module
-##
 
+
+#
+# Mappings to Python's logging module
+#
 pythonLogLevelMapping = {
     "debug"   : logging.DEBUG,
     "info"    : logging.INFO,
@@ -98,6 +103,7 @@ pythonLogLevelMapping = {
     "error"   : logging.ERROR,
    #"critical": logging.CRITICAL,
 }
+
 
 def pythonLogLevelForLevel(level):
     """
@@ -118,6 +124,8 @@ def pythonLogLevelForLevel(level):
 #            return pythonLogLevelMapping[l]
 #
 #    return logging.CRITICAL
+
+
 
 ##
 # Tools for managing log levels
@@ -146,6 +154,7 @@ def logLevelForNamespace(namespace):
 
     return logLevelsByNamespace[None]
 
+
 def setLogLevelForNamespace(namespace, level):
     """
     Sets the log level for a logging namespace.
@@ -160,6 +169,7 @@ def setLogLevelForNamespace(namespace, level):
     else:
         logLevelsByNamespace[None] = level
 
+
 def clearLogLevels():
     """
     Clears all log levels to the default.
@@ -167,8 +177,11 @@ def clearLogLevels():
     logLevelsByNamespace.clear()
     logLevelsByNamespace[None] = "warn"  # Default log level
 
+
 logLevelsByNamespace = {}
 clearLogLevels()
+
+
 
 ##
 # Loggers
@@ -194,8 +207,10 @@ class Logger (object):
 
         self.namespace = namespace
 
+
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.namespace)
+
 
     def emit(self, level, message=None, **kwargs):
         """
@@ -232,11 +247,13 @@ class Logger (object):
 
         twistedLogMessage(**kwargs)
 
+
     def level(self):
         """
         @return: the logging level for this logger's namespace.
         """
         return logLevelForNamespace(self.namespace)
+
 
     def setLevel(self, level):
         """
@@ -244,6 +261,7 @@ class Logger (object):
         @param level: a logging level
         """
         setLogLevelForNamespace(self.namespace, level)
+
 
     def willLogAtLevel(self, level):
         """
@@ -296,10 +314,12 @@ class LoggingMixIn (object):
 
         return self._logger
 
+
     def _setLogger(self, value):
         self._logger = value
 
     logger = property(_getLogger, _setLogger)
+
 
 
 def bindEmit(level):
@@ -357,6 +377,7 @@ class InvalidLogLevelError (RuntimeError):
         self.level = level
 
 
+
 ##
 # Observers
 ##
@@ -381,8 +402,10 @@ class StandardIOObserver (object):
         output.write(text)
         output.flush()
 
+
     def start(self):
         addObserver(self.emit)
+
 
     def stop(self):
         removeObserver(self.emit)
