@@ -267,7 +267,7 @@ class IScheduleRequest(object):
 
         except Exception, e:
             # Generated failed responses for each recipient
-            log.err("Could not do server-to-server request : %s %s" % (self, e))
+            log.error("Could not do server-to-server request : %s %s" % (self, e))
             for recipient in self.recipients:
                 err = HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,

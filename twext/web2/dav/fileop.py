@@ -91,7 +91,7 @@ def delete(uri, filepath, depth="infinity"):
 
         if depth != "infinity":
             msg = ("Client sent illegal depth header value for DELETE: %s" % (depth,))
-            log.err(msg)
+            log.error(msg)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
         #
@@ -111,7 +111,7 @@ def delete(uri, filepath, depth="infinity"):
         if uri_path[-1] == "/":
             uri_path = uri_path[:-1]
 
-        log.msg("Deleting directory %s" % (filepath.path,))
+        log.info("Deleting directory %s" % (filepath.path,))
 
         # NOTE: len(uri_path) is wrong if os.sep is not one byte long... meh.
         request_basename = filepath.path[:-len(uri_path)]
@@ -154,7 +154,7 @@ def delete(uri, filepath, depth="infinity"):
         #
         # Delete a file; much simpler, eh?
         #
-        log.msg("Deleting file %s" % (filepath.path,))
+        log.info("Deleting file %s" % (filepath.path,))
         try:
             os.remove(filepath.path)
         except:
@@ -194,7 +194,7 @@ def copy(source_filepath, destination_filepath, destination_uri, depth):
         #
         # Copy the file
         #
-        log.msg("Copying file %s to %s" % (source_filepath.path, destination_filepath.path))
+        log.info("Copying file %s to %s" % (source_filepath.path, destination_filepath.path))
 
         try:
             source_file = source_filepath.open()
@@ -232,7 +232,7 @@ def copy(source_filepath, destination_filepath, destination_uri, depth):
         #
         # Copy the directory
         #
-        log.msg("Copying directory %s to %s" % (source_filepath.path, destination_filepath.path))
+        log.info("Copying directory %s to %s" % (source_filepath.path, destination_filepath.path))
 
         source_basename = source_filepath.path
         destination_basename = destination_filepath.path
@@ -295,7 +295,7 @@ def copy(source_filepath, destination_filepath, destination_uri, depth):
 
             for subdir in subdirs:
                 source_path, destination_path = paths(dir, subdir)
-                log.msg("Copying directory %s to %s" % (source_path, destination_path))
+                log.info("Copying directory %s to %s" % (source_path, destination_path))
 
                 if not os.path.isdir(os.path.dirname(destination_path)):
                     errors.add(source_path, responsecode.CONFLICT)
@@ -317,7 +317,7 @@ def copy(source_filepath, destination_filepath, destination_uri, depth):
         yield errors.response()
         return
     else:
-        log.err("Unable to COPY to non-file: %s" % (source_filepath.path,))
+        log.error("Unable to COPY to non-file: %s" % (source_filepath.path,))
         raise HTTPError(StatusResponse(
             responsecode.FORBIDDEN,
             "The requested resource exists but is not backed by a regular file."
@@ -348,7 +348,7 @@ def move(source_filepath, source_uri, destination_filepath, destination_uri, dep
         if the destination already exists, or L{responsecode.NO_CONTENT} if the
         destination was created by the X{MOVE} operation.
     """
-    log.msg("Moving %s to %s" % (source_filepath.path, destination_filepath.path))
+    log.info("Moving %s to %s" % (source_filepath.path, destination_filepath.path))
 
     #
     # Choose a success status
@@ -419,7 +419,7 @@ def put(stream, filepath, uri=None):
         if the destination already exists, or L{responsecode.NO_CONTENT} if the
         destination was created by the X{PUT} operation.
     """
-    log.msg("Writing to file %s" % (filepath.path,))
+    log.info("Writing to file %s" % (filepath.path,))
 
     if filepath.exists():
         if uri is None:

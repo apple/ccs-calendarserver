@@ -25,6 +25,7 @@ from zope.interface.declarations import implements
 from txdav.common.idirectoryservice import IStoreDirectoryService, \
     IStoreDirectoryRecord
 
+# FIXME: Don't import from calendarserver in txdav
 from calendarserver.push.notifier import Notifier
 
 from hashlib import md5
@@ -33,10 +34,11 @@ from pycalendar.datetime import PyCalendarDateTime
 
 from random import Random
 
-from twext.enterprise.adbapi2 import ConnectionPool
-from twext.enterprise.ienterprise import AlreadyFinishedError
+from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
+from twext.enterprise.adbapi2 import ConnectionPool
+from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.web2.dav.resource import TwistedGETContentMD5
 
 from twisted.application.service import Service
@@ -44,7 +46,6 @@ from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.defer import returnValue
 from twisted.internet.task import deferLater
-from twisted.python import log
 from twisted.trial.unittest import TestCase
 
 from twistedcaldav.config import config
@@ -65,7 +66,13 @@ from zope.interface.verify import verifyObject
 
 import gc
 
+
+
+log = Logger()
+
 md5key = PropertyName.fromElement(TwistedGETContentMD5)
+
+
 
 def allInstancesOf(cls):
     """
@@ -198,7 +205,7 @@ class SQLStoreBuilder(object):
             self.sharedService = self.createService(getReady)
             self.sharedService.startService()
             def startStopping():
-                log.msg("Starting stopping.")
+                log.info("Starting stopping.")
                 self.sharedService.unpauseMonitor()
                 return self.sharedService.stopService()
             reactor.addSystemEventTrigger(#@UndefinedVariable
@@ -282,7 +289,7 @@ class SQLStoreBuilder(object):
             try:
                 yield cleanupTxn.execSQL("delete from " + table, [])
             except:
-                log.err()
+                log.failure()
         yield cleanupTxn.commit()
 
         # Deal with memcached items that must be cleared

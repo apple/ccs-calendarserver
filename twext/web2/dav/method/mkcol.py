@@ -54,13 +54,13 @@ def http_MKCOL(self, request):
     x.getResult()
 
     if self.exists():
-        log.err("Attempt to create collection where file exists: %s"
-                % (self,))
+        log.error("Attempt to create collection where file exists: %s"
+                  % (self,))
         raise HTTPError(responsecode.NOT_ALLOWED)
 
     if not parent.isCollection():
-        log.err("Attempt to create collection with non-collection parent: %s"
-                % (self,))
+        log.error("Attempt to create collection with non-collection parent: %s"
+                  % (self,))
         raise HTTPError(StatusResponse(
             responsecode.CONFLICT,
             "Parent resource is not a collection."
@@ -74,7 +74,7 @@ def http_MKCOL(self, request):
     try:
         x.getResult()
     except ValueError, e:
-        log.err("Error while handling MKCOL body: %s" % (e,))
+        log.error("Error while handling MKCOL body: %s" % (e,))
         raise HTTPError(responsecode.UNSUPPORTED_MEDIA_TYPE)
 
     response = waitForDeferred(mkcollection(self.fp))

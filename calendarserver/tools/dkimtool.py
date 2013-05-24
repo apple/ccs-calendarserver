@@ -18,7 +18,7 @@
 from Crypto.PublicKey import RSA
 from StringIO import StringIO
 
-from twext.python.log import setLogLevelForNamespace, StandardIOObserver
+from twext.python.log import LogLevel, setLogLevelForNamespace, StandardIOObserver
 from twext.web2.client.http import ClientRequest
 from twext.web2.http_headers import Headers
 from twext.web2.stream import MemoryStream
@@ -66,7 +66,7 @@ def _doKeyGeneration(options):
 def _doRequest(options):
 
     if options["verbose"]:
-        setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", "debug")
+        setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", LogLevel.debug)
 
     # Parse the HTTP file
     request = open(options["request"]).read()
@@ -299,7 +299,7 @@ def main(argv=sys.argv, stderr=sys.stderr):
     observer.start()
 
     if options["verbose"]:
-        setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", "debug")
+        setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", LogLevel.debug)
 
     if options["key-gen"]:
         _doKeyGeneration(options)

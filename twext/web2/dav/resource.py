@@ -1001,7 +1001,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 # on the resource
                 def gotDetails(details, creds):
                     if details == (None, None):
-                        log.msg(
+                        log.info(
                             "Could not find the principal resource for user id: %s"
                             % (creds.username,)
                         )
@@ -1021,7 +1021,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
                 def translateUnauthenticated(f):
                     f.trap(UnauthorizedLogin, LoginFailed)
-                    log.msg("Authentication failed: %s" % (f.value,))
+                    log.info("Authentication failed: %s" % (f.value,))
                     d = UnauthorizedResponse.makeResponse(
                         request.credentialFactories, request.remoteAddr
                     )
@@ -1173,9 +1173,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 if (ace.principal == old_ace.principal):
                     # Step 1
                     if old_ace.protected:
-                        log.err("Attempt to overwrite protected ace %r "
-                                "on resource %r"
-                                % (old_ace, self))
+                        log.error("Attempt to overwrite protected ace %r "
+                                  "on resource %r"
+                                  % (old_ace, self))
                         returnValue((
                             element.dav_namespace,
                             "no-protected-ace-conflict"
@@ -1195,8 +1195,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     # Otherwise, we'd use this logic:
                     #
                     #elif old_ace.inherited:
-                    #    log.err("Attempt to overwrite inherited ace %r "
-                    #            "on resource %r" % (old_ace, self))
+                    #    log.error("Attempt to overwrite inherited ace %r "
+                    #              "on resource %r" % (old_ace, self))
                     #    returnValue((
                     #        element.dav_namespace,
                     #        "no-inherited-ace-conflict"
@@ -1204,9 +1204,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
             # Step 3
             if ace.allow and got_deny:
-                log.err("Attempt to set grant ace %r after deny ace "
-                        "on resource %r"
-                        % (ace, self))
+                log.error("Attempt to set grant ace %r after deny ace "
+                          "on resource %r"
+                          % (ace, self))
                 returnValue((element.dav_namespace, "deny-before-grant"))
             got_deny = not ace.allow
 
@@ -1216,21 +1216,21 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             # Step 5
             for privilege in ace.privileges:
                 if privilege.children[0] not in supported:
-                    log.err("Attempt to use unsupported privilege %r "
-                            "in ace %r on resource %r"
-                            % (privilege.children[0], ace, self))
+                    log.error("Attempt to use unsupported privilege %r "
+                              "in ace %r on resource %r"
+                              % (privilege.children[0], ace, self))
                     returnValue((
                         element.dav_namespace,
                         "not-supported-privilege"
                     ))
 
             if ace.protected:
-                log.err("Attempt to create protected ace %r on resource %r"
-                        % (ace, self))
+                log.error("Attempt to create protected ace %r on resource %r"
+                          % (ace, self))
                 returnValue((element.dav_namespace, "no-ace-conflict"))
 
             if ace.inherited:
-                log.err("Attempt to create inherited ace %r on resource %r"
+                log.error("Attempt to create inherited ace %r on resource %r"
                         % (ace, self))
                 returnValue((element.dav_namespace, "no-ace-conflict"))
 
@@ -1238,9 +1238,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             valid = (yield self.validPrincipal(ace.principal, request))
 
             if not valid:
-                log.err("Attempt to use unrecognized principal %r "
-                        "in ace %r on resource %r"
-                        % (ace.principal, ace, self))
+                log.error("Attempt to use unrecognized principal %r "
+                          "in ace %r on resource %r"
+                          % (ace.principal, ace, self))
                 returnValue((element.dav_namespace, "recognized-principal"))
 
         # Step 8 & 9
@@ -1781,9 +1781,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             if isinstance(real_principal, element.Property):
                 # See comments in matchPrincipal().  We probably need
                 # some common code.
-                log.err("Encountered a property principal (%s), "
-                        "but handling is not implemented."
-                        % (real_principal,))
+                log.error("Encountered a property principal (%s), "
+                          "but handling is not implemented."
+                          % (real_principal,))
                 return False
 
             if isinstance(real_principal, element.HRef):
@@ -1851,9 +1851,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             #
             # Note: When fixing this, also fix validPrincipal()
             #
-            log.err("Encountered a property principal (%s), "
-                    "but handling is not implemented; invalid for ACL use."
-                    % (principal,))
+            log.error("Encountered a property principal (%s), "
+                      "but handling is not implemented; invalid for ACL use."
+                      % (principal,))
             return succeed(None)
 
             #
@@ -1874,9 +1874,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     return None
 
                 if not isinstance(principal, element.Principal):
-                    log.err("Non-principal value in property %s "
-                            "referenced by property principal."
-                            % (encodeXMLName(namespace, name),))
+                    log.error("Non-principal value in property %s "
+                              "referenced by property principal."
+                              % (encodeXMLName(namespace, name),))
                     return None
 
                 if len(principal.children) != 1:
@@ -1895,8 +1895,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             try:
                 self = IDAVPrincipalResource(self)
             except TypeError:
-                log.err("DAV:self ACE is set on non-principal resource %r"
-                        % (self,))
+                log.error("DAV:self ACE is set on non-principal resource %r"
+                          % (self,))
                 return succeed(None)
             principal = element.HRef(self.principalURL())
 
@@ -2233,9 +2233,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             else:
                 # Remove the dead property and re-read to do brute
                 # force quota calc
-                log.msg("Attempt to set quota used to a negative value: %s "
-                        "(adjustment: %s)"
-                        % (size, adjust,))
+                log.info("Attempt to set quota used to a negative value: %s "
+                         "(adjustment: %s)"
+                         % (size, adjust,))
                 self.removeDeadProperty(TwistedQuotaUsedProperty)
                 return self.currentQuotaUse(request)
 
@@ -2250,7 +2250,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     def renderHTTP(self, request):
         # FIXME: This is for testing with litmus; comment out when not in use
         #litmus = request.headers.getRawHeaders("x-litmus")
-        #if litmus: log.msg("*** Litmus test: %s ***" % (litmus,))
+        #if litmus: log.info("*** Litmus test: %s ***" % (litmus,))
 
         #
         # If this is a collection and the URI doesn't end in "/", redirect.

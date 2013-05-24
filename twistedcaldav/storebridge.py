@@ -34,7 +34,6 @@ from twext.web2.stream import ProducerStream, readStream, MemoryStream
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.internet.protocol import Protocol
 from twisted.python.hashlib import md5
-from twisted.python.log import err as logDefaultException
 from twisted.python.util import FancyEqMixin
 
 from twistedcaldav import customxml, carddavxml, caldavxml
@@ -424,7 +423,7 @@ class _CommonHomeChildCollectionMixin(object):
             msg = "illegal depth header for DELETE on collection: %s" % (
                 depth,
             )
-            log.err(msg)
+            log.error(msg)
             raise HTTPError(StatusResponse(BAD_REQUEST, msg))
         response = (yield self.storeRemove(request))
         returnValue(response)
@@ -476,7 +475,7 @@ class _CommonHomeChildCollectionMixin(object):
             try:
                 yield child.storeRemove(request)
             except:
-                logDefaultException()
+                log.failure()
                 errors.add(childurl, BAD_REQUEST)
 
         # Now do normal delete
@@ -2244,7 +2243,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         if not destination_uri:
             msg = "No destination header in MOVE request."
-            log.err(msg)
+            log.error(msg)
             raise HTTPError(StatusResponse(BAD_REQUEST, msg))
 
         destination = (yield request.locateResource(destination_uri))
@@ -2604,7 +2603,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         # Content-type check
         content_type = request.headers.getHeader("content-type")
         if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "calendar"):
-            log.err("MIME type %s not allowed in calendar collection" % (content_type,))
+            log.error("MIME type %s not allowed in calendar collection" % (content_type,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "supported-calendar-data"),
@@ -2633,7 +2632,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             try:
                 component = Component.fromString(calendardata)
             except ValueError, e:
-                log.err(str(e))
+                log.error(str(e))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "valid-calendar-data"),
@@ -2696,7 +2695,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         except Exception as err:
 
             if isinstance(err, ValueError):
-                log.err("Error while handling (calendar) PUT: %s" % (err,))
+                log.error("Error while handling (calendar) PUT: %s" % (err,))
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(err)))
             else:
                 raise
@@ -3054,7 +3053,7 @@ class AddressBookObjectResource(_CommonObjectResource):
         # Content-type check
         content_type = request.headers.getHeader("content-type")
         if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "vcard"):
-            log.err("MIME type %s not allowed in vcard collection" % (content_type,))
+            log.error("MIME type %s not allowed in vcard collection" % (content_type,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (carddav_namespace, "supported-address-data"),
@@ -3080,7 +3079,7 @@ class AddressBookObjectResource(_CommonObjectResource):
             try:
                 component = VCard.fromString(vcarddata)
             except ValueError, e:
-                log.err(str(e))
+                log.error(str(e))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (carddav_namespace, "valid-address-data"),
@@ -3145,7 +3144,7 @@ class AddressBookObjectResource(_CommonObjectResource):
         except Exception as err:
 
             if isinstance(err, ValueError):
-                log.err("Error while handling (vCard) PUT: %s" % (err,))
+                log.error("Error while handling (vCard) PUT: %s" % (err,))
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(err)))
             else:
                 raise

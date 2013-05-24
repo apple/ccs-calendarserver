@@ -54,7 +54,7 @@ class OverloadedLoggingServerProtocol (protocol.Protocol):
         self.outstandingRequests = outstandingRequests
 
     def connectionMade(self):
-        log.msg(overloaded=self)
+        log.info(overloaded=self)
 
         self.transport.write(
             "HTTP/1.0 503 Service Unavailable\r\n"
@@ -636,7 +636,7 @@ class HTTPChannelRequest(HTTPParser):
     def _cleanup(self):
         """Called when have finished responding and are no longer queued."""
         if self.producer:
-            log.err(RuntimeError("Producer was not unregistered for %s" % self))
+            log.error(RuntimeError("Producer was not unregistered for %s" % self))
             self.unregisterProducer()
         self.channel.requestWriteFinished(self)
         del self.transport
@@ -884,7 +884,7 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
             self.lingeringClose()
 
     def timeoutConnection(self):
-        #log.msg("Timing out client: %s" % str(self.transport.getPeer()))
+        #log.info("Timing out client: %s" % str(self.transport.getPeer()))
         policies.TimeoutMixin.timeoutConnection(self)
 
     def lingeringClose(self):

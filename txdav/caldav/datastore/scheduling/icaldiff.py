@@ -476,7 +476,7 @@ class iCalDiff(object):
 
         # Possible case where one ATTENDEE prop is missing - this happens with a "fake" master sometimes
         if serverAttendee is None or clientAttendee is None:
-            log.err("ATTENDEE for user making an attendee change is missing: %s" % (self.attendee,))
+            log.error("ATTENDEE for user making an attendee change is missing: %s" % (self.attendee,))
             return False, False
 
         if serverAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != clientAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION"):
@@ -667,7 +667,7 @@ class iCalDiff(object):
 
         # Possible case where ATTENDEE prop is missing - this happens with a "fake" master sometimes
         if attendee is None:
-            log.err("ATTENDEE for user making an attendee change is missing: %s" % (self.attendee,))
+            log.error("ATTENDEE for user making an attendee change is missing: %s" % (self.attendee,))
             return False
 
         partstatChanged = attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != "DECLINED"
@@ -813,4 +813,4 @@ class iCalDiff(object):
             loggedUID = "Unknown"
         loggedName = accounting.emitAccounting("Implicit Errors", loggedUID, logstr)
         if loggedName:
-            log.err("Generating Implicit Error accounting at path: %s" % (loggedName,))
+            log.error("Generating Implicit Error accounting at path: %s" % (loggedName,))

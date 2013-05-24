@@ -34,7 +34,7 @@ from calendarserver.tools.cmdline import utilityMain
 from twisted.application.service import Service
 
 
-from twext.python.log import setLogLevelForNamespace
+from twext.python.log import LogLevel, setLogLevelForNamespace
 from calendarserver.tap.caldav import CalDAVServiceMaker
 
 def usage(e=None):
@@ -199,7 +199,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         output.flush()
 
     if not options["status"]:
-        setLogLevelForNamespace(None, "debug")
+        setLogLevelForNamespace(None, LogLevel.debug)
         log.addObserver(onlyUpgradeEvents)
 
 

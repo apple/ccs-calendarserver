@@ -24,7 +24,7 @@ from getopt import getopt, GetoptError
 from grp import getgrnam
 from pwd import getpwnam
 
-from twext.python.log import setLogLevelForNamespace
+from twext.python.log import LogLevel, setLogLevelForNamespace
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
@@ -109,7 +109,7 @@ def main():
     #
     try:
         loadConfig(configFileName)
-        setLogLevelForNamespace(None, "warn")
+        setLogLevelForNamespace(None, LogLevel.warn)
 
         # Shed privileges
         if config.UserName and config.GroupName and os.getuid() == 0:

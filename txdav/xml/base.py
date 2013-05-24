@@ -372,7 +372,7 @@ class WebDAVElement (object):
                 try:
                     child.addToDOM(document, element)
                 except:
-                    log.err("Unable to add child %r of element %s to DOM" % (child, self))
+                    log.error("Unable to add child %r of element %s to DOM" % (child, self))
                     raise
 
     def childrenOfType(self, child_type):
@@ -478,7 +478,7 @@ class PCDATAElement (object):
         try:
             parent.appendChild(self.element(document))
         except TypeError:
-            log.err("Invalid PCDATA: %r" % (self.data,))
+            log.error("Invalid PCDATA: %r" % (self.data,))
             raise
 
     def _writeToStream(self, output, ns, level, pretty):

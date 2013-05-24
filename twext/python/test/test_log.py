@@ -19,19 +19,22 @@ import logging
 from twisted.python import log as twistedLogging
 
 from twext.python.log import logLevelsByNamespace, logLevelForNamespace
-from twext.python.log import setLogLevelForNamespace, clearLogLevels
-from twext.python.log import logLevels, cmpLogLevels
-from twext.python.log import pythonLogLevelForLevel, InvalidLogLevelError
+from twext.python.log import LogLevel, setLogLevelForNamespace, clearLogLevels
+from twext.python.log import pythonLogLevelMapping
 from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav.test.util import TestCase
 
+
+
 defaultLogLevel = logLevelsByNamespace[None]
+
 
 
 class TestLogger (Logger):
     def __init__(self, namespace=None):
         super(TestLogger, self).__init__(namespace)
+
 
     def emit(self, level, message, **kwargs):
         def observer(eventDict):
@@ -49,30 +52,23 @@ class TestLogger (Logger):
             "kwargs" : kwargs,
         }
 
+
+
 class LoggingEnabledObject (LoggingMixIn):
     pass
+
+
 
 class Logging (TestCase):
     def setUp(self):
         super(Logging, self).setUp()
         clearLogLevels()
 
+
     def tearDown(self):
         super(Logging, self).tearDown()
         clearLogLevels()
 
-    def test_cmpLogLevels(self):
-        self.assertEquals(cmpLogLevels("info" , "error"), -1)
-        self.assertEquals(cmpLogLevels("debug", "debug"),  0)
-        self.assertEquals(cmpLogLevels("warn" , "debug"),  1)
-
-    def test_pythonLogLevel(self):
-        self.assertEquals(pythonLogLevelForLevel("debug"), logging.DEBUG)
-        self.assertEquals(pythonLogLevelForLevel("info"), logging.INFO)
-        self.assertEquals(pythonLogLevelForLevel("warn"), logging.WARNING)
-        self.assertEquals(pythonLogLevelForLevel("error"), logging.ERROR)
-        #self.assertEquals(pythonLogLevelForLevel("critical"), logging.CRITICAL)
-        self.assertRaises(InvalidLogLevelError, pythonLogLevelForLevel, "-not-a-log-level-")
 
     def test_namespace_default(self):
         """
@@ -81,6 +77,7 @@ class Logging (TestCase):
         log = Logger()
         self.assertEquals(log.namespace, __name__)
 
+
     def test_namespace_mixin(self):
         """
         Default namespace for classes using L{LoggingMixIn} is the class name.
@@ -88,16 +85,17 @@ class Logging (TestCase):
         object = LoggingEnabledObject()
         self.assertEquals(object.logger.namespace, "twext.python.test.test_log.LoggingEnabledObject")
 
+
     def test_basic_Logger(self):
         """
         Test that log levels and messages are emitted correctly for
         Logger.
         """
-        for level in logLevels:
-            message = "This is a %s message" % (level,)
+        for level in LogLevel.iterconstants():
+            message = "This is a %s message" % (level.name,)
 
             log = TestLogger()
-            method = getattr(log, level)
+            method = getattr(log, level.name)
             method(message, junk=message)
 
             # Ensure that test_emit got called with expected arguments
@@ -107,7 +105,7 @@ class Logging (TestCase):
 
             if log.willLogAtLevel(level):
                 self.assertEquals(log.eventDict["level"], level)
-                self.assertEquals(log.eventDict["logLevel"], pythonLogLevelForLevel(level))
+                self.assertEquals(log.eventDict["logLevel"], pythonLogLevelMapping[level])
                 self.assertEquals(log.eventDict["junk"], message)
 
                 # FIXME: this checks the end of message because we do formatting in emit()
@@ -118,18 +116,19 @@ class Logging (TestCase):
             else:
                 self.assertFalse(hasattr(log, "eventDict"))
 
+
     def test_basic_LoggingMixIn(self):
         """
         Test that log levels and messages are emitted correctly for
         LoggingMixIn.
         """
-        for level in logLevels:
-            message = "This is a %s message" % (level,)
+        for level in LogLevel.iterconstants():
+            message = "This is a %s message" % (level.name,)
 
             object = LoggingEnabledObject()
             object.logger = TestLogger()
 
-            method = getattr(object, "log_" + level)
+            method = getattr(object, "log_" + level.name)
             method(message, junk=message)
 
             # Ensure that test_emit got called with expected arguments
@@ -139,7 +138,7 @@ class Logging (TestCase):
 
             if object.logger.willLogAtLevel(level):
                 self.assertEquals(object.logger.eventDict["level"], level)
-                self.assertEquals(object.logger.eventDict["logLevel"], pythonLogLevelForLevel(level))
+                self.assertEquals(object.logger.eventDict["logLevel"], pythonLogLevelMapping[level])
                 self.assertEquals(object.logger.eventDict["junk"], message)
 
                 # FIXME: this checks the end of message because we do formatting in emit()
@@ -149,6 +148,7 @@ class Logging (TestCase):
                 )
             else:
                 self.assertFalse(hasattr(object.logger, "eventDict"))
+
 
     def test_conflicting_kwargs(self):
         """
@@ -160,39 +160,43 @@ class Logging (TestCase):
         self.assertEquals(log.eventDict["logLevel"], logging.ERROR)
         self.assertEquals(log.eventDict["namespace"], log.namespace)
 
+
     def test_defaultLogLevel(self):
         """
         Default log level is used.
         """
         self.failUnless(logLevelForNamespace("rocker.cool.namespace"), defaultLogLevel)
 
+
     def test_logLevel(self):
         """
         Setting and retrieving log levels.
         """
-        setLogLevelForNamespace("twext.web2", "debug")
-        setLogLevelForNamespace("twext.web2.dav", "error")
+        setLogLevelForNamespace("twext.web2", LogLevel.debug)
+        setLogLevelForNamespace("twext.web2.dav", LogLevel.error)
 
-        self.assertEquals(logLevelForNamespace("twisted"                     ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2"                ), "debug")
-        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), "error")
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), "error")
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), "error")
+        self.assertEquals(logLevelForNamespace("twisted"                   ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2"                ), LogLevel.debug)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), LogLevel.error)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), LogLevel.error)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), LogLevel.error)
+
 
     def test_clearLogLevel(self):
         """
         Clearing log levels.
         """
-        setLogLevelForNamespace("twext.web2", "debug")
-        setLogLevelForNamespace("twext.web2.dav", "error")
+        setLogLevelForNamespace("twext.web2", LogLevel.debug)
+        setLogLevelForNamespace("twext.web2.dav", LogLevel.error)
 
         clearLogLevels()
 
-        self.assertEquals(logLevelForNamespace("twisted"                     ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twisted"                   ), defaultLogLevel)
         self.assertEquals(logLevelForNamespace("twext.web2"                ), defaultLogLevel)
         self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), defaultLogLevel)
         self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), defaultLogLevel)
         self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), defaultLogLevel)
+
 
     def test_willLogAtLevel(self):
         """
@@ -200,11 +204,12 @@ class Logging (TestCase):
         """
         log = Logger()
 
-        for level in logLevels:
-            if cmpLogLevels(level, log.level()) < 0:
-                self.assertFalse(log.willLogAtLevel(level))
+        for level in LogLevel.iterconstants():
+            if level < log.level():
+                self.assertFalse(log.willLogAtLevel(level), (level, log.level()))
             else:
-                self.assertTrue(log.willLogAtLevel(level))
+                self.assertTrue(log.willLogAtLevel(level), (level, log.level()))
+
 
     def test_logMethodTruthiness_Logger(self):
         """
@@ -213,12 +218,13 @@ class Logging (TestCase):
         """
         log = Logger()
 
-        for level in logLevels:
-            enabled = getattr(log, level + "_enabled")
+        for level in LogLevel.iterconstants():
+            enabled = getattr(log, level.name + "_enabled")
             if enabled:
                 self.assertTrue(log.willLogAtLevel(level))
             else:
                 self.assertFalse(log.willLogAtLevel(level))
+
 
     def test_logMethodTruthiness_LoggingMixIn(self):
         """
@@ -227,8 +233,8 @@ class Logging (TestCase):
         """
         object = LoggingEnabledObject()
 
-        for level in logLevels:
-            enabled = getattr(object, "log_" + level + "_enabled")
+        for level in LogLevel.iterconstants():
+            enabled = getattr(object, "log_" + level.name + "_enabled")
             if enabled:
                 self.assertTrue(object.logger.willLogAtLevel(level))
             else:

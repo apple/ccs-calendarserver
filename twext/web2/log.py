@@ -94,7 +94,7 @@ def logFilter(request, response, startTime=None):
         if length:        
             request.timeStamp("t-resp-wr")
         log.msg(interface=iweb.IRequest, request=request, response=response,
-                 loginfo=loginfo)
+                loginfo=loginfo)
         # Or just...
         # ILogger(ctx).log(...) ?
 

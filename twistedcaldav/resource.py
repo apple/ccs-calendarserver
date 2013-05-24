@@ -1370,7 +1370,7 @@ class CalDAVResource (
 
         # newStore guarantees that we always have a parent calendar home
         #if not self.fp.parent().isdir():
-        #    log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
+        #    log.error("Attempt to create collection with no parent: %s" % (self.fp.path,))
         #    raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
@@ -1466,7 +1466,7 @@ class CalDAVResource (
 
         # newStore guarantees that we always have a parent calendar home
         #if not os.path.isdir(os.path.dirname(self.fp.path)):
-        #    log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
+        #    log.error("Attempt to create collection with no parent: %s" % (self.fp.path,))
         #    raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #

@@ -26,7 +26,7 @@ from twext.web2.dav.resource import TwistedACLInheritable
 
 from twext.python.plistlib import PlistParser #@UnresolvedImport
 from twext.python.log import Logger, InvalidLogLevelError
-from twext.python.log import clearLogLevels, setLogLevelForNamespace
+from twext.python.log import clearLogLevels, LogLevel, setLogLevelForNamespace
 
 from twistedcaldav import caldavxml, customxml, carddavxml, mkcolxml
 from twistedcaldav.config import ConfigProvider, ConfigurationError, ConfigDict
@@ -1046,7 +1046,7 @@ class PListConfigProvider(ConfigProvider):
         try:
             configDict = parser.parse(open(filename))
         except (IOError, OSError):
-            log.err("Configuration file does not exist or is inaccessible: %s" % (filename,))
+            log.error("Configuration file does not exist or is inaccessible: %s" % (filename,))
             raise ConfigurationError("Configuration file does not exist or is inaccessible: %s" % (filename,))
         else:
             configDict = _cleanup(configDict, self._defaults)
@@ -1388,13 +1388,13 @@ def _updateLogLevels(configDict, reloading=False):
 
     try:
         if "DefaultLogLevel" in configDict:
-            level = configDict["DefaultLogLevel"]
-            if level:
-                setLogLevelForNamespace(None, level)
+            levelName = configDict["DefaultLogLevel"]
+            if levelName:
+                setLogLevelForNamespace(None, LogLevel.levelWithName(levelName))
 
         if "LogLevels" in configDict:
-            for namespace in configDict["LogLevels"]:
-                setLogLevelForNamespace(namespace, configDict["LogLevels"][namespace])
+            for namespace, levelName in configDict["LogLevels"].iteritems():
+                setLogLevelForNamespace(namespace, LogLevel.levelWithName(levelName))
 
     except InvalidLogLevelError, e:
         raise ConfigurationError("Invalid log level: %s" % (e.level))
@@ -1579,12 +1579,12 @@ def _cleanup(configDict, defaultDict):
         if config_key in os.environ and os.environ[config_key] == config_key_value:
             pass
         else:
-            log.err("Ignoring unknown configuration option: %r" % (key,))
+            log.error("Ignoring unknown configuration option: %r" % (key,))
             del cleanDict[key]
 
 
     def deprecated(oldKey, newKey):
-        log.err("Configuration option %r is deprecated in favor of %r." % (oldKey, newKey))
+        log.error("Configuration option %r is deprecated in favor of %r." % (oldKey, newKey))
         if oldKey in configDict and newKey in configDict:
             raise ConfigurationError(
                 "Both %r and %r options are specified; use the %r option only."

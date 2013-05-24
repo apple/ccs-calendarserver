@@ -78,7 +78,7 @@ class InheritedTCPPort(MaxAcceptTCPPort):
         return self.socket
 
     def startListening(self):
-        log.msg("%s starting on %s" % (self.factory.__class__, self._realPortNumber))
+        log.info("%s starting on %s" % (self.factory.__class__, self._realPortNumber))
         self.factory.doStart()
         self.connected = 1
         self.fileno = self.socket.fileno

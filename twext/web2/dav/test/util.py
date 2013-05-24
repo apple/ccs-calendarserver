@@ -214,7 +214,7 @@ class TestCase (unittest.TestCase):
 
     def _getDocumentRoot(self):
         if not hasattr(self, "_docroot"):
-            log.msg("Setting up docroot for %s" % (self.__class__,))
+            log.info("Setting up docroot for %s" % (self.__class__,))
 
             self._docroot = self.createDocumentRoot()
 
@@ -271,7 +271,7 @@ class TestCase (unittest.TestCase):
         @return: asynchronously return a response object or L{None}
         @rtype: L{Deferred} firing L{Response} or L{None}
         """
-        log.msg("Sending %s request for URI %s" % (request.method, request.uri))
+        log.info("Sending %s request for URI %s" % (request.method, request.uri))
 
         d = request.locateResource(request.uri)
         d.addCallback(lambda resource: resource.renderHTTP(request))

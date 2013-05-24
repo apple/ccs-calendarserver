@@ -56,7 +56,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
     if not self.isCollection():
         parent = (yield self.locateParent(request, request.uri))
         if not parent.isAddressBookCollection():
-            log.err("addressbook-query report is not allowed on a resource outside of an address book collection %s" % (self,))
+            log.error("addressbook-query report is not allowed on a resource outside of an address book collection %s" % (self,))
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be address book collection or address book resource"))
 
     responses = []
@@ -82,7 +82,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
         # Verify that any address-data element matches what we can handle
         result, message, generate_address_data = report_common.validPropertyListAddressDataTypeVersion(query)
         if not result:
-            log.err(message)
+            log.error(message)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (carddav_namespace, "supported-address-data"),
@@ -94,7 +94,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
 
     # Verify that the filter element is valid
     if (filter is None) or not filter.valid():
-        log.err("Invalid filter element: %r" % (filter,))
+        log.error("Invalid filter element: %r" % (filter,))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             (carddav_namespace, "valid-filter"),
@@ -153,7 +153,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                     # of one of these resources in another request.  In this
                     # case, we ignore the now missing resource rather
                     # than raise an error for the entire report.
-                    log.err("Missing resource during sync: %s" % (href,))
+                    log.error("Missing resource during sync: %s" % (href,))
 
 
         @inlineCallbacks
@@ -177,7 +177,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                         # of one of these resources in another request.  In this
                         # case, we ignore the now missing resource rather
                         # than raise an error for the entire report.
-                        log.err("Missing resource during sync: %s" % (vCardRecord.hRef(),))
+                        log.error("Missing resource during sync: %s" % (vCardRecord.hRef(),))
 
         directoryAddressBookLock = None
         try:

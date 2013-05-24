@@ -56,7 +56,7 @@ def report_DAV__acl_principal_prop_set(self, request, acl_prinicpal_prop_set):
     # Depth must be "0"
     depth = request.headers.getHeader("depth", "0")
     if depth != "0":
-        log.err("Error in prinicpal-prop-set REPORT, Depth set to %s" % (depth,))
+        log.error("Error in prinicpal-prop-set REPORT, Depth set to %s" % (depth,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
     
     #
@@ -72,7 +72,7 @@ def report_DAV__acl_principal_prop_set(self, request, acl_prinicpal_prop_set):
     for child in acl_prinicpal_prop_set.children:
         if child.qname() == ("DAV:", "prop"):
             if propertiesForResource is not None:
-                log.err("Only one DAV:prop element allowed")
+                log.error("Only one DAV:prop element allowed")
                 raise HTTPError(StatusResponse(
                     responsecode.BAD_REQUEST,
                     "Only one DAV:prop element allowed"
@@ -81,7 +81,7 @@ def report_DAV__acl_principal_prop_set(self, request, acl_prinicpal_prop_set):
             propElement = child
 
     if propertiesForResource is None:
-        log.err("Error in acl-principal-prop-set REPORT, no DAV:prop element")
+        log.error("Error in acl-principal-prop-set REPORT, no DAV:prop element")
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "No DAV:prop element"))
 
     # Enumerate principals on ACL in current resource
@@ -137,14 +137,14 @@ def report_DAV__acl_principal_prop_set(self, request, acl_prinicpal_prop_set):
                     yield d
                     d.getResult()
             else:
-                log.err("Requested principal resource not found: %s" % (str(principal),))
+                log.error("Requested principal resource not found: %s" % (str(principal),))
                 responses.append(davxml.StatusResponse(
                     principal,
                     davxml.Status.fromResponseCode(responsecode.NOT_FOUND)
                 ))
 
     except NumberOfMatchesWithinLimits:
-        log.err("Too many matching components")
+        log.error("Too many matching components")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             davxml.NumberOfMatchesWithinLimits()

@@ -26,17 +26,24 @@ and compares that to the results of a migration to an SQL store. Items
 not migrated are logged.
 """
 
-from calendarserver.tools.cmdline import utilityMain
-from twisted.application.service import Service
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python import log
-from twisted.python.text import wordWrap
-from twisted.python.usage import Options
-from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 import os
 import sys
 
+from twisted.application.service import Service
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.text import wordWrap
+from twisted.python.usage import Options
+
+from twext.python.log import Logger
+from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+
+from calendarserver.tools.cmdline import utilityMain
+
+log = Logger()
+
 VERSION = "1"
+
+
 
 def usage(e=None):
     if e:
@@ -156,7 +163,7 @@ class MigrateVerifyService(Service, object):
         except ConfigError:
             pass
         except:
-            log.err()
+            log.failure()
 
         self.reactor.stop()
 

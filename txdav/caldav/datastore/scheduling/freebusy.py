@@ -298,7 +298,7 @@ def generateFreeBusyInfo(
             # between our initial index query and getting here. For now we will ignore this error, but in
             # the longer term we need to implement some form of locking, perhaps.
             if calendar is None:
-                log.err("Calendar %s is missing from calendar collection %r" % (name, calresource))
+                log.error("Calendar %s is missing from calendar collection %r" % (name, calresource))
                 continue
 
             # Ignore ones of this UID

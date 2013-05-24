@@ -1851,7 +1851,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         try:
             component = PerUserDataFilter(accessUID).merge(component.duplicate(), oldCal)
         except ValueError:
-            log.err("Invalid per-user data merge")
+            log.error("Invalid per-user data merge")
             raise InvalidPerUserDataMerge("Cannot merge per-user data")
 
         returnValue(component)
@@ -1986,7 +1986,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                 else:
                     msg = "Invalid return status code from ImplicitScheduler: %s" % (implicit_result,)
-                    log.err(msg)
+                    log.error(msg)
                     raise InvalidObjectResourceError(msg)
             else:
                 self.isScheduleObject, new_component, did_implicit_action = implicit_result

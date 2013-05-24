@@ -240,7 +240,7 @@ class ImplicitScheduler(object):
         # to create new scheduling resources.
         if self.action == "create":
             if self.organizerPrincipal and not self.organizerPrincipal.enabledAsOrganizer():
-                log.err("ORGANIZER not allowed to be an Organizer: %s" % (self.organizer,))
+                log.error("ORGANIZER not allowed to be an Organizer: %s" % (self.organizer,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "organizer-allowed"),

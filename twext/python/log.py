@@ -29,7 +29,7 @@ Or in a class:
 
     from twext.python.log import LoggingMixIn
 
-    class Foo (LoggingMixIn):
+    class Foo(LoggingMixIn):
         def oops(self):
             self.log_error("Oops!")
 
@@ -44,10 +44,20 @@ In the first example above, the namespace would be C{some.module}, and in the
 second example, it would be C{some.module.Foo}.
 """
 
+#
+# TODO List:
+#
+# * Add methods for handling failures, exceptions
+#
+# * TwistedCompatibleLogger.err is setting isError=0 until we fix our callers
+#
+# * Get rid of LoggingMixIn
+#
+# * Replace method argument with format argument
+#
+
 __all__ = [
-    "logLevels",
-    "cmpLogLevels",
-    "pythonLogLevelForLevel",
+    "LogLevel",
     "logLevelForNamespace",
     "setLogLevelForNamespace",
     "clearLogLevels",
@@ -63,6 +73,7 @@ from sys import stdout, stderr
 import inspect
 import logging
 
+from twisted.python.constants import NamedConstant, Names
 from twisted.python.failure import Failure
 from twisted.python.reflect import safe_str
 from twisted.python.log import msg as twistedLogMessage
@@ -70,26 +81,18 @@ from twisted.python.log import addObserver, removeObserver
 
 
 
-logLevels = (
-    "debug",
-    "info",
-    "warn",
-    "error",
-)
+class LogLevel(Names):
+    debug = NamedConstant()
+    info  = NamedConstant()
+    warn  = NamedConstant()
+    error = NamedConstant()
 
-
-logLevelIndexes = dict(zip(logLevels, xrange(0, len(logLevels))))
-
-
-def cmpLogLevels(a, b):
-    """
-    Compare two log levels.
-    @param a: a log level
-    @param b: a log level
-    @return: a negative integer if C{a < b}, C{0} if C{a == b}, or a
-        positive integer if C{a > b}.
-    """
-    return cmp(logLevelIndexes[a], logLevelIndexes[b])
+    @classmethod
+    def levelWithName(cls, name):
+        try:
+            return cls.lookupByName(name)
+        except ValueError:
+            raise InvalidLogLevelError(name)
 
 
 
@@ -97,33 +100,12 @@ def cmpLogLevels(a, b):
 # Mappings to Python's logging module
 #
 pythonLogLevelMapping = {
-    "debug"   : logging.DEBUG,
-    "info"    : logging.INFO,
-    "warn"    : logging.WARNING,
-    "error"   : logging.ERROR,
-   #"critical": logging.CRITICAL,
+    LogLevel.debug   : logging.DEBUG,
+    LogLevel.info    : logging.INFO,
+    LogLevel.warn    : logging.WARNING,
+    LogLevel.error   : logging.ERROR,
+   #LogLevel.critical: logging.CRITICAL,
 }
-
-
-def pythonLogLevelForLevel(level):
-    """
-    @param: a log level
-    @return: a L{logging} module log level
-    """
-    if level in pythonLogLevelMapping:
-        return pythonLogLevelMapping[level]
-
-    raise InvalidLogLevelError(level)
-
-#    #
-#    # In case we add log levels that don't map to python logging levels:
-#    #
-#    for l in logLevels:
-#        print("Trying %s: %s, %s" % (l, l in pythonLogLevelMapping, cmpLogLevels(level, l) <= 0))
-#        if l in pythonLogLevelMapping and cmpLogLevels(level, l) <= 0:
-#            return pythonLogLevelMapping[l]
-#
-#    return logging.CRITICAL
 
 
 
@@ -161,7 +143,7 @@ def setLogLevelForNamespace(namespace, level):
     @param namespace: a logging namespace
     @param level: the log level for the given namespace.
     """
-    if level not in logLevels:
+    if level not in LogLevel.iterconstants():
         raise InvalidLogLevelError(level)
 
     if namespace:
@@ -175,7 +157,7 @@ def clearLogLevels():
     Clears all log levels to the default.
     """
     logLevelsByNamespace.clear()
-    logLevelsByNamespace[None] = "warn"  # Default log level
+    logLevelsByNamespace[None] = LogLevel.warn  # Default log level
 
 
 logLevelsByNamespace = {}
@@ -187,7 +169,7 @@ clearLogLevels()
 # Loggers
 ##
 
-class Logger (object):
+class Logger(object):
     """
     Logging object.
     """
@@ -216,23 +198,28 @@ class Logger (object):
         """
         Called internally to emit log messages at a given log level.
         """
-        assert level in logLevels, "Unknown log level: %r" % (level,)
-
-        logLevel = pythonLogLevelForLevel(level)
+        assert level in LogLevel.iterconstants(), "Unknown log level: %r" % (level,)
 
         # FIXME: Filtering should be done by the log observer(s)
         if not self.willLogAtLevel(level):
             return
 
         kwargs["level"] = level
-        kwargs["logLevel"] = logLevel
+        kwargs["levelName"] = level.name
         kwargs["namespace"] = self.namespace
+
+        #
+        # Twisted's logging supports indicating a python log level, so let's
+        # use the equivalent to our logging level.
+        #
+        if level in pythonLogLevelMapping:
+            kwargs["logLevel"] = pythonLogLevelMapping[level]
 
         if message:
             kwargs["legacyMessage"] = message
             kwargs["format"] = "%(legacyMessage)s"
 
-        prefix = "[%(namespace)s#%(level)s] "
+        prefix = "[%(namespace)s#%(levelName)s] "
 
         if "failure" in kwargs:
             # Handle unfortunate logic in twisted.log.textFromEventDict()
@@ -246,6 +233,16 @@ class Logger (object):
             kwargs["format"] = "%s%s" % (prefix, kwargs["format"])
 
         twistedLogMessage(**kwargs)
+
+
+    def failure(self, failure=None, **kwargs):
+        """
+        Log a Failure.
+        """
+        if failure is None:
+            failure=Failure()
+
+        self.emit(LogLevel.error, failure=failure, isError=1, **kwargs)
 
 
     def level(self):
@@ -269,15 +266,17 @@ class Logger (object):
         @return: C{True} if this logger will log at the given logging
             level.
         """
-        return cmpLogLevels(self.level(), level) <= 0
+        return self.level() <= level
 
 
+
+class TwistedCompatibleLogger(Logger):
     def msg(self, *message, **kwargs):
         if message:
             message = " ".join(map(safe_str, message))
         else:
             message = None
-        return self.emit("info", message, **kwargs)
+        return self.emit(LogLevel.info, message, **kwargs)
 
 
     def err(self, _stuff=None, _why=None, **kwargs):
@@ -290,14 +289,14 @@ class Logger (object):
         # existing bugs, should be =1.
 
         if isinstance(_stuff, Failure):
-            self.emit("error", failure=_stuff, why=_why, isError=0, **kwargs)
+            self.emit(LogLevel.error, failure=_stuff, why=_why, isError=0, **kwargs)
         else:
             # We got called with an invalid _stuff.
-            self.emit("error", repr(_stuff), why=_why, isError=0, **kwargs)
+            self.emit(LogLevel.error, repr(_stuff), why=_why, isError=0, **kwargs)
 
 
 
-class LoggingMixIn (object):
+class LoggingMixIn(object):
     """
     Mix-in class for logging methods.
     """
@@ -331,7 +330,7 @@ def bindEmit(level):
     #
     # Attach methods to Logger
     #
-    def log_emit(self, message, raiseException=None, **kwargs):
+    def log_emit(self, message=None, raiseException=None, **kwargs):
         self.emit(level, message, **kwargs)
         if raiseException:
             raise raiseException(message)
@@ -341,13 +340,13 @@ def bindEmit(level):
 
     log_emit.__doc__ = doc
 
-    setattr(Logger, level, log_emit)
-    setattr(Logger, level + "_enabled", property(will_emit))
+    setattr(Logger, level.name, log_emit)
+    setattr(Logger, level.name + "_enabled", property(will_emit))
 
     #
     # Attach methods to LoggingMixIn
     #
-    def log_emit(self, message, raiseException=None, **kwargs):
+    def log_emit(self, message=None, raiseException=None, **kwargs):
         self.logger.emit(level, message, **kwargs)
         if raiseException:
             raise raiseException(message)
@@ -358,11 +357,11 @@ def bindEmit(level):
     log_emit.__doc__ = doc
     log_emit.enabled = will_emit
 
-    setattr(LoggingMixIn, "log_" + level, log_emit)
-    setattr(LoggingMixIn, "log_" + level + "_enabled", property(will_emit))
+    setattr(LoggingMixIn, "log_" + level.name, log_emit)
+    setattr(LoggingMixIn, "log_" + level.name + "_enabled", property(will_emit))
 
 
-for level in logLevels: 
+for level in LogLevel.iterconstants(): 
     bindEmit(level)
 del level
 
@@ -371,7 +370,7 @@ del level
 # Errors
 ##
 
-class InvalidLogLevelError (RuntimeError):
+class InvalidLogLevelError(RuntimeError):
     def __init__(self, level):
         super(InvalidLogLevelError, self).__init__(str(level))
         self.level = level
@@ -382,7 +381,7 @@ class InvalidLogLevelError (RuntimeError):
 # Observers
 ##
 
-class StandardIOObserver (object):
+class StandardIOObserver(object):
     """
     Log observer that writes to standard I/O.
     """

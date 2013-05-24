@@ -83,7 +83,7 @@ def davXMLFromStream(stream):
             doc.root_element.validate()
             return doc
         except ValueError:
-            log.err("Bad XML:\n%s" % (xml,))
+            log.error("Bad XML:\n%s" % (xml,))
             raise
     return allDataFromStream(stream, parse)
 
@@ -193,7 +193,7 @@ def bindMethods(module, clazz, prefixes=("preconditions_", "http_", "report_")):
         try:
             __import__(module.__name__ + "." + submodule_name)
         except ImportError:
-            log.err("Unable to import module %s" % (module.__name__ + "." + submodule_name,))
+            log.error("Unable to import module %s" % (module.__name__ + "." + submodule_name,))
             Failure().raiseException()
         submodule = getattr(module, submodule_name)
         for method_name in submodule.__all__:

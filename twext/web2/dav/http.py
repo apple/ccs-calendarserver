@@ -174,7 +174,7 @@ class ResponseQueue (object):
             raise AssertionError("Unknown data type: %r" % (what,))
 
         if code > 400: # Error codes only
-            log.err("Error during %s for %s: %s" % (self.method, path, message))
+            log.error("Error during %s for %s: %s" % (self.method, path, message))
 
         uri = path[self.path_basename_len:]
 
@@ -238,7 +238,7 @@ class PropertyStatusResponseQueue (object):
             property = element.WebDAVUnknownElement.withName(property.namespace, property.name)
 
         if code > 400: # Error codes only
-            log.err("Error during %s for %s: %s" % (self.method, property, message))
+            log.error("Error during %s for %s: %s" % (self.method, property, message))
 
         children = []
         children.append(element.PropertyContainer(property))

@@ -261,7 +261,7 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         try:
             inbox = (yield request.locateResource(inboxURL))
         except:
-            log.err("No schedule inbox for principal: %s" % (principal,))
+            log.error("No schedule inbox for principal: %s" % (principal,))
             inbox = None
         if inbox is None:
             raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, "No schedule inbox for principal: %s" % (principal,)))

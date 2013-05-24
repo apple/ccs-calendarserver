@@ -20,10 +20,12 @@ import cPickle
 
 from twisted.internet.defer import succeed, maybeDeferred
 
-from txdav.xml import element as davxml
+from twext.python.log import LogLevel
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.stream import MemoryStream
 from twext.web2.http_headers import Headers
+
+from txdav.xml import element as davxml
 
 from twistedcaldav.cache import MemcacheResponseCache
 from twistedcaldav.cache import MemcacheChangeNotifier
@@ -386,7 +388,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
 
         memcacheStub = InMemoryMemcacheProtocol()
         self.rc = MemcacheResponseCache(None, cachePool=memcacheStub)
-        self.rc.logger.setLevel('debug')
+        self.rc.logger.setLevel(LogLevel.debug)
         self.tokens = {}
 
         self.tokens['/calendars/__uids__/cdaboo/'] = 'uriToken0'

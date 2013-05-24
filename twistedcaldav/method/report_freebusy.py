@@ -45,7 +45,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     (CalDAV-access-09, section 7.8)
     """
     if not self.isCollection():
-        log.err("freebusy report is only allowed on collection resources %s" % (self,))
+        log.error("freebusy report is only allowed on collection resources %s" % (self,))
         raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Not a calendar collection"))
 
     if freebusy.qname() != (caldavxml.caldav_namespace, "free-busy-query"):
@@ -81,7 +81,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
         depth = request.headers.getHeader("depth", "0")
         yield report_common.applyToCalendarCollections(self, request, request.uri, depth, generateFreeBusyInfo, (caldavxml.ReadFreeBusy(),))
     except NumberOfMatchesWithinLimits:
-        log.err("Too many matching components in free-busy report")
+        log.error("Too many matching components in free-busy report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             davxml.NumberOfMatchesWithinLimits(),

@@ -63,7 +63,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 #                gid = grp.getgrnam(config.GroupName)[2]
 #                os.chown(path, uid, gid)
 # 
-#            log.msg("Created %s" % (path,))
+#            log.info("Created %s" % (path,))
 #            
 #        except (OSError,), e:
 #            # this is caused by multiprocessor race and is harmless

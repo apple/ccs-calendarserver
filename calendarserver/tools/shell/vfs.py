@@ -41,9 +41,10 @@ __all__ = [
 from cStringIO import StringIO
 from time import strftime, localtime
 
-from twisted.python import log
 from twisted.internet.defer import succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
+
+from twext.python.log import Logger
 
 from txdav.common.icommondatastore import NotFoundError
 
@@ -51,6 +52,9 @@ from twistedcaldav.ical import InvalidICalendarDataError
 
 from calendarserver.tools.tables import Table
 from calendarserver.tools.shell.directory import recordInfo
+
+log = Logger()
+
 
 
 class ListEntry(object):
@@ -645,7 +649,7 @@ class CalendarObject(File):
                 self.mainComponent = mainComponent
 
             except InvalidICalendarDataError, e:
-                log.err("%s: %s" % (self.path, e))
+                log.error("%s: %s" % (self.path, e))
 
                 self.componentType = "?"
                 self.summary = "** Invalid data **"

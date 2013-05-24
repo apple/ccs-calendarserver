@@ -107,7 +107,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         # Only handle Depth: 0
         depth = request.headers.getHeader("depth", "0")
         if depth != "0":
-            log.err("Error in principal-property-search REPORT, Depth set to %s" % (depth,))
+            log.error("Error in principal-property-search REPORT, Depth set to %s" % (depth,))
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
 
         # Get any limit value from xml
@@ -236,8 +236,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
         if resultsWereLimited is not None:
             if resultsWereLimited[0] == "server":
-                log.err("Too many matching resources in "
-                        "principal-property-search report")
+                log.error("Too many matching resources in principal-property-search report")
             responses.append(element.StatusResponse(
                 element.HRef.fromString(request.uri),
                 element.Status.fromResponseCode(
@@ -269,7 +268,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         # Only handle Depth: 0
         depth = request.headers.getHeader("depth", "0")
         if depth != "0":
-            log.err("Error in calendarserver-principal-search REPORT, Depth set to %s" % (depth,))
+            log.error("Error in calendarserver-principal-search REPORT, Depth set to %s" % (depth,))
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
 
         tokens, context, applyTo, clientLimit, propElement = extractCalendarServerPrincipalSearchData(calendarserver_principal_search)
@@ -324,8 +323,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
         if resultsWereLimited is not None:
             if resultsWereLimited[0] == "server":
-                log.err("Too many matching resources in "
-                        "calendarserver-principal-search report")
+                log.error("Too many matching resources in calendarserver-principal-search report")
             responses.append(element.StatusResponse(
                 element.HRef.fromString(request.uri),
                 element.Status.fromResponseCode(
@@ -418,9 +416,9 @@ class DirectoryElement(Element):
                 f.trap(HTTPError)
                 code = f.value.response.code
                 if code == responsecode.NOT_FOUND:
-                    log.err("Property %s was returned by listProperties() "
-                            "but does not exist for resource %s."
-                            % (name, self.resource))
+                    log.error("Property %s was returned by listProperties() "
+                              "but does not exist for resource %s."
+                              % (name, self.resource))
                     return (name, None)
                 if code == responsecode.UNAUTHORIZED:
                     return (name, accessDeniedValue)

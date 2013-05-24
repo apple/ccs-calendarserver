@@ -15,7 +15,7 @@
 ##
 
 from twext.python.plistlib import writePlist #@UnresolvedImport
-from twext.python.log import logLevelForNamespace
+from twext.python.log import LogLevel, logLevelForNamespace
 
 from twistedcaldav.config import config, ConfigDict, mergeData
 from twistedcaldav.resource import CalDAVResource
@@ -331,19 +331,19 @@ class ConfigTests(TestCase):
         config.setDefaults(DEFAULT_CONFIG)
         config.reload()
 
-        self.assertEquals(logLevelForNamespace(None), "warn")
-        self.assertEquals(logLevelForNamespace("some.namespace"), "warn")
+        self.assertEquals(logLevelForNamespace(None), LogLevel.warn)
+        self.assertEquals(logLevelForNamespace("some.namespace"), LogLevel.warn)
 
         config.load(self.testConfig)
 
-        self.assertEquals(logLevelForNamespace(None), "info")
-        self.assertEquals(logLevelForNamespace("some.namespace"), "debug")
+        self.assertEquals(logLevelForNamespace(None), LogLevel.info)
+        self.assertEquals(logLevelForNamespace("some.namespace"), LogLevel.debug)
 
         writePlist({}, self.testConfig)
         config.reload()
 
-        self.assertEquals(logLevelForNamespace(None), "warn")
-        self.assertEquals(logLevelForNamespace("some.namespace"), "warn")
+        self.assertEquals(logLevelForNamespace(None), LogLevel.warn)
+        self.assertEquals(logLevelForNamespace("some.namespace"), LogLevel.warn)
 
 
     def test_ConfigDict(self):

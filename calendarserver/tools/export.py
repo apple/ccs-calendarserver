@@ -41,14 +41,17 @@ import itertools
 
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
-from twisted.python import log
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.application.service import Service
 
+from twext.python.log import Logger
 from twistedcaldav.ical import Component
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from calendarserver.tools.cmdline import utilityMain
-from twisted.application.service import Service
+
+log = Logger()
+
 
 
 def usage(e=None):
@@ -323,7 +326,7 @@ class ExporterService(Service, object):
             # update stuff needed to happen, don't want to undo it.
             self.output.close()
         except:
-            log.err()
+            log.failure()
 
         self.reactor.stop()
 

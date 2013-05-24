@@ -201,7 +201,7 @@ class ConnectionLimiter(MultiService, object):
                 # newConnectionStatus)
                 result = self.intWithNoneAsZero(previousStatus) - 1
                 if result < 0:
-                    log.err("metafd: trying to decrement status below zero")
+                    log.error("metafd: trying to decrement status below zero")
                     result = 0
             else:
                 # A new process just started accepting new connections; zero
@@ -210,7 +210,7 @@ class ConnectionLimiter(MultiService, object):
                 if previousStatus is None:
                     result = 0
                 else:
-                    log.err("metafd: trying to zero status that is not None")
+                    log.error("metafd: trying to zero status that is not None")
                     result = previousStatus
 
             # If load has indeed decreased (i.e. in any case except 'a new,

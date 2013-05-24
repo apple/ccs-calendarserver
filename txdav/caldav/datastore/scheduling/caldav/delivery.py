@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.python.log import Logger
+from twext.python.log import Logger, LogLevel
 from twext.web2.dav.http import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
@@ -136,8 +136,8 @@ class ScheduleViaCalDAV(DeliveryService):
                 noAttendeeRefresh=self.scheduler.noAttendeeRefresh,
             ))
         except ImplicitProcessorException, e:
-            log.err("Could not store data in Inbox : %s" % (recipient.inbox,))
-            if log.willLogAtLevel("debug"):
+            log.error("Could not store data in Inbox : %s" % (recipient.inbox,))
+            if log.willLogAtLevel(LogLevel.debug):
                 log.debug("%s: %s" % (e, Failure().getTraceback(),))
             err = HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -153,8 +153,8 @@ class ScheduleViaCalDAV(DeliveryService):
                 child = yield recipient.inbox._createCalendarObjectWithNameInternal(name, self.scheduler.calendar, ComponentUpdateState.INBOX)
             except Exception as e:
                 # FIXME: Bare except
-                log.err("Could not store data in Inbox : %s %s" % (recipient.inbox, e,))
-                if log.willLogAtLevel("debug"):
+                log.error("Could not store data in Inbox : %s %s" % (recipient.inbox, e,))
+                if log.willLogAtLevel(LogLevel.debug):
                     log.debug("Bare Exception: %s" % (Failure().getTraceback(),))
                 err = HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
@@ -196,8 +196,8 @@ class ScheduleViaCalDAV(DeliveryService):
                 event_details,
             ))
         except:
-            log.err("Could not determine free busy information: %s" % (recipient.cuaddr,))
-            if log.willLogAtLevel("debug"):
+            log.error("Could not determine free busy information: %s" % (recipient.cuaddr,))
+            if log.willLogAtLevel(LogLevel.debug):
                 log.debug("Bare Exception: %s" % (Failure().getTraceback(),))
             err = HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,

@@ -54,8 +54,8 @@ def http_MKCOL(self, request):
     yield parent.authorize(request, (davxml.Bind(),))
 
     if self.exists():
-        log.err("Attempt to create collection where resource exists: %s"
-                % (self,))
+        log.error("Attempt to create collection where resource exists: %s"
+                  % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             (davxml.dav_namespace, "resource-must-be-null"),
@@ -63,8 +63,8 @@ def http_MKCOL(self, request):
         ))
 
     if not parent.isCollection():
-        log.err("Attempt to create collection with non-collection parent: %s"
-                % (self,))
+        log.error("Attempt to create collection with non-collection parent: %s"
+                  % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.CONFLICT,
             (davxml.dav_namespace, "collection-location-ok"),
@@ -99,7 +99,7 @@ def http_MKCOL(self, request):
     try:
         doc = (yield davXMLFromStream(request.stream))
     except ValueError, e:
-        log.err("Error while handling MKCOL: %s" % (e,))
+        log.error("Error while handling MKCOL: %s" % (e,))
         # TODO: twext.web2.dav 'MKCOL' tests demand this particular response
         # code, but should we really be looking at the XML content or the
         # content-type header?  It seems to me like this ought to be considered
@@ -118,7 +118,7 @@ def http_MKCOL(self, request):
         if not isinstance(mkcol, mkcolxml.MakeCollection):
             error = ("Non-%s element in MKCOL request body: %s"
                      % (mkcolxml.MakeCollection.name, mkcol))
-            log.err(error)
+            log.error(error)
             raise HTTPError(StatusResponse(responsecode.UNSUPPORTED_MEDIA_TYPE, error))
 
         errors = PropertyStatusResponseQueue("PROPPATCH", request.uri, responsecode.NO_CONTENT)
@@ -135,7 +135,7 @@ def http_MKCOL(self, request):
                 if isinstance(property, davxml.ResourceType):
                     if rtype:
                         error = "Multiple {DAV:}resourcetype properties in MKCOL request body: %s" % (mkcol,)
-                        log.err(error)
+                        log.error(error)
                         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
                     else:
                         if property.childrenOfType(davxml.Collection):
@@ -146,18 +146,18 @@ def http_MKCOL(self, request):
 
             if not rtype:
                 error = "No {DAV:}resourcetype property in MKCOL request body: %s" % (mkcol,)
-                log.err(error)
+                log.error(error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
             elif rtype not in ("calendar", "addressbook"):
                 error = "{DAV:}resourcetype property in MKCOL request body not supported: %s" % (mkcol,)
-                log.err(error)
+                log.error(error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
             # Make sure feature is enabled
             if (rtype == "calendar" and not config.EnableCalDAV or
                 rtype == "addressbook" and not config.EnableCardDAV):
                 error = "{DAV:}resourcetype property in MKCOL request body not supported: %s" % (mkcol,)
-                log.err(error)
+                log.error(error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
             # Now create the special collection

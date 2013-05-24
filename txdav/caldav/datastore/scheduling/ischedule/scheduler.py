@@ -205,7 +205,7 @@ class IScheduleScheduler(RemoteScheduler):
     def checkAuthorization(self):
         # Must have an unauthenticated user
         if self.originator_uid is not None:
-            log.err("Authenticated originators not allowed: %s" % (self.originator_uid,))
+            log.error("Authenticated originators not allowed: %s" % (self.originator_uid,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["originator-denied"],
@@ -224,7 +224,7 @@ class IScheduleScheduler(RemoteScheduler):
         localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
         if originatorPrincipal or localUser:
             if originatorPrincipal.locallyHosted():
-                log.err("Cannot use originator that is on this server: %s" % (self.originator,))
+                log.error("Cannot use originator that is on this server: %s" % (self.originator,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["originator-denied"],
@@ -251,7 +251,7 @@ class IScheduleScheduler(RemoteScheduler):
         servermgr = IScheduleServers()
         server = servermgr.mapDomain(self.originator.domain)
         if not server or not server.allow_from:
-            log.err("Originator not on recognized server: %s" % (self.originator,))
+            log.error("Originator not on recognized server: %s" % (self.originator,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["originator-denied"],
@@ -291,7 +291,7 @@ class IScheduleScheduler(RemoteScheduler):
                     log.debug("iSchedule cannot lookup client ip '%s': %s" % (clientip, str(e),))
 
             if not matched:
-                log.err("Originator not on allowed server: %s" % (self.originator,))
+                log.error("Originator not on allowed server: %s" % (self.originator,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["originator-denied"],
@@ -346,11 +346,11 @@ class IScheduleScheduler(RemoteScheduler):
 
         # Check possible shared secret
         if matched and not Servers.getThisServer().checkSharedSecret(self.request):
-            log.err("Invalid iSchedule shared secret")
+            log.error("Invalid iSchedule shared secret")
             matched = False
 
         if not matched:
-            log.err("Originator not on allowed server: %s" % (self.originator,))
+            log.error("Originator not on allowed server: %s" % (self.originator,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["originator-denied"],
@@ -370,7 +370,7 @@ class IScheduleScheduler(RemoteScheduler):
             organizerPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(organizer)
             if organizerPrincipal:
                 if organizerPrincipal.locallyHosted():
-                    log.err("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
+                    log.error("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
                         self.errorElements["organizer-denied"],
@@ -383,7 +383,7 @@ class IScheduleScheduler(RemoteScheduler):
             else:
                 localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(organizer))
                 if localUser:
-                    log.err("Unsupported ORGANIZER in calendar data: %s" % (self.calendar,))
+                    log.error("Unsupported ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
                         self.errorElements["organizer-denied"],
@@ -392,7 +392,7 @@ class IScheduleScheduler(RemoteScheduler):
                 else:
                     self.organizer = RemoteCalendarUser(organizer)
         else:
-            log.err("ORGANIZER missing in calendar data: %s" % (self.calendar,))
+            log.error("ORGANIZER missing in calendar data: %s" % (self.calendar,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["organizer-denied"],
@@ -411,7 +411,7 @@ class IScheduleScheduler(RemoteScheduler):
         attendeePrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.attendee)
         if attendeePrincipal:
             if attendeePrincipal.locallyHosted():
-                log.err("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
+                log.error("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["attendee-denied"],
@@ -422,7 +422,7 @@ class IScheduleScheduler(RemoteScheduler):
         else:
             localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.attendee))
             if localUser:
-                log.err("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
+                log.error("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["attendee-denied"],
@@ -447,7 +447,7 @@ class IScheduleScheduler(RemoteScheduler):
             yield self.checkAttendeeAsOriginator()
 
         else:
-            log.err("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
+            log.error("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["invalid-scheduling-message"],

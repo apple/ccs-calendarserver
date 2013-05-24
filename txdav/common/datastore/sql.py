@@ -32,7 +32,6 @@ from uuid import uuid4, UUID
 from zope.interface import implements, directlyProvides
 
 from twext.python.log import Logger, LoggingMixIn
-from twisted.python.log import msg as log_msg, err as log_err
 
 from txdav.xml.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
@@ -949,7 +948,7 @@ class CommonStoreTransaction(object):
             for f in failuresToMaybeLog:
                 # TODO: direct tests, to make sure error logging
                 # happens correctly in all cases.
-                log.err(f)
+                log.error(f)
             raise AllRetriesFailed()
         triesLeft = retries
         try:
@@ -5384,7 +5383,7 @@ def _normalizeHomeUUIDsIn(t, homeType):
                                   total - n)
         else:
             estimate = "unknown"
-        log_msg(
+        log.info(
             format="Scanning UID %(uid)s [%(homeType)s] "
             "(%(pct)0.2d%%, %(estimate)s seconds remaining)...",
             uid=UID, pct=(n / float(total)) * 100, estimate=estimate,
@@ -5398,8 +5397,8 @@ def _normalizeHomeUUIDsIn(t, homeType):
             fixedThisHome = 0
         fixedOtherHome = 0
         if this is None:
-            log_msg(format="%(uid)r appears to be missing, already processed",
-                    uid=UID)
+            log.info(format="%(uid)r appears to be missing, already processed",
+                     uid=UID)
         try:
             uuidobj = UUID(UID)
         except ValueError:
@@ -5407,9 +5406,9 @@ def _normalizeHomeUUIDsIn(t, homeType):
         else:
             newname = str(uuidobj).upper()
             if UID != newname:
-                log_msg(format="Detected case variance: %(uid)s %(newuid)s"
-                        "[%(homeType)s]",
-                        uid=UID, newuid=newname, homeType=homeTypeName)
+                log.info(format="Detected case variance: %(uid)s %(newuid)s"
+                         "[%(homeType)s]",
+                         uid=UID, newuid=newname, homeType=homeTypeName)
                 other = yield _getHome(t, homeType, newname)
                 if other is None:
                     # No duplicate: just fix the name.
@@ -5424,10 +5423,10 @@ def _normalizeHomeUUIDsIn(t, homeType):
         end = time.time()
         elapsed = end - start
         allElapsed.append(elapsed)
-        log_msg(format="Scanned UID %(uid)s; %(elapsed)s seconds elapsed,"
-                " %(fixes)s properties fixed (%(duplicate)s fixes in "
-                "duplicate).", uid=UID, elapsed=elapsed, fixes=fixedThisHome,
-                duplicate=fixedOtherHome)
+        log.info(format="Scanned UID %(uid)s; %(elapsed)s seconds elapsed,"
+                 " %(fixes)s properties fixed (%(duplicate)s fixes in "
+                 "duplicate).", uid=UID, elapsed=elapsed, fixes=fixedThisHome,
+                 duplicate=fixedOtherHome)
     returnValue(None)
 
 
@@ -5541,8 +5540,8 @@ def fixUUIDNormalization(store):
     # early-out and avoid the tedious and potentially expensive inspection of
     # oodles of calendar data.
     if not (yield _needsNormalizationUpgrade(t)):
-        log.msg("No potentially denormalized UUIDs detected, "
-                "skipping normalization upgrade.")
+        log.info("No potentially denormalized UUIDs detected, "
+                 "skipping normalization upgrade.")
         yield t.abort()
         returnValue(None)
     try:
@@ -5552,7 +5551,7 @@ def fixUUIDNormalization(store):
         yield _normalizeColumnUUIDs(t, schema.RESOURCE_PROPERTY.VIEWER_UID)
         yield _normalizeColumnUUIDs(t, schema.APN_SUBSCRIPTIONS.SUBSCRIBER_GUID)
     except:
-        log_err()
+        log.failure()
         yield t.abort()
         # There's a lot of possible problems here which are very hard to test
         # for individually; unexpected data that might cause constraint

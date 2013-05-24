@@ -154,7 +154,7 @@ def http_MOVE(self, request):
     #
     if self.isCollection() and depth != "infinity":
         msg = "Client sent illegal depth header value for MOVE: %s" % (depth,)
-        log.err(msg)
+        log.error(msg)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
     # Lets optimise a move within the same directory to a new resource as a simple move
@@ -184,7 +184,7 @@ def prepareForCopy(self, request):
 
     if depth not in ("0", "infinity"):
         msg = ("Client sent illegal depth header value: %s" % (depth,))
-        log.err(msg)
+        log.error(msg)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
     #
@@ -192,7 +192,7 @@ def prepareForCopy(self, request):
     #
 
     if not self.exists():
-        log.err("File not found: %s" % (self,))
+        log.error("File not found: %s" % (self,))
         raise HTTPError(StatusResponse(
             responsecode.NOT_FOUND,
             "Source resource %s not found." % (request.uri,)
@@ -206,7 +206,7 @@ def prepareForCopy(self, request):
 
     if not destination_uri:
         msg = "No destination header in %s request." % (request.method,)
-        log.err(msg)
+        log.error(msg)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
     d = request.locateResource(destination_uri)
@@ -222,8 +222,8 @@ def _prepareForCopy(destination, destination_uri, request, depth):
     try:
         destination = IDAVResource(destination)
     except TypeError:
-        log.err("Attempt to %s to a non-DAV resource: (%s) %s"
-                % (request.method, destination.__class__, destination_uri))
+        log.error("Attempt to %s to a non-DAV resource: (%s) %s"
+                  % (request.method, destination.__class__, destination_uri))
         raise HTTPError(StatusResponse(
             responsecode.FORBIDDEN,
             "Destination %s is not a WebDAV resource." % (destination_uri,)
@@ -236,7 +236,7 @@ def _prepareForCopy(destination, destination_uri, request, depth):
     #
 
     if not isinstance(destination, twext.web2.dav.static.DAVFile):
-        log.err("DAV copy between non-DAVFile DAV resources isn't implemented")
+        log.error("DAV copy between non-DAVFile DAV resources isn't implemented")
         raise HTTPError(StatusResponse(
             responsecode.NOT_IMPLEMENTED,
             "Destination %s is not a DAVFile resource." % (destination_uri,)
@@ -249,8 +249,8 @@ def _prepareForCopy(destination, destination_uri, request, depth):
     overwrite = request.headers.getHeader("overwrite", True)
 
     if destination.exists() and not overwrite:
-        log.err("Attempt to %s onto existing file without overwrite flag enabled: %s"
-                % (request.method, destination))
+        log.error("Attempt to %s onto existing file without overwrite flag enabled: %s"
+                  % (request.method, destination))
         raise HTTPError(StatusResponse(
             responsecode.PRECONDITION_FAILED,
             "Destination %s already exists." % (destination_uri,)
@@ -261,8 +261,8 @@ def _prepareForCopy(destination, destination_uri, request, depth):
     #
 
     if not destination.parent().isCollection():
-        log.err("Attempt to %s to a resource with no parent: %s"
-                % (request.method, destination.fp.path))
+        log.error("Attempt to %s to a resource with no parent: %s"
+                  % (request.method, destination.fp.path))
         raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection."))
 
     return destination, destination_uri, depth

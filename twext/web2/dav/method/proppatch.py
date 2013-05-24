@@ -47,7 +47,7 @@ def http_PROPPATCH(self, request):
     Respond to a PROPPATCH request. (RFC 2518, section 8.2)
     """
     if not self.exists():
-        log.err("File not found: %s" % (self,))
+        log.error("File not found: %s" % (self,))
         raise HTTPError(responsecode.NOT_FOUND)
 
     x = waitForDeferred(self.authorize(request, (davxml.WriteProperties(),)))
@@ -62,12 +62,12 @@ def http_PROPPATCH(self, request):
         yield doc
         doc = doc.getResult()
     except ValueError, e:
-        log.err("Error while handling PROPPATCH body: %s" % (e,))
+        log.error("Error while handling PROPPATCH body: %s" % (e,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     if doc is None:
         error = "Request XML body is required."
-        log.err(error)
+        log.error(error)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
     #
@@ -77,7 +77,7 @@ def http_PROPPATCH(self, request):
     if not isinstance(update, davxml.PropertyUpdate):
         error = ("Request XML body must be a propertyupdate element."
                  % (davxml.PropertyUpdate.sname(),))
-        log.err(error)
+        log.error(error)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
     responses = PropertyStatusResponseQueue("PROPPATCH", request.uri, responsecode.NO_CONTENT)

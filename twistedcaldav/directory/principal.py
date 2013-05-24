@@ -368,7 +368,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
     ##
 
     def createSimilarFile(self, path):
-        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone %r of resource %r" % (path, self))
         raise HTTPError(responsecode.NOT_FOUND)
 
 
@@ -452,7 +452,7 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
 
 
     def createSimilarFile(self, path):
-        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone %r of resource %r" % (path, self))
         raise HTTPError(responsecode.NOT_FOUND)
 
 
@@ -533,7 +533,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
 
     def createSimilarFile(self, path):
-        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone %r of resource %r" % (path, self))
         raise HTTPError(responsecode.NOT_FOUND)
 
 
@@ -981,7 +981,7 @@ class DirectoryPrincipalResource (
                 if relative not in records:
                     found = self.parent.principalForRecord(relative)
                     if found is None:
-                        log.err("No principal found for directory record: %r" % (relative,))
+                        log.error("No principal found for directory record: %r" % (relative,))
                     else:
                         if proxy:
                             if proxy == "read-write":
@@ -1174,7 +1174,7 @@ class DirectoryPrincipalResource (
 
 
     def createSimilarFile(self, path):
-        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone %r of resource %r" % (path, self))
         raise HTTPError(responsecode.NOT_FOUND)
 
 
@@ -1462,7 +1462,7 @@ def formatList(iterable):
                 yield item
             yield "\n"
     except Exception, e:
-        log.err("Exception while rendering: %s" % (e,))
+        log.error("Exception while rendering: %s" % (e,))
         Failure().printTraceback()
         yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
     if not thereAreAny:

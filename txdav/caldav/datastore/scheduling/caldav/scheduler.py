@@ -77,7 +77,7 @@ class CalDAVScheduler(Scheduler):
     def checkAuthorization(self):
         # Must have an authenticated user
         if not self.internal_request and self.originator_uid == None:
-            log.err("Unauthenticated originators not allowed: %s" % (self.originator,))
+            log.error("Unauthenticated originators not allowed: %s" % (self.originator,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["originator-denied"],
@@ -94,7 +94,7 @@ class CalDAVScheduler(Scheduler):
         originatorPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.originator)
         if originatorPrincipal is None:
             # Local requests MUST have a principal.
-            log.err("Could not find principal for originator: %s" % (self.originator,))
+            log.error("Could not find principal for originator: %s" % (self.originator,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["originator-denied"],
@@ -122,7 +122,7 @@ class CalDAVScheduler(Scheduler):
             if principal is None:
                 address = (yield addressmapping.mapper.getCalendarUser(recipient, principal))
                 if isinstance(address, InvalidCalendarUser):
-                    log.err("Unknown calendar user address: %s" % (recipient,))
+                    log.error("Unknown calendar user address: %s" % (recipient,))
                 results.append(address)
             else:
                 # Map recipient to their inbox
@@ -138,7 +138,7 @@ class CalDAVScheduler(Scheduler):
                 if inbox:
                     results.append(calendarUserFromPrincipal(recipient, principal, inbox))
                 else:
-                    log.err("No schedule inbox for principal: %s" % (principal,))
+                    log.error("No schedule inbox for principal: %s" % (principal,))
                     results.append(InvalidCalendarUser(recipient))
 
         self.recipients = results
@@ -161,7 +161,7 @@ class CalDAVScheduler(Scheduler):
                     # to be handled later when we know whether a new invite is being added
                     # (which we reject) vs an update to an existing one (which we allow).
                     if self.checkForFreeBusy() and not organizerPrincipal.enabledAsOrganizer():
-                        log.err("ORGANIZER not allowed to be an Organizer: %s" % (self.calendar,))
+                        log.error("ORGANIZER not allowed to be an Organizer: %s" % (self.calendar,))
                         raise HTTPError(self.errorResponse(
                             responsecode.FORBIDDEN,
                             self.errorElements["organizer-denied"],
@@ -170,7 +170,7 @@ class CalDAVScheduler(Scheduler):
 
                     self.organizer = LocalCalendarUser(organizer, organizerPrincipal)
                 else:
-                    log.err("No outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
+                    log.error("No outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
                         self.errorElements["organizer-denied"],
@@ -179,7 +179,7 @@ class CalDAVScheduler(Scheduler):
             else:
                 localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(organizer))
                 if localUser:
-                    log.err("No principal for ORGANIZER in calendar data: %s" % (self.calendar,))
+                    log.error("No principal for ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
                         self.errorElements["organizer-denied"],
@@ -188,7 +188,7 @@ class CalDAVScheduler(Scheduler):
                 else:
                     self.organizer = RemoteCalendarUser(organizer)
         else:
-            log.err("ORGANIZER missing in calendar data: %s" % (self.calendar,))
+            log.error("ORGANIZER missing in calendar data: %s" % (self.calendar,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["invalid-scheduling-message"],
@@ -200,7 +200,7 @@ class CalDAVScheduler(Scheduler):
 
         # Make sure that the ORGANIZER is local
         if not isinstance(self.organizer, LocalCalendarUser):
-            log.err("ORGANIZER is not local to server in calendar data: %s" % (self.calendar,))
+            log.error("ORGANIZER is not local to server in calendar data: %s" % (self.calendar,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["organizer-denied"],
@@ -209,7 +209,7 @@ class CalDAVScheduler(Scheduler):
 
         # Make sure that the ORGANIZER's Outbox is the request URI
         if self.doingPOST is not None and self.organizer.principal.uid != self.originator_uid:
-            log.err("Wrong outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
+            log.error("Wrong outbox for ORGANIZER in calendar data: %s" % (self.calendar,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["organizer-denied"],
@@ -227,14 +227,14 @@ class CalDAVScheduler(Scheduler):
         attendeePrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.attendee)
         if attendeePrincipal:
             if self.doingPOST is not None and attendeePrincipal.uid != self.originator_uid:
-                log.err("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
+                log.error("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["attendee-denied"],
                     "Outbox does not belong to attendee",
                 ))
         else:
-            log.err("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
+            log.error("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["attendee-denied"],

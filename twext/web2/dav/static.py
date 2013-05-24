@@ -47,8 +47,8 @@ log = Logger()
 try:
     from twext.web2.dav.xattrprops import xattrPropertyStore as DeadPropertyStore
 except ImportError:
-    log.msg("No dead property store available; using nonePropertyStore.")
-    log.msg("Setting of dead properties will not be allowed.")
+    log.info("No dead property store available; using nonePropertyStore.")
+    log.info("Setting of dead properties will not be allowed.")
     from twext.web2.dav.noneprops import NonePropertyStore as DeadPropertyStore
 
 class DAVFile (DAVResource, File):

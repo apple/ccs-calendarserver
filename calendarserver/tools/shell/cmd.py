@@ -27,7 +27,7 @@ __all__ = [
 
 from getopt import getopt
 
-#from twisted.python import log
+from twext.python.log import Logger
 from twisted.internet.defer import succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -41,6 +41,9 @@ from calendarserver.tools.tables import Table
 from calendarserver.tools.purge import PurgePrincipalService
 from calendarserver.tools.shell.vfs import Folder, RootFolder
 from calendarserver.tools.shell.directory import findRecords, summarizeRecords, recordInfo
+
+log = Logger()
+
 
 
 class UsageError(Exception):
@@ -469,7 +472,7 @@ class Commands(CommandsBase):
         if not isinstance(wd, Folder):
             raise NotFoundError("Not a folder: %s" % (wd,))
 
-        #log.msg("wd -> %s" % (wd,))
+        #log.info("wd -> %s" % (wd,))
         self.wd = wd
 
 

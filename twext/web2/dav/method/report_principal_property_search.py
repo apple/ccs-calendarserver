@@ -59,7 +59,7 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
     # Only handle Depth: 0
     depth = request.headers.getHeader("depth", "0")
     if depth != "0":
-        log.err("Error in prinicpal-property-search REPORT, Depth set to %s" % (depth,))
+        log.error("Error in prinicpal-property-search REPORT, Depth set to %s" % (depth,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
     
     # Get a single DAV:prop element from the REPORT request body
@@ -180,7 +180,7 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
                         d.getResult()
 
     except NumberOfMatchesWithinLimits:
-        log.err("Too many matching components in prinicpal-property-search report")
+        log.error("Too many matching components in prinicpal-property-search report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             element.NumberOfMatchesWithinLimits()

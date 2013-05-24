@@ -49,7 +49,7 @@ def http_REPORT(self, request):
     Respond to a REPORT request. (RFC 3253, section 3.6)
     """
     if not self.exists():
-        log.err("Resource not found: %s" % (self,))
+        log.error("Resource not found: %s" % (self,))
         raise HTTPError(responsecode.NOT_FOUND)
 
     #
@@ -58,7 +58,7 @@ def http_REPORT(self, request):
     try:
         doc = (yield davXMLFromStream(request.stream))
     except ValueError, e:
-        log.err("Error while handling REPORT body: %s" % (e,))
+        log.error("Error while handling REPORT body: %s" % (e,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     if doc is None:
@@ -116,8 +116,8 @@ def http_REPORT(self, request):
         #
         # Requested report is not supported.
         #
-        log.err("Unsupported REPORT %s for resource %s (no method %s)"
-                % (encodeXMLName(namespace, name), self, method_name))
+        log.error("Unsupported REPORT %s for resource %s (no method %s)"
+                  % (encodeXMLName(namespace, name), self, method_name))
 
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,

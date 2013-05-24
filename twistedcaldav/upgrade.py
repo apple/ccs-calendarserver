@@ -307,7 +307,7 @@ def upgrade_to_1(config, directory):
     errorOccurred = []
     def setError(f=None):
         if f is not None:
-            log.err(f)
+            log.error(f)
         errorOccurred.append(True)
 
 
@@ -819,7 +819,7 @@ def updateFreeBusySet(value, directory):
         try:
             freeBusySet = unpickle(value)
         except UnpicklingError:
-            log.err("Invalid free/busy property value")
+            log.error("Invalid free/busy property value")
             # MOR: continue on?
             return None
 

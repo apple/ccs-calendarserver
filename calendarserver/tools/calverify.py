@@ -40,10 +40,12 @@ multiple DBs for inconsistency would be good too.
 
 """
 
-from calendarserver.tools.cmdline import utilityMain
-
-from calendarserver.tools import tables
-from calendarserver.tools.util import getDirectory
+import base64
+import collections
+import sys
+import time
+import traceback
+import uuid
 
 from pycalendar import definitions
 from pycalendar.calendar import PyCalendar
@@ -52,12 +54,13 @@ from pycalendar.exceptions import PyCalendarError
 from pycalendar.period import PyCalendarPeriod
 from pycalendar.timezone import PyCalendarTimezone
 
-from twext.enterprise.dal.syntax import Select, Parameter, Count
-
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python import log, usage
+from twisted.python import usage
 from twisted.python.usage import Options
+
+from twext.python.log import Logger
+from twext.enterprise.dal.syntax import Select, Parameter, Count
 
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import pyCalendarTodatetime
@@ -72,12 +75,14 @@ from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
 
-import base64
-import collections
-import sys
-import time
-import traceback
-import uuid
+from calendarserver.tools.cmdline import utilityMain
+
+from calendarserver.tools import tables
+from calendarserver.tools.util import getDirectory
+
+log = Logger()
+
+
 
 # Monkey patch
 def new_validRecurrenceIDs(self, doFix=True):
@@ -421,7 +426,7 @@ class CalVerifyService(Service, object):
             yield self.doAction()
             self.output.close()
         except:
-            log.err()
+            log.failure()
 
         self.reactor.stop()
 

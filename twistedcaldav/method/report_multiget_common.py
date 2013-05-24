@@ -56,11 +56,11 @@ def multiget_common(self, request, multiget, collection_type):
 
         if collection_type == COLLECTION_TYPE_CALENDAR:
             if not parent.isPseudoCalendarCollection():
-                log.err("calendar-multiget report is not allowed on a resource outside of a calendar collection %s" % (self,))
+                log.error("calendar-multiget report is not allowed on a resource outside of a calendar collection %s" % (self,))
                 raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar resource"))
         elif collection_type == COLLECTION_TYPE_ADDRESSBOOK:
             if not parent.isAddressBookCollection():
-                log.err("addressbook-multiget report is not allowed on a resource outside of an address book collection %s" % (self,))
+                log.error("addressbook-multiget report is not allowed on a resource outside of an address book collection %s" % (self,))
                 raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be address book resource"))
 
     responses = []
@@ -93,7 +93,7 @@ def multiget_common(self, request, multiget, collection_type):
         else:
             result = True
         if not result:
-            log.err(message)
+            log.error(message)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 precondition,
@@ -104,7 +104,7 @@ def multiget_common(self, request, multiget, collection_type):
 
     # Check size of results is within limit when data property requested
     if hasData and len(resources) > config.MaxMultigetWithDataHrefs:
-        log.err("Too many results in multiget report returning data: %d" % len(resources))
+        log.error("Too many results in multiget report returning data: %d" % len(resources))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             davxml.NumberOfMatchesWithinLimits(),
@@ -210,8 +210,8 @@ def multiget_common(self, request, multiget, collection_type):
                         isowner=isowner
                     )
                 except ValueError:
-                    log.err("Invalid calendar resource during multiget: %s" %
-                            (href,))
+                    log.error("Invalid calendar resource during multiget: %s" %
+                              (href,))
                     responses.append(davxml.StatusResponse(
                         davxml.HRef.fromString(href),
                         davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
@@ -221,7 +221,7 @@ def multiget_common(self, request, multiget, collection_type):
                     # of one of these resources in another request.  In this
                     # case, return a 404 for the now missing resource rather
                     # than raise an error for the entire report.
-                    log.err("Missing resource during multiget: %s" % (href,))
+                    log.error("Missing resource during multiget: %s" % (href,))
                     responses.append(davxml.StatusResponse(
                         davxml.HRef.fromString(href),
                         davxml.Status.fromResponseCode(responsecode.NOT_FOUND)
@@ -267,7 +267,7 @@ def multiget_common(self, request, multiget, collection_type):
                     limit = config.DirectoryAddressBook.MaxQueryResults
                     directoryAddressBookLock, limited = (yield  self.directory.cacheVCardsForAddressBookQuery(addressBookFilter, propertyreq, limit))
                     if limited:
-                        log.err("Too many results in multiget report: %d" % len(resources))
+                        log.error("Too many results in multiget report: %d" % len(resources))
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (dav_namespace, "number-of-matches-within-limits"),
@@ -278,7 +278,7 @@ def multiget_common(self, request, multiget, collection_type):
                     limit = config.DirectoryAddressBook.MaxQueryResults
                     vCardRecords, limited = (yield self.directory.vCardRecordsForAddressBookQuery(addressBookFilter, propertyreq, limit))
                     if limited:
-                        log.err("Too many results in multiget report: %d" % len(resources))
+                        log.error("Too many results in multiget report: %d" % len(resources))
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (dav_namespace, "number-of-matches-within-limits"),

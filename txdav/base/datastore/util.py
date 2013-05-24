@@ -136,8 +136,8 @@ def normalizeUUIDOrNot(somestr):
         uu = UUID(normstr)
     except ValueError:
         if isURI:
-            log.msg(format="normalizing urn:uuid: without UUID: %(uid)r",
-                    uid=somestr)
+            log.info(format="normalizing urn:uuid: without UUID: %(uid)r",
+                     uid=somestr)
         # not a UUID, whatever
         return somestr
     else:

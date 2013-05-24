@@ -24,11 +24,11 @@ from collections import namedtuple
 
 from zope.interface import implements
 
+from twisted.python import log as logging
 from twisted.python.threadable import isInIOThread
 from twisted.internet.reactor import callFromThread
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedAny
-from twisted.python import log
 from twisted.python.procutils import which
 
 from twisted.internet.interfaces import IProcessTransport, IReactorProcess
@@ -36,16 +36,15 @@ from twisted.internet.protocol import ServerFactory
 from twisted.internet.defer import Deferred, inlineCallbacks, passthru, succeed
 from twisted.internet.task import Clock
 from twisted.internet import reactor
-
 from twisted.application.service import (IService, IServiceCollection,
                                          MultiService)
 from twisted.application import internet
 
+from twext.python.log import Logger
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.python.plistlib import writePlist #@UnresolvedImport
 from twext.web2.dav import auth
 from twext.web2.log import LogWrapperResource
-from twext.python.filepath import CachingFilePath as FilePath
-
-from twext.python.plistlib import writePlist #@UnresolvedImport
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
 from twistedcaldav.config import config, ConfigDict, ConfigurationError
@@ -67,6 +66,8 @@ from calendarserver.tap.caldav import (
 from calendarserver.provision.root import RootResource
 from twext.enterprise.queue import PeerConnectionPool, LocalQueuer
 from StringIO import StringIO
+
+log = Logger()
 
 
 # Points to top of source tree.
@@ -171,7 +172,7 @@ class TestCalDAVOptions (CalDAVOptions):
             return CalDAVOptions.loadConfiguration(self)
         finally:
             sys.stdout = oldout
-            log.msg(
+            log.info(
                 "load configuration console output: %s" % newout.getvalue()
             )
 
@@ -1024,8 +1025,8 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
                 if m == '[Dummy] z':
                     d.callback("done")
 
-        log.addObserver(tempObserver)
-        self.addCleanup(log.removeObserver, tempObserver)
+        logging.addObserver(tempObserver)
+        self.addCleanup(logging.removeObserver, tempObserver)
         d = Deferred()
         def assertions(result):
             self.assertEquals(["[Dummy] x",

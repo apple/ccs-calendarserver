@@ -59,7 +59,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
     if not self.isCollection():
         parent = (yield self.locateParent(request, request.uri))
         if not parent.isPseudoCalendarCollection():
-            log.err("calendar-query report is not allowed on a resource outside of a calendar collection %s" % (self,))
+            log.error("calendar-query report is not allowed on a resource outside of a calendar collection %s" % (self,))
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar collection or calendar resource"))
 
     responses = []
@@ -75,7 +75,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
     query_tz = calendar_query.timezone
     if query_tz is not None and not query_tz.valid():
         msg = "CalDAV:timezone must contain one VTIMEZONE component only: %s" % (query_tz,)
-        log.err(msg)
+        log.error(msg)
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             (caldav_namespace, "valid-calendar-data"),
@@ -99,7 +99,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         # Verify that any calendar-data element matches what we can handle
         result, message, generate_calendar_data = report_common.validPropertyListCalendarDataTypeVersion(props)
         if not result:
-            log.err(message)
+            log.error(message)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "supported-calendar-data"),
@@ -111,7 +111,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
 
     # Verify that the filter element is valid
     if (filter is None) or not filter.valid():
-        log.err("Invalid filter element: %r" % (xmlfilter,))
+        log.error("Invalid filter element: %r" % (xmlfilter,))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             (caldav_namespace, "valid-filter"),
@@ -165,7 +165,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     # of one of these resources in another request.  In this
                     # case, we ignore the now missing resource rather
                     # than raise an error for the entire report.
-                    log.err("Missing resource during query: %s" % (href,))
+                    log.error("Missing resource during query: %s" % (href,))
 
         # Check whether supplied resource is a calendar or a calendar object resource
         if calresource.isPseudoCalendarCollection():
@@ -251,14 +251,14 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         depth = request.headers.getHeader("depth", "0")
         yield report_common.applyToCalendarCollections(self, request, request.uri, depth, doQuery, (davxml.Read(),))
     except TooManyInstancesError, ex:
-        log.err("Too many instances need to be computed in calendar-query report")
+        log.error("Too many instances need to be computed in calendar-query report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             MaxInstances.fromString(str(ex.max_allowed)),
             "Too many instances",
         ))
     except NumberOfMatchesWithinLimits:
-        log.err("Too many matching components in calendar-query report")
+        log.error("Too many matching components in calendar-query report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             davxml.NumberOfMatchesWithinLimits(),

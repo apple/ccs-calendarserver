@@ -366,10 +366,10 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
         newpath = "%s.%s" % (self.logpath, self.suffix(self.lastDate))
         if os.path.exists(newpath):
-            log.msg("Cannot rotate log file to %s because it already exists." % (newpath,))
+            log.info("Cannot rotate log file to %s because it already exists." % (newpath,))
             return
         self.accessLog("Log closed - rotating: [%s]." % (datetime.datetime.now().ctime(),), False)
-        log.msg("Rotating log file to: %s" % (newpath,), system="Logging")
+        log.info("Rotating log file to: %s" % (newpath,), system="Logging")
         self.f.close()
         os.rename(self.logpath, newpath)
         self._open()

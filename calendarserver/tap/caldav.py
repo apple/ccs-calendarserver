@@ -57,7 +57,7 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twext.web2.server import Site
 from twext.python.log import Logger, LoggingMixIn
-from twext.python.log import logLevelForNamespace, setLogLevelForNamespace
+from twext.python.log import LogLevel, logLevelForNamespace, setLogLevelForNamespace
 from twext.python.filepath import CachingFilePath
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
@@ -887,7 +887,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         # that during startup
         #
         oldLogLevel = logLevelForNamespace(None)
-        setLogLevelForNamespace(None, "info")
+        setLogLevelForNamespace(None, LogLevel.info)
 
         # Note: 'additional' was used for IMIP reply resource, and perhaps
         # we can remove this

@@ -158,7 +158,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             name_utf8 = name.encode("utf-8")
             if name is not None and self.resource.getChild(name_utf8) is None:
                 # Clean up
-                log.err("Stale resource record found for child %s with UID %s in %s" % (name, uid, self.resource))
+                log.error("Stale resource record found for child %s with UID %s in %s" % (name, uid, self.resource))
                 self._delete_from_db(name, uid, False)
                 self._db_commit()
             else:
@@ -375,8 +375,8 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
                     del row[9]
                 results.append(row)
             else:
-                log.err("Calendar resource %s is missing from %s. Removing from index."
-                        % (name, self.resource))
+                log.error("Calendar resource %s is missing from %s. Removing from index."
+                          % (name, self.resource))
                 self.deleteResource(name)
 
         return results
@@ -398,8 +398,8 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             if self.resource.getChild(name.encode("utf-8")):
                 results.append(row)
             else:
-                log.err("Calendar resource %s is missing from %s. Removing from index."
-                        % (name, self.resource))
+                log.error("Calendar resource %s is missing from %s. Removing from index."
+                          % (name, self.resource))
                 self.deleteResource(name)
 
         return results
@@ -709,7 +709,7 @@ class CalendarIndex (AbstractCalendarIndex):
             instances = calendar.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
             recurrenceLimit = instances.limit
         except InvalidOverriddenInstanceError, e:
-            log.err("Invalid instance %s when indexing %s in %s" % (e.rid, name, self.resource,))
+            log.error("Invalid instance %s when indexing %s in %s" % (e.rid, name, self.resource,))
             raise
 
         # Now coerce indexing to off if needed
@@ -925,7 +925,7 @@ class SQLUIDReserver(object):
                 % (uid, self.index.resource)
             )
         except sqlite.Error, e:
-            log.err("Unable to reserve UID: %s", (e,))
+            log.error("Unable to reserve UID: %s", (e,))
             self.index._db_rollback()
             raise
 
@@ -949,7 +949,7 @@ class SQLUIDReserver(object):
                         "delete from RESERVED where UID = :1", uid)
                     self.index._db_commit()
                 except sqlite.Error, e:
-                    log.err("Unable to unreserve UID: %s", (e,))
+                    log.error("Unable to unreserve UID: %s", (e,))
                     self.index._db_rollback()
                     raise
 
@@ -977,7 +977,7 @@ class SQLUIDReserver(object):
                     self.index._db_execute("delete from RESERVED where UID = :1", uid)
                     self.index._db_commit()
                 except sqlite.Error, e:
-                    log.err("Unable to unreserve UID: %s", (e,))
+                    log.error("Unable to unreserve UID: %s", (e,))
                     self.index._db_rollback()
                     raise
                 return False
@@ -1078,7 +1078,7 @@ class Index (CalendarIndex):
             try:
                 stream = fp.child(name).open()
             except (IOError, OSError), e:
-                log.err("Unable to open resource %s: %s" % (name, e))
+                log.error("Unable to open resource %s: %s" % (name, e))
                 continue
 
             # FIXME: This is blocking I/O
@@ -1087,9 +1087,9 @@ class Index (CalendarIndex):
                 calendar.validCalendarData()
                 calendar.validCalendarForCalDAV(methodAllowed=False)
             except ValueError:
-                log.err("Non-calendar resource: %s" % (name,))
+                log.error("Non-calendar resource: %s" % (name,))
             else:
-                #log.msg("Indexing resource: %s" % (name,))
+                #log.info("Indexing resource: %s" % (name,))
                 self.addResource(name, calendar, True, reCreate=True)
             finally:
                 stream.close()
@@ -1190,7 +1190,7 @@ class IndexSchedule (CalendarIndex):
             try:
                 stream = fp.child(name).open()
             except (IOError, OSError), e:
-                log.err("Unable to open resource %s: %s" % (name, e))
+                log.error("Unable to open resource %s: %s" % (name, e))
                 continue
 
             # FIXME: This is blocking I/O
@@ -1199,9 +1199,9 @@ class IndexSchedule (CalendarIndex):
                 calendar.validCalendarData()
                 calendar.validCalendarForCalDAV(methodAllowed=True)
             except ValueError:
-                log.err("Non-calendar resource: %s" % (name,))
+                log.error("Non-calendar resource: %s" % (name,))
             else:
-                #log.msg("Indexing resource: %s" % (name,))
+                #log.info("Indexing resource: %s" % (name,))
                 self.addResource(name, calendar, True, reCreate=True)
             finally:
                 stream.close()
