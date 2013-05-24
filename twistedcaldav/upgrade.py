@@ -42,7 +42,6 @@ from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
-from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
@@ -67,7 +66,6 @@ from calendarserver.tools.resources import migrateResources
 from calendarserver.tools.util import getDirectory
 
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
-from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
 
 
 deadPropertyXattrPrefix = namedAny(
@@ -1063,15 +1061,7 @@ class PostDBImportStep(object):
             # Migrate mail tokens from sqlite to store
             yield migrateTokensToStore(self.config.DataRoot, self.store)
 
-            # Set mail polling in motion
-            if self.config.Scheduling.iMIP.Enabled:
-                yield scheduleNextMailPoll(self.store, 0)
-
-            if (self.config.GroupCaching.Enabled and
-                self.config.GroupCaching.EnableUpdater):
-                # Set in motion the work queue based updates:
-                yield scheduleNextGroupCachingUpdate(self.store, 0)
-
+            
 
     @inlineCallbacks
     def processInboxItems(self):

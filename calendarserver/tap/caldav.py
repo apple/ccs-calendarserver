@@ -111,6 +111,8 @@ from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
 from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
+from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
+from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
 
 try:
     from calendarserver.version import version
@@ -494,6 +496,37 @@ class SlaveSpawnerService(Service):
 
 
 
+class WorkSchedulingService(Service, LoggingMixIn):
+    """
+    A Service to kick off the initial scheduling of periodic work items.
+    """
+
+    def __init__(self, store, doImip, doGroupCaching):
+        """
+        @param store: the Store to use for enqueuing work
+        @param doImip: whether to schedule imip polling
+        @type doImip: boolean
+        @param doGroupCaching: whether to schedule group caching
+        @type doImip: boolean
+        """
+        self.store = store
+        self.doImip = doImip
+        self.doGroupCaching = doGroupCaching
+
+
+    @inlineCallbacks
+    def startService(self):
+        # Note: the "seconds in the future" args are being set to the LogID
+        # numbers to spread them out.  This is only needed until 
+        # ultimatelyPerform( ) handles groups correctly.  Once that is fixed
+        # these can be set to zero seconds in the future.
+        if self.doImip:
+            yield scheduleNextMailPoll(self.store, int(config.LogID))
+        if self.doGroupCaching:
+            yield scheduleNextGroupCachingUpdate(self.store, int(config.LogID))
+
+
+
 class ReExecService(MultiService, LoggingMixIn):
     """
     A MultiService which catches SIGHUP and re-exec's the process.
@@ -670,7 +703,6 @@ class QuitAfterUpgradeStep(object):
             raise PostUpgradeStopRequested()
         else:
             return failure
-
 
 
 class CalDAVServiceMaker (LoggingMixIn):
@@ -954,6 +986,13 @@ class CalDAVServiceMaker (LoggingMixIn):
         connectionService = MultiService()
         connectionService.setName(CalDAVService.connectionServiceName)
         connectionService.setServiceParent(service)
+
+        # Service to schedule initial work
+        WorkSchedulingService(
+            store,
+            config.Scheduling.iMIP.Enabled,
+            (config.GroupCaching.Enabled and config.GroupCaching.EnableUpdater)
+        ).setServiceParent(service)
 
         # For calendarserver.tap.test.test_caldav.BaseServiceMakerTests.getSite():
         connectionService.underlyingSite = underlyingSite
