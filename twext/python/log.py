@@ -47,8 +47,6 @@ second example, it would be C{some.module.Foo}.
 #
 # TODO List:
 #
-# * Add methods for handling failures, exceptions
-#
 # * TwistedCompatibleLogger.err is setting isError=0 until we fix our callers
 #
 # * Get rid of LoggingMixIn
