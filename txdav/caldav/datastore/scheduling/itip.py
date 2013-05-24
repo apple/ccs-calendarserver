@@ -47,10 +47,15 @@ class iTipProcessing(object):
     @staticmethod
     def processNewRequest(itip_message, recipient=None, creating=False):
         """
-        Process a METHOD=REQUEST for a brand new calendar object.
+        Process a METHOD=REQUEST for a brand new calendar object (for creating set to C{True}. This is also
+        called by L{processRequest} with creating set to C{False} to do some common update behavior.
 
-        @param itip_message: the iTIP message calendar object to process.
-        @type itip_message:
+        @param itip_message: the iTIP message to process.
+        @type itip_message: L{Component}
+        @param recipient: the attendee calendar user address to whom the message was sent
+        @type recipient: C{str}
+        @param creating: whether or not a new resource is being created
+        @type creating: C{bool}
 
         @return: calendar object ready to save
         """
@@ -87,10 +92,12 @@ class iTipProcessing(object):
         Process a METHOD=REQUEST. We need to merge per-attendee properties such as TRANPS, COMPLETED etc
         with the data coming from the organizer.
 
-        @param itip_message: the iTIP message calendar object to process.
-        @type itip_message:
+        @param itip_message: the iTIP message to process.
+        @type itip_message: L{Component}
         @param calendar: the calendar object to apply the REQUEST to
-        @type calendar:
+        @type calendar: L{Component}
+        @param recipient: the attendee calendar user address to whom the message was sent
+        @type recipient: C{str}
 
         @return: a C{tuple} of:
             calendar object ready to save, or C{None} (request should be ignored)
@@ -107,7 +114,7 @@ class iTipProcessing(object):
         rids = iCalDiff(calendar, itip_message, False).whatIsDifferent()
 
         # Different behavior depending on whether a master component is present or not
-        # Here we cache per-attendee data from the master that we need to use in any new
+        # Here we cache per-attendee data from the existing master that we need to use in any new
         # overridden components that the organizer added
         current_master = calendar.masterComponent()
         if current_master:
@@ -162,7 +169,7 @@ class iTipProcessing(object):
             # Now try to match recurrences in the new calendar
             for component in tuple(new_calendar.subcomponents()):
                 if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
-                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, component, recipient)
+                    iTipProcessing.transferItems(calendar, component, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, recipient)
 
             # Now try to match recurrences from the old calendar
             for component in calendar.subcomponents():
@@ -170,10 +177,13 @@ class iTipProcessing(object):
                     rid = component.getRecurrenceIDUTC()
                     if new_calendar.overriddenComponent(rid) is None:
                         allowCancelled = component.propertyValue("STATUS") == "CANCELLED"
-                        new_component = new_calendar.deriveInstance(rid, allowCancelled=allowCancelled)
+                        hidden = component.hasProperty(Component.HIDDEN_INSTANCE_PROPERTY)
+                        new_component = new_calendar.deriveInstance(rid, allowCancelled=allowCancelled and not hidden)
                         if new_component:
                             new_calendar.addComponent(new_component)
-                            iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, new_component, recipient)
+                            iTipProcessing.transferItems(calendar, new_component, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, recipient)
+                            if hidden:
+                                new_component.addProperty(Property(Component.HIDDEN_INSTANCE_PROPERTY, "T"))
 
             # Replace the entire object
             return new_calendar, rids
@@ -190,7 +200,7 @@ class iTipProcessing(object):
                         calendar.addComponent(component)
                 else:
                     component = component.duplicate()
-                    missingDeclined = iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, component, recipient, remove_matched=True)
+                    missingDeclined = iTipProcessing.transferItems(calendar, component, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, recipient, remove_matched=True)
                     if not missingDeclined:
                         calendar.addComponent(component)
                         if recipient:
@@ -207,10 +217,12 @@ class iTipProcessing(object):
 
         TODO: Yes, I am going to ignore RANGE= on RECURRENCE-ID for now...
 
-        @param itip_message: the iTIP message calendar object to process.
-        @type itip_message:
+        @param itip_message: the iTIP message to process.
+        @type itip_message: L{Component}
         @param calendar: the calendar object to apply the CANCEL to
-        @type calendar:
+        @type calendar: L{Component}
+        @param autoprocessing: whether or not auto-processing is occurring
+        @type autoprocessing: C{bool}
 
         @return: C{tuple} of:
             C{bool} : C{True} if processed, C{False} if scheduling message should be ignored
@@ -259,9 +271,13 @@ class iTipProcessing(object):
             overridden = calendar.overriddenComponent(rid)
 
             if overridden:
-                # We are cancelling an overridden component.
+                # We are cancelling an overridden component. Check to see if the existing override
+                # is marked as hidden and if so remove it and add an EXDATE (also always do that if
+                # auto-processing). Otherwise we will mark the override as cancelled so the attendee
+                # can see what happened).
+                hidden = overridden.hasProperty(Component.HIDDEN_INSTANCE_PROPERTY)
 
-                if autoprocessing:
+                if autoprocessing or hidden:
                     # Exclude the cancelled instance
                     exdates.append(component.getRecurrenceIDUTC())
 
@@ -310,10 +326,10 @@ class iTipProcessing(object):
         TODO: We have no way to track SEQUENCE/DTSTAMP on a per-attendee basis to correctly serialize out-of-order
               replies.
 
-        @param itip_message: the iTIP message calendar object to process.
-        @type itip_message:
+        @param itip_message: the iTIP message to process.
+        @type itip_message: L{Component}
         @param calendar: the calendar object to apply the REPLY to
-        @type calendar:
+        @type calendar: L{Component}
 
         @return: a C{tuple} of:
             C{True} if processed, C{False} if scheduling message should be ignored
@@ -389,10 +405,10 @@ class iTipProcessing(object):
         Copy the PARTSTAT of the Attendee in the from_component to the matching ATTENDEE
         in the to_component. Ignore if no match found. Also update the private comments.
 
-        @param from_component:
-        @type from_component:
-        @param to_component:
-        @type to_component:
+        @param from_component: component to copy from
+        @type from_component: L{Component}
+        @param to_component: component to copy to
+        @type to_component: L{Component}
         """
 
         # Track what changed
@@ -501,11 +517,34 @@ class iTipProcessing(object):
 
 
     @staticmethod
-    def transferItems(from_calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, to_component, recipient, remove_matched=False):
+    def transferItems(from_calendar, to_component, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, recipient, remove_matched=False):
         """
         Transfer properties from a calendar to a component by first trying to match the component in the original calendar and
         use the properties from that, or use the values provided as arguments (which have been derived from the original calendar's
         master component).
+
+        @param from_calendar: the old calendar data to transfer items from
+        @type from_calendar: L{Component}
+        @param to_component: the new component to transfer items to
+        @type to_component: L{Component}
+        @param master_valarms: a C{list} of VALARM components from the old master to use
+        @type master_valarms: C{list}
+        @param private_comments: a C{list} of private comment properties from the old master to use
+        @type private_comments: C{list}
+        @param transps: a C{list} of TRANSP properties from the old master to use
+        @type transps: C{list}
+        @param completeds: a C{list} of COMPLETED properties from the old master to use
+        @type completeds: C{list}
+        @param organizer_schedule_status: a the SCHEDULE-STATUS value for the organizer from the old master to use
+        @type organizer_schedule_status: C{str}
+        @param attendee_dtstamp: an the ATTENDEE DTSTAMP parameter value from the old master to use
+        @type attendee_dtstamp: C{str}
+        @param other_props: other properties from the old master to use
+        @type other_props: C{list}
+        @param recipient: the calendar user address of the attendee whose data is being processed
+        @type recipient: C{str}
+        @param remove_matched: whether or not to remove the matching component rather than transfer items
+        @type remove_matched: C{bool}
 
         @return: C{True} if an EXDATE match occurred requiring the incoming component to be removed.
         """
@@ -544,6 +583,13 @@ class iTipProcessing(object):
 
             for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
                 [to_component.replaceProperty(prop) for prop in matched.properties(pname)]
+
+            # Check to see if the new component is cancelled as that could mean we are copying in the wrong attendee state
+            if to_component.propertyValue("STATUS") == "CANCELLED":
+                from_attendee = matched.getAttendeeProperty((recipient,))
+                if attendee and from_attendee:
+                    attendee.setParameter("PARTSTAT", from_attendee.parameterValue("PARTSTAT", "NEEDS-ACTION"))
+
         else:
             # Check for incoming DECLINED
             attendee = to_component.getAttendeeProperty((recipient,))
@@ -574,8 +620,16 @@ class iTipProcessing(object):
 
     @staticmethod
     def addTranspForNeedsAction(components, recipient):
-        # For each component where the ATTENDEE property of the recipient has PARTSTAT
-        # NEEDS-ACTION we add TRANSP:TRANSPARENT for VEVENTs
+        """
+        For each component where the ATTENDEE property of the recipient has PARTSTAT
+        NEEDS-ACTION we add TRANSP:TRANSPARENT for VEVENTs.
+
+        @param components: list of components to process
+        @type components: C{list}
+        @param recipient: calendar user address of attendee to process
+        @type recipient: C{str}
+        """
+
         for component in components:
             if component.name() != "VEVENT":
                 continue
@@ -587,7 +641,13 @@ class iTipProcessing(object):
     @staticmethod
     def sequenceComparison(itip, calendar):
         """
-        Do appropriate itip message sequencing based by comparison with existing calendar data.
+        Check the iTIP SEQUENCE values for the incoming iTIP message against the existing calendar data to determine
+        whether the iTIP message is old and should be ignored.
+
+        @param itip: the iTIP message to process
+        @type itip: L{Component}
+        @param calendar: the existing calendar data to compare with
+        @type calendar: L{Component}
 
         @return: C{True} if the itip message is new and should be processed, C{False}
             if no processing is needed
