@@ -31,7 +31,7 @@ defaultLogLevel = logLevelsByNamespace[None]
 
 
 
-class TestLogger (Logger):
+class TestLogger(Logger):
     def __init__(self, namespace=None):
         super(TestLogger, self).__init__(namespace)
 
@@ -54,12 +54,12 @@ class TestLogger (Logger):
 
 
 
-class LoggingEnabledObject (LoggingMixIn):
+class LoggingEnabledObject(LoggingMixIn):
     pass
 
 
 
-class Logging (TestCase):
+class Logging(TestCase):
     def setUp(self):
         super(Logging, self).setUp()
         clearLogLevels()
