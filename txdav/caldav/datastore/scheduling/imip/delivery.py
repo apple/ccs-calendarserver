@@ -19,6 +19,7 @@
 Handles the sending of scheduling messages via iMIP (mail gateway).
 """
 
+from twext.enterprise.queue import inTransaction
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav.http import ErrorResponse
@@ -99,9 +100,19 @@ class ScheduleViaIMip(DeliveryService):
 
                     fromAddr = str(self.scheduler.originator.cuaddr)
 
-                    txn = yield self.scheduler.txn.store().newTransaction("Submitting iMIP message for UID: %s" % (self.scheduler.calendar.resourceUID(),))
+
                     log.debug("Submitting iMIP message...  To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, caldata,))
-                    yield txn.enqueue(IMIPInvitationWork, fromAddr=fromAddr, toAddr=toAddr, icalendarText=caldata)
+
+                    def enqueueOp(txn):
+                        return txn.enqueue(IMIPInvitationWork, fromAddr=fromAddr,
+                            toAddr=toAddr, icalendarText=caldata)
+
+                    yield inTransaction(
+                        lambda: self.scheduler.txn.store().newTransaction(
+                            "Submitting iMIP message for UID: %s" % (
+                            self.scheduler.calendar.resourceUID(),)),
+                        enqueueOp
+                    )
 
                 except Exception, e:
                     # Generated failed response for this recipient
