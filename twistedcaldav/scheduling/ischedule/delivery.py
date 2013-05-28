@@ -35,6 +35,7 @@ from twisted.internet.protocol import Factory
 from twisted.python.failure import Failure
 
 from twistedcaldav.accounting import accountingEnabledForCategory, emitAccounting
+from twistedcaldav import caldavxml
 from twistedcaldav.client.pool import _configuredClientContextFactory
 from twistedcaldav.config import config
 from twistedcaldav.ical import normalizeCUAddress, Component
@@ -50,6 +51,8 @@ from twistedcaldav.scheduling.ischedule.xml import ScheduleResponse, Response, \
     ResponseDescription, Error
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String, normalizationLookup
+
+from txdav.xml import element as davxml
 
 from urlparse import urlsplit
 
@@ -480,31 +483,40 @@ class IScheduleRequest(object):
 
     def _parseResponse(self, xml):
 
+        _ScheduleResponse = caldavxml.ScheduleResponse if config.Scheduling.iSchedule.OldNamespace else ScheduleResponse
+        _Response = caldavxml.Response if config.Scheduling.iSchedule.OldNamespace else Response
+        _Recipient = caldavxml.Recipient if config.Scheduling.iSchedule.OldNamespace else Recipient
+        _RequestStatus = caldavxml.RequestStatus if config.Scheduling.iSchedule.OldNamespace else RequestStatus
+        _CalendarData = caldavxml.CalendarData if config.Scheduling.iSchedule.OldNamespace else CalendarData
+        _Error = davxml.Error if config.Scheduling.iSchedule.OldNamespace else Error
+        _ResponseDescription = davxml.ResponseDescription if config.Scheduling.iSchedule.OldNamespace else ResponseDescription
+
         # Check for correct root element
         schedule_response = xml.root_element
-        if not isinstance(schedule_response, ScheduleResponse) or not schedule_response.children:
+        if not isinstance(schedule_response, _ScheduleResponse) or not schedule_response.children:
             raise HTTPError(responsecode.BAD_REQUEST)
 
         # Parse each response - do this twice: once looking for errors that will
         # result in all recipients shown as failures; the second loop adds all the
         # valid responses to the actual result.
         for response in schedule_response.children:
-            if not isinstance(response, Response) or not response.children:
+            if not isinstance(response, _Response) or not response.children:
                 raise HTTPError(responsecode.BAD_REQUEST)
-            recipient = response.childOfType(Recipient)
-            request_status = response.childOfType(RequestStatus)
+            recipient = response.childOfType(_Recipient)
+            request_status = response.childOfType(_RequestStatus)
             if not recipient or not request_status:
                 raise HTTPError(responsecode.BAD_REQUEST)
         for response in schedule_response.children:
-            recipient = str(response.childOfType(Recipient))
-            request_status = str(response.childOfType(RequestStatus))
-            calendar_data = response.childOfType(CalendarData)
+            recipient = response.childOfType(_Recipient)
+            recipient = str(recipient.childOfType(davxml.HRef)) if config.Scheduling.iSchedule.OldNamespace else str(recipient)
+            request_status = str(response.childOfType(_RequestStatus))
+            calendar_data = response.childOfType(_CalendarData)
             if calendar_data:
-                calendar_data = str(calendar_data)
-            error = response.childOfType(Error)
+                calendar_data = calendar_data.calendarData() if config.Scheduling.iSchedule.OldNamespace else str(calendar_data)
+            error = response.childOfType(_Error)
             if error:
                 error = error.children
-            desc = response.childOfType(ResponseDescription)
+            desc = response.childOfType(_ResponseDescription)
             if desc:
                 desc = str(desc)
             self.responses.clone(

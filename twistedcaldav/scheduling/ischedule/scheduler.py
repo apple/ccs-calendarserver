@@ -135,6 +135,11 @@ class IScheduleScheduler(RemoteScheduler):
         "max-recipients": (ischedule_namespace, "max-recipients"),
     }
 
+    def __init__(self, request, resource):
+        super(IScheduleScheduler, self).__init__(request, resource)
+        self.scheduleResponse = ScheduleResponseQueue if config.Scheduling.iSchedule.OldNamespace else IScheduleResponseQueue
+
+
     @inlineCallbacks
     def doSchedulingViaPOST(self, transaction, use_request_headers=False):
         """

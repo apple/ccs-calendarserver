@@ -205,7 +205,9 @@ class PostgresService(MultiService):
 
         # Options from config
         self.databaseName = databaseName
-        self.logFile = logFile
+        # Make logFile absolute in case the working directory of postgres is
+        # elsewhere:
+        self.logFile = os.path.abspath(logFile)
         if listenAddresses:
             self.socketDir = None
             self.host, self.port = listenAddresses[0].split(":") if ":" in listenAddresses[0] else (listenAddresses[0], None,)
@@ -240,6 +242,7 @@ class PostgresService(MultiService):
         self._pgCtl = pgCtl
         self._initdb = initDB
         self._reactor = reactor
+
 
     @property
     def reactor(self):
@@ -349,7 +352,6 @@ class PostgresService(MultiService):
             cursor.execute(sqlToExecute)
             connection.commit()
             connection.close()
-
 
         if self.shutdownDeferred is None:
             # Only continue startup if we've not begun shutdown

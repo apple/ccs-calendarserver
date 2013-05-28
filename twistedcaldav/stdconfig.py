@@ -664,6 +664,7 @@ DEFAULT_CONFIG = {
                 "PrivateExchanges"      : "", # Directory where private exchange public keys are stored
                 "ProtocolDebug"         : False, # Turn on protocol level debugging to return detailed information to the requestor
             },
+            "OldNamespace"      : False,    # Use old-style XML namespace
         },
 
         "iMIP": {
@@ -1136,6 +1137,7 @@ def _updateHostName(configDict, reloading=False):
         configDict.ServerHostName = hostname
 
 
+
 def _updateMultiProcess(configDict, reloading=False):
     """
     Dynamically compute ProcessCount if it's set to 0.  Always compute
@@ -1166,6 +1168,7 @@ def _updateMultiProcess(configDict, reloading=False):
     configDict.Postgres.MaxConnections = maxConnections
     configDict.Postgres.SharedBuffers = int(configDict.Postgres.MaxConnections *
         configDict.Postgres.BuffersToConnectionsRatio)
+
 
 
 def _preUpdateDirectoryService(configDict, items, reloading=False):
