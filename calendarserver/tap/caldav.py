@@ -517,13 +517,13 @@ class WorkSchedulingService(Service, LoggingMixIn):
     @inlineCallbacks
     def startService(self):
         # Note: the "seconds in the future" args are being set to the LogID
-        # numbers to spread them out.  This is only needed until 
+        # numbers to spread them out.  This is only needed until
         # ultimatelyPerform( ) handles groups correctly.  Once that is fixed
         # these can be set to zero seconds in the future.
         if self.doImip:
-            yield scheduleNextMailPoll(self.store, int(config.LogID))
+            yield scheduleNextMailPoll(self.store, int(config.LogID) if config.LogID else 5)
         if self.doGroupCaching:
-            yield scheduleNextGroupCachingUpdate(self.store, int(config.LogID))
+            yield scheduleNextGroupCachingUpdate(self.store, int(config.LogID) if config.LogID else 5)
 
 
 
@@ -703,6 +703,7 @@ class QuitAfterUpgradeStep(object):
             raise PostUpgradeStopRequested()
         else:
             return failure
+
 
 
 class CalDAVServiceMaker (LoggingMixIn):
