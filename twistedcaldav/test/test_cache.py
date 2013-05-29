@@ -18,7 +18,7 @@ from new import instancemethod
 import hashlib
 import cPickle
 
-from twisted.internet.defer import succeed, maybeDeferred
+from twisted.internet.defer import succeed, maybeDeferred, inlineCallbacks
 
 from twext.python.log import LogLevel
 from twext.web2.dav.util import allDataFromStream
@@ -27,7 +27,7 @@ from twext.web2.http_headers import Headers
 
 from txdav.xml import element as davxml
 
-from twistedcaldav.cache import MemcacheResponseCache
+from twistedcaldav.cache import MemcacheResponseCache, CacheStoreNotifier
 from twistedcaldav.cache import MemcacheChangeNotifier
 from twistedcaldav.cache import PropfindCacheMixin
 
@@ -494,6 +494,48 @@ class TestRenderMixin(object):
 class TestCachingResource(PropfindCacheMixin, TestRenderMixin):
     def __init__(self, response):
         self.response = response
+
+
+
+class TestCacheStoreNotifier(TestCase):
+
+    @inlineCallbacks
+    def test_notify_home_child(self):
+        """
+        Verify that L{CacheStoreNotifier.notify} will generate notifications for homes and home childs.
+        """
+
+        class StubCacheStoreNotifierFactory(object):
+
+            def __init__(self):
+                self.results = set()
+
+            def changed(self, uri):
+                self.results.add(uri)
+                return succeed(None)
+
+
+        class StubCacheResource(object):
+
+            def __init__(self, notifierID):
+                self.nid = notifierID
+
+            def notifierID(self):
+                return self.nid
+
+        data = (
+            (("CalDAV", "user01"), ("/calendars/__uids__/user01/",),),
+            (("CalDAV", "user01/calendar"), ("/calendars/__uids__/user01/", "/calendars/__uids__/user01/calendar/",),),
+            (("CardDAV", "user01"), ("/addressbooks/__uids__/user01/",),),
+            (("CardDAV", "user01/calendar"), ("/addressbooks/__uids__/user01/", "/calendars/__uids__/user01/calendar/",),),
+        )
+
+        for item, results in data:
+            factory = StubCacheStoreNotifierFactory()
+            notifier = CacheStoreNotifier(factory, StubCacheResource(item))
+            yield notifier.notify()
+
+            self.assertEqual(factory.results, set(results))
 
 
 

@@ -517,9 +517,12 @@ class CacheStoreNotifier(object):
         self._storeObject = storeObject
 
 
+    @inlineCallbacks
     def notify(self):
         """
         We need to convert the store object notifier ID into a URI, since the cache uses URIs.
+        Note that for a home child resource we also need to change the token for the home as the
+        sync token on the home changes implicitly without a direct notification.
         """
 
         prefix, id = self._storeObject.notifierID()
@@ -527,8 +530,19 @@ class CacheStoreNotifier(object):
             uri = "/calendars/__uids__/%s/" % (id,)
         elif prefix == "CardDAV":
             uri = "/addressbooks/__uids__/%s/" % (id,)
-        uri = urllib.quote(uri)
-        return self._notifierFactory.changed(uri)
+        uris = (urllib.quote(uri),)
+
+        # Also add home if needed
+        if "/" in id:
+            id = id.split("/")[0]
+            if prefix == "CalDAV":
+                uri = "/calendars/__uids__/%s/" % (id,)
+            elif prefix == "CardDAV":
+                uri = "/addressbooks/__uids__/%s/" % (id,)
+            uris += (urllib.quote(uri),)
+
+        for uri in uris:
+            yield self._notifierFactory.changed(uri)
 
 
     def clone(self, storeObject):
