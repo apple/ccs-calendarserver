@@ -32,10 +32,6 @@ defaultLogLevel = logLevelsByNamespace[None]
 
 
 class TestLogger(Logger):
-    def __init__(self, namespace=None):
-        super(TestLogger, self).__init__(namespace)
-
-
     def emit(self, level, message, **kwargs):
         def observer(eventDict):
             self.eventDict = eventDict
@@ -51,6 +47,21 @@ class TestLogger(Logger):
             "message": message,
             "kwargs" : kwargs,
         }
+
+
+
+class LogComposedObject(object):
+    """
+    Just a regular object.
+    """
+    log = TestLogger()
+
+    def __init__(self, state=None):
+        self.state = state
+
+
+    def __str__(self):
+        return "<LogComposedObject %s>" % (self.state,)
 
 
 
@@ -84,6 +95,33 @@ class Logging(TestCase):
         """
         object = LoggingEnabledObject()
         self.assertEquals(object.logger.namespace, "twext.python.test.test_log.LoggingEnabledObject")
+
+
+    def test_namespace_attribute(self):
+        """
+        Default namespace for classes using L{Logger} as a descriptor is the
+        class name they were retrieved from.
+        """
+        obj = LogComposedObject()
+        self.assertEquals(obj.log.namespace,
+                          "twext.python.test.test_log.LogComposedObject")
+        self.assertEquals(LogComposedObject.log.namespace,
+                          "twext.python.test.test_log.LogComposedObject")
+        self.assertIdentical(LogComposedObject.log.source, LogComposedObject)
+        self.assertIdentical(obj.log.source, obj)
+        self.assertIdentical(Logger().source, None)
+
+
+    def test_sourceAvailableForFormatting(self):
+        """
+        On instances that have a L{Logger} class attribute, the C{source} key
+        is available to format strings.
+        """
+        obj = LogComposedObject("hello")
+        log = obj.log
+        log.error(format="Hello. %(source)s")
+        stuff = twistedLogging.textFromEventDict(log.eventDict)
+        self.assertIn("Hello. <LogComposedObject hello>", stuff)
 
 
     def test_basic_Logger(self):

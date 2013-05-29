@@ -1,3 +1,4 @@
+# -*- test-case-name: twext.python.test.test_log-*-
 ##
 # Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
@@ -170,12 +171,15 @@ class Logger(object):
     """
     Logging object.
     """
-    def __init__(self, namespace=None):
+    def __init__(self, namespace=None, source=None):
         """
-        @param namespace: The namespace for this logger.  Uses a
-            dotted notation, as used by python modules.  If not
-            C{None}, then the name of the module of the caller
-            is used.
+        @param namespace: The namespace for this logger.  Uses a dotted
+            notation, as used by python modules.  If not C{None}, then the name
+            of the module of the caller is used.
+
+        @param source: The object which is emitting messages to this logger;
+            this is automatically set on instances of a class if this L{Logger}
+            is an attribute of that class.
         """
         if namespace is None:
             currentFrame = inspect.currentframe()
@@ -185,6 +189,28 @@ class Logger(object):
             namespace = callerModule
 
         self.namespace = namespace
+        self.source = source
+
+
+    def __get__(self, oself, type=None):
+        """
+        When used as a descriptor, i.e.::
+
+            # athing.py
+            class Something(object):
+                log = Logger()
+                def something(self):
+                    self.log.info("Hello")
+
+        a L{Logger}'s namespace will be set to the name of the class it is
+        declared on, in this case, C{athing.Something}.
+        """
+        if oself is None:
+            source = type
+        else:
+            source = oself
+        return self.__class__('.'.join([type.__module__, type.__name__]),
+                              source)
 
 
     def __repr__(self):
@@ -201,9 +227,10 @@ class Logger(object):
         if not self.willLogAtLevel(level):
             return
 
-        kwargs["level"] = level
-        kwargs["levelName"] = level.name
-        kwargs["namespace"] = self.namespace
+        kwargs.update(
+            level = level, levelName = level.name,
+            namespace = self.namespace, source = self.source,
+        )
 
         #
         # Twisted's logging supports indicating a python log level, so let's
