@@ -33,16 +33,14 @@ from twisted.cred.credentials import UsernamePassword
 from twext.web2.auth.digest import DigestedCredentials
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
+from twistedcaldav.directory.cachingdirectory import CachingDirectoryService, \
     CachingDirectoryRecord
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
 from twistedcaldav.directory.util import splitIntoBatches
 from twistedcaldav.directory.principal import cuAddressConverter
 
-from calendarserver.platform.darwin.od import dsattributes, dsquery
-from twisted.python.reflect import namedModule
-
+from calendarserver.platform.darwin.od import opendirectory, dsattributes, dsquery
 
 
 
@@ -96,7 +94,7 @@ class OpenDirectoryService(CachingDirectoryService):
                                                    params['negativeCaching'])
 
         if odModule is None:
-            odModule = namedModule(config.OpenDirectoryModule)
+            odModule = opendirectory
         self.odModule = odModule
 
         try:
@@ -121,6 +119,7 @@ class OpenDirectoryService(CachingDirectoryService):
             self.restrictToGUID = True
         self.restrictedTimestamp = 0
 
+
     @property
     def restrictedGUIDs(self):
         """
@@ -140,7 +139,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     dsattributes.eDSExact,
                     False,
                     dsattributes.kDSStdRecordTypeGroups,
-                    [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
+                    [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups, ],
                 ))
                 results = self.odModule.queryRecordsWithAttribute_list(
                     self.directory,
@@ -149,7 +148,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     dsattributes.eDSExact,
                     False,
                     dsattributes.kDSStdRecordTypeGroups,
-                    [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups,],
+                    [dsattributes.kDSNAttrGroupMembers, dsattributes.kDSNAttrNestedGroups, ],
                 )
 
                 if len(results) == 1:
@@ -166,6 +165,7 @@ class OpenDirectoryService(CachingDirectoryService):
             # No restrictions
             return None
 
+
     def __cmp__(self, other):
         if not isinstance(other, DirectoryRecord):
             return super(DirectoryRecord, self).__eq__(other)
@@ -176,11 +176,13 @@ class OpenDirectoryService(CachingDirectoryService):
                 return diff
         return 0
 
+
     def __hash__(self):
         h = hash(self.__class__.__name__)
         for attr in ("node",):
             h = (h + hash(getattr(self, attr))) & sys.maxint
         return h
+
 
     def _expandGroupMembership(self, members, nestedGroups, processedGUIDs=None, returnGroups=False):
 
@@ -240,8 +242,10 @@ class OpenDirectoryService(CachingDirectoryService):
             ):
                 yield GUID
 
+
     def recordTypes(self):
         return self._recordTypes
+
 
     def listRecords(self, recordType):
         """
@@ -298,7 +302,6 @@ class OpenDirectoryService(CachingDirectoryService):
 
             proxyGUIDs = ()
             readOnlyProxyGUIDs = ()
-            autoSchedule = False
 
             if recordType in (
                 DirectoryService.recordType_resources,
@@ -310,7 +313,7 @@ class OpenDirectoryService(CachingDirectoryService):
                         resourceInfo = resourceInfo[0]
                     try:
                         (
-                            autoSchedule,
+                            _ignore_autoSchedule,
                             proxy,
                             readOnlyProxy
                         ) = self.parseResourceInfo(
@@ -345,20 +348,20 @@ class OpenDirectoryService(CachingDirectoryService):
                 nestedGUIDs = ()
 
             record = OpenDirectoryRecord(
-                service               = self,
-                recordType            = recordType,
-                guid                  = recordGUID,
-                nodeName              = "",
-                shortNames            = recordShortNames,
-                authIDs               = (),
-                fullName              = recordFullName,
-                firstName             = "",
-                lastName              = "",
-                emailAddresses        = "",
-                memberGUIDs           = memberGUIDs,
-                nestedGUIDs           = nestedGUIDs,
-                extProxies            = proxyGUIDs,
-                extReadOnlyProxies    = readOnlyProxyGUIDs,
+                service=self,
+                recordType=recordType,
+                guid=recordGUID,
+                nodeName="",
+                shortNames=recordShortNames,
+                authIDs=(),
+                fullName=recordFullName,
+                firstName="",
+                lastName="",
+                emailAddresses="",
+                memberGUIDs=memberGUIDs,
+                nestedGUIDs=nestedGUIDs,
+                extProxies=proxyGUIDs,
+                extReadOnlyProxies=readOnlyProxyGUIDs,
             )
 
             # (Copied from below)
@@ -369,7 +372,7 @@ class OpenDirectoryService(CachingDirectoryService):
             if self.augmentService is not None:
                 d = self.augmentService.getAugmentRecord(record.guid,
                     recordType)
-                d.addCallback(lambda x:record.addAugmentInformation(x))
+                d.addCallback(lambda x: record.addAugmentInformation(x))
             records.append(record)
 
         self.log_debug("ListRecords returning %d %s records" % (len(records),
@@ -453,9 +456,6 @@ class OpenDirectoryService(CachingDirectoryService):
 
         return guids
 
-
-
-
     _ODFields = {
         'fullName' : {
             'odField' : dsattributes.kDS1AttrDistinguishedName,
@@ -528,6 +528,7 @@ class OpenDirectoryService(CachingDirectoryService):
         else:
             return ()
 
+
     def _setFromAttribute(self, attribute, lower=False):
         if attribute:
             if isinstance(attribute, str):
@@ -536,6 +537,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 return set([item.lower() if lower else item for item in attribute])
         else:
             return ()
+
 
     def recordsMatchingTokens(self, tokens, context=None, lookupMethod=None):
         """
@@ -558,7 +560,7 @@ class OpenDirectoryService(CachingDirectoryService):
         """
 
         if lookupMethod is None:
-            lookupMethod=self.odModule.queryRecordsWithAttributes_list
+            lookupMethod = self.odModule.queryRecordsWithAttributes_list
 
         def collectResults(results):
             self.log_debug("Got back %d records from OD" % (len(results),))
@@ -620,20 +622,20 @@ class OpenDirectoryService(CachingDirectoryService):
                     # objects that are used to generate the REPORT result.
 
                     record = OpenDirectoryRecord(
-                        service               = self,
-                        recordType            = recordType,
-                        guid                  = recordGUID,
-                        nodeName              = recordNodeName,
-                        shortNames            = recordShortNames,
-                        authIDs               = recordAuthIDs,
-                        fullName              = recordFullName,
-                        firstName             = recordFirstName,
-                        lastName              = recordLastName,
-                        emailAddresses        = recordEmailAddresses,
-                        memberGUIDs           = memberGUIDs,
-                        nestedGUIDs           = nestedGUIDs,
-                        extProxies            = (),
-                        extReadOnlyProxies    = (),
+                        service=self,
+                        recordType=recordType,
+                        guid=recordGUID,
+                        nodeName=recordNodeName,
+                        shortNames=recordShortNames,
+                        authIDs=recordAuthIDs,
+                        fullName=recordFullName,
+                        firstName=recordFirstName,
+                        lastName=recordLastName,
+                        emailAddresses=recordEmailAddresses,
+                        memberGUIDs=memberGUIDs,
+                        nestedGUIDs=nestedGUIDs,
+                        extProxies=(),
+                        extReadOnlyProxies=(),
                     )
 
                     # (Copied from below)
@@ -644,15 +646,16 @@ class OpenDirectoryService(CachingDirectoryService):
                     if self.augmentService is not None:
                         d = self.augmentService.getAugmentRecord(record.guid,
                             recordType)
-                        d.addCallback(lambda x:record.addAugmentInformation(x))
+                        d.addCallback(lambda x: record.addAugmentInformation(x))
 
                     yield record
 
                 except KeyError:
                     pass
 
+
         def multiQuery(directory, queries, recordTypes, attrs):
-            byGUID = { }
+            byGUID = {}
             sets = []
 
             caseInsensitive = True
@@ -729,7 +732,7 @@ class OpenDirectoryService(CachingDirectoryService):
         lookupMethod=None):
 
         if lookupMethod is None:
-            lookupMethod=self.odModule.queryRecordsWithAttribute_list
+            lookupMethod = self.odModule.queryRecordsWithAttribute_list
 
         # Note that OD applies case-sensitivity globally across the entire
         # query, not per expression, so the current code uses whatever is
@@ -795,20 +798,20 @@ class OpenDirectoryService(CachingDirectoryService):
                     # objects that are used to generate the REPORT result.
 
                     record = OpenDirectoryRecord(
-                        service               = self,
-                        recordType            = recordType,
-                        guid                  = recordGUID,
-                        nodeName              = recordNodeName,
-                        shortNames            = recordShortNames,
-                        authIDs               = recordAuthIDs,
-                        fullName              = recordFullName,
-                        firstName             = recordFirstName,
-                        lastName              = recordLastName,
-                        emailAddresses        = recordEmailAddresses,
-                        memberGUIDs           = memberGUIDs,
-                        nestedGUIDs           = nestedGUIDs,
-                        extProxies            = (),
-                        extReadOnlyProxies    = (),
+                        service=self,
+                        recordType=recordType,
+                        guid=recordGUID,
+                        nodeName=recordNodeName,
+                        shortNames=recordShortNames,
+                        authIDs=recordAuthIDs,
+                        fullName=recordFullName,
+                        firstName=recordFirstName,
+                        lastName=recordLastName,
+                        emailAddresses=recordEmailAddresses,
+                        memberGUIDs=memberGUIDs,
+                        nestedGUIDs=nestedGUIDs,
+                        extProxies=(),
+                        extReadOnlyProxies=(),
                     )
 
                     # (Copied from below)
@@ -819,15 +822,16 @@ class OpenDirectoryService(CachingDirectoryService):
                     if self.augmentService is not None:
                         d = self.augmentService.getAugmentRecord(record.guid,
                             recordType)
-                        d.addCallback(lambda x:record.addAugmentInformation(x))
+                        d.addCallback(lambda x: record.addAugmentInformation(x))
 
                     yield record
 
                 except KeyError:
                     pass
 
+
         def multiQuery(directory, queries, attrs, operand):
-            byGUID = { }
+            byGUID = {}
             sets = []
 
             for query, recordTypes in queries.iteritems():
@@ -884,7 +888,6 @@ class OpenDirectoryService(CachingDirectoryService):
                         results.append((data[dsattributes.kDSNAttrRecordName], data))
                 return results
 
-
         operand = (dsquery.expression.OR if operand == "or"
             else dsquery.expression.AND)
 
@@ -922,7 +925,7 @@ class OpenDirectoryService(CachingDirectoryService):
         lookupMethod=None):
 
         if lookupMethod is None:
-            lookupMethod=self.odModule.queryRecordsWithAttribute_list
+            lookupMethod = self.odModule.queryRecordsWithAttribute_list
 
         origIndexKey = indexKey
         if indexType == self.INDEX_TYPE_CUA:
@@ -983,9 +986,8 @@ class OpenDirectoryService(CachingDirectoryService):
             else:
                 raise UnknownRecordTypeError("Unknown OpenDirectory record type: %s" % (recordType))
 
-
             # Because we're getting transient OD error -14987, try 3 times:
-            for i in xrange(3):
+            for _ignore in xrange(3):
                 try:
                     self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                         self.directory,
@@ -1023,24 +1025,23 @@ class OpenDirectoryService(CachingDirectoryService):
 
         self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
 
-
         enabledRecords = []
         disabledRecords = []
 
         for (recordShortName, value) in results:
 
             # Now get useful record info.
-            recordGUID           = value.get(dsattributes.kDS1AttrGeneratedUID)
-            recordShortNames     = self._uniqueTupleFromAttribute(value.get(dsattributes.kDSNAttrRecordName))
-            recordType           = value.get(dsattributes.kDSNAttrRecordType)
+            recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
+            recordShortNames = self._uniqueTupleFromAttribute(value.get(dsattributes.kDSNAttrRecordName))
+            recordType = value.get(dsattributes.kDSNAttrRecordType)
             if isinstance(recordType, list):
                 recordType = recordType[0]
-            recordAuthIDs        = self._setFromAttribute(value.get(dsattributes.kDSNAttrAltSecurityIdentities))
-            recordFullName       = value.get(dsattributes.kDS1AttrDistinguishedName)
-            recordFirstName      = value.get(dsattributes.kDS1AttrFirstName)
-            recordLastName       = value.get(dsattributes.kDS1AttrLastName)
+            recordAuthIDs = self._setFromAttribute(value.get(dsattributes.kDSNAttrAltSecurityIdentities))
+            recordFullName = value.get(dsattributes.kDS1AttrDistinguishedName)
+            recordFirstName = value.get(dsattributes.kDS1AttrFirstName)
+            recordLastName = value.get(dsattributes.kDS1AttrLastName)
             recordEmailAddresses = self._setFromAttribute(value.get(dsattributes.kDSNAttrEMailAddress), lower=True)
-            recordNodeName       = value.get(dsattributes.kDSNAttrMetaNodeLocation)
+            recordNodeName = value.get(dsattributes.kDSNAttrMetaNodeLocation)
 
             if not recordType:
                 self.log_debug("Record (unknown)%s in node %s has no recordType; ignoring."
@@ -1068,7 +1069,6 @@ class OpenDirectoryService(CachingDirectoryService):
                 unrestricted = recordGUID in self.restrictedGUIDs
             else:
                 unrestricted = True
-
 
             # Special case for groups, which have members.
             if recordType == self.recordType_groups:
@@ -1107,20 +1107,20 @@ class OpenDirectoryService(CachingDirectoryService):
                         readOnlyProxyGUIDs = (read_only_proxy,)
 
             record = OpenDirectoryRecord(
-                service               = self,
-                recordType            = recordType,
-                guid                  = recordGUID,
-                nodeName              = recordNodeName,
-                shortNames            = recordShortNames,
-                authIDs               = recordAuthIDs,
-                fullName              = recordFullName,
-                firstName             = recordFirstName,
-                lastName              = recordLastName,
-                emailAddresses        = recordEmailAddresses,
-                memberGUIDs           = memberGUIDs,
-                nestedGUIDs           = nestedGUIDs,
-                extProxies            = proxyGUIDs,
-                extReadOnlyProxies    = readOnlyProxyGUIDs,
+                service=self,
+                recordType=recordType,
+                guid=recordGUID,
+                nodeName=recordNodeName,
+                shortNames=recordShortNames,
+                authIDs=recordAuthIDs,
+                fullName=recordFullName,
+                firstName=recordFirstName,
+                lastName=recordLastName,
+                emailAddresses=recordEmailAddresses,
+                memberGUIDs=memberGUIDs,
+                nestedGUIDs=nestedGUIDs,
+                extProxies=proxyGUIDs,
+                extReadOnlyProxies=readOnlyProxyGUIDs,
             )
 
             # Look up augment information
@@ -1129,7 +1129,7 @@ class OpenDirectoryService(CachingDirectoryService):
             if self.augmentService is not None:
                 d = self.augmentService.getAugmentRecord(record.guid,
                     recordType)
-                d.addCallback(lambda x:record.addAugmentInformation(x))
+                d.addCallback(lambda x: record.addAugmentInformation(x))
 
             # Override based on ResourceInfo
             if autoSchedule:
@@ -1277,6 +1277,8 @@ class OpenDirectoryService(CachingDirectoryService):
 
         returnValue(recordsByGUID.values())
 
+
+
 def buildQueries(recordTypes, fields, mapping):
     """
     Determine how many queries need to be performed in order to work around opendirectory
@@ -1294,6 +1296,7 @@ def buildQueries(recordTypes, fields, mapping):
                     queries.setdefault(key, []).append(recordType)
 
     return queries
+
 
 
 def buildQueriesFromTokens(tokens, mapping):
@@ -1336,17 +1339,17 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
         extProxies, extReadOnlyProxies,
     ):
         super(OpenDirectoryRecord, self).__init__(
-            service               = service,
-            recordType            = recordType,
-            guid                  = guid,
-            shortNames            = shortNames,
-            authIDs               = authIDs,
-            fullName              = fullName,
-            firstName             = firstName,
-            lastName              = lastName,
-            emailAddresses        = emailAddresses,
-            extProxies            = extProxies,
-            extReadOnlyProxies    = extReadOnlyProxies,
+            service=service,
+            recordType=recordType,
+            guid=guid,
+            shortNames=shortNames,
+            authIDs=authIDs,
+            fullName=fullName,
+            firstName=firstName,
+            lastName=lastName,
+            emailAddresses=emailAddresses,
+            extProxies=extProxies,
+            extReadOnlyProxies=extReadOnlyProxies,
         )
         self.nodeName = nodeName
 
@@ -1371,6 +1374,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
             self.fullName
         )
 
+
     def members(self):
         if self.recordType != self.service.recordType_groups:
             return
@@ -1379,6 +1383,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
             userRecord = self.service.recordWithGUID(guid)
             if userRecord is not None:
                 yield userRecord
+
 
     def groups(self):
         if self._groupMembershipGUIDs is None:
@@ -1389,11 +1394,14 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
             if record:
                 yield record
 
+
     def memberGUIDs(self):
         return set(self._memberGUIDs)
 
+
     def nestedGUIDs(self):
         return set(self._nestedGUIDs)
+
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):
@@ -1485,6 +1493,8 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
             return False
 
         return super(OpenDirectoryRecord, self).verifyCredentials(credentials)
+
+
 
 class OpenDirectoryInitError(DirectoryError):
     """

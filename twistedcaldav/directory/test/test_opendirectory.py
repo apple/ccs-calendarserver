@@ -19,17 +19,17 @@ try:
 except ImportError:
     pass
 else:
+    from calendarserver.platform.darwin.od import dsattributes
     from collections import defaultdict
-    from twisted.trial.unittest import SkipTest
+    from twext.web2.auth.digest import DigestedCredentials
     from twisted.internet.defer import inlineCallbacks
     from twisted.python.runtime import platform
-    from twext.web2.auth.digest import DigestedCredentials
-    import twistedcaldav.directory.test.util
+    from twisted.trial.unittest import SkipTest
     from twistedcaldav.directory import augment
-    from twistedcaldav.directory.directory import DirectoryService
     from twistedcaldav.directory.appleopendirectory import OpenDirectoryRecord
-    from calendarserver.platform.darwin.od import dsattributes
+    from twistedcaldav.directory.directory import DirectoryService
     from txdav.common.datastore.test.util import deriveValue, withSpecialValue
+    import twistedcaldav.directory.test.util
 
     class DigestAuthModule(object):
         """
@@ -47,12 +47,13 @@ else:
             val = (response == self.response)
             return val
 
+
     # Wonky hack to prevent unclean reactor shutdowns
     class DummyReactor(object):
         @staticmethod
         def callLater(*args):
             pass
-    import twistedcaldav.directory.appleopendirectory
+
     twistedcaldav.directory.appleopendirectory.reactor = DummyReactor
 
     class OpenDirectory (
@@ -89,20 +90,20 @@ else:
 
         def test_fullNameNone(self):
             record = OpenDirectoryRecord(
-                service               = self.service(),
-                recordType            = DirectoryService.recordType_users,
-                guid                  = "B1F93EB1-DA93-4772-9141-81C250DA36C2",
-                nodeName              = "/LDAPv2/127.0.0.1",
-                shortNames            = ("user",),
-                authIDs               = set(),
-                fullName              = None,
-                firstName             = "Some",
-                lastName              = "User",
-                emailAddresses        = set(("someuser@example.com",)),
-                memberGUIDs           = [],
-                nestedGUIDs           = [],
-                extProxies            = [],
-                extReadOnlyProxies    = [],
+                service=self.service(),
+                recordType=DirectoryService.recordType_users,
+                guid="B1F93EB1-DA93-4772-9141-81C250DA36C2",
+                nodeName="/LDAPv2/127.0.0.1",
+                shortNames=("user",),
+                authIDs=set(),
+                fullName=None,
+                firstName="Some",
+                lastName="User",
+                emailAddresses=set(("someuser@example.com",)),
+                memberGUIDs=[],
+                nestedGUIDs=[],
+                extProxies=[],
+                extReadOnlyProxies=[],
             )
             self.assertEquals(record.fullName, "")
 
@@ -110,20 +111,20 @@ else:
         @withSpecialValue("odModule", DigestAuthModule())
         def test_invalidODDigest(self):
             record = OpenDirectoryRecord(
-                service               = self.service(),
-                recordType            = DirectoryService.recordType_users,
-                guid                  = "B1F93EB1-DA93-4772-9141-81C250DA35B3",
-                nodeName              = "/LDAPv2/127.0.0.1",
-                shortNames            = ("user",),
-                authIDs               = set(),
-                fullName              = "Some user",
-                firstName             = "Some",
-                lastName              = "User",
-                emailAddresses        = set(("someuser@example.com",)),
-                memberGUIDs           = [],
-                nestedGUIDs           = [],
-                extProxies            = [],
-                extReadOnlyProxies    = [],
+                service=self.service(),
+                recordType=DirectoryService.recordType_users,
+                guid="B1F93EB1-DA93-4772-9141-81C250DA35B3",
+                nodeName="/LDAPv2/127.0.0.1",
+                shortNames=("user",),
+                authIDs=set(),
+                fullName="Some user",
+                firstName="Some",
+                lastName="User",
+                emailAddresses=set(("someuser@example.com",)),
+                memberGUIDs=[],
+                nestedGUIDs=[],
+                extProxies=[],
+                extReadOnlyProxies=[],
             )
 
             digestFields = defaultdict(lambda: "...")
@@ -138,29 +139,29 @@ else:
         @withSpecialValue("odModule", DigestAuthModule())
         def test_validODDigest(self):
             record = OpenDirectoryRecord(
-                service               = self.service(),
-                recordType            = DirectoryService.recordType_users,
-                guid                  = "B1F93EB1-DA93-4772-9141-81C250DA35B3",
-                nodeName              = "/LDAPv2/127.0.0.1",
-                shortNames            = ("user",),
-                authIDs               = set(),
-                fullName              = "Some user",
-                firstName             = "Some",
-                lastName              = "User",
-                emailAddresses        = set(("someuser@example.com",)),
-                memberGUIDs           = [],
-                nestedGUIDs           = [],
-                extProxies            = [],
-                extReadOnlyProxies    = [],
+                service=self.service(),
+                recordType=DirectoryService.recordType_users,
+                guid="B1F93EB1-DA93-4772-9141-81C250DA35B3",
+                nodeName="/LDAPv2/127.0.0.1",
+                shortNames=("user",),
+                authIDs=set(),
+                fullName="Some user",
+                firstName="Some",
+                lastName="User",
+                emailAddresses=set(("someuser@example.com",)),
+                memberGUIDs=[],
+                nestedGUIDs=[],
+                extProxies=[],
+                extReadOnlyProxies=[],
             )
 
             digestFields = {
-                "username":"user",
-                "realm":"/Search",
-                "nonce":"ABC",
-                "uri":"/",
-                "response":"123",
-                "algorithm":"md5",
+                "username": "user",
+                "realm": "/Search",
+                "nonce": "ABC",
+                "uri": "/",
+                "response": "123",
+                "algorithm": "md5",
             }
             od = deriveValue(self, "odModule", lambda self: None)
             od.response = (
@@ -393,7 +394,6 @@ else:
 
                 return results
 
-
             #
             # OR
             #
@@ -427,7 +427,6 @@ else:
                 lookupMethod=lookupMethod))
             results = list(results)
             self.assertEquals(len(results), 1)
-
 
             #
             # AND

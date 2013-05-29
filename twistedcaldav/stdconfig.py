@@ -970,13 +970,6 @@ DEFAULT_CONFIG = {
     "FreeBusyIndexExpandMaxDays": 5 * 365,
     "FreeBusyIndexDelayedExpand": True,
 
-    # Specify which opendirectory module to use:
-    # "opendirectory" is PyOpenDirectory (the old one which uses
-    # DirectoryService.framework)
-    # "calendarserver.platform.darwin.od.opendirectory" is the new PyObjC
-    # version which uses OpenDirectory.framework
-    "OpenDirectoryModule": "opendirectory",
-
     # The RootResource uses a twext property store. Specify the class here
     "RootResourcePropStoreClass": "twext.web2.dav.xattrprops.xattrPropertyStore",
 

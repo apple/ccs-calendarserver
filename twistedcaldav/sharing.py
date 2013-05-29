@@ -239,7 +239,10 @@ class SharedResourceMixin(object):
         """
         Return True if this is an owner shared calendar collection.
         """
-        return self._newStoreObject.isShared() if self._newStoreObject else False
+        try:
+            return self._newStoreObject.isShared() if self._newStoreObject else False
+        except AttributeError:
+            return False
 
 
     def setShare(self, share):
@@ -498,7 +501,7 @@ class SharedResourceMixin(object):
 
 
     def uninviteUserToShare(self, userid, ace, request):
-        """ 
+        """
         Send out in uninvite first, and then remove this user from the share list.
         """
         # Do not validate the userid - we want to allow invalid users to be removed because they
@@ -573,7 +576,7 @@ class SharedResourceMixin(object):
             returnValue([])
 
         #TODO: Cache
-        if True:  #not hasattr(self, "_invitations"):
+        if True:  # not hasattr(self, "_invitations"):
 
             acceptedHomeChildren = yield self._newStoreObject.asShared()
             # remove direct shares (it might be OK not to remove these, but that would be different from legacy code)
@@ -582,7 +585,7 @@ class SharedResourceMixin(object):
             invitedHomeChildren = (yield self._newStoreObject.asInvited()) + indirectAccceptedHomeChildren
 
             self._invitations = sorted([Invitation(homeChild) for homeChild in invitedHomeChildren],
-                                 key=lambda invitation:invitation.shareeUID())
+                                 key=lambda invitation: invitation.shareeUID())
 
         returnValue(self._invitations)
 
@@ -612,7 +615,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def inviteSingleUserToShare(self, userid, cn, ace, summary, request):  #@UnusedVariable
+    def inviteSingleUserToShare(self, userid, cn, ace, summary, request): #@UnusedVariable
 
         # We currently only handle local users
         sharee = self.principalForCalendarUserAddress(userid)
@@ -637,7 +640,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def uninviteSingleUserFromShare(self, userid, aces, request):  #@UnusedVariable
+    def uninviteSingleUserFromShare(self, userid, aces, request): #@UnusedVariable
         # Cancel invites - we'll just use whatever userid we are given
 
         sharee = self.principalForCalendarUserAddress(userid)
@@ -682,7 +685,7 @@ class SharedResourceMixin(object):
         returnValue(True)
 
 
-    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request):  #@UnusedVariable
+    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request): #@UnusedVariable
 
         # Just update existing
         return self.inviteSingleUserToShare(userid, commonName, aceNEW, summary, request)
@@ -1076,7 +1079,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         if not request:
             # FIXEME:  Fake up a request that can be used to get the owner home resource
-            class _FakeRequest(object):pass
+            class _FakeRequest(object):
+                pass
             fakeRequest = _FakeRequest()
             setattr(fakeRequest, TRANSACTION_KEY, self._newStoreHome._txn)
             request = fakeRequest
@@ -1409,6 +1413,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
             return self.acceptInviteShare(request, hostUrl, replytoUID, displayname=summary)
         else:
             return self.declineShare(request, hostUrl, replytoUID)
+
 
 
 class Share(object):

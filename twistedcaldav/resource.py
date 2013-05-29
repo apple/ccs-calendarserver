@@ -419,7 +419,7 @@ class CalDAVResource (
                 customxml.PubSubXMPPPushKeyProperty.qname(),
             )
 
-        if self.isAddressBookCollection():
+        if self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
             baseProperties += (
                 element.ResourceID.qname(),
                 carddavxml.SupportedAddressData.qname(),
@@ -430,6 +430,12 @@ class CalDAVResource (
                 baseProperties += (
                     carddavxml.MaxResourceSize.qname(),
                 )
+
+        if self.isDirectoryBackedAddressBookCollection():
+            baseProperties += (
+                element.ResourceID.qname(),
+                carddavxml.SupportedAddressData.qname(),
+            )
 
         if self.isNotificationCollection():
             baseProperties += (
@@ -444,7 +450,7 @@ class CalDAVResource (
         if config.EnableSyncReport and (element.Report(element.SyncCollection(),) in self.supportedReports()):
             baseProperties += (element.SyncToken.qname(),)
 
-        if config.EnableAddMember and (self.isCalendarCollection() or self.isAddressBookCollection()):
+        if config.EnableAddMember and (self.isCalendarCollection() or self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection()):
             baseProperties += (element.AddMember.qname(),)
 
         if config.Sharing.Enabled:
@@ -455,7 +461,7 @@ class CalDAVResource (
                     customxml.SharedURL.qname(),
                 )
 
-            elif config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection():
+            elif config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
                 baseProperties += (
                     customxml.Invite.qname(),
                     customxml.AllowedSharingModes.qname(),
@@ -525,16 +531,13 @@ class CalDAVResource (
         else:
             qname = property.qname()
 
-        if self.isCalendarCollection() or self.isAddressBookCollection():
+        if self.isCalendarCollection() or (self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection()):
 
             # Push notification DAV property "pushkey"
             if qname == customxml.PubSubXMPPPushKeyProperty.qname():
 
-                # FIXME: is there a better way to get back to the associated
-                # datastore object?
-                dataObject = getattr(self, "_newStoreObject")
-                if dataObject is not None:
-                    notifier = dataObject.getNotifier("push")
+                if hasattr(self, "_newStoreObject"):
+                    notifier = self._newStoreObject.getNotifier("push")
                     if notifier is not None:
                         propVal = customxml.PubSubXMPPPushKeyProperty(notifier.nodeName())
                         returnValue(propVal)
@@ -567,7 +570,7 @@ class CalDAVResource (
 
         elif qname == customxml.GETCTag.qname() and (
             self.isPseudoCalendarCollection() or
-            self.isAddressBookCollection() or
+            self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection() or
             self.isNotificationCollection()
         ):
             returnValue(customxml.GETCTag.fromString((yield self.getInternalSyncToken())))
@@ -578,7 +581,7 @@ class CalDAVResource (
             returnValue(element.SyncToken.fromString((yield self.getSyncToken())))
 
         elif qname == element.AddMember.qname() and config.EnableAddMember and (
-            self.isCalendarCollection() or self.isAddressBookCollection()
+            self.isCalendarCollection() or self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection()
         ):
             url = (yield self.canonicalURL(request))
             returnValue(element.AddMember(element.HRef.fromString(url + "/;add-member")))
@@ -631,7 +634,7 @@ class CalDAVResource (
                 }),
             ))
 
-        elif qname == carddavxml.MaxResourceSize.qname() and self.isAddressBookCollection():
+        elif qname == carddavxml.MaxResourceSize.qname() and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
             # CardDAV, section 6.2.3
             if config.MaxResourceSize:
                 returnValue(carddavxml.MaxResourceSize.fromString(
@@ -641,7 +644,7 @@ class CalDAVResource (
         elif qname == customxml.Invite.qname():
             if config.Sharing.Enabled and (
                 config.Sharing.Calendars.Enabled and self.isCalendarCollection() or
-                config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection()
+                config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection()
             ):
                 result = (yield self.inviteProperty(request))
                 returnValue(result)
@@ -649,7 +652,7 @@ class CalDAVResource (
         elif qname == customxml.AllowedSharingModes.qname():
             if config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.isCalendarCollection():
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
-            elif config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection():
+            elif config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
 
         elif qname == customxml.SharedURL.qname():
@@ -1109,8 +1112,9 @@ class CalDAVResource (
 
     def supportedReports(self):
         result = super(CalDAVResource, self).supportedReports()
-        result.append(element.Report(caldavxml.CalendarQuery(),))
-        result.append(element.Report(caldavxml.CalendarMultiGet(),))
+        if config.EnableCalDAV:
+            result.append(element.Report(caldavxml.CalendarQuery(),))
+            result.append(element.Report(caldavxml.CalendarMultiGet(),))
         if self.isCollection():
             # Only allowed on collections
             result.append(element.Report(caldavxml.FreeBusyQuery(),))

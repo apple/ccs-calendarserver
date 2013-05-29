@@ -62,26 +62,27 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 #                uid = pwd.getpwnam(config.UserName)[2]
 #                gid = grp.getgrnam(config.GroupName)[2]
 #                os.chown(path, uid, gid)
-# 
+#
 #            log.info("Created %s" % (path,))
-#            
+#
 #        except (OSError,), e:
 #            # this is caused by multiprocessor race and is harmless
 #            if e.errno != errno.EEXIST:
 #                raise
 
-        
+
     def makeChild(self, name):
         from twistedcaldav.simpleresource import SimpleCalDAVResource
         return SimpleCalDAVResource(principalCollections=self.principalCollections())
 
+
     def provisionDirectory(self):
         if self.directory is None:
             directoryClass = namedClass(config.DirectoryAddressBook.type)
-        
+
             log.info("Configuring: %s:%r"
                  % (config.DirectoryAddressBook.type, config.DirectoryAddressBook.params))
-        
+
             #add self as "directoryBackedAddressBook" parameter
             params = config.DirectoryAddressBook.params.copy()
             params["directoryBackedAddressBook"] = self
@@ -93,9 +94,9 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
                 return succeed(None)
 
             return self.directory.createCache()
-            
+
             #print ("DirectoryBackedAddressBookResource.provisionDirectory: provisioned")
-        
+
         return succeed(None)
 
 
@@ -120,6 +121,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
            ),
         )
 
+
     def supportedReports(self):
         result = super(DirectoryBackedAddressBookResource, self).supportedReports()
         if config.EnableSyncReport:
@@ -127,8 +129,10 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
             result.remove(davxml.Report(davxml.SyncCollection(),))
         return result
 
+
     def resourceType(self):
         return davxml.ResourceType.directory
+
 
     def resourceID(self):
         if self.directory:
@@ -137,40 +141,44 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
             resource_id = "tag:unknown"
         return resource_id
 
+
     def isDirectoryBackedAddressBookCollection(self):
         return True
+
 
     def isAddressBookCollection(self):
         #print( "DirectoryBackedAddressBookResource.isAddressBookCollection: return True" )
         return True
 
+
     def isCollection(self):
         return True
+
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
-    
+
+
     @inlineCallbacks
     def renderHTTP(self, request):
         if not self.directory:
-            raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,"Service is starting up" ))
+            raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Service is starting up"))
         elif self.directory.liveQuery:
             response = (yield maybeDeferred(super(DirectoryBackedAddressBookResource, self).renderHTTP, request))
             returnValue(response)
         else:
-            available = (yield maybeDeferred(self.directory.available, ))
-        
+            available = (yield maybeDeferred(self.directory.available,))
+
             if not available:
-                raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,"Service is starting up" ))
+                raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Service is starting up"))
             else:
                 updateLock = self.directory.updateLock()
                 yield updateLock.acquire()
                 try:
                     response = (yield maybeDeferred(super(DirectoryBackedAddressBookResource, self).renderHTTP, request))
-    
+
                 finally:
                     yield updateLock.release()
-                
-                returnValue(response)
 
+                returnValue(response)
