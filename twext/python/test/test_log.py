@@ -188,14 +188,16 @@ class Logging(TestCase):
         """
         Setting and retrieving log levels.
         """
+        setLogLevelForNamespace(None, LogLevel.error)
         setLogLevelForNamespace("twext.web2", LogLevel.debug)
-        setLogLevelForNamespace("twext.web2.dav", LogLevel.error)
+        setLogLevelForNamespace("twext.web2.dav", LogLevel.warn)
 
-        self.assertEquals(logLevelForNamespace("twisted"                   ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace(None                        ), LogLevel.error)
+        self.assertEquals(logLevelForNamespace("twisted"                   ), LogLevel.error)
         self.assertEquals(logLevelForNamespace("twext.web2"                ), LogLevel.debug)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), LogLevel.error)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), LogLevel.error)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), LogLevel.error)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), LogLevel.warn)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), LogLevel.warn)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), LogLevel.warn)
 
 
     def test_setInvalidLogLevel(self):
