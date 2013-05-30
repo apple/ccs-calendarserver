@@ -22,7 +22,7 @@ from twext.python.log import LogLevel, InvalidLogLevelError
 from twext.python.log import logLevelsByNamespace, logLevelForNamespace
 from twext.python.log import setLogLevelForNamespace, clearLogLevels
 from twext.python.log import pythonLogLevelMapping
-from twext.python.log import Logger
+from twext.python.log import Logger, LegacyLogger
 
 from twistedcaldav.test.util import TestCase
 
@@ -32,14 +32,14 @@ defaultLogLevel = logLevelsByNamespace[None]
 
 
 
-class TestLogger(Logger):
+class TestLoggerMixIn(object):
     def emit(self, level, message=None, **kwargs):
         def observer(eventDict):
             self.eventDict = eventDict
 
         twistedLogging.addObserver(observer)
 
-        super(TestLogger, self).emit(level, message, **kwargs)
+        Logger.emit(self, level, message, **kwargs)
 
         twistedLogging.removeObserver(observer)
 
@@ -48,6 +48,15 @@ class TestLogger(Logger):
             "message": message,
             "kwargs" : kwargs,
         }
+
+
+class TestLogger(TestLoggerMixIn, Logger):
+    pass
+
+
+
+class TestLegacyLogger(TestLoggerMixIn, LegacyLogger):
+    pass
 
 
 
@@ -175,7 +184,7 @@ class Logging(TestCase):
 
     def test_conflicting_kwargs(self):
         """
-        Make sure that conflicting kwargs don't pass through.
+        Make sure that kwargs conflicting with args don't pass through.
         """
         log = TestLogger()
 
@@ -256,6 +265,18 @@ class Logging(TestCase):
         self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), defaultLogLevel)
 
 
+    def test_setLevelOnLogger(self):
+        """
+        Set level on the logger directly.
+        """
+        log = Logger()
+
+        for level in (LogLevel.error, LogLevel.info):
+            log.setLevel(level)
+            self.assertIdentical(level, log.level())
+            self.assertIdentical(level, logLevelForNamespace(log.namespace))
+
+
     def test_willLogAtLevel(self):
         """
         willLogAtLevel()
@@ -282,3 +303,25 @@ class Logging(TestCase):
                 self.assertTrue(log.willLogAtLevel(level))
             else:
                 self.assertFalse(log.willLogAtLevel(level))
+
+
+    def test_legacy_msg(self):
+        """
+        Test LegacyLogger's log.msg()
+        """
+        log = TestLegacyLogger()
+
+        message = "Hi, there."
+        kwargs = { "foo": "bar", "obj": object() }
+
+        log.msg(message, **kwargs)
+
+        self.assertIdentical(LogLevel.info, log.emitted["level"])
+        self.assertEquals(message, log.emitted["message"]) # log.msg() is (weird,)
+
+        for key, value in kwargs.items():
+            self.assertIdentical(log.emitted["kwargs"][key], value)
+
+        log.msg(foo="")
+
+        self.assertIdentical(log.emitted["message"], None)
