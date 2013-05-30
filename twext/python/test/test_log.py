@@ -33,7 +33,7 @@ defaultLogLevel = logLevelsByNamespace[None]
 
 
 class TestLogger(Logger):
-    def emit(self, level, message, **kwargs):
+    def emit(self, level, message=None, **kwargs):
         def observer(eventDict):
             self.eventDict = eventDict
 
@@ -150,6 +150,27 @@ class Logging(TestCase):
                 )
             else:
                 self.assertFalse(hasattr(log, "eventDict"))
+
+
+    def test_defaultFailure(self):
+        """
+        Test that log.failure() emits the right data.
+        """
+        log = TestLogger()
+        try:
+            raise RuntimeError("baloney!")
+        except RuntimeError:
+            log.failure()
+
+        #
+        # log.failure() will cause trial to complain, so here we check that
+        # trial saw the correct error and remove it from the list of things to
+        # complain about.
+        #
+        errors = self.flushLoggedErrors(RuntimeError)
+        self.assertEquals(len(errors), 1)
+
+        self.assertEquals(log.emitted["level"], LogLevel.error)
 
 
     def test_conflicting_kwargs(self):

@@ -269,14 +269,14 @@ class Logger(object):
         twistedLogMessage(**kwargs)
 
 
-    def failure(self, failure=None, **kwargs):
+    def failure(self, message=None, failure=None, **kwargs):
         """
         Log a Failure.
         """
         if failure is None:
             failure=Failure()
 
-        self.emit(LogLevel.error, failure=failure, isError=1, **kwargs)
+        self.emit(LogLevel.error, None, failure=failure, isError=1, why=message, **kwargs)
 
 
     def level(self):
