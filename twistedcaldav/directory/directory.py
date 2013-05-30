@@ -73,6 +73,8 @@ log = Logger()
 class DirectoryService(object):
     implements(IDirectoryService, ICalendarStoreDirectoryService, ICredentialsChecker)
 
+    log = Logger()
+
     ##
     # IDirectoryService
     ##

@@ -31,7 +31,6 @@ from twext.enterprise.dal.syntax import (
 
 from txdav.xml.parser import WebDAVDocument
 from txdav.common.icommondatastore import AllRetriesFailed
-from twext.python.log import Logger
 from txdav.common.datastore.sql_tables import schema
 from txdav.base.propertystore.base import (AbstractPropertyStore,
                                            PropertyName, validKey)
@@ -42,7 +41,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 prop = schema.RESOURCE_PROPERTY
 
 class PropertyStore(AbstractPropertyStore):
-    log = Logger()
 
     _cacher = Memcacher("SQL.props", pickle=True, key_normalization=False)
 
