@@ -21,9 +21,11 @@ Common utility functions for a datastores.
 
 from uuid import UUID
 
-from twisted.python import log
+from twext.python.log import Logger
 
 from twistedcaldav.memcacher import Memcacher
+
+log = Logger()
 
 _unset = object()
 
