@@ -22,7 +22,7 @@ from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.queue import WorkItem
 from twext.internet.gaiendpoint import GAIEndpoint
-from twext.python.log import Logger
+from twext.python.log import Logger, LegacyLogger
 
 from twisted.application import service
 from twisted.internet import protocol, defer, ssl
@@ -48,12 +48,12 @@ log = Logger()
 # Monkey patch imap4.log so it doesn't emit useless logging,
 # specifically, "Unhandled unsolicited response" nonsense.
 #
-class IMAPLogger(Logger):
+class IMAPLogger(LegacyLogger):
     def emit(self, level, message, *args, **kwargs):
         if message.startswith("Unhandled unsolicited response:"):
             return
 
-        Logger.emit(self, level, message, *args, **kwargs)
+        super(IMAPLogger, self).emit(self, level, message, *args, **kwargs)
 
 imap4.log = IMAPLogger()
 
