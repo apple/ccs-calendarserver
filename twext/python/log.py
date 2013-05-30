@@ -49,18 +49,17 @@ second example, it would be C{some.module.Foo}.
 #
 # TODO List:
 #
-# * TwistedCompatibleLogger.err is setting isError=0 until we fix our callers
-#
 # * Replace message argument with format argument
 #
 
 __all__ = [
+    "InvalidLogLevelError",
     "LogLevel",
     "logLevelForNamespace",
     "setLogLevelForNamespace",
     "clearLogLevels",
     "Logger",
-    "InvalidLogLevelError",
+    "LegacyLogger",
     "StandardIOObserver",
 ]
 
@@ -74,6 +73,17 @@ from twisted.python.failure import Failure
 from twisted.python.reflect import safe_str
 from twisted.python.log import msg as twistedLogMessage
 from twisted.python.log import addObserver, removeObserver
+
+
+
+#
+# Log level definitions
+#
+
+class InvalidLogLevelError(RuntimeError):
+    def __init__(self, level):
+        super(InvalidLogLevelError, self).__init__(str(level))
+        self.level = level
 
 
 
@@ -107,9 +117,9 @@ pythonLogLevelMapping = {
 
 
 
-##
+#
 # Tools for managing log levels
-##
+#
 
 def logLevelForNamespace(namespace):
     """
@@ -294,7 +304,7 @@ class Logger(object):
 
 
 
-class TwistedCompatibleLogger(Logger):
+class LegacyLogger(Logger):
     def msg(self, *message, **kwargs):
         if message:
             message = " ".join(map(safe_str, message))
@@ -313,10 +323,10 @@ class TwistedCompatibleLogger(Logger):
         # existing bugs, should be =1.
 
         if isinstance(_stuff, Failure):
-            self.emit(LogLevel.error, failure=_stuff, why=_why, isError=0, **kwargs)
+            self.emit(LogLevel.error, failure=_stuff, why=_why, isError=1, **kwargs)
         else:
             # We got called with an invalid _stuff.
-            self.emit(LogLevel.error, repr(_stuff), why=_why, isError=0, **kwargs)
+            self.emit(LogLevel.error, repr(_stuff), why=_why, isError=1, **kwargs)
 
 
 
@@ -347,20 +357,10 @@ for level in LogLevel.iterconstants():
 del level
 
 
-##
-# Errors
-##
 
-class InvalidLogLevelError(RuntimeError):
-    def __init__(self, level):
-        super(InvalidLogLevelError, self).__init__(str(level))
-        self.level = level
-
-
-
-##
+#
 # Observers
-##
+#
 
 class StandardIOObserver(object):
     """
