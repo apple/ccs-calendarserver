@@ -1206,6 +1206,9 @@ class BadDataService(CalVerifyService):
                 if component.hasDuplicateAlarms(doFix=False):
                     raise InvalidICalendarDataError("Duplicate VALARMS")
             self.noPrincipalPathCUAddresses(component, doFix=False)
+            if self.options["ical"]:
+                self.attendeesWithoutOrganizer(component, doFix=False)
+
         except ValueError, e:
             result = False
             message = str(e)
@@ -1317,6 +1320,20 @@ class BadDataService(CalVerifyService):
                             raise InvalidICalendarDataError("iCalendar ATTENDEE CALENDARSERVER-OLD-CUA not base64")
 
 
+    def attendeesWithoutOrganizer(self, component, doFix):
+        """
+        Look for events with ATTENDEE properties and no ORGANIZER property.
+        """
+
+        organizer = component.getOrganizer()
+        attendees = component.getAttendees()
+        if organizer is None and attendees:
+            if doFix:
+                raise ValueError("ATTENDEEs without ORGANIZER")
+            else:
+                raise InvalidICalendarDataError("ATTENDEEs without ORGANIZER")
+
+
     @inlineCallbacks
     def fixCalendarData(self, resid, isinbox):
         """
@@ -1342,6 +1359,8 @@ class BadDataService(CalVerifyService):
                 component.validOrganizerForScheduling(doFix=True)
                 component.hasDuplicateAlarms(doFix=True)
             self.noPrincipalPathCUAddresses(component, doFix=True)
+            if self.options["ical"]:
+                self.attendeesWithoutOrganizer(component, doFix=True)
         except ValueError:
             result = False
             message = "Failed fix: "

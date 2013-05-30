@@ -412,6 +412,25 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
+BAD13_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:BAD13
+DTEND:20100307T151500Z
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:20100307T111500Z
+DTSTAMP:20100303T181220Z
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
+SEQUENCE:2
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
 
 
 class CalVerifyDataTests(StoreTestCase):
@@ -443,9 +462,12 @@ class CalVerifyDataTests(StoreTestCase):
                 "bad10.ics" : (BAD10_ICS, metadata,),
                 "bad11.ics" : (BAD11_ICS, metadata,),
                 "bad12.ics" : (BAD12_ICS, metadata,),
+                "bad13.ics" : (BAD13_ICS, metadata,),
             }
         },
     }
+
+    number_to_process = len(requirements["home1"]["calendar_1"])
 
     def configure(self):
         super(CalVerifyDataTests, self).configure()
@@ -505,7 +527,7 @@ class CalVerifyDataTests(StoreTestCase):
         calverify.emailDomain = "example.com"
         yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 13)
+        self.assertEqual(calverify.results["Number of events to process"], self.number_to_process)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD1",),
             ("home1", "BAD2",),
@@ -518,6 +540,7 @@ class CalVerifyDataTests(StoreTestCase):
             ("home1", "BAD10",),
             ("home1", "BAD11",),
             ("home1", "BAD12",),
+            ("home1", "BAD13",),
         )))
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
@@ -552,7 +575,7 @@ class CalVerifyDataTests(StoreTestCase):
         calverify.emailDomain = "example.com"
         yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 13)
+        self.assertEqual(calverify.results["Number of events to process"], self.number_to_process)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD1",),
             ("home1", "BAD2",),
@@ -565,6 +588,7 @@ class CalVerifyDataTests(StoreTestCase):
             ("home1", "BAD10",),
             ("home1", "BAD11",),
             ("home1", "BAD12",),
+            ("home1", "BAD13",),
         )))
 
         # Do scan
@@ -573,9 +597,10 @@ class CalVerifyDataTests(StoreTestCase):
         calverify.emailDomain = "example.com"
         yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 13)
+        self.assertEqual(calverify.results["Number of events to process"], self.number_to_process)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD1",),
+            ("home1", "BAD13",),
         )))
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
@@ -619,7 +644,7 @@ class CalVerifyDataTests(StoreTestCase):
         calverify.emailDomain = "example.com"
         yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 13)
+        self.assertEqual(calverify.results["Number of events to process"], self.number_to_process)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD4",),
             ("home1", "BAD5",),
@@ -663,7 +688,7 @@ class CalVerifyDataTests(StoreTestCase):
         calverify.emailDomain = "example.com"
         yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 13)
+        self.assertEqual(calverify.results["Number of events to process"], self.number_to_process)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD4",),
             ("home1", "BAD5",),
@@ -680,7 +705,7 @@ class CalVerifyDataTests(StoreTestCase):
         calverify.emailDomain = "example.com"
         yield calverify.doAction()
 
-        self.assertEqual(calverify.results["Number of events to process"], 13)
+        self.assertEqual(calverify.results["Number of events to process"], self.number_to_process)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
         )))
 

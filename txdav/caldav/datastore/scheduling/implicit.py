@@ -136,6 +136,15 @@ class ImplicitScheduler(object):
 
         # If action is remove we actually need to get state from the existing scheduling object resource
         if self.action == "remove":
+
+            # If the new data has no organizer, then there must also be no attendees
+            if self.organizer is None and self.attendees:
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "organizer-allowed"),
+                    "Organizer removal also requires attendees to be removed.",
+                ))
+
             # Also make sure that we return the new calendar being written rather than the old one
             # when the implicit action is executed
             self.return_calendar = calendar
