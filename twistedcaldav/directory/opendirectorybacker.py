@@ -133,7 +133,7 @@ class OpenDirectoryBackingService(DirectoryService):
             try:
                 self.peopleDirectory = opendirectory.odInit(peopleNode)
             except opendirectory.ODError, e:
-                self.log_error("Open Directory (node=%s) Initialization error: %s" % (peopleNode, e))
+                self.log.error("Open Directory (node=%s) Initialization error: %s" % (peopleNode, e))
                 raise
             self.realmName = peopleNode
 
@@ -146,7 +146,7 @@ class OpenDirectoryBackingService(DirectoryService):
                 try:
                     self.userDirectory = opendirectory.odInit(userNode)
                 except opendirectory.ODError, e:
-                    self.log_error("Open Directory (node=%s) Initialization error: %s" % (userNode, e))
+                    self.log.error("Open Directory (node=%s) Initialization error: %s" % (userNode, e))
                     raise
                 if self.realmName:
                     self.realmName += "+" + userNode
@@ -180,7 +180,7 @@ class OpenDirectoryBackingService(DirectoryService):
                                                 VCardRecord.dsqueryAttributesForProperty.get("X-INTERNAL-REQUIRED")
                                                 )))
             if (self.allowedDSQueryAttributes != VCardRecord.allDSQueryAttributes):
-                self.log_info("Allowed DS query attributes = %r" % (self.allowedDSQueryAttributes,))
+                self.log.info("Allowed DS query attributes = %r" % (self.allowedDSQueryAttributes,))
         else:
             self.allowedDSQueryAttributes = VCardRecord.allDSQueryAttributes
 
@@ -238,7 +238,7 @@ class OpenDirectoryBackingService(DirectoryService):
             returnValue(False)
         elif not self._created:
             createdLock = MemcacheLock("OpenDirectoryBacker", self._createdLockPath)
-            self.log_debug("blocking on lock of: \"%s\")" % self._createdLockPath)
+            self.log.debug("blocking on lock of: \"%s\")" % self._createdLockPath)
             self._created = (yield createdLock.locked())
 
         returnValue(self._created)
@@ -255,11 +255,11 @@ class OpenDirectoryBackingService(DirectoryService):
         """
 
         if not self.liveQuery:
-            self.log_info("loading directory address book")
+            self.log.info("loading directory address book")
 
             # get init lock
             initLock = MemcacheLock("OpenDirectoryBacker", self._initLockPath, timeout=0)
-            self.log_debug("Attempt lock of: \"%s\")" % self._initLockPath)
+            self.log.debug("Attempt lock of: \"%s\")" % self._initLockPath)
             gotCreateLock = False
             try:
                 yield initLock.acquire()
@@ -270,10 +270,10 @@ class OpenDirectoryBackingService(DirectoryService):
             self._triedCreateLock = True
 
             if gotCreateLock:
-                self.log_debug("Got lock!")
+                self.log.debug("Got lock!")
                 yield self._refreshCache(flushCache=False, creating=True)
             else:
-                self.log_debug("Could not get lock - directory address book will be filled by peer")
+                self.log.debug("Could not get lock - directory address book will be filled by peer")
 
 
     @inlineCallbacks
@@ -292,7 +292,7 @@ class OpenDirectoryBackingService(DirectoryService):
             cacheTimeout = (cacheTimeout * random()) - (cacheTimeout / 2)
             cacheTimeout += self.cacheTimeout * 60
             reactor.callLater(cacheTimeout, self._refreshCache) #@UndefinedVariable
-            self.log_info("Refresh directory address book in %d minutes %d seconds" % divmod(cacheTimeout, 60))
+            self.log.info("Refresh directory address book in %d minutes %d seconds" % divmod(cacheTimeout, 60))
 
         def cleanupLater():
 
@@ -309,7 +309,7 @@ class OpenDirectoryBackingService(DirectoryService):
             nom = 120
             later = nom * (random() + .5)
             self._lastCleanupCall = reactor.callLater(later, removeTmpAddressBooks) #@UndefinedVariable
-            self.log_info("Remove temporary directory address books in %d minutes %d seconds" % divmod(later, 60))
+            self.log.info("Remove temporary directory address books in %d minutes %d seconds" % divmod(later, 60))
 
 
         def getTmpDirAndTmpFilePrefixSuffix():
@@ -333,11 +333,11 @@ class OpenDirectoryBackingService(DirectoryService):
 
         @inlineCallbacks
         def removeTmpAddressBooks():
-            self.log_info("Checking for temporary directory address books")
+            self.log.info("Checking for temporary directory address books")
             tmpDir, prefix, suffix = getTmpDirAndTmpFilePrefixSuffix()
 
             tmpDirLock = self._tmpDirAddressBookLock
-            self.log_debug("blocking on lock of: \"%s\")" % self._tmpDirAddressBookLockPath)
+            self.log.debug("blocking on lock of: \"%s\")" % self._tmpDirAddressBookLockPath)
             yield tmpDirLock.acquire()
 
             try:
@@ -345,13 +345,13 @@ class OpenDirectoryBackingService(DirectoryService):
                     if name.startswith(prefix) and name.endswith(suffix):
                         try:
                             path = join(tmpDir, name)
-                            self.log_info("Deleting temporary directory address book at: %s" % path)
+                            self.log.info("Deleting temporary directory address book at: %s" % path)
                             FilePath(path).remove()
-                            self.log_debug("Done deleting")
+                            self.log.debug("Done deleting")
                         except:
-                            self.log_info("Deletion failed")
+                            self.log.info("Deletion failed")
             finally:
-                self.log_debug("unlocking: \"%s\")" % self._tmpDirAddressBookLockPath)
+                self.log.debug("unlocking: \"%s\")" % self._tmpDirAddressBookLockPath)
                 yield tmpDirLock.release()
 
             self._cleanupTime = time.time()
@@ -374,7 +374,7 @@ class OpenDirectoryBackingService(DirectoryService):
                 # get the old hash
                 oldAddressBookCTag = ""
                 updateLock = self.updateLock()
-                self.log_debug("blocking on lock of: \"%s\")" % self._updateLockPath)
+                self.log.debug("blocking on lock of: \"%s\")" % self._updateLockPath)
                 yield updateLock.acquire()
 
                 if not flushCache:
@@ -384,15 +384,15 @@ class OpenDirectoryBackingService(DirectoryService):
                     except:
                         oldAddressBookCTag = ""
 
-                self.log_debug("Comparing {http://calendarserver.org/ns/}getctag: new = %s, old = %s" % (newAddressBookCTag, oldAddressBookCTag))
+                self.log.debug("Comparing {http://calendarserver.org/ns/}getctag: new = %s, old = %s" % (newAddressBookCTag, oldAddressBookCTag))
                 if str(newAddressBookCTag) != str(oldAddressBookCTag):
 
-                    self.log_debug("unlocking: \"%s\")" % self._updateLockPath)
+                    self.log.debug("unlocking: \"%s\")" % self._updateLockPath)
                     yield updateLock.release()
                     updateLock = None
 
                 if not keepLock:
-                    self.log_debug("unlocking: \"%s\")" % self._updateLockPath)
+                    self.log.debug("unlocking: \"%s\")" % self._updateLockPath)
                     yield updateLock.release()
                     updateLock = None
 
@@ -404,7 +404,7 @@ class OpenDirectoryBackingService(DirectoryService):
 
             if creating:
                 createdLock = MemcacheLock("OpenDirectoryBacker", self._createdLockPath)
-                self.log_debug("blocking on lock of: \"%s\")" % self._createdLockPath)
+                self.log.debug("blocking on lock of: \"%s\")" % self._createdLockPath)
                 yield createdLock.acquire()
 
             cleanupLater()
@@ -428,7 +428,7 @@ class OpenDirectoryBackingService(DirectoryService):
             recordTypes = [dsattributes.kDSStdRecordTypePeople, dsattributes.kDSStdRecordTypeUsers, ]
             try:
                 localNodeDirectory = opendirectory.odInit("/Local/Default")
-                self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
+                self.log.debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
                         "/DSLocal",
                         recordTypes,
                         self.returnedAttributes,
@@ -439,7 +439,7 @@ class OpenDirectoryBackingService(DirectoryService):
                         self.returnedAttributes,
                     ))
             except opendirectory.ODError, ex:
-                self.log_error("Open Directory (node=%s) error: %s" % ("/Local/Default", str(ex)))
+                self.log.error("Open Directory (node=%s) error: %s" % ("/Local/Default", str(ex)))
                 raise
 
             self._dsLocalRecords = []
@@ -450,19 +450,19 @@ class OpenDirectoryBackingService(DirectoryService):
                 if self.ignoreSystemRecords:
                     # remove system users and people
                     if record.guid.startswith("FFFFEEEE-DDDD-CCCC-BBBB-AAAA"):
-                        self.log_info("Ignoring vcard for system record %s" % (record,))
+                        self.log.info("Ignoring vcard for system record %s" % (record,))
                         continue
 
                 if record.guid in records:
-                    self.log_info("Record skipped due to conflict (duplicate uuid): %s" % (record,))
+                    self.log.info("Record skipped due to conflict (duplicate uuid): %s" % (record,))
                 else:
                     try:
                         vCardText = record.vCardText()
                     except:
                         traceback.print_exc()
-                        self.log_info("Could not get vcard for record %s" % (record,))
+                        self.log.info("Could not get vcard for record %s" % (record,))
                     else:
-                        self.log_debug("VCard text =\n%s" % (vCardText,))
+                        self.log.debug("VCard text =\n%s" % (vCardText,))
                         records[record.guid] = record
 
             return records
@@ -488,12 +488,12 @@ class OpenDirectoryBackingService(DirectoryService):
         queryResults = (yield self._queryDirectory(query, attributes, maxRecords))
         if maxRecords and len(queryResults) >= maxRecords:
             limited = True
-            self.log_debug("Directory address book record limit (= %d) reached." % (maxRecords,))
+            self.log.debug("Directory address book record limit (= %d) reached." % (maxRecords,))
 
-        self.log_debug("Query done. Inspecting %s results" % len(queryResults))
+        self.log.debug("Query done. Inspecting %s results" % len(queryResults))
 
         records = self._getDSLocalRecords().copy()
-        self.log_debug("Adding %s DSLocal results" % len(records.keys()))
+        self.log.debug("Adding %s DSLocal results" % len(records.keys()))
 
         for (recordShortName, value) in queryResults: #@UnusedVariable
 
@@ -502,15 +502,15 @@ class OpenDirectoryBackingService(DirectoryService):
             if self.ignoreSystemRecords:
                 # remove system users and people
                 if record.guid.startswith("FFFFEEEE-DDDD-CCCC-BBBB-AAAA"):
-                    self.log_info("Ignoring vcard for system record %s" % (record,))
+                    self.log.info("Ignoring vcard for system record %s" % (record,))
                     continue
 
             if record.guid in records:
-                self.log_info("Ignoring vcard for record due to conflict (duplicate uuid): %s" % (record,))
+                self.log.info("Ignoring vcard for record due to conflict (duplicate uuid): %s" % (record,))
             else:
                 records[record.guid] = record
 
-        self.log_debug("After filtering, %s records (limited=%s)." % (len(records), limited))
+        self.log.debug("After filtering, %s records (limited=%s)." % (len(records), limited))
         returnValue((records, limited,))
 
 
@@ -538,7 +538,7 @@ class OpenDirectoryBackingService(DirectoryService):
             try:
                 if query:
                     if isinstance(query, dsquery.match) and query.value is not "":
-                        self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r,%r)" % (
+                        self.log.debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r,%r)" % (
                             node,
                             query.attribute,
                             query.value,
@@ -560,7 +560,7 @@ class OpenDirectoryBackingService(DirectoryService):
                                 maxRecords,
                             ))
                     else:
-                        self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r)" % (
+                        self.log.debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r)" % (
                             node,
                             query.generate(),
                             False,
@@ -578,7 +578,7 @@ class OpenDirectoryBackingService(DirectoryService):
                                 maxRecords,
                             ))
                 else:
-                    self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r,%r)" % (
+                    self.log.debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r,%r)" % (
                         node,
                         recordType,
                         attributes,
@@ -592,7 +592,7 @@ class OpenDirectoryBackingService(DirectoryService):
                             maxRecords,
                         ))
             except opendirectory.ODError, ex:
-                self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+                self.log.error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
             allResults.extend(results)
@@ -603,7 +603,7 @@ class OpenDirectoryBackingService(DirectoryService):
                     break
 
         elaspedTime = time.time() - startTime
-        self.log_info("Timing: Directory query: %.1f ms (%d records, %.2f records/sec)" % (elaspedTime * 1000, len(allResults), len(allResults) / elaspedTime))
+        self.log.info("Timing: Directory query: %.1f ms (%d records, %.2f records/sec)" % (elaspedTime * 1000, len(allResults), len(allResults) / elaspedTime))
         return succeed(allResults)
 
 
@@ -772,7 +772,7 @@ class OpenDirectoryBackingService(DirectoryService):
                                     try:
                                         recordNameQualifier = matchString[recordNameStart:].decode("base64").decode("utf8")
                                     except Exception, e:
-                                        self.log_debug("Could not decode UID string %r in %r: %r" % (matchString[recordNameStart:], matchString, e,))
+                                        self.log.debug("Could not decode UID string %r in %r: %r" % (matchString[recordNameStart:], matchString, e,))
                                     else:
                                         if textMatchElement.negate:
                                             return (False, queryAttributes,
@@ -977,7 +977,7 @@ class OpenDirectoryBackingService(DirectoryService):
         updateLock, limited = (yield self._refreshCache(reschedule=False, query=dsFilter, attributes=attributes, keepLock=True, clear=clear, maxRecords=maxRecords))
 
         elaspedTime = time.time() - startTime
-        self.log_info("Timing: Cache fill: %.1f ms" % (elaspedTime * 1000,))
+        self.log.info("Timing: Cache fill: %.1f ms" % (elaspedTime * 1000,))
 
         returnValue((updateLock, limited))
 
@@ -1018,10 +1018,10 @@ class OpenDirectoryBackingService(DirectoryService):
                     vCardText = record.vCardText()
                 except:
                     traceback.print_exc()
-                    self.log_info("Could not get vcard for record %s" % (record,))
+                    self.log.info("Could not get vcard for record %s" % (record,))
                 else:
                     if not record.firstValueForAttribute(dsattributes.kDSNAttrMetaNodeLocation).startswith("/Local"):
-                        self.log_debug("VCard text =\n%s" % (vCardText,))
+                        self.log.debug("VCard text =\n%s" % (vCardText,))
                     queryRecords.append(record)
 
         returnValue((queryRecords, limited,))
@@ -1200,7 +1200,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
 
     def __init__(self, service, recordAttributes, defaultNodeName=None):
 
-        self.log_debug("service=%s, attributes=%s" % (service, recordAttributes))
+        self.log.debug("service=%s, attributes=%s" % (service, recordAttributes))
 
         #save off for debugging
         if service.addDSAttrXProperties:
@@ -1370,7 +1370,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
                     vcard.addProperty(newProperty)
                 else:
                     if attrType and attrValue:
-                        self.log_info("Ignoring attribute %r with value %r in creating property %r. A duplicate property already exists." % (attrType, attrValue, newProperty,))
+                        self.log.info("Ignoring attribute %r with value %r in creating property %r. A duplicate property already exists." % (attrType, attrValue, newProperty,))
 
             def addPropertyAndLabel(groupCount, label, propertyName, propertyValue, parameters=None):
                 groupCount[0] += 1
@@ -1418,8 +1418,8 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
 
                     except Exception, e:
                         traceback.print_exc()
-                        self.log_debug("addPropertiesAndLabelsForPrefixedAttribute(): groupCount=%r, propertyPrefix=%r, propertyName=%r, nolabelParamTypes=%r, labelMap=%r, attrType=%r" % (groupCount[0], propertyPrefix, propertyName, nolabelParamTypes, labelMap, attrType,))
-                        self.log_error("addPropertiesAndLabelsForPrefixedAttribute(): Trouble parsing attribute %s, with value \"%s\".  Error = %s" % (attrType, attrValue, e,))
+                        self.log.debug("addPropertiesAndLabelsForPrefixedAttribute(): groupCount=%r, propertyPrefix=%r, propertyName=%r, nolabelParamTypes=%r, labelMap=%r, attrType=%r" % (groupCount[0], propertyPrefix, propertyName, nolabelParamTypes, labelMap, attrType,))
+                        self.log.error("addPropertiesAndLabelsForPrefixedAttribute(): Trouble parsing attribute %s, with value \"%s\".  Error = %s" % (attrType, attrValue, e,))
 
             #print("VCardRecord.vCard")
             # create vCard
@@ -1640,7 +1640,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
                 if (len(parts) == 2):
                     vcard.addProperty(Property("GEO", parts))
                 else:
-                    self.log_info("Ignoring malformed attribute %r with value %r. Well-formed example: 7.7,10.6." % (dsattributes.kDSNAttrMapCoordinates, coordinate))
+                    self.log.info("Ignoring malformed attribute %r with value %r. Well-formed example: 7.7,10.6." % (dsattributes.kDSNAttrMapCoordinates, coordinate))
             #
             # 3.5 ORGANIZATIONAL TYPES http://tools.ietf.org/html/rfc2426#section-3.5
             #

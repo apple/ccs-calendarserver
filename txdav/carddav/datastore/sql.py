@@ -2011,10 +2011,10 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 fixed, unfixed = component.validVCardData(doFix=True, doRaise=False)
 
                 if unfixed:
-                    self.log_error("Address data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
+                    self.log.error("Address data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
 
                 if fixed:
-                    self.log_error("Address data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
+                    self.log.error("Address data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
 
                 if self._kind == _ABO_KIND_GROUP:
                     assert not component.hasProperty("X-ADDRESSBOOKSERVER-MEMBER"), "database group vCard text contains members %s" % (component,)

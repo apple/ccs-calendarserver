@@ -34,7 +34,7 @@ from plistlib import readPlistFromString
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.queue import WorkItem, PeerConnectionPool
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 from twext.web2.dav.auth import IPrincipalCredentials
 from twext.web2.dav.util import joinURL
 
@@ -70,7 +70,7 @@ import types
 log = Logger()
 
 
-class DirectoryService(LoggingMixIn):
+class DirectoryService(object):
     implements(IDirectoryService, ICalendarStoreDirectoryService, ICredentialsChecker)
 
     ##
@@ -97,10 +97,10 @@ class DirectoryService(LoggingMixIn):
             assert self.baseGUID, "Class %s must provide a baseGUID attribute" % (self.__class__.__name__,)
 
             if realmName is None:
-                self.log_error("Directory service %s has no realm name or GUID; generated service GUID will not be unique." % (self,))
+                self.log.error("Directory service %s has no realm name or GUID; generated service GUID will not be unique." % (self,))
                 realmName = ""
             else:
-                self.log_info("Directory service %s has no GUID; generating service GUID from realm name." % (self,))
+                self.log.info("Directory service %s has no GUID; generating service GUID from realm name." % (self,))
 
             self._guid = uuidFromName(self.baseGUID, realmName)
 
@@ -467,7 +467,7 @@ class DirectoryService(LoggingMixIn):
         if ignore:
             for key in ignore:
                 if key in params:
-                    self.log_warn("Ignoring obsolete directory service parameter: %s" % (key,))
+                    self.log.warn("Ignoring obsolete directory service parameter: %s" % (key,))
                     keys.remove(key)
 
         if keys:
@@ -495,7 +495,7 @@ class DirectoryService(LoggingMixIn):
             read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
             autoAcceptGroup = wpframework.get("AutoAcceptGroup", "")
         except (ExpatError, AttributeError), e:
-            self.log_error(
+            self.log.error(
                 "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s): %s\n%s" %
                 (recordType, shortname, guid, e, plist,)
             )
@@ -588,7 +588,7 @@ class DirectoryService(LoggingMixIn):
 
 
 
-class GroupMembershipCache(Memcacher, LoggingMixIn):
+class GroupMembershipCache(Memcacher):
     """
     Caches group membership information
 
@@ -604,6 +604,7 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
     "group-cacher-populated" : contains a datestamp indicating the most recent
     population.
     """
+    log = Logger()
 
     def __init__(self, namespace, pickle=True, no_invalidation=False,
         key_normalization=True, expireSeconds=0):
@@ -616,14 +617,14 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
 
 
     def setGroupsFor(self, guid, memberships):
-        self.log_debug("set groups-for %s : %s" % (guid, memberships))
+        self.log.debug("set groups-for %s : %s" % (guid, memberships))
         return self.set("groups-for:%s" %
             (str(guid)), memberships,
             expireTime=self.expireSeconds)
 
 
     def getGroupsFor(self, guid):
-        self.log_debug("get groups-for %s" % (guid,))
+        self.log.debug("get groups-for %s" % (guid,))
         def _value(value):
             if value:
                 return value
@@ -635,29 +636,30 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
 
 
     def deleteGroupsFor(self, guid):
-        self.log_debug("delete groups-for %s" % (guid,))
+        self.log.debug("delete groups-for %s" % (guid,))
         return self.delete("groups-for:%s" % (str(guid),))
 
 
     def setPopulatedMarker(self):
-        self.log_debug("set group-cacher-populated")
+        self.log.debug("set group-cacher-populated")
         return self.set("group-cacher-populated", str(datetime.datetime.now()))
 
 
     @inlineCallbacks
     def isPopulated(self):
-        self.log_debug("is group-cacher-populated")
+        self.log.debug("is group-cacher-populated")
         value = (yield self.get("group-cacher-populated"))
         returnValue(value is not None)
 
 
 
-class GroupMembershipCacheUpdater(LoggingMixIn):
+class GroupMembershipCacheUpdater(object):
     """
     Responsible for updating memcached with group memberships.  This will run
     in a sidecar.  There are two sources of proxy data to pull from: the local
     proxy database, and the location/resource info in the directory system.
     """
+    log = Logger()
 
     def __init__(self, proxyDB, directory, updateSeconds, expireSeconds,
         cache=None, namespace=None, useExternalProxies=False,
@@ -767,22 +769,22 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # We're in quick-start mode.  Check first to see if someone has
             # populated the membership cache, and if so, return immediately
             if isPopulated:
-                self.log_info("Group membership cache is already populated")
+                self.log.info("Group membership cache is already populated")
                 returnValue((fast, 0))
 
-        self.log_info("Updating group membership cache")
+        self.log.info("Updating group membership cache")
 
         dataRoot = FilePath(config.DataRoot)
         membershipsCacheFile = dataRoot.child("memberships_cache")
         extProxyCacheFile = dataRoot.child("external_proxy_cache")
 
         if not membershipsCacheFile.exists():
-            self.log_info("Group membership snapshot file does not yet exist")
+            self.log.info("Group membership snapshot file does not yet exist")
             fast = False
             previousMembers = {}
             callGroupsChanged = False
         else:
-            self.log_info("Group membership snapshot file exists: %s" %
+            self.log.info("Group membership snapshot file exists: %s" %
                 (membershipsCacheFile.path,))
             previousMembers = pickle.loads(membershipsCacheFile.getContent())
             callGroupsChanged = True
@@ -792,13 +794,13 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # Load in cached copy of external proxies so we can diff against them
             previousAssignments = []
             if extProxyCacheFile.exists():
-                self.log_info("External proxies snapshot file exists: %s" %
+                self.log.info("External proxies snapshot file exists: %s" %
                     (extProxyCacheFile.path,))
                 previousAssignments = pickle.loads(extProxyCacheFile.getContent())
 
-            self.log_info("Retrieving proxy assignments from directory")
+            self.log.info("Retrieving proxy assignments from directory")
             assignments = self.externalProxiesSource()
-            self.log_info("%d proxy assignments retrieved from directory" %
+            self.log.info("%d proxy assignments retrieved from directory" %
                 (len(assignments),))
 
             changed, removed = diffAssignments(previousAssignments, assignments)
@@ -808,14 +810,14 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
 
             # populate proxy DB from external resource info
             if changed:
-                self.log_info("Updating proxy assignments")
+                self.log.info("Updating proxy assignments")
                 assignmentCount = 0
                 totalNumAssignments = len(changed)
                 currentAssignmentNum = 0
                 for principalUID, members in changed:
                     currentAssignmentNum += 1
                     if currentAssignmentNum % 1000 == 0:
-                        self.log_info("...proxy assignment %d of %d" % (currentAssignmentNum,
+                        self.log.info("...proxy assignment %d of %d" % (currentAssignmentNum,
                             totalNumAssignments))
                     try:
                         current = (yield self.proxyDB.getMembers(principalUID))
@@ -823,30 +825,30 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
                             assignmentCount += 1
                             yield self.proxyDB.setGroupMembers(principalUID, members)
                     except Exception, e:
-                        self.log_error("Unable to update proxy assignment: principal=%s, members=%s, error=%s" % (principalUID, members, e))
-                self.log_info("Updated %d assignment%s in proxy database" %
+                        self.log.error("Unable to update proxy assignment: principal=%s, members=%s, error=%s" % (principalUID, members, e))
+                self.log.info("Updated %d assignment%s in proxy database" %
                     (assignmentCount, "" if assignmentCount == 1 else "s"))
 
             if removed:
-                self.log_info("Deleting proxy assignments")
+                self.log.info("Deleting proxy assignments")
                 assignmentCount = 0
                 totalNumAssignments = len(removed)
                 currentAssignmentNum = 0
                 for principalUID in removed:
                     currentAssignmentNum += 1
                     if currentAssignmentNum % 1000 == 0:
-                        self.log_info("...proxy assignment %d of %d" % (currentAssignmentNum,
+                        self.log.info("...proxy assignment %d of %d" % (currentAssignmentNum,
                             totalNumAssignments))
                     try:
                         assignmentCount += 1
                         yield self.proxyDB.setGroupMembers(principalUID, [])
                     except Exception, e:
-                        self.log_error("Unable to remove proxy assignment: principal=%s, members=%s, error=%s" % (principalUID, members, e))
-                self.log_info("Removed %d assignment%s from proxy database" %
+                        self.log.error("Unable to remove proxy assignment: principal=%s, members=%s, error=%s" % (principalUID, members, e))
+                self.log.info("Removed %d assignment%s from proxy database" %
                     (assignmentCount, "" if assignmentCount == 1 else "s"))
 
             # Store external proxy snapshot
-            self.log_info("Taking snapshot of external proxies to %s" %
+            self.log.info("Taking snapshot of external proxies to %s" %
                 (extProxyCacheFile.path,))
             extProxyCacheFile.setContent(pickle.dumps(assignments))
 
@@ -855,7 +857,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # load that and put into memcached, bypassing the faulting in of
             # any records, so that the server can start up quickly.
 
-            self.log_info("Loading group memberships from snapshot")
+            self.log.info("Loading group memberships from snapshot")
             members = pickle.loads(membershipsCacheFile.getContent())
 
         else:
@@ -863,11 +865,11 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # of delegated-to guids, intersect those and build a dictionary
             # containing which delegated-to groups a user is a member of
 
-            self.log_info("Retrieving list of all proxies")
+            self.log.info("Retrieving list of all proxies")
             # This is always a set of guids:
             delegatedGUIDs = set((yield self.proxyDB.getAllMembers()))
-            self.log_info("There are %d proxies" % (len(delegatedGUIDs),))
-            self.log_info("Retrieving group hierarchy from directory")
+            self.log.info("There are %d proxies" % (len(delegatedGUIDs),))
+            self.log.info("Retrieving group hierarchy from directory")
 
             # "groups" maps a group to its members; the keys and values consist
             # of whatever directory attribute is used to refer to members.  The
@@ -876,11 +878,11 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # back to the group's guid.
             groups, aliases = (yield self.getGroups(guids=delegatedGUIDs))
             groupGUIDs = set(aliases.keys())
-            self.log_info("%d groups retrieved from the directory" %
+            self.log.info("%d groups retrieved from the directory" %
                 (len(groupGUIDs),))
 
             delegatedGUIDs = delegatedGUIDs.intersection(groupGUIDs)
-            self.log_info("%d groups are proxies" % (len(delegatedGUIDs),))
+            self.log.info("%d groups are proxies" % (len(delegatedGUIDs),))
 
             # Reverse index the group membership from cache
             members = {}
@@ -891,11 +893,11 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
                     memberships = members.setdefault(member, set())
                     memberships.add(groupGUID)
 
-            self.log_info("There are %d users delegated-to via groups" %
+            self.log.info("There are %d users delegated-to via groups" %
                 (len(members),))
 
             # Store snapshot
-            self.log_info("Taking snapshot of group memberships to %s" %
+            self.log.info("Taking snapshot of group memberships to %s" %
                 (membershipsCacheFile.path,))
             membershipsCacheFile.setContent(pickle.dumps(members))
 
@@ -909,7 +911,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             if extProxyCacheFile.exists():
                 os.chown(extProxyCacheFile.path, uid, gid)
 
-        self.log_info("Storing %d group memberships in memcached" %
+        self.log.info("Storing %d group memberships in memcached" %
                        (len(members),))
         changedMembers = set()
         totalNumMembers = len(members)
@@ -917,9 +919,9 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         for member, groups in members.iteritems():
             currentMemberNum += 1
             if currentMemberNum % 1000 == 0:
-                self.log_info("...membership %d of %d" % (currentMemberNum,
+                self.log.info("...membership %d of %d" % (currentMemberNum,
                     totalNumMembers))
-            # self.log_debug("%s is in %s" % (member, groups))
+            # self.log.debug("%s is in %s" % (member, groups))
             yield self.cache.setGroupsFor(member, groups)
             if groups != previousMembers.get(member, None):
                 # This principal has had a change in group membership
@@ -949,14 +951,14 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
                 if record is not None:
                     principal = self.directory.principalCollection.principalForRecord(record)
                     if principal is not None:
-                        self.log_debug("Group membership changed for %s (%s)" %
+                        self.log.debug("Group membership changed for %s (%s)" %
                             (record.shortNames[0], record.guid,))
                         if hasattr(principal, "groupsChanged"):
                             yield principal.groupsChanged()
 
         yield self.cache.setPopulatedMarker()
 
-        self.log_info("Group memberships cache updated")
+        self.log.info("Group memberships cache updated")
 
         returnValue((fast, len(members), len(changedMembers)))
 
@@ -1044,7 +1046,9 @@ def diffAssignments(old, new):
 
 
 
-class DirectoryRecord(LoggingMixIn):
+class DirectoryRecord(object):
+    log = Logger()
+
     implements(IDirectoryRecord, ICalendarStoreDirectoryRecord)
 
     def __repr__(self):
@@ -1190,7 +1194,7 @@ class DirectoryRecord(LoggingMixIn):
                 # For augment records cloned from the Default augment record,
                 # don't emit this message:
                 if not augment.clonedFromDefault:
-                    self.log_error("Group '%s(%s)' cannot be enabled for calendaring or address books" % (self.guid, self.shortNames[0],))
+                    self.log.error("Group '%s(%s)' cannot be enabled for calendaring or address books" % (self.guid, self.shortNames[0],))
 
         else:
             # Groups are by default always enabled
@@ -1210,11 +1214,11 @@ class DirectoryRecord(LoggingMixIn):
         if config.EnableSACLs and self.CheckSACL:
             username = self.shortNames[0]
             if self.CheckSACL(username, "calendar") != 0:
-                self.log_debug("%s is not enabled for calendaring due to SACL"
+                self.log.debug("%s is not enabled for calendaring due to SACL"
                                % (username,))
                 self.enabledForCalendaring = False
             if self.CheckSACL(username, "addressbook") != 0:
-                self.log_debug("%s is not enabled for addressbooks due to SACL"
+                self.log.debug("%s is not enabled for addressbooks due to SACL"
                                % (username,))
                 self.enabledForAddressBooks = False
 

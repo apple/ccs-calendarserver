@@ -188,7 +188,7 @@ class PropertyStore(AbstractPropertyStore):
                         "Unable to upgrade property "
                         "to compressed namespace: %s" % (key.toString())
                     )
-                    self.log_error(msg)
+                    self.log.error(msg)
                     raise PropertyStoreError(msg)
             else:
                 raise
@@ -221,7 +221,7 @@ class PropertyStore(AbstractPropertyStore):
                 msg = "Invalid property value stored on server: %s %s" % (
                     key.toString(), data
                 )
-                self.log_error(msg)
+                self.log.error(msg)
                 raise PropertyStoreError(msg)
             else:
                 legacy = True

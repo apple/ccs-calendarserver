@@ -15,7 +15,7 @@
 ##
 
 from calendarserver.push.util import PushScheduler
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.protocol import Factory, ServerFactory
@@ -55,7 +55,8 @@ class NotificationForID(amp.Command):
 
 # Server classes
 
-class AMPPushForwardingFactory(Factory, LoggingMixIn):
+class AMPPushForwardingFactory(Factory):
+    log = Logger()
 
     def __init__(self, forwarder):
         self.forwarder = forwarder
@@ -68,10 +69,12 @@ class AMPPushForwardingFactory(Factory, LoggingMixIn):
 
 
 
-class AMPPushForwarder(LoggingMixIn):
+class AMPPushForwarder(object):
     """
     Runs in the slaves, forwards notifications to the master via AMP
     """
+    log = Logger()
+
     def __init__(self, controlSocket):
         self.protocols = []
         controlSocket.addFactory(PUSH_ROUTE, AMPPushForwardingFactory(self))
@@ -87,10 +90,12 @@ class AMPPushForwarder(LoggingMixIn):
 
 
 
-class AMPPushMasterListeningProtocol(amp.AMP, LoggingMixIn):
+class AMPPushMasterListeningProtocol(amp.AMP):
     """
     Listens for notifications coming in over AMP from the slaves
     """
+    log = Logger()
+
     def __init__(self, master):
         super(AMPPushMasterListeningProtocol, self).__init__()
         self.master = master
@@ -105,7 +110,8 @@ class AMPPushMasterListeningProtocol(amp.AMP, LoggingMixIn):
 
 
 
-class AMPPushMasterListenerFactory(Factory, LoggingMixIn):
+class AMPPushMasterListenerFactory(Factory):
+    log = Logger()
 
     def __init__(self, master):
         self.master = master
@@ -117,11 +123,12 @@ class AMPPushMasterListenerFactory(Factory, LoggingMixIn):
 
 
 
-class AMPPushMaster(LoggingMixIn):
+class AMPPushMaster(object):
     """
     AMPPushNotifierService allows clients to use AMP to subscribe to,
     and receive, change notifications.
     """
+    log = Logger()
 
     def __init__(self, controlSocket, parentService, port, enableStaggering,
         staggerSeconds, reactor=None):
@@ -150,12 +157,12 @@ class AMPPushMaster(LoggingMixIn):
 
 
     def addSubscriber(self, p):
-        self.log_debug("Added subscriber")
+        self.log.debug("Added subscriber")
         self.subscribers.append(p)
 
 
     def removeSubscriber(self, p):
-        self.log_debug("Removed subscriber")
+        self.log.debug("Removed subscriber")
         self.subscribers.remove(p)
 
 
@@ -204,7 +211,8 @@ class AMPPushMaster(LoggingMixIn):
 
 
 
-class AMPPushNotifierProtocol(amp.AMP, LoggingMixIn):
+class AMPPushNotifierProtocol(amp.AMP):
+    log = Logger()
 
     def __init__(self, service):
         super(AMPPushNotifierProtocol, self).__init__()
@@ -231,7 +239,7 @@ class AMPPushNotifierProtocol(amp.AMP, LoggingMixIn):
 
     def notify(self, token, id, dataChangedTimestamp):
         if self.subscribedToID(id) == token:
-            self.log_debug("Sending notification for %s to %s" % (id, token))
+            self.log.debug("Sending notification for %s to %s" % (id, token))
             return self.callRemote(NotificationForID, id=id,
                 dataChangedTimestamp=dataChangedTimestamp)
 
@@ -247,7 +255,8 @@ class AMPPushNotifierProtocol(amp.AMP, LoggingMixIn):
 
 
 
-class AMPPushNotifierFactory(ServerFactory, LoggingMixIn):
+class AMPPushNotifierFactory(ServerFactory):
+    log = Logger()
 
     protocol = AMPPushNotifierProtocol
 
@@ -286,7 +295,8 @@ class AMPPushClientProtocol(amp.AMP):
 
 
 
-class AMPPushClientFactory(Factory, LoggingMixIn):
+class AMPPushClientFactory(Factory):
+    log = Logger()
 
     protocol = AMPPushClientProtocol
 

@@ -25,17 +25,19 @@ __all__ = [
     "AddressBookObjectResource",
 ]
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from txdav.xml.base import dav_namespace
 
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVResource
 
-class CardDAVResource(DAVResource, LoggingMixIn):
+class CardDAVResource(DAVResource):
     """
     CardDAV resource.
     """
+    log = Logger()
+
     def davComplianceClasses(self):
         return (
             tuple(super(CardDAVResource, self).davComplianceClasses())

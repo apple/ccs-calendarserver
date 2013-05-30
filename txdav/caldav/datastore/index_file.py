@@ -41,7 +41,7 @@ except ImportError:
 
 from twisted.internet.defer import maybeDeferred, succeed
 
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 
 from txdav.common.icommondatastore import SyncTokenValidException, \
     ReservationError, IndexedSearchException
@@ -74,12 +74,13 @@ icalfbtype_to_indexfbtype = {
 indexfbtype_to_icalfbtype = dict([(v, k) for k, v in icalfbtype_to_indexfbtype.iteritems()])
 
 
-class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
+class AbstractCalendarIndex(AbstractSQLDatabase):
     """
     Calendar collection index abstract base class that defines the apis for the index.
     This will be subclassed for the two types of index behaviour we need: one for
     regular calendar collections, one for schedule calendar collections.
     """
+    log = Logger()
 
     def __init__(self, resource):
         """
@@ -263,7 +264,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
         names = self.notExpandedBeyond(minDate)
         # Actually expand recurrence max
         for name in names:
-            self.log_info("Search falls outside range of index for %s %s" % (name, minDate))
+            self.log.info("Search falls outside range of index for %s %s" % (name, minDate))
             self.reExpandResource(name, minDate)
 
 
@@ -834,7 +835,9 @@ def wrapInDeferred(f):
 
 
 
-class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
+class MemcachedUIDReserver(CachePoolUserMixIn):
+    log = Logger()
+
     def __init__(self, index, cachePool=None):
         self.index = index
         self._cachePool = cachePool
@@ -848,7 +851,7 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
     def reserveUID(self, uid):
         uid = uid.encode('utf-8')
-        self.log_debug("Reserving UID %r @ %r" % (
+        self.log.debug("Reserving UID %r @ %r" % (
                 uid,
                 self.index.resource.fp.path))
 
@@ -868,7 +871,7 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
     def unreserveUID(self, uid):
         uid = uid.encode('utf-8')
-        self.log_debug("Unreserving UID %r @ %r" % (
+        self.log.debug("Unreserving UID %r @ %r" % (
                 uid,
                 self.index.resource.fp.path))
 
@@ -886,7 +889,7 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
     def isReservedUID(self, uid):
         uid = uid.encode('utf-8')
-        self.log_debug("Is reserved UID %r @ %r" % (
+        self.log.debug("Is reserved UID %r @ %r" % (
                 uid,
                 self.index.resource.fp.path))
 

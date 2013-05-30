@@ -23,7 +23,7 @@ __all__ = [
     "PropertyName",
 ]
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from txdav.xml import element as davxml
 from txdav.xml.base import encodeXMLName
 from twext.web2.dav.resource import TwistedGETContentMD5, \
@@ -35,10 +35,12 @@ from UserDict import DictMixin
 
 from zope.interface import implements
 
-class PropertyName(LoggingMixIn):
+class PropertyName(object):
     """
     Property name.
     """
+    log = Logger()
+
     implements(IPropertyName)
 
     @staticmethod
@@ -97,10 +99,12 @@ class PropertyName(LoggingMixIn):
 
 
 
-class AbstractPropertyStore(LoggingMixIn, DictMixin):
+class AbstractPropertyStore(DictMixin, object):
     """
     Base property store.
     """
+    log = Logger()
+
     implements(IPropertyStore)
 
     _defaultShadowableKeys = frozenset()

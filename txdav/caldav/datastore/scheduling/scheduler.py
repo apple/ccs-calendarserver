@@ -18,7 +18,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 
 from twext.enterprise.locking import NamedLock
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, Response
 from twext.web2.http_headers import MimeType
@@ -687,11 +687,12 @@ class ScheduleResponseResponse (Response):
 
 
 
-class ScheduleResponseQueue (LoggingMixIn):
+class ScheduleResponseQueue (object):
     """
     Stores a list of (typically error) responses for use in a
     L{ScheduleResponse}.
     """
+    log = Logger()
 
     schedule_response_element = caldavxml.ScheduleResponse
     response_element = caldavxml.Response
@@ -745,7 +746,7 @@ class ScheduleResponseQueue (LoggingMixIn):
             raise AssertionError("Unknown data type: %r" % (what,))
 
         if not suppressErrorLog and code > 400: # Error codes only
-            self.log_error("Error during %s for %s: %s" % (self.method, recipient, message))
+            self.log.error("Error during %s for %s: %s" % (self.method, recipient, message))
 
         children = []
         children.append(self.recipient_element(davxml.HRef.fromString(recipient)) if self.recipient_uses_href else self.recipient_element.fromString(recipient))

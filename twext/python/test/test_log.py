@@ -21,7 +21,7 @@ from twisted.python import log as twistedLogging
 from twext.python.log import logLevelsByNamespace, logLevelForNamespace
 from twext.python.log import LogLevel, setLogLevelForNamespace, clearLogLevels
 from twext.python.log import pythonLogLevelMapping
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 
 from twistedcaldav.test.util import TestCase
 
@@ -65,11 +65,6 @@ class LogComposedObject(object):
 
 
 
-class LoggingEnabledObject(LoggingMixIn):
-    pass
-
-
-
 class Logging(TestCase):
     def setUp(self):
         super(Logging, self).setUp()
@@ -87,14 +82,6 @@ class Logging(TestCase):
         """
         log = Logger()
         self.assertEquals(log.namespace, __name__)
-
-
-    def test_namespace_mixin(self):
-        """
-        Default namespace for classes using L{LoggingMixIn} is the class name.
-        """
-        object = LoggingEnabledObject()
-        self.assertEquals(object.logger.namespace, "twext.python.test.test_log.LoggingEnabledObject")
 
 
     def test_namespace_attribute(self):
@@ -153,39 +140,6 @@ class Logging(TestCase):
                 )
             else:
                 self.assertFalse(hasattr(log, "eventDict"))
-
-
-    def test_basic_LoggingMixIn(self):
-        """
-        Test that log levels and messages are emitted correctly for
-        LoggingMixIn.
-        """
-        for level in LogLevel.iterconstants():
-            message = "This is a %s message" % (level.name,)
-
-            object = LoggingEnabledObject()
-            object.logger = TestLogger()
-
-            method = getattr(object, "log_" + level.name)
-            method(message, junk=message)
-
-            # Ensure that test_emit got called with expected arguments
-            self.assertEquals(object.logger.emitted["level"], level)
-            self.assertEquals(object.logger.emitted["message"], message)
-            self.assertEquals(object.logger.emitted["kwargs"]["junk"], message)
-
-            if object.logger.willLogAtLevel(level):
-                self.assertEquals(object.logger.eventDict["level"], level)
-                self.assertEquals(object.logger.eventDict["logLevel"], pythonLogLevelMapping[level])
-                self.assertEquals(object.logger.eventDict["junk"], message)
-
-                # FIXME: this checks the end of message because we do formatting in emit()
-                self.assertEquals(
-                    twistedLogging.textFromEventDict(object.logger.eventDict)[-len(message):],
-                    message
-                )
-            else:
-                self.assertFalse(hasattr(object.logger, "eventDict"))
 
 
     def test_conflicting_kwargs(self):
@@ -262,18 +216,3 @@ class Logging(TestCase):
                 self.assertTrue(log.willLogAtLevel(level))
             else:
                 self.assertFalse(log.willLogAtLevel(level))
-
-
-    def test_logMethodTruthiness_LoggingMixIn(self):
-        """
-        LoggingMixIn's log level functions/methods have true/false
-        value based on whether they will log.
-        """
-        object = LoggingEnabledObject()
-
-        for level in LogLevel.iterconstants():
-            enabled = getattr(object, "log_" + level.name + "_enabled")
-            if enabled:
-                self.assertTrue(object.logger.willLogAtLevel(level))
-            else:
-                self.assertFalse(object.logger.willLogAtLevel(level))

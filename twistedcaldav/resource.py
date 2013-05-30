@@ -40,7 +40,7 @@ from zope.interface import implements
 from twisted.internet.defer import succeed, maybeDeferred, fail
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
 from txdav.xml import element
 from txdav.xml.element import dav_namespace
@@ -205,13 +205,15 @@ calendarPrivilegeSet = _calendarPrivilegeSet()
 
 class CalDAVResource (
         CalDAVComplianceMixIn, SharedResourceMixin,
-        DAVResourceWithChildrenMixin, DAVResource, LoggingMixIn
-    ):
+        DAVResourceWithChildrenMixin, DAVResource
+):
     """
     CalDAV resource.
 
     Extends L{DAVResource} to provide CalDAV functionality.
     """
+    log = Logger()
+
     implements(ICalDAVResource)
 
     ##
@@ -1369,7 +1371,7 @@ class CalDAVResource (
             created in this resource.
         """
         if self.exists():
-            self.log_error("Attempt to create collection where file exists: %s" % (self,))
+            self.log.error("Attempt to create collection where file exists: %s" % (self,))
             raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
         # newStore guarantees that we always have a parent calendar home
@@ -1384,7 +1386,7 @@ class CalDAVResource (
         parent = (yield self._checkParents(request, isPseudoCalendarCollectionResource))
 
         if parent is not None:
-            self.log_error("Cannot create a calendar collection within a calendar collection %s" % (parent,))
+            self.log.error("Cannot create a calendar collection within a calendar collection %s" % (parent,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldavxml.caldav_namespace, "calendar-collection-location-ok"),
@@ -1395,7 +1397,7 @@ class CalDAVResource (
         if config.MaxCollectionsPerHome:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if (yield parent.countOwnedChildren()) >= config.MaxCollectionsPerHome: # NB this ignores shares
-                self.log_error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
+                self.log.error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     customxml.MaxCollections(),
@@ -1465,7 +1467,7 @@ class CalDAVResource (
         #
 
         if self.exists():
-            self.log_error("Attempt to create collection where file exists: %s" % (self,))
+            self.log.error("Attempt to create collection where file exists: %s" % (self,))
             raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
         # newStore guarantees that we always have a parent calendar home
@@ -1479,7 +1481,7 @@ class CalDAVResource (
 
         parent = (yield self._checkParents(request, isAddressBookCollectionResource))
         if parent is not None:
-            self.log_error("Cannot create an address book collection within an address book collection %s" % (parent,))
+            self.log.error("Cannot create an address book collection within an address book collection %s" % (parent,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (carddavxml.carddav_namespace, "addressbook-collection-location-ok"),
@@ -1490,7 +1492,7 @@ class CalDAVResource (
         if config.MaxCollectionsPerHome:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if (yield parent.countOwnedChildren()) >= config.MaxCollectionsPerHome: # NB this ignores shares
-                self.log_error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
+                self.log.error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     customxml.MaxCollections(),

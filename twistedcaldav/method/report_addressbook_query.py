@@ -297,7 +297,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
         depth = request.headers.getHeader("depth", "0")
         yield report_common.applyToAddressBookCollections(self, request, request.uri, depth, doQuery, (davxml.Read(),))
     except NumberOfMatchesWithinLimits, e:
-        self.log_info("Too many matching components in addressbook-query report. Limited to %d items" % e.maxLimit())
+        self.log.info("Too many matching components in addressbook-query report. Limited to %d items" % e.maxLimit())
         responses.append(davxml.StatusResponse(
                         davxml.HRef.fromString(request.uri),
                         davxml.Status.fromResponseCode(responsecode.INSUFFICIENT_STORAGE_SPACE),

@@ -25,7 +25,7 @@ from hashlib import md5, sha1
 from twisted.internet import ssl, reactor
 from twisted.web import client
 from twisted.python import failure
-from twext.python.log import LoggingMixIn, Logger
+from twext.python.log import Logger
 
 log = Logger()
 from twext.internet.gaiendpoint import GAIEndpoint
@@ -359,7 +359,8 @@ class Unauthorized(Exception):
 
 
 
-class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
+class AuthorizedHTTPGetter(client.HTTPPageGetter):
+    log = Logger()
 
     def handleStatus_401(self):
 
@@ -376,7 +377,7 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
 
         self.factory.retried = True
 
-        # self.log_debug("Got a 401 trying to inject [%s]" % (self.headers,))
+        # self.log.debug("Got a 401 trying to inject [%s]" % (self.headers,))
         details = {}
         basicAvailable = digestAvailable = False
         wwwauth = self.headers.get("www-authenticate")
@@ -458,7 +459,7 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
                 connect(
                     GAIEndpoint(reactor, self.factory.host, self.factory.port),
                     self.factory)
-            # self.log_debug("Retrying with digest after 401")
+            # self.log.debug("Retrying with digest after 401")
 
             return self.factory.deferred
 
@@ -478,7 +479,7 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
                 connect(
                     GAIEndpoint(reactor, self.factory.host, self.factory.port),
                     self.factory)
-            # self.log_debug("Retrying with basic after 401")
+            # self.log.debug("Retrying with basic after 401")
 
             return self.factory.deferred
 

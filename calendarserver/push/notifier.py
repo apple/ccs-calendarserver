@@ -21,7 +21,7 @@ Notification framework for Calendar Server
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.queue import WorkItem
-from twext.python.log import LoggingMixIn, Logger
+from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks
 
@@ -58,11 +58,12 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 # Classes used within calendarserver itself
 #
 
-class Notifier(LoggingMixIn):
+class Notifier(object):
     """
     Provides a hook for sending change notifications to the
     L{NotifierFactory}.
     """
+    log = Logger()
 
     implements(IStoreNotifier)
 
@@ -73,12 +74,12 @@ class Notifier(LoggingMixIn):
 
 
     def enableNotify(self, arg):
-        self.log_debug("enableNotify: %s" % (self._ids['default'][1],))
+        self.log.debug("enableNotify: %s" % (self._ids['default'][1],))
         self._notify = True
 
 
     def disableNotify(self):
-        self.log_debug("disableNotify: %s" % (self._ids['default'][1],))
+        self.log.debug("disableNotify: %s" % (self._ids['default'][1],))
         self._notify = False
 
 
@@ -98,10 +99,10 @@ class Notifier(LoggingMixIn):
 
         for prefix, id in ids:
             if self._notify:
-                self.log_debug("Notifications are enabled: %s %s/%s" % (self._storeObject, prefix, id,))
+                self.log.debug("Notifications are enabled: %s %s/%s" % (self._storeObject, prefix, id,))
                 yield self._notifierFactory.send(prefix, id)
             else:
-                self.log_debug("Skipping notification for: %s %s/%s" % (self._storeObject, prefix, id,))
+                self.log.debug("Skipping notification for: %s %s/%s" % (self._storeObject, prefix, id,))
 
 
     def clone(self, storeObject):
@@ -124,13 +125,14 @@ class Notifier(LoggingMixIn):
 
 
 
-class NotifierFactory(LoggingMixIn):
+class NotifierFactory(object):
     """
     Notifier Factory
 
     Creates Notifier instances and forwards notifications from them to the
     work queue.
     """
+    log = Logger()
 
     implements(IStoreNotifierFactory)
 

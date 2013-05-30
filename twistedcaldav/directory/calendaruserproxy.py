@@ -38,7 +38,7 @@ from txdav.xml.base import dav_namespace
 from twext.web2.dav.util import joinURL
 from twext.web2.dav.noneprops import NonePropertyStore
 
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 
 from twisted.web.template import XMLFile, Element, renderer
 from twisted.python.modules import getModule
@@ -156,10 +156,11 @@ class ProxyPrincipalElement(DirectoryElement):
 
 class CalendarUserProxyPrincipalResource (
         CalDAVComplianceMixIn, PermissionsMixIn, DAVResourceWithChildrenMixin,
-        DAVPrincipalResource, LoggingMixIn):
+        DAVPrincipalResource):
     """
     Calendar user proxy principal resource.
     """
+    log = Logger()
 
     def __init__(self, parent, proxyType):
         """
@@ -383,7 +384,7 @@ class CalendarUserProxyPrincipalResource (
                 # existing principals are removed
                 yield self._index().refreshPrincipal(uid)
             else:
-                self.log_warn("Delegate is missing from directory: %s" % (uid,))
+                self.log.warn("Delegate is missing from directory: %s" % (uid,))
 
         returnValue(found)
 
@@ -426,7 +427,7 @@ class CalendarUserProxyPrincipalResource (
             returnValue(True)
         returnValue(False)
 
-class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
+class ProxyDB(AbstractADBAPIDatabase):
     """
     A database to maintain calendar user proxy group memberships.
 
@@ -435,8 +436,8 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
     Group Database:
 
     ROW: GROUPNAME, MEMBER
-
     """
+    log = Logger()
 
     schema_version = "4"
     schema_type    = "CALENDARUSERPROXY"
@@ -612,12 +613,12 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
             elif overdue is None:
                 # No timer was previously set
-                self.log_debug("Delaying removal of missing proxy principal '%s'"
+                self.log.debug("Delaying removal of missing proxy principal '%s'"
                                % (principalUID,))
                 yield self._memcacher.setDeletionTimer(principalUID, delay=delay)
                 returnValue(None)
 
-        self.log_warn("Removing missing proxy principal for '%s'"
+        self.log.warn("Removing missing proxy principal for '%s'"
                       % (principalUID,))
 
         for suffix in ("calendar-proxy-read", "calendar-proxy-write",):

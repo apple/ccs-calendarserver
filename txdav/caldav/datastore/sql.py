@@ -572,7 +572,7 @@ class CalendarHome(CommonHome):
         """
 
         # Make sure the loop does not operate on any new calendars created during the loop
-        self.log_warn("Splitting calendars for user %s" % (self._ownerUID,))
+        self.log.warn("Splitting calendars for user %s" % (self._ownerUID,))
         calendars = yield self.calendars()
         for calendar in calendars:
 
@@ -580,7 +580,7 @@ class CalendarHome(CommonHome):
             if calendar.isInbox():
                 continue
             split_count = yield calendar.splitCollectionByComponentTypes()
-            self.log_warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count + 1,))
+            self.log.warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count + 1,))
 
         yield self.ensureDefaultCalendarsExist()
 
@@ -2109,7 +2109,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 recurrenceLimit = instances.limit
                 recurrenceLowerLimit = instances.lowerLimit
             except InvalidOverriddenInstanceError, e:
-                self.log_error("Invalid instance %s when indexing %s in %s" %
+                self.log.error("Invalid instance %s when indexing %s in %s" %
                                (e.rid, self._name, self._calendar,))
 
                 if txn._migrating:
@@ -2341,11 +2341,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
 
             if unfixed:
-                self.log_error("Calendar data id=%s had unfixable problems:\n  %s" %
+                self.log.error("Calendar data id=%s had unfixable problems:\n  %s" %
                                (self._resourceID, "\n  ".join(unfixed),))
 
             if fixed:
-                self.log_error("Calendar data id=%s had fixable problems:\n  %s" %
+                self.log.error("Calendar data id=%s had fixable problems:\n  %s" %
                                (self._resourceID, "\n  ".join(fixed),))
 
             self._cachedComponent = component
@@ -2825,7 +2825,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             t = attachment.store(content_type, filename)
             yield readStream(stream, t.write)
         except Exception, e:
-            self.log_error("Unable to store attachment: %s" % (e,))
+            self.log.error("Unable to store attachment: %s" % (e,))
             raise AttachmentStoreFailed
         yield t.loseConnection()
 
@@ -2883,7 +2883,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Check that this is a proper update
             oldattachment = (yield self.attachmentWithManagedID(managed_id))
             if oldattachment is None:
-                self.log_error("Missing managed attachment even though ATTACHMENT_CALENDAR_OBJECT indicates it is present: %s" % (managed_id,))
+                self.log.error("Missing managed attachment even though ATTACHMENT_CALENDAR_OBJECT indicates it is present: %s" % (managed_id,))
                 raise AttachmentStoreFailed
 
             # We actually create a brand new attachment object for the update, but with the same managed-id. That way, other resources
@@ -2892,7 +2892,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             t = attachment.store(content_type, filename)
             yield readStream(stream, t.write)
         except Exception, e:
-            self.log_error("Unable to store attachment: %s" % (e,))
+            self.log.error("Unable to store attachment: %s" % (e,))
             raise AttachmentStoreFailed
         yield t.loseConnection()
 

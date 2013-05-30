@@ -22,7 +22,7 @@ data stores.
 
 import re
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
@@ -31,7 +31,7 @@ from twisted.python.reflect import namedObject
 
 from txdav.common.datastore.upgrade.sql.others import attachment_migration
 
-class UpgradeDatabaseCoreStep(LoggingMixIn, object):
+class UpgradeDatabaseCoreStep(object):
     """
     Base class for either schema or data upgrades on the database.
 
@@ -42,6 +42,7 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
 
     @type sqlStore: L{txdav.idav.IDataStore}
     """
+    log = Logger()
 
     def __init__(self, sqlStore, uid=None, gid=None, failIfUpgradeNeeded=False):
         """
@@ -73,18 +74,18 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
         """
         Do a database schema upgrade.
         """
-        self.log_warn("Beginning database %s check." % (self.versionDescriptor,))
+        self.log.warn("Beginning database %s check." % (self.versionDescriptor,))
 
         # Retrieve information from schema and database
         dialect, required_version, actual_version = yield self.getVersions()
 
         if required_version == actual_version:
-            self.log_warn("%s version check complete: no upgrade needed." % (self.versionDescriptor.capitalize(),))
+            self.log.warn("%s version check complete: no upgrade needed." % (self.versionDescriptor.capitalize(),))
         elif required_version < actual_version:
             msg = "Actual %s version %s is more recent than the expected version %s. The service cannot be started" % (
                 self.versionDescriptor, actual_version, required_version,
             )
-            self.log_error(msg)
+            self.log.error(msg)
             raise RuntimeError(msg)
         elif self.failIfUpgradeNeeded:
                 # TODO: change this exception to be upgrade-specific
@@ -94,7 +95,7 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
             yield self.upgradeVersion(actual_version, required_version, dialect)
             self.sqlStore.setUpgrading(False)
 
-        self.log_warn("Database %s check complete." % (self.versionDescriptor,))
+        self.log.warn("Database %s check complete." % (self.versionDescriptor,))
 
         returnValue(None)
 
@@ -111,11 +112,11 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
         found = re.search("insert into CALENDARSERVER values \('%s', '(\d+)'\);" % (self.versionKey,), current_schema)
         if found is None:
             msg = "Schema is missing required database key %s insert statement: %s" % (self.versionKey, current_schema,)
-            self.log_error(msg)
+            self.log.error(msg)
             raise RuntimeError(msg)
         else:
             required_version = int(found.group(1))
-            self.log_warn("Required database key %s: %s." % (self.versionKey, required_version,))
+            self.log.warn("Required database key %s: %s." % (self.versionKey, required_version,))
 
         # Get the schema version in the current database
         sqlTxn = self.sqlStore.newTransaction()
@@ -126,14 +127,14 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
             yield sqlTxn.commit()
         except (RuntimeError, ValueError):
             f = Failure()
-            self.log_error("Database key %s cannot be determined." % (self.versionKey,))
+            self.log.error("Database key %s cannot be determined." % (self.versionKey,))
             yield sqlTxn.abort()
             if self.defaultKeyValue is None:
                 f.raiseException()
             else:
                 actual_version = self.defaultKeyValue
 
-        self.log_warn("Actual database key %s: %s." % (self.versionKey, actual_version,))
+        self.log.warn("Actual database key %s: %s." % (self.versionKey, actual_version,))
 
         returnValue((dialect, required_version, actual_version,))
 
@@ -145,7 +146,7 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
         looking for upgrade_from_X_to_Y.sql files that cover the full range of upgrades.
         """
 
-        self.log_warn("Starting %s upgrade from version %d to %d." % (self.versionDescriptor, fromVersion, toVersion,))
+        self.log.warn("Starting %s upgrade from version %d to %d." % (self.versionDescriptor, fromVersion, toVersion,))
 
         # Scan for all possible upgrade files - returned sorted
         files = self.scanForUpgradeFiles(dialect)
@@ -158,10 +159,10 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
             for fp in upgrades:
                 yield self.applyUpgrade(fp)
         except RuntimeError:
-            self.log_error("Database %s upgrade failed using: %s" % (self.versionDescriptor, fp.basename(),))
+            self.log.error("Database %s upgrade failed using: %s" % (self.versionDescriptor, fp.basename(),))
             raise
 
-        self.log_warn("%s upgraded from version %d to %d." % (self.versionDescriptor.capitalize(), fromVersion, toVersion,))
+        self.log.warn("%s upgraded from version %d to %d." % (self.versionDescriptor.capitalize(), fromVersion, toVersion,))
 
 
     def getPathToUpgrades(self, dialect):
@@ -210,7 +211,7 @@ class UpgradeDatabaseCoreStep(LoggingMixIn, object):
         while nextVersion != toVersion:
             if nextVersion not in filesByFromVersion:
                 msg = "Missing upgrade file from version %d with dialect %s" % (nextVersion, dialect,)
-                self.log_error(msg)
+                self.log.error(msg)
                 raise RuntimeError(msg)
             else:
                 upgrades.append(filesByFromVersion[nextVersion][2])
@@ -260,7 +261,7 @@ class UpgradeDatabaseSchemaStep(UpgradeDatabaseCoreStep):
         """
         Apply the schema upgrade .sql file to the database.
         """
-        self.log_warn("Applying schema upgrade: %s" % (fp.basename(),))
+        self.log.warn("Applying schema upgrade: %s" % (fp.basename(),))
         sqlTxn = self.sqlStore.newTransaction()
         try:
             sql = fp.getContent()
@@ -301,10 +302,10 @@ class _UpgradeDatabaseDataStep(UpgradeDatabaseCoreStep):
             doUpgrade = namedObject(module)
         except ImportError:
             msg = "Failed data upgrade: %s" % (fp.basename()[:-4],)
-            self.log_error(msg)
+            self.log.error(msg)
             raise RuntimeError(msg)
 
-        self.log_warn("Applying data upgrade: %s" % (module,))
+        self.log.warn("Applying data upgrade: %s" % (module,))
         yield doUpgrade(self.sqlStore)
 
 
@@ -387,7 +388,7 @@ class UpgradeDatabaseOtherStep(UpgradeDatabaseCoreStep):
         """
         Do upgrades.
         """
-        self.log_warn("Beginning database %s check." % (self.versionDescriptor,))
+        self.log.warn("Beginning database %s check." % (self.versionDescriptor,))
 
         # Do each upgrade in our own predefined order
         self.sqlStore.setUpgrading(True)
@@ -397,6 +398,6 @@ class UpgradeDatabaseOtherStep(UpgradeDatabaseCoreStep):
 
         self.sqlStore.setUpgrading(False)
 
-        self.log_warn("Database %s check complete." % (self.versionDescriptor,))
+        self.log.warn("Database %s check complete." % (self.versionDescriptor,))
 
         returnValue(None)

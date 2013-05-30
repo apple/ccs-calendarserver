@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.http import Response
 from twext.web2.iweb import IResource
@@ -101,10 +101,11 @@ class URINotFoundException(Exception):
 
 
 
-class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
+class MemcacheChangeNotifier(CachePoolUserMixIn):
     """
     A change notifier used by resources (not store objects).
     """
+    log = Logger()
 
     def __init__(self, resource, cachePool=None, cacheHandle="Default"):
         self._resource = resource
@@ -126,17 +127,19 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
         # For shared resources we use the owner URL as the cache key
         url = self._resource.url()
 
-        self.log_debug("Changing Cache Token for %r" % (url,))
+        self.log.debug("Changing Cache Token for %r" % (url,))
         return self.getCachePool().set(
             'cacheToken:%s' % (url,),
             self._newCacheToken(), expireTime=config.ResponseCacheTimeout * 60)
 
 
 
-class BaseResponseCache(LoggingMixIn):
+class BaseResponseCache(object):
     """
     A base class which provides some common operations
     """
+    log = Logger()
+
     def _principalURI(self, principal):
         return str(principal.children[0])
 
@@ -306,7 +309,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         oldkey = (yield self._requestKey(request))
         request.cacheKey = key = hashlib.md5(
             ':'.join([str(t) for t in oldkey])).hexdigest()
-        self.log_debug("hashing key for get: %r to %r" % (oldkey, key))
+        self.log.debug("hashing key for get: %r to %r" % (oldkey, key))
         returnValue(request.cacheKey)
 
 
@@ -320,15 +323,15 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         try:
             key = (yield self._hashedRequestKey(request))
 
-            self.log_debug("Checking cache for: %r" % (key,))
+            self.log.debug("Checking cache for: %r" % (key,))
             _ignore_flags, value = (yield self.getCachePool().get(key))
 
             if value is None:
-                self.log_debug("Not in cache: %r" % (key,))
+                self.log.debug("Not in cache: %r" % (key,))
                 returnValue(None)
 
             (principalToken, directoryToken, uriToken, childTokens, (code, headers, body)) = cPickle.loads(value)
-            self.log_debug("Found in cache: %r = %r" % (key, (
+            self.log.debug("Found in cache: %r = %r" % (key, (
                 principalToken,
                 directoryToken,
                 uriToken,
@@ -338,7 +341,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             currentTokens = (yield self._getTokens(request))
 
             if currentTokens[0] != principalToken:
-                self.log_debug(
+                self.log.debug(
                     "Principal token doesn't match for %r: %r != %r" % (
                         request.cacheKey,
                         currentTokens[0],
@@ -346,7 +349,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                 returnValue(None)
 
             if currentTokens[1] != directoryToken:
-                self.log_debug(
+                self.log.debug(
                     "Directory Record Token doesn't match for %r: %r != %r" % (
                         request.cacheKey,
                         currentTokens[1],
@@ -354,7 +357,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                 returnValue(None)
 
             if currentTokens[2] != uriToken:
-                self.log_debug(
+                self.log.debug(
                     "URI token doesn't match for %r: %r != %r" % (
                         request.cacheKey,
                         currentTokens[2],
@@ -364,7 +367,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             for childuri, token in childTokens.items():
                 currentToken = (yield self._tokenForURI(childuri))
                 if currentToken != token:
-                    self.log_debug(
+                    self.log.debug(
                         "Child %s token doesn't match for %r: %r != %r" % (
                             childuri,
                             request.cacheKey,
@@ -372,7 +375,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                             token))
                     returnValue(None)
 
-            self.log_debug("Response cache matched")
+            self.log.debug("Response cache matched")
             r = Response(code, stream=MemoryStream(body))
 
             for key, value in headers.iteritems():
@@ -381,7 +384,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             returnValue(r)
 
         except URINotFoundException, e:
-            self.log_debug("Could not locate URI: %r" % (e,))
+            self.log.debug("Could not locate URI: %r" % (e,))
             returnValue(None)
 
 
@@ -415,7 +418,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                     responseBody
                 )
             ))
-            self.log_debug("Adding to cache: %r = tokens - %r" % (key, (
+            self.log.debug("Adding to cache: %r = tokens - %r" % (key, (
                 pToken,
                 dToken,
                 uToken,
@@ -425,7 +428,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                 expireTime=config.ResponseCacheTimeout * 60)
 
         except URINotFoundException, e:
-            self.log_debug("Could not locate URI: %r" % (e,))
+            self.log.debug("Could not locate URI: %r" % (e,))
 
         returnValue(response)
 
@@ -471,7 +474,7 @@ class PropfindCacheMixin(object):
 
 
 
-class CacheStoreNotifierFactory(LoggingMixIn, CachePoolUserMixIn):
+class CacheStoreNotifierFactory(CachePoolUserMixIn):
     """
     A notifier factory specifically for store object notifications. This is handed of to
     the data store object, which calls .newNotifier() each time a home object is created
@@ -480,6 +483,7 @@ class CacheStoreNotifierFactory(LoggingMixIn, CachePoolUserMixIn):
 
     This object uses a memcachepool for setting new cache tokens.
     """
+    log = Logger()
 
     implements(IStoreNotifierFactory)
 
@@ -498,7 +502,7 @@ class CacheStoreNotifierFactory(LoggingMixIn, CachePoolUserMixIn):
         return: A L{Deferred} that fires when the token has been changed.
         """
 
-        self.log_debug("Changing Cache Token for %r" % (cache_id,))
+        self.log.debug("Changing Cache Token for %r" % (cache_id,))
         return self.getCachePool().set(
             'cacheToken:%s' % (cache_id,),
             self._newCacheToken(), expireTime=config.ResponseCacheTimeout * 60)

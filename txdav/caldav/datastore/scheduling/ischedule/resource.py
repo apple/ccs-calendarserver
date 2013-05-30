@@ -243,7 +243,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         # Must have Originator header
         originator = request.headers.getRawHeaders("originator")
         if originator is None or (len(originator) != 1):
-            self.log_error("iSchedule POST request must have Originator header")
+            self.log.error("iSchedule POST request must have Originator header")
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (ischedule_namespace, "originator-missing"),
@@ -258,7 +258,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         # Get list of Recipient headers
         rawRecipients = request.headers.getRawHeaders("recipient")
         if rawRecipients is None or (len(rawRecipients) == 0):
-            self.log_error("%s request must have at least one Recipient header" % (self.method,))
+            self.log.error("%s request must have at least one Recipient header" % (self.method,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (ischedule_namespace, "recipient-missing"),
@@ -281,7 +281,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         # Must be content-type text/calendar
         contentType = request.headers.getHeader("content-type")
         if contentType is not None and (contentType.mediaType, contentType.mediaSubtype) != ("text", "calendar"):
-            self.log_error("MIME type %s not allowed in iSchedule POST request" % (contentType,))
+            self.log.error("MIME type %s not allowed in iSchedule POST request" % (contentType,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (ischedule_namespace, "invalid-calendar-data-type"),
@@ -293,7 +293,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
             calendar = (yield Component.fromIStream(request.stream))
         except:
             # FIXME: Bare except
-            self.log_error("Error while handling iSchedule POST: %s" % (Failure(),))
+            self.log.error("Error while handling iSchedule POST: %s" % (Failure(),))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (ischedule_namespace, "invalid-calendar-data"),

@@ -31,6 +31,7 @@ from uuid import UUID
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.cred.credentials import UsernamePassword
 from twext.web2.auth.digest import DigestedCredentials
+from twext.python.log import Logger
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService, \
@@ -48,6 +49,8 @@ class OpenDirectoryService(CachingDirectoryService):
     """
     OpenDirectory implementation of L{IDirectoryService}.
     """
+    log = Logger()
+
     baseGUID = "891F8321-ED02-424C-BA72-89C32F215C1E"
 
     def __repr__(self):
@@ -100,7 +103,7 @@ class OpenDirectoryService(CachingDirectoryService):
         try:
             directory = self.odModule.odInit(params['node'])
         except self.odModule.ODError, e:
-            self.log_error("OpenDirectory (node=%s) Initialization error: %s" % (params['node'], e))
+            self.log.error("OpenDirectory (node=%s) Initialization error: %s" % (params['node'], e))
             raise
 
         self.augmentService = params['augmentService']
@@ -131,8 +134,8 @@ class OpenDirectoryService(CachingDirectoryService):
             if time.time() - self.restrictedTimestamp > self.cacheTimeout:
                 attributeToMatch = dsattributes.kDS1AttrGeneratedUID if self.restrictToGUID else dsattributes.kDSNAttrRecordName
                 valueToMatch = self.restrictToGroup
-                self.log_debug("Doing restricted group membership check")
-                self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                self.log.debug("Doing restricted group membership check")
+                self.log.debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                     self.directory,
                     attributeToMatch,
                     valueToMatch,
@@ -158,7 +161,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     members = []
                     nestedGroups = []
                 self._cachedRestrictedGUIDs = set(self._expandGroupMembership(members, nestedGroups, returnGroups=True))
-                self.log_debug("Got %d restricted group members" % (len(self._cachedRestrictedGUIDs),))
+                self.log.debug("Got %d restricted group members" % (len(self._cachedRestrictedGUIDs),))
                 self.restrictedTimestamp = time.time()
             return self._cachedRestrictedGUIDs
         else:
@@ -204,7 +207,7 @@ class OpenDirectoryService(CachingDirectoryService):
             if groupGUID in processedGUIDs:
                 continue
 
-            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+            self.log.debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                 self.directory,
                 dsattributes.kDS1AttrGeneratedUID,
                 groupGUID,
@@ -224,7 +227,7 @@ class OpenDirectoryService(CachingDirectoryService):
             )
 
             if not result:
-                self.log_error("Couldn't find group %s when trying to expand nested groups."
+                self.log.error("Couldn't find group %s when trying to expand nested groups."
                              % (groupGUID,))
                 continue
 
@@ -276,15 +279,15 @@ class OpenDirectoryService(CachingDirectoryService):
             attrs.append(dsattributes.kDSNAttrNestedGroups)
             ODRecordType = dsattributes.kDSStdRecordTypeGroups
 
-        self.log_debug("Querying OD for all %s records" % (recordType,))
+        self.log.debug("Querying OD for all %s records" % (recordType,))
         results = self.odModule.listAllRecordsWithAttributes_list(
             self.directory, ODRecordType, attrs)
-        self.log_debug("Retrieved %d %s records" % (len(results), recordType,))
+        self.log.debug("Retrieved %d %s records" % (len(results), recordType,))
 
         for key, value in results:
             recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
             if not recordGUID:
-                self.log_warn("Ignoring record missing GUID: %s %s" %
+                self.log.warn("Ignoring record missing GUID: %s %s" %
                     (key, value,))
                 continue
 
@@ -375,7 +378,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 d.addCallback(lambda x: record.addAugmentInformation(x))
             records.append(record)
 
-        self.log_debug("ListRecords returning %d %s records" % (len(records),
+        self.log.debug("ListRecords returning %d %s records" % (len(records),
             recordType))
 
         return records
@@ -391,9 +394,9 @@ class OpenDirectoryService(CachingDirectoryService):
 
         guids = set()
 
-        self.log_debug("Looking up which groups %s is a member of" % (guid,))
+        self.log.debug("Looking up which groups %s is a member of" % (guid,))
         try:
-            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+            self.log.debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                 self.directory,
                 dsattributes.kDSNAttrGroupMembers,
                 guid,
@@ -412,7 +415,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 attrs,
             )
         except self.odModule.ODError, ex:
-            self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
+            self.log.error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
             raise
 
         for (_ignore_recordShortName, value) in results:
@@ -423,7 +426,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 guids.add(recordGUID)
 
         try:
-            self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+            self.log.debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                 self.directory,
                 dsattributes.kDSNAttrNestedGroups,
                 guid,
@@ -442,7 +445,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 attrs,
             )
         except self.odModule.ODError, ex:
-            self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
+            self.log.error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
             raise
 
         for (_ignore_recordShortName, value) in results:
@@ -452,7 +455,7 @@ class OpenDirectoryService(CachingDirectoryService):
             if recordGUID:
                 guids.add(recordGUID)
 
-        self.log_debug("%s is a member of %d groups" % (guid, len(guids)))
+        self.log.debug("%s is a member of %d groups" % (guid, len(guids)))
 
         return guids
 
@@ -563,9 +566,9 @@ class OpenDirectoryService(CachingDirectoryService):
             lookupMethod = self.odModule.queryRecordsWithAttributes_list
 
         def collectResults(results):
-            self.log_debug("Got back %d records from OD" % (len(results),))
+            self.log.debug("Got back %d records from OD" % (len(results),))
             for key, value in results:
-                self.log_debug("OD result: %s %s" % (key, value))
+                self.log.debug("OD result: %s %s" % (key, value))
                 try:
                     recordNodeName = value.get(
                         dsattributes.kDSNAttrMetaNodeLocation)
@@ -662,7 +665,7 @@ class OpenDirectoryService(CachingDirectoryService):
             for compound in queries:
                 compound = compound.generate()
 
-                self.log_debug("Calling OD: Types %s, Query %s" %
+                self.log.debug("Calling OD: Types %s, Query %s" %
                     (recordTypes, compound))
 
                 try:
@@ -684,7 +687,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     sets.append(newSet)
 
                 except self.odModule.ODError, e:
-                    self.log_error("Ignoring OD Error: %d %s" %
+                    self.log.error("Ignoring OD Error: %d %s" %
                         (e.message[1], e.message[0]))
                     continue
 
@@ -739,9 +742,9 @@ class OpenDirectoryService(CachingDirectoryService):
         # specified in the last field in the fields list
 
         def collectResults(results):
-            self.log_debug("Got back %d records from OD" % (len(results),))
+            self.log.debug("Got back %d records from OD" % (len(results),))
             for key, value in results:
-                self.log_debug("OD result: %s %s" % (key, value))
+                self.log.debug("OD result: %s %s" % (key, value))
                 try:
                     recordNodeName = value.get(
                         dsattributes.kDSNAttrMetaNodeLocation)
@@ -843,7 +846,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 else:
                     comparison = dsattributes.eDSExact
 
-                self.log_debug("Calling OD: Types %s, Field %s, Value %s, Match %s, Caseless %s" %
+                self.log.debug("Calling OD: Types %s, Field %s, Value %s, Match %s, Caseless %s" %
                     (recordTypes, ODField, value, matchType, caseless))
 
                 try:
@@ -873,7 +876,7 @@ class OpenDirectoryService(CachingDirectoryService):
                         sets.append(newSet)
 
                 except self.odModule.ODError, e:
-                    self.log_error("Ignoring OD Error: %d %s" %
+                    self.log.error("Ignoring OD Error: %d %s" %
                         (e.message[1], e.message[0]))
                     continue
 
@@ -989,7 +992,7 @@ class OpenDirectoryService(CachingDirectoryService):
             # Because we're getting transient OD error -14987, try 3 times:
             for _ignore in xrange(3):
                 try:
-                    self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
+                    self.log.debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                         self.directory,
                         queryattr,
                         indexKey,
@@ -1012,18 +1015,18 @@ class OpenDirectoryService(CachingDirectoryService):
                 except self.odModule.ODError, ex:
                     if ex.message[1] == -14987:
                         # Fall through and retry
-                        self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
+                        self.log.error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
                     elif ex.message[1] == -14140 or ex.message[1] == -14200:
                         # Unsupported attribute on record - don't fail
                         return
                     else:
-                        self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
+                        self.log.error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
                         raise
                 else:
                     # Success, so break the retry loop
                     break
 
-        self.log_debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
+        self.log.debug("opendirectory.queryRecordsWithAttribute_list matched records: %s" % (len(results),))
 
         enabledRecords = []
         disabledRecords = []
@@ -1044,19 +1047,19 @@ class OpenDirectoryService(CachingDirectoryService):
             recordNodeName = value.get(dsattributes.kDSNAttrMetaNodeLocation)
 
             if not recordType:
-                self.log_debug("Record (unknown)%s in node %s has no recordType; ignoring."
+                self.log.debug("Record (unknown)%s in node %s has no recordType; ignoring."
                                % (recordShortName, recordNodeName))
                 continue
 
             recordType = self._fromODRecordTypes[recordType]
 
             if not recordGUID:
-                self.log_debug("Record (%s)%s in node %s has no GUID; ignoring."
+                self.log.debug("Record (%s)%s in node %s has no GUID; ignoring."
                                % (recordType, recordShortName, recordNodeName))
                 continue
 
             if recordGUID.lower().startswith("ffffeeee-dddd-cccc-bbbb-aaaa"):
-                self.log_debug("Ignoring system record (%s)%s in node %s."
+                self.log.debug("Ignoring system record (%s)%s in node %s."
                                % (recordType, recordShortName, recordNodeName))
                 continue
 
@@ -1136,7 +1139,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 record.autoSchedule = True
 
             if not unrestricted:
-                self.log_debug("%s is not enabled because it's not a member of group: %s" % (recordGUID, self.restrictToGroup))
+                self.log.debug("%s is not enabled because it's not a member of group: %s" % (recordGUID, self.restrictToGroup))
                 record.enabledForCalendaring = False
                 record.enabledForAddressBooks = False
 
@@ -1153,14 +1156,14 @@ class OpenDirectoryService(CachingDirectoryService):
         elif len(enabledRecords) == 0 and len(disabledRecords) == 1:
             record = disabledRecords[0]
         elif indexType == self.INDEX_TYPE_GUID and len(enabledRecords) > 1:
-            self.log_error("Duplicate records found for GUID %s:" % (indexKey,))
+            self.log.error("Duplicate records found for GUID %s:" % (indexKey,))
             for duplicateRecord in enabledRecords:
-                self.log_error("Duplicate: %s" % (", ".join(duplicateRecord.shortNames)))
+                self.log.error("Duplicate: %s" % (", ".join(duplicateRecord.shortNames)))
 
         if record:
             if isinstance(origIndexKey, unicode):
                 origIndexKey = origIndexKey.encode("utf-8")
-            self.log_debug("Storing (%s %s) %s in internal cache" % (indexType, origIndexKey, record))
+            self.log.debug("Storing (%s %s) %s in internal cache" % (indexType, origIndexKey, record))
 
             self.recordCacheForType(recordType).addRecord(record, indexType, origIndexKey)
 
@@ -1179,7 +1182,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
         for recordType in (dsattributes.kDSStdRecordTypePlaces, dsattributes.kDSStdRecordTypeResources):
             try:
-                self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
+                self.log.debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
                     self.directory,
                     recordType,
                     attrs,
@@ -1190,7 +1193,7 @@ class OpenDirectoryService(CachingDirectoryService):
                     attrs,
                 )
             except self.odModule.ODError, ex:
-                self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
+                self.log.error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
             for (recordShortName, value) in results:
@@ -1223,7 +1226,7 @@ class OpenDirectoryService(CachingDirectoryService):
             for node in nodes:
                 self.odModule.getNodeAttributes(self.directory, node, [dsattributes.kDSNAttrNodePath])
         except self.odModule.ODError:
-            self.log_warn("OpenDirectory Node %s not available" % (node,))
+            self.log.warn("OpenDirectory Node %s not available" % (node,))
             return False
 
         return True
@@ -1242,7 +1245,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
         loop = 1
         while valuesToFetch:
-            self.log_debug("getGroups loop %d" % (loop,))
+            self.log.debug("getGroups loop %d" % (loop,))
 
             results = []
 
@@ -1250,12 +1253,12 @@ class OpenDirectoryService(CachingDirectoryService):
                 fields = []
                 for value in batch:
                     fields.append(["guid", value, False, "equals"])
-                self.log_debug("getGroups fetching batch of %d" %
+                self.log.debug("getGroups fetching batch of %d" %
                     (len(fields),))
                 result = list((yield self.recordsMatchingFields(fields,
                     recordType=self.recordType_groups)))
                 results.extend(result)
-                self.log_debug("getGroups got back batch of %d for subtotal of %d" %
+                self.log.debug("getGroups got back batch of %d for subtotal of %d" %
                     (len(result), len(results)))
 
             # Reset values for next iteration
@@ -1269,7 +1272,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 # record.nestedGUIDs() contains the sub groups of this group
                 for memberGUID in record.nestedGUIDs():
                     if memberGUID not in recordsByGUID:
-                        self.log_debug("getGroups group %s contains group %s" %
+                        self.log.debug("getGroups group %s contains group %s" %
                             (record.guid, memberGUID))
                         valuesToFetch.add(memberGUID)
 
@@ -1419,7 +1422,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
                     self.password = credentials.password
                     return True
             except self.service.odModule.ODError, e:
-                self.log_error("OpenDirectory (node=%s) error while performing basic authentication for user %s: %s"
+                self.log.error("OpenDirectory (node=%s) error while performing basic authentication for user %s: %s"
                             % (self.service.realmName, self.shortNames[0], e))
 
             return False
@@ -1442,7 +1445,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
                     'algorithm=%(algorithm)s'
                 ) % credentials.fields
             except KeyError, e:
-                self.log_error(
+                self.log.error(
                     "OpenDirectory (node=%s) error while performing digest authentication for user %s: "
                     "missing digest response field: %s in: %s"
                     % (self.service.realmName, self.shortNames[0], e, credentials.fields)
@@ -1473,7 +1476,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
 
                     return True
                 else:
-                    self.log_debug(
+                    self.log.debug(
 """OpenDirectory digest authentication failed with:
     Nodename:  %s
     Username:  %s
@@ -1484,7 +1487,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
        credentials.method))
 
             except self.service.odModule.ODError, e:
-                self.log_error(
+                self.log.error(
                     "OpenDirectory (node=%s) error while performing digest authentication for user %s: %s"
                     % (self.service.realmName, self.shortNames[0], e)
                 )

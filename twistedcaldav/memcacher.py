@@ -20,12 +20,13 @@ import string
 
 from twisted.internet.defer import succeed
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.config import config
 
-class Memcacher(LoggingMixIn, CachePoolUserMixIn):
+class Memcacher(CachePoolUserMixIn):
+    log = Logger()
 
     MEMCACHE_KEY_LIMIT   = 250      # the memcached key length limit
     NAMESPACE_MAX_LENGTH = 32       # max size of namespace we will allow
@@ -238,7 +239,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
-        self.log_debug("Adding Cache Token for %r" % (key,))
+        self.log.debug("Adding Cache Token for %r" % (key,))
         return proto.add('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expireTime)
 
     def set(self, key, value, expireTime=0):
@@ -248,7 +249,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
-        self.log_debug("Setting Cache Token for %r" % (key,))
+        self.log.debug("Setting Cache Token for %r" % (key,))
         return proto.set('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expireTime)
 
     def checkAndSet(self, key, value, cas, flags=0, expireTime=0):
@@ -258,7 +259,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
-        self.log_debug("Setting Cache Token for %r" % (key,))
+        self.log.debug("Setting Cache Token for %r" % (key,))
         return proto.checkAndSet('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, cas, expireTime=expireTime)
 
     def get(self, key, withIdentifier=False):
@@ -273,23 +274,23 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
                 value = (identifier, value)
             return value
 
-        self.log_debug("Getting Cache Token for %r" % (key,))
+        self.log.debug("Getting Cache Token for %r" % (key,))
         d = self._getMemcacheProtocol().get('%s:%s' % (self._namespace, self._normalizeKey(key)), withIdentifier=withIdentifier)
         d.addCallback(_gotit, withIdentifier)
         return d
 
     def delete(self, key):
-        self.log_debug("Deleting Cache Token for %r" % (key,))
+        self.log.debug("Deleting Cache Token for %r" % (key,))
         return self._getMemcacheProtocol().delete('%s:%s' % (self._namespace, self._normalizeKey(key)))
 
     def incr(self, key, delta=1):
-        self.log_debug("Incrementing Cache Token for %r" % (key,))
+        self.log.debug("Incrementing Cache Token for %r" % (key,))
         return self._getMemcacheProtocol().incr('%s:%s' % (self._namespace, self._normalizeKey(key)), delta)
 
     def decr(self, key, delta=1):
-        self.log_debug("Decrementing Cache Token for %r" % (key,))
+        self.log.debug("Decrementing Cache Token for %r" % (key,))
         return self._getMemcacheProtocol().incr('%s:%s' % (self._namespace, self._normalizeKey(key)), delta)
 
     def flushAll(self):
-        self.log_debug("Flushing All Cache Tokens")
+        self.log.debug("Flushing All Cache Tokens")
         return self._getMemcacheProtocol().flushAll()

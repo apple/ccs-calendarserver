@@ -56,7 +56,7 @@ from twisted.application.service import Service
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twext.web2.server import Site
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 from twext.python.log import LogLevel, logLevelForNamespace, setLogLevelForNamespace
 from twext.python.filepath import CachingFilePath
 from twext.internet.ssl import ChainingOpenSSLContextFactory
@@ -281,7 +281,9 @@ class CalDAVService (ErrorLoggingMultiService):
 
 
 
-class CalDAVOptions (Options, LoggingMixIn):
+class CalDAVOptions (Options):
+    log = Logger()
+
     optParameters = [[
         "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
     ]]
@@ -430,7 +432,7 @@ class CalDAVOptions (Options, LoggingMixIn):
         # Check current umask and warn if changed
         oldmask = os.umask(config.umask)
         if oldmask != config.umask:
-            self.log_info("WARNING: changing umask from: 0%03o to 0%03o"
+            self.log.info("WARNING: changing umask from: 0%03o to 0%03o"
                           % (oldmask, config.umask))
         self.parent['umask'] = config.umask
 
@@ -496,10 +498,11 @@ class SlaveSpawnerService(Service):
 
 
 
-class WorkSchedulingService(Service, LoggingMixIn):
+class WorkSchedulingService(Service):
     """
     A Service to kick off the initial scheduling of periodic work items.
     """
+    log = Logger()
 
     def __init__(self, store, doImip, doGroupCaching):
         """
@@ -527,10 +530,11 @@ class WorkSchedulingService(Service, LoggingMixIn):
 
 
 
-class ReExecService(MultiService, LoggingMixIn):
+class ReExecService(MultiService):
     """
     A MultiService which catches SIGHUP and re-exec's the process.
     """
+    log = Logger()
 
     def __init__(self, pidfilePath, reactor=None):
         """
@@ -550,9 +554,9 @@ class ReExecService(MultiService, LoggingMixIn):
         Removes pidfile, registers an exec to happen after shutdown, then
         stops the reactor.
         """
-        self.log_info("SIGHUP received - restarting")
+        self.log.info("SIGHUP received - restarting")
         try:
-            self.log_info("Removing pidfile: %s" % (self.pidfilePath,))
+            self.log.info("Removing pidfile: %s" % (self.pidfilePath,))
             os.remove(self.pidfilePath)
         except OSError:
             pass
@@ -706,7 +710,9 @@ class QuitAfterUpgradeStep(object):
 
 
 
-class CalDAVServiceMaker (LoggingMixIn):
+class CalDAVServiceMaker (object):
+    log = Logger()
+
     implements(IPlugin, IServiceMaker)
 
     tapname = "caldav"
@@ -718,7 +724,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         """
         Create the top-level service.
         """
-        self.log_info("%s %s starting %s process..." % (self.description, version, config.ProcessType))
+        self.log.info("%s %s starting %s process..." % (self.description, version, config.ProcessType))
 
         try:
             from setproctitle import setproctitle
@@ -810,12 +816,12 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         if config.ControlSocket:
             id = config.ControlSocket
-            self.log_info("Control via AF_UNIX: %s" % (id,))
+            self.log.info("Control via AF_UNIX: %s" % (id,))
             endpointFactory = lambda reactor: UNIXClientEndpoint(
                 reactor, id)
         else:
             id = int(config.ControlPort)
-            self.log_info("Control via AF_INET: %d" % (id,))
+            self.log.info("Control via AF_INET: %d" % (id,))
             endpointFactory = lambda reactor: TCP4ClientEndpoint(
                 reactor, "127.0.0.1", id)
         controlSocketClient = ControlSocket()
@@ -929,9 +935,9 @@ class CalDAVServiceMaker (LoggingMixIn):
         #
         # Configure the service
         #
-        self.log_info("Setting up service")
+        self.log.info("Setting up service")
 
-        self.log_info("Configuring access log observer: %s" % (logObserver,))
+        self.log.info("Configuring access log observer: %s" % (logObserver,))
         service = CalDAVService(logObserver)
 
         rootResource = getRootResource(config, store, additional)
@@ -948,7 +954,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         requestFactory = underlyingSite
 
         if config.RedirectHTTPToHTTPS:
-            self.log_info("Redirecting to HTTPS port %s" % (config.SSLPort,))
+            self.log.info("Redirecting to HTTPS port %s" % (config.SSLPort,))
             def requestFactory(*args, **kw):
                 return SSLRedirectRequest(site=underlyingSite, *args, **kw)
 
@@ -1028,7 +1034,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             try:
                 contextFactory = self.createContextFactory()
             except SSLError, e:
-                self.log_error("Unable to set up SSL context factory: %s" % (e,))
+                self.log.error("Unable to set up SSL context factory: %s" % (e,))
                 # None is okay as a context factory for ReportingHTTPService as
                 # long as we will never receive a file descriptor with the
                 # 'SSL' tag on it, since that's the only time it's used.
@@ -1043,15 +1049,15 @@ class CalDAVServiceMaker (LoggingMixIn):
                 self._validatePortConfig()
                 if config.EnableSSL:
                     for port in config.BindSSLPorts:
-                        self.log_info("Adding SSL server at %s:%s"
+                        self.log.info("Adding SSL server at %s:%s"
                                       % (bindAddress, port))
 
                         try:
                             contextFactory = self.createContextFactory()
                         except SSLError, e:
-                            self.log_error("Unable to set up SSL context factory: %s"
+                            self.log.error("Unable to set up SSL context factory: %s"
                                            % (e,))
-                            self.log_error("Disabling SSL port: %s" % (port,))
+                            self.log.error("Disabling SSL port: %s" % (port,))
                         else:
                             httpsService = MaxAcceptSSLServer(
                                 int(port), httpFactory,
@@ -1199,7 +1205,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         # directly using Popen to spawn memcached.
         for name, pool in config.Memcached.Pools.items():
             if pool.ServerEnabled:
-                self.log_info(
+                self.log.info(
                     "Adding memcached service for pool: %s" % (name,)
                 )
                 memcachedArgv = [
@@ -1449,7 +1455,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         for name, pool in config.Memcached.Pools.items():
             if pool.ServerEnabled:
-                self.log_info(
+                self.log.info(
                     "Adding memcached service for pool: %s" % (name,)
                 )
                 memcachedArgv = [
@@ -1571,7 +1577,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             # connection pool implementation that can dispense transactions
             # synchronously as the interface requires.
             if pool is not None and config.SharedConnectionPool:
-                self.log_warn("Using Shared Connection Pool")
+                self.log.warn("Using Shared Connection Pool")
                 dispenser = ConnectionDispenser(pool)
             else:
                 dispenser = None
@@ -1633,7 +1639,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             if (os.path.exists(checkSocket)):
                 # See if the file represents a socket.  If not, delete it.
                 if (not stat.S_ISSOCK(os.stat(checkSocket).st_mode)):
-                    self.log_warn("Deleting stale socket file (not a socket): %s" % checkSocket)
+                    self.log.warn("Deleting stale socket file (not a socket): %s" % checkSocket)
                     os.remove(checkSocket)
                 else:
                     # It looks like a socket.  See if it's accepting connections.
@@ -1649,7 +1655,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                     # If the file didn't connect on any expected ports,
                     # consider it stale and remove it.
                     if numConnectFailures == len(testPorts):
-                        self.log_warn("Deleting stale socket file (not accepting connections): %s" % checkSocket)
+                        self.log.warn("Deleting stale socket file (not accepting connections): %s" % checkSocket)
                         os.remove(checkSocket)
 
 

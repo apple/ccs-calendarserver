@@ -25,15 +25,17 @@ from twext.web2.client.http import ClientRequest
 from twext.web2.http import StatusResponse, HTTPError
 from twext.web2.resource import LeafResource
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
 from twistedcaldav.client.pool import getHTTPClientPool
 from twistedcaldav.config import config
 
-class ReverseProxyResource(LeafResource, LoggingMixIn):
+class ReverseProxyResource(LeafResource):
     """
     A L{LeafResource} which always performs a reverse proxy operation.
     """
+    log = Logger()
+
     implements(iweb.IResource)
 
     def __init__(self, poolID, *args, **kwargs):
@@ -67,7 +69,7 @@ class ReverseProxyResource(LeafResource, LoggingMixIn):
         @return: Deferred L{Response}
         """
 
-        self.logger.info("%s %s %s" % (request.method, request.uri, "HTTP/%s.%s" % request.clientproto))
+        self.log.info("%s %s %s" % (request.method, request.uri, "HTTP/%s.%s" % request.clientproto))
 
         # Check for multi-hop
         if not self.allowMultiHop:

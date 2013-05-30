@@ -400,7 +400,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # Must be content-type text/calendar
         contentType = request.headers.getHeader("content-type")
         if contentType is not None and (contentType.mediaType, contentType.mediaSubtype) != ("text", "calendar"):
-            self.log_error("MIME type %s not allowed in calendar collection" % (contentType,))
+            self.log.error("MIME type %s not allowed in calendar collection" % (contentType,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "supported-calendar-data"),
@@ -412,7 +412,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             calendar = (yield Component.fromIStream(request.stream))
         except:
             # FIXME: Bare except
-            self.log_error("Error while handling POST: %s" % (Failure(),))
+            self.log.error("Error while handling POST: %s" % (Failure(),))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "valid-calendar-data"),
@@ -437,7 +437,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                     originator = originatorPrincipal.canonicalCalendarUserAddress()
 
         if not originator:
-            self.log_error("%s request must have Originator" % (self.method,))
+            self.log.error("%s request must have Originator" % (self.method,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "originator-specified"),
@@ -458,7 +458,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 unique_set.add(attendee)
 
         if not attendees:
-            self.log_error("POST request must have at least one ATTENDEE")
+            self.log.error("POST request must have at least one ATTENDEE")
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "recipient-specified"),

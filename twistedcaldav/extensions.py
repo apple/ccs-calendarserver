@@ -58,7 +58,7 @@ from twext.web2.dav.resource import (
 from twisted.internet.defer import gatherResults
 from twext.web2.dav.method import prop_common
 
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
@@ -534,7 +534,7 @@ class DirectoryRenderingMixIn(object):
 
 
 class DAVResource (DirectoryPrincipalPropertySearchMixIn,
-                   SuperDAVResource, LoggingMixIn,
+                   SuperDAVResource,
                    DirectoryRenderingMixIn, StaticRenderMixin):
     """
     Extended L{twext.web2.dav.resource.DAVResource} implementation.
@@ -542,6 +542,7 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn,
     Note we add StaticRenderMixin as a base class because we need all the etag etc behavior
     that is currently in static.py but is actually applicable to any type of resource.
     """
+    log = Logger()
 
     http_REPORT = http_REPORT
 
@@ -662,11 +663,12 @@ class DAVResourceWithoutChildrenMixin (object):
 
 
 class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
-                            SuperDAVPrincipalResource, LoggingMixIn,
+                            SuperDAVPrincipalResource,
                             DirectoryRenderingMixIn):
     """
     Extended L{twext.web2.dav.static.DAVFile} implementation.
     """
+    log = Logger()
 
     def liveProperties(self):
         return super(DAVPrincipalResource, self).liveProperties() + (
@@ -753,10 +755,11 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
 
 
 
-class DAVFile (SuperDAVFile, LoggingMixIn, DirectoryRenderingMixIn):
+class DAVFile (SuperDAVFile, DirectoryRenderingMixIn):
     """
     Extended L{twext.web2.dav.static.DAVFile} implementation.
     """
+    log = Logger()
 
     def resourceType(self):
         # Allow live property to be overridden by dead property
@@ -856,18 +859,20 @@ class PropertyNotFoundError (HTTPError):
 
 
 
-class CachingPropertyStore (LoggingMixIn):
+class CachingPropertyStore (object):
     """
     DAV property store using a dict in memory on top of another
     property store implementation.
     """
+    log = Logger()
+
     def __init__(self, propertyStore):
         self.propertyStore = propertyStore
         self.resource = propertyStore.resource
 
 
     def get(self, qname, uid=None):
-        #self.log_debug("Get: %r, %r" % (self.resource.fp.path, qname))
+        #self.log.debug("Get: %r, %r" % (self.resource.fp.path, qname))
 
         cache = self._cache()
 
@@ -876,7 +881,7 @@ class CachingPropertyStore (LoggingMixIn):
         if cachedQname in cache:
             property = cache.get(cachedQname, None)
             if property is None:
-                self.log_debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
+                self.log.debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
                 try:
                     property = self.propertyStore.get(qname, uid)
                 except HTTPError:
@@ -890,7 +895,7 @@ class CachingPropertyStore (LoggingMixIn):
 
 
     def set(self, property, uid=None):
-        #self.log_debug("Set: %r, %r" % (self.resource.fp.path, property))
+        #self.log.debug("Set: %r, %r" % (self.resource.fp.path, property))
 
         cache = self._cache()
 
@@ -902,7 +907,7 @@ class CachingPropertyStore (LoggingMixIn):
 
 
     def contains(self, qname, uid=None):
-        #self.log_debug("Contains: %r, %r" % (self.resource.fp.path, qname))
+        #self.log.debug("Contains: %r, %r" % (self.resource.fp.path, qname))
 
         cachedQname = qname + (uid,)
 
@@ -915,14 +920,14 @@ class CachingPropertyStore (LoggingMixIn):
                 raise
 
         if cachedQname in cache:
-            #self.log_debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
+            #self.log.debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
             return True
         else:
             return False
 
 
     def delete(self, qname, uid=None):
-        #self.log_debug("Delete: %r, %r" % (self.resource.fp.path, qname))
+        #self.log.debug("Delete: %r, %r" % (self.resource.fp.path, qname))
 
         cachedQname = qname + (uid,)
 
@@ -933,7 +938,7 @@ class CachingPropertyStore (LoggingMixIn):
 
 
     def list(self, uid=None, filterByUID=True):
-        #self.log_debug("List: %r" % (self.resource.fp.path,))
+        #self.log.debug("List: %r" % (self.resource.fp.path,))
         keys = self._cache().iterkeys()
         if filterByUID:
             return [
@@ -947,7 +952,7 @@ class CachingPropertyStore (LoggingMixIn):
 
     def _cache(self):
         if not hasattr(self, "_data"):
-            #self.log_debug("Cache init: %r" % (self.resource.fp.path,))
+            #self.log.debug("Cache init: %r" % (self.resource.fp.path,))
             self._data = dict(
                 (name, None)
                 for name in self.propertyStore.list(filterByUID=False)

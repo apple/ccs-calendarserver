@@ -45,7 +45,7 @@ from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
 from twistedcaldav.vcard import Component
 
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 from twistedcaldav.config import config
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 
@@ -62,7 +62,9 @@ def wrapInDeferred(f):
 
 
 
-class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
+class MemcachedUIDReserver(CachePoolUserMixIn):
+    log = Logger()
+
     def __init__(self, index, cachePool=None):
         self.index = index
         self._cachePool = cachePool
@@ -76,7 +78,7 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
     def reserveUID(self, uid):
         uid = uid.encode('utf-8')
-        self.log_debug("Reserving UID %r @ %r" % (
+        self.log.debug("Reserving UID %r @ %r" % (
                 uid,
                 self.index.resource.fp.path))
 
@@ -96,7 +98,7 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
     def unreserveUID(self, uid):
         uid = uid.encode('utf-8')
-        self.log_debug("Unreserving UID %r @ %r" % (
+        self.log.debug("Unreserving UID %r @ %r" % (
                 uid,
                 self.index.resource.fp.path))
 
@@ -114,7 +116,7 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
     def isReservedUID(self, uid):
         uid = uid.encode('utf-8')
-        self.log_debug("Is reserved UID %r @ %r" % (
+        self.log.debug("Is reserved UID %r @ %r" % (
                 uid,
                 self.index.resource.fp.path))
 

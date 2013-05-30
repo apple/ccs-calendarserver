@@ -23,7 +23,7 @@ __all__ = [
 import OpenSSL
 import urlparse
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from twext.internet.gaiendpoint import GAIEndpoint
 from twext.internet.adaptendpoint import connect
 
@@ -39,7 +39,7 @@ from twext.web2.http import StatusResponse, HTTPError
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.stream import MemoryStream
 
-class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
+class PooledHTTPClientFactory(ClientFactory):
     """
     A client factory for HTTPClient that notifies a pool of it's state. It the connection
     fails in the middle of a request it will retry the request.
@@ -48,6 +48,8 @@ class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
         to our connectionPool.
     @ivar connectionPool: A managing connection pool that we notify of events.
     """
+    log = Logger()
+
     protocol = HTTPClientProtocol
     connectionPool = None
 
@@ -92,7 +94,7 @@ class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
 
 
 
-class HTTPClientPool(LoggingMixIn):
+class HTTPClientPool(object):
     """
     A connection pool for HTTPClientProtocol instances.
 
@@ -114,6 +116,8 @@ class HTTPClientPool(LoggingMixIn):
     @ivar _pendingConnects: A C{int} indicating how many connections are in
         progress.
     """
+    log = Logger()
+
     clientFactory = PooledHTTPClientFactory
     maxRetries = 2
 
@@ -173,7 +177,7 @@ class HTTPClientPool(LoggingMixIn):
         """
         self._pendingConnects += 1
 
-        self.log_debug("Initating new client connection to: %r" % (
+        self.log.debug("Initating new client connection to: %r" % (
                 self._endpoint,))
         self._logClientStats()
 
@@ -268,18 +272,18 @@ class HTTPClientPool(LoggingMixIn):
                 response = (yield self._submitRequest(request, args, kwargs))
 
             except (ConnectionLost, ConnectionDone, ConnectError), e:
-                self.log_error("HTTP pooled client connection error (attempt: %d) - retrying: %s" % (ctr + 1, e,))
+                self.log.error("HTTP pooled client connection error (attempt: %d) - retrying: %s" % (ctr + 1, e,))
                 continue
 
             # TODO: find the proper cause of these assertions and fix
             except (AssertionError,), e:
-                self.log_error("HTTP pooled client connection assertion error (attempt: %d) - retrying: %s" % (ctr + 1, e,))
+                self.log.error("HTTP pooled client connection assertion error (attempt: %d) - retrying: %s" % (ctr + 1, e,))
                 continue
 
             else:
                 returnValue(response)
         else:
-            self.log_error("HTTP pooled client connection error - exhausted retry attempts.")
+            self.log.error("HTTP pooled client connection error - exhausted retry attempts.")
             raise HTTPError(StatusResponse(responsecode.BAD_GATEWAY, "Could not connect to HTTP pooled client host."))
 
 
@@ -303,7 +307,7 @@ class HTTPClientPool(LoggingMixIn):
         elif len(self._busyClients) + self._pendingConnects >= self._maxClients:
             d = Deferred()
             self._pendingRequests.append((d, request, args, kwargs))
-            self.log_debug("Request queued: %s, %r, %r" % (request, args, kwargs))
+            self.log.debug("Request queued: %s, %r, %r" % (request, args, kwargs))
             self._logClientStats()
 
         else:
@@ -314,7 +318,7 @@ class HTTPClientPool(LoggingMixIn):
 
 
     def _logClientStats(self):
-        self.log_debug("Clients #free: %d, #busy: %d, "
+        self.log.debug("Clients #free: %d, #busy: %d, "
                        "#pending: %d, #queued: %d" % (
                 len(self._freeClients),
                 len(self._busyClients),
@@ -334,7 +338,7 @@ class HTTPClientPool(LoggingMixIn):
         elif client in self._freeClients:
             self._freeClients.remove(client)
 
-        self.log_debug("Removed client: %r" % (client,))
+        self.log.debug("Removed client: %r" % (client,))
         self._logClientStats()
 
         self._processPending()
@@ -352,7 +356,7 @@ class HTTPClientPool(LoggingMixIn):
 
         self._busyClients.add(client)
 
-        self.log_debug("Busied client: %r" % (client,))
+        self.log.debug("Busied client: %r" % (client,))
         self._logClientStats()
 
 
@@ -370,7 +374,7 @@ class HTTPClientPool(LoggingMixIn):
         if self.shutdown_deferred and self._isIdle():
             self.shutdown_deferred.callback(None)
 
-        self.log_debug("Freed client: %r" % (client,))
+        self.log.debug("Freed client: %r" % (client,))
         self._logClientStats()
 
         self._processPending()
@@ -380,7 +384,7 @@ class HTTPClientPool(LoggingMixIn):
         if len(self._pendingRequests) > 0:
             d, request, args, kwargs = self._pendingRequests.pop(0)
 
-            self.log_debug("Performing Queued Request: %s, %r, %r" % (
+            self.log.debug("Performing Queued Request: %s, %r, %r" % (
                     request, args, kwargs))
             self._logClientStats()
 

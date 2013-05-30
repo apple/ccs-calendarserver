@@ -46,12 +46,13 @@ from twext.web2 import responsecode
 from twext.web2.auth.interfaces import ICredentialFactory
 from twext.web2.dav.auth import IPrincipalCredentials
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
-class KerberosCredentialFactoryBase(LoggingMixIn):
+class KerberosCredentialFactoryBase(object):
     """
     Code common to Kerberos-based credential factories.
     """
+    log = Logger()
 
     implements(ICredentialFactory)
 
@@ -76,7 +77,7 @@ class KerberosCredentialFactoryBase(LoggingMixIn):
             try:
                 principal = kerberos.getServerPrincipalDetails(type, hostname)
             except kerberos.KrbError, ex:
-                self.log_error("getServerPrincipalDetails: %s" % (ex[0],))
+                self.log.error("getServerPrincipalDetails: %s" % (ex[0],))
                 raise ValueError('Authentication System Failure: %s' % (ex[0],))
 
         self.service, self.realm = self._splitPrincipal(principal)
@@ -90,7 +91,7 @@ class KerberosCredentialFactoryBase(LoggingMixIn):
             service = splits[0].upper()
             realm = splits[1]
         except IndexError:
-            self.log_error("Invalid Kerberos principal: %s" % (principal,))
+            self.log.error("Invalid Kerberos principal: %s" % (principal,))
             raise ValueError('Authentication System Failure: Invalid Kerberos principal: %s' % (principal,))
                 
         service = "%s@%s" % (servicetype, service,)
@@ -160,7 +161,8 @@ class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
             return succeed(c)
         raise error.LoginFailed('Invalid credentials')
 
-class BasicKerberosCredentialsChecker(LoggingMixIn):
+class BasicKerberosCredentialsChecker(object):
+    log = Logger()
 
     implements(checkers.ICredentialsChecker)
 
@@ -176,7 +178,7 @@ class BasicKerberosCredentialsChecker(LoggingMixIn):
             try:
                 kerberos.checkPassword(creds.username, creds.password, creds.service, creds.default_realm)
             except kerberos.BasicAuthError, ex:
-                self.log_error("%s" % (ex[0],))
+                self.log.error("%s" % (ex[0],))
                 raise error.UnauthorizedLogin("Bad credentials for: %s (%s: %s)" % (pcreds.authnURI, ex[0], ex[1],))
             else:
                 return succeed((
@@ -231,18 +233,18 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
         try:
             _ignore_result, context = kerberos.authGSSServerInit("");
         except kerberos.GSSError, ex:
-            self.log_error("authGSSServerInit: %s(%s)" % (ex[0][0], ex[1][0],))
+            self.log.error("authGSSServerInit: %s(%s)" % (ex[0][0], ex[1][0],))
             raise error.LoginFailed('Authentication System Failure: %s(%s)' % (ex[0][0], ex[1][0],))
 
         # Do the GSSAPI step and get response and username
         try:
             kerberos.authGSSServerStep(context, base64data);
         except kerberos.GSSError, ex:
-            self.log_error("authGSSServerStep: %s(%s)" % (ex[0][0], ex[1][0],))
+            self.log.error("authGSSServerStep: %s(%s)" % (ex[0][0], ex[1][0],))
             kerberos.authGSSServerClean(context)
             raise error.UnauthorizedLogin('Bad credentials: %s(%s)' % (ex[0][0], ex[1][0],))
         except kerberos.KrbError, ex:
-            self.log_error("authGSSServerStep: %s" % (ex[0],))
+            self.log.error("authGSSServerStep: %s" % (ex[0],))
             kerberos.authGSSServerClean(context)
             raise error.UnauthorizedLogin('Bad credentials: %s' % (ex[0],))
 
@@ -250,11 +252,11 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
         try:
             service, _ignore_realm = self._splitPrincipal(targetname)
         except ValueError:
-            self.log_error("authGSSServerTargetName invalid target name: '%s'" % (targetname,))
+            self.log.error("authGSSServerTargetName invalid target name: '%s'" % (targetname,))
             kerberos.authGSSServerClean(context)
             raise error.UnauthorizedLogin('Bad credentials: bad target name %s' % (targetname,))
         if service.lower() != self.service.lower():
-            self.log_error("authGSSServerTargetName mismatch got: '%s' wanted: '%s'" % (service, self.service))
+            self.log.error("authGSSServerTargetName mismatch got: '%s' wanted: '%s'" % (service, self.service))
             kerberos.authGSSServerClean(context)
             raise error.UnauthorizedLogin('Bad credentials: wrong target name %s' % (targetname,))
 
@@ -278,7 +280,7 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
         try:
             kerberos.authGSSServerClean(context);
         except kerberos.GSSError, ex:
-            self.log_error("authGSSServerClean: %s" % (ex[0][0], ex[1][0],))
+            self.log.error("authGSSServerClean: %s" % (ex[0][0], ex[1][0],))
             raise error.LoginFailed('Authentication System Failure %s(%s)' % (ex[0][0], ex[1][0],))
         
         # If we successfully decoded and verified the Kerberos credentials we need to add the Kerberos

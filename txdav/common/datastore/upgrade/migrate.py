@@ -24,7 +24,7 @@ import errno
 import xattr
 
 from twisted.python.failure import Failure
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
 from twisted.python.runtime import platform
 from twisted.python.reflect import namedAny, qual
@@ -228,10 +228,11 @@ class UpgradeHelperProcess(AMP):
 
 
 
-class UpgradeToDatabaseStep(LoggingMixIn, object):
+class UpgradeToDatabaseStep(object):
     """
     Upgrade resources from a filesystem store to a database store.
     """
+    log = Logger()
 
     def __init__(self, fileStore, sqlStore, uid=None, gid=None, merge=False):
         """
@@ -308,13 +309,13 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
         """
         migrateFunc, destFunc = homeTypeLookup.get(homeType)
         uid = normalizeUUIDOrNot(fileHome.uid())
-        self.log_warn("Starting migration transaction %s UID %r" %
+        self.log.warn("Starting migration transaction %s UID %r" %
                       (homeType, uid))
         sqlTxn = self.sqlStore.newTransaction()
         homeGetter = destFunc(sqlTxn)
         sqlHome = yield homeGetter(uid, create=False)
         if sqlHome is not None and not self.merge:
-            self.log_warn(
+            self.log.warn(
                 "%s home %r already existed not migrating" % (
                     homeType, uid))
             yield sqlTxn.abort()
@@ -345,7 +346,7 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
         @return: a Deferred which fires when the migration is complete.
         """
         self.sqlStore.setMigrating(True)
-        self.log_warn("Beginning filesystem -> database upgrade.")
+        self.log.warn("Beginning filesystem -> database upgrade.")
 
         for homeType, eachFunc in [
                 ("calendar", self.fileStore.withEachCalendarHomeDo),
@@ -375,7 +376,7 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
 
         self.sqlStore.setMigrating(False)
 
-        self.log_warn(
+        self.log.warn(
             "Filesystem upgrade complete, launching database service."
         )
 
@@ -383,7 +384,7 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
     @inlineCallbacks
     def _upgradeAction(self, fileTxn, fileHome, homeType):
         uid = fileHome.uid()
-        self.log_warn("Migrating %s UID %r" % (homeType, uid))
+        self.log.warn("Migrating %s UID %r" % (homeType, uid))
         yield self.migrateOneHome(fileTxn, homeType, fileHome)
 
 

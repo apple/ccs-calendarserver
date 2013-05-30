@@ -23,14 +23,14 @@ import datetime
 import os
 import uuid
 
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 from twistedcaldav.sql import AbstractSQLDatabase
 from twisted.internet.defer import inlineCallbacks
 
 log = Logger()
 
 
-class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
+class MailGatewayTokensDatabase(AbstractSQLDatabase):
     """
     A database to maintain "plus-address" tokens for IMIP requests.
 
@@ -39,8 +39,8 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
     Token Database:
 
     ROW: TOKEN, ORGANIZER, ATTENDEE, ICALUID, DATESTAMP
-
     """
+    log = Logger()
 
     dbType = "MAILGATEWAYTOKENS"
     dbFilename = "mailgatewaytokens.sqlite"

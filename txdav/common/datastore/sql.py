@@ -31,7 +31,7 @@ from uuid import uuid4, UUID
 
 from zope.interface import implements, directlyProvides
 
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 
 from txdav.xml.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
@@ -1390,7 +1390,8 @@ class _EmptyCacher(object):
 
 
 
-class CommonHome(LoggingMixIn):
+class CommonHome(object):
+    log = Logger()
 
     # All these need to be initialized by derived classes for each store type
     _homeTable = None
@@ -3185,10 +3186,11 @@ class SharingMixIn(object):
 
 
 
-class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
+class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase, SharingMixIn):
     """
     Common ancestor class of AddressBooks and Calendars.
     """
+    log = Logger()
 
     compareAttributes = (
         "_name",
@@ -4125,10 +4127,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
 
 
-class CommonObjectResource(LoggingMixIn, FancyEqMixin):
+class CommonObjectResource(FancyEqMixin, object):
     """
     Base class for object resources.
     """
+    log = Logger()
 
     compareAttributes = (
         "_name",
@@ -4619,7 +4622,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
 
-class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
+class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
+    log = Logger()
 
     implements(INotificationCollection)
 
@@ -4946,7 +4950,8 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
 
-class NotificationObject(LoggingMixIn, FancyEqMixin):
+class NotificationObject(FancyEqMixin, object):
+    log = Logger()
 
     implements(INotificationObject)
 

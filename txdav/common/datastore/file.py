@@ -21,7 +21,7 @@ Common utility functions for a file based datastore.
 
 import sys
 from twext.internet.decorate import memoizedKey
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from txdav.xml.rfc2518 import GETContentType, HRef
 from txdav.xml.rfc5842 import ResourceID
 from twext.web2.http_headers import generateContentType, MimeType
@@ -431,7 +431,8 @@ class SharedCollectionRecord(object):
 
 
 
-class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
+class SharedCollectionsDatabase(AbstractSQLDatabase):
+    log = Logger()
 
     db_basename = db_prefix + "shares"
     schema_version = "1"
@@ -575,7 +576,8 @@ class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
 
 
 
-class CommonHome(FileMetaDataMixin, LoggingMixIn):
+class CommonHome(FileMetaDataMixin):
+    log = Logger()
 
     # All these need to be initialized by derived classes for each store type
     _childClass = None
@@ -905,7 +907,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         old_used = self.quotaUsedBytes()
         new_used = old_used + delta
         if new_used < 0:
-            self.log_error("Fixing quota adjusted below zero to %s by change amount %s" % (new_used, delta,))
+            self.log.error("Fixing quota adjusted below zero to %s by change amount %s" % (new_used, delta,))
             new_used = 0
         self.properties()[PropertyName.fromElement(TwistedQuotaUsedProperty)] = TwistedQuotaUsedProperty(str(new_used))
 
@@ -937,10 +939,11 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
 
 
-class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBase):
+class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
     """
     Common ancestor class of AddressBooks and Calendars.
     """
+    log = Logger()
 
     compareAttributes = (
         "_name",
@@ -1078,7 +1081,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
                     trash.remove()
                     self.properties()._removeResource()
                 except Exception, e:
-                    self.log_error("Unable to delete trashed child at %s: %s" % (trash.fp, e))
+                    self.log.error("Unable to delete trashed child at %s: %s" % (trash.fp, e))
 
             self._transaction.addOperation(cleanup, "remove child backup %r" % (self._name,))
             def undo():
@@ -1300,12 +1303,13 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
 
 
 
-class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
+class CommonObjectResource(FileMetaDataMixin, FancyEqMixin):
     """
     @ivar _path: The path of the file on disk
 
     @type _path: L{FilePath}
     """
+    log = Logger()
 
     compareAttributes = (
         "_name",

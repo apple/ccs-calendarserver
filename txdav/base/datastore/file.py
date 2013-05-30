@@ -24,7 +24,7 @@ from zope.interface.declarations import implements
 
 from twisted.python import hashlib
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.web2.dav.resource import TwistedGETContentMD5
 from txdav.idav import IDataStoreObject
@@ -61,10 +61,11 @@ def writeOperation(thunk):
 
 
 
-class DataStore(LoggingMixIn):
+class DataStore(object):
     """
     Generic data store.
     """
+    log = Logger()
 
     _transactionClass = None    # Derived class must set this
 
@@ -117,10 +118,11 @@ class _CommitTracker(object):
 
 
 
-class DataStoreTransaction(LoggingMixIn):
+class DataStoreTransaction(object):
     """
     In-memory implementation of a data store transaction.
     """
+    log = Logger()
 
     def __init__(self, dataStore, name):
         """
@@ -186,12 +188,12 @@ class DataStoreTransaction(LoggingMixIn):
                 if undo is not None:
                     undos.append(undo)
             except:
-                self.log_debug("Undoing DataStoreTransaction")
+                self.log.debug("Undoing DataStoreTransaction")
                 for undo in undos:
                     try:
                         undo()
                     except:
-                        self.log_error("Cannot undo DataStoreTransaction")
+                        self.log.error("Cannot undo DataStoreTransaction")
                 raise
 
         for operation in self._postCommitOperations:

@@ -30,7 +30,7 @@ import time
 
 import base64
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from twext.python.memcacheclient import ClientFactory, MemcacheError
 
 from twistedcaldav.config import config
@@ -64,11 +64,12 @@ class RecordTypeCache(object):
 
 
 
-class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
+class DictRecordTypeCache(RecordTypeCache):
     """
     Cache implementation using a dict, and uses memcached to share records
     with other instances.
     """
+    log = Logger()
 
     def __init__(self, directoryService, recordType):
 
@@ -104,18 +105,18 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
             if useMemcache:
                 key = self.directoryService.generateMemcacheKey(indexType, indexKey,
                     record.recordType)
-                self.log_debug("Memcache: storing %s" % (key,))
+                self.log.debug("Memcache: storing %s" % (key,))
                 try:
                     self.directoryService.memcacheSet(key, record)
                 except DirectoryMemcacheError:
-                    self.log_error("Memcache: failed to store %s" % (key,))
+                    self.log.error("Memcache: failed to store %s" % (key,))
                     pass
 
 
     def removeRecord(self, record):
         if record in self.records:
             self.records.remove(record)
-            self.log_debug("Removed record %s" % (record.guid,))
+            self.log.debug("Removed record %s" % (record.guid,))
             for indexType in self.directoryService.indexTypes():
                 try:
                     indexData = getattr(record, CachingDirectoryService.indexTypeToRecordAttribute[indexType])
@@ -154,6 +155,7 @@ class CachingDirectoryService(DirectoryService):
 
     This is class must be overridden to provide a concrete implementation.
     """
+    log = Logger()
 
     INDEX_TYPE_GUID = "guid"
     INDEX_TYPE_SHORTNAME = "shortname"
@@ -204,12 +206,12 @@ class CachingDirectoryService(DirectoryService):
 
             key = base64.b64encode(key)
             if not self._getMemcacheClient().set(key, record, time=self.cacheTimeout):
-                self.log_error("Could not write to memcache, retrying")
+                self.log.error("Could not write to memcache, retrying")
                 if not self._getMemcacheClient(refresh=True).set(
                     key, record,
                     time=self.cacheTimeout
                 ):
-                    self.log_error("Could not write to memcache again, giving up")
+                    self.log.error("Could not write to memcache again, giving up")
                     del self.memcacheClient
                     raise DirectoryMemcacheError("Failed to write to memcache")
         finally:
@@ -225,13 +227,13 @@ class CachingDirectoryService(DirectoryService):
             if record is not None and isinstance(record, DirectoryRecord):
                 record.service = self
         except MemcacheError:
-            self.log_error("Could not read from memcache, retrying")
+            self.log.error("Could not read from memcache, retrying")
             try:
                 record = self._getMemcacheClient(refresh=True).get(key)
                 if record is not None and isinstance(record, DirectoryRecord):
                     record.service = self
             except MemcacheError:
-                self.log_error("Could not read from memcache again, giving up")
+                self.log.error("Could not read from memcache again, giving up")
                 del self.memcacheClient
                 raise DirectoryMemcacheError("Failed to read from memcache")
         return record
@@ -363,18 +365,18 @@ class CachingDirectoryService(DirectoryService):
             # one recordType, so using recordTypes[0] here is always safe:
             key = self.generateMemcacheKey(indexType, indexKey, recordTypes[0])
 
-            self.log_debug("Memcache: checking %s" % (key,))
+            self.log.debug("Memcache: checking %s" % (key,))
 
             try:
                 record = self.memcacheGet(key)
             except DirectoryMemcacheError:
-                self.log_error("Memcache: failed to get %s" % (key,))
+                self.log.error("Memcache: failed to get %s" % (key,))
                 record = None
 
             if record is None:
-                self.log_debug("Memcache: miss %s" % (key,))
+                self.log.debug("Memcache: miss %s" % (key,))
             else:
-                self.log_debug("Memcache: hit %s" % (key,))
+                self.log.debug("Memcache: hit %s" % (key,))
                 self.recordCacheForType(record.recordType).addRecord(record, indexType, indexKey, useMemcache=False)
                 return record
 
@@ -384,35 +386,35 @@ class CachingDirectoryService(DirectoryService):
                 try:
                     val = self.memcacheGet("-%s" % (key,))
                 except DirectoryMemcacheError:
-                    self.log_error("Memcache: failed to get -%s" % (key,))
+                    self.log.error("Memcache: failed to get -%s" % (key,))
                     val = None
                 if val == 1:
-                    self.log_debug("Memcache: negative %s" % (key,))
+                    self.log.debug("Memcache: negative %s" % (key,))
                     self._disabledKeys[indexType][indexKey] = time.time()
                     return None
 
         # Try query
-        self.log_debug("Faulting record for attribute '%s' with value '%s'" % (indexType, indexKey,))
+        self.log.debug("Faulting record for attribute '%s' with value '%s'" % (indexType, indexKey,))
         self.queryDirectory(recordTypes, indexType, indexKey)
 
         # Now try again from cache
         record = lookup()
         if record:
-            self.log_debug("Found record for attribute '%s' with value '%s'" % (indexType, indexKey,))
+            self.log.debug("Found record for attribute '%s' with value '%s'" % (indexType, indexKey,))
             return record
 
         if self.negativeCaching:
 
             # Add to negative cache with timestamp
-            self.log_debug("Failed to fault record for attribute '%s' with value '%s'" % (indexType, indexKey,))
+            self.log.debug("Failed to fault record for attribute '%s' with value '%s'" % (indexType, indexKey,))
             self._disabledKeys[indexType][indexKey] = time.time()
 
             if config.Memcached.Pools.Default.ClientEnabled:
-                self.log_debug("Memcache: storing (negative) %s" % (key,))
+                self.log.debug("Memcache: storing (negative) %s" % (key,))
                 try:
                     self.memcacheSet("-%s" % (key,), 1)
                 except DirectoryMemcacheError:
-                    self.log_error("Memcache: failed to set -%s" % (key,))
+                    self.log.error("Memcache: failed to set -%s" % (key,))
                     pass
 
         return None

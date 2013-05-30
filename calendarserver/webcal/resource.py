@@ -155,7 +155,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         tzid = queryValue("tzid")
         if not tzid:
             tzid = getLocalTimezone()
-            self.log_debug("Determined timezone to be %s" % (tzid,))
+            self.log.debug("Determined timezone to be %s" % (tzid,))
 
         #
         # Make some HTML
@@ -166,7 +166,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
                 "principalURL": authenticatedPrincipalURL,
             }
         except IOError, e:
-            self.log_error("Unable to obtain WebCalendar template: %s" % (e,))
+            self.log.error("Unable to obtain WebCalendar template: %s" % (e,))
             return responsecode.NOT_FOUND
 
         response = Response()

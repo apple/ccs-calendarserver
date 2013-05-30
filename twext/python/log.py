@@ -28,18 +28,19 @@ Example usage in a module:
 
 Or in a class:
 
-    from twext.python.log import LoggingMixIn
+    from twext.python.log import Logger
 
-    class Foo(LoggingMixIn):
+    class Foo(object):
+        log = Logger()
+
         def oops(self):
-            self.log_error("Oops!")
+            self.log.error("Oops!")
 
 C{Logger}s have namespaces, for which logging can be configured independently.
 Namespaces may be specified by passing in a C{namespace} argument to L{Logger}
 when instantiating it, but if none is given, the logger will derive its own
 namespace by using the module name of the callable that instantiated it, or, in
-the case of a class using L{LoggingMixIn}, by using the fully qualified name of
-the class.
+the case of a class, by using the fully qualified name of the class.
 
 In the first example above, the namespace would be C{some.module}, and in the
 second example, it would be C{some.module.Foo}.
@@ -50,9 +51,7 @@ second example, it would be C{some.module.Foo}.
 #
 # * TwistedCompatibleLogger.err is setting isError=0 until we fix our callers
 #
-# * Get rid of LoggingMixIn
-#
-# * Replace method argument with format argument
+# * Replace message argument with format argument
 #
 
 __all__ = [
@@ -61,7 +60,6 @@ __all__ = [
     "setLogLevelForNamespace",
     "clearLogLevels",
     "Logger",
-    "LoggingMixIn",
     "InvalidLogLevelError",
     "StandardIOObserver",
 ]
@@ -80,6 +78,9 @@ from twisted.python.log import addObserver, removeObserver
 
 
 class LogLevel(Names):
+    """
+    Constants denoting log levels.
+    """
     debug = NamedConstant()
     info  = NamedConstant()
     warn  = NamedConstant()
@@ -91,7 +92,6 @@ class LogLevel(Names):
             return cls.lookupByName(name)
         except ValueError:
             raise InvalidLogLevelError(name)
-
 
 
 #
@@ -320,31 +320,6 @@ class TwistedCompatibleLogger(Logger):
 
 
 
-class LoggingMixIn(object):
-    """
-    Mix-in class for logging methods.
-    """
-    def _getLogger(self):
-        try:
-            return self._logger
-        except AttributeError:
-            self._logger = Logger(
-                "%s.%s" % (
-                    self.__class__.__module__,
-                    self.__class__.__name__,
-                )
-            )
-
-        return self._logger
-
-
-    def _setLogger(self, value):
-        self._logger = value
-
-    logger = property(_getLogger, _setLogger)
-
-
-
 def bindEmit(level):
     doc = """
     Emit a log message at log level C{%s}.
@@ -366,24 +341,6 @@ def bindEmit(level):
 
     setattr(Logger, level.name, log_emit)
     setattr(Logger, level.name + "_enabled", property(will_emit))
-
-    #
-    # Attach methods to LoggingMixIn
-    #
-    def log_emit(self, message=None, raiseException=None, **kwargs):
-        self.logger.emit(level, message, **kwargs)
-        if raiseException:
-            raise raiseException(message)
-
-    def will_emit(self=log_emit):
-        return self.logger.willLogAtLevel(level)
-
-    log_emit.__doc__ = doc
-    log_emit.enabled = will_emit
-
-    setattr(LoggingMixIn, "log_" + level.name, log_emit)
-    setattr(LoggingMixIn, "log_" + level.name + "_enabled", property(will_emit))
-
 
 for level in LogLevel.iterconstants(): 
     bindEmit(level)

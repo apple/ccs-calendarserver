@@ -388,7 +388,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
 
         memcacheStub = InMemoryMemcacheProtocol()
         self.rc = MemcacheResponseCache(None, cachePool=memcacheStub)
-        self.rc.logger.setLevel(LogLevel.debug)
+        self.rc.log.setLevel(LogLevel.debug)
         self.tokens = {}
 
         self.tokens['/calendars/__uids__/cdaboo/'] = 'uriToken0'

@@ -32,7 +32,7 @@ try:
 except ImportError:
     from md5 import new as md5
 
-from twext.python.log import LoggingMixIn, Logger
+from twext.python.log import Logger
 from twext.python.memcacheclient import ClientFactory
 from twext.python.memcacheclient import MemcacheError, TokenMismatchError
 from twext.python.filepath import CachingFilePath as FilePath
@@ -42,15 +42,18 @@ from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.config import config
 
-log = Logger()
+
 
 NoValue = ""
 
 
-class MemcachePropertyCollection (LoggingMixIn):
+
+class MemcachePropertyCollection (object):
     """
     Manages a single property store for all resources in a collection.
     """
+    log = Logger()
+
     def __init__(self, collection, cacheTimeout=0):
         self.collection = collection
         self.cacheTimeout = cacheTimeout
@@ -60,7 +63,7 @@ class MemcachePropertyCollection (LoggingMixIn):
     def memcacheClient(cls, refresh=False):
         if not hasattr(MemcachePropertyCollection, "_memcacheClient"):
 
-            log.info("Instantiating memcache connection for MemcachePropertyCollection")
+            cls.log.info("Instantiating memcache connection for MemcachePropertyCollection")
 
             MemcachePropertyCollection._memcacheClient = ClientFactory.getClient([
                     "%s:%s" % (config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port)
@@ -99,11 +102,11 @@ class MemcachePropertyCollection (LoggingMixIn):
         try:
             childCache, token = propertyCache[key]
         except KeyError:
-            self.log_debug("No child property cache for %s" % (child,))
+            self.log.debug("No child property cache for %s" % (child,))
             childCache, token = ({}, None)
 
             #message = "No child property cache for %s" % (child,)
-            #log.error(message)
+            #self.log.error(message)
             #raise AssertionError(message)
 
         return propertyCache, key, childCache, token
@@ -127,7 +130,7 @@ class MemcachePropertyCollection (LoggingMixIn):
             else:
                 return {}
 
-        self.log_debug("Loading cache for %s" % (self.collection,))
+        self.log.debug("Loading cache for %s" % (self.collection,))
 
         client = self.memcacheClient()
         assert client is not None, "OMG no cache!"
@@ -142,12 +145,12 @@ class MemcachePropertyCollection (LoggingMixIn):
         result = self._split_gets_multi((key for key, _ignore_name in keys),
             client.gets_multi)
 
-        if self.logger.willLogAtLevel("debug"):
+        if self.log.willLogAtLevel("debug"):
             if abortIfMissing:
                 missing = "missing "
             else:
                 missing = ""
-            self.log_debug("Loaded keys for %schildren of %s: %s" % (
+            self.log.debug("Loaded keys for %schildren of %s: %s" % (
                 missing,
                 self.collection,
                 [name for _ignore_key, name in keys],
@@ -214,7 +217,7 @@ class MemcachePropertyCollection (LoggingMixIn):
 
 
     def _storeCache(self, cache):
-        self.log_debug("Storing cache for %s" % (self.collection,))
+        self.log.debug("Storing cache for %s" % (self.collection,))
 
         values = dict((
             (self._keyForPath(path), props)
@@ -234,7 +237,7 @@ class MemcachePropertyCollection (LoggingMixIn):
         elif not childNames:
             return {}
 
-        self.log_debug("Building cache for %s" % (self.collection,))
+        self.log.debug("Building cache for %s" % (self.collection,))
 
         cache = {}
 
@@ -282,7 +285,7 @@ class MemcachePropertyCollection (LoggingMixIn):
                 except TokenMismatchError:
                     # The value in memcache has changed since we last
                     # fetched it
-                    log.debug("memcacheprops setProperty TokenMismatchError; retrying...")
+                    self.log.debug("memcacheprops setProperty TokenMismatchError; retrying...")
 
                 finally:
                     # Re-fetch the properties for this child
@@ -300,7 +303,7 @@ class MemcachePropertyCollection (LoggingMixIn):
                     childCache[qnameuid] = property
 
             else:
-                log.error("memcacheprops setProperty had too many failures")
+                self.log.error("memcacheprops setProperty had too many failures")
                 delattr(self, "_propertyCache")
                 raise MemcacheError("Unable to %s property %s%s on %s" % (
                     "delete" if delete else "set",
@@ -333,7 +336,9 @@ class MemcachePropertyCollection (LoggingMixIn):
         return self.ChildPropertyStore(self, child, childPropertyStore)
 
 
-    class ChildPropertyStore (LoggingMixIn):
+    class ChildPropertyStore (object):
+        log = Logger()
+
         def __init__(self, parentPropertyCollection, child, childPropertyStore):
             self.parentPropertyCollection = parentPropertyCollection
             self.child = child
@@ -360,7 +365,7 @@ class MemcachePropertyCollection (LoggingMixIn):
                         "No such property: %s%s" % (uid if uid else "", encodeXMLName(*qname))
                     ))
 
-            self.log_debug("Read for %s%s on %s" % (
+            self.log.debug("Read for %s%s on %s" % (
                 ("{%s}:" % (uid,)) if uid else "",
                 qname,
                 self.childPropertyStore.resource.fp.path
@@ -368,7 +373,7 @@ class MemcachePropertyCollection (LoggingMixIn):
             return self.childPropertyStore.get(qname, uid=uid)
 
         def set(self, property, uid=None):
-            self.log_debug("Write for %s%s on %s" % (
+            self.log.debug("Write for %s%s on %s" % (
                 ("{%s}:" % (uid,)) if uid else "",
                 property.qname(),
                 self.childPropertyStore.resource.fp.path
@@ -378,7 +383,7 @@ class MemcachePropertyCollection (LoggingMixIn):
             self.childPropertyStore.set(property, uid=uid)
 
         def delete(self, qname, uid=None):
-            self.log_debug("Delete for %s%s on %s" % (
+            self.log.debug("Delete for %s%s on %s" % (
                 ("{%s}:" % (uid,)) if uid else "",
                 qname,
                 self.childPropertyStore.resource.fp.path
@@ -393,7 +398,7 @@ class MemcachePropertyCollection (LoggingMixIn):
                 qnameuid = qname + (uid,)
                 return qnameuid in propertyCache
 
-            self.log_debug("Contains for %s%s on %s" % (
+            self.log.debug("Contains for %s%s on %s" % (
                 ("{%s}:" % (uid,)) if uid else "",
                 qname,
                 self.childPropertyStore.resource.fp.path,
@@ -413,6 +418,6 @@ class MemcachePropertyCollection (LoggingMixIn):
                 else:
                     return results
 
-            self.log_debug("List for %s"
+            self.log.debug("List for %s"
                            % (self.childPropertyStore.resource.fp.path,))
             return self.childPropertyStore.list(uid=uid, filterByUID=filterByUID)

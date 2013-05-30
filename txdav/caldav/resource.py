@@ -30,7 +30,7 @@ __all__ = [
 
 import urllib
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from txdav.xml.base import dav_namespace
 from twext.web2.http_headers import MimeType
 from twext.web2.http import RedirectResponse, Response
@@ -43,10 +43,12 @@ from twistedcaldav.extensions import DAVResource
 from twistedcaldav.ical import allowedComponents
 
 
-class CalDAVResource(DAVResource, LoggingMixIn):
+class CalDAVResource(DAVResource):
     """
     CalDAV resource.
     """
+    log = Logger()
+
     def davComplianceClasses(self):
         return (
             tuple(super(CalDAVResource, self).davComplianceClasses())

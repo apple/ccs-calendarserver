@@ -30,7 +30,7 @@ from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.queue import WorkItem
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.mail.smtp import messageid, rfc822date
 from twisted.web.microdom import Text as DOMText, Element as DOMElement
@@ -297,10 +297,11 @@ def localizedLabels(language, canceled, inviteState):
 
 
 
-class MailSender(LoggingMixIn):
+class MailSender(object):
     """
     Generates outbound IMIP messages and sends them.
     """
+    log = Logger()
 
     def __init__(self, address, suppressionDays, smtpSender, language):
         self.address = address
@@ -375,13 +376,13 @@ class MailSender(LoggingMixIn):
 
             if token is None:
                 token = (yield txn.imipCreateToken(originator, toAddr.lower(), icaluid))
-                self.log_debug("Mail gateway created token %s for %s "
+                self.log.debug("Mail gateway created token %s for %s "
                                "(originator), %s (recipient) and %s (icaluid)"
                                % (token, originator, toAddr, icaluid))
                 inviteState = "new"
 
             else:
-                self.log_debug("Mail gateway reusing token %s for %s "
+                self.log.debug("Mail gateway reusing token %s for %s "
                                "(originator), %s (recipient) and %s (icaluid)"
                                % (token, originator, toAddr, icaluid))
                 inviteState = "update"
@@ -457,7 +458,7 @@ class MailSender(LoggingMixIn):
         # want to do, but if this message is for an event completely in
         # the past we don't want to actually send an email.
         if not calendar.hasInstancesAfter(onlyAfter):
-            self.log_debug("Skipping IMIP message for old event")
+            self.log.debug("Skipping IMIP message for old event")
             returnValue(True)
 
         # Now prevent any "internal" CUAs from being exposed by converting
@@ -480,7 +481,7 @@ class MailSender(LoggingMixIn):
                 msgId, message))
             returnValue(success)
         except Exception, e:
-            self.log_error("Failed to send IMIP message (%s)" % (str(e),))
+            self.log.error("Failed to send IMIP message (%s)" % (str(e),))
             returnValue(False)
 
 
@@ -573,7 +574,7 @@ class MailSender(LoggingMixIn):
 
         calendarText = str(calendar)
         # the icalendar attachment
-        self.log_debug("Mail gateway sending calendar body: %s"
+        self.log.debug("Mail gateway sending calendar body: %s"
                        % (calendarText,))
         msgIcal = MIMEText(calendarText, "calendar", "UTF-8")
         method = calendar.propertyValue("METHOD").lower()

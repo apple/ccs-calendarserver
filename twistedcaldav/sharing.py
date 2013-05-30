@@ -925,7 +925,7 @@ class SharedResourceMixin(object):
         try:
             doc = element.WebDAVDocument.fromString(xmldata)
         except ValueError, e:
-            self.log_error("Error parsing doc (%s) Doc:\n %s" % (str(e), xmldata,))
+            self.log.error("Error parsing doc (%s) Doc:\n %s" % (str(e), xmldata,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (customxml.calendarserver_namespace, "valid-request"),
@@ -937,7 +937,7 @@ class SharedResourceMixin(object):
             result = (yield self.xmlDocHandlers[type(root)](self, request, root))
             returnValue(result)
         else:
-            self.log_error("Unsupported XML (%s)" % (root,))
+            self.log.error("Unsupported XML (%s)" % (root,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (customxml.calendarserver_namespace, "valid-request"),
@@ -963,9 +963,9 @@ class SharedResourceMixin(object):
                 if contentType in self._postHandlers:
                     return self._postHandlers[contentType](self, request)
                 else:
-                    self.log_info("Got a POST on collection or group with an unsupported content type: %s" % (contentType,))
+                    self.log.info("Got a POST on collection or group with an unsupported content type: %s" % (contentType,))
             else:
-                self.log_info("Got a POST on collection or group with no content type")
+                self.log.info("Got a POST on collection or group with no content type")
         return succeed(responsecode.FORBIDDEN)
 
     _postHandlers = {

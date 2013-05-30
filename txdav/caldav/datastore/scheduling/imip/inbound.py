@@ -22,7 +22,7 @@ from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.queue import WorkItem
 from twext.internet.gaiendpoint import GAIEndpoint
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 
 from twisted.application import service
 from twisted.internet import protocol, defer, ssl
@@ -409,11 +409,13 @@ def injectMessage(txn, organizer, attendee, calendar):
 # POP3
 #
 
-class POP3DownloadProtocol(pop3client.POP3Client, LoggingMixIn):
+class POP3DownloadProtocol(pop3client.POP3Client):
+    log = Logger()
+
     allowInsecureLogin = False
 
     def serverGreeting(self, greeting):
-        self.log_debug("POP servergreeting")
+        self.log.debug("POP servergreeting")
         pop3client.POP3Client.serverGreeting(self, greeting)
         login = self.login(self.factory.settings["Username"],
             self.factory.settings["Password"])
@@ -422,18 +424,18 @@ class POP3DownloadProtocol(pop3client.POP3Client, LoggingMixIn):
 
 
     def cbLoginFailed(self, reason):
-        self.log_error("POP3 login failed for %s" %
+        self.log.error("POP3 login failed for %s" %
             (self.factory.settings["Username"],))
         return self.quit()
 
 
     def cbLoggedIn(self, result):
-        self.log_debug("POP loggedin")
+        self.log.debug("POP loggedin")
         return self.listSize().addCallback(self.cbGotMessageSizes)
 
 
     def cbGotMessageSizes(self, sizes):
-        self.log_debug("POP gotmessagesizes")
+        self.log.debug("POP gotmessagesizes")
         downloads = []
         for i in range(len(sizes)):
             downloads.append(self.retrieve(i).addCallback(self.cbDownloaded, i))
@@ -441,19 +443,21 @@ class POP3DownloadProtocol(pop3client.POP3Client, LoggingMixIn):
 
 
     def cbDownloaded(self, lines, id):
-        self.log_debug("POP downloaded message %d" % (id,))
+        self.log.debug("POP downloaded message %d" % (id,))
         self.factory.handleMessage("\r\n".join(lines))
-        self.log_debug("POP deleting message %d" % (id,))
+        self.log.debug("POP deleting message %d" % (id,))
         self.delete(id)
 
 
     def cbFinished(self, results):
-        self.log_debug("POP finished")
+        self.log.debug("POP finished")
         return self.quit()
 
 
 
-class POP3DownloadFactory(protocol.ClientFactory, LoggingMixIn):
+class POP3DownloadFactory(protocol.ClientFactory):
+    log = Logger()
+
     protocol = POP3DownloadProtocol
 
     def __init__(self, settings, mailReceiver):
@@ -463,17 +467,17 @@ class POP3DownloadFactory(protocol.ClientFactory, LoggingMixIn):
 
     def clientConnectionLost(self, connector, reason):
         self.connector = connector
-        self.log_debug("POP factory connection lost")
+        self.log.debug("POP factory connection lost")
 
 
     def clientConnectionFailed(self, connector, reason):
         self.connector = connector
-        self.log_info("POP factory connection failed")
+        self.log.info("POP factory connection failed")
 
 
     def handleMessage(self, message):
-        self.log_debug("POP factory handle message")
-        self.log_debug(message)
+        self.log.debug("POP factory handle message")
+        self.log.debug(message)
         return self.mailReceiver.inbound(message)
 
 
@@ -483,21 +487,22 @@ class POP3DownloadFactory(protocol.ClientFactory, LoggingMixIn):
 #
 
 
-class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
+class IMAP4DownloadProtocol(imap4.IMAP4Client):
+    log = Logger()
 
     def serverGreeting(self, capabilities):
-        self.log_debug("IMAP servergreeting")
+        self.log.debug("IMAP servergreeting")
         return self.authenticate(self.factory.settings["Password"]
             ).addCallback(self.cbLoggedIn
             ).addErrback(self.ebAuthenticateFailed)
 
 
     def ebLogError(self, error):
-        self.log_error("IMAP Error: %s" % (error,))
+        self.log.error("IMAP Error: %s" % (error,))
 
 
     def ebAuthenticateFailed(self, reason):
-        self.log_debug("IMAP authenticate failed for %s, trying login" %
+        self.log.debug("IMAP authenticate failed for %s, trying login" %
             (self.factory.settings["Username"],))
         return self.login(self.factory.settings["Username"],
             self.factory.settings["Password"]
@@ -506,27 +511,27 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
 
 
     def ebLoginFailed(self, reason):
-        self.log_error("IMAP login failed for %s" %
+        self.log.error("IMAP login failed for %s" %
             (self.factory.settings["Username"],))
         self.transport.loseConnection()
 
 
     def cbLoggedIn(self, result):
-        self.log_debug("IMAP logged in [%s]" % (self.state,))
+        self.log.debug("IMAP logged in [%s]" % (self.state,))
         self.select("Inbox").addCallback(self.cbInboxSelected)
 
 
     def cbInboxSelected(self, result):
-        self.log_debug("IMAP Inbox selected [%s]" % (self.state,))
+        self.log.debug("IMAP Inbox selected [%s]" % (self.state,))
         allMessages = imap4.MessageSet(1, None)
         self.fetchUID(allMessages, True).addCallback(self.cbGotUIDs)
 
 
     def cbGotUIDs(self, results):
-        self.log_debug("IMAP got uids [%s]" % (self.state,))
+        self.log.debug("IMAP got uids [%s]" % (self.state,))
         self.messageUIDs = [result['UID'] for result in results.values()]
         self.messageCount = len(self.messageUIDs)
-        self.log_debug("IMAP Inbox has %d messages" % (self.messageCount,))
+        self.log.debug("IMAP Inbox has %d messages" % (self.messageCount,))
         if self.messageCount:
             self.fetchNextMessage()
         else:
@@ -535,30 +540,30 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
 
 
     def fetchNextMessage(self):
-        self.log_debug("IMAP in fetchnextmessage [%s]" % (self.state,))
+        self.log.debug("IMAP in fetchnextmessage [%s]" % (self.state,))
         if self.messageUIDs:
             nextUID = self.messageUIDs.pop(0)
             messageListToFetch = imap4.MessageSet(nextUID)
-            self.log_debug("Downloading message %d of %d (%s)" %
+            self.log.debug("Downloading message %d of %d (%s)" %
                 (self.messageCount - len(self.messageUIDs), self.messageCount,
                 nextUID))
             self.fetchMessage(messageListToFetch, True).addCallback(
                 self.cbGotMessage, messageListToFetch).addErrback(
                     self.ebLogError)
         else:
-            self.log_debug("Seeing if anything new has arrived")
+            self.log.debug("Seeing if anything new has arrived")
             # Go back and see if any more messages have come in
             self.expunge().addCallback(self.cbInboxSelected)
 
 
     def cbGotMessage(self, results, messageList):
-        self.log_debug("IMAP in cbGotMessage [%s]" % (self.state,))
+        self.log.debug("IMAP in cbGotMessage [%s]" % (self.state,))
         try:
             messageData = results.values()[0]['RFC822']
         except IndexError:
             # results will be empty unless the "twistedmail-imap-flags-anywhere"
             # patch from http://twistedmatrix.com/trac/ticket/1105 is applied
-            self.log_error("Skipping empty results -- apply twisted patch!")
+            self.log.error("Skipping empty results -- apply twisted patch!")
             self.fetchNextMessage()
             return
 
@@ -576,39 +581,41 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
 
 
     def cbMessageDeleted(self, results, messageList):
-        self.log_debug("IMAP in cbMessageDeleted [%s]" % (self.state,))
-        self.log_debug("Deleted message")
+        self.log.debug("IMAP in cbMessageDeleted [%s]" % (self.state,))
+        self.log.debug("Deleted message")
         self.fetchNextMessage()
 
 
     def cbClosed(self, results):
-        self.log_debug("IMAP in cbClosed [%s]" % (self.state,))
-        self.log_debug("Mailbox closed")
+        self.log.debug("IMAP in cbClosed [%s]" % (self.state,))
+        self.log.debug("Mailbox closed")
         self.logout().addCallback(
             lambda _: self.transport.loseConnection())
 
 
     def rawDataReceived(self, data):
-        self.log_debug("RAW RECEIVED: %s" % (data,))
+        self.log.debug("RAW RECEIVED: %s" % (data,))
         imap4.IMAP4Client.rawDataReceived(self, data)
 
 
     def lineReceived(self, line):
-        self.log_debug("RECEIVED: %s" % (line,))
+        self.log.debug("RECEIVED: %s" % (line,))
         imap4.IMAP4Client.lineReceived(self, line)
 
 
     def sendLine(self, line):
-        self.log_debug("SENDING: %s" % (line,))
+        self.log.debug("SENDING: %s" % (line,))
         imap4.IMAP4Client.sendLine(self, line)
 
 
 
-class IMAP4DownloadFactory(protocol.ClientFactory, LoggingMixIn):
+class IMAP4DownloadFactory(protocol.ClientFactory):
+    log = Logger()
+
     protocol = IMAP4DownloadProtocol
 
     def __init__(self, settings, mailReceiver):
-        self.log_debug("Setting up IMAPFactory")
+        self.log.debug("Setting up IMAPFactory")
 
         self.settings = settings
         self.mailReceiver = mailReceiver
@@ -625,16 +632,16 @@ class IMAP4DownloadFactory(protocol.ClientFactory, LoggingMixIn):
 
 
     def handleMessage(self, message):
-        self.log_debug("IMAP factory handle message")
-        self.log_debug(message)
+        self.log.debug("IMAP factory handle message")
+        self.log.debug(message)
         return self.mailReceiver.inbound(message)
 
 
     def clientConnectionLost(self, connector, reason):
         self.connector = connector
-        self.log_debug("IMAP factory connection lost")
+        self.log.debug("IMAP factory connection lost")
 
 
     def clientConnectionFailed(self, connector, reason):
         self.connector = connector
-        self.log_warn("IMAP factory connection failed")
+        self.log.warn("IMAP factory connection failed")
