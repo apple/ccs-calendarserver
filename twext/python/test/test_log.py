@@ -77,6 +77,15 @@ class Logging(TestCase):
         clearLogLevels()
 
 
+    def test_repr(self):
+        """
+        repr() on Logger
+        """
+        namespace = "bleargh"
+        log = Logger(namespace)
+        self.assertEquals(repr(log), "<Logger {0}>".format(repr(namespace)))
+
+
     def test_namespace_default(self):
         """
         Default namespace is module name.
