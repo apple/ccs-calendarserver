@@ -158,6 +158,8 @@ class Logging(TestCase):
         """
         Default log level is used.
         """
+        self.failUnless(logLevelForNamespace(None), defaultLogLevel)
+        self.failUnless(logLevelForNamespace(""), defaultLogLevel)
         self.failUnless(logLevelForNamespace("rocker.cool.namespace"), defaultLogLevel)
 
 
