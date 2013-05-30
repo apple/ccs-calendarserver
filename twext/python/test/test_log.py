@@ -17,6 +17,7 @@
 import logging
 
 from twisted.python import log as twistedLogging
+from twisted.python.failure import Failure
 
 from twext.python.log import LogLevel, InvalidLogLevelError
 from twext.python.log import logLevelsByNamespace, logLevelForNamespace
@@ -316,12 +317,72 @@ class Logging(TestCase):
 
         log.msg(message, **kwargs)
 
-        self.assertIdentical(LogLevel.info, log.emitted["level"])
-        self.assertEquals(message, log.emitted["message"]) # log.msg() is (weird,)
+        self.assertIdentical(log.emitted["level"], LogLevel.info)
+        self.assertEquals(log.emitted["message"], message)
 
         for key, value in kwargs.items():
             self.assertIdentical(log.emitted["kwargs"][key], value)
 
         log.msg(foo="")
 
+        self.assertIdentical(log.emitted["level"], LogLevel.info)
         self.assertIdentical(log.emitted["message"], None)
+
+
+    def test_legacy_err(self):
+        """
+        Test LegacyLogger's log.err()
+        """
+        log = TestLegacyLogger()
+
+        exception = RuntimeError("Oh me, oh my.")
+        kwargs = { "foo": "bar", "obj": object() }
+        why = "Because I said so."
+
+        def implicit():
+            try:
+                raise exception
+            except RuntimeError:
+                log.err(**kwargs)
+
+        def withException():
+            try:
+                raise exception
+            except RuntimeError as e:
+                log.err(e, why, **kwargs)
+
+        def withFailure():
+            try:
+                raise exception
+            except RuntimeError:
+                log.err(Failure(), why, **kwargs)
+
+        def withBogus():
+            try:
+                raise exception
+            except RuntimeError:
+                log.err(object(), why, **kwargs)
+
+        for rabbleRouser in (implicit, withException, withFailure):
+            rabbleRouser()
+
+            #
+            # log.failure() will cause trial to complain, so here we check that
+            # trial saw the correct error and remove it from the list of things to
+            # complain about.
+            #
+            errors = self.flushLoggedErrors(RuntimeError)
+            self.assertEquals(len(errors), 1)
+
+            self.assertIdentical(log.emitted["level"], LogLevel.error)
+            self.assertIdentical(log.emitted["message"], None)
+            self.assertIdentical(log.emitted["kwargs"]["failure"].__class__, Failure)
+            self.assertIdentical(log.emitted["kwargs"]["failure"].value, exception)
+
+            if rabbleRouser is implicit:
+                self.assertIdentical(log.emitted["kwargs"]["why"], None)
+            else:
+                self.assertIdentical(log.emitted["kwargs"]["why"], why)
+
+            for key, value in kwargs.items():
+                self.assertIdentical(log.emitted["kwargs"][key], value)
