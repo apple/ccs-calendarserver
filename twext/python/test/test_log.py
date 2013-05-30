@@ -18,8 +18,9 @@ import logging
 
 from twisted.python import log as twistedLogging
 
+from twext.python.log import LogLevel, InvalidLogLevelError
 from twext.python.log import logLevelsByNamespace, logLevelForNamespace
-from twext.python.log import LogLevel, setLogLevelForNamespace, clearLogLevels
+from twext.python.log import setLogLevelForNamespace, clearLogLevels
 from twext.python.log import pythonLogLevelMapping
 from twext.python.log import Logger
 
@@ -158,6 +159,19 @@ class Logging(TestCase):
         Default log level is used.
         """
         self.failUnless(logLevelForNamespace("rocker.cool.namespace"), defaultLogLevel)
+
+
+    def test_invalidLogLevelName(self):
+        """
+        You can't make up log level names.
+        """
+        bogus = "*bogus*"
+        try:
+            LogLevel.levelWithName(bogus)
+        except InvalidLogLevelError as e:
+            self.assertIdentical(e.level, bogus)
+        else:
+            self.fail("Expected InvalidLogLevelError.")
 
 
     def test_logLevel(self):
