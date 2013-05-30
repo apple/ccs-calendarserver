@@ -184,7 +184,7 @@ class Logging(TestCase):
             self.fail("Expected InvalidLogLevelError.")
 
 
-    def test_logLevel(self):
+    def test_setLogLevel(self):
         """
         Setting and retrieving log levels.
         """
@@ -196,6 +196,16 @@ class Logging(TestCase):
         self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), LogLevel.error)
         self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), LogLevel.error)
         self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), LogLevel.error)
+
+
+    def test_setInvalidLogLevel(self):
+        """
+        Can't pass invalid log levels to setLogLevelForNamespace().
+        """
+        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace, "twext.web2", object())
+
+        # Level must be a constant, not the name of a constant
+        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace, "twext.web2", "debug")
 
 
     def test_clearLogLevel(self):
