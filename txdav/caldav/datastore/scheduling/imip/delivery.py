@@ -100,7 +100,6 @@ class ScheduleViaIMip(DeliveryService):
 
                     fromAddr = str(self.scheduler.originator.cuaddr)
 
-
                     log.debug("Submitting iMIP message...  To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, caldata,))
 
                     def enqueueOp(txn):
