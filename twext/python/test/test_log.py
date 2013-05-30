@@ -161,6 +161,14 @@ class Logging(TestCase):
         self.failUnless(logLevelForNamespace("rocker.cool.namespace"), defaultLogLevel)
 
 
+    def test_LogLevelWithName(self):
+        """
+        Look up log level by name.
+        """
+        for level in LogLevel.iterconstants():
+            self.assertIdentical(LogLevel.levelWithName(level.name), level)
+
+
     def test_invalidLogLevelName(self):
         """
         You can't make up log level names.
