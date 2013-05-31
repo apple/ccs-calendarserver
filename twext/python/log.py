@@ -269,7 +269,7 @@ class Logger(object):
         twistedLogMessage(**kwargs)
 
 
-    def failure(self, message=None, failure=None, **kwargs):
+    def failure(self, failure=None, message=None, **kwargs):
         """
         Log a Failure.
         """
