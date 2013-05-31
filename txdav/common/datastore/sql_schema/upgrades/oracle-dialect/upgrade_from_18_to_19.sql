@@ -20,7 +20,7 @@
 
 -- Calendar home related updates
 
-alter table ATTACHMENT
+alter table CALENDAR_HOME_METADATA
  add ("DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
  	  "DEFAULT_TASKS"  integer default null references CALENDAR on delete set null,
       "ALARM_VEVENT_TIMED" nclob default null,
