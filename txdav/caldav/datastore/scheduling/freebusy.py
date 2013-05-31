@@ -24,7 +24,7 @@ from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import caldavxml
-from twistedcaldav.caldavxml import caldav_namespace, TimeRange
+from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.config import config
 from twistedcaldav.dateops import compareDateTime, normalizeToUTC, \
     parseSQLTimestampToPyCalendar, clipPeriod, timeRangesOverlap, \
@@ -38,7 +38,6 @@ from txdav.caldav.icalendarstore import QueryMaxResources
 from txdav.common.icommondatastore import IndexedSearchException
 
 import uuid
-from txdav.base.propertystore.base import PropertyName
 
 log = Logger()
 
@@ -141,7 +140,7 @@ def generateFreeBusyInfo(
     user_record = calresource.directoryService().recordWithUID(useruid)
 
     # Get the timezone property from the collection.
-    tz = calresource.properties().get(PropertyName(caldav_namespace, "calendar-timezone"))
+    tz = calresource.getTimezone()
 
     # Look for possible extended free busy information
     rich_options = {

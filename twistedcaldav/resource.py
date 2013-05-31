@@ -32,6 +32,7 @@ __all__ = [
 import hashlib
 from urlparse import urlsplit
 import urllib
+from uuid import UUID
 import uuid
 
 
@@ -215,6 +216,8 @@ class CalDAVResource (
     log = Logger()
 
     implements(ICalDAVResource)
+
+    uuid_namespace = UUID("DD0E1AC0-56D6-40D4-8765-2F4D8A0F28A5")
 
     ##
     # HTTP
@@ -912,10 +915,7 @@ class CalDAVResource (
 
 
     def resourceID(self):
-        if not self.hasDeadProperty(element.ResourceID.qname()):
-            uuidval = uuid.uuid4()
-            self.writeDeadProperty(element.ResourceID(element.HRef.fromString(uuidval.urn)))
-        return str(self.readDeadProperty(element.ResourceID.qname()).children[0])
+        return None
 
 
     ##
@@ -2340,6 +2340,10 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             returnValue(ETag(hashlib.md5(token).hexdigest()))
         else:
             returnValue(None)
+
+
+    def resourceID(self):
+        return uuid.uuid5(self.uuid_namespace, str(self._newStoreHome.id())).urn
 
 
     def lastModified(self):

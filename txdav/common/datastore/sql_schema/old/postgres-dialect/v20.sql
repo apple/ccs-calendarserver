@@ -78,7 +78,6 @@ create table CALENDAR_HOME_METADATA (
   ALARM_VEVENT_ALLDAY      text        default null,
   ALARM_VTODO_TIMED        text        default null,
   ALARM_VTODO_ALLDAY       text        default null,
-  AVAILABILITY             text        default null,
   CREATED                  timestamp   default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                 timestamp   default timezone('UTC', CURRENT_TIMESTAMP)
 );
@@ -141,7 +140,6 @@ create table CALENDAR_BIND (
   ALARM_VEVENT_ALLDAY       text         default null,
   ALARM_VTODO_TIMED         text         default null,
   ALARM_VTODO_ALLDAY        text         default null,
-  TIMEZONE                  text         default null,
 
   primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID), -- implicit index
   unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME)     -- implicit index
@@ -662,6 +660,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '21');
-insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
+insert into CALENDARSERVER values ('VERSION', '20');
+insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '4');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');

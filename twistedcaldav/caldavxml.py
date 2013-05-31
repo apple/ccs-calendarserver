@@ -1110,24 +1110,6 @@ class ScheduleOutboxURL (CalDAVElement):
 
 
 @registerElement
-class Recipient (CalDAVElement):
-    """
-    A property on resources in schedule Inbox indicating the Recipients targeted
-    by the SCHEDULE operation.
-    (CalDAV-schedule, section x.x.x)
-
-    The recipient for whom this response is for.
-    (CalDAV-schedule, section x.x.x)
-    """
-    name = "recipient"
-    hidden = True
-    protected = True
-
-    allowed_children = {(dav_namespace, "href"): (0, None)} # NB Minimum is zero because this is a property name
-
-
-
-@registerElement
 class ScheduleTag (CalDAVTextElement):
     """
     Property on scheduling resources.
@@ -1186,6 +1168,18 @@ class Response (CalDAVElement):
         (dav_namespace, "error"): (0, 1), # 2518bis
         (dav_namespace, "responsedescription"): (0, 1)
     }
+
+
+
+@registerElement
+class Recipient (CalDAVElement):
+    """
+    The recipient for whom this response is for.
+    (CalDAV-schedule, section x.x.x)
+    """
+    name = "recipient"
+
+    allowed_children = {(dav_namespace, "href"): (0, None)} # NB Minimum is zero because this is a property name
 
 
 

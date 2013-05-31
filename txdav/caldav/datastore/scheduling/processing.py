@@ -26,7 +26,6 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import customxml, caldavxml
-from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
@@ -43,7 +42,6 @@ import uuid
 from txdav.caldav.icalendarstore import ComponentUpdateState, \
     ComponentRemoveState
 from twext.enterprise.locking import NamedLock
-from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 
 """
@@ -788,11 +786,8 @@ class ImplicitProcessor(object):
 
             # Get the timezone property from the collection, and store in the query filter
             # for use during the query itself.
-            tz = testcal.properties().get(PropertyName(caldav_namespace, "calendar-timezone"))
-            if tz is not None:
-                tzinfo = tz.calendar().gettimezone()
-            else:
-                tzinfo = PyCalendarTimezone(utc=True)
+            tz = testcal.getTimezone()
+            tzinfo = tz.gettimezone() if tz is not None else PyCalendarTimezone(utc=True)
 
             # Now do search for overlapping time-range and set instance.free based
             # on whether there is an overlap or not

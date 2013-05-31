@@ -119,9 +119,15 @@ class Filter(FilterBase):
             VTIMEZONE that we want
         @return: the L{PyCalendarTimezone} derived from the VTIMEZONE or utc.
         """
-        assert tzelement is None or isinstance(tzelement, CalDAVTimeZoneElement)
 
-        tz = tzelement.gettimezone() if tzelement is not None else PyCalendarTimezone(utc=True)
+        if tzelement is None:
+            tz = None
+        elif isinstance(tzelement, CalDAVTimeZoneElement):
+            tz = tzelement.gettimezone()
+        elif isinstance(tzelement, Component):
+            tz = tzelement.gettimezone()
+        if tz is None:
+            tz = PyCalendarTimezone(utc=True)
         self.child.settzinfo(tz)
         return tz
 

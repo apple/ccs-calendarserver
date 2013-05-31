@@ -34,7 +34,6 @@ create table CALENDAR_HOME_METADATA (
     "ALARM_VEVENT_ALLDAY" nclob default null,
     "ALARM_VTODO_TIMED" nclob default null,
     "ALARM_VTODO_ALLDAY" nclob default null,
-    "AVAILABILITY" nclob default null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
@@ -76,7 +75,6 @@ create table CALENDAR_BIND (
     "ALARM_VEVENT_ALLDAY" nclob default null,
     "ALARM_VTODO_TIMED" nclob default null,
     "ALARM_VTODO_ALLDAY" nclob default null, 
-    "TIMEZONE" nclob default null, 
     primary key("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
     unique("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
 );
@@ -359,8 +357,8 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '21');
-insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '20');
+insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '4');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
     NOTIFICATION_HOME_RESOURCE_ID

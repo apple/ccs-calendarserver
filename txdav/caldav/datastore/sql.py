@@ -350,6 +350,7 @@ class CalendarHome(CommonHome):
             cls._homeMetaDataSchema.ALARM_VEVENT_ALLDAY,
             cls._homeMetaDataSchema.ALARM_VTODO_TIMED,
             cls._homeMetaDataSchema.ALARM_VTODO_ALLDAY,
+            cls._homeMetaDataSchema.AVAILABILITY,
             cls._homeMetaDataSchema.CREATED,
             cls._homeMetaDataSchema.MODIFIED,
         )
@@ -372,6 +373,7 @@ class CalendarHome(CommonHome):
             "_alarm_vevent_allday",
             "_alarm_vtodo_timed",
             "_alarm_vtodo_allday",
+            "_availability",
             "_created",
             "_modified",
         )
@@ -818,6 +820,37 @@ class CalendarHome(CommonHome):
         yield self.notifyChanged()
 
 
+    def getAvailability(self):
+        """
+        Return the VAVAILABILITY data.
+
+        @return: the component (text)
+        @rtype: L{Component}
+        """
+
+        return Component.fromString(self._availability) if self._availability else None
+
+
+    @inlineCallbacks
+    def setAvailability(self, availability):
+        """
+        Set VAVAILABILITY data.
+
+        @param availability: the component
+        @type availability: L{Component}
+        """
+
+        self._availability = str(availability) if availability else None
+
+        chm = self._homeMetaDataSchema
+        yield Update(
+            {chm.AVAILABILITY: self._availability},
+            Where=chm.RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
+        yield self.notifyChanged()
+
+
 CalendarHome._register(ECALENDARTYPE)
 
 
@@ -862,9 +895,9 @@ class Calendar(CommonHomeChild):
         # Common behavior is to have created and modified
 
         return (
+            cls._homeChildMetaDataSchema.SUPPORTED_COMPONENTS,
             cls._homeChildMetaDataSchema.CREATED,
             cls._homeChildMetaDataSchema.MODIFIED,
-            cls._homeChildMetaDataSchema.SUPPORTED_COMPONENTS,
         )
 
 
@@ -879,9 +912,9 @@ class Calendar(CommonHomeChild):
         # Common behavior is to have created and modified
 
         return (
+            "_supportedComponents",
             "_created",
             "_modified",
-            "_supportedComponents",
         )
 
 
@@ -899,6 +932,7 @@ class Calendar(CommonHomeChild):
             cls._bindSchema.ALARM_VEVENT_ALLDAY,
             cls._bindSchema.ALARM_VTODO_TIMED,
             cls._bindSchema.ALARM_VTODO_ALLDAY,
+            cls._bindSchema.TIMEZONE,
         )
 
 
@@ -916,6 +950,7 @@ class Calendar(CommonHomeChild):
             "_alarm_vevent_allday",
             "_alarm_vtodo_timed",
             "_alarm_vtodo_allday",
+            "_timezone",
         )
 
 
@@ -969,6 +1004,17 @@ class Calendar(CommonHomeChild):
         return self.isInbox()
 
 
+    def isSupportedComponent(self, componentType):
+        if self._supportedComponents:
+            return componentType.upper() in self._supportedComponents.split(",")
+        else:
+            return True
+
+
+    def getSupportedComponents(self):
+        return self._supportedComponents
+
+
     @inlineCallbacks
     def setSupportedComponents(self, supported_components):
         """
@@ -988,15 +1034,37 @@ class Calendar(CommonHomeChild):
         yield self.notifyChanged()
 
 
-    def getSupportedComponents(self):
-        return self._supportedComponents
+    def getTimezone(self):
+        """
+        Return the VTIMEZONE data.
+
+        @return: the component (text)
+        @rtype: L{Component}
+        """
+
+        return Component.fromString(self._timezone) if self._timezone else None
 
 
-    def isSupportedComponent(self, componentType):
-        if self._supportedComponents:
-            return componentType.upper() in self._supportedComponents.split(",")
-        else:
-            return True
+    @inlineCallbacks
+    def setTimezone(self, timezone):
+        """
+        Set VTIMEZONE data.
+
+        @param timezone: the component
+        @type timezone: L{Component}
+        """
+
+        self._timezone = str(timezone) if timezone else None
+
+        cal = self._bindSchema
+        yield Update(
+            {
+                cal.TIMEZONE : self._timezone
+            },
+            Where=(cal.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cal.CALENDAR_RESOURCE_ID == self._resourceID)
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
+        yield self.notifyChanged()
 
     ALARM_DETAILS = {
         (True, True): (_bindSchema.ALARM_VEVENT_TIMED, "_alarm_vevent_timed"),
@@ -1056,6 +1124,16 @@ class Calendar(CommonHomeChild):
         return self.name() == "inbox"
 
 
+    def isUsedForFreeBusy(self):
+        """
+        Indicates whether the contents of this calendar contributes to free busy.
+
+        @return: C{True} if it does, C{False} otherwise
+        @rtype: C{bool}
+        """
+        return self._transp == _TRANSP_OPAQUE
+
+
     @inlineCallbacks
     def setUsedForFreeBusy(self, use_it):
         """
@@ -1076,23 +1154,16 @@ class Calendar(CommonHomeChild):
         yield self.notifyChanged()
 
 
-    def isUsedForFreeBusy(self):
-        """
-        Indicates whether the contents of this calendar contributes to free busy.
-
-        @return: C{True} if it does, C{False} otherwise
-        @rtype: C{bool}
-        """
-        return self._transp == _TRANSP_OPAQUE
-
-
     def initPropertyStore(self, props):
         # Setup peruser special properties
         props.setSpecialProperties(
+            # Shadowable
             (
                 PropertyName.fromElement(caldavxml.CalendarDescription),
                 PropertyName.fromElement(caldavxml.CalendarTimeZone),
             ),
+
+            # Global
             (
                 PropertyName.fromElement(customxml.GETCTag),
                 PropertyName.fromElement(caldavxml.SupportedCalendarComponentSet),

@@ -527,7 +527,7 @@ class TestCacheStoreNotifier(TestCase):
             (("CalDAV", "user01"), ("/calendars/__uids__/user01/",),),
             (("CalDAV", "user01/calendar"), ("/calendars/__uids__/user01/", "/calendars/__uids__/user01/calendar/",),),
             (("CardDAV", "user01"), ("/addressbooks/__uids__/user01/",),),
-            (("CardDAV", "user01/calendar"), ("/addressbooks/__uids__/user01/", "/calendars/__uids__/user01/calendar/",),),
+            (("CardDAV", "user01/addressbook"), ("/addressbooks/__uids__/user01/", "/addressbooks/__uids__/user01/addressbook/",),),
         )
 
         for item, results in data:

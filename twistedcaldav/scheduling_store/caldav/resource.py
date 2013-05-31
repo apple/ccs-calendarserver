@@ -155,7 +155,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
     def hasProperty(self, property, request):
         """
-        Need to special case calendar-free-busy-set for backwards compatability.
+        Need to special case calendar-free-busy-set for backwards compatibility.
         """
 
         if type(property) is tuple:
@@ -166,6 +166,9 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         # Force calendar collections to always appear to have the property
         if qname == caldavxml.CalendarFreeBusySet.qname():
             return succeed(True)
+
+        elif qname == customxml.CalendarAvailability.qname():
+            return succeed(self.parent._newStoreHome.getAvailability() is not None)
 
         else:
             return super(ScheduleInboxResource, self).hasProperty(property, request)
@@ -186,6 +189,10 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 if cal.isUsedForFreeBusy():
                     values.append(HRef(joinURL(top, cal.name()) + "/"))
             returnValue(CalendarFreeBusySet(*values))
+
+        elif qname == customxml.CalendarAvailability.qname():
+            availability = self.parent._newStoreHome.getAvailability()
+            returnValue(customxml.CalendarAvailability.fromString(str(availability)) if availability else None)
 
         elif qname in (caldavxml.ScheduleDefaultCalendarURL.qname(), customxml.ScheduleDefaultTasksURL.qname()):
             result = (yield self.readDefaultCalendarProperty(request, qname))
@@ -210,6 +217,8 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                     (caldav_namespace, "valid-calendar-data"),
                     description="Invalid property"
                 ))
+            yield self.parent._newStoreHome.setAvailability(property.calendar())
+            returnValue(None)
 
         elif property.qname() == caldavxml.CalendarFreeBusySet.qname():
             # Verify that the calendars added in the PROPPATCH are valid. We do not check
@@ -250,6 +259,21 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             returnValue(None)
 
         yield super(ScheduleInboxResource, self).writeProperty(property, request)
+
+
+    @inlineCallbacks
+    def removeProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname == customxml.CalendarAvailability.qname():
+            yield self.parent._newStoreHome.setAvailability(None)
+            returnValue(None)
+
+        result = (yield super(ScheduleInboxResource, self).removeProperty(property, request))
+        returnValue(result)
 
 
     @inlineCallbacks

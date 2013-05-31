@@ -1776,3 +1776,86 @@ END:VALARM
             changed, deleted = yield otherHome.resourceNamesSinceRevision(otherCal._bindRevision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
+
+
+    @inlineCallbacks
+    def test_setAvailability(self):
+        """
+        Make sure a L{CalendarHome}.setAvailability() works.
+        """
+
+        av1 = Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//calendarserver.org//Zonal//EN
+BEGIN:VAVAILABILITY
+ORGANIZER:mailto:user01@example.com
+UID:1@example.com
+DTSTAMP:20061005T133225Z
+DTEND:20140101T000000Z
+BEGIN:AVAILABLE
+UID:1-1@example.com
+DTSTAMP:20061005T133225Z
+SUMMARY:Monday to Friday from 9:00 to 17:00
+DTSTART:20130101T090000Z
+DTEND:20130101T170000Z
+RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR
+END:AVAILABLE
+END:VAVAILABILITY
+END:VCALENDAR
+""")
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        self.assertEqual(home.getAvailability(), None)
+        yield home.setAvailability(av1)
+        self.assertEqual(home.getAvailability(), av1)
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        self.assertEqual(home.getAvailability(), av1)
+        yield home.setAvailability(None)
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home_defaults")
+        self.assertEqual(home.getAvailability(), None)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_setTimezone(self):
+        """
+        Make sure a L{CalendarHomeChild}.setTimezone() works.
+        """
+
+        tz1 = Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//calendarserver.org//Zonal//EN
+BEGIN:VTIMEZONE
+TZID:Etc/GMT+1
+X-LIC-LOCATION:Etc/GMT+1
+BEGIN:STANDARD
+DTSTART:18000101T000000
+RDATE:18000101T000000
+TZNAME:GMT+1
+TZOFFSETFROM:-0100
+TZOFFSETTO:-0100
+END:STANDARD
+END:VTIMEZONE
+END:VCALENDAR
+""")
+
+        cal = yield self.calendarUnderTest()
+        self.assertEqual(cal.getTimezone(), None)
+        yield cal.setTimezone(tz1)
+        self.assertEqual(cal.getTimezone(), tz1)
+        yield self.commit()
+
+        cal = yield self.calendarUnderTest()
+        self.assertEqual(cal.getTimezone(), tz1)
+        yield cal.setTimezone(None)
+        yield self.commit()
+
+        cal = yield self.calendarUnderTest()
+        self.assertEqual(cal.getTimezone(), None)
+        yield self.commit()

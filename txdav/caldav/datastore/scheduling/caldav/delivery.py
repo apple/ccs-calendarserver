@@ -24,7 +24,6 @@ from twext.web2.http import HTTPError
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
-from twistedcaldav.customxml import calendarserver_namespace
 
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser, \
     PartitionedCalendarUser, OtherServerCalendarUser
@@ -231,9 +230,8 @@ class ScheduleViaCalDAV(DeliveryService):
         fbinfo = ([], [], [])
 
         # Process the availability property from the Inbox.
-        availability = recipient.inbox.properties().get(PropertyName(calendarserver_namespace, "calendar-availability"))
+        availability = recipient.inbox.ownerHome().getAvailability()
         if availability is not None:
-            availability = availability.calendar()
             processAvailabilityFreeBusy(availability, fbinfo, self.scheduler.timeRange)
 
         # Check to see if the recipient is the same calendar user as the organizer.

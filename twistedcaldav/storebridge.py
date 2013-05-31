@@ -372,6 +372,11 @@ class _CommonHomeChildCollectionMixin(object):
         return self._newStoreObject.syncToken() if self._newStoreObject else None
 
 
+    def resourceID(self):
+        rid = "%s/%s" % (self._newStoreParentHome.id(), self._newStoreObject.id(),)
+        return uuid.uuid5(self.uuid_namespace, rid).urn
+
+
     @inlineCallbacks
     def findChildrenFaster(
         self, depth, request, okcallback, badcallback, missingcallback,
@@ -1216,9 +1221,12 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         else:
             qname = property.qname()
 
-        # Force calendar collections to always appear to have the property
+        # Handle certain built-in values
         if qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
             return succeed(self.getDefaultAlarmProperty(qname) is not None)
+
+        elif qname == caldavxml.CalendarTimeZone.qname():
+            return succeed(self._newStoreObject.getTimezone() is not None)
 
         else:
             return super(CalendarCollectionResource, self)._hasGlobalProperty(property, request)
@@ -1234,6 +1242,10 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         if qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
             returnValue(self.getDefaultAlarmProperty(qname))
 
+        elif qname == caldavxml.CalendarTimeZone.qname():
+            timezone = self._newStoreObject.getTimezone()
+            returnValue(caldavxml.CalendarTimeZone.fromString(str(timezone)) if timezone else None)
+
         result = (yield super(CalendarCollectionResource, self).readProperty(property, request))
         returnValue(result)
 
@@ -1243,6 +1255,10 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         if property.qname() in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
             yield self.setDefaultAlarmProperty(property)
+            returnValue(None)
+
+        elif property.qname() == caldavxml.CalendarTimeZone.qname():
+            yield self._newStoreObject.setTimezone(property.calendar())
             returnValue(None)
 
         result = (yield super(CalendarCollectionResource, self)._writeGlobalProperty(property, request))
@@ -1259,6 +1275,10 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         if qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
             result = (yield self.removeDefaultAlarmProperty(qname))
             returnValue(result)
+
+        elif qname == caldavxml.CalendarTimeZone.qname():
+            yield self._newStoreObject.setTimezone(None)
+            returnValue(None)
 
         result = (yield super(CalendarCollectionResource, self).removeProperty(property, request))
         returnValue(result)

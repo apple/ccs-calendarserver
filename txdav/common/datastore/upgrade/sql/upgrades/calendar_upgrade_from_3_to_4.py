@@ -110,15 +110,15 @@ def _processDefaultCalendarProperty(sqlStore, propname, colname):
                                 calendar = (yield calendarHome.calendarWithName(calendarName))
                                 if calendar is not None:
                                     yield calendarHome.setDefaultCalendar(
-                                        calendar, tasks=(propname ==
-                                            customxml.ScheduleDefaultTasksURL))
+                                        calendar, tasks=(propname == customxml.ScheduleDefaultTasksURL)
+                                    )
 
-                # Always delete the row so that batch processing works correctly
-                yield Delete(
-                    From=rp,
-                    Where=(rp.RESOURCE_ID.In(Parameter("ids", len(delete_ids)))).And
-                          (rp.NAME == PropertyName.fromElement(propname).toString()),
-                ).on(sqlTxn, ids=delete_ids)
+            # Always delete the rows so that batch processing works correctly
+            yield Delete(
+                From=rp,
+                Where=(rp.RESOURCE_ID.In(Parameter("ids", len(delete_ids)))).And
+                      (rp.NAME == PropertyName.fromElement(propname).toString()),
+            ).on(sqlTxn, ids=delete_ids)
 
             yield sqlTxn.commit()
 
@@ -176,12 +176,12 @@ def moveCalendarTranspProperties(sqlStore):
                     calendar = (yield calendarHome.childWithID(calendar_rid))
                     yield calendar.setUsedForFreeBusy(prop == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
 
-                # Always delete the row so that batch processing works correctly
-                yield Delete(
-                    From=rp,
-                    Where=(rp.RESOURCE_ID.In(Parameter("ids", len(delete_ids)))).And
-                          (rp.NAME == PropertyName.fromElement(caldavxml.ScheduleCalendarTransp).toString()),
-                ).on(sqlTxn, ids=delete_ids)
+            # Always delete the rows so that batch processing works correctly
+            yield Delete(
+                From=rp,
+                Where=(rp.RESOURCE_ID.In(Parameter("ids", len(delete_ids)))).And
+                      (rp.NAME == PropertyName.fromElement(caldavxml.ScheduleCalendarTransp).toString()),
+            ).on(sqlTxn, ids=delete_ids)
 
             yield sqlTxn.commit()
 
@@ -296,12 +296,12 @@ def _processDefaultAlarmProperty(sqlStore, propname, vevent, timed):
                         if calendar is not None:
                             yield calendar.setDefaultAlarm(alarm, vevent, timed)
 
-                # Always delete the row so that batch processing works correctly
-                yield Delete(
-                    From=rp,
-                    Where=(rp.RESOURCE_ID.In(Parameter("ids", len(delete_ids)))).And
-                          (rp.NAME == PropertyName.fromElement(propname).toString()),
-                ).on(sqlTxn, ids=delete_ids)
+            # Always delete the rows so that batch processing works correctly
+            yield Delete(
+                From=rp,
+                Where=(rp.RESOURCE_ID.In(Parameter("ids", len(delete_ids)))).And
+                      (rp.NAME == PropertyName.fromElement(propname).toString()),
+            ).on(sqlTxn, ids=delete_ids)
 
             yield sqlTxn.commit()
 
