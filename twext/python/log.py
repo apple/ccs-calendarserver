@@ -339,10 +339,8 @@ def bindEmit(level):
     #
     # Attach methods to Logger
     #
-    def log_emit(self, message=None, raiseException=None, **kwargs):
+    def log_emit(self, message=None, **kwargs):
         self.emit(level, message, **kwargs)
-        if raiseException:
-            raise raiseException(message)
 
     def will_emit(self):
         return self.willLogAtLevel(level)

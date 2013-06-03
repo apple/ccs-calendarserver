@@ -80,7 +80,7 @@ class XMLAugmentsParser(object):
         try:
             _ignore_tree, augments_node = readXML(self.xmlFile, ELEMENT_AUGMENTS)
         except ValueError, e:
-            log.error("XML parse error for '%s' because: %s" % (self.xmlFile, e,), raiseException=RuntimeError)
+            raise RuntimeError("XML parse error for '%s' because: %s" % (self.xmlFile, e,))
 
         self._parseXML(augments_node)
 
@@ -92,7 +92,7 @@ class XMLAugmentsParser(object):
         for child in rootnode.getchildren():
             
             if child.tag != ELEMENT_RECORD:
-                log.error("Unknown augment type: '%s' in augment file: '%s'" % (child.tag, self.xmlFile,), raiseException=RuntimeError)
+                raise RuntimeError("Unknown augment type: '%s' in augment file: '%s'" % (child.tag, self.xmlFile,))
 
             repeat = int(child.get(ATTRIBUTE_REPEAT, "1"))
 
@@ -117,11 +117,11 @@ class XMLAugmentsParser(object):
                 ):
                     fields[node.tag] = node.text == VALUE_TRUE
                 else:
-                    log.error("Invalid element '%s' in augment file: '%s'" % (node.tag, self.xmlFile,), raiseException=RuntimeError)
+                    raise RuntimeError("Invalid element '%s' in augment file: '%s'" % (node.tag, self.xmlFile,))
                     
             # Must have at least a uid
             if ELEMENT_UID not in fields:
-                log.error("Invalid record '%s' without a uid in augment file: '%s'" % (child, self.xmlFile,), raiseException=RuntimeError)
+                raise RuntimeError("Invalid record '%s' without a uid in augment file: '%s'" % (child, self.xmlFile,))
                 
             if repeat > 1:
                 for i in xrange(1, repeat+1):

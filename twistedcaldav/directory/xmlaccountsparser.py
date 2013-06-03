@@ -90,7 +90,7 @@ class XMLAccountsParser(object):
         try:
             _ignore_tree, accounts_node = readXML(self.xmlFile.path, ELEMENT_ACCOUNTS)
         except ValueError, e:
-            log.error("XML parse error for '%s' because: %s" % (self.xmlFile, e,), raiseException=RuntimeError)
+            raise RuntimeError("XML parse error for '%s' because: %s" % (self.xmlFile, e,))
         self._parseXML(accounts_node)
 
     def _parseXML(self, node):

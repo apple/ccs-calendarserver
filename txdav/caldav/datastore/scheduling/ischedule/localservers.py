@@ -267,12 +267,12 @@ class ServersParser(object):
         try:
             _ignore_tree, servers_node = readXML(xmlFile, ELEMENT_SERVERS)
         except ValueError, e:
-            log.error("XML parse error for '%s' because: %s" % (xmlFile, e,), raiseException=RuntimeError)
+            raise RuntimeError("XML parse error for '%s' because: %s" % (xmlFile, e,))
 
         for child in servers_node.getchildren():
 
             if child.tag != ELEMENT_SERVER:
-                log.error("Unknown server type: '%s' in servers file: '%s'" % (child.tag, xmlFile,), raiseException=RuntimeError)
+                raise RuntimeError("Unknown server type: '%s' in servers file: '%s'" % (child.tag, xmlFile,))
 
             server = Server()
             server.isImplicit = child.get(ATTR_IMPLICIT, ATTR_VALUE_YES) == ATTR_VALUE_YES
@@ -289,10 +289,10 @@ class ServersParser(object):
                 elif node.tag == ELEMENT_PARTITIONS:
                     ServersParser._parsePartition(xmlFile, node, server)
                 else:
-                    log.error("Invalid element '%s' in servers file: '%s'" % (node.tag, xmlFile,), raiseException=RuntimeError)
+                    raise RuntimeError("Invalid element '%s' in servers file: '%s'" % (node.tag, xmlFile,))
 
             if server.id is None or server.uri is None:
-                log.error("Invalid partition '%s' in servers file: '%s'" % (child.tag, xmlFile,), raiseException=RuntimeError)
+                raise RuntimeError("Invalid partition '%s' in servers file: '%s'" % (child.tag, xmlFile,))
 
             server.check(ignoreIPLookupFailures=ignoreIPLookupFailures)
             results[server.id] = server
@@ -306,7 +306,7 @@ class ServersParser(object):
         for child in partitions.getchildren():
 
             if child.tag != ELEMENT_PARTITION:
-                log.error("Unknown partition type: '%s' in servers file: '%s'" % (child.tag, xmlFile,), raiseException=RuntimeError)
+                raise RuntimeError("Unknown partition type: '%s' in servers file: '%s'" % (child.tag, xmlFile,))
 
             id = None
             uri = None
@@ -316,9 +316,9 @@ class ServersParser(object):
                 elif node.tag == ELEMENT_URI:
                     uri = node.text
                 else:
-                    log.error("Invalid element '%s' in augment file: '%s'" % (node.tag, xmlFile,), raiseException=RuntimeError)
+                    raise RuntimeError("Invalid element '%s' in augment file: '%s'" % (node.tag, xmlFile,))
 
             if id is None or uri is None:
-                log.error("Invalid partition '%s' in servers file: '%s'" % (child.tag, xmlFile,), raiseException=RuntimeError)
+                raise RuntimeError("Invalid partition '%s' in servers file: '%s'" % (child.tag, xmlFile,))
 
             server.addPartition(id, uri)

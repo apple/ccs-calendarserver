@@ -329,9 +329,26 @@ class Logging(TestCase):
         self.assertIdentical(log.emitted["message"], None)
 
 
-    def test_legacy_err(self):
+    def test_legacy_err_implicit(self):
         """
-        Test LegacyLogger's log.err()
+        Test LegacyLogger's log.err() capturing the in-flight exception.
+        """
+        log = TestLegacyLogger()
+
+        exception = RuntimeError("Oh me, oh my.")
+        kwargs = { "foo": "bar", "obj": object() }
+
+        try:
+            raise exception
+        except RuntimeError:
+            log.err(**kwargs)
+
+        self.legacy_err(log, kwargs, None, exception)
+
+
+    def test_legacy_err_exception(self):
+        """
+        Test LegacyLogger's log.err() with a given exception.
         """
         log = TestLegacyLogger()
 
@@ -339,50 +356,73 @@ class Logging(TestCase):
         kwargs = { "foo": "bar", "obj": object() }
         why = "Because I said so."
 
-        def implicit():
-            try:
-                raise exception
-            except RuntimeError:
-                log.err(**kwargs)
+        try:
+            raise exception
+        except RuntimeError as e:
+            log.err(e, why, **kwargs)
 
-        def withException():
-            try:
-                raise exception
-            except RuntimeError as e:
-                log.err(e, why, **kwargs)
+        self.legacy_err(log, kwargs, why, exception)
 
-        def withFailure():
-            try:
-                raise exception
-            except RuntimeError:
-                log.err(Failure(), why, **kwargs)
 
-        def withBogus():
-            try:
-                raise exception
-            except RuntimeError:
-                log.err(object(), why, **kwargs)
+    def test_legacy_err_failure(self):
+        """
+        Test LegacyLogger's log.err() with a given L{Failure}.
+        """
+        log = TestLegacyLogger()
 
-        for rabbleRouser in (implicit, withException, withFailure):
-            rabbleRouser()
+        exception = RuntimeError("Oh me, oh my.")
+        kwargs = { "foo": "bar", "obj": object() }
+        why = "Because I said so."
 
-            #
-            # log.failure() will cause trial to complain, so here we check that
-            # trial saw the correct error and remove it from the list of things to
-            # complain about.
-            #
-            errors = self.flushLoggedErrors(RuntimeError)
-            self.assertEquals(len(errors), 1)
+        try:
+            raise exception
+        except RuntimeError:
+            log.err(Failure(), why, **kwargs)
 
-            self.assertIdentical(log.emitted["level"], LogLevel.error)
-            self.assertIdentical(log.emitted["message"], None)
-            self.assertIdentical(log.emitted["kwargs"]["failure"].__class__, Failure)
-            self.assertIdentical(log.emitted["kwargs"]["failure"].value, exception)
+        self.legacy_err(log, kwargs, why, exception)
 
-            if rabbleRouser is implicit:
-                self.assertIdentical(log.emitted["kwargs"]["why"], None)
-            else:
-                self.assertIdentical(log.emitted["kwargs"]["why"], why)
 
-            for key, value in kwargs.items():
-                self.assertIdentical(log.emitted["kwargs"][key], value)
+    def test_legacy_err_bogus(self):
+        """
+        Test LegacyLogger's log.err() with a bogus argument.
+        """
+        log = TestLegacyLogger()
+
+        exception = RuntimeError("Oh me, oh my.")
+        kwargs = { "foo": "bar", "obj": object() }
+        why = "Because I said so."
+        bogus = object()
+
+        try:
+            raise exception
+        except RuntimeError:
+            log.err(bogus, why, **kwargs)
+
+        errors = self.flushLoggedErrors(exception.__class__)
+        self.assertEquals(len(errors), 0)
+
+        self.assertIdentical(log.emitted["level"], LogLevel.error)
+        self.assertEquals(log.emitted["message"], repr(bogus))
+        self.assertIdentical(log.emitted["kwargs"]["why"], why)
+
+        for key, value in kwargs.items():
+            self.assertIdentical(log.emitted["kwargs"][key], value)
+
+
+    def legacy_err(self, log, kwargs, why, exception):
+        #
+        # log.failure() will cause trial to complain, so here we check that
+        # trial saw the correct error and remove it from the list of things to
+        # complain about.
+        #
+        errors = self.flushLoggedErrors(exception.__class__)
+        self.assertEquals(len(errors), 1)
+
+        self.assertIdentical(log.emitted["level"], LogLevel.error)
+        self.assertEquals(log.emitted["message"], None)
+        self.assertIdentical(log.emitted["kwargs"]["failure"].__class__, Failure)
+        self.assertIdentical(log.emitted["kwargs"]["failure"].value, exception)
+        self.assertIdentical(log.emitted["kwargs"]["why"], why)
+
+        for key, value in kwargs.items():
+            self.assertIdentical(log.emitted["kwargs"][key], value)
