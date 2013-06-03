@@ -670,7 +670,7 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             if isinstance(message, unicode):
                 message = message.encode("utf-8")
             d = self.protocol.callRemote(LogStats, message=message)
-            d.addErrback(log.err)
+            d.addErrback(log.error)
         else:
             self._buffer.append(message)
 
