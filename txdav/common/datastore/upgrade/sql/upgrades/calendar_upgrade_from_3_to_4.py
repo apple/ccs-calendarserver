@@ -174,7 +174,8 @@ def moveCalendarTranspProperties(sqlStore):
                 if calendarHome is not None:
                     prop = WebDAVDocument.fromString(value).root_element
                     calendar = (yield calendarHome.childWithID(calendar_rid))
-                    yield calendar.setUsedForFreeBusy(prop == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
+                    if calendar is not None:
+                        yield calendar.setUsedForFreeBusy(prop == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
 
             # Always delete the rows so that batch processing works correctly
             yield Delete(
