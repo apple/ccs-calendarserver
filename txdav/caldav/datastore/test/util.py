@@ -224,6 +224,12 @@ class CommonStoreTests(CommonCommonTests, TestCase):
             "inbox": {
             },
         },
+        "user04": {
+            "calendar_1": {
+            },
+            "inbox": {
+            },
+        },
     }
 
 

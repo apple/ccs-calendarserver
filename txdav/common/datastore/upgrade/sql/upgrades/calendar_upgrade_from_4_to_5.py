@@ -96,7 +96,8 @@ def moveCalendarTimezoneProperties(sqlStore):
                 if calendarHome is not None:
                     prop = WebDAVDocument.fromString(value).root_element
                     calendar = (yield calendarHome.childWithID(calendar_rid))
-                    yield calendar.setTimezone(prop.calendar())
+                    if calendar is not None:
+                        yield calendar.setTimezone(prop.calendar())
 
             # Always delete the rows so that batch processing works correctly
             yield Delete(

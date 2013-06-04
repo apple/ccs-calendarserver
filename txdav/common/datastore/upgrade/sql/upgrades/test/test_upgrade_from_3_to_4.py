@@ -18,12 +18,12 @@ from twistedcaldav.caldavxml import ScheduleDefaultCalendarURL, \
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.test.util import CommonStoreTests
 from txdav.xml.element import HRef
-from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import Update, Insert
 from txdav.common.datastore.upgrade.sql.upgrades.calendar_upgrade_from_3_to_4 import moveDefaultCalendarProperties, \
     moveCalendarTranspProperties, removeResourceType, moveDefaultAlarmProperties
 from txdav.xml import element
 from twistedcaldav import caldavxml
-from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
+from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE, schema
 
 """
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
@@ -102,6 +102,20 @@ class Upgrade_from_3_to_4(CommonStoreTests):
             self.assertTrue(PropertyName.fromElement(ScheduleCalendarTransp) in calendar.properties())
             inbox = (yield self.calendarUnderTest(name="inbox", home=user))
             self.assertTrue(PropertyName.fromElement(CalendarFreeBusySet) in inbox.properties())
+        yield self.commit()
+
+        # Create "fake" entry for non-existent share
+        txn = self.transactionUnderTest()
+        calendar = (yield self.calendarUnderTest(name="calendar_1", home="user01"))
+        rp = schema.RESOURCE_PROPERTY
+        yield Insert(
+            {
+                rp.RESOURCE_ID: calendar._resourceID,
+                rp.NAME: PropertyName.fromElement(ScheduleCalendarTransp).toString(),
+                rp.VALUE: ScheduleCalendarTransp(Opaque()).toxml(),
+                rp.VIEWER_UID: "user03",
+            }
+        ).on(txn)
         yield self.commit()
 
         # Trigger upgrade

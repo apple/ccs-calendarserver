@@ -16,14 +16,14 @@
 from twistedcaldav import caldavxml, customxml
 from txdav.common.datastore.upgrade.sql.upgrades.calendar_upgrade_from_4_to_5 import moveCalendarTimezoneProperties, \
     removeOtherProperties, moveCalendarAvailabilityProperties
-from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
+from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE, schema
 from txdav.xml import element
 
 """
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
 """
 
-from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import Update, Insert
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.ical import Component
 from txdav.base.propertystore.base import PropertyName
@@ -121,6 +121,20 @@ END:VCALENDAR
             calendar = (yield self.calendarUnderTest(name=calname, home=user))
             self.assertEqual(calendar.getTimezone(), None)
             self.assertEqual(PropertyName.fromElement(caldavxml.CalendarTimeZone) in calendar.properties(), tz is not None)
+        yield self.commit()
+
+        # Create "fake" entry for non-existent share
+        txn = self.transactionUnderTest()
+        calendar = (yield self.calendarUnderTest(name="calendar_1", home="user01"))
+        rp = schema.RESOURCE_PROPERTY
+        yield Insert(
+            {
+                rp.RESOURCE_ID: calendar._resourceID,
+                rp.NAME: PropertyName.fromElement(caldavxml.CalendarTimeZone).toString(),
+                rp.VALUE: caldavxml.CalendarTimeZone.fromString(str(tz3)).toxml(),
+                rp.VIEWER_UID: "user04",
+            }
+        ).on(txn)
         yield self.commit()
 
         # Trigger upgrade
