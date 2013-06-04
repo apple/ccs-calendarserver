@@ -379,7 +379,7 @@ class _CommonHomeChildCollectionMixin(object):
 
     @inlineCallbacks
     def findChildrenFaster(
-        self, depth, request, okcallback, badcallback, missingcallback,
+        self, depth, request, okcallback, badcallback, missingcallback, unavailablecallback,
         names, privileges, inherited_aces
     ):
         """
@@ -393,7 +393,7 @@ class _CommonHomeChildCollectionMixin(object):
                 yield self._newStoreObject.objectResources()
 
         result = (yield super(_CommonHomeChildCollectionMixin, self).findChildrenFaster(
-            depth, request, okcallback, badcallback, missingcallback, names, privileges, inherited_aces
+            depth, request, okcallback, badcallback, missingcallback, unavailablecallback, names, privileges, inherited_aces
         ))
 
         returnValue(result)

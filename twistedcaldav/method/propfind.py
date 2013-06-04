@@ -135,14 +135,15 @@ def http_PROPFIND(self, request):
     if depth in ("1", "infinity") and noRoot:
         resources = []
     else:
-        resources = [(True, self, my_url)]
+        resources = [(responsecode.OK, self, my_url)]
 
     yield self.findChildrenFaster(
         depth,
         request,
-        lambda x, y: resources.append((True, x, y)),
-        lambda x, y: resources.append((False, x, y)),
+        lambda x, y: resources.append((responsecode.OK, x, y)),
+        lambda x, y: resources.append((responsecode.FORBIDDEN, x, y)),
         None,
+        lambda x: resources.append((responsecode.SERVICE_UNAVAILABLE, None, x)),
         None,
         (davxml.Read(),),
         inherited_aces=filtered_aces,
@@ -152,8 +153,8 @@ def http_PROPFIND(self, request):
     if depth == "1":
         request.childCacheURIs = []
 
-    for readable, resource, uri in resources:
-        if readable:
+    for respcode, resource, uri in resources:
+        if respcode == responsecode.OK:
             if search_properties is "names":
                 try:
                     resource_properties = (yield resource.listProperties(request))
@@ -225,7 +226,7 @@ def http_PROPFIND(self, request):
                     elif hasattr(resource, "url"):
                         request.childCacheURIs.append(resource.url())
         else:
-            xml_response = davxml.StatusResponse(davxml.HRef(uri), davxml.Status.fromResponseCode(responsecode.FORBIDDEN))
+            xml_response = davxml.StatusResponse(davxml.HRef(uri), davxml.Status.fromResponseCode(respcode))
 
         xml_responses.append(xml_response)
 

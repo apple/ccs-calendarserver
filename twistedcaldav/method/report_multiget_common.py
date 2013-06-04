@@ -190,12 +190,14 @@ def multiget_common(self, request, multiget, collection_type):
             ok_resources = []
             bad_resources = []
             missing_resources = []
+            unavailable_resources = []
             yield self.findChildrenFaster(
                 "1",
                 request,
                 lambda x, y: ok_resources.append((x, y)),
                 lambda x, y: bad_resources.append((x, y)),
                 lambda x: missing_resources.append(x),
+                lambda x: unavailable_resources.append(x),
                 valid_names,
                 (davxml.Read(),),
                 inherited_aces=filteredaces
@@ -231,9 +233,11 @@ def multiget_common(self, request, multiget, collection_type):
             for ignore_resource, href in bad_resources:
                 responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
 
-            # Indicate error for all missing resources
+            # Indicate error for all missing/unavailable resources
             for href in missing_resources:
                 responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+            for href in unavailable_resources:
+                responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.SERVICE_UNAVAILABLE)))
 
         @inlineCallbacks
         def doDirectoryAddressBookResponse():

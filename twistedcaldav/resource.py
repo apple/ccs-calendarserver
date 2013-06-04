@@ -2124,7 +2124,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
     @inlineCallbacks
     def findChildrenFaster(
-        self, depth, request, okcallback, badcallback, missingcallback,
+        self, depth, request, okcallback, badcallback, missingcallback, unavailablecallback,
         names, privileges, inherited_aces
     ):
         """
@@ -2135,7 +2135,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             yield self._newStoreHome.loadChildren()
 
         result = (yield super(CommonHomeResource, self).findChildrenFaster(
-            depth, request, okcallback, badcallback, missingcallback, names, privileges, inherited_aces
+            depth, request, okcallback, badcallback, missingcallback, unavailablecallback, names, privileges, inherited_aces
         ))
 
         returnValue(result)

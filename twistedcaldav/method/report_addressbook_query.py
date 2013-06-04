@@ -246,6 +246,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                             lambda x, y: ok_resources.append((x, y)),
                             None,
                             None,
+                            None,
                             names,
                             (davxml.Read(),),
                             inherited_aces=filteredaces

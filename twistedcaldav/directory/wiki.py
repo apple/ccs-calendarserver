@@ -23,22 +23,24 @@ __all__ = [
     "WikiDirectoryService",
 ]
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-from txdav.xml import element as davxml
-from twisted.web.xmlrpc import Proxy, Fault
-from twext.web2.http import HTTPError, StatusResponse
-from twext.web2.auth.wrapper import UnauthorizedResponse
-from twext.web2 import responsecode
-
-from twext.python.log import Logger
-
-from twext.web2.dav.resource import TwistedACLInheritable
-from twistedcaldav.config import config
-from twistedcaldav.directory.directory import (DirectoryService,
-                                               DirectoryRecord,
-                                               UnknownRecordTypeError)
 from calendarserver.platform.darwin.wiki import accessForUserToWiki
+
+from twext.internet.gaiendpoint import MultiFailure
+from twext.python.log import Logger
+from twext.web2 import responsecode
+from twext.web2.auth.wrapper import UnauthorizedResponse
+from twext.web2.dav.resource import TwistedACLInheritable
+from twext.web2.http import HTTPError, StatusResponse
+
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.error import Error as WebError
+from twisted.web.xmlrpc import Proxy, Fault
+
+from twistedcaldav.config import config
+from twistedcaldav.directory.directory import DirectoryService, \
+    DirectoryRecord, UnknownRecordTypeError
+
+from txdav.xml import element as davxml
 
 log = Logger()
 
@@ -58,31 +60,36 @@ class WikiDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.realmName)
 
+
     def __init__(self):
         super(WikiDirectoryService, self).__init__()
         self.byUID = {}
         self.byShortName = {}
 
+
     def recordTypes(self):
         return (WikiDirectoryService.recordType_wikis,)
 
+
     def listRecords(self, recordType):
         return ()
+
 
     def recordWithShortName(self, recordType, shortName):
         if recordType != WikiDirectoryService.recordType_wikis:
             raise UnknownRecordTypeError(recordType)
 
-        if self.byShortName.has_key(shortName):
+        if shortName in self.byShortName:
             record = self.byShortName[shortName]
             return record
 
         record = self._addRecord(shortName)
         return record
 
+
     def recordWithUID(self, uid):
 
-        if self.byUID.has_key(uid):
+        if uid in self.byUID:
             record = self.byUID[uid]
             return record
 
@@ -92,6 +99,7 @@ class WikiDirectoryService(DirectoryService):
             return record
         else:
             return None
+
 
     def _addRecord(self, shortName):
 
@@ -104,6 +112,7 @@ class WikiDirectoryService(DirectoryService):
         self.byUID[record.uid] = record
         self.byShortName[shortName] = record
         return record
+
 
 
 class WikiDirectoryRecord(DirectoryRecord):
@@ -123,6 +132,7 @@ class WikiDirectoryRecord(DirectoryRecord):
         )
         # Wiki enabling doesn't come from augments db, so enable here...
         self.enabled = True
+
 
 
 @inlineCallbacks
@@ -189,6 +199,12 @@ def getWikiAccess(userID, wikiID, method=None):
             (userID, wikiID, access))
         returnValue(access)
 
+    except MultiFailure, e:
+        log.error("Wiki ACL error: user [%s], wiki [%s], MultiFailure [%s]" %
+            (userID, wikiID, e))
+        raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
+            "\n".join([str(f) for f in e.failures])))
+
     except Fault, fault:
 
         log.debug("Wiki ACL result: user [%s], wiki [%s], FAULT [%s]" % (userID,
@@ -202,8 +218,9 @@ def getWikiAccess(userID, wikiID, method=None):
             raise HTTPError(StatusResponse(responsecode.NOT_FOUND,
                 fault.faultString))
 
-        else: # Unknown fault returned from wiki server.  Log the error and
-              # return 503 Service Unavailable to the client.
+        else:
+            # Unknown fault returned from wiki server.  Log the error and
+            # return 503 Service Unavailable to the client.
             log.error("Wiki ACL error: user [%s], wiki [%s], FAULT [%s]" %
                 (userID, wikiID, fault))
             raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
@@ -223,12 +240,14 @@ def getWikiAccess(userID, wikiID, method=None):
             raise HTTPError(StatusResponse(responsecode.NOT_FOUND,
                 "Unknown Wiki"))
 
-        else: # Unknown fault returned from wiki server.  Log the error and
-              # return 503 Service Unavailable to the client.
+        else:
+            # Unknown fault returned from wiki server.  Log the error and
+            # return 503 Service Unavailable to the client.
             log.error("Wiki ACL error: user [%s], wiki [%s], status [%s]" %
                 (userID, wikiID, status))
             raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
                 w.message))
+
 
 
 @inlineCallbacks
@@ -271,55 +290,55 @@ def getWikiACL(resource, request):
         # The ACL we returns has ACEs for the end-user and the wiki principal
         # in case authzUser is the wiki principal.
         if access == "read":
-            request.wikiACL =   davxml.ACL(
-                                    davxml.ACE(
-                                        request.authnUser,
-                                        davxml.Grant(
-                                            davxml.Privilege(davxml.Read()),
-                                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                                            
-                                            # We allow write-properties so that direct sharees can change
-                                            # e.g. calendar color properties
-                                            davxml.Privilege(davxml.WriteProperties()),
-                                        ),
-                                        TwistedACLInheritable(),
-                                    ),
-                                    davxml.ACE(
-                                        davxml.Principal(
-                                            davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
-                                        ),
-                                        davxml.Grant(
-                                            davxml.Privilege(davxml.Read()),
-                                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                                        ),
-                                        TwistedACLInheritable(),
-                                    )
-                                )
+            request.wikiACL = davxml.ACL(
+                davxml.ACE(
+                    request.authnUser,
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+
+                        # We allow write-properties so that direct sharees can change
+                        # e.g. calendar color properties
+                        davxml.Privilege(davxml.WriteProperties()),
+                    ),
+                    TwistedACLInheritable(),
+                ),
+                davxml.ACE(
+                    davxml.Principal(
+                        davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
+                    ),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                    ),
+                    TwistedACLInheritable(),
+                )
+            )
             returnValue(request.wikiACL)
 
         elif access in ("write", "admin"):
-            request.wikiACL =   davxml.ACL(
-                                    davxml.ACE(
-                                        request.authnUser,
-                                        davxml.Grant(
-                                            davxml.Privilege(davxml.Read()),
-                                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                                            davxml.Privilege(davxml.Write()),
-                                        ),
-                                        TwistedACLInheritable(),
-                                    ),
-                                    davxml.ACE(
-                                        davxml.Principal(
-                                            davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
-                                        ),
-                                        davxml.Grant(
-                                            davxml.Privilege(davxml.Read()),
-                                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                                            davxml.Privilege(davxml.Write()),
-                                        ),
-                                        TwistedACLInheritable(),
-                                    )
-                                )
+            request.wikiACL = davxml.ACL(
+                davxml.ACE(
+                    request.authnUser,
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                        davxml.Privilege(davxml.Write()),
+                    ),
+                    TwistedACLInheritable(),
+                ),
+                davxml.ACE(
+                    davxml.Principal(
+                        davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
+                    ),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                        davxml.Privilege(davxml.Write()),
+                    ),
+                    TwistedACLInheritable(),
+                )
+            )
             returnValue(request.wikiACL)
 
         else: # "no-access":
