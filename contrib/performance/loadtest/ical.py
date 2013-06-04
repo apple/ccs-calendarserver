@@ -721,6 +721,8 @@ class BaseAppleClient(BaseClient):
         self.notificationURL = None
 
         # Remember our own email-like principal address
+        self.email = None
+        self.uuid = None
         cuaddrs = hrefs[caldavxml.calendar_user_address_set]
         if isinstance(cuaddrs, URL):
             cuaddrs = (cuaddrs,)
