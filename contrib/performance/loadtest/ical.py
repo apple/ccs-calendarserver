@@ -18,6 +18,7 @@ from __future__ import print_function
 
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from caldavclientlibrary.protocol.caldav.definitions import csxml
+from caldavclientlibrary.protocol.url import URL
 from caldavclientlibrary.protocol.webdav.definitions import davxml
 from caldavclientlibrary.protocol.webdav.propfindparser import PropFindParser
 
@@ -721,7 +722,7 @@ class BaseAppleClient(BaseClient):
 
         # Remember our own email-like principal address
         cuaddrs = hrefs[caldavxml.calendar_user_address_set]
-        if isinstance(cuaddrs, basestring):
+        if isinstance(cuaddrs, URL):
             cuaddrs = (cuaddrs,)
         for cuaddr in cuaddrs:
             if cuaddr.toString().startswith(u"mailto:"):
