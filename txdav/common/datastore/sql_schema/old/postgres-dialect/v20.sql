@@ -660,6 +660,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '21');
+insert into CALENDARSERVER values ('VERSION', '20');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '4');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
