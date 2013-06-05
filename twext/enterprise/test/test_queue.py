@@ -54,6 +54,7 @@ from twext.enterprise.fixtures import buildConnectionPool
 from zope.interface.verify import verifyObject
 from twisted.test.proto_helpers import StringTransport, MemoryReactor
 from twext.enterprise.fixtures import SteppablePoolHelper
+from twisted.internet.defer import returnValue
 
 from twext.enterprise.queue import _BaseQueuer, NonPerformingQueuer
 import twext.enterprise.queue
@@ -157,7 +158,8 @@ SQL = passthru
 schemaText = SQL("""
     create table DUMMY_WORK_ITEM (WORK_ID integer primary key,
                                   NOT_BEFORE timestamp,
-                                  A integer, B integer);
+                                  A integer, B integer,
+                                  DELETE_ON_LOAD integer default 0);
     create table DUMMY_WORK_DONE (WORK_ID integer primary key,
                                   A_PLUS_B integer);
 """)
@@ -192,6 +194,21 @@ class DummyWorkItem(WorkItem, fromTable(schema.DUMMY_WORK_ITEM)):
     def doWork(self):
         return DummyWorkDone.create(self.transaction, workID=self.workID,
                                     aPlusB=self.a + self.b)
+
+
+    @classmethod
+    @inlineCallbacks
+    def load(cls, *a, **kw):
+        """
+        Load L{DummyWorkItem} as normal...  unless the loaded item has
+        C{DELETE_ON_LOAD} set, in which case, simulate a concurrent transaction
+        doing a delete/commit immediately after load (by just doing it in the
+        same transaction).
+        """
+        self = yield super(DummyWorkItem, cls).load(*a, **kw)
+        if self.deleteOnLoad:
+            yield self.delete()
+        returnValue(self)
 
 
 
