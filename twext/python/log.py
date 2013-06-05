@@ -81,6 +81,9 @@ from twisted.python.log import addObserver, removeObserver
 #
 
 class InvalidLogLevelError(RuntimeError):
+    """
+    Someone tried to use a L{LogLevel} that is unknown to the logging system.
+    """
     def __init__(self, level):
         super(InvalidLogLevelError, self).__init__(str(level))
         self.level = level
@@ -123,9 +126,10 @@ pythonLogLevelMapping = {
 
 def logLevelForNamespace(namespace):
     """
-    @param namespace: a logging namespace, or C{None} to set the
-        default log level.
-    @return: the log level for the given namespace.
+    @param namespace: a logging namespace, or C{None} for the default
+        namespace.
+
+    @return: the L{LogLevel} for the specified namespace.
     """
     if not namespace:
         return logLevelsByNamespace[None]
@@ -148,8 +152,10 @@ def logLevelForNamespace(namespace):
 def setLogLevelForNamespace(namespace, level):
     """
     Sets the log level for a logging namespace.
+
     @param namespace: a logging namespace
-    @param level: the log level for the given namespace.
+
+    @param level: the L{LogLevel} for the given namespace.
     """
     if level not in LogLevel.iterconstants():
         raise InvalidLogLevelError(level)
@@ -219,8 +225,11 @@ class Logger(object):
             source = type
         else:
             source = oself
-        return self.__class__('.'.join([type.__module__, type.__name__]),
-                              source)
+
+        return self.__class__(
+            '.'.join([type.__module__, type.__name__]),
+            source
+        )
 
 
     def __repr__(self):
@@ -229,9 +238,17 @@ class Logger(object):
 
     def emit(self, level, message=None, **kwargs):
         """
-        Called internally to emit log messages at a given log level.
+        Emit a log message to all log observers at the given level.
+
+        @param level: a L{LogLevel}
+
+        @param message: a message
+
+        @param kwargs: additional keyword parameters to include with the
+            message.
         """
-        assert level in LogLevel.iterconstants(), "Unknown log level: %r" % (level,)
+        if level not in LogLevel.iterconstants():
+            raise InvalidLogLevelError(level)
 
         # FIXME: Filtering should be done by the log observer(s)
         if not self.willLogAtLevel(level):
@@ -271,7 +288,15 @@ class Logger(object):
 
     def failure(self, failure=None, message=None, **kwargs):
         """
-        Log a Failure.
+        Log a failure.
+
+        @param failure: a L{Failure} to log.  If C{None}, a L{Failure} is
+            created from the exception in flight.
+
+        @param message: a message
+
+        @param kwargs: additional keyword parameters to include with the
+            message.
         """
         if failure is None:
             failure=Failure()
@@ -281,31 +306,42 @@ class Logger(object):
 
     def level(self):
         """
-        @return: the logging level for this logger's namespace.
+        @return: the log level for this logger's namespace.
         """
         return logLevelForNamespace(self.namespace)
 
 
     def setLevel(self, level):
         """
-        Set the logging level for this logger's namespace.
-        @param level: a logging level
+        Set the log level for this logger's namespace.
+
+        @param level: a L{LogLevel}
         """
         setLogLevelForNamespace(self.namespace, level)
 
 
     def willLogAtLevel(self, level):
         """
-        @param level: a logging level
-        @return: C{True} if this logger will log at the given logging
-            level.
+        @param level: a L{LogLevel}
+
+        @return: true if this logger will emit at the given log level,
+            otherwise false.
         """
         return self.level() <= level
 
 
 
 class LegacyLogger(Logger):
+    """
+    A L{Logger} that provides some compatibility with the L{twisted.python.log}
+    module.
+    """
+
     def msg(self, *message, **kwargs):
+        """
+        This method is API-compatible with L{twisted.python.log.msg} and exists
+        for compatibility with that API.
+        """
         if message:
             message = " ".join(map(safe_str, message))
         else:
@@ -314,6 +350,10 @@ class LegacyLogger(Logger):
 
 
     def err(self, _stuff=None, _why=None, **kwargs):
+        """
+        This method is API-compatible with L{twisted.python.log.err} and exists
+        for compatibility with that API.
+        """
         if _stuff is None:
             _stuff = Failure()
         elif isinstance(_stuff, Exception):
@@ -332,9 +372,12 @@ class LegacyLogger(Logger):
 
 def bindEmit(level):
     doc = """
-    Emit a log message at log level C{%s}.
-    @param message: The message to emit.
-    """ % (level,)
+    Emit a log message at log level L{%s}.
+
+    @param message: a message
+
+    @param kwargs: additional keyword parameters to include with the message.
+    """ % (level.__class__.__name__,)
 
     #
     # Attach methods to Logger
@@ -352,6 +395,7 @@ def bindEmit(level):
 
 for level in LogLevel.iterconstants(): 
     bindEmit(level)
+
 del level
 
 
