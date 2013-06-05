@@ -258,13 +258,12 @@ class Record(object):
         """
         Delete this row from the database.
 
-        @return: a L{Deferred} which fires with C{None} when the underlying row
-            has been deleted, or fails with L{NoSuchRecord} if the underlying
-            row was already deleted.
+        @return: a L{Deferred} which fires when the underlying row has been
+            deleted.
         """
         return Delete(From=self.table,
                       Where=self._primaryKeyComparison(self._primaryKeyValue())
-                      ).on(self.transaction, raiseOnZeroRowCount=NoSuchRecord)
+                      ).on(self.transaction)
 
 
     @inlineCallbacks
