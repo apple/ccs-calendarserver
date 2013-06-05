@@ -698,9 +698,9 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         """
         # TODO: this exact test should run against LocalQueuer as well.
         def operation(txn):
-            # TODO: how does 'enqueue' get associated with the transaction? This
-            # is not the fact with a raw t.w.enterprise transaction.  Should
-            # probably do something with components.
+            # TODO: how does 'enqueue' get associated with the transaction?
+            # This is not the fact with a raw t.w.enterprise transaction.
+            # Should probably do something with components.
             return txn.enqueue(DummyWorkItem, a=3, b=4, workID=4321,
                                notBefore=datetime.datetime.utcnow())
         result = yield inTransaction(self.store.newTransaction, operation)
