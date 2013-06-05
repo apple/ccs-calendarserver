@@ -54,6 +54,7 @@ from twext.enterprise.fixtures import buildConnectionPool
 from zope.interface.verify import verifyObject
 from twisted.test.proto_helpers import StringTransport, MemoryReactor
 from twext.enterprise.fixtures import SteppablePoolHelper
+from twisted.internet.defer import returnValue
 
 from twext.enterprise.queue import _BaseQueuer, NonPerformingQueuer
 import twext.enterprise.queue
@@ -157,7 +158,8 @@ SQL = passthru
 schemaText = SQL("""
     create table DUMMY_WORK_ITEM (WORK_ID integer primary key,
                                   NOT_BEFORE timestamp,
-                                  A integer, B integer);
+                                  A integer, B integer,
+                                  DELETE_ON_LOAD integer default 0);
     create table DUMMY_WORK_DONE (WORK_ID integer primary key,
                                   A_PLUS_B integer);
 """)
@@ -192,6 +194,23 @@ class DummyWorkItem(WorkItem, fromTable(schema.DUMMY_WORK_ITEM)):
     def doWork(self):
         return DummyWorkDone.create(self.transaction, workID=self.workID,
                                     aPlusB=self.a + self.b)
+
+
+    @classmethod
+    @inlineCallbacks
+    def load(cls, txn, *a, **kw):
+        """
+        Load L{DummyWorkItem} as normal...  unless the loaded item has
+        C{DELETE_ON_LOAD} set, in which case, do a deletion of this same row in
+        a concurrent transaction, then commit it.
+        """
+        self = yield super(DummyWorkItem, cls).load(txn, *a, **kw)
+        if self.deleteOnLoad:
+            otherTransaction = txn.concurrently()
+            otherSelf = yield super(DummyWorkItem, cls).load(txn, *a, **kw)
+            yield otherSelf.delete()
+            yield otherTransaction.commit()
+        returnValue(self)
 
 
 
@@ -626,19 +645,26 @@ class PeerConnectionPoolIntegrationTests(TestCase):
             return txn.execSQL(schemaText)
         yield inTransaction(lambda: self.store.newTransaction("bonus schema"),
                             doit)
+        def indirectedTransactionFactory(*a):
+            """
+            Allow tests to replace 'self.store.newTransaction' to provide
+            fixtures with extra methods on a test-by-test basis.
+            """
+            return self.store.newTransaction(*a)
         def deschema():
             @inlineCallbacks
             def deletestuff(txn):
                 for stmt in dropSQL:
                     yield txn.execSQL(stmt)
-            return inTransaction(self.store.newTransaction, deletestuff)
+            return inTransaction(lambda *a: self.store.newTransaction(*a),
+                                 deletestuff)
         self.addCleanup(deschema)
 
         from twisted.internet import reactor
         self.node1 = PeerConnectionPool(
-            reactor, self.store.newTransaction, 0, schema)
+            reactor, indirectedTransactionFactory, 0, schema)
         self.node2 = PeerConnectionPool(
-            reactor, self.store.newTransaction, 0, schema)
+            reactor, indirectedTransactionFactory, 0, schema)
 
         class FireMeService(Service, object):
             def __init__(self, d):
@@ -681,9 +707,9 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         """
         # TODO: this exact test should run against LocalQueuer as well.
         def operation(txn):
-            # TODO: how does 'enqueue' get associated with the transaction? This
-            # is not the fact with a raw t.w.enterprise transaction.  Should
-            # probably do something with components.
+            # TODO: how does 'enqueue' get associated with the transaction?
+            # This is not the fact with a raw t.w.enterprise transaction.
+            # Should probably do something with components.
             return txn.enqueue(DummyWorkItem, a=3, b=4, workID=4321,
                                notBefore=datetime.datetime.utcnow())
         result = yield inTransaction(self.store.newTransaction, operation)
@@ -695,6 +721,41 @@ class PeerConnectionPoolIntegrationTests(TestCase):
                            From=schema.DUMMY_WORK_DONE).on(txn)
         rows = yield inTransaction(self.store.newTransaction, op2)
         self.assertEquals(rows, [[4321, 7]])
+
+
+    @inlineCallbacks
+    def test_noWorkDoneWhenConcurrentlyDeleted(self):
+        """
+        When a L{WorkItem} is concurrently deleted by another transaction, it
+        should I{not} perform its work.
+        """
+        # Provide access to a method called 'concurrently' everything using 
+        original = self.store.newTransaction
+        def decorate(*a, **k):
+            result = original(*a, **k)
+            result.concurrently = self.store.newTransaction
+            return result
+        self.store.newTransaction = decorate
+
+        def operation(txn):
+            return txn.enqueue(DummyWorkItem, a=30, b=40, workID=5678,
+                               deleteOnLoad=1,
+                               notBefore=datetime.datetime.utcnow())
+        proposal = yield inTransaction(self.store.newTransaction, operation)
+        yield proposal.whenExecuted()
+        # Sanity check on the concurrent deletion.
+        def op2(txn):
+            return Select([schema.DUMMY_WORK_ITEM.WORK_ID],
+                           From=schema.DUMMY_WORK_ITEM).on(txn)
+        rows = yield inTransaction(self.store.newTransaction, op2)
+        self.assertEquals(rows, [])
+        def op3(txn):
+            return Select([schema.DUMMY_WORK_DONE.WORK_ID,
+                           schema.DUMMY_WORK_DONE.A_PLUS_B],
+                           From=schema.DUMMY_WORK_DONE).on(txn)
+        rows = yield inTransaction(self.store.newTransaction, op3)
+        self.assertEquals(rows, [])
+
 
 
 class DummyProposal(object):

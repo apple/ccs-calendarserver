@@ -30,6 +30,7 @@ from twext.enterprise.dal.record import (
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
 from twext.enterprise.dal.syntax import SchemaSyntax
 from twisted.internet.defer import gatherResults
+from twisted.internet.defer import returnValue
 from twext.enterprise.fixtures import buildConnectionPool
 
 # from twext.enterprise.dal.syntax import
@@ -125,7 +126,7 @@ class TestCRUD(TestCase):
     def test_simpleDelete(self):
         """
         When a record object is deleted, a row with a matching primary key will
-        be created in the database.
+        be deleted in the database.
         """
         txn = self.pool.connection()
         def mkrow(beta, gamma):
@@ -137,6 +138,30 @@ class TestCRUD(TestCase):
         yield tr.delete()
         rows = yield txn.execSQL("select BETA, GAMMA from ALPHA order by BETA")
         self.assertEqual(rows, [(123, u"one"), (345, u"three")])
+
+
+    @inlineCallbacks
+    def oneRowCommitted(self, beta=123, gamma=u'456'):
+        """
+        Create, commit, and return one L{TestRecord}.
+        """
+        txn = self.pool.connection(self.id())
+        row = yield TestRecord.create(txn, beta=beta, gamma=gamma)
+        yield txn.commit()
+        returnValue(row)
+
+
+    @inlineCallbacks
+    def test_deleteWhenDeleted(self):
+        """
+        When a record object is deleted, if it's already been deleted, it will
+        raise L{NoSuchRecord}.
+        """
+        row = yield self.oneRowCommitted()
+        txn = self.pool.connection(self.id())
+        newRow = yield TestRecord.load(txn, row.beta)
+        yield newRow.delete()
+        self.failUnlessFailure(newRow.delete(), NoSuchRecord)
 
 
     @inlineCallbacks
