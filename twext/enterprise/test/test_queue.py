@@ -198,16 +198,18 @@ class DummyWorkItem(WorkItem, fromTable(schema.DUMMY_WORK_ITEM)):
 
     @classmethod
     @inlineCallbacks
-    def load(cls, *a, **kw):
+    def load(cls, txn, *a, **kw):
         """
         Load L{DummyWorkItem} as normal...  unless the loaded item has
-        C{DELETE_ON_LOAD} set, in which case, simulate a concurrent transaction
-        doing a delete/commit immediately after load (by just doing it in the
-        same transaction).
+        C{DELETE_ON_LOAD} set, in which case, do a deletion of this same row in
+        a concurrent transaction, then commit it.
         """
-        self = yield super(DummyWorkItem, cls).load(*a, **kw)
+        self = yield super(DummyWorkItem, cls).load(txn, *a, **kw)
         if self.deleteOnLoad:
-            yield self.delete()
+            otherTransaction = txn.concurrently()
+            otherSelf = yield super(DummyWorkItem, cls).load(txn, *a, **kw)
+            yield otherSelf.delete()
+            yield otherTransaction.commit()
         returnValue(self)
 
 
