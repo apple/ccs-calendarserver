@@ -125,7 +125,7 @@ class TestCRUD(TestCase):
     def test_simpleDelete(self):
         """
         When a record object is deleted, a row with a matching primary key will
-        be created in the database.
+        be deleted in the database.
         """
         txn = self.pool.connection()
         def mkrow(beta, gamma):
