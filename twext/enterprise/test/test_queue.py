@@ -645,19 +645,26 @@ class PeerConnectionPoolIntegrationTests(TestCase):
             return txn.execSQL(schemaText)
         yield inTransaction(lambda: self.store.newTransaction("bonus schema"),
                             doit)
+        def indirectedTransactionFactory(*a):
+            """
+            Allow tests to replace 'self.store.newTransaction' to provide
+            fixtures with extra methods on a test-by-test basis.
+            """
+            return self.store.newTransaction(*a)
         def deschema():
             @inlineCallbacks
             def deletestuff(txn):
                 for stmt in dropSQL:
                     yield txn.execSQL(stmt)
-            return inTransaction(self.store.newTransaction, deletestuff)
+            return inTransaction(lambda *a: self.store.newTransaction(*a),
+                                 deletestuff)
         self.addCleanup(deschema)
 
         from twisted.internet import reactor
         self.node1 = PeerConnectionPool(
-            reactor, self.store.newTransaction, 0, schema)
+            reactor, indirectedTransactionFactory, 0, schema)
         self.node2 = PeerConnectionPool(
-            reactor, self.store.newTransaction, 0, schema)
+            reactor, indirectedTransactionFactory, 0, schema)
 
         class FireMeService(Service, object):
             def __init__(self, d):
@@ -725,13 +732,14 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         # Provide access to a method called 'concurrently' everything using 
         original = self.store.newTransaction
         def decorate(*a, **k):
-            result = original()
-            result.concurrently = original
+            result = original(*a, **k)
+            result.concurrently = self.store.newTransaction
             return result
         self.store.newTransaction = decorate
 
         def operation(txn):
             return txn.enqueue(DummyWorkItem, a=30, b=40, workID=5678,
+                               deleteOnLoad=1,
                                notBefore=datetime.datetime.utcnow())
         proposal = yield inTransaction(self.store.newTransaction, operation)
         yield proposal.whenExecuted()
