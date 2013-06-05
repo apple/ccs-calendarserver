@@ -16,14 +16,20 @@
 
 
 ---------------------------------------------------
--- Upgrade database schema from VERSION 20 to 21 --
+-- Upgrade database schema from VERSION 21 to 22 --
 ---------------------------------------------------
+  
+-- Calendar home related updates
 
---------------------------
--- Update CALENDAR_BIND --
---------------------------
+alter table CALENDAR_HOME_METADATA
+ add ("AVAILABILITY" nclob default null);
 
-update CALENDAR_BIND set MESSAGE = 'shared' where BIND_MODE = 0 and CALENDAR_RESOURCE_ID in (select CALENDAR_RESOURCE_ID from CALENDAR_BIND group by CALENDAR_RESOURCE_ID having count(CALENDAR_RESOURCE_ID) > 1);
+ 	  
+-- Calendar related updates
+
+alter table CALENDAR_BIND
+ add ("TIMEZONE" nclob default null);
+
 
 -- update schema version
-update CALENDARSERVER set VALUE = '21' where NAME = 'VERSION';
+update CALENDARSERVER set VALUE = '22' where NAME = 'VERSION';

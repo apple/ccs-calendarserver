@@ -19,17 +19,12 @@
 -- Upgrade database schema from VERSION 20 to 21 --
 ---------------------------------------------------
 
--- Calendar home related updates
 
-alter table CALENDAR_HOME_METADATA
- add column AVAILABILITY             text        default null;
+--------------------------
+-- Update CALENDAR_BIND --
+--------------------------
 
+update CALENDAR_BIND set MESSAGE = 'shared' where BIND_MODE = 0 and CALENDAR_RESOURCE_ID in (select CALENDAR_RESOURCE_ID from CALENDAR_BIND group by CALENDAR_RESOURCE_ID having count(CALENDAR_RESOURCE_ID) > 1);
 
--- Calendar bind related updates
-
-alter table CALENDAR_BIND
- add column TIMEZONE                 text        default null;
-
- 
- -- update schema version
+-- update schema version
 update CALENDARSERVER set VALUE = '21' where NAME = 'VERSION';
