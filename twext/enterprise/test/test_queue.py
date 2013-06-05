@@ -740,6 +740,7 @@ class PeerConnectionPoolIntegrationTests(TestCase):
             return Select([schema.DUMMY_WORK_ITEM.WORK_ID],
                            From=schema.DUMMY_WORK_ITEM).on(txn)
         rows = yield inTransaction(self.store.newTransaction, op2)
+        self.assertEquals(rows, [])
         def op3(txn):
             return Select([schema.DUMMY_WORK_DONE.WORK_ID,
                            schema.DUMMY_WORK_DONE.A_PLUS_B],
