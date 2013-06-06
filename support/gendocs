@@ -32,20 +32,16 @@ dependencies;
 # Generate documentation
 ##
 
-echo $PATH
-
-#if [ ! -f "${top}/twisted.pickle" ]; then
-#    echo "Generating Twisted documentation...";
-#    "${pydoctor}" -c twisted.cfg -o "${top}/twisted.pickle";
-#fi;
-
 echo "Generating TwistedCalDAV documentation...";
-pydoctor -v -v -v -v                             \
+pydoctor                                         \
   --project-name="CalendarServer"                \
   --project-url="http://www.calendarserver.org/" \
   --resolve-aliases                              \
   --make-html --html-output="${wd}/data/apidocs" \
-  twext;
+  twext                                          \
+  txdav                                          \
+  twistedcaldav                                  \
+  calendarserver;
 
 #  --html-viewsource-base="http://trac.calendarserver.org/browser/CalendarServer/trunk" \
 #  --html-use-splitlinks \
