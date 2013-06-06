@@ -21,6 +21,8 @@ set -u
 
 wd="$(cd "$(dirname "$0")/.." && pwd -P)";
 
+docroot="${wd}/data/doc";
+
 . "${wd}/support/build.sh";
 
 do_setup="false";
@@ -32,16 +34,26 @@ dependencies;
 # Generate documentation
 ##
 
+mkdir -p "${docroot}";
+
+set - -; shift; # Not sure how else to clear "$@"...
+
+for package in twisted pycalendar; do
+  package_dir="$(dirname "$(python -c "import ${package}; print ${package}.__file__")")";
+  set - "$@" "--add-package=${package_dir}";
+done;
+
+for package in twext txdav twistedcaldav calendarserver; do
+  set - "$@" "${package}";
+done;
+
 echo "Generating TwistedCalDAV documentation...";
-pydoctor                                         \
-  --project-name="CalendarServer"                \
-  --project-url="http://www.calendarserver.org/" \
-  --resolve-aliases                              \
-  --make-html --html-output="${wd}/data/apidocs" \
-  twext                                          \
-  txdav                                          \
-  twistedcaldav                                  \
-  calendarserver;
+pydoctor                                             \
+  --project-name="CalendarServer"                    \
+  --project-url="http://www.calendarserver.org/"     \
+  --resolve-aliases                                  \
+  --make-html --html-output="${docroot}/apidocs" \
+  "$@";
 
 #  --html-viewsource-base="http://trac.calendarserver.org/browser/CalendarServer/trunk" \
 #  --html-use-splitlinks \
