@@ -853,6 +853,13 @@ dependencies () {
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
       "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
+  local v="3.0.1";
+  local n="epydoc";
+  local p="${n}-${v}";
+  py_dependency -o -m "36407974bd5da2af00bf90ca27feeb44" \
+    "Epydoc" "${n}" "${p}" \
+    "https://pypi.python.org/packages/source/e/${n}/${p}.tar.gz";
+
   local v="0.10.0";
   local n="Nevow";
   local p="${n}-${v}";
@@ -865,7 +872,7 @@ dependencies () {
   local p="${n}-${v}";
   py_dependency -o -m "b7564e12b5d35d4cb529a2c220b25d3a" \
     "${n}" "${n}" "${p}" \
-    "https://pypi.python.org/packages/source/p/pydoctor/${p}.tar.gz";
+    "https://pypi.python.org/packages/source/p/${n}/${p}.tar.gz";
 
   if "${do_setup}"; then
     cd "${caldav}";
