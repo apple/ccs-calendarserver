@@ -86,13 +86,14 @@ py_have_module () {
 
   local module="$1"; shift;
 
-  if "${python}" -c "import ${module}" > /dev/null 2>&1; then
-    result=0;
-  else
-    result=1;
+  if ! "${python}" -c "import ${module}" > /dev/null 2>&1; then
+    return 1;
   fi;
 
-  if [ ${result} == 0 ] && [ -n "${version}" ]; then
+  local result=0;
+
+  if [ -n "${version}" ]; then
+    local symbol;
     for symbol in "xxxx" "__version__" "version"; do
       if module_version="$(
         "${python}" -c \
