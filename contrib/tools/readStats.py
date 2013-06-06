@@ -303,15 +303,15 @@ def printHistogramSummary(stat, index):
     for i in ("T", "T-RESP-WR",):
         table.addRow((
             "Overall Response" if i == "T" else "Response Write",
-            (stat[i]["<10ms"], safeDivision(stat[i]["<10ms"], stat[i]["requests"], 100.0)),
-            (stat[i]["10ms<->100ms"], safeDivision(stat[i]["10ms<->100ms"], stat[i]["requests"], 100.0)),
-            (stat[i]["100ms<->1s"], safeDivision(stat[i]["100ms<->1s"], stat[i]["requests"], 100.0)),
-            (stat[i]["1s<->10s"], safeDivision(stat[i]["1s<->10s"], stat[i]["requests"], 100.0)),
-            (stat[i]["10s<->30s"], safeDivision(stat[i]["10s<->30s"], stat[i]["requests"], 100.0)),
-            (stat[i]["30s<->60s"], safeDivision(stat[i]["30s<->60s"], stat[i]["requests"], 100.0)),
-            (stat[i][">60s"], safeDivision(stat[i][">60s"], stat[i]["requests"], 100.0)),
-            safeDivision(stat[i]["Over 1s"], stat[i]["requests"], 100.0),
-            safeDivision(stat[i]["Over 10s"], stat[i]["requests"], 100.0),
+            (stat[i]["<10ms"], safeDivision(stat[i]["<10ms"], stat["requests"], 100.0)),
+            (stat[i]["10ms<->100ms"], safeDivision(stat[i]["10ms<->100ms"], stat["requests"], 100.0)),
+            (stat[i]["100ms<->1s"], safeDivision(stat[i]["100ms<->1s"], stat["requests"], 100.0)),
+            (stat[i]["1s<->10s"], safeDivision(stat[i]["1s<->10s"], stat["requests"], 100.0)),
+            (stat[i]["10s<->30s"], safeDivision(stat[i]["10s<->30s"], stat["requests"], 100.0)),
+            (stat[i]["30s<->60s"], safeDivision(stat[i]["30s<->60s"], stat["requests"], 100.0)),
+            (stat[i][">60s"], safeDivision(stat[i][">60s"], stat["requests"], 100.0)),
+            safeDivision(stat[i]["Over 1s"], stat["requests"], 100.0),
+            safeDivision(stat[i]["Over 10s"], stat["requests"], 100.0),
         ))
     os = StringIO()
     table.printTable(os=os)
@@ -322,16 +322,17 @@ def printHistogramSummary(stat, index):
 def printMultiHistogramSummary(stats, index):
 
     # Totals first
-    keys = ("requests", "<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s", "Over 1s", "Over 10s",)
+    keys = ("<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s", "Over 1s", "Over 10s",)
     totals = {
         "T"        : dict([(k, 0) for k in keys]),
         "T-RESP-WR": dict([(k, 0) for k in keys]),
+        "requests" : 0,
     }
 
     for stat in stats:
         for i in ("T", "T-RESP-WR",):
-            totals[i][keys[0]] += stat[index][keys[0]]
-            for k in keys[1:]:
+            totals["requests"] += stat[index]["requests"]
+            for k in keys:
                 totals[i][k] += stat[index][i][k]
 
     printHistogramSummary(totals, index)
