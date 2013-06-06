@@ -853,6 +853,13 @@ dependencies () {
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
       "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
+  local v="0.10.0";
+  local n="Nevow";
+  local p="${n}-${v}";
+  py_dependency -o -m "66dda2ad88f42dea05911add15f4d1b2" \
+    "${n}" "${n}" "${p}" \
+    "https://pypi.python.org/packages/source/N/${n}/${p}.tar.gz";
+
   local v="0.4";
   local n="pydoctor";
   local p="${n}-${v}";
