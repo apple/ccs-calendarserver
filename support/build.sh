@@ -720,63 +720,83 @@ dependencies () {
     "setuptools" "setuptools" "${st}" \
     "$pypi/s/setuptools/${st}.tar.gz";
 
-  local zi="zope.interface-4.0.3";
-  py_dependency -v "3.6.0" -m "1ddd308f2c83703accd1696158c300eb" \
-    "Zope Interface" "zope.interface" "${zi}" \
-    "http://pypi.python.org/packages/source/z/zope.interface/${zi}.tar.gz";
+  local v="4.0.3";
+  local n="zope.interface";
+  local p="${n}-${v}";
+  py_dependency -v 4 -m "1ddd308f2c83703accd1696158c300eb" \
+    "Zope Interface" "${n}" "${p}" \
+    "http://pypi.python.org/packages/source/z/${n}/${p}.tar.gz";
 
-  local po="pyOpenSSL-0.10";
+  local v="0.10";
+  local n="pyOpenSSL";
+  local p="${n}-${v}";
   py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
-    "PyOpenSSL" "OpenSSL" "${po}" \
-    "http://pypi.python.org/packages/source/p/pyOpenSSL/${po}.tar.gz";
+    "${n}" "OpenSSL" "${p}" \
+    "http://pypi.python.org/packages/source/p/${n}/${p}.tar.gz";
 
+  local n="PyKerberos";
   if type -P krb5-config > /dev/null; then
     py_dependency -r 9409 \
-      "PyKerberos" "kerberos" "PyKerberos" \
-      "${svn_uri_base}/PyKerberos/trunk";
+      "${n}" "kerberos" "${n}" \
+      "${svn_uri_base}/${n}/trunk";
   fi;
 
+  local v="0.6.1";
+  local n="xattr";
+  local p="${n}-${v}";
   py_dependency -v 0.5 -r 1038 \
-    "xattr" "xattr" "xattr" \
-    "http://svn.red-bean.com/bob/xattr/releases/xattr-0.6.1/";
+    "${n}" "${n}" "${n}" \
+    "http://svn.red-bean.com/bob/${n}/releases/${p}/";
 
   if [ -n "${ORACLE_HOME:-}" ]; then
-      local cx="cx_Oracle-5.1";
-      py_dependency -v 5.1 -m "d2697493a40c9d46c9b7c1c210b61671" \
-          "cx_Oracle" "cx_Oracle" "${cx}" \
-          "http://${sf}/project/cx-oracle/5.1/${cx}.tar.gz";
+    local v="5.1";
+    local n="cx_Oracle";
+    local p="${n}-${v}";
+    py_dependency -v "${v}" -m "d2697493a40c9d46c9b7c1c210b61671" \
+      "${n}" "${n}" "${p}" \
+      "http://${sf}/project/cx-oracle/${v}/${p}.tar.gz";
   fi;
 
-  local pg="PyGreSQL-4.0";
-  py_dependency -v 4.0 -m "1aca50e59ff4cc56abe9452a9a49c5ff" -o \
-    "PyGreSQL" "pgdb" "${pg}" \
-    "${pypi}/P/PyGreSQL/${pg}.tar.gz";
+  local v="4.0";
+  local n="PyGreSQL";
+  local p="${n}-${v}";
+  py_dependency -v "${v}" -m "1aca50e59ff4cc56abe9452a9a49c5ff" -o \
+    "${n}" "pgdb" "${p}" \
+    "${pypi}/P/${n}/${p}.tar.gz";
 
   # Maintenance note: next time the Twisted dependency gets updated, check out
   # twext/patches.py.
+  local v="12.3.0";
+  local n="Twisted";
+  local p="${n}-${v}";
   py_dependency -v 12.2 -m "6e289825f3bf5591cfd670874cc0862d" \
-    "Twisted" "twisted" "Twisted-12.3.0" \
-    "${pypi}/T/Twisted/Twisted-12.3.0.tar.bz2";
+    "${n}" "twisted" "${p}" \
+    "${pypi}/T/${n}/${p}.tar.bz2";
 
-  local du="python-dateutil-1.5";
+  local v="1.5";
+  local n="python-dateutil";
+  local p="${n}-${v}";
   py_dependency -m "35f3732db3f2cc4afdc68a8533b60a52" \
-    "dateutil" "dateutil" "${du}" \
-    "http://www.labix.org/download/python-dateutil/${du}.tar.gz";
+    "${n}" "dateutil" "${p}" \
+    "http://www.labix.org/download/${n}/${p}.tar.gz";
 
-  local ps="psutil-0.6.1";
+  local v="0.6.1";
+  local n="psutil";
+  local p="${n}-${v}";
   py_dependency -m "3cfcbfb8525f6e4c70110e44a85e907e" \
-    "psutil" "psutil" "${ps}" \
-    "http://psutil.googlecode.com/files/${ps}.tar.gz";
+    "${n}" "${n}" "${p}" \
+    "http://${n}.googlecode.com/files/${p}.tar.gz";
 
-  local lv="2.3.13";
-  local ld="python-ldap-${lv}";
-  py_dependency -v "${lv}" -m "895223d32fa10bbc29aa349bfad59175" \
-    "python-ldap" "ldap" "${ld}" \
-    "${pypi}/p/python-ldap/${ld}.tar.gz";
+  local v="2.3.13";
+  local n="python-ldap";
+  local p="${n}-${v}";
+  py_dependency -v "${v}" -m "895223d32fa10bbc29aa349bfad59175" \
+    "Python-LDAP" "ldap" "${p}" \
+    "${pypi}/p/${n}/${p}.tar.gz";
 
   # XXX actually PyCalendar should be imported in-place.
   py_dependency -fe -i "src" -r 11005 \
-    "pycalendar" "pycalendar" "pycalendar" \
+    "PyCalendar" "pycalendar" "pycalendar" \
     "${svn_uri_base}/PyCalendar/trunk";
 
   #
@@ -784,11 +804,12 @@ dependencies () {
   # they are useful to developers.
   #
 
-  local sv="0.1.2";
-  local sq="sqlparse-${sv}";
-  py_dependency -o -v "${sv}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
-    "SQLParse" "sqlparse" "${sq}" \
-    "http://python-sqlparse.googlecode.com/files/${sq}.tar.gz";
+  local v="0.1.2";
+  local n="sqlparse";
+  local p="${n}-${v}";
+  py_dependency -o -v "${v}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
+    "SQLParse" "${n}" "${p}" \
+    "http://python-sqlparse.googlecode.com/files/${p}.tar.gz";
 
   local v="0.6.1";
   local n="pyflakes";
@@ -832,12 +853,12 @@ dependencies () {
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
       "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
-  local v="0.3";
+  local v="0.4";
   local n="pydoctor";
   local p="${n}-${v}";
-  py_dependency -o -m "b000aa1fb458fe25952dadf26049ae68" \
+  py_dependency -o -m "b7564e12b5d35d4cb529a2c220b25d3a" \
     "${n}" "${n}" "${p}" \
-    "http://launchpadlibrarian.net/42323121/${p}.tar.gz";
+    "https://pypi.python.org/packages/source/p/pydoctor/${p}.tar.gz";
 
   if "${do_setup}"; then
     cd "${caldav}";
