@@ -80,11 +80,14 @@ from twisted.python.log import addObserver, removeObserver
 # Log level definitions
 #
 
-class InvalidLogLevelError(RuntimeError):
+class InvalidLogLevelError(Exception):
     """
     Someone tried to use a L{LogLevel} that is unknown to the logging system.
     """
     def __init__(self, level):
+        """
+        @param level: a L{LogLevel}
+        """
         super(InvalidLogLevelError, self).__init__(str(level))
         self.level = level
 
@@ -101,6 +104,11 @@ class LogLevel(Names):
 
     @classmethod
     def levelWithName(cls, name):
+        """
+        @param name: the name of a L{LogLevel}
+
+        @return: the L{LogLevel} with the specified C{name}
+        """
         try:
             return cls.lookupByName(name)
         except ValueError:
