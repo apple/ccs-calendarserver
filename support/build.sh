@@ -811,12 +811,16 @@ dependencies () {
     "SQLParse" "${n}" "${p}" \
     "http://python-sqlparse.googlecode.com/files/${p}.tar.gz";
 
-  local v="0.6.1";
-  local n="pyflakes";
-  local p="${n}-${v}";
-  py_dependency -o -v "${v}" -m "00debd2280b962e915dfee552a675915" \
-    "Pyflakes" "${n}" "${p}" \
-    "${pypi}/p/${n}/${p}.tar.gz";
+  if type -P pyflakes > /dev/null; then
+    using_system "PyFlakes";
+  else
+    local v="0.6.1";
+    local n="pyflakes";
+    local p="${n}-${v}";
+    py_dependency -o -v "${v}" -m "00debd2280b962e915dfee552a675915" \
+      "Pyflakes" "${n}" "${p}" \
+      "${pypi}/p/${n}/${p}.tar.gz";
+  fi;
  
   py_dependency -o -r HEAD \
     "CalDAVClientLibrary" "caldavclientlibrary" "CalDAVClientLibrary" \
