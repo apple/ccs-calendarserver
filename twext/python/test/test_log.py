@@ -72,7 +72,7 @@ class LogComposedObject(object):
 
 
     def __str__(self):
-        return "<LogComposedObject %s>" % (self.state,)
+        return "<LogComposedObject {state}>".format(state=self.state)
 
 
 
@@ -126,7 +126,7 @@ class Logging(TestCase):
         """
         obj = LogComposedObject("hello")
         log = obj.log
-        log.error(format="Hello. %(source)s")
+        log.error("Hello. {source}")
         stuff = twistedLogging.textFromEventDict(log.eventDict)
         self.assertIn("Hello. <LogComposedObject hello>", stuff)
 
@@ -137,7 +137,7 @@ class Logging(TestCase):
         Logger.
         """
         for level in LogLevel.iterconstants():
-            message = "This is a %s message" % (level.name,)
+            message = "This is a {level} message".format(level=level.name)
 
             log = TestLogger()
             method = getattr(log, level.name)
@@ -304,6 +304,18 @@ class Logging(TestCase):
                 self.assertTrue(log.willLogAtLevel(level))
             else:
                 self.assertFalse(log.willLogAtLevel(level))
+
+
+    def test_logInvalidLogLevel(self):
+        """
+        Test passing in a bogus log level to C{emit()}.
+        """
+        log = TestLogger()
+
+        log.emit("*bogus*")
+
+        errors = self.flushLoggedErrors(InvalidLogLevelError)
+        self.assertEquals(len(errors), 1)
 
 
     def test_legacy_msg(self):

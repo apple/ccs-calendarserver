@@ -50,6 +50,7 @@ second example, it would be C{some.module.Foo}.
 # TODO List:
 #
 # * Replace message argument with format argument
+# * Filter in observers, not emit()
 #
 
 __all__ = [
@@ -244,19 +245,21 @@ class Logger(object):
         return "<%s %r>" % (self.__class__.__name__, self.namespace)
 
 
-    def emit(self, level, message=None, **kwargs):
+    def emit(self, level, format=None, **kwargs):
         """
         Emit a log message to all log observers at the given level.
 
         @param level: a L{LogLevel}
 
-        @param message: a message
+        @param format: a message format using PEP3101 formatting.  All
+            variables in C{kwargs} are available.
 
         @param kwargs: additional keyword parameters to include with the
             message.
         """
         if level not in LogLevel.iterconstants():
-            raise InvalidLogLevelError(level)
+            self.failure(Failure(InvalidLogLevelError(level)))
+            level = LogLevel.error
 
         # FIXME: Filtering should be done by the log observer(s)
         if not self.willLogAtLevel(level):
@@ -274,10 +277,6 @@ class Logger(object):
         if level in pythonLogLevelMapping:
             kwargs["logLevel"] = pythonLogLevelMapping[level]
 
-        if message:
-            kwargs["legacyMessage"] = message
-            kwargs["format"] = "%(legacyMessage)s"
-
         prefix = "[%(namespace)s#%(levelName)s] "
 
         if "failure" in kwargs:
@@ -288,8 +287,20 @@ class Logger(object):
                 why = "Unhandled Error"
             kwargs["why"] = "%s%s" % (prefix % kwargs, why)
 
-        if "format" in kwargs:
-            kwargs["format"] = "%s%s" % (prefix, kwargs["format"])
+        if format:
+            kwargs["log_format"] = format
+
+            #
+            # Create an object that implements __str__() in order to
+            # defer the work of formatting until it's needed by a
+            # legacy log observer.
+            #
+            class LegacyFormatStub(object):
+                def __str__(self):
+                    return format.format(**kwargs)
+
+            kwargs["format"] = prefix + "%(log_legacy)s"
+            kwargs["log_legacy"] = LegacyFormatStub()
 
         twistedLogMessage(**kwargs)
 
@@ -390,8 +401,8 @@ def bindEmit(level):
     #
     # Attach methods to Logger
     #
-    def log_emit(self, message=None, **kwargs):
-        self.emit(level, message, **kwargs)
+    def log_emit(self, format=None, **kwargs):
+        self.emit(level, format, **kwargs)
 
     def will_emit(self):
         return self.willLogAtLevel(level)
