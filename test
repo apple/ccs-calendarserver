@@ -31,6 +31,7 @@ no_colour="";
 until_fail="";
 coverage="";
 m_twisted="";
+numjobs="";
 
 usage ()
 {
