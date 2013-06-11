@@ -21,6 +21,8 @@ Store test utility functions
 
 from __future__ import print_function
 
+import os
+
 from zope.interface.declarations import implements
 from txdav.common.idirectoryservice import IStoreDirectoryService, \
     IStoreDirectoryRecord
@@ -134,7 +136,7 @@ class SQLStoreBuilder(object):
     sharedService = None
     currentTestID = None
 
-    SHARED_DB_PATH = "_test_sql_db"
+    SHARED_DB_PATH = "_test_sql_db" + str(os.getpid())
 
 
     @classmethod

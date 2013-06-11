@@ -51,7 +51,7 @@ usage ()
   exit 64;
 }
 
-while getopts "nhoucr:" option; do
+while getopts "nhoucr:j:" option; do
   case "${option}" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
@@ -61,6 +61,7 @@ while getopts "nhoucr:" option; do
     'u') until_fail="--until-failure"; ;;
     'c')   coverage="--coverage"; ;;
     't')  m_twisted="twisted"; ;;
+    'j')    numjobs="-j $OPTARG"; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -81,7 +82,7 @@ fi;
 find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
 
 mkdir -p "${wd}/data";
-cd "${wd}" && "${python}" "${trial}" --temp-directory="${wd}/data/trial" --rterrors ${random} ${until_fail} ${no_colour} ${coverage} ${test_modules};
+cd "${wd}" && "${python}" "${trial}" --temp-directory="${wd}/data/trial" --rterrors ${random} ${until_fail} ${no_colour} ${coverage} ${numjobs} ${test_modules};
 
 if ${flaky}; then
   echo "";
@@ -123,4 +124,3 @@ if [ -s "${tmp}" ]; then
     exit 1;
 fi;
 rm -f "${tmp}";
-
