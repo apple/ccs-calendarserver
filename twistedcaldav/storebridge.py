@@ -480,7 +480,7 @@ class _CommonHomeChildCollectionMixin(object):
             try:
                 yield child.storeRemove(request)
             except:
-                log.failure()
+                log.failure("storeRemove({request})", request=request)
                 errors.add(childurl, BAD_REQUEST)
 
         # Now do normal delete
@@ -2312,8 +2312,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             # Grab the current exception state here so we can use it in a re-raise - we need this because
             # an inlineCallback might be called and that raises an exception when it returns, wiping out the
             # original exception "context".
-            ex = Failure()
-
             if type(err) in self.StoreMoveExceptionsStatusErrors:
                 raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
 
@@ -2325,7 +2323,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
                 ))
             else:
                 # Return the original failure (exception) state
-                ex.raiseException()
+                raise
 
 
     def http_PROPPATCH(self, request):

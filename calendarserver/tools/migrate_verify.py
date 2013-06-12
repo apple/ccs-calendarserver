@@ -163,7 +163,7 @@ class MigrateVerifyService(Service, object):
         except ConfigError:
             pass
         except:
-            log.failure()
+            log.failure("doMigrateVerify()")
 
         self.reactor.stop()
 

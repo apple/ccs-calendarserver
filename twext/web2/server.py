@@ -629,10 +629,8 @@ class Request(http.Request):
         return d
 
     def _processingReallyFailed(self, reason, origReason):
-        log.info("Exception rendering error page:", isErr=1)
-        log.failure(reason)
-        log.info("Original exception:", isErr=1)
-        log.failure(origReason)
+        log.failure("Exception rendering error page", reason)
+        log.failure("Original exception", origReason)
 
         body = ("<html><head><title>Internal Server Error</title></head>"
                 "<body><h1>Internal Server Error</h1>An error occurred rendering the requested page. Additionally, an error occurred rendering the error page.</body></html>")
@@ -670,8 +668,7 @@ class Request(http.Request):
         raise TypeError("html is not a resource or a response")
 
     def renderHTTP_exception(self, req, reason):
-        log.info("Exception rendering:", isErr=1)
-        log.failure(reason)
+        log.failure("Exception rendering request: {request}", reason, request=req)
 
         body = ("<html><head><title>Internal Server Error</title></head>"
                 "<body><h1>Internal Server Error</h1>An error occurred rendering the requested page. More information is available in the server log.</body></html>")

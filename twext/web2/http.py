@@ -489,9 +489,9 @@ class Request(object):
 
     def _error(self, reason):
         if reason.check(error.ConnectionLost):
-            log.info("Request error: " + reason.getErrorMessage())
+            log.info("Request error: {message}", message=reason.getErrorMessage())
         else:
-            log.failure(reason)
+            log.failure("Request error", reason)
             # Only bother with cleanup on errors other than lost connection.
             self.chanRequest.abortConnection()
 

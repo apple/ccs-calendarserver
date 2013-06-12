@@ -669,8 +669,7 @@ def fixOneCalendarHome(home):
                     yield calObj.setComponent(comp)
             except:
                 log.failure(
-                    format="Error while processing calendar/object %(calendarName)r %(calendarObject)r",
-                    failure=Failure(),
+                    "Error while processing calendar/object {calendarName} {calendarObject}",
                     calendarName=calendar.name(),
                     calendarObject=calObj.name(),
                 )

@@ -837,8 +837,7 @@ class _ProcessStreamerProtocol(protocol.ProcessProtocol):
                        self._inputError)
 
     def _inputError(self, f):
-        log.info("Error in input stream for %r" % self.transport)
-        log.failure(f)
+        log.failure("Error in input stream for transport {transport}", f, transport=self.transport)
         self.transport.closeStdin()
     
     def outReceived(self, data):

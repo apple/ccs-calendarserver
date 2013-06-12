@@ -59,8 +59,8 @@ class XMLCalendarUserProxyLoader(object):
         # Read in XML
         try:
             _ignore_tree, proxies_node = readXML(self.xmlFile, ELEMENT_PROXIES)
-        except ValueError, e:
-            log.failure("XML parse error for '%s'" % (self.xmlFile,), e)
+        except ValueError:
+            log.failure("XML parse error for proxy data file {xmlfile}", xmlfile=self.xmlFile)
 
         # FIXME: RuntimeError is dumb.
         self._parseXML(proxies_node)

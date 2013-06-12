@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from __future__ import print_function
 
 """
 Classes and functions to do granular logging.
@@ -24,7 +23,9 @@ Example usage in a module:
     from twext.python.log import Logger
     log = Logger()
 
-    log.info("Blah blah")
+    ...
+
+    log.debug("Got data: {data}.", data=data)
 
 Or in a class:
 
@@ -33,8 +34,8 @@ Or in a class:
     class Foo(object):
         log = Logger()
 
-        def oops(self):
-            self.log.error("Oops!")
+        def oops(self, data):
+            self.log.error("Oops! Invalid data from server: {data}", data=data)
 
 C{Logger}s have namespaces, for which logging can be configured independently.
 Namespaces may be specified by passing in a C{namespace} argument to L{Logger}
@@ -49,7 +50,6 @@ second example, it would be C{some.module.Foo}.
 #
 # TODO List:
 #
-# * Replace message argument with format argument
 # * Filter in observers, not emit()
 #
 
@@ -61,6 +61,8 @@ __all__ = [
     "clearLogLevels",
     "Logger",
     "LegacyLogger",
+    "ILogObserver",
+    "ILegacyLogObserver",
     "StandardIOObserver",
 ]
 
@@ -69,6 +71,7 @@ from sys import stdout, stderr
 import inspect
 import logging
 
+from zope.interface import Interface
 from twisted.python.constants import NamedConstant, Names
 from twisted.python.failure import Failure
 from twisted.python.reflect import safe_str
@@ -160,7 +163,7 @@ def logLevelForNamespace(namespace):
 
 def setLogLevelForNamespace(namespace, level):
     """
-    Sets the log level for a logging namespace.
+    Sets the global log level for a logging namespace.
 
     @param namespace: a logging namespace
 
@@ -177,7 +180,7 @@ def setLogLevelForNamespace(namespace, level):
 
 def clearLogLevels():
     """
-    Clears all log levels to the default.
+    Clears all global log levels to the default.
     """
     logLevelsByNamespace.clear()
     logLevelsByNamespace[None] = LogLevel.warn  # Default log level
@@ -257,17 +260,24 @@ class Logger(object):
         @param kwargs: additional keyword parameters to include with the
             message.
         """
-        if level not in LogLevel.iterconstants():
-            self.failure(Failure(InvalidLogLevelError(level)))
+        if level not in LogLevel.iterconstants(): # FIXME: Updated Twisted supports 'in' on constants container
+            self.failure(
+                "Got invalid log level in {logger}.emit().",
+                Failure(InvalidLogLevelError(level)),
+                logger = self,
+            )
             level = LogLevel.error
+            return
 
         # FIXME: Filtering should be done by the log observer(s)
         if not self.willLogAtLevel(level):
             return
 
         kwargs.update(
-            level = level, levelName = level.name,
-            namespace = self.namespace, source = self.source,
+            log_level     = level,
+            log_levelName = level.name, # FIXME: Remove
+            log_namespace = self.namespace,
+            log_source    = self.source,
         )
 
         #
@@ -277,19 +287,15 @@ class Logger(object):
         if level in pythonLogLevelMapping:
             kwargs["logLevel"] = pythonLogLevelMapping[level]
 
-        prefix = "[%(namespace)s#%(levelName)s] "
+        prefix = "[%(log_namespace)s#%(log_levelName)s] "
 
-        if "failure" in kwargs:
-            # Handle unfortunate logic in twisted.log.textFromEventDict()
-            # in which format is ignored if we have a failure and no why.
-            why = kwargs.get("why", None)
-            if not why:
-                why = "Unhandled Error"
-            kwargs["why"] = "%s%s" % (prefix % kwargs, why)
+        if "log_failure" in kwargs:
+            # FIXME: legacy cruft: failure, isError, why
+            kwargs["failure"] = kwargs["log_failure"]
+            kwargs["isError"] = 1
+            kwargs["why"] = "%s%s" % (prefix % kwargs, format % kwargs)
 
         if format:
-            kwargs["log_format"] = format
-
             #
             # Create an object that implements __str__() in order to
             # defer the work of formatting until it's needed by a
@@ -299,15 +305,29 @@ class Logger(object):
                 def __str__(self):
                     return format.format(**kwargs)
 
-            kwargs["format"] = prefix + "%(log_legacy)s"
+            # FIXME: legacy cruft: format
+            # FIXME: Adding the prefix should be the observer's problem
+            kwargs["log_format"] = kwargs["format"] = prefix + "%(log_legacy)s"
             kwargs["log_legacy"] = LegacyFormatStub()
 
         twistedLogMessage(**kwargs)
 
 
-    def failure(self, failure=None, message=None, **kwargs):
+    def failure(self, format, failure=None, **kwargs):
         """
-        Log a failure.
+        Log an failure and emit a traceback.
+
+        For example::
+
+            try:
+                frob(knob)
+            except:
+                log.failure("While frobbing {knob}", knob=knob)
+
+        or::
+
+            d = deferred_frob(knob)
+            d.addErrback(lambda f: log.failure, "While frobbing {knob}", f, knob=knob)
 
         @param failure: a L{Failure} to log.  If C{None}, a L{Failure} is
             created from the exception in flight.
@@ -320,25 +340,26 @@ class Logger(object):
         if failure is None:
             failure=Failure()
 
-        self.emit(LogLevel.error, None, failure=failure, isError=1, why=message, **kwargs)
+        self.emit(LogLevel.error, format, log_failure=failure, **kwargs)
 
 
     def level(self):
         """
-        @return: the log level for this logger's namespace.
+        @return: the global log level for this logger's namespace.
         """
         return logLevelForNamespace(self.namespace)
 
 
     def setLevel(self, level):
         """
-        Set the log level for this logger's namespace.
+        Set the global log level for this logger's namespace.
 
         @param level: a L{LogLevel}
         """
         setLogLevelForNamespace(self.namespace, level)
 
 
+    # FIXME: get rid of this
     def willLogAtLevel(self, level):
         """
         @param level: a L{LogLevel}
@@ -422,6 +443,36 @@ del level
 #
 # Observers
 #
+
+class ILogObserver(Interface):
+    """
+    An observer which can handle log events.
+    """
+    def __call__(eventDict):
+        """
+        Log an event.
+
+        @type eventDict: C{dict} with C{str} keys.
+
+        @param eventDict: A dictionary with arbitrary keys as defined
+            by the application emitting logging events, as well as
+            keys added by the logging system, with are:
+            ...
+        """
+
+
+# Import the legacy interface from Twisted
+from twisted.python.log import ILogObserver as ILegacyLogObserver
+
+
+class FilteringLogObserverWrapper(object):
+    """
+    """
+
+
+
+
+# FIXME: This may not be needed; look into removing it.
 
 class StandardIOObserver(object):
     """

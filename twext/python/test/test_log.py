@@ -14,8 +14,6 @@
 # limitations under the License.
 ##
 
-import logging
-
 from twisted.python import log as twistedLogging
 from twisted.python.failure import Failure
 
@@ -34,21 +32,22 @@ defaultLogLevel = logLevelsByNamespace[None]
 
 
 class TestLoggerMixIn(object):
-    def emit(self, level, message=None, **kwargs):
+    def emit(self, level, format=None, **kwargs):
         def observer(eventDict):
             self.eventDict = eventDict
 
         twistedLogging.addObserver(observer)
 
-        Logger.emit(self, level, message, **kwargs)
+        Logger.emit(self, level, format, **kwargs)
 
         twistedLogging.removeObserver(observer)
 
         self.emitted = {
-            "level"  : level,
-            "message": message,
-            "kwargs" : kwargs,
+            "level" : level,
+            "format": format,
+            "kwargs": kwargs,
         }
+
 
 
 class TestLogger(TestLoggerMixIn, Logger):
@@ -121,14 +120,14 @@ class Logging(TestCase):
 
     def test_sourceAvailableForFormatting(self):
         """
-        On instances that have a L{Logger} class attribute, the C{source} key
+        On instances that have a L{Logger} class attribute, the C{log_source} key
         is available to format strings.
         """
         obj = LogComposedObject("hello")
         log = obj.log
-        log.error("Hello. {source}")
+        log.error("Hello, {log_source}.")
         stuff = twistedLogging.textFromEventDict(log.eventDict)
-        self.assertIn("Hello. <LogComposedObject hello>", stuff)
+        self.assertIn("Hello, <LogComposedObject hello>.", stuff)
 
 
     def test_basic_Logger(self):
@@ -136,21 +135,31 @@ class Logging(TestCase):
         Test that log levels and messages are emitted correctly for
         Logger.
         """
+        # FIXME:Need a basic test like this for logger attached to a class.
+        # At least: source should not be None in that case.
+
         for level in LogLevel.iterconstants():
-            message = "This is a {level} message".format(level=level.name)
+            format = "This is a {level_name} message"
+            message = format.format(level_name=level.name)
 
             log = TestLogger()
             method = getattr(log, level.name)
-            method(message, junk=message)
+            method(format, junk=message, level_name=level.name)
 
             # Ensure that test_emit got called with expected arguments
             self.assertEquals(log.emitted["level"], level)
-            self.assertEquals(log.emitted["message"], message)
+            self.assertEquals(log.emitted["format"], format)
             self.assertEquals(log.emitted["kwargs"]["junk"], message)
 
             if log.willLogAtLevel(level):
-                self.assertEquals(log.eventDict["level"], level)
+                #self.assertEquals(log.eventDict["log_format"], format) # FIXME: doesn't work due to emit() mangling the format
+                self.assertEquals(log.eventDict["log_level"], level)
+                self.assertEquals(log.eventDict["log_levelName"], level.name)
+                self.assertEquals(log.eventDict["log_namespace"], __name__)
+                self.assertEquals(log.eventDict["log_source"], None)
+
                 self.assertEquals(log.eventDict["logLevel"], pythonLogLevelMapping[level])
+
                 self.assertEquals(log.eventDict["junk"], message)
 
                 # FIXME: this checks the end of message because we do formatting in emit()
@@ -170,7 +179,7 @@ class Logging(TestCase):
         try:
             raise RuntimeError("baloney!")
         except RuntimeError:
-            log.failure()
+            log.failure("Whoops")
 
         #
         # log.failure() will cause trial to complain, so here we check that
@@ -181,6 +190,7 @@ class Logging(TestCase):
         self.assertEquals(len(errors), 1)
 
         self.assertEquals(log.emitted["level"], LogLevel.error)
+        self.assertEquals(log.emitted["format"], "Whoops")
 
 
     def test_conflicting_kwargs(self):
@@ -189,9 +199,23 @@ class Logging(TestCase):
         """
         log = TestLogger()
 
-        log.error("*", logLevel="*", namespace="boogers")
-        self.assertEquals(log.eventDict["logLevel"], logging.ERROR)
-        self.assertEquals(log.eventDict["namespace"], log.namespace)
+        log.warn(
+            "*",
+            log_format = "#",
+            log_level = LogLevel.error,
+            log_levelName = "*level name*",
+            log_namespace = "*namespace*",
+            log_source = "*source*",
+        )
+
+        # FIXME: Should conflicts log errors?
+
+        self.assertNotEquals(log.eventDict["log_format"], "*")
+        self.assertNotEquals(log.eventDict["log_format"], "#")
+        self.assertEquals(log.eventDict["log_level"], LogLevel.warn)
+        self.assertEquals(log.eventDict["log_levelName"], LogLevel.warn.name)
+        self.assertEquals(log.eventDict["log_namespace"], log.namespace)
+        self.assertEquals(log.eventDict["log_source"], None)
 
 
     def test_defaultLogLevel(self):
@@ -330,7 +354,7 @@ class Logging(TestCase):
         log.msg(message, **kwargs)
 
         self.assertIdentical(log.emitted["level"], LogLevel.info)
-        self.assertEquals(log.emitted["message"], message)
+        self.assertEquals(log.emitted["format"], message)
 
         for key, value in kwargs.items():
             self.assertIdentical(log.emitted["kwargs"][key], value)
@@ -338,7 +362,7 @@ class Logging(TestCase):
         log.msg(foo="")
 
         self.assertIdentical(log.emitted["level"], LogLevel.info)
-        self.assertIdentical(log.emitted["message"], None)
+        self.assertIdentical(log.emitted["format"], None)
 
 
     def test_legacy_err_implicit(self):
@@ -414,7 +438,7 @@ class Logging(TestCase):
         self.assertEquals(len(errors), 0)
 
         self.assertIdentical(log.emitted["level"], LogLevel.error)
-        self.assertEquals(log.emitted["message"], repr(bogus))
+        self.assertEquals(log.emitted["format"], repr(bogus))
         self.assertIdentical(log.emitted["kwargs"]["why"], why)
 
         for key, value in kwargs.items():
@@ -431,7 +455,7 @@ class Logging(TestCase):
         self.assertEquals(len(errors), 1)
 
         self.assertIdentical(log.emitted["level"], LogLevel.error)
-        self.assertEquals(log.emitted["message"], None)
+        self.assertEquals(log.emitted["format"], None)
         self.assertIdentical(log.emitted["kwargs"]["failure"].__class__, Failure)
         self.assertIdentical(log.emitted["kwargs"]["failure"].value, exception)
         self.assertIdentical(log.emitted["kwargs"]["why"], why)

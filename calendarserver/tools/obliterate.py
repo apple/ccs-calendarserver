@@ -186,7 +186,7 @@ class ObliterateService(Service, object):
         except ConfigError:
             pass
         except:
-            log.failure()
+            log.failure("doObliterate()")
 
         self.reactor.stop()
 

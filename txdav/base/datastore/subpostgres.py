@@ -457,7 +457,7 @@ class PostgresService(MultiService):
             self.ready(*createConnection())
             self.deactivateDelayedShutdown()
         def reportit(f):
-            log.failure(f)
+            log.failure("starting postgres", f)
             self.deactivateDelayedShutdown()
             self.reactor.stop()
         self.monitor.completionDeferred.addCallback(

@@ -326,7 +326,7 @@ class ExporterService(Service, object):
             # update stuff needed to happen, don't want to undo it.
             self.output.close()
         except:
-            log.failure()
+            log.failure("doExport()")
 
         self.reactor.stop()
 

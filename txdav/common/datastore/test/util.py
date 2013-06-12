@@ -291,7 +291,7 @@ class SQLStoreBuilder(object):
             try:
                 yield cleanupTxn.execSQL("delete from " + table, [])
             except:
-                log.failure()
+                log.failure("delete table {table} failed", table=table)
         yield cleanupTxn.commit()
 
         # Deal with memcached items that must be cleared

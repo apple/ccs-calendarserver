@@ -298,7 +298,7 @@ class InheritedPort(FileDescriptor, object):
                                                   description, protocol)
                 protocol.makeConnection(transport)
             except:
-                log.failure()
+                log.failure("doRead()")
 
 
     def doWrite(self):

@@ -5558,7 +5558,7 @@ def fixUUIDNormalization(store):
         yield _normalizeColumnUUIDs(t, schema.RESOURCE_PROPERTY.VIEWER_UID)
         yield _normalizeColumnUUIDs(t, schema.APN_SUBSCRIPTIONS.SUBSCRIBER_GUID)
     except:
-        log.failure()
+        log.failure("Unable to normalize UUIDs")
         yield t.abort()
         # There's a lot of possible problems here which are very hard to test
         # for individually; unexpected data that might cause constraint

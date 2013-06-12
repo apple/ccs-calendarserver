@@ -426,7 +426,7 @@ class CalVerifyService(Service, object):
             yield self.doAction()
             self.output.close()
         except:
-            log.failure()
+            log.failure("doCalVerify()")
 
         self.reactor.stop()
 
