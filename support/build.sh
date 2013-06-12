@@ -687,7 +687,7 @@ dependencies () {
       local enable_dtrace="";
     fi;
 
-    c_dependency -m "fe01293f96e04da9879840b1996a3d2c" \
+    c_dependency -m "52df0a9e288f02d7e6e0af89ed4dcfc6" \
       "PostgreSQL" "${pg}" \
       "ftp://ftp5.us.postgresql.org/pub/PostgreSQL/source/v${pgv}/${pg}.tar.gz" \
       --with-python ${enable_dtrace};
