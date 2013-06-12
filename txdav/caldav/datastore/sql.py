@@ -171,13 +171,12 @@ class CalendarStoreFeatures(object):
 
             # Count number to process so we can display progress
             rows = (yield Select(
-                (Count(at.DROPBOX_ID),),
+                (at.DROPBOX_ID,),
                 From=at,
                 Where=at.DROPBOX_ID != ".",
-                GroupBy=at.DROPBOX_ID,
-                Limit=batchSize,
+                Distinct=True,
             ).on(txn))
-            total = rows[0][0]
+            total = len(rows)
             count = 0
             log.warn("%d dropbox ids to migrate" % (total,))
         except RuntimeError, e:
@@ -247,6 +246,13 @@ class CalendarStoreFeatures(object):
             log.debug("  processing attachment object: %s" % (name,))
             attachment = (yield DropBoxAttachment.load(txn, dropbox_id, name))
 
+            # Check for orphans
+            if len(cobjs) == 0:
+                # Just remove the attachment
+                log.warn("Orphaned dropbox id removed: %s" % (attachment._path,))
+                yield attachment.remove()
+                continue
+
             # Find owner objects and group all by UID
             owners = []
             cobj_by_UID = collections.defaultdict(list)
@@ -277,7 +283,10 @@ class CalendarStoreFeatures(object):
             else:
                 # TODO: look for cobjs that were not changed and remove their ATTACH properties.
                 # These could happen if the owner object no longer exists.
-                pass
+                # For now just remove the attachment
+                log.warn("Unowned dropbox id removed: %s" % (attachment._path,))
+                yield attachment.remove()
+                continue
 
         log.debug("  finished dropbox id: %s" % (dropbox_id,))
 
