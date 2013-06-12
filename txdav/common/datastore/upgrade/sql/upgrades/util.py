@@ -15,10 +15,14 @@
 ##
 
 from twext.enterprise.dal.syntax import Select, Delete, Update
+from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.base.propertystore.base import PropertyName
-from txdav.common.datastore.sql_tables import schema
 from txdav.base.propertystore.sql import PropertyStore
+from txdav.common.datastore.sql_tables import schema
+from twisted.python.failure import Failure
+
+log = Logger()
 
 @inlineCallbacks
 def rowsForProperty(txn, propelement, with_uid=False, batch=None):
@@ -143,5 +147,8 @@ def doToEachHomeNotAtVersion(store, homeSchema, version, doIt):
                 Where=homeSchema.RESOURCE_ID == homeResourceID,
             ).on(txn)
             yield txn.commit()
-        except RuntimeError:
+        except RuntimeError, e:
+            f = Failure()
+            log.error("Failed to upgrade %s to %s: %s" % (homeSchema, version, e))
             yield txn.abort()
+            f.raiseException()
