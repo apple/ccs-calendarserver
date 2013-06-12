@@ -4897,13 +4897,15 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         """
 
         if self._txn.isNotifiedAlready(self):
-            returnValue(None)
+            return succeed(None)
         self._txn.notificationAddedForObject(self)
 
         # Send notifications
         if self._notifiers:
             for notifier in self._notifiers.values():
                 self._txn.postCommit(notifier.notify)
+
+        return succeed(None)
 
 
     @classproperty
