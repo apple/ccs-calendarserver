@@ -678,7 +678,7 @@ dependencies () {
   if type -P postgres > /dev/null; then
     using_system "Postgres";
   else
-    local pgv="9.1.2";
+    local pgv="9.2.4";
     local pg="postgresql-${pgv}";
 
     if type -P dtrace > /dev/null; then
