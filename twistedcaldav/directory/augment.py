@@ -429,15 +429,14 @@ class AugmentXMLDB(AugmentDB):
     
         # Remove all UIDs present
         changed = False
-        for child in tuple(augments_node.getchildren()):
-            
+        for child in augments_node:
             if child.tag != xmlaugmentsparser.ELEMENT_RECORD:
                 continue
 
             if child.find(xmlaugmentsparser.ELEMENT_UID).text in uids:
                 augments_node.remove(child)
                 changed = True
-        
+
         # Modify xmlfile
         if changed:
             writeXML(xmlfile, augments_node)
