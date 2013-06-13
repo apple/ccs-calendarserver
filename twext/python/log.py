@@ -75,12 +75,10 @@ __all__ = [
 ]
 
 from sys import stdout, stderr
-
+from string import Formatter
 import inspect
 import logging
 import time
-
-from string import Formatter
 
 from zope.interface import Interface, implementer
 from twisted.python.constants import NamedConstant, Names
@@ -141,55 +139,6 @@ pythonLogLevelMapping = {
     LogLevel.error   : logging.ERROR,
    #LogLevel.critical: logging.CRITICAL,
 }
-
-_theFormatter = Formatter()
-
-
-
-class _CallMapping(object):
-    def __init__(self, submapping):
-        self._submapping = submapping
-
-    def __getitem__(self, key):
-        callit = key.endswith(u"()")
-        realKey = key[:-2] if callit else key
-        value = self._submapping[realKey]
-        if callit:
-            value = value()
-        return value
-
-
-
-def formatWithCall(formatString, mapping):
-    """
-    Format a string like L{unicode.format}, but:
-
-        - taking only a name mapping; no positional arguments
-
-        - with the additional syntax that an empty set of parentheses
-          correspond to a formatting item that should be called, and its result
-          C{str}'d, rather than calling C{str} on the element directly as
-          normal.
-
-    For example::
-
-        >>> formatWithCall("{string}, {function()}.",
-        ...                dict(string="just a string",
-        ...                     function=lambda: "a function"))
-        'just a string, a function.'
-
-    @param formatString: A PEP-3101 format string.
-    @type formatString: L{unicode}
-
-    @param mapping: A L{dict}-like object to format.
-
-    @return: The string with formatted values interpolated.
-    @rtype: L{unicode}
-    """
-    return unicode(
-        _theFormatter.vformat(formatString, (), _CallMapping(mapping))
-    )
-
 
 
 #
@@ -695,7 +644,6 @@ class LegacyLogObserverWrapper(object):
                 def __str__(self):
                     return self.formatEvent(event)
 
-            # FIXME: Adding the prefix should be the observer's problem
             event["format"] = prefix + "%(log_legacy)s"
             event["log_legacy"] = LegacyFormatStub()
 
@@ -711,10 +659,65 @@ class LegacyLogObserverWrapper(object):
 
 
 
+#
+# Utilities
+#
+class CallMapping(object):
+    def __init__(self, submapping):
+        self._submapping = submapping
+
+    def __getitem__(self, key):
+        callit = key.endswith(u"()")
+        realKey = key[:-2] if callit else key
+        value = self._submapping[realKey]
+        if callit:
+            value = value()
+        return value
+
+
+def formatWithCall(formatString, mapping):
+    """
+    Format a string like L{unicode.format}, but:
+
+        - taking only a name mapping; no positional arguments
+
+        - with the additional syntax that an empty set of parentheses
+          correspond to a formatting item that should be called, and its result
+          C{str}'d, rather than calling C{str} on the element directly as
+          normal.
+
+    For example::
+
+        >>> formatWithCall("{string}, {function()}.",
+        ...                dict(string="just a string",
+        ...                     function=lambda: "a function"))
+        'just a string, a function.'
+
+    @param formatString: A PEP-3101 format string.
+    @type formatString: L{unicode}
+
+    @param mapping: A L{dict}-like object to format.
+
+    @return: The string with formatted values interpolated.
+    @rtype: L{unicode}
+    """
+    return unicode(
+        _theFormatter.vformat(formatString, (), CallMapping(mapping))
+    )
+
+_theFormatter = Formatter()
+
+
+
+#
+# Default observers
+# FIXME: ...
+#
 TheLegacyLogObserver = LegacyLogObserverWrapper(twistedLogMessage)
 TheFilteredLogPublisher = LogPublisher(TheLegacyLogObserver) # Add post-filtering observers here
 TheFilteringLogObserver = LogLevelFilteringLogObserverWrapper(TheFilteredLogPublisher)
 TheLogPublisher = LogPublisher(TheFilteringLogObserver) # Add pre-filtering observers here
+
 
 
 ######################################################################
