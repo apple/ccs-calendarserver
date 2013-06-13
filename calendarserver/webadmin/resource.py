@@ -24,7 +24,6 @@ __all__ = [
     "WebAdminPage",
 ]
 
-import cgi
 import operator
 import urlparse
 
@@ -60,7 +59,7 @@ class WebAdminPage(Element):
     """
 
     loader = XMLFile(
-        getModule(__name__).filePath.sibling("template.html").open()
+        getModule(__name__).filePath.sibling("template.html")
     )
 
     def __init__(self, resource):
@@ -624,7 +623,8 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             return request.args.get(arg, [""])[0]
 
         def queryValues(arg):
-            query = cgi.parse_qs(urlparse.urlparse(request.uri).query, True)
+            query = urlparse.parse_qs(urlparse.urlparse(request.uri).query,
+                                      True)
             matches = []
             for key in query.keys():
                 if key.startswith(arg):

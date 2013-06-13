@@ -344,7 +344,7 @@ class DirectoryElement(Element):
     """
 
     loader = XMLFile(
-        thisModule.filePath.sibling("directory-listing.html").open()
+        thisModule.filePath.sibling("directory-listing.html")
     )
 
     def __init__(self, resource):

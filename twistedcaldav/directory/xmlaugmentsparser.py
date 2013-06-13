@@ -89,7 +89,7 @@ class XMLAugmentsParser(object):
         Parse the XML root node from the augments configuration document.
         @param rootnode: the L{Element} to parse.
         """
-        for child in rootnode.getchildren():
+        for child in rootnode:
             
             if child.tag != ELEMENT_RECORD:
                 raise RuntimeError("Unknown augment type: '%s' in augment file: '%s'" % (child.tag, self.xmlFile,))
@@ -97,7 +97,7 @@ class XMLAugmentsParser(object):
             repeat = int(child.get(ATTRIBUTE_REPEAT, "1"))
 
             fields = {}
-            for node in child.getchildren():
+            for node in child:
                 
                 if node.tag in (
                     ELEMENT_UID,

@@ -527,7 +527,7 @@ class CommonTimezoneDatabase(object):
         """
         _ignore, root = xmlutil.readXML(self.xmlfile, "timezones")
         self.dtstamp = root.findtext("dtstamp")
-        for child in root.getchildren():
+        for child in root:
             if child.tag == "timezone":
                 tz = TimezoneInfo.readXML(child)
                 if tz:

@@ -581,7 +581,7 @@ class DirectoryPrincipalDetailElement(Element):
     """
 
     loader = XMLFile(thisModule.filePath.sibling(
-        "directory-principal-resource.html").open()
+        "directory-principal-resource.html")
     )
 
 

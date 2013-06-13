@@ -50,6 +50,13 @@ class WebDAVContentHandler (TreeBuilder):
         
         self.startDocument()
 
+
+    def doctype(self, name, pubid, system):
+        """
+        Doctype declaration is ignored.
+        """
+
+
     def startDocument(self):
         self.stack = [{
             "name"       : None,

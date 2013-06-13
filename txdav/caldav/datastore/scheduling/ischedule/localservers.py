@@ -269,7 +269,7 @@ class ServersParser(object):
         except ValueError, e:
             raise RuntimeError("XML parse error for '%s' because: %s" % (xmlFile, e,))
 
-        for child in servers_node.getchildren():
+        for child in servers_node:
 
             if child.tag != ELEMENT_SERVER:
                 raise RuntimeError("Unknown server type: '%s' in servers file: '%s'" % (child.tag, xmlFile,))
@@ -277,7 +277,7 @@ class ServersParser(object):
             server = Server()
             server.isImplicit = child.get(ATTR_IMPLICIT, ATTR_VALUE_YES) == ATTR_VALUE_YES
 
-            for node in child.getchildren():
+            for node in child:
                 if node.tag == ELEMENT_ID:
                     server.id = node.text
                 elif node.tag == ELEMENT_URI:
@@ -303,14 +303,14 @@ class ServersParser(object):
     @staticmethod
     def _parsePartition(xmlFile, partitions, server):
 
-        for child in partitions.getchildren():
+        for child in partitions:
 
             if child.tag != ELEMENT_PARTITION:
                 raise RuntimeError("Unknown partition type: '%s' in servers file: '%s'" % (child.tag, xmlFile,))
 
             id = None
             uri = None
-            for node in child.getchildren():
+            for node in child:
                 if node.tag == ELEMENT_ID:
                     id = node.text
                 elif node.tag == ELEMENT_URI:

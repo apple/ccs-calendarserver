@@ -774,13 +774,13 @@ class BaseAppleClient(BaseClient):
                         self.xmpp[href] = XMPPPush(server, uri, pushkey)
 
             nodes = results[href].getNodeProperties()
-            for nodeType in nodes[davxml.resourcetype].getchildren():
+            for nodeType in nodes[davxml.resourcetype]:
                 if nodeType.tag in self._CALENDAR_TYPES:
                     textProps = results[href].getTextProperties()
                     componentTypes = set()
                     if nodeType.tag == caldavxml.calendar:
                         if caldavxml.supported_calendar_component_set in nodes:
-                            for comp in nodes[caldavxml.supported_calendar_component_set].getchildren():
+                            for comp in nodes[caldavxml.supported_calendar_component_set]:
                                 componentTypes.add(comp.get("name").upper())
 
                     changeTag = davxml.sync_token if self.supportSync else csxml.getctag

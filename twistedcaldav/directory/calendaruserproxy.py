@@ -103,7 +103,7 @@ class ProxyPrincipalDetailElement(Element):
     """
 
     loader = XMLFile(thisModule.filePath.sibling(
-        "calendar-user-proxy-principal-resource.html").open()
+        "calendar-user-proxy-principal-resource.html")
     )
 
     def __init__(self, resource):

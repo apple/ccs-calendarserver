@@ -384,7 +384,7 @@ class AugmentXMLDB(AugmentDB):
 
         # Make sure UID is present
         changed = False
-        for record_node in augments_node.getchildren():
+        for record_node in augments_node:
             
             if record_node.tag != xmlaugmentsparser.ELEMENT_RECORD:
                 continue
@@ -429,15 +429,14 @@ class AugmentXMLDB(AugmentDB):
     
         # Remove all UIDs present
         changed = False
-        for child in tuple(augments_node.getchildren()):
-            
+        for child in augments_node:
             if child.tag != xmlaugmentsparser.ELEMENT_RECORD:
                 continue
 
             if child.find(xmlaugmentsparser.ELEMENT_UID).text in uids:
                 augments_node.remove(child)
                 changed = True
-        
+
         # Modify xmlfile
         if changed:
             writeXML(xmlfile, augments_node)
@@ -448,7 +447,7 @@ class AugmentXMLDB(AugmentDB):
         self._updateRecordInXMLDB(record, record_node)
 
     def _updateRecordInXMLDB(self, record, recordNode):
-        del recordNode.getchildren()[:]
+        del recordNode[:]
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_UID, record.uid)
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
         if record.serverID:
