@@ -18,7 +18,7 @@
 """
 Classes and functions to do granular logging.
 
-Example usage in a module:
+Example usage in a module::
 
     from twext.python.log import Logger
     log = Logger()
@@ -27,7 +27,7 @@ Example usage in a module:
 
     log.debug("Got data: {data}.", data=data)
 
-Or in a class:
+Or in a class::
 
     from twext.python.log import Logger
 
@@ -79,6 +79,8 @@ from sys import stdout, stderr
 import inspect
 import logging
 import time
+
+from string import Formatter
 
 from zope.interface import Interface, implementer
 from twisted.python.constants import NamedConstant, Names
@@ -139,6 +141,36 @@ pythonLogLevelMapping = {
     LogLevel.error   : logging.ERROR,
    #LogLevel.critical: logging.CRITICAL,
 }
+
+_theFormatter = Formatter()
+
+
+
+class _CallMapping(object):
+    def __init__(self, submapping):
+        self._submapping = submapping
+
+    def __getitem__(self, key):
+        callit = key.endswith("()")
+        realKey = key[:-2] if callit else key
+        value = self._submapping[realKey]
+        if callit:
+            value = value()
+        return value
+
+
+
+def formatWithCall(formatString, mapping):
+    """
+    @param formatString: A PEP-3101 format string.
+    @type formatString: L{unicode}
+
+    @param mapping: A L{dict}-like object to format.
+
+    @return: The string with formatted values interpolated.
+    @rtype: L{unicode}
+    """
+    return _theFormatter.vformat(formatString, (), _CallMapping(mapping))
 
 
 

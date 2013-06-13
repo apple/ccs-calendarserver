@@ -23,6 +23,7 @@ from twext.python.log import setLogLevelForNamespace, clearLogLevels
 from twext.python.log import pythonLogLevelMapping
 from twext.python.log import Logger, LegacyLogger
 
+from twext.python.log import formatWithCall
 from twistedcaldav.test.util import TestCase
 
 
@@ -320,6 +321,20 @@ class Logging(TestCase):
 
         errors = self.flushLoggedErrors(InvalidLogLevelError)
         self.assertEquals(len(errors), 1)
+
+
+    def test_formatWithCall(self):
+        """
+        L{formatWithCall} is an extended version of L{unicode.format} that will
+        interpret a set of parentheses "C{()}" at the end of a format key to
+        mean that the format key ought to be I{called} rather than stringified.
+        """
+        self.assertEquals(
+            formatWithCall(u"Hello, {world}. {callme()}.",
+                           dict(world="earth",
+                                callme=lambda: "maybe")),
+            "Hello, earth. maybe."
+        )
 
 
     def test_formatEvent(self):
