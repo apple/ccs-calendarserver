@@ -288,7 +288,10 @@ class Logger(object):
             return format.format(**event)
 
         except Exception as e:
-            return cls.formatUnformattableEvent(event, e)
+            try:
+                return cls.formatUnformattableEvent(event, e)
+            except Exception:
+                return u"MESSAGE LOST"
 
 
     @classmethod
@@ -303,11 +306,41 @@ class Logger(object):
 
         @return: a L{unicode}
         """
-        return (
-            u"Unable to format event {event}: {error}"
-            .format(event=event, error=error)
-        )
+        try:
+            return (
+                u"Unable to format event {event}: {error}"
+                .format(event=event, error=error)
+            )
+        except Exception as error:
+            #
+            # Yikes, something really nasty happened.
+            #
+            # Try to recover as much formattable data as possible;
+            # hopefully at least the namespace is sane, which will
+            # help you find the offending logger.
+            #
+            try:
+                items = []
 
+                for key, value in event.items():
+                    try:
+                        items.append(u"{key} = ".format(key=key))
+                    except Exception:
+                        items.append(u"<UNFORMATTABLE KEY> = ")
+                    try:
+                        items.append(u"{value}".format(value=value))
+                    except Exception:
+                        items.append(u"<UNFORMATTABLE VALUE>")
+
+                text = ", ".join(items)
+            except Exception:
+                text = ""
+
+            return (
+                u"MESSAGE LOST: Unformattable object logged: {error}\n"
+                u"Recoverable data: {text}"
+                .format(text=text)
+            )
 
     def emit(self, level, format=None, **kwargs):
         """
