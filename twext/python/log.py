@@ -151,7 +151,7 @@ class _CallMapping(object):
         self._submapping = submapping
 
     def __getitem__(self, key):
-        callit = key.endswith("()")
+        callit = key.endswith(u"()")
         realKey = key[:-2] if callit else key
         value = self._submapping[realKey]
         if callit:
@@ -186,7 +186,9 @@ def formatWithCall(formatString, mapping):
     @return: The string with formatted values interpolated.
     @rtype: L{unicode}
     """
-    return _theFormatter.vformat(formatString, (), _CallMapping(mapping))
+    return unicode(
+        _theFormatter.vformat(formatString, (), _CallMapping(mapping))
+    )
 
 
 
@@ -333,7 +335,7 @@ class Logger(object):
                 # For anything else, assume we can just convert to unicode
                 format = unicode(format)
 
-            return format.format(**event)
+            return formatWithCall(format, event)
 
         except Exception as e:
             try:

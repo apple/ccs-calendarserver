@@ -339,18 +339,38 @@ class Logging(TestCase):
 
     def test_formatEvent(self):
         """
-        Test formatting.
+        L{Logger.formatEvent} will format an event according to several rules:
+
+            - A string with no formatting instructions will be passed straight
+              through.
+
+            - PEP 3101 strings will be formatted using the keys and values of
+              the event as named fields.
+
+            - PEP 3101 keys ending with C{()} will be treated as instructions
+              to call that key (which ought to be a callable) before
+              formatting.
+
+        L{Logger.formatEvent} will always return L{unicode}, and if given
+        bytes, will always treat its format string as UTF-8 encoded.
         """
         def formatEvent(log_format, **event):
             event["log_format"] = log_format
             result = Logger.formatEvent(event)
-            self.assertIdentical(type(result), unicode) # Always returns unicode
+            self.assertIdentical(type(result), unicode)
             return result
 
-        self.assertEquals("", formatEvent(""))
-        self.assertEquals("abc", formatEvent("{x}", x="abc"))
-        self.assertEquals(u'S\xe1nchez', formatEvent("S\xc3\xa1nchez")) # bytes->unicode
-        self.assertIn("Unable to format event", formatEvent("S\xe1nchez")) # Non-UTF-8 bytes
+        self.assertEquals(u"", formatEvent(""))
+        self.assertEquals(u"abc", formatEvent("{x}", x="abc"))
+        self.assertEquals(u"no, yes.",
+                          formatEvent("{not_called}, {called()}.",
+                                      not_called="no", called=lambda: "yes"))
+        self.assertEquals(u'S\xe1nchez', formatEvent("S\xc3\xa1nchez"))
+        self.assertIn(u"Unable to format event", formatEvent(b"S\xe1nchez"))
+        self.assertIn(u"Unable to format event",
+                      formatEvent(b"S{a}nchez", a=b"\xe1"))
+        self.assertIn(u"S'\\xe1'nchez",
+                      formatEvent(b"S{a!r}nchez", a=b"\xe1"))
 
 
     def test_legacy_msg(self):
