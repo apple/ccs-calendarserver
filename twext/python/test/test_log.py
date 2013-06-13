@@ -335,6 +335,11 @@ class Logging(TestCase):
                                 callme=lambda: "maybe")),
             "Hello, earth. maybe."
         )
+        self.assertEquals(
+            formatWithCall(u"Hello, {repr()!r}.",
+                           dict(repr=lambda: 'repr')),
+            "Hello, 'repr'."
+        )
 
 
     def test_formatEvent(self):
