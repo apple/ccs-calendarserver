@@ -127,7 +127,7 @@ class IScheduleServersParser(object):
         @param node: the L{Node} to parse.
         """
 
-        for child in node.getchildren():
+        for child in node:
             if child.tag == ELEMENT_SERVER:
                 self.servers.append(IScheduleServerRecord())
                 self.servers[-1].parseXML(child)
@@ -169,7 +169,7 @@ class IScheduleServerRecord (object):
 
 
     def parseXML(self, node):
-        for child in node.getchildren():
+        for child in node:
             if child.tag == ELEMENT_URI:
                 self.uri = child.text
             elif child.tag == ELEMENT_AUTHENTICATION:
@@ -189,7 +189,7 @@ class IScheduleServerRecord (object):
 
 
     def _parseList(self, node, element_name, appendto):
-        for child in node.getchildren():
+        for child in node:
             if child.tag == element_name:
                 appendto.append(child.text)
 
@@ -198,7 +198,7 @@ class IScheduleServerRecord (object):
         if node.get(ATTRIBUTE_TYPE) != ATTRIBUTE_BASICAUTH:
             return
 
-        for child in node.getchildren():
+        for child in node:
             if child.tag == ELEMENT_USER:
                 user = child.text
             elif child.tag == ELEMENT_PASSWORD:

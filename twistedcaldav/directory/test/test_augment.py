@@ -310,7 +310,7 @@ class AugmentXMLTests(AugmentTests):
         """
 
         _ignore_etree, augments_node = readXML(filename)
-        for record_node in augments_node.getchildren():
+        for record_node in augments_node:
             if record_node.tag != xmlaugmentsparser.ELEMENT_RECORD:
                 continue
             uid = record_node.find(xmlaugmentsparser.ELEMENT_UID).text

@@ -384,7 +384,7 @@ class AugmentXMLDB(AugmentDB):
 
         # Make sure UID is present
         changed = False
-        for record_node in augments_node.getchildren():
+        for record_node in augments_node:
             
             if record_node.tag != xmlaugmentsparser.ELEMENT_RECORD:
                 continue
@@ -447,7 +447,7 @@ class AugmentXMLDB(AugmentDB):
         self._updateRecordInXMLDB(record, record_node)
 
     def _updateRecordInXMLDB(self, record, recordNode):
-        del recordNode.getchildren()[:]
+        del recordNode[:]
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_UID, record.uid)
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
         if record.serverID:

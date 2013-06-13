@@ -70,7 +70,7 @@ class XMLCalendarUserProxyLoader(object):
         Parse the XML root node from the augments configuration document.
         @param rootnode: the L{Element} to parse.
         """
-        for child in rootnode.getchildren():
+        for child in rootnode:
             
             if child.tag != ELEMENT_RECORD:
                 raise RuntimeError("Unknown augment type: '%s' in augment file: '%s'" % (child.tag, self.xmlFile,))
@@ -80,7 +80,7 @@ class XMLCalendarUserProxyLoader(object):
             guid = None
             write_proxies = set()
             read_proxies = set()
-            for node in child.getchildren():
+            for node in child:
                 
                 if node.tag == ELEMENT_GUID:
                     guid = node.text
@@ -104,7 +104,7 @@ class XMLCalendarUserProxyLoader(object):
                 self._buildRecord(guid, write_proxies, read_proxies)
 
     def _parseMembers(self, node, addto):
-        for child in node.getchildren():
+        for child in node:
             if child.tag == ELEMENT_MEMBER:
                 addto.add(child.text)
     
