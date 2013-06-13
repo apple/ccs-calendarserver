@@ -2180,10 +2180,10 @@ class CommonHome(object):
     @inlineCallbacks
     def notifyChanged(self):
         """
-        Send notifications, change sync token and bump last modified because the resource has changed. We ensure
-        we only do this once per object per transaction.
+        Send notifications, change sync token and bump last modified because
+        the resource has changed.  We ensure we only do this once per object
+        per transaction.
         """
-
         if self._txn.isNotifiedAlready(self):
             returnValue(None)
         self._txn.notificationAddedForObject(self)
@@ -4059,10 +4059,10 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     @inlineCallbacks
     def notifyChanged(self):
         """
-        Send notifications, change sync token and bump last modified because the resource has changed. We ensure
-        we only do this once per object per transaction.
+        Send notifications, change sync token and bump last modified because
+        the resource has changed.  We ensure we only do this once per object
+        per transaction.
         """
-
         if self._txn.isNotifiedAlready(self):
             returnValue(None)
         self._txn.notificationAddedForObject(self)
