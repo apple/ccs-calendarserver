@@ -536,7 +536,7 @@ class ImplicitProcessor(object):
 
                 # Handle auto-reply behavior
                 organizer = normalizeCUAddr(self.message.getOrganizer())
-                if self.recipient.principal.canAutoSchedule(organizer=organizer):
+                if self.recipient.principal.canAutoSchedule(organizer=organizer) and not hasattr(self.txn, "doing_attendee_refresh"):
                     # auto schedule mode can depend on who the organizer is
                     mode = self.recipient.principal.getAutoScheduleMode(organizer=organizer)
                     send_reply, store_inbox, partstat = (yield self.checkAttendeeAutoReply(new_calendar, mode))
@@ -751,7 +751,7 @@ class ImplicitProcessor(object):
         expand_max = PyCalendarDateTime.getToday() + default_future_expansion_duration
         instances = calendar.expandTimeRanges(expand_max, ignoreInvalidInstances=True)
 
-        # We are goin g to ignore auto-accept processing for anything more than a day old (actually use -2 days
+        # We are going to ignore auto-accept processing for anything more than a day old (actually use -2 days
         # to add some slop to account for possible timezone offsets)
         min_date = PyCalendarDateTime.getToday()
         min_date.offsetDay(-2)

@@ -980,7 +980,7 @@ class ImplicitScheduler(object):
                 continue
 
             # If SCHEDULE-FORCE-SEND only change, only send message to those Attendees
-            if self.reinvites and attendee in self.reinvites:
+            if self.reinvites and attendee not in self.reinvites:
                 continue
 
             itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,), self.changed_rids)
