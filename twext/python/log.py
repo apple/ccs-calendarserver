@@ -286,10 +286,10 @@ class Logger(object):
 
             return formatWithCall(format, event)
 
-        except Exception as e:
+        except BaseException as e:
             try:
                 return cls.formatUnformattableEvent(event, e)
-            except Exception:
+            except:
                 return u"MESSAGE LOST"
 
 
@@ -310,7 +310,7 @@ class Logger(object):
                 u"Unable to format event {event}: {error}"
                 .format(event=event, error=error)
             )
-        except Exception as error:
+        except BaseException as error:
             #
             # Yikes, something really nasty happened.
             #
@@ -324,15 +324,15 @@ class Logger(object):
                 for key, value in event.items():
                     try:
                         items.append(u"{key} = ".format(key=key))
-                    except Exception:
+                    except:
                         items.append(u"<UNFORMATTABLE KEY> = ")
                     try:
                         items.append(u"{value}".format(value=value))
-                    except Exception:
+                    except:
                         items.append(u"<UNFORMATTABLE VALUE>")
 
                 text = ", ".join(items)
-            except Exception:
+            except:
                 text = ""
 
             return (
@@ -557,9 +557,7 @@ class LogPublisher(object):
         for observer in self.observers:
             try:
                 observer(event)
-            except KeyboardInterrupt:
-                raise
-            except Exception:
+            except:
                 #
                 # We have to remove the offending observer because
                 # we're going to badmouth it to all of its friends
@@ -570,7 +568,7 @@ class LogPublisher(object):
                 try:
                     self.log.failure("Observer {observer} raised an exception; removing.")
                     Failure().printTraceback()
-                except Exception:
+                except:
                     pass
                 finally:
                     self.addObserver(observer)
