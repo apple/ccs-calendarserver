@@ -33,14 +33,22 @@ defaultLogLevel = logLevelsByNamespace[None]
 
 class TestLoggerMixIn(object):
     def emit(self, level, format=None, **kwargs):
-        def observer(eventDict):
-            self.eventDict = eventDict
+        if False:
+            print "*"*60
+            print "level =", level
+            print "format =", format
+            for key, value in kwargs.items():
+                print key, "=", value
+            print "*"*60
+
+        def observer(event):
+            self.event = event
 
         twistedLogging.addObserver(observer)
-
-        Logger.emit(self, level, format, **kwargs)
-
-        twistedLogging.removeObserver(observer)
+        try:
+            Logger.emit(self, level, format, **kwargs)
+        finally:
+            twistedLogging.removeObserver(observer)
 
         self.emitted = {
             "level" : level,
@@ -126,7 +134,11 @@ class Logging(TestCase):
         obj = LogComposedObject("hello")
         log = obj.log
         log.error("Hello, {log_source}.")
-        stuff = twistedLogging.textFromEventDict(log.eventDict)
+
+        self.assertIn("log_source", log.event)
+        self.assertEquals(log.event["log_source"], obj)
+
+        stuff = log.formatEvent(log.event)
         self.assertIn("Hello, <LogComposedObject hello>.", stuff)
 
 
@@ -152,23 +164,22 @@ class Logging(TestCase):
             self.assertEquals(log.emitted["kwargs"]["junk"], message)
 
             if log.willLogAtLevel(level):
-                #self.assertEquals(log.eventDict["log_format"], format) # FIXME: doesn't work due to emit() mangling the format
-                self.assertEquals(log.eventDict["log_level"], level)
-                self.assertEquals(log.eventDict["log_levelName"], level.name)
-                self.assertEquals(log.eventDict["log_namespace"], __name__)
-                self.assertEquals(log.eventDict["log_source"], None)
+                self.assertEquals(log.event["log_format"], format)
+                self.assertEquals(log.event["log_level"], level)
+                self.assertEquals(log.event["log_namespace"], __name__)
+                self.assertEquals(log.event["log_source"], None)
 
-                self.assertEquals(log.eventDict["logLevel"], pythonLogLevelMapping[level])
+                self.assertEquals(log.event["logLevel"], pythonLogLevelMapping[level])
 
-                self.assertEquals(log.eventDict["junk"], message)
+                self.assertEquals(log.event["junk"], message)
 
                 # FIXME: this checks the end of message because we do formatting in emit()
                 self.assertEquals(
-                    twistedLogging.textFromEventDict(log.eventDict)[-len(message):],
+                    log.formatEvent(log.event),
                     message
                 )
             else:
-                self.assertFalse(hasattr(log, "eventDict"))
+                self.assertFalse(hasattr(log, "event"))
 
 
     def test_defaultFailure(self):
@@ -203,19 +214,16 @@ class Logging(TestCase):
             "*",
             log_format = "#",
             log_level = LogLevel.error,
-            log_levelName = "*level name*",
             log_namespace = "*namespace*",
             log_source = "*source*",
         )
 
         # FIXME: Should conflicts log errors?
 
-        self.assertNotEquals(log.eventDict["log_format"], "*")
-        self.assertNotEquals(log.eventDict["log_format"], "#")
-        self.assertEquals(log.eventDict["log_level"], LogLevel.warn)
-        self.assertEquals(log.eventDict["log_levelName"], LogLevel.warn.name)
-        self.assertEquals(log.eventDict["log_namespace"], log.namespace)
-        self.assertEquals(log.eventDict["log_source"], None)
+        self.assertEquals(log.event["log_format"], "*")
+        self.assertEquals(log.event["log_level"], LogLevel.warn)
+        self.assertEquals(log.event["log_namespace"], log.namespace)
+        self.assertEquals(log.event["log_source"], None)
 
 
     def test_defaultLogLevel(self):
@@ -340,6 +348,22 @@ class Logging(TestCase):
 
         errors = self.flushLoggedErrors(InvalidLogLevelError)
         self.assertEquals(len(errors), 1)
+
+
+    def test_formatEvent(self):
+        """
+        Test formatting.
+        """
+        def formatEvent(log_format, **event):
+            event["log_format"] = log_format
+            result = Logger.formatEvent(event)
+            self.assertIdentical(type(result), unicode) # Always returns unicode
+            return result
+
+        self.assertEquals("", formatEvent(""))
+        self.assertEquals("abc", formatEvent("{x}", x="abc"))
+        self.assertEquals(u'S\xe1nchez', formatEvent("S\xc3\xa1nchez")) # bytes->unicode
+        self.assertIn("Unable to format event", formatEvent("S\xe1nchez")) # Non-UTF-8 bytes
 
 
     def test_legacy_msg(self):

@@ -50,7 +50,12 @@ second example, it would be C{some.module.Foo}.
 #
 # TODO List:
 #
-# * Filter in observers, not emit()
+# * Filter in observers, not emit() - use a wrapper observer
+# * Expose the default log observer (TheLogPublisher)
+# * Specifically, expose addObserver and removeObserver so one can register other observers
+# * Check the unicode situation for sanity
+# * Change the default log observer to something non-legacy
+# * Register a legacy observer with Twisted's logging that forwards to this module
 #
 
 __all__ = [
@@ -63,20 +68,24 @@ __all__ = [
     "LegacyLogger",
     "ILogObserver",
     "ILegacyLogObserver",
-    "StandardIOObserver",
+    "LogPublisher",
+    "LegacyLogObserverWrapper",
+    #"StandardIOObserver",
 ]
 
 from sys import stdout, stderr
 
 import inspect
 import logging
+import time
 
-from zope.interface import Interface
+from zope.interface import Interface, implementer
 from twisted.python.constants import NamedConstant, Names
 from twisted.python.failure import Failure
 from twisted.python.reflect import safe_str
 from twisted.python.log import msg as twistedLogMessage
 from twisted.python.log import addObserver, removeObserver
+from twisted.python.log import ILogObserver as ILegacyLogObserver
 
 
 
@@ -205,9 +214,9 @@ class Logger(object):
             notation, as used by python modules.  If not C{None}, then the name
             of the module of the caller is used.
 
-        @param source: The object which is emitting messages to this logger;
-            this is automatically set on instances of a class if this L{Logger}
-            is an attribute of that class.
+        @param source: The object which is emitting events to this
+            logger; this is automatically set on instances of a class
+            if this L{Logger} is an attribute of that class.
         """
         if namespace is None:
             currentFrame = inspect.currentframe()
@@ -248,69 +257,95 @@ class Logger(object):
         return "<%s %r>" % (self.__class__.__name__, self.namespace)
 
 
+    @classmethod
+    def formatEvent(cls, event):
+        """
+        Formats an event as a L{unicode}, using the format in
+        C{event["log_format"]}.  This implementation should never
+        raise an exception; if the formatting cannot be done, the
+        returned string will describe the event so that a useful
+        message is emitted regardless.
+
+        @param event: a logging event
+
+        @return: a L{unicode}
+        """
+        try:
+            format = event.get("log_format", None)
+
+            if format is None:
+                raise ValueError("No log format provided")
+
+            # Make sure format is unicode.
+            if type(format) is bytes:
+                # If we get bytes, assume it's UTF-8 bytes
+                format = format.decode("utf-8")
+            else:
+                # For anything else, assume we can just convert to unicode
+                format = unicode(format)
+
+            return format.format(**event)
+
+        except Exception as e:
+            return cls.formatUnformattableEvent(event, e)
+
+
+    @classmethod
+    def formatUnformattableEvent(cls, event, error):
+        """
+        Formats an event as a L{unicode} that describes the event
+        generically and a formatting error.
+
+        @param event: a logging event
+
+        @param error: the formatting error
+
+        @return: a L{unicode}
+        """
+        return (
+            u"Unable to format event {event}: {error}"
+            .format(event=event, error=error)
+        )
+
+
     def emit(self, level, format=None, **kwargs):
         """
-        Emit a log message to all log observers at the given level.
+        Emit a log event to all log observers at the given level.
 
         @param level: a L{LogLevel}
 
-        @param format: a message format using PEP3101 formatting.  All
-            variables in C{kwargs} are available.
+        @param format: a message format using new-style (PEP 3101)
+            formatting.  The logging event (which is a L{dict}) is
+            used to render this format string.
 
-        @param kwargs: additional keyword parameters to include with the
-            message.
+        @param kwargs: additional keyword parameters to include with
+            the event.
         """
         if level not in LogLevel.iterconstants(): # FIXME: Updated Twisted supports 'in' on constants container
             self.failure(
-                "Got invalid log level in {logger}.emit().",
+                "Got invalid log {invalidLevel} level in {logger}.emit().",
                 Failure(InvalidLogLevelError(level)),
+                invalidLevel = level,
                 logger = self,
             )
-            level = LogLevel.error
+            #level = LogLevel.error
             return
 
         # FIXME: Filtering should be done by the log observer(s)
         if not self.willLogAtLevel(level):
             return
 
-        kwargs.update(
+        event = kwargs
+        event.update(
+            log_logger    = self,
             log_level     = level,
-            log_levelName = level.name, # FIXME: Remove
             log_namespace = self.namespace,
             log_source    = self.source,
+            log_format    = format,
+            log_time      = time.time(),
         )
 
-        #
-        # Twisted's logging supports indicating a python log level, so let's
-        # use the equivalent to our logging level.
-        #
-        if level in pythonLogLevelMapping:
-            kwargs["logLevel"] = pythonLogLevelMapping[level]
-
-        prefix = "[%(log_namespace)s#%(log_levelName)s] "
-
-        if "log_failure" in kwargs:
-            # FIXME: legacy cruft: failure, isError, why
-            kwargs["failure"] = kwargs["log_failure"]
-            kwargs["isError"] = 1
-            kwargs["why"] = "%s%s" % (prefix % kwargs, format % kwargs)
-
-        if format:
-            #
-            # Create an object that implements __str__() in order to
-            # defer the work of formatting until it's needed by a
-            # legacy log observer.
-            #
-            class LegacyFormatStub(object):
-                def __str__(self):
-                    return format.format(**kwargs)
-
-            # FIXME: legacy cruft: format
-            # FIXME: Adding the prefix should be the observer's problem
-            kwargs["log_format"] = kwargs["format"] = prefix + "%(log_legacy)s"
-            kwargs["log_legacy"] = LegacyFormatStub()
-
-        twistedLogMessage(**kwargs)
+        TheLogPublisher(event)
 
 
     def failure(self, format, failure=None, **kwargs):
@@ -321,7 +356,7 @@ class Logger(object):
 
             try:
                 frob(knob)
-            except:
+            except Exception:
                 log.failure("While frobbing {knob}", knob=knob)
 
         or::
@@ -329,13 +364,15 @@ class Logger(object):
             d = deferred_frob(knob)
             d.addErrback(lambda f: log.failure, "While frobbing {knob}", f, knob=knob)
 
+        @param format: a message format using new-style (PEP 3101)
+            formatting.  The logging event (which is a L{dict}) is
+            used to render this format string.
+
         @param failure: a L{Failure} to log.  If C{None}, a L{Failure} is
             created from the exception in flight.
 
-        @param message: a message
-
         @param kwargs: additional keyword parameters to include with the
-            message.
+            event.
         """
         if failure is None:
             failure=Failure()
@@ -399,9 +436,6 @@ class LegacyLogger(Logger):
         elif isinstance(_stuff, Exception):
             _stuff = Failure(_stuff)
 
-        # FIXME: We are setting isError=0 below to work around
-        # existing bugs, should be =1.
-
         if isinstance(_stuff, Failure):
             self.emit(LogLevel.error, failure=_stuff, why=_why, isError=1, **kwargs)
         else:
@@ -412,12 +446,15 @@ class LegacyLogger(Logger):
 
 def bindEmit(level):
     doc = """
-    Emit a log message at log level L{%s}.
+    Emit a log event at log level L{{{level}}}.
 
-    @param message: a message
+    @param format: a message format using new-style (PEP 3101)
+        formatting.  The logging event (which is a L{{dict}}) is used to
+        render this format string.
 
-    @param kwargs: additional keyword parameters to include with the message.
-    """ % (level.__class__.__name__,)
+    @param kwargs: additional keyword parameters to include with the
+        event.
+    """.format(level=level.name)
 
     #
     # Attach methods to Logger
@@ -448,35 +485,144 @@ class ILogObserver(Interface):
     """
     An observer which can handle log events.
     """
-    def __call__(eventDict):
+    def __call__(event):
         """
         Log an event.
 
-        @type eventDict: C{dict} with C{str} keys.
+        @type event: C{dict} with C{str} keys.
 
-        @param eventDict: A dictionary with arbitrary keys as defined
-            by the application emitting logging events, as well as
-            keys added by the logging system, with are:
+        @param event: A dictionary with arbitrary keys as defined by
+            the application emitting logging events, as well as keys
+            added by the logging system, with are:
             ...
         """
 
 
-# Import the legacy interface from Twisted
-from twisted.python.log import ILogObserver as ILegacyLogObserver
 
-
-class FilteringLogObserverWrapper(object):
+@implementer(ILogObserver)
+class LogPublisher(object):
     """
+    Log publisher that fans out events to other observers.
+
+    Keeps track of a set of L{ILogObserver} objects and forwards
+    events to each.
     """
+    log = Logger()
+
+    def __init__(self):
+        self._observers = set()
+
+
+    @property
+    def observers(self):
+        return frozenset(self._observers)
+
+
+    def addObserver(self, observer):
+        """
+        Registers an observer with this publisher.
+
+        @param observer: An L{ILogObserver} to add.
+        """
+        self._observers.add(observer)
+
+
+    def removeObserver(self, observer):
+        """
+        Unregisters an observer with this publisher.
+
+        @param observer: An L{ILogObserver} to remove.
+        """
+        self._observers.remove(observer)
+
+
+    def __call__(self, event): 
+        for observer in self.observers:
+            try:
+                observer(event)
+            except KeyboardInterrupt:
+                raise
+            except Exception:
+                #
+                # We have to remove the offending observer because
+                # we're going to badmouth it to all of its friends
+                # (other observers) and it might get offended and
+                # raise again, causing an infinite loop.
+                #
+                self.removeObserver(observer)
+                try:
+                    self.log.failure("Observer {observer} raised an exception; removing.")
+                    Failure().printTraceback()
+                except Exception:
+                    pass
+                finally:
+                    self.addObserver(observer)
 
 
 
+@implementer(ILogObserver)
+class LegacyLogObserverWrapper(object):
+    """
+    L{ILogObserver} that wraps an L{ILegacyLogObserver}.
+    """
+    def __init__(self, legacyObserver):
+        """
+        @param legacyObserver: an L{ILegacyLogObserver} to which this
+            observer will forward events.
+        """
+        self.legacyObserver = legacyObserver
 
+    
+    def __call__(self, event): 
+        prefix = "[{log_namespace}#{log_level.name}] ".format(**event)
+
+        level = event["log_level"]
+
+        #
+        # Twisted's logging supports indicating a python log level, so let's
+        # provide the equivalent to our logging levels.
+        #
+        if level in pythonLogLevelMapping:
+            event["logLevel"] = pythonLogLevelMapping[level]
+
+        # Format new style -> old style
+        if event["log_format"]:
+            #
+            # Create an object that implements __str__() in order to
+            # defer the work of formatting until it's needed by a
+            # legacy log observer.
+            #
+            class LegacyFormatStub(object):
+                def __str__(self):
+                    return self.formatEvent(event)
+
+            # FIXME: Adding the prefix should be the observer's problem
+            event["format"] = prefix + "%(log_legacy)s"
+            event["log_legacy"] = LegacyFormatStub()
+
+        # log.failure() -> isError blah blah
+        if "log_failure" in event:
+            formatEvent = event.get("log_logger", Logger).formatEvent
+
+            event["failure"] = event["log_failure"]
+            event["isError"] = 1
+            event["why"] = "{prefix}{message}".format(prefix=prefix, message=formatEvent(event))
+
+        self.legacyObserver(**event)
+
+
+
+TheLogPublisher = LogPublisher()
+TheLogPublisher.addObserver(LegacyLogObserverWrapper(twistedLogMessage))
+
+
+
+######################################################################
 # FIXME: This may not be needed; look into removing it.
 
 class StandardIOObserver(object):
     """
-    Log observer that writes to standard I/O.
+    (Legacy) log observer that writes to standard I/O.
     """
     def emit(self, eventDict):
         text = None
