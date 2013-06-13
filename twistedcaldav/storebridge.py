@@ -82,7 +82,6 @@ from twext.web2.iweb import IResponse
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.instance import InvalidOverriddenInstanceError, \
     TooManyInstancesError
-from twisted.python.failure import Failure
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and

@@ -134,10 +134,15 @@ class ScheduleViaCalDAV(DeliveryService):
                 recipient,
                 noAttendeeRefresh=self.scheduler.noAttendeeRefresh,
             ))
-        except ImplicitProcessorException, e:
-            log.error("Could not store data in Inbox : %s" % (recipient.inbox,))
-            if log.willLogAtLevel(LogLevel.debug):
-                log.debug("%s: %s" % (e, Failure().getTraceback(),))
+        except ImplicitProcessorException as e:
+            log.failure(
+                "Could not store data in inbox {inbox}",
+                inbox=recipient.inbox, level=LogLevel.debug
+            )
+            log.error(
+                "Could not store data in inbox {inbox}",
+                inbox=recipient.inbox
+            )
             err = HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "recipient-permissions"),
@@ -151,10 +156,14 @@ class ScheduleViaCalDAV(DeliveryService):
             try:
                 child = yield recipient.inbox._createCalendarObjectWithNameInternal(name, self.scheduler.calendar, ComponentUpdateState.INBOX)
             except Exception as e:
-                # FIXME: Bare except
-                log.error("Could not store data in Inbox : %s %s" % (recipient.inbox, e,))
-                if log.willLogAtLevel(LogLevel.debug):
-                    log.debug("Bare Exception: %s" % (Failure().getTraceback(),))
+                log.failure(
+                    "Could not store data in inbox {inbox}: {error}",
+                    inbox=recipient.inbox, error=e, level=LogLevel.debug
+                )
+                log.error(
+                    "Could not store data in inbox {inbox}: {error}",
+                    inbox=recipient.inbox, error=e
+                )
                 err = HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "recipient-permissions"),
@@ -194,10 +203,15 @@ class ScheduleViaCalDAV(DeliveryService):
                 remote,
                 event_details,
             ))
-        except:
-            log.error("Could not determine free busy information: %s" % (recipient.cuaddr,))
-            if log.willLogAtLevel(LogLevel.debug):
-                log.debug("Bare Exception: %s" % (Failure().getTraceback(),))
+        except Exception:
+            log.failure(
+                "Could not determine free busy information for recipient {cuaddr}",
+                cuaddr=recipient.cuaddr, level=LogLevel.debug
+            )
+            log.error(
+                "Could not determine free busy information for recipient {cuaddr}",
+                cuaddr=recipient.cuaddr
+            )
             err = HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "recipient-permissions"),

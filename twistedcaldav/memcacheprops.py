@@ -145,16 +145,16 @@ class MemcachePropertyCollection (object):
         result = self._split_gets_multi((key for key, _ignore_name in keys),
             client.gets_multi)
 
-        if self.log.willLogAtLevel("debug"):
-            if abortIfMissing:
-                missing = "missing "
-            else:
-                missing = ""
-            self.log.debug("Loaded keys for %schildren of %s: %s" % (
-                missing,
-                self.collection,
-                [name for _ignore_key, name in keys],
-            ))
+        if abortIfMissing:
+            missing = "missing "
+        else:
+            missing = ""
+        self.log.debug(
+            "Loaded keys for {missing}children of {collection}: {children}",
+            missing=missing, collection=self.collection,
+            children=[name for _ignore_key, name in keys],
+        )
+        # FIXME.logging: defer the above list comprehension
 
         missing = tuple((
             name for key, name in keys

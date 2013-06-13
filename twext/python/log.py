@@ -346,7 +346,7 @@ class Logger(object):
         TheLogPublisher(event)
 
 
-    def failure(self, format, failure=None, **kwargs):
+    def failure(self, format, failure=None, level=LogLevel.error, **kwargs):
         """
         Log an failure and emit a traceback.
 
@@ -369,13 +369,15 @@ class Logger(object):
         @param failure: a L{Failure} to log.  If C{None}, a L{Failure} is
             created from the exception in flight.
 
+        @param level: a L{LogLevel} to use.
+
         @param kwargs: additional keyword parameters to include with the
             event.
         """
         if failure is None:
             failure=Failure()
 
-        self.emit(LogLevel.error, format, log_failure=failure, **kwargs)
+        self.emit(level, format, log_failure=failure, **kwargs)
 
 
     def level(self):
@@ -392,16 +394,6 @@ class Logger(object):
         @param level: a L{LogLevel}
         """
         setLogLevelForNamespace(self.namespace, level)
-
-
-    def willLogAtLevel(self, level):
-        """
-        @param level: a L{LogLevel}
-
-        @return: true if this logger will emit at the given log level,
-            otherwise false.
-        """
-        return self.level() <= level
 
 
 
@@ -458,9 +450,6 @@ def bindEmit(level):
     #
     def log_emit(self, format=None, **kwargs):
         self.emit(level, format, **kwargs)
-
-    def will_emit(self):
-        return self.willLogAtLevel(level)
 
     log_emit.__doc__ = doc
 
@@ -572,7 +561,8 @@ class LogLevelFilteringLogObserverWrapper(object):
         self.observer = observer
 
 
-    def eventShouldForward(self, event):
+    @staticmethod
+    def eventShouldLog(event):
         if event["log_level"] >= logLevelForNamespace(event["log_namespace"]):
             return True
         else:
@@ -580,7 +570,7 @@ class LogLevelFilteringLogObserverWrapper(object):
 
 
     def __call__(self, event):
-        if self.eventShouldForward(event):
+        if self.eventShouldLog(event):
             self.observer(event)
 
 

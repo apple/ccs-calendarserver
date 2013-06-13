@@ -163,7 +163,7 @@ class Logging(TestCase):
             self.assertEquals(log.emitted["format"], format)
             self.assertEquals(log.emitted["kwargs"]["junk"], message)
 
-            if log.willLogAtLevel(level):
+            if level >= log.level():
                 self.assertEquals(log.event["log_format"], format)
                 self.assertEquals(log.event["log_level"], level)
                 self.assertEquals(log.event["log_namespace"], __name__)
@@ -308,19 +308,6 @@ class Logging(TestCase):
             log.setLevel(level)
             self.assertIdentical(level, log.level())
             self.assertIdentical(level, logLevelForNamespace(log.namespace))
-
-
-    def test_willLogAtLevel(self):
-        """
-        willLogAtLevel()
-        """
-        log = Logger()
-
-        for level in LogLevel.iterconstants():
-            if level < log.level():
-                self.assertFalse(log.willLogAtLevel(level), (level, log.level()))
-            else:
-                self.assertTrue(log.willLogAtLevel(level), (level, log.level()))
 
 
     def test_logInvalidLogLevel(self):
