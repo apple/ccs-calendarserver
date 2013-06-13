@@ -150,11 +150,10 @@ class MemcachePropertyCollection (object):
         else:
             missing = ""
         self.log.debug(
-            "Loaded keys for {missing}children of {collection}: {children}",
+            "Loaded keys for {missing}children of {collection}: {children()}",
             missing=missing, collection=self.collection,
-            children=[name for _ignore_key, name in keys],
+            children=lambda: [name for _ignore_key, name in keys],
         )
-        # FIXME.logging: defer the above list comprehension
 
         missing = tuple((
             name for key, name in keys
