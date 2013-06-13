@@ -323,21 +323,6 @@ class Logging(TestCase):
                 self.assertTrue(log.willLogAtLevel(level), (level, log.level()))
 
 
-    def test_logMethodTruthiness_Logger(self):
-        """
-        Logger's log level functions/methods have true/false
-        value based on whether they will log.
-        """
-        log = Logger()
-
-        for level in LogLevel.iterconstants():
-            enabled = getattr(log, level.name + "_enabled")
-            if enabled:
-                self.assertTrue(log.willLogAtLevel(level))
-            else:
-                self.assertFalse(log.willLogAtLevel(level))
-
-
     def test_logInvalidLogLevel(self):
         """
         Test passing in a bogus log level to C{emit()}.

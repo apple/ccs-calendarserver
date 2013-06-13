@@ -50,12 +50,12 @@ second example, it would be C{some.module.Foo}.
 #
 # TODO List:
 #
-# * Filter in observers, not emit() - use a wrapper observer
 # * Expose the default log observer (TheLogPublisher)
 # * Specifically, expose addObserver and removeObserver so one can register other observers
 # * Check the unicode situation for sanity
 # * Change the default log observer to something non-legacy
 # * Register a legacy observer with Twisted's logging that forwards to this module
+# * Monkey patch logging in Twisted to use our LegacyLogger to sprinkle betterness everywhere
 #
 
 __all__ = [
@@ -69,6 +69,7 @@ __all__ = [
     "ILogObserver",
     "ILegacyLogObserver",
     "LogPublisher",
+    "LogLevelFilteringLogObserverWrapper",
     "LegacyLogObserverWrapper",
     #"StandardIOObserver",
 ]
@@ -329,10 +330,7 @@ class Logger(object):
                 logger = self,
             )
             #level = LogLevel.error
-            return
-
-        # FIXME: Filtering should be done by the log observer(s)
-        if not self.willLogAtLevel(level):
+            # FIXME: continue to emit?
             return
 
         event = kwargs
@@ -396,7 +394,6 @@ class Logger(object):
         setLogLevelForNamespace(self.namespace, level)
 
 
-    # FIXME: get rid of this
     def willLogAtLevel(self, level):
         """
         @param level: a L{LogLevel}
@@ -468,7 +465,6 @@ def bindEmit(level):
     log_emit.__doc__ = doc
 
     setattr(Logger, level.name, log_emit)
-    setattr(Logger, level.name + "_enabled", property(will_emit))
 
 for level in LogLevel.iterconstants(): 
     bindEmit(level)
@@ -502,15 +498,15 @@ class ILogObserver(Interface):
 @implementer(ILogObserver)
 class LogPublisher(object):
     """
-    Log publisher that fans out events to other observers.
+    I{ILogObserver} that fans out events to other observers.
 
     Keeps track of a set of L{ILogObserver} objects and forwards
     events to each.
     """
     log = Logger()
 
-    def __init__(self):
-        self._observers = set()
+    def __init__(self, *observers):
+        self._observers = set(observers)
 
 
     @property
@@ -561,10 +557,40 @@ class LogPublisher(object):
 
 
 @implementer(ILogObserver)
+class LogLevelFilteringLogObserverWrapper(object):
+    """
+    L{ILogObserver} that wraps another L{ILogObserver}, but does not
+    forward events which have a L{LogLevel} lower than is configured
+    for the event's namespace.
+    """
+
+    def __init__(self, observer):
+        """
+        @param observer: an L{ILogObserver} to which this observer
+            will forward events.
+        """
+        self.observer = observer
+
+
+    def eventShouldForward(self, event):
+        if event["log_level"] >= logLevelForNamespace(event["log_namespace"]):
+            return True
+        else:
+            return False
+
+
+    def __call__(self, event):
+        if self.eventShouldForward(event):
+            self.observer(event)
+
+
+
+@implementer(ILogObserver)
 class LegacyLogObserverWrapper(object):
     """
     L{ILogObserver} that wraps an L{ILegacyLogObserver}.
     """
+
     def __init__(self, legacyObserver):
         """
         @param legacyObserver: an L{ILegacyLogObserver} to which this
@@ -612,9 +638,10 @@ class LegacyLogObserverWrapper(object):
 
 
 
-TheLogPublisher = LogPublisher()
-TheLogPublisher.addObserver(LegacyLogObserverWrapper(twistedLogMessage))
-
+TheLegacyLogObserver = LegacyLogObserverWrapper(twistedLogMessage)
+TheFilteredLogPublisher = LogPublisher(TheLegacyLogObserver) # Add post-filtering observers here
+TheFilteringLogObserver = LogLevelFilteringLogObserverWrapper(TheFilteredLogPublisher)
+TheLogPublisher = LogPublisher(TheFilteringLogObserver) # Add pre-filtering observers here
 
 
 ######################################################################
