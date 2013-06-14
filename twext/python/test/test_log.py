@@ -14,16 +14,20 @@
 # limitations under the License.
 ##
 
+from zope.interface.verify import verifyObject, BrokenMethodImplementation
+
 from twisted.python import log as twistedLogging
 from twisted.python.failure import Failure
 
-from twext.python.log import LogLevel, InvalidLogLevelError
-from twext.python.log import logLevelsByNamespace, logLevelForNamespace
-from twext.python.log import setLogLevelForNamespace, clearLogLevels
-from twext.python.log import pythonLogLevelMapping
-from twext.python.log import Logger, LegacyLogger
-
-from twext.python.log import formatWithCall
+from twext.python.log import (
+    LogLevel, InvalidLogLevelError,
+    logLevelsByNamespace,
+    logLevelForNamespace, setLogLevelForNamespace, clearLogLevels,
+    pythonLogLevelMapping,
+    formatEvent, formatWithCall,
+    Logger, LegacyLogger,
+    ILogObserver, LogPublisher,
+)
 from twistedcaldav.test.util import TestCase
 
 
@@ -84,24 +88,93 @@ class LogComposedObject(object):
 
 
 
-class Logging(TestCase):
+class SetUpTearDown(object):
     def setUp(self):
-        super(Logging, self).setUp()
+        super(SetUpTearDown, self).setUp()
         clearLogLevels()
 
 
     def tearDown(self):
-        super(Logging, self).tearDown()
+        super(SetUpTearDown, self).tearDown()
         clearLogLevels()
 
 
-    def test_repr(self):
+
+class LoggingTests(SetUpTearDown, TestCase):
+    """
+    General module tests.
+    """
+
+    def test_levelWithName(self):
         """
-        repr() on Logger
+        Look up log level by name.
         """
-        namespace = "bleargh"
-        log = Logger(namespace)
-        self.assertEquals(repr(log), "<Logger {0}>".format(repr(namespace)))
+        for level in LogLevel.iterconstants():
+            self.assertIdentical(LogLevel.levelWithName(level.name), level)
+
+
+    def test_levelWithInvalidName(self):
+        """
+        You can't make up log level names.
+        """
+        bogus = "*bogus*"
+        try:
+            LogLevel.levelWithName(bogus)
+        except InvalidLogLevelError as e:
+            self.assertIdentical(e.level, bogus)
+        else:
+            self.fail("Expected InvalidLogLevelError.")
+
+
+    def test_defaultLogLevel(self):
+        """
+        Default log level is used.
+        """
+        self.failUnless(logLevelForNamespace(None), defaultLogLevel)
+        self.failUnless(logLevelForNamespace(""), defaultLogLevel)
+        self.failUnless(logLevelForNamespace("rocker.cool.namespace"), defaultLogLevel)
+
+
+    def test_setLogLevel(self):
+        """
+        Setting and retrieving log levels.
+        """
+        setLogLevelForNamespace(None, LogLevel.error)
+        setLogLevelForNamespace("twext.web2", LogLevel.debug)
+        setLogLevelForNamespace("twext.web2.dav", LogLevel.warn)
+
+        self.assertEquals(logLevelForNamespace(None                        ), LogLevel.error)
+        self.assertEquals(logLevelForNamespace("twisted"                   ), LogLevel.error)
+        self.assertEquals(logLevelForNamespace("twext.web2"                ), LogLevel.debug)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), LogLevel.warn)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), LogLevel.warn)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), LogLevel.warn)
+
+
+    def test_setInvalidLogLevel(self):
+        """
+        Can't pass invalid log levels to setLogLevelForNamespace().
+        """
+        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace, "twext.web2", object())
+
+        # Level must be a constant, not the name of a constant
+        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace, "twext.web2", "debug")
+
+
+    def test_clearLogLevels(self):
+        """
+        Clearing log levels.
+        """
+        setLogLevelForNamespace("twext.web2", LogLevel.debug)
+        setLogLevelForNamespace("twext.web2.dav", LogLevel.error)
+
+        clearLogLevels()
+
+        self.assertEquals(logLevelForNamespace("twisted"                   ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2"                ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), defaultLogLevel)
 
 
     def test_namespace_default(self):
@@ -110,6 +183,76 @@ class Logging(TestCase):
         """
         log = Logger()
         self.assertEquals(log.namespace, __name__)
+
+
+    def test_formatWithCall(self):
+        """
+        L{formatWithCall} is an extended version of L{unicode.format} that will
+        interpret a set of parentheses "C{()}" at the end of a format key to
+        mean that the format key ought to be I{called} rather than stringified.
+        """
+        self.assertEquals(
+            formatWithCall(u"Hello, {world}. {callme()}.",
+                           dict(world="earth",
+                                callme=lambda: "maybe")),
+            "Hello, earth. maybe."
+        )
+        self.assertEquals(
+            formatWithCall(u"Hello, {repr()!r}.",
+                           dict(repr=lambda: 'repr')),
+            "Hello, 'repr'."
+        )
+
+
+    def test_formatEvent(self):
+        """
+        L{formatEvent} will format an event according to several rules:
+
+            - A string with no formatting instructions will be passed straight
+              through.
+
+            - PEP 3101 strings will be formatted using the keys and values of
+              the event as named fields.
+
+            - PEP 3101 keys ending with C{()} will be treated as instructions
+              to call that key (which ought to be a callable) before
+              formatting.
+
+        L{formatEvent} will always return L{unicode}, and if given
+        bytes, will always treat its format string as UTF-8 encoded.
+        """
+        def format(log_format, **event):
+            event["log_format"] = log_format
+            result = formatEvent(event)
+            self.assertIdentical(type(result), unicode)
+            return result
+
+        self.assertEquals(u"", format(""))
+        self.assertEquals(u"abc", format("{x}", x="abc"))
+        self.assertEquals(u"no, yes.",
+                          format("{not_called}, {called()}.",
+                                 not_called="no", called=lambda: "yes"))
+        self.assertEquals(u'S\xe1nchez', format("S\xc3\xa1nchez"))
+        self.assertIn(u"Unable to format event", format(b"S\xe1nchez"))
+        self.assertIn(u"Unable to format event",
+                      format(b"S{a}nchez", a=b"\xe1"))
+        self.assertIn(u"S'\\xe1'nchez",
+                      format(b"S{a!r}nchez", a=b"\xe1"))
+
+
+
+class LoggerTests(SetUpTearDown, TestCase):
+    """
+    Tests for L{Logger}.
+    """
+
+    def test_repr(self):
+        """
+        repr() on Logger
+        """
+        namespace = "bleargh"
+        log = Logger(namespace)
+        self.assertEquals(repr(log), "<Logger {0}>".format(repr(namespace)))
 
 
     def test_namespace_attribute(self):
@@ -139,7 +282,7 @@ class Logging(TestCase):
         self.assertIn("log_source", log.event)
         self.assertEquals(log.event["log_source"], obj)
 
-        stuff = log.formatEvent(log.event)
+        stuff = formatEvent(log.event)
         self.assertIn("Hello, <LogComposedObject hello>.", stuff)
 
 
@@ -176,7 +319,7 @@ class Logging(TestCase):
 
                 # FIXME: this checks the end of message because we do formatting in emit()
                 self.assertEquals(
-                    log.formatEvent(log.event),
+                    formatEvent(log.event),
                     message
                 )
             else:
@@ -227,79 +370,7 @@ class Logging(TestCase):
         self.assertEquals(log.event["log_source"], None)
 
 
-    def test_defaultLogLevel(self):
-        """
-        Default log level is used.
-        """
-        self.failUnless(logLevelForNamespace(None), defaultLogLevel)
-        self.failUnless(logLevelForNamespace(""), defaultLogLevel)
-        self.failUnless(logLevelForNamespace("rocker.cool.namespace"), defaultLogLevel)
-
-
-    def test_logLevelWithName(self):
-        """
-        Look up log level by name.
-        """
-        for level in LogLevel.iterconstants():
-            self.assertIdentical(LogLevel.levelWithName(level.name), level)
-
-
-    def test_logLevelWithInvalidName(self):
-        """
-        You can't make up log level names.
-        """
-        bogus = "*bogus*"
-        try:
-            LogLevel.levelWithName(bogus)
-        except InvalidLogLevelError as e:
-            self.assertIdentical(e.level, bogus)
-        else:
-            self.fail("Expected InvalidLogLevelError.")
-
-
-    def test_setLogLevel(self):
-        """
-        Setting and retrieving log levels.
-        """
-        setLogLevelForNamespace(None, LogLevel.error)
-        setLogLevelForNamespace("twext.web2", LogLevel.debug)
-        setLogLevelForNamespace("twext.web2.dav", LogLevel.warn)
-
-        self.assertEquals(logLevelForNamespace(None                        ), LogLevel.error)
-        self.assertEquals(logLevelForNamespace("twisted"                   ), LogLevel.error)
-        self.assertEquals(logLevelForNamespace("twext.web2"                ), LogLevel.debug)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), LogLevel.warn)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), LogLevel.warn)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), LogLevel.warn)
-
-
-    def test_setInvalidLogLevel(self):
-        """
-        Can't pass invalid log levels to setLogLevelForNamespace().
-        """
-        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace, "twext.web2", object())
-
-        # Level must be a constant, not the name of a constant
-        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace, "twext.web2", "debug")
-
-
-    def test_clearLogLevel(self):
-        """
-        Clearing log levels.
-        """
-        setLogLevelForNamespace("twext.web2", LogLevel.debug)
-        setLogLevelForNamespace("twext.web2.dav", LogLevel.error)
-
-        clearLogLevels()
-
-        self.assertEquals(logLevelForNamespace("twisted"                   ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2"                ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), defaultLogLevel)
-
-
-    def test_setLevelOnLogger(self):
+    def test_setLevel(self):
         """
         Set level on the logger directly.
         """
@@ -323,60 +394,82 @@ class Logging(TestCase):
         self.assertEquals(len(errors), 1)
 
 
-    def test_formatWithCall(self):
+
+class LogPublisherTests(SetUpTearDown, TestCase):
+    """
+    Tests for L{LogPublisher}.
+    """
+
+    def test_interface(self):
         """
-        L{formatWithCall} is an extended version of L{unicode.format} that will
-        interpret a set of parentheses "C{()}" at the end of a format key to
-        mean that the format key ought to be I{called} rather than stringified.
+        L{LogPublisher} is an L{ILogObserver}.
         """
-        self.assertEquals(
-            formatWithCall(u"Hello, {world}. {callme()}.",
-                           dict(world="earth",
-                                callme=lambda: "maybe")),
-            "Hello, earth. maybe."
-        )
-        self.assertEquals(
-            formatWithCall(u"Hello, {repr()!r}.",
-                           dict(repr=lambda: 'repr')),
-            "Hello, 'repr'."
-        )
+        publisher = LogPublisher()
+        try:
+            verifyObject(ILogObserver, publisher)
+        except BrokenMethodImplementation as e:
+            self.fail(e)
 
 
-    def test_formatEvent(self):
+    def test_observers(self):
         """
-        L{Logger.formatEvent} will format an event according to several rules:
-
-            - A string with no formatting instructions will be passed straight
-              through.
-
-            - PEP 3101 strings will be formatted using the keys and values of
-              the event as named fields.
-
-            - PEP 3101 keys ending with C{()} will be treated as instructions
-              to call that key (which ought to be a callable) before
-              formatting.
-
-        L{Logger.formatEvent} will always return L{unicode}, and if given
-        bytes, will always treat its format string as UTF-8 encoded.
+        L{LogPublisher.observers} returns the observers.
         """
-        def formatEvent(log_format, **event):
-            event["log_format"] = log_format
-            result = Logger.formatEvent(event)
-            self.assertIdentical(type(result), unicode)
-            return result
+        o1 = lambda e: None
+        o2 = lambda e: None
 
-        self.assertEquals(u"", formatEvent(""))
-        self.assertEquals(u"abc", formatEvent("{x}", x="abc"))
-        self.assertEquals(u"no, yes.",
-                          formatEvent("{not_called}, {called()}.",
-                                      not_called="no", called=lambda: "yes"))
-        self.assertEquals(u'S\xe1nchez', formatEvent("S\xc3\xa1nchez"))
-        self.assertIn(u"Unable to format event", formatEvent(b"S\xe1nchez"))
-        self.assertIn(u"Unable to format event",
-                      formatEvent(b"S{a}nchez", a=b"\xe1"))
-        self.assertIn(u"S'\\xe1'nchez",
-                      formatEvent(b"S{a!r}nchez", a=b"\xe1"))
+        publisher = LogPublisher(o1, o2)
+        self.assertEquals(set((o1, o2)), set(publisher.observers))
 
+
+    def test_addObserver(self):
+        """
+        L{LogPublisher.addObserver} adds an observer.
+        """
+        o1 = lambda e: None
+        o2 = lambda e: None
+        o3 = lambda e: None
+
+        publisher = LogPublisher(o1, o2)
+        publisher.addObserver(o3)
+        self.assertEquals(set((o1, o2, o3)), set(publisher.observers))
+
+
+    def test_removeObserver(self):
+        """
+        L{LogPublisher.removeObserver} removes an observer.
+        """
+        o1 = lambda e: None
+        o2 = lambda e: None
+        o3 = lambda e: None
+
+        publisher = LogPublisher(o1, o2, o3)
+        publisher.removeObserver(o2)
+        self.assertEquals(set((o1, o3)), set(publisher.observers))
+
+
+    def test_fanOut(self):
+        """
+        L{LogPublisher} calls its observers.
+        """
+        e1 = []
+        e2 = []
+        e3 = []
+
+        o1 = lambda e: e1.append(e)
+        o2 = lambda e: e2.append(e)
+        o3 = lambda e: e3.append(e)
+
+        publisher = LogPublisher(o1, o2, o3)
+        publisher.removeObserver(o2)
+        self.assertEquals(set((o1, o3)), set(publisher.observers))
+
+
+
+class LegacyLoggerTests(SetUpTearDown, TestCase):
+    """
+    Tests for L{LegacyLogger}.
+    """
 
     def test_legacy_msg(self):
         """

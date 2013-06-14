@@ -70,8 +70,11 @@ __all__ = [
     "ILogObserver",
     "ILegacyLogObserver",
     "LogPublisher",
-    "LogLevelFilteringLogObserverWrapper",
-    "LegacyLogObserverWrapper",
+    "PredicateResult",
+    "ILogFilterPredicate",
+    "FilteringLogObserver",
+    "LogLevelFilterPredicate",
+    "LegacyLogObserver",
     #"StandardIOObserver",
 ]
 
@@ -503,6 +506,7 @@ class ILogObserver(Interface):
     """
     An observer which can handle log events.
     """
+
     def __call__(event):
         """
         Log an event.
@@ -576,38 +580,94 @@ class LogPublisher(object):
 
 
 
-@implementer(ILogObserver)
-class LogLevelFilteringLogObserverWrapper(object):
+class PredicateResult(Names):
     """
-    L{ILogObserver} that wraps another L{ILogObserver}, but does not
-    forward events which have a L{LogLevel} lower than is configured
-    for the event's namespace.
+    Predicate results.
+    """
+    yes   = NamedConstant() # Log this
+    no    = NamedConstant() # Don't log this
+    maybe = NamedConstant() # No opinion
+
+
+
+class ILogFilterPredicate(Interface):
+    """
+    A predicate that determined whether an event should be logged.
     """
 
-    def __init__(self, observer):
+    def __call__(event):
+        """
+        Determine whether an event should be logged.
+
+        @returns: a L{PredicateResult}.
+        """
+
+
+
+@implementer(ILogObserver)
+class FilteringLogObserver(object):
+    """
+    L{ILogObserver} that wraps another L{ILogObserver}, but filters
+    out events based on applying a series of L{ILogFilterPredicate}s.
+    """
+
+    def __init__(self, observer, predicates):
         """
         @param observer: an L{ILogObserver} to which this observer
             will forward events.
+
+        @param predicates: an ordered iterable of predicates to apply
+            to events before forwarding to the wrapped observer.
         """
-        self.observer = observer
+        self.observer   = observer
+        self.predicates = list(predicates)
 
 
-    @staticmethod
-    def eventShouldLog(event):
-        if event["log_level"] >= logLevelForNamespace(event["log_namespace"]):
-            return True
-        else:
-            return False
+    def shouldLogEvent(self, event):
+        """
+        Determine whether an event should be logged, based
+        C{self.predicates}.
+
+        @param event: an event
+        """
+        for predicate in self.predicates:
+            result = predicate(event)
+            if result == PredicateResult.yes:
+                return True
+            if result == PredicateResult.no:
+                return False
+            if result == PredicateResult.maybe:
+                continue
+            raise AssertionError("Unknown predicate result: {0}".format(result))
+        return True
 
 
     def __call__(self, event):
-        if self.eventShouldLog(event):
+        if self.shouldLogEvent(event):
             self.observer(event)
 
 
 
+@implementer(ILogFilterPredicate)
+class LogLevelFilterPredicate(object):
+    """
+    L{ILogFilterPredicate} that filters out events with a log level
+    lower than the log level for the event's namespace.
+    """
+
+    def __call__(self, event):
+        level     = event["log_level"]
+        namespace = event["log_namespace"]
+
+        if level < logLevelForNamespace(namespace):
+            return PredicateResult.no
+
+        return PredicateResult.maybe
+
+
+
 @implementer(ILogObserver)
-class LegacyLogObserverWrapper(object):
+class LegacyLogObserver(object):
     """
     L{ILogObserver} that wraps an L{ILegacyLogObserver}.
     """
@@ -659,6 +719,7 @@ class LegacyLogObserverWrapper(object):
 #
 # Utilities
 #
+
 class CallMapping(object):
     def __init__(self, submapping):
         self._submapping = submapping
@@ -699,10 +760,10 @@ def formatWithCall(formatString, mapping):
     @rtype: L{unicode}
     """
     return unicode(
-        _theFormatter.vformat(formatString, (), CallMapping(mapping))
+        formatter.vformat(formatString, (), CallMapping(mapping))
     )
 
-_theFormatter = Formatter()
+formatter = Formatter()
 
 
 
@@ -710,13 +771,11 @@ _theFormatter = Formatter()
 # Default observers
 # FIXME: ...
 #
-theLegacyLogObserver = LegacyLogObserverWrapper(twistedLogMessage)
-
+theLegacyLogObserver = LegacyLogObserver(twistedLogMessage)
 theFilteredLogPublisher = LogPublisher(theLegacyLogObserver) # Add post-filtering observers here
-theFilteringLogObserver = LogLevelFilteringLogObserverWrapper(theFilteredLogPublisher)
-theLogPublisher = LogPublisher(theFilteringLogObserver) # Add pre-filtering observers here
+theFilteringLogObserver = FilteringLogObserver(theFilteredLogPublisher, (LogLevelFilterPredicate(),))
+Logger.publisher = LogPublisher(theFilteringLogObserver) # Add pre-filtering observers here
 
-Logger.publisher = theLogPublisher
 
 
 ######################################################################
