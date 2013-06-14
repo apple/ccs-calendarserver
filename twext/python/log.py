@@ -51,11 +51,11 @@ second example, it would be C{some.module.Foo}.
 # TODO List:
 #
 # * Expose the default log observer (TheLogPublisher)
-# * Specifically, expose addObserver and removeObserver so one can register other observers
-# * Check the unicode situation for sanity
+#  * Specifically, expose addObserver and removeObserver so one can register other observers
 # * Change the default log observer to something non-legacy
-# * Register a legacy observer with Twisted's logging that forwards to this module
-# * Monkey patch logging in Twisted to use our LegacyLogger to sprinkle betterness everywhere
+#  * Register a legacy observer with Twisted's logging that forwards to this module
+#  * Monkey patch logging in Twisted to use our LegacyLogger to sprinkle betterness everywhere
+# * Move namespace settings to Filter class
 #
 
 __all__ = [
@@ -375,7 +375,7 @@ class Logger(object):
             log_time      = time.time(),
         )
 
-        TheLogPublisher(event)
+        self.publisher(event)
 
 
     def failure(self, format, failure=None, level=LogLevel.error, **kwargs):
@@ -640,7 +640,7 @@ class LegacyLogObserverWrapper(object):
             #
             class LegacyFormatStub(object):
                 def __str__(self):
-                    return self.formatEvent(event)
+                    return self.formatEvent(event).encode("utf-8")
 
             event["format"] = prefix + "%(log_legacy)s"
             event["log_legacy"] = LegacyFormatStub()
@@ -711,11 +711,13 @@ _theFormatter = Formatter()
 # Default observers
 # FIXME: ...
 #
-TheLegacyLogObserver = LegacyLogObserverWrapper(twistedLogMessage)
-TheFilteredLogPublisher = LogPublisher(TheLegacyLogObserver) # Add post-filtering observers here
-TheFilteringLogObserver = LogLevelFilteringLogObserverWrapper(TheFilteredLogPublisher)
-TheLogPublisher = LogPublisher(TheFilteringLogObserver) # Add pre-filtering observers here
+theLegacyLogObserver = LegacyLogObserverWrapper(twistedLogMessage)
 
+theFilteredLogPublisher = LogPublisher(theLegacyLogObserver) # Add post-filtering observers here
+theFilteringLogObserver = LogLevelFilteringLogObserverWrapper(theFilteredLogPublisher)
+theLogPublisher = LogPublisher(theFilteringLogObserver) # Add pre-filtering observers here
+
+Logger.publisher = theLogPublisher
 
 
 ######################################################################
