@@ -476,7 +476,7 @@ class FilteringLogObserverTests(SetUpTearDown, TestCase):
         """
         L{FilteringLogObserver} is an L{ILogObserver}.
         """
-        observer = FilteringLogObserver(lambda e: PredicateResult.maybe, ())
+        observer = FilteringLogObserver(lambda e: None, ())
         try:
             verifyObject(ILogObserver, observer)
         except BrokenMethodImplementation as e:
@@ -537,6 +537,20 @@ class FilteringLogObserverTests(SetUpTearDown, TestCase):
 
     def test_shouldLogEvent_yesYesNoFilter(self):
         self.assertEquals(self.filterWith("twoPlus", "twoMinus", "no"), [0, 1, 2, 3])
+
+
+    def test_call(self):
+        e = dict(obj=object())
+
+        def callWithPredicateResult(result):
+            seen = []
+            observer = FilteringLogObserver(lambda e: seen.append(e), (lambda e: result,))
+            observer(e)
+            return seen
+
+        self.assertIn(e, callWithPredicateResult(PredicateResult.yes))
+        self.assertIn(e, callWithPredicateResult(PredicateResult.maybe))
+        self.assertNotIn(e, callWithPredicateResult(PredicateResult.no))
 
 
 
