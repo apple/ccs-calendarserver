@@ -75,17 +75,17 @@ class _PostgresMonitor(ProcessProtocol):
 
 
     def outReceived(self, out):
-        log.warn("received postgres stdout %r" % (out,))
+        log.warn("received postgres stdout {out!r}", out=out)
         # self.lineReceiver.dataReceived(out)
 
 
     def errReceived(self, err):
-        log.warn("received postgres stderr %r" % (err,))
+        log.warn("received postgres stderr {err}", err=err)
         self.lineReceiver.dataReceived(err)
 
 
     def processEnded(self, reason):
-        log.warn("postgres process ended with status %d" % (reason.value.status,))
+        log.warn("postgres process ended with status {status}", status=reason.value.status)
         # If pg_ctl exited with zero, we were successful in starting postgres
         # If pg_ctl exited with nonzero, we need to give up.
         self.lineReceiver.connectionLost(reason)
@@ -410,7 +410,7 @@ class PostgresService(MultiService):
         except Exception, e:
             # Some other unexpected error is preventing us from connecting
             # to the database
-            log.warn("Failed to connect to Postgres: %s" % (str(e)))
+            log.warn("Failed to connect to Postgres: {e}", e=e)
         else:
             # Database is running, so just use our connection
             self.ready(createDatabaseConn, createDatabaseCursor)
@@ -452,7 +452,7 @@ class PostgresService(MultiService):
         )
         self.monitor = monitor
         def gotReady(result):
-            log.warn("%s exited" % (pgCtl,))
+            log.warn("{cmd} exited", cmd=pgCtl)
             self.shouldStopDatabase = True
             self.ready(*createConnection())
             self.deactivateDelayedShutdown()
