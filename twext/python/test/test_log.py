@@ -27,6 +27,7 @@ from twext.python.log import (
     formatEvent, formatWithCall,
     Logger, LegacyLogger,
     ILogObserver, LogPublisher,
+    FilteringLogObserver, PredicateResult,
 )
 from twistedcaldav.test.util import TestCase
 
@@ -463,6 +464,79 @@ class LogPublisherTests(SetUpTearDown, TestCase):
         publisher = LogPublisher(o1, o2, o3)
         publisher.removeObserver(o2)
         self.assertEquals(set((o1, o3)), set(publisher.observers))
+
+
+
+class FilteringLogObserverTests(SetUpTearDown, TestCase):
+    """
+    Tests for L{FilteringLogObserver}.
+    """
+
+    def test_interface(self):
+        """
+        L{FilteringLogObserver} is an L{ILogObserver}.
+        """
+        observer = FilteringLogObserver(lambda e: PredicateResult.maybe, ())
+        try:
+            verifyObject(ILogObserver, observer)
+        except BrokenMethodImplementation as e:
+            self.fail(e)
+
+
+    def filterWith(self, *filters):
+        events = [
+            dict(count=0),
+            dict(count=1),
+            dict(count=2),
+            dict(count=3),
+        ]
+
+        class Filters(object):
+            @staticmethod
+            def twoMinus(event):
+                if event["count"] <= 2:
+                    return PredicateResult.yes
+                return PredicateResult.maybe
+
+            @staticmethod
+            def twoPlus(event):
+                if event["count"] >= 2:
+                    return PredicateResult.yes
+                return PredicateResult.maybe
+
+            @staticmethod
+            def notTwo(event):
+                if event["count"] == 2:
+                    return PredicateResult.no
+                return PredicateResult.maybe
+
+            @staticmethod
+            def no(event):
+                return PredicateResult.no
+
+        predicates = (getattr(Filters, f) for f in filters)
+        eventsSeen = []
+        trackingObserver = lambda e: eventsSeen.append(e)
+        filteringObserver = FilteringLogObserver(trackingObserver, predicates)
+        for e in events: filteringObserver(e)
+
+        return [e["count"] for e in eventsSeen]
+
+
+    def test_shouldLogEvent_noFilters(self):
+        self.assertEquals(self.filterWith(), [0, 1, 2, 3])
+
+    def test_shouldLogEvent_noFilter(self):
+        self.assertEquals(self.filterWith("notTwo"), [0, 1, 3])
+
+    def test_shouldLogEvent_yesFilter(self):
+        self.assertEquals(self.filterWith("twoPlus"), [0, 1, 2, 3])
+
+    def test_shouldLogEvent_yesNoFilter(self):
+        self.assertEquals(self.filterWith("twoPlus", "no"), [2, 3])
+
+    def test_shouldLogEvent_yesYesNoFilter(self):
+        self.assertEquals(self.filterWith("twoPlus", "twoMinus", "no"), [0, 1, 2, 3])
 
 
 

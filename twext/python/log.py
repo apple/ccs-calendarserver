@@ -638,7 +638,7 @@ class FilteringLogObserver(object):
                 return False
             if result == PredicateResult.maybe:
                 continue
-            raise AssertionError("Unknown predicate result: {0}".format(result))
+            raise AssertionError("Unknown predicate result: {0!r}".format(result))
         return True
 
 
