@@ -273,6 +273,10 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
         tokens, context, applyTo, clientLimit, propElement = extractCalendarServerPrincipalSearchData(calendarserver_principal_search)
 
+        if not validateTokens(tokens):
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN,
+                "Insufficient search token length"))
+
         # Run report
         resultsWereLimited = None
         resources = []
@@ -998,3 +1002,19 @@ def extractCalendarServerPrincipalSearchData(doc):
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
     return tokens, context, applyTo, clientLimit, propElement
+
+
+def validateTokens(tokens):
+    """
+    Make sure there is at least one token longer than one character
+
+    @param tokens: the tokens to inspect
+    @type tokens: iterable of utf-8 encoded strings
+
+    @return: True if tokens are valid, False otherwise
+    @rtype: boolean
+    """
+    for token in tokens:
+        if len(token) > 1:
+            return True
+    return False

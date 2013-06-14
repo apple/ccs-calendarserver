@@ -22,7 +22,7 @@ from twext.web2.static import MetaDataMixin
 from twisted.internet.defer import inlineCallbacks, Deferred, succeed
 from twisted.web.microdom import parseString
 
-from twistedcaldav.extensions import DAVFile, DAVResourceWithChildrenMixin, extractCalendarServerPrincipalSearchData
+from twistedcaldav.extensions import DAVFile, DAVResourceWithChildrenMixin, extractCalendarServerPrincipalSearchData, validateTokens
 from twistedcaldav.test.util import TestCase
 
 from txdav.xml.element import WebDAVElement, ResourceType
@@ -265,3 +265,18 @@ class CalendarServerPrincipalSearchTests(TestCase):
         self.assertEquals(context, None)
         self.assertTrue(applyTo)
         self.assertEquals(clientLimit, 42)
+
+    def test_validateTokens(self):
+        """
+        Ensure validateTokens only returns True if there is at least one token
+        longer than one character
+        """
+        self.assertTrue(validateTokens(["abc"]))
+        self.assertTrue(validateTokens(["ab", "c"]))
+        self.assertTrue(validateTokens(["ab"]))
+        self.assertFalse(validateTokens(["a"]))
+        self.assertFalse(validateTokens(["a", "b", "c"]))
+        self.assertFalse(validateTokens([""]))
+        self.assertFalse(validateTokens([]))
+
+

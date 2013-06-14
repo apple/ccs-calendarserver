@@ -1431,7 +1431,7 @@ def buildFilterFromTokens(mapping, tokens):
     """
 
     filterStr = None
-    tokens = [ldapEsc(t) for t in tokens if len(t) > 2]
+    tokens = [ldapEsc(t) for t in tokens]
     if len(tokens) == 0:
         return None
 
