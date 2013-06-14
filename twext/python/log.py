@@ -64,6 +64,7 @@ __all__ = [
     "logLevelForNamespace",
     "setLogLevelForNamespace",
     "clearLogLevels",
+    "formatEvent",
     "Logger",
     "LegacyLogger",
     "ILogObserver",
@@ -204,6 +205,90 @@ clearLogLevels()
 # Loggers
 ##
 
+def formatEvent(event):
+    """
+    Formats an event as a L{unicode}, using the format in
+    C{event["log_format"]}.  This implementation should never
+    raise an exception; if the formatting cannot be done, the
+    returned string will describe the event so that a useful
+    message is emitted regardless.
+
+    @param event: a logging event
+
+    @return: a L{unicode}
+    """
+    try:
+        format = event.get("log_format", None)
+
+        if format is None:
+            raise ValueError("No log format provided")
+
+        # Make sure format is unicode.
+        if type(format) is bytes:
+            # If we get bytes, assume it's UTF-8 bytes
+            format = format.decode("utf-8")
+        else:
+            # For anything else, assume we can just convert to unicode
+            format = unicode(format)
+
+        return formatWithCall(format, event)
+
+    except BaseException as e:
+        try:
+            return formatUnformattableEvent(event, e)
+        except:
+            return u"MESSAGE LOST"
+
+
+def formatUnformattableEvent(event, error):
+    """
+    Formats an event as a L{unicode} that describes the event
+    generically and a formatting error.
+
+    @param event: a logging event
+
+    @param error: the formatting error
+
+    @return: a L{unicode}
+    """
+    try:
+        return (
+            u"Unable to format event {event}: {error}"
+            .format(event=event, error=error)
+        )
+    except BaseException as error:
+        #
+        # Yikes, something really nasty happened.
+        #
+        # Try to recover as much formattable data as possible;
+        # hopefully at least the namespace is sane, which will
+        # help you find the offending logger.
+        #
+        try:
+            items = []
+
+            for key, value in event.items():
+                try:
+                    items.append(u"{key} = ".format(key=key))
+                except:
+                    items.append(u"<UNFORMATTABLE KEY> = ")
+                try:
+                    items.append(u"{value}".format(value=value))
+                except:
+                    items.append(u"<UNFORMATTABLE VALUE>")
+
+            text = ", ".join(items)
+        except:
+            text = ""
+
+        return (
+            u"MESSAGE LOST: Unformattable object logged: {error}\n"
+            u"Recoverable data: {text}"
+            .format(text=text)
+        )
+
+
+
 class Logger(object):
     """
     Logging object.
@@ -256,90 +341,6 @@ class Logger(object):
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.namespace)
 
-
-    @classmethod
-    def formatEvent(cls, event):
-        """
-        Formats an event as a L{unicode}, using the format in
-        C{event["log_format"]}.  This implementation should never
-        raise an exception; if the formatting cannot be done, the
-        returned string will describe the event so that a useful
-        message is emitted regardless.
-
-        @param event: a logging event
-
-        @return: a L{unicode}
-        """
-        try:
-            format = event.get("log_format", None)
-
-            if format is None:
-                raise ValueError("No log format provided")
-
-            # Make sure format is unicode.
-            if type(format) is bytes:
-                # If we get bytes, assume it's UTF-8 bytes
-                format = format.decode("utf-8")
-            else:
-                # For anything else, assume we can just convert to unicode
-                format = unicode(format)
-
-            return formatWithCall(format, event)
-
-        except BaseException as e:
-            try:
-                return cls.formatUnformattableEvent(event, e)
-            except:
-                return u"MESSAGE LOST"
-
-
-    @classmethod
-    def formatUnformattableEvent(cls, event, error):
-        """
-        Formats an event as a L{unicode} that describes the event
-        generically and a formatting error.
-
-        @param event: a logging event
-
-        @param error: the formatting error
-
-        @return: a L{unicode}
-        """
-        try:
-            return (
-                u"Unable to format event {event}: {error}"
-                .format(event=event, error=error)
-            )
-        except BaseException as error:
-            #
-            # Yikes, something really nasty happened.
-            #
-            # Try to recover as much formattable data as possible;
-            # hopefully at least the namespace is sane, which will
-            # help you find the offending logger.
-            #
-            try:
-                items = []
-
-                for key, value in event.items():
-                    try:
-                        items.append(u"{key} = ".format(key=key))
-                    except:
-                        items.append(u"<UNFORMATTABLE KEY> = ")
-                    try:
-                        items.append(u"{value}".format(value=value))
-                    except:
-                        items.append(u"<UNFORMATTABLE VALUE>")
-
-                text = ", ".join(items)
-            except:
-                text = ""
-
-            return (
-                u"MESSAGE LOST: Unformattable object logged: {error}\n"
-                u"Recoverable data: {text}"
-                .format(text=text)
-            )
 
     def emit(self, level, format=None, **kwargs):
         """
@@ -639,16 +640,14 @@ class LegacyLogObserverWrapper(object):
             # legacy log observer.
             #
             class LegacyFormatStub(object):
-                def __str__(self):
-                    return self.formatEvent(event).encode("utf-8")
+                def __str__(oself):
+                    return formatEvent(event).encode("utf-8")
 
             event["format"] = prefix + "%(log_legacy)s"
             event["log_legacy"] = LegacyFormatStub()
 
         # log.failure() -> isError blah blah
         if "log_failure" in event:
-            formatEvent = event.get("log_logger", Logger).formatEvent
-
             event["failure"] = event["log_failure"]
             event["isError"] = 1
             event["why"] = "{prefix}{message}".format(prefix=prefix, message=formatEvent(event))
