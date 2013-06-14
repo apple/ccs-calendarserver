@@ -227,12 +227,16 @@ def formatEvent(event):
             raise ValueError("No log format provided")
 
         # Make sure format is unicode.
-        if type(format) is bytes:
+        if isinstance(format, bytes):
             # If we get bytes, assume it's UTF-8 bytes
             format = format.decode("utf-8")
+
+        elif isinstance(format, unicode):
+            pass
+
         else:
-            # For anything else, assume we can just convert to unicode
-            format = unicode(format)
+            raise TypeError("Log format must be unicode or bytes, not {0!r}"
+                            .format(format))
 
         return formatWithCall(format, event)
 

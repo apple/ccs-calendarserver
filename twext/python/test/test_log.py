@@ -241,6 +241,27 @@ class LoggingTests(SetUpTearDown, TestCase):
                       format(b"S{a!r}nchez", a=b"\xe1"))
 
 
+    def test_formatEventNoFormat(self):
+        """
+        Formatting an event with no format.
+        """
+        event = dict(foo=1, bar=2)
+        result = formatEvent(event)
+
+        self.assertIn("Unable to format event", result)
+        self.assertIn(repr(event), result)
+
+
+    def test_formatEventWeirdFormat(self):
+        """
+        Formatting an event with a bogus format.
+        """
+        event = dict(log_format=object(), foo=1, bar=2)
+        result = formatEvent(event)
+
+        self.assertIn("Log format must be unicode or bytes", result)
+        self.assertIn(repr(event), result)
+
 
 class LoggerTests(SetUpTearDown, TestCase):
     """
