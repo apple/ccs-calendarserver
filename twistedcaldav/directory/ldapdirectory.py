@@ -312,8 +312,9 @@ class LdapDirectoryService(CachingDirectoryService):
             filterstr = "(&%s%s)" % (filterstr, typeFilter)
 
         # Query the LDAP server
-        self.log.debug("Querying ldap for records matching base %s and filter %s for attributes %s." %
-            (ldap.dn.dn2str(base), filterstr, self.attrlist))
+        self.log.debug("Querying ldap for records matching base {base} and "
+            "filter {filter} for attributes {attrs}.", 
+            base=ldap.dn.dn2str(base), filter=filterstr, attrs=self.attrlist)
 
         # This takes a while, so if you don't want to have a "long request"
         # warning logged, use this instead of timedSearch:
@@ -332,21 +333,22 @@ class LdapDirectoryService(CachingDirectoryService):
 
             try:
                 record = self._ldapResultToRecord(dn, attrs, recordType)
-                # self.log.debug("Got LDAP record %s" % (record,))
+                # self.log.debug("Got LDAP record {record}", record=record)
             except MissingGuidException:
                 numMissingGuids += 1
                 continue
 
             if not unrestricted:
-                self.log.debug("%s is not enabled because it's not a member of group: %s" % (dn, self.restrictToGroup))
+                self.log.debug("{dn} is not enabled because it's not a member of group: {group}",
+                    dn=dn, group=self.restrictToGroup)
                 record.enabledForCalendaring = False
                 record.enabledForAddressBooks = False
 
             records.append(record)
 
         if numMissingGuids:
-            self.log.info("%d %s records are missing %s" %
-                (numMissingGuids, recordType, guidAttr))
+            self.log.info("{num} {recordType] records are missing {attr}",
+                num=numMissingGuids, recordType=recordType, attr=guidAttr)
 
         return records
 
@@ -391,8 +393,9 @@ class LdapDirectoryService(CachingDirectoryService):
         attrlist = [guidAttr, readAttr, writeAttr]
 
         # Query the LDAP server
-        self.log.debug("Querying ldap for records matching base %s and filter %s for attributes %s." %
-            (ldap.dn.dn2str(self.base), filterstr, attrlist))
+        self.log.debug("Querying ldap for records matching base {base} and "
+            "filter {filter} for attributes {attrs}.",
+            base=ldap.dn.dn2str(self.base), filter=filterstr, attrs=attrlist)
 
         results = self.timedSearch(ldap.dn.dn2str(self.base),
             ldap.SCOPE_SUBTREE, filterstr=filterstr, attrlist=attrlist)
@@ -414,21 +417,20 @@ class LdapDirectoryService(CachingDirectoryService):
 
     def getLDAPConnection(self):
         if self.ldap is None:
-            self.log.info("Connecting to LDAP %s" % (repr(self.uri),))
+            self.log.info("Connecting to LDAP {uri}", uri=repr(self.uri))
             self.ldap = self.createLDAPConnection()
-            self.log.info("Connection established to LDAP %s" % (repr(self.uri),))
+            self.log.info("Connection established to LDAP {uri}", uri=repr(self.uri))
             if self.credentials.get("dn", ""):
                 try:
-                    self.log.info("Binding to LDAP %s" %
-                        (repr(self.credentials.get("dn")),))
+                    self.log.info("Binding to LDAP {dn}",
+                        dn=repr(self.credentials.get("dn")))
                     self.ldap.simple_bind_s(self.credentials.get("dn"),
                         self.credentials.get("password"))
-                    self.log.info("Successfully authenticated with LDAP as %s" %
-                        (repr(self.credentials.get("dn")),))
+                    self.log.info("Successfully authenticated with LDAP as {dn}",
+                        dn=repr(self.credentials.get("dn")))
                 except ldap.INVALID_CREDENTIALS:
-                    msg = "Can't bind to LDAP %s: check credentials" % (self.uri,)
-                    self.log.error(msg)
-                    raise DirectoryConfigurationError(msg)
+                    self.log.error("Can't bind to LDAP {uri}: check credentials", uri=self.uri)
+                    raise DirectoryConfigurationError()
         return self.ldap
 
     def createLDAPConnection(self):
@@ -1645,9 +1647,8 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
                 # Authenticate against PAM (UNTESTED)
 
                 if not pamAvailable:
-                    msg = "PAM module is not installed"
-                    self.log.error(msg)
-                    raise DirectoryConfigurationError(msg)
+                    self.log.error("PAM module is not installed")
+                    raise DirectoryConfigurationError()
 
                 def pam_conv(auth, query_list, userData):
                     return [(credentials.password, 0)]
@@ -1675,15 +1676,14 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
                     return True
 
                 except ldap.INVALID_CREDENTIALS:
-                    self.log.info("Invalid credentials for %s" %
-                        (repr(self.dn),), system="LdapDirectoryService")
+                    self.log.info("Invalid credentials for {dn}",
+                        dn=repr(self.dn), system="LdapDirectoryService")
                     return False
 
             else:
-                msg = "Unknown Authentication Method '%s'" % (
-                    self.service.authMethod.upper(),)
-                self.log.error(msg)
-                raise DirectoryConfigurationError(msg)
+                self.log.error("Unknown Authentication Method '{method}'",
+                    method=self.service.authMethod.upper())
+                raise DirectoryConfigurationError()
 
         return super(LdapDirectoryRecord, self).verifyCredentials(credentials)
 

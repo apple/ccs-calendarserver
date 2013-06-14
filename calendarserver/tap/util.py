@@ -288,7 +288,8 @@ def directoryFromConfig(config):
     #
     if config.AugmentService.type:
         augmentClass = namedClass(config.AugmentService.type)
-        log.info("Configuring augment service of type: %s" % (augmentClass,))
+        log.info("Configuring augment service of type: {augmentClass}",
+            augmentClass=augmentClass)
         try:
             augmentService = augmentClass(**config.AugmentService.params)
         except IOError:
@@ -315,8 +316,8 @@ def directoryFromConfig(config):
     directoryClass = namedClass(config.DirectoryService.type)
     principalResourceClass = DirectoryPrincipalProvisioningResource
 
-    log.info("Configuring directory service of type: %s"
-        % (config.DirectoryService.type,))
+    log.info("Configuring directory service of type: {directoryType}",
+        directoryType=config.DirectoryService.type)
 
     config.DirectoryService.params.augmentService = augmentService
     config.DirectoryService.params.groupMembershipCache = groupMembershipCache
@@ -334,7 +335,8 @@ def directoryFromConfig(config):
     if config.ResourceService.Enabled:
         resourceClass = namedClass(config.ResourceService.type)
 
-        log.info("Configuring resource service of type: %s" % (resourceClass,))
+        log.info("Configuring resource service of type: {resourceClass}",
+            resourceClass=resourceClass)
 
         config.ResourceService.params.augmentService = augmentService
         config.ResourceService.params.groupMembershipCache = groupMembershipCache
@@ -369,8 +371,7 @@ def directoryFromConfig(config):
         directory.setRealm(realmName)
     except ImportError:
         pass
-    log.info("Setting up principal collection: %r"
-                  % (principalResourceClass,))
+    log.info("Setting up principal collection: {cls}", cls=principalResourceClass)
     principalResourceClass("/principals/", directory)
     return directory
 
@@ -419,7 +420,7 @@ def getRootResource(config, newStore, resources=None):
     #
     proxydbClass = namedClass(config.ProxyDBService.type)
 
-    log.info("Configuring proxydb service of type: %s" % (proxydbClass,))
+    log.info("Configuring proxydb service of type: {cls}", cls=proxydbClass)
 
     try:
         calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
@@ -439,7 +440,7 @@ def getRootResource(config, newStore, resources=None):
 
     realm = directory.realmName or ""
 
-    log.info("Configuring authentication for realm: %s" % (realm,))
+    log.info("Configuring authentication for realm: {realm}", realm=realm)
 
     for scheme, schemeConfig in config.Authentication.iteritems():
         scheme = scheme.lower()
@@ -447,7 +448,7 @@ def getRootResource(config, newStore, resources=None):
         credFactory = None
 
         if schemeConfig["Enabled"]:
-            log.info("Setting up scheme: %s" % (scheme,))
+            log.info("Setting up scheme: {scheme}", scheme=scheme)
 
             if scheme == "kerberos":
                 if not NegotiateCredentialFactory:
@@ -483,7 +484,7 @@ def getRootResource(config, newStore, resources=None):
                 pass
 
             else:
-                log.error("Unknown scheme: %s" % (scheme,))
+                log.error("Unknown scheme: {scheme}", scheme=scheme)
 
         if credFactory:
             wireEncryptedCredentialFactories.append(credFactory)
@@ -493,12 +494,12 @@ def getRootResource(config, newStore, resources=None):
     #
     # Setup Resource hierarchy
     #
-    log.info("Setting up document root at: %s" % (config.DocumentRoot,))
+    log.info("Setting up document root at: {root}", root=config.DocumentRoot)
 
     principalCollection = directory.principalCollection
 
     if config.EnableCalDAV:
-        log.info("Setting up calendar collection: %r" % (calendarResourceClass,))
+        log.info("Setting up calendar collection: {cls}", cls=calendarResourceClass)
         calendarCollection = calendarResourceClass(
             directory,
             "/calendars/",
@@ -506,7 +507,7 @@ def getRootResource(config, newStore, resources=None):
         )
 
     if config.EnableCardDAV:
-        log.info("Setting up address book collection: %r" % (addressBookResourceClass,))
+        log.info("Setting up address book collection: {cls}", cls=addressBookResourceClass)
         addressBookCollection = addressBookResourceClass(
             directory,
             "/addressbooks/",
@@ -515,7 +516,8 @@ def getRootResource(config, newStore, resources=None):
 
         directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
         if config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook:
-            log.info("Setting up directory address book: %r" % (directoryBackedAddressBookResourceClass,))
+            log.info("Setting up directory address book: {cls}",
+                cls=directoryBackedAddressBookResourceClass)
 
             directoryBackedAddressBookCollection = directoryBackedAddressBookResourceClass(
                 principalCollections=(principalCollection,)
@@ -528,12 +530,12 @@ def getRootResource(config, newStore, resources=None):
             # remove /directory from previous runs that may have created it
             try:
                 FilePath(directoryPath).remove()
-                log.info("Deleted: %s" % directoryPath)
+                log.info("Deleted: {path}", path=directoryPath)
             except (OSError, IOError), e:
                 if e.errno != errno.ENOENT:
-                    log.error("Could not delete: %s : %r" % (directoryPath, e,))
+                    log.error("Could not delete: {path} : {error}", path=directoryPath, error=e)
 
-    log.info("Setting up root resource: %r" % (rootResourceClass,))
+    log.info("Setting up root resource: {cls}", cls=rootResourceClass)
 
     root = rootResourceClass(
         config.DocumentRoot,
@@ -582,9 +584,9 @@ def getRootResource(config, newStore, resources=None):
 
     for name, info in config.Aliases.iteritems():
         if os.path.sep in name or not info.get("path", None):
-            log.error("Invalid alias: %s" % (name,))
+            log.error("Invalid alias: {name}", name=name)
             continue
-        log.info("Adding alias %s -> %s" % (name, info["path"]))
+        log.info("Adding alias {name} -> {path}", name=name, path=info["path"])
         resource = FileResource(info["path"])
         root.putChild(name, resource)
 
@@ -594,8 +596,8 @@ def getRootResource(config, newStore, resources=None):
 
     # Timezone service is optional
     if config.EnableTimezoneService:
-        log.info("Setting up time zone service resource: %r"
-                      % (timezoneServiceResourceClass,))
+        log.info("Setting up time zone service resource: {cls}",
+                      cls=timezoneServiceResourceClass)
 
         timezoneService = timezoneServiceResourceClass(
             root,
@@ -604,8 +606,8 @@ def getRootResource(config, newStore, resources=None):
 
     # Standard Timezone service is optional
     if config.TimezoneService.Enabled:
-        log.info("Setting up standard time zone service resource: %r"
-                      % (timezoneStdServiceResourceClass,))
+        log.info("Setting up standard time zone service resource: {cls}",
+                      cls=timezoneStdServiceResourceClass)
 
         timezoneStdService = timezoneStdServiceResourceClass(
             root,
@@ -622,8 +624,8 @@ def getRootResource(config, newStore, resources=None):
     # iSchedule service
     #
     if config.Scheduling.iSchedule.Enabled:
-        log.info("Setting up iSchedule inbox resource: %r"
-                      % (iScheduleResourceClass,))
+        log.info("Setting up iSchedule inbox resource: {cls}",
+                      cls=iScheduleResourceClass)
 
         ischedule = iScheduleResourceClass(
             root,
@@ -634,7 +636,8 @@ def getRootResource(config, newStore, resources=None):
         # Do DomainKey resources
         DKIMUtils.validConfiguration(config)
         if config.Scheduling.iSchedule.DKIM.Enabled:
-            log.info("Setting up domainkey resource: %r" % (DomainKeyResource,))
+            log.info("Setting up domainkey resource: {res}",
+                res=DomainKeyResource)
             domain = config.Scheduling.iSchedule.DKIM.Domain if config.Scheduling.iSchedule.DKIM.Domain else config.ServerHostName
             dk = DomainKeyResource(
                 domain,
@@ -647,8 +650,8 @@ def getRootResource(config, newStore, resources=None):
     # WebCal
     #
     if config.WebCalendarRoot:
-        log.info("Setting up WebCalendar resource: %s"
-                      % (config.WebCalendarRoot,))
+        log.info("Setting up WebCalendar resource: {res}",
+                      res=config.WebCalendarRoot)
         webCalendar = webCalendarResourceClass(
             config.WebCalendarRoot,
             principalCollections=(principalCollection,),
@@ -674,8 +677,8 @@ def getRootResource(config, newStore, resources=None):
     #
     apnConfig = config.Notifications.Services.APNS
     if apnConfig.Enabled:
-        log.info("Setting up APNS resource at /%s" %
-            (apnConfig["SubscriptionURL"],))
+        log.info("Setting up APNS resource at /{url}",
+            url=apnConfig["SubscriptionURL"])
         apnResource = apnSubscriptionResourceClass(root, newStore)
         root.putChild(apnConfig["SubscriptionURL"], apnResource)
 
@@ -706,7 +709,8 @@ def getRootResource(config, newStore, resources=None):
                         schemeConfig["Qop"],
                         realm,
                     ))
-            log.info("Overriding %s with %s (%s)" % (path, cls, schemes))
+            log.info("Overriding {path} with {cls} ({schemes})",
+                path=path, cls=cls, schemes=schemes)
 
     authWrapper = AuthenticationWrapper(
         root,
@@ -932,11 +936,14 @@ class MemoryLimitService(Service, object):
                     try:
                         memory = self._memoryForPID(pid, self._residentOnly)
                     except Exception, e:
-                        log.error("Unable to determine memory usage of PID: %d (%s)" % (pid, e))
+                        log.error("Unable to determine memory usage of PID: {pid} ({err})",
+                            pid=pid, err=e)
                         continue
                     if memory > self._bytes:
-                        log.warn("Killing large process: %s PID:%d %s:%d" %
-                            (name, pid, "Resident" if self._residentOnly else "Virtual", memory))
+                        log.warn("Killing large process: {name} PID:{pid} {memtype}:{mem}",
+                            name=name, pid=pid,
+                            memtype=("Resident" if self._residentOnly else "Virtual"),
+                            mem=memory)
                         self._processMonitor.stopProcess(name)
         finally:
             self._delayedCall = self._reactor.callLater(self._seconds, self.checkMemory)

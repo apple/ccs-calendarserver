@@ -434,7 +434,7 @@ class PostgresService(MultiService):
         options.append("-c standard_conforming_strings=on")
         options.extend(self.options)
 
-        log.warn("Requesting postgres start via %s" % (pgCtl,))
+        log.warn("Requesting postgres start via {cmd}", cmd=pgCtl)
         self.reactor.spawnProcess(
             monitor, pgCtl,
             [
