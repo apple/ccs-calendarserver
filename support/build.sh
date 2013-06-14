@@ -757,12 +757,12 @@ dependencies () {
       "http://${sf}/project/cx-oracle/${v}/${p}.tar.gz";
   fi;
 
-  local v="4.0";
+  local v="4.1.1";
   local n="PyGreSQL";
   local p="${n}-${v}";
-  py_dependency -v "${v}" -m "1aca50e59ff4cc56abe9452a9a49c5ff" -o \
+  py_dependency -v "${v}" -m "71d0b8c5a382f635572eb52fee47cd08" -o \
     "${n}" "pgdb" "${p}" \
-    "${pypi}/P/${n}/${p}.tar.gz";
+    "${pypi}/P/${n}/${p}.tgz";
 
   # Maintenance note: next time the Twisted dependency gets updated, check out
   # twext/patches.py.
