@@ -25,7 +25,7 @@ Example usage in a module::
 
     ...
 
-    log.debug("Got data: {data}.", data=data)
+    log.debug("Got data: {data!r}.", data=data)
 
 Or in a class::
 
@@ -35,7 +35,7 @@ Or in a class::
         log = Logger()
 
         def oops(self, data):
-            self.log.error("Oops! Invalid data from server: {data}", data=data)
+            self.log.error("Oops! Invalid data from server: {data!r}", data=data)
 
 C{Logger}s have namespaces, for which logging can be configured independently.
 Namespaces may be specified by passing in a C{namespace} argument to L{Logger}
@@ -256,7 +256,7 @@ def formatUnformattableEvent(event, error):
     """
     try:
         return (
-            u"Unable to format event {event}: {error}"
+            u"Unable to format event {event!r}: {error}"
             .format(event=event, error=error)
         )
     except BaseException as error:
@@ -272,11 +272,11 @@ def formatUnformattableEvent(event, error):
 
             for key, value in event.items():
                 try:
-                    items.append(u"{key} = ".format(key=key))
+                    items.append(u"{key!r} = ".format(key=key))
                 except:
                     items.append(u"<UNFORMATTABLE KEY> = ")
                 try:
-                    items.append(u"{value}".format(value=value))
+                    items.append(u"{value!r}".format(value=value))
                 except:
                     items.append(u"<UNFORMATTABLE VALUE>")
 
@@ -360,7 +360,7 @@ class Logger(object):
         """
         if level not in LogLevel.iterconstants(): # FIXME: Updated Twisted supports 'in' on constants container
             self.failure(
-                "Got invalid log {invalidLevel} level in {logger}.emit().",
+                "Got invalid log level {invalidLevel!r} in {logger}.emit().",
                 Failure(InvalidLogLevelError(level)),
                 invalidLevel = level,
                 logger = self,
@@ -511,7 +511,7 @@ class ILogObserver(Interface):
         """
         Log an event.
 
-        @type event: C{dict} with C{str} keys.
+        @type event: C{dict} with (native) C{str} keys.
 
         @param event: A dictionary with arbitrary keys as defined by
             the application emitting logging events, as well as keys
@@ -571,8 +571,7 @@ class LogPublisher(object):
                 #
                 self.removeObserver(observer)
                 try:
-                    self.log.failure("Observer {observer} raised an exception; removing.")
-                    Failure().printTraceback()
+                    self.log.failure("Observer {observer} raised an exception; removing.", observer=observer)
                 except:
                     pass
                 finally:
