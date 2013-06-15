@@ -228,7 +228,8 @@ class LoggingTests(SetUpTearDown, TestCase):
             self.assertIdentical(type(result), unicode)
             return result
 
-        self.assertEquals(u"", format(""))
+        self.assertEquals(u"", format(b""))
+        self.assertEquals(u"", format(u""))
         self.assertEquals(u"abc", format("{x}", x="abc"))
         self.assertEquals(u"no, yes.",
                           format("{not_called}, {called()}.",
@@ -261,6 +262,35 @@ class LoggingTests(SetUpTearDown, TestCase):
 
         self.assertIn("Log format must be unicode or bytes", result)
         self.assertIn(repr(event), result)
+
+
+    def test_formatEventYouSoNasty(self):
+        """
+        Formatting an event that's just plain out to get us.
+        """
+        event = dict(log_format="{evil()}", evil=lambda: 1/0)
+        result = formatEvent(event)
+
+        self.assertIn("Unable to format event", result)
+        self.assertIn(repr(event), result)
+
+
+#     def test_formatEventYouSoNastyOMGMakeItStop(self):
+#         """
+#         Formatting an event that's just plain out to get us and is
+#         really determined.
+#         """
+#         badRepr = 
+
+#         event = dict(
+#             log_format="{evil()}",
+#             evil=lambda: 1/0,
+#         )
+#         result = formatEvent(event)
+
+#         self.assertIn("Unable to format event", result)
+#         self.assertIn(repr(event), result)
+
 
 
 class LoggerTests(SetUpTearDown, TestCase):
