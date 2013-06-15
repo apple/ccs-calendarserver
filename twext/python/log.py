@@ -52,9 +52,7 @@ second example, it would be C{some.module.Foo}.
 #
 # * Expose the default log observer (TheLogPublisher)
 #  * Specifically, expose addObserver and removeObserver so one can register other observers
-# * Change the default log observer to something non-legacy
-#  * Register a legacy observer with Twisted's logging that forwards to this module
-#  * Monkey patch logging in Twisted to use our LegacyLogger to sprinkle betterness everywhere
+# * Monkey patch logging in Twisted to use our LegacyLogger to sprinkle betterness everywhere
 # * Move namespace settings to Filter class
 #
 
