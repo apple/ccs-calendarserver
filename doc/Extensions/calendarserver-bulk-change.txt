@@ -1,0 +1,1288 @@
+
+
+
+Calendar Server Extension                                       C. Daboo
+                                                                 E. York
+                                                              Apple Inc.
+                                                          August 8, 2011
+
+
+        Calendar Server Bulk Change Requests for *DAV Protocols
+
+Abstract
+
+   This specification defines an extension to CalDAV and CardDAV that
+   enables clients to do multiple changes on the server with a single
+   HTTP request.
+
+
+Table of Contents
+
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  2
+   2.  Conventions Used in This Document  . . . . . . . . . . . . . .  2
+   3.  Simple Bulk Import Request . . . . . . . . . . . . . . . . . .  3
+     3.1.  Example: Calendar Resource Bulk Create . . . . . . . . . .  4
+     3.2.  Example: Address Book Resource Bulk Create . . . . . . . .  6
+   4.  Bulk CRUD Request  . . . . . . . . . . . . . . . . . . . . . .  8
+     4.1.  Create request . . . . . . . . . . . . . . . . . . . . . .  9
+     4.2.  Update request . . . . . . . . . . . . . . . . . . . . . . 10
+     4.3.  Delete request . . . . . . . . . . . . . . . . . . . . . . 12
+     4.4.  Example: Calendar Resource Bulk CRUD . . . . . . . . . . . 12
+   5.  Size Limits for Bulk Requests  . . . . . . . . . . . . . . . . 14
+     5.1.  MM:bulk-requests Property  . . . . . . . . . . . . . . . . 15
+   6.  CTag Conditional Requests  . . . . . . . . . . . . . . . . . . 16
+     6.1.  Example: CTag Pre-condition Failure  . . . . . . . . . . . 17
+     6.2.  Example: CTag Pre-condition Success with Expect  . . . . . 18
+     6.3.  Example: CTag Pre-condition on MKCALENDAR  . . . . . . . . 18
+   7.  XML Element Definitions  . . . . . . . . . . . . . . . . . . . 19
+     7.1.  MM:multiput XML Element  . . . . . . . . . . . . . . . . . 19
+     7.2.  MM:resource XML Element  . . . . . . . . . . . . . . . . . 19
+     7.3.  MM:if-match XML Element  . . . . . . . . . . . . . . . . . 20
+     7.4.  MM:delete XML Element  . . . . . . . . . . . . . . . . . . 20
+   8.  HTTP Header Definitions  . . . . . . . . . . . . . . . . . . . 20
+     8.1.  X-MobileMe-DAV-Options Header  . . . . . . . . . . . . . . 20
+     8.2.  CTag Header  . . . . . . . . . . . . . . . . . . . . . . . 21
+     8.3.  Home-CTag Header . . . . . . . . . . . . . . . . . . . . . 21
+   9.  Security Considerations  . . . . . . . . . . . . . . . . . . . 21
+   10. IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 22
+   11. Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 22
+   12. Normative References . . . . . . . . . . . . . . . . . . . . . 22
+   Appendix A.  Change History  . . . . . . . . . . . . . . . . . . . 22
+   Authors' Addresses . . . . . . . . . . . . . . . . . . . . . . . . 23
+
+
+
+Daboo & York                                                    [Page 1]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+1.  Introduction
+
+   CalDAV [RFC4791] and CardDAV [I-D.ietf-vcarddav-carddav] provide a
+   way for calendar and contact data, respectively, to be stored on a
+   WebDAV [RFC4918] server.  In a number of situations clients need to
+   make a lot of changes on the server all within a short period of
+   time.  For example, a user could be trying to "import" a calendar or
+   address book from some other sources, requiring the client to create
+   a lot of calendar or address book resources.  Or a client that is
+   able to operate in a disconnected mode could have a whole set of
+   changes queued up that need to be "replayed" to the server to
+   synchronize the changes.  Currently, WebDAV operations such as PUT
+   and DELETE are limited to operating on a single resource at a time.
+   A more efficient approach would be to allow the client to send a
+   request that can change multiple resources in one go, thus cutting
+   down on round trips, authentication and authorization overhead on the
+   server.
+
+   This extension defines a way for clients to do two types of "bulk"
+   upload operations.
+
+   The first type covers the "import" use case, allowing a client to
+   submit a single request containing data for all the new resources to
+   be created.  The server splits the data into separate components and
+   creates new resources as appropriate for each.  The response from the
+   server allows the client to identify which new resources were
+   created, or which failed to be created.
+
+   The second type covers the "synchronize" use case, supporting CRUD
+   (Create, Update and Delete) operations in a single request.  In this
+   case the client submits an XML request containing a list of CRUD
+   operations to execute.  The server executes each one as appropriate
+   and returns a response indicating what was done.
+
+
+2.  Conventions Used in This Document
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in [RFC2119].
+
+   When XML element types in the namespaces "DAV:",
+   "urn:ietf:params:xml:ns:caldav", "urn:ietf:params:xml:ns:carddav" and
+   "http://calendarserver.org/ns/" are referenced in this document
+   outside of the context of an XML fragment, the strings "DAV:",
+   "CALDAV:", "CARDDAV:" and "CS:" will be prefixed to the element type
+   names respectively.
+
+
+
+
+Daboo & York                                                    [Page 2]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   The namespace "http://me.com/_namespace/" is used for XML elements
+   defined in this specification.  When XML element types in that
+   namespace are referenced in this document outside of the context of
+   an XML fragment, the string "MM:" will be prefixed to the element
+   type names.
+
+
+3.  Simple Bulk Import Request
+
+   A bulk import is accomplished by the client issuing a POST request on
+   a calendar or address book collection resource, with the body of the
+   request containing an iCalendar object (a single "VCALENDAR"
+   component containing one or more child components) or a vCard stream
+   (multiple "VCARD" objects).
+
+   The data submitted in the request MUST conform to the following
+   requirements:
+
+   o  For calendar data, the iCalendar object MUST conform to iCalendar
+      [RFC5545] semantics.  Each component, other than "VTIMEZONE"s,
+      MUST contain a UID property.  Components that represent a
+      recurring set (a master component and overridden instances) MUST
+      have the same UID property value.  Components that represent
+      different recurring sets or non-recurring components MUST have
+      different UID property values.  The UID property values in the
+      request MUST NOT match any of those in resources already stored in
+      the calendar collection targeted by the request.
+
+   o  For address book data, the vCard stream MUST contain individual
+      vCards that conform to vCard [RFC2426] semantics.  Each component
+      MUST have a UID property with a value that is unique.  The UID
+      property values in the request SHOULD NOT match any of those in
+      resources already stored in the address book collection targeted
+      by the request.
+
+   When the server receives the request from the client it "breaks" up
+   the data into separate resources as follows:
+
+   o  For calendar data, each resource is formed from each recurrence
+      set in the request data, together with the appropriate "VTIMEZONE"
+      component, to make a valid CalDAV calendar object resource.
+
+   o  For address book data, each resource corresponds to a single
+      "VCARD" component in the request data, making a valid CardDAV
+      address book object resource.
+
+   The response from the server is a DAV:multistatus response.  The
+   server MUST return one DAV:response for each calendar or address book
+
+
+
+Daboo & York                                                    [Page 3]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   object resource submitted in the request.
+
+   If creation of a resource succeeds, the DAV:response MUST include a
+   DAV:href containing the URI of the created resource, and MUST include
+   one of the following:
+
+   o  If the server stores the calendar or address book object resource
+      data without modification to any properties, the server SHOULD
+      return a DAV:getetag WebDAV property in the DAV:response element,
+      with the strong ETag of the resource created.  If the server does
+      not include a DAV:getetag or includes one with a weak ETag value,
+      then the client will need to reload the data to re-synchronize
+      with the server at some later point.  The server MUST also return
+      a CS:uid pseudo-property containing the UID of the corresponding
+      calendar or address book object resource.
+
+   o  If the server changes the calendar or address book data when
+      creating the resource, then it returns a response as follows:
+
+      *  If the client did not include a X-MobileMe-DAV-Options header
+         with a "return-changed-data" option in the request, then the
+         server MUST NOT include a DAV:getetag property in the response
+         for the corresponding created resource.  In this case the
+         client will be expected to reload the data to re-synchronize
+         with the server at some later point.  The server MUST also
+         return a CS:uid pseudo-property containing the UID of the
+         corresponding calendar or address book object resource.
+
+      *  If the client includes a X-MobileMe-DAV-Options header with a
+         "return-changed-data" option in the request, then the server
+         MUST include a DAV:getetag property in the response for the
+         corresponding created resource, as well as a CALDAV:calendar-
+         data or CARDDAV:address-data element containing the changed
+         data for CalDAV or CardDAV respectively.
+
+   If creation of a resource fails, then the server MUST return a DAV:
+   response element with an empty DAV:href, a DAV:status containing an
+   error code, and a DAV:error element containing the pre-condition
+   error element for the failure (where appropriate) and a CS:uid
+   element identifying the UID of the component in the request.
+
+   Clients MUST handle any partial failure - i.e. where some resources
+   are created and others not.
+
+3.1.  Example: Calendar Resource Bulk Create
+
+   In this example the client is attempting to create two new calendar
+   object resources in a calendar.  One resource is stored as-is, the
+
+
+
+Daboo & York                                                    [Page 4]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   other is rejected due to a UID uniqueness constraint violation.
+
+   >> Request <<
+
+   POST /home/cyrus/calendar/ HTTP/1.1
+   Host: cal.example.com
+   Content-Type: text/calendar; charset="utf-8"
+   Content-Length: xxx
+
+   BEGIN:VCALENDAR
+   VERSION:2.0
+   PRODID:-//Example Corp.//CalDAV Client//EN
+   BEGIN:VTIMEZONE
+   LAST-MODIFIED:20040110T032845Z
+   TZID:US/Eastern
+   BEGIN:DAYLIGHT
+   DTSTART:20000404T020000
+   RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+   TZNAME:EDT
+   TZOFFSETFROM:-0500
+   TZOFFSETTO:-0400
+   END:DAYLIGHT
+   BEGIN:STANDARD
+   DTSTART:20001026T020000
+   RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+   TZNAME:EST
+   TZOFFSETFROM:-0400
+   TZOFFSETTO:-0500
+   END:STANDARD
+   END:VTIMEZONE
+   BEGIN:VEVENT
+   DTSTART;TZID=US/Eastern:20101201T100000
+   DURATION:PT1H
+   SUMMARY:Event #1
+   UID:event1@example.com
+   END:VEVENT
+   BEGIN:VEVENT
+   DTSTART;TZID=US/Eastern:20101202T100000
+   DURATION:PT1H
+   SUMMARY:Event #2
+   UID:event2@example.com
+   END:VEVENT
+   END:VCALENDAR
+
+
+
+
+
+
+
+
+Daboo & York                                                    [Page 5]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   >> Response <<
+
+   HTTP/1.1 207 Multi-Status
+   Date: Sat, 27 Nov 2010 09:32:12 GMT
+   Content-Type: application/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:multistatus xmlns:D="DAV:"
+                 xmlns:MM="http://me.com/_namespace/"
+                 xmlns:CS="http://calendarserver.org/ns/"
+                 xmlns:C="urn:ietf:params:xml:ns:caldav">
+    <D:response>
+      <D:href>/home/cyrus/calendar/abcd1.ics</D:href>
+      <D:propstat>
+        <D:prop>
+          <D:getetag>"13FBAF6F-4FDE-4973-8A9A-0A2A3E6D4F3D"</D:getetag>
+          <CS:uid>event1@example.com</CS:uid>
+        </D:prop>
+        <D:status>HTTP/1.1 200 OK</D:status>
+      </D:propstat>
+    </D:response>
+    <D:response>
+      <D:href/>
+      <D:status>HTTP/1.1 403 Forbidden</D:status>
+      <D:error>
+        <C:no-uid-conflict>/home/cyrus/calendar/abcd_other1.ics<
+        /C:no-uid-conflict>
+        <CS:uid>event2@example.com</CS:uid>
+      </D:error>
+    </D:response>
+   </D:multistatus>
+
+3.2.  Example: Address Book Resource Bulk Create
+
+   In this example the client is attempting to create two new address
+   book object resources in an address book.  One resource is stored
+   as-is, the other is modified by the server as it is stored.  The
+   client has requested the server to return the changed data.
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo & York                                                    [Page 6]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   >> Request <<
+
+   POST /home/cyrus/addressbook/ HTTP/1.1
+   Host: addressbook.example.com
+   X-MobileMe-DAV-Options:return-changed-data
+   Content-Type: text/vcard; charset="utf-8"
+   Content-Length: xxx
+
+   BEGIN:VCARD
+   VERSION:3.0
+   NICKNAME:me
+   UID:addr1@example.com
+   FN:Cyrus Daboo
+   EMAIL:cdaboo@example.com
+   END:VCARD
+   BEGIN:VCARD
+   VERSION:3.0
+   NICKNAME:eric
+   UID:addr2@example.com
+   FN:Eric York
+   END:VCARD
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo & York                                                    [Page 7]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   >> Response <<
+
+   HTTP/1.1 207 Multi-Status
+   Date: Sat, 27 Nov 2010 09:32:12 GMT
+   Content-Type: application/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:multistatus xmlns:D="DAV:"
+                 xmlns:MM="http://me.com/_namespace/"
+                 xmlns:CS="http://calendarserver.org/ns/"
+                 xmlns:C="urn:ietf:params:xml:ns:carddav">
+    <D:response>
+      <D:href>/home/cyrus/addressbook/addr1.vcf</D:href>
+      <D:propstat>
+        <D:prop>
+          <D:getetag>"13FBAF6F-4FDE-4973-8A9A-0A2A3E6D4F3D"</D:getetag>
+          <CS:uid>addr1@example.com</CS:uid>
+        </D:prop>
+        <D:status>HTTP/1.1 200 OK</D:status>
+      </D:propstat>
+    </D:response>
+    <D:response>
+      <D:href>/home/cyrus/addressbook/addr2.vcf</D:href>
+      <D:propstat>
+        <D:prop>
+          <D:getetag>"A1FBCA60-1AF9-40D0-9406-B25EE3F33B80"</D:getetag>
+          <C:address-data>BEGIN:VCARD
+   VERSION:3.0
+   NICKNAME:eric
+   UID:addr2@example.com
+   FN:Eric York
+   EMAIL:eyork@example.com
+   END:VCARD
+   </C:address-data>
+        </D:prop>
+        <D:status>HTTP/1.1 200 OK</D:status>
+      </D:propstat>
+    </D:response>
+   </D:multistatus>
+
+
+4.  Bulk CRUD Request
+
+   A bulk CRUD operation is accomplished by the client issuing a POST
+   request on a calendar or address book collection resource, with the
+   body of the request containing an XML document with the MM:multiput
+   element as the root element.  MM:resource elements appear within the
+
+
+
+Daboo & York                                                    [Page 8]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   MM:multiput element, with each one representing a CRUD operation on a
+   specific resource in the target collection.
+
+   For update and delete operations, the client MUST ensure that any
+   existing resource only appears once in the request.
+
+   The response from the server is a DAV:multistatus response.  The
+   server MUST return one DAV:response for each MM:resource element
+   submitted in the request by the client.  Each DAV:response MUST
+   include a DAV:href containing the URI of the created, updated or
+   deleted resource.
+
+   The precise details of each operation's request and response data
+   follows.
+
+4.1.  Create request
+
+   A create operation is accomplished by the client specifying a DAV:set
+   element in the MM:resource element.  The client does not specify a
+   DAV:href element, as it does for an update operation.  The calendar
+   or address book data being stored is included in a CALDAV:calendar-
+   data or CARDDAV:address-data element, respectively, within the DAV:
+   set element.  Additional WebDAV properties MAY be specified in the
+   DAV:set element with each being set on the new resource if creation
+   is successful.  The server MUST fail the request if any one property
+   or data fails to be set according to the request.  In this regard,
+   the resulting response should follow the behavior of the PROPPATCH
+   request in that each property or data that did not cause an error
+   should be returned using a 424 Failed Dependency status code, while
+   the properties or data element that failed, should use other failure
+   codes.
+
+   If creation succeeds, the server MUST include a DAV:response element
+   for the newly created resource.  The DAV:response MUST include a DAV:
+   href containing the URI of the created resource, and MUST include one
+   of the following:
+
+   o  If the server stores the calendar or address book object resource
+      data without modification to any properties, the server SHOULD
+      return a DAV:getetag WebDAV property in the DAV:response element,
+      with the strong ETag of the resource created.  If the server does
+      not include a DAV:getetag or includes one with a weak ETag value,
+      then the client will need to reload the data to re-synchronize
+      with the server at some later point.  The server MUST also return
+      a CS:uid pseudo-property containing the UID of the corresponding
+      calendar or address book object resource.
+
+
+
+
+
+Daboo & York                                                    [Page 9]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   o  If the server changes the calendar or address book data when
+      creating the resource, then it returns a response as follows:
+
+      *  If the client did not include a X-MobileMe-DAV-Options header
+         with a "return-changed-data" option in the request, then the
+         server MUST NOT include a DAV:getetag property in the response
+         for the corresponding created resource.  In this case the
+         client will be expected to reload the data to re-synchronize
+         with the server at some later point.  The server MUST return a
+         CS:uid pseudo-property containing the UID of the corresponding
+         calendar or address book object resource.
+
+      *  If the client includes a X-MobileMe-DAV-Options header with a
+         "return-changed-data" option in the request, then the server
+         MUST include a DAV:getetag property in the response for the
+         corresponding created resource, as well as a CALDAV:calendar-
+         data or CARDDAV:address-data element containing the changed
+         data for CalDAV or CardDAV respectively.
+
+   If creation fails, then the server MUST return a DAV:response element
+   with an empty DAV:href, a DAV:status containing an error code, and a
+   DAV:error element containing the pre-condition error element for the
+   failure (where appropriate) and a CS:uid element identifying the UID
+   of the component in the request.
+
+   Clients MUST handle any partial failure - i.e. where some resources
+   are created and others not.
+
+4.2.  Update request
+
+   An update operation is accomplished by the client specifying a DAV:
+   set element in the MM:resource element.  The client MUST include a
+   DAV:href element whose value is the URI of the resource to be
+   updated.  The client MAY update the actual CalDAV or CardDAV resource
+   data by including CALDAV:calendar-data or CARDDAV:address-data
+   elements, respectively, within the DAV:set element.  Additional
+   WebDAV properties MAY be specified in the DAV:set element with each
+   being set on the resource if update is successful.  Existing WebDAV
+   properties on the resource may be removed by including them in a DAV:
+   remove element.  So the client can choose to update just the resource
+   data, just WebDAV properties or both.  In all cases, the server MUST
+   fail the request if any one property or data fails to be set or
+   removed according to the request.  In this regard, the resulting
+   response should follow the behavior of the PROPPATCH request in that
+   each property or data that did not cause an error should be returned
+   using a 424 Failed Dependency status code, while the properties or
+   data element that failed, should use other failure codes.
+
+
+
+
+Daboo & York                                                   [Page 10]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   The client MAY include an MM:if-match element with a DAV:getetag
+   element containing the the last ETag the client retrieved for the
+   resource being updated.  This instructs the server to treat the
+   update as a conditional update.  If the ETag of the resource on the
+   server being updated does not match the one in the MM:if-match
+   element, then the server MUST fail the update of the resource with a
+   412 Precondition Failed error in the DAV:response element for the
+   resource.
+
+   If the update succeeds, the server MUST include a DAV:response
+   element for the updated resource.  The DAV:response MUST include a
+   DAV:href containing the URI of the resource, and MUST include one of
+   the following:
+
+   o  If the server stores the calendar or address book object resource
+      data without modification to any properties, the server SHOULD
+      return a DAV:getetag WebDAV property in the DAV:response element,
+      with the strong ETag of the resource created.  If the server does
+      not include a DAV:getetag or includes one with a weak ETag value,
+      then the client will need to reload the data to re-synchronize
+      with the server at some later point.
+
+   o  If the server changes the calendar or address book data when
+      updating the resource, then it returns a response as follows:
+
+      *  If the client did not include a X-MobileMe-DAV-Options header
+         with a "return-changed-data" option in the request, then the
+         server MUST NOT include a DAV:getetag property in the response
+         for the corresponding updated resource.  In this case the
+         client will be expected to reload the data to re-synchronize
+         with the server at some later point.
+
+      *  If the client includes a X-MobileMe-DAV-Options header with a
+         "return-changed-data" option in the request, then the server
+         MUST include a DAV:getetag property in the response for the
+         corresponding created resource, as well as a CALDAV:calendar-
+         data or CARDDAV:address-data element containing the changed
+         data for CalDAV or CardDAV respectively.
+
+   If an update fails, then the server MUST return a DAV:response
+   element with a DAV:href containing the URI of the resource, a DAV:
+   status containing an error code, and a DAV:error element containing
+   the pre-condition error element for the failure (where appropriate).
+
+   Clients MUST handle any partial failure - i.e. where some resources
+   are updated and others not.
+
+
+
+
+
+Daboo & York                                                   [Page 11]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+4.3.  Delete request
+
+   A delete operation is accomplished by the client specifying a MM:
+   delete element in the MM:resource element.  The client MUST include a
+   DAV:href element whose value is the URI of the resource to be
+   updated.
+
+   The client MAY include an MM:if-match element with a DAV:getetag
+   element containing the the last ETag the client retrieved for the
+   resource being deleted.  This instructs the server to treat the
+   delete as a conditional delete.  If the ETag of the resource on the
+   server being deleted does not match the one in the MM:if-match
+   element, then the server MUST fail the delete of the resource with a
+   412 Precondition Failed error in the DAV:response element for the
+   resource.
+
+   If the delete succeeds, the server MUST include a DAV:response
+   element for the deleted resource.  The DAV:response MUST include a
+   DAV:href containing the URI of the resource and a success status.
+
+   If a delete fails, then the server MUST return a DAV:response element
+   with a DAV:href containing the URI of the resource, a DAV:status
+   containing an error code, and a DAV:error element containing the pre-
+   condition error element for the failure (where appropriate).
+
+   Clients MUST handle any partial failure - i.e. where some resources
+   are deleted and others not.
+
+4.4.  Example: Calendar Resource Bulk CRUD
+
+   In this example the client is attempting to create, update and delete
+   calendar object resources in a calendar.  In one case an update
+   fails.
+
+   >> Request <<
+
+   POST /home/cyrus/calendar/ HTTP/1.1
+   Host: cal.example.com
+   Content-Type: application/xml; charset="utf-8"
+   Content-Length: xxx
+
+   <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+   <MM:multiput xmlns:D="DAV:"
+                xmlns:MM="http://me.com/_namespace/"
+                xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <MM:resource>
+       <D:set>
+         <D:prop>
+
+
+
+Daboo & York                                                   [Page 12]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+           <C:calendar-data>...some event...</C:calendar-data>
+           <D:displayname>event 1</D:displayname>
+         </D:prop>
+       </D:set>
+     </MM:resource>
+     <MM:resource>
+       <D:href>/home/cyrus/calendar/2.ics</D:href>
+       <MM:if-match>
+         <D:getetag>"12345"</D:getetag>
+       </MM:if-match>
+       <D:set>
+         <D:prop>
+           <C:calendar-data>...some event...</C:calendar-data>
+           <D:displayname>event 2</D:displayname>
+         </D:prop>
+       </D:set>
+     </MM:resource>
+     <MM:resource>
+       <D:href>/home/cyrus/calendar/3.ics</D:href>
+       <MM:if-match>
+         <D:getetag>"67890"</D:getetag>
+       </MM:if-match>
+       <MM:delete/>
+     </MM:resource>
+     <MM:resource>
+       <D:href>/home/cyrus/calendar/4.ics</D:href>
+       <MM:if-match>
+         <D:getetag>"12345"</D:getetag>
+       </MM:if-match>
+       <D:set>
+         <D:prop>
+           <C:calendar-data>...some event...</C:calendar-data>
+           <D:displayname>event 2</D:displayname>
+         </D:prop>
+       </D:set>
+     </MM:resource>
+   </MM:multiput>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo & York                                                   [Page 13]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   >> Response <<
+
+   HTTP/1.1 207 Multi-Status
+   Date: Sat, 27 Nov 2010 09:32:12 GMT
+   Content-Type: application/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:multistatus xmlns:D="DAV:"
+                  xmlns:MM="http://me.com/_namespace/"
+                  xmlns:CS="http://calendarserver.org/ns/"
+                  xmlns:C="urn:ietf:params:xml:ns:caldav">
+    <D:response>
+      <D:href>/home/cyrus/calendar/1.ics</D:href>
+      <D:propstat>
+        <D:prop>
+          <D:getetag>"13FBAF6F-4FDE-4973-8A9A-0A2A3E6D4F3D"</D:getetag>
+          <CS:uid>event1@example.com</CS:uid>
+        </D:prop>
+        <D:status>HTTP/1.1 200 OK</D:status>
+      </D:propstat>
+    </D:response>
+    <D:response>
+      <D:href>/home/cyrus/calendar/2.ics</D:href>
+      <D:propstat>
+        <D:prop>
+          <D:getetag>"13FBAF6F-4FDE-4973-8A9A-0A2A3E6D4F3D"</D:getetag>
+        </D:prop>
+        <D:status>HTTP/1.1 200 OK</D:status>
+      </D:propstat>
+    </D:response>
+    <D:response>
+      <D:href>/home/cyrus/calendar/3.ics</D:href>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:response>
+    <D:response>
+      <D:href>/home/cyrus/calendar/4.ics</D:href>
+      <D:status>HTTP/1.1 403 FORBIDDEN</D:status>
+      <D:error><C:valid-calendar-data/><D:error>
+    </D:response>
+   </D:multistatus>
+
+
+5.  Size Limits for Bulk Requests
+
+   Servers might want to limit the total number of resources or size of
+   request bodies for either the simple or CRUD bulk requests.  In
+   addition, clients would want to discover the presence of bulk request
+
+
+
+Daboo & York                                                   [Page 14]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   support.  To resolve both these issues, this specification defines a
+   new WebDAV property for use on calendar or address book collection
+   resources that advertises allowed limits and the presence of the bulk
+   requests.
+
+5.1.  MM:bulk-requests Property
+
+   Name:  bulk-requests
+
+   Namespace:  http://me.com/_namespace/
+
+   Purpose:  Describes limits for supported bulk request features.
+
+   Protected:  This property MUST be protected and SHOULD NOT be
+      returned by a PROPFIND allprop request (as defined in Section 14.2
+      of [RFC4918]).
+
+   COPY/MOVE behavior:  This property value SHOULD be kept during a MOVE
+      operation, and SHOULD be copied and preserved in a COPY.
+
+   Description:  This property MUST be defined on all calendar or
+      address book collection resources that support the simple and CRUD
+      bulk requests defined by Section 3 and Section 4.  If present, it
+      contains XML elements that indicate support for a particular bulk
+      request, and within those elements, server limits for number of
+      resources and request size are provided.
+
+      Clients MUST read this property from calendar or address book
+      collections in order to determine whether support for the bulk
+      requests is available.  If the MM:simple element is present, then
+      the simple bulk request is supported.  If the MM:crud element is
+      present, then the CRUD bulk request is present.  Clients MUST
+      restrict their requests to lie within the limits advertised by the
+      server within each element.
+
+   Definition:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo & York                                                   [Page 15]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+      <!ELEMENT bulk-requests (simple?, crud?) >
+
+      <!ELEMENT simple (max-resources, max-bytes)>
+      <!ELEMENT crud   (max-resources, max-bytes)>
+
+      <!ELEMENT max-resources (CDATA)>
+      <!-- An integer value representing the maximum number
+           of resources that can be specified in the request
+           or empty if no limit -->
+
+      <!ELEMENT max-bytes (CDATA)>
+      <!-- An integer value representing the maximum size in
+           octets of the request body that the server will
+           accept or empty if no limit -->
+
+   Example:
+
+   <MM:bulk-requests
+        xmlns:MM="http://me.com/_namespace/">
+     <MM:simple>
+       <MM:max-resources/>
+       <MM:max-bytes>10485760</MM:max-bytes>
+     </MM:simple>
+     <MM:crud>
+       <MM:max-resources>50</MM:max-resources>
+       <MM:max-bytes>10485760</MM:max-bytes>
+     </MM:crud>
+   </MM:bulk-requests>
+
+
+6.  CTag Conditional Requests
+
+   A CTag is a collection entity tag that changes when the contents of
+   the collection change.  When doing bulk requests clients might need
+   to ensure that they are fully synchronized with the current state of
+   the target collection.  To do that, clients carry out normal
+   synchronization operations and record the value of the CS:getctag
+   property on the collection.  Then, when doing a bulk operation, the
+   client can use an If pre-condition header check to ensure that the
+   state of the collection has not changed.  If it has changed, the
+   server MUST return a 412 pre-condition failed error.
+
+   The CTag property value used in an If header is appended to a uri of
+   the form "http://me.com/_namespace/ctag/", with appropriate URL
+   escaping applied.
+
+   Clients SHOULD use the CTag conditional requests when doing bulk
+   requests.  When doing so, clients SHOULD use an "Expect: 100-
+
+
+
+Daboo & York                                                   [Page 16]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   Continue" request header and wait for the server response before
+   sending the request body.
+
+   When a CTag conditional request is used by the client, and the
+   request is successful, the server MUST return a CTag response header
+   (Section 8.2) with the new CS:getctag value for the collection after
+   changes have been applied.
+
+   For MKCALENDAR or extended MKCOL requests used to create calendar or
+   address book collections, the client might need to ensure that no
+   other calendars or address books have been created since its last
+   synchronization.  To do that, clients record the DAV:getctag property
+   on the calendar or address book home collection and then use that
+   value in a CTag conditional request, where the condition is on the
+   home collection resource CTag value.  When this occurs, and a
+   successful response is returned by the server, the server MUST also
+   include a Home-CTag response header containing the new value of the
+   DAV:getctag property value on the home collection.  In addition, the
+   server MUST also include a CTag response header containing the
+   initial value of the DAV:getctag property on the newly created
+   calendar or address book collection.
+
+6.1.  Example: CTag Pre-condition Failure
+
+   In this example the client is attempting to create two new address
+   book object resources in an address book, using CTag-based pre-
+   condition header.  The pre-condition fails.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo & York                                                   [Page 17]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   >> Request <<
+
+   POST /home/cyrus/addressbook/ HTTP/1.1
+   Host: addressbook.example.com
+   X-MobileMe-DAV-Options:return-changed-data
+   If: (<http://me.com/_namespace/ctag/8054C6D4-C5C5-4ED9-A312-4E56753>)
+   Content-Type: text/vcard; charset="utf-8"
+   Content-Length: xxx
+
+   BEGIN:VCARD
+   VERSION:3.0
+   NICKNAME:me
+   UID:addr1@example.com
+   FN:Cyrus Daboo
+   EMAIL:cdaboo@example.com
+   END:VCARD
+   BEGIN:VCARD
+   VERSION:3.0
+   NICKNAME:eric
+   UID:addr2@example.com
+   FN:Eric York
+   END:VCARD
+
+   >> Response <<
+
+   HTTP/1.1 412 Precondition Failed
+   Date: Sat, 27 Nov 2010 09:32:12 GMT
+   Content-Type: application/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <D:error xmlns:D="DAV:"
+            xmlns:MM="http://me.com/_namespace/">
+     <MM:ctag-ok/>
+   </D:error>
+
+6.2.  Example: CTag Pre-condition Success with Expect
+
+   TBD
+
+6.3.  Example: CTag Pre-condition on MKCALENDAR
+
+   In this example the client is attempting to create a new calendar
+   collection using a pre-condition based on the DAV:getctag value of
+   the parent home collection.
+
+
+
+
+
+
+Daboo & York                                                   [Page 18]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   >> Request <<
+
+   MKCALENDAR /home/cyrus/calendar/newcal/ HTTP/1.1
+   Host: calendar.example.com
+   If: </home/cyrus/calendar/>
+    (<http://me.com/_namespace/ctag/8054C6D4-C5C5-4ED9-A312-4E5675309>)
+
+   >> Response <<
+
+   HTTP/1.1 201 CREATED
+   Date: Sat, 27 Nov 2010 09:32:12 GMT
+   Home-CTag: D964B55F-3585-4234-B2B0-3C55E81083BC
+   CTag: A132E16A-4933-4E74-B914-6497CC0387BB
+
+
+7.  XML Element Definitions
+
+7.1.  MM:multiput XML Element
+
+   Name:  multiput
+
+   Namespace:  http://me.com/_namespace/
+
+   Purpose:  The root element for a CRUD batch POST request.
+
+   Description:  See Section 4.
+
+   Definition:
+
+   <!ELEMENT multiput (MM:resource)+>
+
+7.2.  MM:resource XML Element
+
+   Name:  resource
+
+   Namespace:  http://me.com/_namespace/
+
+   Purpose:  Identifies a resource for a CRUD operation
+
+   Description:  See Section 4.
+
+   Definition:
+
+
+
+
+
+
+
+
+
+Daboo & York                                                   [Page 19]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   <!ELEMENT resource (
+       (DAV:set) |
+       (DAV:href, MM:if-match?, DAV:set?, DAV:remove?) |
+       (DAV:href, MM:if-match?, MM:delete)
+       )+>
+
+   <!-- First combination is for create, second for update
+        and third for delete -->
+
+7.3.  MM:if-match XML Element
+
+   Name:  if-match
+
+   Namespace:  http://me.com/_namespace/
+
+   Purpose:  Used to specify ETag-based pre-condition option for a CRUD
+      update or delete operation.
+
+   Description:  See Section 4.
+
+   Definition:
+
+   <!ELEMENT if-match (DAV:getetag)>
+
+7.4.  MM:delete XML Element
+
+   Name:  delete
+
+   Namespace:  http://me.com/_namespace/
+
+   Purpose:  Used to specify a CRUD delete operation.
+
+   Description:  See Section 4.
+
+   Definition:
+
+   <!ELEMENT delete EMPTY>
+
+
+8.  HTTP Header Definitions
+
+   This specification adds the following HTTP header definition.
+
+8.1.  X-MobileMe-DAV-Options Header
+
+   The X-MobileMe-DAV-Options request header allows the client to
+   communicate options related to a request to the server.  The header
+   contains a list of simple tokens or key/value pairs to control server
+
+
+
+Daboo & York                                                   [Page 20]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   behavior.  The set of allowed tokens and keys are listed below.
+
+   X-MobileMe-DAV-Options = "X-MobileMe-DAV-Options" ":" 1#mme-options
+
+   mme-options = mme-option ["=" (token | quoted-string)]
+
+   mme-option  = "return-changed-data" | token
+
+   Example:
+
+   X-MobileMe-DAV-Options: return-changed-data, Test=True
+
+8.2.  CTag Header
+
+   The CTag response header allows the server to return the value of the
+   CS:getctag property on the collection targeted by the request after
+   all changes from the request have been applied.  Clients can use this
+   to help with managing multiple batch requests making a set of changes
+   on the server.
+
+   CTag = "CTag" ":" token
+
+   Example:
+
+   CTag: 84C9ACB2-A7DE-4D5E-AA8A-2B1EA30F098A
+
+8.3.  Home-CTag Header
+
+   The Home-CTag response header allows the server to return the value
+   of the CS:getctag property on the home collection targeted by the
+   request, or the home collection parent of the request target after
+   all changes from the request have been applied.  Clients can use this
+   to help with managing multiple batch requests making a set of changes
+   on the server.
+
+   HomeCTag = "Home-CTag" ":" token
+
+   Example:
+
+   Home-CTag: 17883032-CBEF-4E21-BEE2-73D316063EDA
+
+
+9.  Security Considerations
+
+   TBD
+
+
+
+
+
+
+Daboo & York                                                   [Page 21]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+10.  IANA Considerations
+
+   This document does not require any actions on the part of IANA.
+
+
+11.  Acknowledgments
+
+   This specification is the result of discussions between Apple server
+   and client teams.
+
+
+12.  Normative References
+
+   [I-D.ietf-vcarddav-carddav]
+              Daboo, C., "vCard Extensions to WebDAV (CardDAV)",
+              draft-ietf-vcarddav-carddav-10 (work in progress),
+              November 2009.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC2426]  Dawson, F. and T. Howes, "vCard MIME Directory Profile",
+              RFC 2426, September 1998.
+
+   [RFC4791]  Daboo, C., Desruisseaux, B., and L. Dusseault,
+              "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
+              March 2007.
+
+   [RFC4918]  Dusseault, L., "HTTP Extensions for Web Distributed
+              Authoring and Versioning (WebDAV)", RFC 4918, June 2007.
+
+   [RFC5545]  Desruisseaux, B., "Internet Calendaring and Scheduling
+              Core Object Specification (iCalendar)", RFC 5545,
+              September 2009.
+
+
+Appendix A.  Change History
+
+   Changes in -03:
+
+   1.  Changed MAY to SHOULD for Expect header.
+
+   2.  max-size -> max-bytes.
+
+   3.  Title changes.
+
+   Changes in -02:
+
+
+
+
+Daboo & York                                                   [Page 22]
+
+                      Calendar Server Bulk Changes           August 2011
+
+
+   1.  Home ctag behavior for MKCALENDAR/MKCOL.
+
+   2.  Fixed syntax of If: examples which was missing (...)
+
+   Changes in -01:
+
+   1.  Switched to calendar server namespace for UID property.
+
+   2.  Switched to http based namespace instead of urn.
+
+   3.  Now returns empty DAV:href when error occurs on resource create.
+
+   4.  Cleaned up error handling for both POST requests, including
+       stating possibility of partial failures.
+
+   5.  Indicated that clients can use Expect header.
+
+   6.  Defined Ctag header and server requirement to return it.
+
+
+Authors' Addresses
+
+   Cyrus Daboo
+   Apple Inc.
+   1 Infinite Loop
+   Cupertino, CA  95014
+   USA
+
+   Email: cyrus@daboo.name
+   URI:   http://www.apple.com/
+
+
+   Eric York
+   Apple Inc.
+   1 Infinite Loop
+   Cupertino, CA  95014
+   USA
+
+   Email:
+   URI:   http://www.apple.com/
+
+
+
+
+
+
+
+
+
+
+
+Daboo & York                                                   [Page 23]
+
