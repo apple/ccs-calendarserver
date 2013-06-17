@@ -18,6 +18,7 @@ from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
 from twisted.python import log as twistedLogging
 from twisted.python.failure import Failure
+from twisted.trial import unittest
 
 from twext.python.log import (
     LogLevel, InvalidLogLevelError,
@@ -29,7 +30,6 @@ from twext.python.log import (
     ILogObserver, LogPublisher,
     FilteringLogObserver, PredicateResult,
 )
-from twistedcaldav.test.util import TestCase
 
 
 
@@ -101,7 +101,7 @@ class SetUpTearDown(object):
 
 
 
-class LoggingTests(SetUpTearDown, TestCase):
+class LoggingTests(SetUpTearDown, unittest.TestCase):
     """
     General module tests.
     """
@@ -293,7 +293,7 @@ class LoggingTests(SetUpTearDown, TestCase):
 
 
 
-class LoggerTests(SetUpTearDown, TestCase):
+class LoggerTests(SetUpTearDown, unittest.TestCase):
     """
     Tests for L{Logger}.
     """
@@ -447,7 +447,7 @@ class LoggerTests(SetUpTearDown, TestCase):
 
 
 
-class LogPublisherTests(SetUpTearDown, TestCase):
+class LogPublisherTests(SetUpTearDown, unittest.TestCase):
     """
     Tests for L{LogPublisher}.
     """
@@ -518,7 +518,7 @@ class LogPublisherTests(SetUpTearDown, TestCase):
 
 
 
-class FilteringLogObserverTests(SetUpTearDown, TestCase):
+class FilteringLogObserverTests(SetUpTearDown, unittest.TestCase):
     """
     Tests for L{FilteringLogObserver}.
     """
@@ -605,7 +605,7 @@ class FilteringLogObserverTests(SetUpTearDown, TestCase):
 
 
 
-class LegacyLoggerTests(SetUpTearDown, TestCase):
+class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
     """
     Tests for L{LegacyLogger}.
     """
