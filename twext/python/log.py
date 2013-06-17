@@ -717,6 +717,64 @@ class LegacyLogObserver(object):
 
 
 
+# FIXME: This could have a better name.
+class DefaultLogPublisher(object):
+    """
+    The default log publisher.  This observer sets up a set of chained observers
+    as follows:
+
+        1. B{rootPublisher} - a L{LogPublisher}
+
+        2. B{filteringObserver}: a L{FilteringLogObserver} that filters out
+           messages using a L{LogLevelFilterPredicate}
+
+        3. B{filteredPublisher} - a L{LogPublisher}
+
+        4. B{legacyLogObserver} - a A{LegacyLogObserver} wired up to
+           L{twisted.python.log.msg}
+
+    The purpose of this class is to provide a default log observer with
+    sufficient hooks to enable applications to add observers that can either
+    receive all log messages, or only log messages that are configured to pass
+    though the L{LogLevelFilterPredicate}::
+
+        from twext.python.log import Logger, ILogObserver
+
+        log = Logger()
+
+        @implementer(ILogObserver)
+        class AMPObserver(object):
+            def __call__(self, event):
+                # eg.: Hold all emitted events in a ring buffer and expose them
+                # via AMP.
+                ...
+
+        @implementer(ILogObserver)
+        class FileObserver(object):
+            def __call__(self, event):
+                # eg.: Take only the filtered events and write them into a
+                # file.
+                ...
+
+        log.publisher.rootPublisher.addObserver(AMPObserver())
+        log.publisher.filteredPublisher.addObserver(FileObserver())
+
+    With no observers added, the default behavior is that the legacy Twisted
+    logging system sees messages as controlled by L{LogLevelFilterPredicate}.
+    """
+
+    def __init__(self):
+        self.legacyLogObserver = LegacyLogObserver(twistedLogMessage)
+        self.filteredPublisher = LogPublisher(self.legacyLogObserver)
+        self.filteringObserver = FilteringLogObserver(self.filteredPublisher, (LogLevelFilterPredicate(),))
+        self.rootPublisher     = LogPublisher(self.filteringObserver)
+
+
+    def __call__(self, event):
+        self.rootPublisher(event)
+
+
+
 #
 # Utilities
 #
@@ -769,13 +827,9 @@ formatter = Formatter()
 
 
 #
-# Default observers
-# FIXME: ...
+# Wire up default publisher
 #
-theLegacyLogObserver = LegacyLogObserver(twistedLogMessage)
-theFilteredLogPublisher = LogPublisher(theLegacyLogObserver) # Add post-filtering observers here
-theFilteringLogObserver = FilteringLogObserver(theFilteredLogPublisher, (LogLevelFilterPredicate(),))
-Logger.publisher = LogPublisher(theFilteringLogObserver) # Add pre-filtering observers here
+Logger.publisher = DefaultLogPublisher()
 
 
 
