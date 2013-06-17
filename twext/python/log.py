@@ -50,8 +50,6 @@ second example, it would be C{some.module.Foo}.
 #
 # TODO List:
 #
-# * Expose the default log observer (TheLogPublisher)
-#  * Specifically, expose addObserver and removeObserver so one can register other observers
 # * Monkey patch logging in Twisted to use our LegacyLogger to sprinkle betterness everywhere
 # * Move namespace settings to Filter class
 #
