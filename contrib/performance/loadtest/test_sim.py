@@ -195,7 +195,7 @@ class Reactor(object):
     def run(self):
         for thunk in self._whenRunning:
             thunk()
-        msg(self.message)
+        msg(thingo=self.message)
         for _ignore_phase, event, thunk in self._triggers:
             if event == 'shutdown':
                 thunk()
@@ -535,4 +535,6 @@ class LoadSimulatorTests(TestCase):
         self.assertEquals(io.getvalue(), "\n*** PASS\n")
         self.assertTrue(observers[0].reported)
         self.assertEquals(
-            observers[0].events[0]['message'], (Reactor.message,))
+            [e for e in observers[0].events if "thingo" in e][0]["thingo"],
+            Reactor.message
+        )

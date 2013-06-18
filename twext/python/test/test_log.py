@@ -22,18 +22,20 @@ from twisted.trial import unittest
 
 from twext.python.log import (
     LogLevel, InvalidLogLevelError,
-    logLevelsByNamespace,
-    logLevelForNamespace, setLogLevelForNamespace, clearLogLevels,
     pythonLogLevelMapping,
     formatEvent, formatWithCall,
     Logger, LegacyLogger,
     ILogObserver, LogPublisher,
     FilteringLogObserver, PredicateResult,
+    LogLevelFilterPredicate,
 )
 
 
 
-defaultLogLevel = logLevelsByNamespace[None]
+defaultLogLevel         = LogLevelFilterPredicate().defaultLogLevel
+clearLogLevels          = Logger.publisher.levels.clearLogLevels
+logLevelForNamespace    = Logger.publisher.levels.logLevelForNamespace
+setLogLevelForNamespace = Logger.publisher.levels.setLogLevelForNamespace
 
 
 
@@ -343,14 +345,15 @@ class LoggerTests(SetUpTearDown, unittest.TestCase):
         Test that log levels and messages are emitted correctly for
         Logger.
         """
-        # FIXME:Need a basic test like this for logger attached to a class.
+        # FIXME: Need a basic test like this for logger attached to a class.
         # At least: source should not be None in that case.
+
+        log = TestLogger()
 
         for level in LogLevel.iterconstants():
             format = "This is a {level_name} message"
             message = format.format(level_name=level.name)
 
-            log = TestLogger()
             method = getattr(log, level.name)
             method(format, junk=message, level_name=level.name)
 
@@ -359,7 +362,7 @@ class LoggerTests(SetUpTearDown, unittest.TestCase):
             self.assertEquals(log.emitted["format"], format)
             self.assertEquals(log.emitted["kwargs"]["junk"], message)
 
-            if level >= log.level():
+            if level >= logLevelForNamespace(log.namespace):
                 self.assertEquals(log.event["log_format"], format)
                 self.assertEquals(log.event["log_level"], level)
                 self.assertEquals(log.event["log_namespace"], __name__)
@@ -420,18 +423,6 @@ class LoggerTests(SetUpTearDown, unittest.TestCase):
         self.assertEquals(log.event["log_level"], LogLevel.warn)
         self.assertEquals(log.event["log_namespace"], log.namespace)
         self.assertEquals(log.event["log_source"], None)
-
-
-    def test_setLevel(self):
-        """
-        Set level on the logger directly.
-        """
-        log = Logger()
-
-        for level in (LogLevel.error, LogLevel.info):
-            log.setLevel(level)
-            self.assertIdentical(level, log.level())
-            self.assertIdentical(level, logLevelForNamespace(log.namespace))
 
 
     def test_logInvalidLogLevel(self):

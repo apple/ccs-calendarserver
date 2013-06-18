@@ -51,15 +51,11 @@ second example, it would be C{some.module.Foo}.
 # TODO List:
 #
 # * Monkey patch logging in Twisted to use our LegacyLogger to sprinkle betterness everywhere
-# * Move namespace settings to Filter class
 #
 
 __all__ = [
     "InvalidLogLevelError",
     "LogLevel",
-    "logLevelForNamespace",
-    "setLogLevelForNamespace",
-    "clearLogLevels",
     "formatEvent",
     "Logger",
     "LegacyLogger",
@@ -139,65 +135,6 @@ pythonLogLevelMapping = {
     LogLevel.error   : logging.ERROR,
    #LogLevel.critical: logging.CRITICAL,
 }
-
-
-#
-# Tools for managing log levels
-#
-
-def logLevelForNamespace(namespace):
-    """
-    @param namespace: a logging namespace, or C{None} for the default
-        namespace.
-
-    @return: the L{LogLevel} for the specified namespace.
-    """
-    if not namespace:
-        return logLevelsByNamespace[None]
-
-    if namespace in logLevelsByNamespace:
-        return logLevelsByNamespace[namespace]
-
-    segments = namespace.split(".")
-    index = len(segments) - 1
-
-    while index > 0:
-        namespace = ".".join(segments[:index])
-        if namespace in logLevelsByNamespace:
-            return logLevelsByNamespace[namespace]
-        index -= 1
-
-    return logLevelsByNamespace[None]
-
-
-def setLogLevelForNamespace(namespace, level):
-    """
-    Sets the global log level for a logging namespace.
-
-    @param namespace: a logging namespace
-
-    @param level: the L{LogLevel} for the given namespace.
-    """
-    if level not in LogLevel.iterconstants():
-        raise InvalidLogLevelError(level)
-
-    if namespace:
-        logLevelsByNamespace[namespace] = level
-    else:
-        logLevelsByNamespace[None] = level
-
-
-def clearLogLevels():
-    """
-    Clears all global log levels to the default.
-    """
-    logLevelsByNamespace.clear()
-    logLevelsByNamespace[None] = LogLevel.warn  # Default log level
-
-
-logLevelsByNamespace = {}
-clearLogLevels()
-
 
 
 ##
@@ -296,6 +233,10 @@ class Logger(object):
     """
     Logging object.
     """
+
+    publisher = lambda e: None
+
+
     def __init__(self, namespace=None, source=None):
         """
         @param namespace: The namespace for this logger.  Uses a dotted
@@ -414,22 +355,6 @@ class Logger(object):
             failure=Failure()
 
         self.emit(level, format, log_failure=failure, **kwargs)
-
-
-    def level(self):
-        """
-        @return: the global log level for this logger's namespace.
-        """
-        return logLevelForNamespace(self.namespace)
-
-
-    def setLevel(self, level):
-        """
-        Set the global log level for this logger's namespace.
-
-        @param level: a L{LogLevel}
-        """
-        setLogLevelForNamespace(self.namespace, level)
 
 
 
@@ -654,11 +579,70 @@ class LogLevelFilterPredicate(object):
     lower than the log level for the event's namespace.
     """
 
+    def __init__(self):
+        # FIXME: Make this a class variable. But that raises an
+        # _initializeEnumerants constants error in Twisted 12.2.0.
+        self.defaultLogLevel = LogLevel.info
+
+        self._logLevelsByNamespace = {}
+        self.clearLogLevels()
+
+
+    def logLevelForNamespace(self, namespace):
+        """
+        @param namespace: a logging namespace, or C{None} for the default
+            namespace.
+
+        @return: the L{LogLevel} for the specified namespace.
+        """
+        if not namespace:
+            return self._logLevelsByNamespace[None]
+
+        if namespace in self._logLevelsByNamespace:
+            return self._logLevelsByNamespace[namespace]
+
+        segments = namespace.split(".")
+        index = len(segments) - 1
+
+        while index > 0:
+            namespace = ".".join(segments[:index])
+            if namespace in self._logLevelsByNamespace:
+                return self._logLevelsByNamespace[namespace]
+            index -= 1
+
+        return self._logLevelsByNamespace[None]
+
+
+    def setLogLevelForNamespace(self, namespace, level):
+        """
+        Sets the global log level for a logging namespace.
+
+        @param namespace: a logging namespace
+
+        @param level: the L{LogLevel} for the given namespace.
+        """
+        if level not in LogLevel.iterconstants():
+            raise InvalidLogLevelError(level)
+
+        if namespace:
+            self._logLevelsByNamespace[namespace] = level
+        else:
+            self._logLevelsByNamespace[None] = level
+
+
+    def clearLogLevels(self):
+        """
+        Clears all global log levels to the default.
+        """
+        self._logLevelsByNamespace.clear()
+        self._logLevelsByNamespace[None] = self.defaultLogLevel
+
+
     def __call__(self, event):
         level     = event["log_level"]
         namespace = event["log_namespace"]
 
-        if level < logLevelForNamespace(namespace):
+        if level < self.logLevelForNamespace(namespace):
             return PredicateResult.no
 
         return PredicateResult.maybe
@@ -718,13 +702,12 @@ class LegacyLogObserver(object):
 # FIXME: This could have a better name.
 class DefaultLogPublisher(object):
     """
-    The default log publisher.  This observer sets up a set of chained observers
-    as follows:
+    This observer sets up a set of chained observers as follows:
 
         1. B{rootPublisher} - a L{LogPublisher}
 
-        2. B{filteringObserver}: a L{FilteringLogObserver} that filters out
-           messages using a L{LogLevelFilterPredicate}
+        2. B{filters}: a L{FilteringLogObserver} that filters out messages
+           using a L{LogLevelFilterPredicate}
 
         3. B{filteredPublisher} - a L{LogPublisher}
 
@@ -764,12 +747,17 @@ class DefaultLogPublisher(object):
     def __init__(self):
         self.legacyLogObserver = LegacyLogObserver(twistedLogMessage)
         self.filteredPublisher = LogPublisher(self.legacyLogObserver)
-        self.filteringObserver = FilteringLogObserver(self.filteredPublisher, (LogLevelFilterPredicate(),))
-        self.rootPublisher     = LogPublisher(self.filteringObserver)
+        self.levels            = LogLevelFilterPredicate()
+        self.filters           = FilteringLogObserver(self.filteredPublisher, (self.levels,))
+        self.rootPublisher     = LogPublisher(self.filters)
 
 
     def __call__(self, event):
         self.rootPublisher(event)
+
+
+
+Logger.publisher = DefaultLogPublisher()
 
 
 
@@ -817,17 +805,10 @@ def formatWithCall(formatString, mapping):
     @rtype: L{unicode}
     """
     return unicode(
-        formatter.vformat(formatString, (), CallMapping(mapping))
+        theFormatter.vformat(formatString, (), CallMapping(mapping))
     )
 
-formatter = Formatter()
-
-
-
-#
-# Wire up default publisher
-#
-Logger.publisher = DefaultLogPublisher()
+theFormatter = Formatter()
 
 
 

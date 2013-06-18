@@ -15,32 +15,31 @@
 # limitations under the License.
 ##
 
-from socket import getfqdn
-from socket import gethostbyname
-import copy
 import os
+import copy
 import re
+from socket import getfqdn, gethostbyname
 
-from txdav.xml import element as davxml
-from twext.web2.dav.resource import TwistedACLInheritable
+from twisted.python.runtime import platform
 
 from twext.python.plistlib import PlistParser #@UnresolvedImport
-from twext.python.log import Logger, InvalidLogLevelError
-from twext.python.log import clearLogLevels, LogLevel, setLogLevelForNamespace
+from twext.python.log import Logger, InvalidLogLevelError, LogLevel
+from twext.web2.dav.resource import TwistedACLInheritable
+
+from txdav.xml import element as davxml
 
 from twistedcaldav import caldavxml, customxml, carddavxml, mkcolxml
 from twistedcaldav.config import ConfigProvider, ConfigurationError, ConfigDict
 from twistedcaldav.config import config, mergeData, fullServerPath
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
-
-from twisted.python.runtime import platform
-
-from calendarserver.push.util import getAPNTopicFromCertificate
 from twistedcaldav.util import computeProcessCount
 
+from calendarserver.push.util import getAPNTopicFromCertificate
 
 log = Logger()
+
+
 
 if platform.isMacOSX():
     DEFAULT_CONFIG_FILE = "/Applications/Server.app/Contents/ServerRoot/private/etc/caldavd/caldavd-apple.plist"
@@ -1377,17 +1376,21 @@ def _updateRejectClients(configDict, reloading=False):
 
 
 def _updateLogLevels(configDict, reloading=False):
-    clearLogLevels()
+    log.publisher.levels.clearLogLevels()
 
     try:
         if "DefaultLogLevel" in configDict:
             levelName = configDict["DefaultLogLevel"]
             if levelName:
-                setLogLevelForNamespace(None, LogLevel.levelWithName(levelName))
+                log.publisher.levels.setLogLevelForNamespace(
+                    None, LogLevel.levelWithName(levelName)
+                )
 
         if "LogLevels" in configDict:
             for namespace, levelName in configDict["LogLevels"].iteritems():
-                setLogLevelForNamespace(namespace, LogLevel.levelWithName(levelName))
+                log.publisher.levels.setLogLevelForNamespace(
+                    namespace, LogLevel.levelWithName(levelName)
+                )
 
     except InvalidLogLevelError, e:
         raise ConfigurationError("Invalid log level: %s" % (e.level))

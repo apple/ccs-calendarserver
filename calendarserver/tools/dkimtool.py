@@ -15,22 +15,24 @@
 # limitations under the License.
 ##
 
+import sys
 from Crypto.PublicKey import RSA
 from StringIO import StringIO
-
-from twext.python.log import LogLevel, setLogLevelForNamespace, StandardIOObserver
-from twext.web2.client.http import ClientRequest
-from twext.web2.http_headers import Headers
-from twext.web2.stream import MemoryStream
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.usage import Options
 
+from twext.python.log import Logger, LogLevel, StandardIOObserver
+from twext.web2.client.http import ClientRequest
+from twext.web2.http_headers import Headers
+from twext.web2.stream import MemoryStream
+
 from txdav.caldav.datastore.scheduling.ischedule.dkim import RSA256, DKIMRequest, \
     PublicKeyLookup, DKIMVerifier, DKIMVerificationError
 
-import sys
+log = Logger()
+
 
 
 def _doKeyGeneration(options):
@@ -66,7 +68,7 @@ def _doKeyGeneration(options):
 def _doRequest(options):
 
     if options["verbose"]:
-        setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", LogLevel.debug)
+        log.publisher.levels.setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", LogLevel.debug)
 
     # Parse the HTTP file
     request = open(options["request"]).read()
@@ -299,7 +301,7 @@ def main(argv=sys.argv, stderr=sys.stderr):
     observer.start()
 
     if options["verbose"]:
-        setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", LogLevel.debug)
+        log.publisher.levels.setLogLevelForNamespace("txdav.caldav.datastore.scheduling.ischedule.dkim", LogLevel.debug)
 
     if options["key-gen"]:
         _doKeyGeneration(options)

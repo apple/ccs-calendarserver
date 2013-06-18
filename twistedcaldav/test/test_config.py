@@ -14,15 +14,19 @@
 # limitations under the License.
 ##
 
+import socket
+
 from twext.python.plistlib import writePlist #@UnresolvedImport
-from twext.python.log import LogLevel, logLevelForNamespace
+from twext.python.log import LogLevel
+from twext.python.test.test_log import defaultLogLevel, logLevelForNamespace
 
 from twistedcaldav.config import config, ConfigDict, mergeData
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider, \
     RELATIVE_PATHS
 from twistedcaldav.test.util import TestCase
-import socket
+
+
 
 testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -36,7 +40,7 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
   <integer>8008</integer>
 
   <key>DefaultLogLevel</key>
-  <string>info</string>
+  <string>error</string>
   <key>LogLevels</key>
   <dict>
     <key>some.namespace</key>
@@ -65,6 +69,8 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 </dict>
 </plist>
 """
+
+
 
 def _testResponseCompression(testCase):
     testCase.assertEquals(config.ResponseCompression, False)
@@ -328,22 +334,27 @@ class ConfigTests(TestCase):
         """
         Logging module configures properly.
         """
+        self.assertNotEqual(
+            defaultLogLevel, LogLevel.error,
+            "This test assumes the default log level is not error."
+        )
+
         config.setDefaults(DEFAULT_CONFIG)
         config.reload()
 
-        self.assertEquals(logLevelForNamespace(None), LogLevel.warn)
-        self.assertEquals(logLevelForNamespace("some.namespace"), LogLevel.warn)
+        self.assertEquals(logLevelForNamespace(None), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("some.namespace"), defaultLogLevel)
 
         config.load(self.testConfig)
 
-        self.assertEquals(logLevelForNamespace(None), LogLevel.info)
+        self.assertEquals(logLevelForNamespace(None), LogLevel.error)
         self.assertEquals(logLevelForNamespace("some.namespace"), LogLevel.debug)
 
         writePlist({}, self.testConfig)
         config.reload()
 
-        self.assertEquals(logLevelForNamespace(None), LogLevel.warn)
-        self.assertEquals(logLevelForNamespace("some.namespace"), LogLevel.warn)
+        self.assertEquals(logLevelForNamespace(None), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("some.namespace"), defaultLogLevel)
 
 
     def test_ConfigDict(self):

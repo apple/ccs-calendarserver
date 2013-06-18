@@ -37,32 +37,33 @@ from os import getuid, getgid
 
 from zope.interface import implements
 
-from twisted.plugin import IPlugin
-
 from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
-
+from twisted.python.util import uidFromString, gidFromString
+from twisted.plugin import IPlugin
 from twisted.internet.defer import gatherResults, Deferred, inlineCallbacks, succeed
-
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.protocol import ProcessProtocol
-
+from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
 from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
 from twisted.application.service import Service
+from twisted.protocols.amp import AMP
 
-from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twext.web2.server import Site
-from twext.python.log import Logger
-from twext.python.log import LogLevel, logLevelForNamespace, setLogLevelForNamespace
+from twext.python.log import Logger, LogLevel
 from twext.python.filepath import CachingFilePath
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import ORACLE_DIALECT
+from twext.enterprise.adbapi2 import ConnectionPool
+from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
+from twext.enterprise.queue import PeerConnectionPool
 
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
@@ -70,20 +71,17 @@ from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
 )
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
+from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
+from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
 
+from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav import memcachepool
 from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
-
-from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
-from calendarserver.tap.util import checkDirectories
-from calendarserver.tap.util import Stepper
-
-from twext.enterprise.ienterprise import POSTGRES_DIALECT
-from twext.enterprise.ienterprise import ORACLE_DIALECT
-from twext.enterprise.adbapi2 import ConnectionPool
+from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -91,28 +89,22 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
+from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
+from calendarserver.tap.util import checkDirectories
+from calendarserver.tap.util import Stepper
 from calendarserver.tap.util import ConnectionDispenser
-
-from calendarserver.controlsocket import ControlSocket
-from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
-
-from calendarserver.controlsocket import ControlSocketConnectingService
-from twisted.protocols.amp import AMP
-from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
-from twext.enterprise.queue import PeerConnectionPool
-from calendarserver.accesslog import AMPCommonAccessLoggingObserver
-from calendarserver.accesslog import AMPLoggingFactory
-from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource
 from calendarserver.tap.util import storeFromConfig
 from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tap.util import oracleConnectorFromConfig
+from calendarserver.controlsocket import ControlSocket
+from calendarserver.controlsocket import ControlSocketConnectingService
+from calendarserver.accesslog import AMPCommonAccessLoggingObserver
+from calendarserver.accesslog import AMPLoggingFactory
+from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
-from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
-from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
-from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
 
 try:
     from calendarserver.version import version
@@ -131,7 +123,6 @@ TWISTED_VERSION = "CalendarServer/%s %s" % (
 
 log = Logger()
 
-from twisted.python.util import uidFromString, gidFromString
 
 
 # Control socket message-routing constants.
@@ -925,8 +916,8 @@ class CalDAVServiceMaker (object):
         # Change default log level to "info" as its useful to have
         # that during startup
         #
-        oldLogLevel = logLevelForNamespace(None)
-        setLogLevelForNamespace(None, LogLevel.info)
+        oldLogLevel = log.publisher.levels.logLevelForNamespace(None)
+        log.publisher.levels.setLogLevelForNamespace(None, LogLevel.info)
 
         # Note: 'additional' was used for IMIP reply resource, and perhaps
         # we can remove this
@@ -1076,7 +1067,7 @@ class CalDAVServiceMaker (object):
                     ).setServiceParent(connectionService)
 
         # Change log level back to what it was before
-        setLogLevelForNamespace(None, oldLogLevel)
+        log.publisher.levels.setLogLevelForNamespace(None, oldLogLevel)
         return service
 
 
