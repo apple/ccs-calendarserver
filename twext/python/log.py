@@ -18,14 +18,13 @@
 """
 Classes and functions to do granular logging.
 
-Example usage in a module::
+Example usage in a module C{some.module}::
 
     from twext.python.log import Logger
     log = Logger()
 
-    ...
-
-    log.debug("Got data: {data!r}.", data=data)
+    def handleData(data):
+        log.debug("Got data: {data!r}.", data=data)
 
 Or in a class::
 
@@ -64,6 +63,8 @@ __all__ = [
     "replaceTwistedLoggers",
     #"StandardIOObserver",
 ]
+
+
 
 import sys
 from sys import stdout, stderr
@@ -157,10 +158,11 @@ pythonLogLevelMapping = {
 def formatEvent(event):
     """
     Formats an event as a L{unicode}, using the format in
-    C{event["log_format"]}.  This implementation should never
-    raise an exception; if the formatting cannot be done, the
-    returned string will describe the event so that a useful
-    message is emitted regardless.
+    C{event["log_format"]}.
+
+    This implementation should never raise an exception; if the formatting
+    cannot be done, the returned string will describe the event generically so
+    that a useful message is emitted regardless.
 
     @param event: a logging event
 
