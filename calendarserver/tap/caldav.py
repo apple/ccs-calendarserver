@@ -53,7 +53,7 @@ from twisted.application.service import Service
 from twisted.protocols.amp import AMP
 
 from twext.web2.server import Site
-from twext.python.log import Logger, LogLevel
+from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
 from twext.python.filepath import CachingFilePath
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
@@ -715,6 +715,8 @@ class CalDAVServiceMaker (object):
         """
         Create the top-level service.
         """
+        replaceTwistedLoggers()
+
         self.log.info("%s %s starting %s process..." % (self.description, version, config.ProcessType))
 
         try:
