@@ -47,12 +47,6 @@ In the first example above, the namespace would be C{some.module}, and in the
 second example, it would be C{some.module.Foo}.
 """
 
-#
-# TODO List:
-#
-# * Monkey patch logging in Twisted to use our LegacyLogger to sprinkle betterness everywhere
-#
-
 __all__ = [
     "InvalidLogLevelError",
     "LogLevel",
