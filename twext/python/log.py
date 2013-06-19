@@ -67,9 +67,11 @@ __all__ = [
     "FilteringLogObserver",
     "LogLevelFilterPredicate",
     "LegacyLogObserver",
+    "replaceTwistedLoggers",
     #"StandardIOObserver",
 ]
 
+import sys
 from sys import stdout, stderr
 from string import Formatter
 import inspect
@@ -80,6 +82,7 @@ from zope.interface import Interface, implementer
 from twisted.python.constants import NamedConstant, Names
 from twisted.python.failure import Failure
 from twisted.python.reflect import safe_str
+import twisted.python.log
 from twisted.python.log import msg as twistedLogMessage
 from twisted.python.log import addObserver, removeObserver
 from twisted.python.log import ILogObserver as ILegacyLogObserver
@@ -237,6 +240,16 @@ class Logger(object):
     publisher = lambda e: None
 
 
+    @staticmethod
+    def _namespaceFromCallingContext():
+        """
+        Derive a namespace from the module containing the caller's caller.
+
+        @return: a namespace
+        """
+        return inspect.currentframe().f_back.f_back.f_globals["__name__"]
+
+
     def __init__(self, namespace=None, source=None):
         """
         @param namespace: The namespace for this logger.  Uses a dotted
@@ -248,11 +261,7 @@ class Logger(object):
             if this L{Logger} is an attribute of that class.
         """
         if namespace is None:
-            currentFrame = inspect.currentframe()
-            callerFrame  = currentFrame.f_back
-            callerModule = callerFrame.f_globals["__name__"]
-
-            namespace = callerModule
+            namespace = self._namespaceFromCallingContext()
 
         self.namespace = namespace
         self.source = source
@@ -265,11 +274,17 @@ class Logger(object):
             # athing.py
             class Something(object):
                 log = Logger()
-                def something(self):
+                def hello(self):
                     self.log.info("Hello")
 
         a L{Logger}'s namespace will be set to the name of the class it is
-        declared on, in this case, C{athing.Something}.
+        declared on.  In the above example, the namespace would be
+        C{athing.Something}.
+
+        Additionally, it's source will be set to the actual object referring to
+        the L{Logger}.  In the above example, C{Something.log.source} would be
+        C{Something}, and C{Something().log.source} would be an instance of
+        C{Something}.
         """
         if oself is None:
             source = type
@@ -358,11 +373,25 @@ class Logger(object):
 
 
 
-class LegacyLogger(Logger):
+class LegacyLogger(object):
     """
-    A L{Logger} that provides some compatibility with the L{twisted.python.log}
-    module.
+    A logging object that provides some compatibility with the
+    L{twisted.python.log} module.
     """
+
+    def __init__(self, logger=None):
+        if logger is not None:
+            self.newStyleLogger = logger
+        else:
+            self.newStyleLogger = Logger(Logger._namespaceFromCallingContext())
+
+
+    def __getattribute__(self, name):
+        try:
+            return super(LegacyLogger, self).__getattribute__(name)
+        except AttributeError:
+            return getattr(twisted.python.log, name)
+
 
     def msg(self, *message, **kwargs):
         """
@@ -373,7 +402,7 @@ class LegacyLogger(Logger):
             message = " ".join(map(safe_str, message))
         else:
             message = None
-        return self.emit(LogLevel.info, message, **kwargs)
+        return self.newStyleLogger.emit(LogLevel.info, message, **kwargs)
 
 
     def err(self, _stuff=None, _why=None, **kwargs):
@@ -387,10 +416,10 @@ class LegacyLogger(Logger):
             _stuff = Failure(_stuff)
 
         if isinstance(_stuff, Failure):
-            self.emit(LogLevel.error, failure=_stuff, why=_why, isError=1, **kwargs)
+            self.newStyleLogger.emit(LogLevel.error, failure=_stuff, why=_why, isError=1, **kwargs)
         else:
             # We got called with an invalid _stuff.
-            self.emit(LogLevel.error, repr(_stuff), why=_why, isError=1, **kwargs)
+            self.newStyleLogger.emit(LogLevel.error, repr(_stuff), why=_why, isError=1, **kwargs)
 
 
 
@@ -809,6 +838,45 @@ def formatWithCall(formatString, mapping):
     )
 
 theFormatter = Formatter()
+
+
+def replaceTwistedLoggers():
+    """
+    Visit all Python modules that have been loaded and:
+
+     - replace L{twisted.python.log} with a L{LegacyLogger}
+
+     - replace L{twisted.python.log.msg} with a L{LegacyLogger}'s C{msg}
+
+     - replace L{twisted.python.log.err} with a L{LegacyLogger}'s C{err}
+    """
+    log = Logger()
+
+    for moduleName, module in sys.modules.iteritems():
+        # Oddly, this happens
+        if module is None:
+            continue
+
+        # Don't patch Twisted's logging module
+        if module in (twisted.python, twisted.python.log):
+            continue
+
+        # Don't patch this module
+        if moduleName is __name__:
+            continue
+
+        for name, obj in module.__dict__.iteritems():
+            legacyLogger = LegacyLogger(logger=Logger(namespace=module.__name__))
+
+            if obj is twisted.python.log:
+                log.info("Replacing Twisted log module object {0} in {1}".format(name, module.__name__))
+                setattr(module, name, legacyLogger)
+            elif obj is twisted.python.log.msg:
+                log.info("Replacing Twisted log.msg object {0} in {1}".format(name, module.__name__))
+                setattr(module, name, legacyLogger.msg)
+            elif obj is twisted.python.log.err:
+                log.info("Replacing Twisted log.err object {0} in {1}".format(name, module.__name__))
+                setattr(module, name, legacyLogger.err)
 
 
 

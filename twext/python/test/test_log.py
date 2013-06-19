@@ -39,7 +39,7 @@ setLogLevelForNamespace = Logger.publisher.levels.setLogLevelForNamespace
 
 
 
-class TestLoggerMixIn(object):
+class TestLogger(Logger):
     def emit(self, level, format=None, **kwargs):
         if False:
             print "*"*60
@@ -66,13 +66,9 @@ class TestLoggerMixIn(object):
 
 
 
-class TestLogger(TestLoggerMixIn, Logger):
-    pass
-
-
-
-class TestLegacyLogger(TestLoggerMixIn, LegacyLogger):
-    pass
+class TestLegacyLogger(LegacyLogger):
+    def __init__(self):
+        LegacyLogger.__init__(self, logger=TestLogger())
 
 
 
@@ -601,6 +597,21 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
     Tests for L{LegacyLogger}.
     """
 
+    def test_passThroughAttributes(self):
+        """
+        C{__getattribute__} on L{LegacyLogger} is passing through to Twisted's
+        logging module.
+        """
+        log = TestLegacyLogger()
+
+        # Not passed through
+        self.assertIn("API-compatible", log.msg.__doc__)
+        self.assertIn("API-compatible", log.err.__doc__)
+
+        # Passed through
+        self.assertIdentical(log.addObserver, twistedLogging.addObserver)
+
+
     def test_legacy_msg(self):
         """
         Test LegacyLogger's log.msg()
@@ -612,16 +623,16 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
 
         log.msg(message, **kwargs)
 
-        self.assertIdentical(log.emitted["level"], LogLevel.info)
-        self.assertEquals(log.emitted["format"], message)
+        self.assertIdentical(log.newStyleLogger.emitted["level"], LogLevel.info)
+        self.assertEquals(log.newStyleLogger.emitted["format"], message)
 
         for key, value in kwargs.items():
-            self.assertIdentical(log.emitted["kwargs"][key], value)
+            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key], value)
 
         log.msg(foo="")
 
-        self.assertIdentical(log.emitted["level"], LogLevel.info)
-        self.assertIdentical(log.emitted["format"], None)
+        self.assertIdentical(log.newStyleLogger.emitted["level"], LogLevel.info)
+        self.assertIdentical(log.newStyleLogger.emitted["format"], None)
 
 
     def test_legacy_err_implicit(self):
@@ -696,12 +707,12 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         errors = self.flushLoggedErrors(exception.__class__)
         self.assertEquals(len(errors), 0)
 
-        self.assertIdentical(log.emitted["level"], LogLevel.error)
-        self.assertEquals(log.emitted["format"], repr(bogus))
-        self.assertIdentical(log.emitted["kwargs"]["why"], why)
+        self.assertIdentical(log.newStyleLogger.emitted["level"], LogLevel.error)
+        self.assertEquals(log.newStyleLogger.emitted["format"], repr(bogus))
+        self.assertIdentical(log.newStyleLogger.emitted["kwargs"]["why"], why)
 
         for key, value in kwargs.items():
-            self.assertIdentical(log.emitted["kwargs"][key], value)
+            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key], value)
 
 
     def legacy_err(self, log, kwargs, why, exception):
@@ -713,11 +724,11 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         errors = self.flushLoggedErrors(exception.__class__)
         self.assertEquals(len(errors), 1)
 
-        self.assertIdentical(log.emitted["level"], LogLevel.error)
-        self.assertEquals(log.emitted["format"], None)
-        self.assertIdentical(log.emitted["kwargs"]["failure"].__class__, Failure)
-        self.assertIdentical(log.emitted["kwargs"]["failure"].value, exception)
-        self.assertIdentical(log.emitted["kwargs"]["why"], why)
+        self.assertIdentical(log.newStyleLogger.emitted["level"], LogLevel.error)
+        self.assertEquals(log.newStyleLogger.emitted["format"], None)
+        self.assertIdentical(log.newStyleLogger.emitted["kwargs"]["failure"].__class__, Failure)
+        self.assertIdentical(log.newStyleLogger.emitted["kwargs"]["failure"].value, exception)
+        self.assertIdentical(log.newStyleLogger.emitted["kwargs"]["why"], why)
 
         for key, value in kwargs.items():
-            self.assertIdentical(log.emitted["kwargs"][key], value)
+            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key], value)
