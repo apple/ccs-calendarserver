@@ -20,7 +20,6 @@ import cPickle
 
 from twisted.internet.defer import succeed, maybeDeferred, inlineCallbacks
 
-from twext.python.log import LogLevel
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.stream import MemoryStream
 from twext.web2.http_headers import Headers
