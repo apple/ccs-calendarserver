@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+Copyright (c) 2013 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,29 +21,45 @@ limitations under the License.
 <dict>
 
   <key>Label</key>
-  <string>org.calendarserver.calendarserver</string>
-
-  <key>Disabled</key>
-  <true/>
+  <string>org.calendarserver.agent</string>
 
   <key>ProgramArguments</key>
   <array>
     <string>/Applications/Server.app/Contents/ServerRoot/usr/sbin/caldavd</string>
+    <string>-t</string>
+    <string>Agent</string>
     <string>-X</string>
     <string>-R</string>
     <string>caldav_kqueue</string>
     <string>-o</string>
-    <string>FailIfUpgradeNeeded=False</string>
+    <string>PIDFile=agent.pid</string>
   </array>
 
   <key>InitGroups</key>
   <true/>
 
-  <key>KeepAlive</key>
+  <key>ServiceIPC</key>
   <true/>
 
-  <key>ThrottleInterval</key>
-  <integer>60</integer>
+  <key>Sockets</key>
+  <dict>
+          <key>AgentSocket</key>
+          <dict>
+                  <key>SockServiceName</key>
+                  <string>12345</string>
+                  <key>SockFamily</key>
+                  <string>IPv4</string>
+          </dict>
+          <!--
+          <key>AgentSocket</key>
+          <dict>
+                  <key>SockFamily</key>
+                  <string>UNIX</string>
+                  <key>SockPathName</key>
+                  <string>/some/path/org.calendarserver.agent.sock</string>
+          </dict>
+          -->
+  </dict>
 
   <key>HardResourceLimits</key>
   <dict>
@@ -59,12 +75,12 @@ limitations under the License.
 
   <key>PreventsSleep</key>
   <true/>
-  
+
   <key>StandardOutPath</key>
-  <string>/var/log/caldavd/error.log</string>
+  <string>/var/log/caldavd/agent.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/var/log/caldavd/error.log</string>
+  <string>/var/log/caldavd/agent.log</string>
 
 </dict>
 </plist>

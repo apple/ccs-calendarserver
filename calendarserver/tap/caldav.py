@@ -105,6 +105,7 @@ from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
+from calendarserver.tools.agent import makeAgentService
 
 try:
     from calendarserver.version import version
@@ -388,9 +389,10 @@ class CalDAVOptions (Options):
 
         # Having CalDAV *and* CardDAV both disabled is an illegal configuration
         # for a running server (but is fine for command-line utilities)
-        if not config.EnableCalDAV and not config.EnableCardDAV:
-            print("Neither EnableCalDAV nor EnableCardDAV are set to True.")
-            sys.exit(1)
+        if config.ProcessType not in ["Agent", "Utility"]:
+            if not config.EnableCalDAV and not config.EnableCardDAV:
+                print("Neither EnableCalDAV nor EnableCardDAV are set to True.")
+                sys.exit(1)
 
         uid, gid = None, None
 
@@ -1232,6 +1234,22 @@ class CalDAVServiceMaker (object):
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
         return self.storageService(toolServiceCreator, None, uid=uid, gid=gid)
+
+
+    def makeService_Agent(self, options):
+        """
+        Create an agent service which listens for configuration requests
+        """
+
+        # Don't use memcached -- calendar server might take it away at any
+        # moment
+        config.Memcached.Pools.Default.ClientEnabled = False
+
+        def agentServiceCreator(pool, store, ignored):
+            return makeAgentService(store)
+
+        uid, gid = getSystemIDs(config.UserName, config.GroupName)
+        return self.storageService(agentServiceCreator, None, uid=uid, gid=gid)
 
 
     def storageService(self, createMainService, logObserver, uid=None, gid=None):

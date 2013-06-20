@@ -402,6 +402,7 @@ class PostgresService(MultiService):
             createDatabaseCursor.execute("commit")
             return createDatabaseConn, createDatabaseCursor
 
+        # TODO: always go through pg_ctl start
         try:
             createDatabaseConn, createDatabaseCursor = createConnection()
         except pgdb.DatabaseError:
