@@ -55,21 +55,21 @@ CS_GROUP = _calendar
 CalDAVTester::          $(BuildDirectory)/CalDAVTester
 PyKerberos::            $(BuildDirectory)/PyKerberos
 pycalendar::            $(BuildDirectory)/pycalendar
-PyGreSQL-4.0::          $(BuildDirectory)/PyGreSQL-4.0
+PyGreSQL-4.0::          $(BuildDirectory)/PyGreSQL-4.1.1
 sqlparse-0.1.2::        $(BuildDirectory)/sqlparse-0.1.2
 setproctitle-1.1.6::	$(BuildDirectory)/setproctitle-1.1.6
 psutil-0.6.1::		$(BuildDirectory)/psutil-0.6.1
 pycrypto-2.5::		$(BuildDirectory)/pycrypto-2.5
 $(Project)::            $(BuildDirectory)/$(Project)
 
-build:: PyKerberos pycalendar PyGreSQL-4.0 sqlparse-0.1.2 setproctitle-1.1.6 psutil-0.6.1 pycrypto-2.5 $(Project)
+build:: PyKerberos pycalendar PyGreSQL-4.1.1 sqlparse-0.1.2 setproctitle-1.1.6 psutil-0.6.1 pycrypto-2.5 $(Project)
 
 setup:
 	$(_v) ./run -g
 
-prep:: setup CalDAVTester.tgz PyKerberos.tgz pycalendar.tgz PyGreSQL-4.0.tgz sqlparse-0.1.2.tgz setproctitle-1.1.6.tgz psutil-0.6.1.tgz pycrypto-2.5.tgz
+prep:: setup CalDAVTester.tgz PyKerberos.tgz pycalendar.tgz PyGreSQL-4.1.1.tgz sqlparse-0.1.2.tgz setproctitle-1.1.6.tgz psutil-0.6.1.tgz pycrypto-2.5.tgz
 
-PyKerberos pycalendar PyGreSQL-4.0 sqlparse-0.1.2 setproctitle-1.1.6 psutil-0.6.1 pycrypto-2.5 $(Project)::
+PyKerberos pycalendar PyGreSQL-4.1.1 sqlparse-0.1.2 setproctitle-1.1.6 psutil-0.6.1 pycrypto-2.5 $(Project)::
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
@@ -77,7 +77,7 @@ install:: build
 	$(_v) cd $(BuildDirectory)/$(Project)         && $(Environment) $(PYTHON) setup.py build_ext $(CS_BUILD_EXT_FLAGS) install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyKerberos         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/pycalendar         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/PyGreSQL-4.0       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/PyGreSQL-4.1.1     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/sqlparse-0.1.2     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/setproctitle-1.1.6 && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/psutil-0.6.1       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
