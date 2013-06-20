@@ -52,36 +52,45 @@ CS_GROUP = _calendar
 
 .phony: $(Project) pycalendar build setup prep install install-ossfiles buildit
 
-CalDAVTester::          $(BuildDirectory)/CalDAVTester
-PyKerberos::            $(BuildDirectory)/PyKerberos
-pycalendar::            $(BuildDirectory)/pycalendar
-PyGreSQL-4.0::          $(BuildDirectory)/PyGreSQL-4.1.1
-sqlparse-0.1.2::        $(BuildDirectory)/sqlparse-0.1.2
-setproctitle-1.1.6::	$(BuildDirectory)/setproctitle-1.1.6
-psutil-0.6.1::		$(BuildDirectory)/psutil-0.6.1
-pycrypto-2.5::		$(BuildDirectory)/pycrypto-2.5
-$(Project)::            $(BuildDirectory)/$(Project)
+CALDAVTESTER = CalDAVTester
+PYKERBEROS   = PyKerberos
+PYCALENDAR   = pycalendar
+PYGRESQL     = PyGreSQL-4.1.1
+SQLPARSE     = sqlparse-0.1.2
+SETPROCTITLE = setproctitle-1.1.6
+PSUTIL       = psutil-0.6.1
+PYCRYPTO     = pycrypto-2.5
 
-build:: PyKerberos pycalendar PyGreSQL-4.1.1 sqlparse-0.1.2 setproctitle-1.1.6 psutil-0.6.1 pycrypto-2.5 $(Project)
+$(CALDAVTESTER):: $(BuildDirectory)/$(CALDAVTESTER)
+$(PYKERBEROS)::   $(BuildDirectory)/$(PYKERBEROS)
+$(PYCALENDAR)::   $(BuildDirectory)/$(PYCALENDAR)
+$(PYGRESQL)::     $(BuildDirectory)/$(PYGRESQL)
+$(SQLPARSE)::     $(BuildDirectory)/$(SQLPARSE)
+$(SETPROCTITLE):  $(BuildDirectory)/$(SETPROCTITLE)
+$(PSUTIL)::	  $(BuildDirectory)/$(PSUTIL)
+$(PYCRYPTO)::	  $(BuildDirectory)/$(PYCRYPTO)
+$(Project)::      $(BuildDirectory)/$(Project)
+
+build:: $(PYKERBEROS) $(PYCALENDAR) $(PYGRESQL) $(SQLPARSE) $(SETPROCTITLE) $(PSUTIL) $(PYCRYPTO) $(Project)
 
 setup:
 	$(_v) ./run -g
 
-prep:: setup CalDAVTester.tgz PyKerberos.tgz pycalendar.tgz PyGreSQL-4.1.1.tgz sqlparse-0.1.2.tgz setproctitle-1.1.6.tgz psutil-0.6.1.tgz pycrypto-2.5.tgz
+prep:: setup $(CALDAVTESTER).tgz $(PYKERBEROS).tgz $(PYCALENDAR).tgz $(PYGRESQL).tgz $(SQLPARSE).tgz $(SETPROCTITLE).tgz $(PSUTIL).tgz $(PYCRYPTO).tgz
 
-PyKerberos pycalendar PyGreSQL-4.1.1 sqlparse-0.1.2 setproctitle-1.1.6 psutil-0.6.1 pycrypto-2.5 $(Project)::
+$(PYKERBEROS) $(PYCALENDAR) $(PYGRESQL) $(SQLPARSE) $(SETPROCTITLE) $(PSUTIL) $(PYCRYPTO) $(Project)::
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
 install:: build
-	$(_v) cd $(BuildDirectory)/$(Project)         && $(Environment) $(PYTHON) setup.py build_ext $(CS_BUILD_EXT_FLAGS) install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/PyKerberos         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/pycalendar         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/PyGreSQL-4.1.1     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/sqlparse-0.1.2     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/setproctitle-1.1.6 && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/psutil-0.6.1       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/pycrypto-2.5       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(Project)      && $(Environment) $(PYTHON) setup.py build_ext $(CS_BUILD_EXT_FLAGS) install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(PYKERBEROS)   && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(PYCALENDAR)   && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(PYGRESQL)     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(SQLPARSE)     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(SETPROCTITLE) && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(PSUTIL)       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(PYCRYPTO)     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist"
