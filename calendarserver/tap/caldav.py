@@ -1245,6 +1245,8 @@ class CalDAVServiceMaker (object):
         # moment
         config.Memcached.Pools.Default.ClientEnabled = False
 
+        config.EnableCalDAV = config.EnableCardDAV = True
+
         def agentServiceCreator(pool, store, ignored):
             return makeAgentService(store)
 
