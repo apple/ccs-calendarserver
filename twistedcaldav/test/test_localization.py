@@ -26,9 +26,7 @@ import os
 
 def getComp(str):
     calendar = Component.fromString(str)
-    comp = calendar.masterComponent()
-    if comp is None:
-        comp = calendar.mainComponent(True)
+    comp = calendar.mainComponent()
     return comp
 
 data = (

@@ -38,8 +38,8 @@ from twext.python.vcomponent import InvalidICalendarDataError
 from twext.python.vcomponent import VComponent
 
 from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
-from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
+from twistedcaldav.ical import PERUSER_UID
 
 from txdav.common.icommondatastore import (
     InvalidObjectResourceError, NoSuchObjectResourceError,
@@ -636,7 +636,7 @@ def fixOneCalendarObject(component):
     fixes = 0
     for calprop in component.properties():
         if calprop.name() in (
-            "ATTENDEE", "ORGANIZER", PerUserDataFilter.PERUSER_UID
+            "ATTENDEE", "ORGANIZER", PERUSER_UID
         ):
             preval = calprop.value()
             postval = normalizeUUIDOrNot(preval)

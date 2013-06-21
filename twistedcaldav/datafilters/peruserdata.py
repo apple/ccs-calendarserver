@@ -15,7 +15,8 @@
 ##
 
 from twistedcaldav.datafilters.filter import CalendarFilter
-from twistedcaldav.ical import Component, Property
+from twistedcaldav.ical import Component, Property, PERUSER_COMPONENT, \
+    PERUSER_UID, PERINSTANCE_COMPONENT
 
 __all__ = [
     "PerUserDataFilter",
@@ -58,14 +59,15 @@ class PerUserDataFilter(CalendarFilter):
     Filter per-user data
     """
 
-    # If any of these change also update usage in ical.py
-    PERUSER_COMPONENT = "X-CALENDARSERVER-PERUSER"
-    PERUSER_UID = "X-CALENDARSERVER-PERUSER-UID"
-    PERINSTANCE_COMPONENT = "X-CALENDARSERVER-PERINSTANCE"
-
+    # Regular properties that need to be treated as per-user
     PERUSER_PROPERTIES = ("TRANSP",)
+
+    # Regular components that need to be treated as per-user
     PERUSER_SUBCOMPONENTS = ("VALARM",)
-    IGNORE_X_PROPERTIES = ("X-CALENDARSERVER-HIDDEN-INSTANCE",)
+
+    # X- properties that are ignored - by default all X- properties are treated as per-user except for the
+    # ones listed here
+    IGNORE_X_PROPERTIES = (Component.HIDDEN_INSTANCE_PROPERTY,)
 
     def __init__(self, uid):
         """
@@ -94,10 +96,10 @@ class PerUserDataFilter(CalendarFilter):
         # Look for matching per-user sub-component, removing all the others
         peruser_component = None
         for component in tuple(ical.subcomponents()):
-            if component.name() == PerUserDataFilter.PERUSER_COMPONENT:
+            if component.name() == PERUSER_COMPONENT:
 
                 # Check user id - remove if not matches
-                if component.propertyValue(PerUserDataFilter.PERUSER_UID) != self.uid:
+                if component.propertyValue(PERUSER_UID) != self.uid:
                     ical.removeComponent(component)
                 elif peruser_component is None:
                     peruser_component = component
@@ -129,7 +131,7 @@ class PerUserDataFilter(CalendarFilter):
 
         # There cannot be any X-CALENDARSERVER-PERUSER components in the new data
         for component in tuple(icalnew.subcomponents()):
-            if component.name() == PerUserDataFilter.PERUSER_COMPONENT:
+            if component.name() == PERUSER_COMPONENT:
                 raise ValueError("Cannot merge calendar data with X-CALENDARSERVER-PERUSER components in it")
 
         # First split the new data into common and per-user pieces
@@ -157,7 +159,7 @@ class PerUserDataFilter(CalendarFilter):
         # Iterate over each instance in the per-user data and build mapping
         peruser_recurrence_map = {}
         for subcomponent in peruser.subcomponents():
-            if subcomponent.name() != PerUserDataFilter.PERINSTANCE_COMPONENT:
+            if subcomponent.name() != PERINSTANCE_COMPONENT:
                 raise AssertionError("Wrong sub-component '%s' in a X-CALENDARSERVER-PERUSER component" % (subcomponent.name(),))
             peruser_recurrence_map[subcomponent.getRecurrenceIDUTC()] = subcomponent
 
@@ -227,9 +229,9 @@ class PerUserDataFilter(CalendarFilter):
         """
 
         def init_peruser_component():
-            peruser = Component(PerUserDataFilter.PERUSER_COMPONENT)
+            peruser = Component(PERUSER_COMPONENT)
             peruser.addProperty(Property("UID", ical.resourceUID()))
-            peruser.addProperty(Property(PerUserDataFilter.PERUSER_UID, self.uid))
+            peruser.addProperty(Property(PERUSER_UID, self.uid))
             return peruser
 
         components = tuple(ical.subcomponents())
@@ -242,7 +244,7 @@ class PerUserDataFilter(CalendarFilter):
             rid = component.propertyValue("RECURRENCE-ID")
             rid = rid.duplicate() if rid is not None else None
 
-            perinstance_component = Component(PerUserDataFilter.PERINSTANCE_COMPONENT) if self.uid else None
+            perinstance_component = Component(PERINSTANCE_COMPONENT) if self.uid else None
             perinstance_id_different = False
 
             # Transfer per-user properties from main component to per-instance component
@@ -329,8 +331,8 @@ class PerUserDataFilter(CalendarFilter):
         old_recur = icalold.isRecurring()
         new_recur_has_no_master = new_recur and (icalnew.masterComponent() is None)
         for component in icalold.subcomponents():
-            if component.name() == PerUserDataFilter.PERUSER_COMPONENT:
-                if component.propertyValue(PerUserDataFilter.PERUSER_UID) != self.uid and not new_recur_has_no_master:
+            if component.name() == PERUSER_COMPONENT:
+                if component.propertyValue(PERUSER_UID) != self.uid and not new_recur_has_no_master:
                     newcomponent = component.duplicate()
 
                     # Only transfer the master components from the old data to the new when the old
@@ -348,8 +350,8 @@ class PerUserDataFilter(CalendarFilter):
 
         # Take all per-user components from old and add to new, except for our user
         for component in icalold.subcomponents():
-            if component.name() == PerUserDataFilter.PERUSER_COMPONENT:
-                if component.propertyValue(PerUserDataFilter.PERUSER_UID) != self.uid:
+            if component.name() == PERUSER_COMPONENT:
+                if component.propertyValue(PERUSER_UID) != self.uid:
                     newcomponent = component.duplicate()
 
                     # See which of the instances are still valid

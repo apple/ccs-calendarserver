@@ -1707,8 +1707,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             new_attendees = calendar.getAttendees()
             old_attendees = tuple(old_calendar.getAllAttendeeProperties())
 
-            new_completed = calendar.mainComponent().hasProperty("COMPLETED")
-            old_completed = old_calendar.mainComponent().hasProperty("COMPLETED")
+            new_completed = calendar.masterComponent().hasProperty("COMPLETED")
+            old_completed = old_calendar.masterComponent().hasProperty("COMPLETED")
 
             if old_organizer and not new_organizer and len(old_attendees) > 0 and len(new_attendees) == 0:
                 # Transfer old organizer and attendees to new calendar
@@ -1857,7 +1857,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         vevent = mtype == "VEVENT"
 
         # Check timed or all-day
-        start, _ignore_end = component.mainComponent(allow_multiple=True).getEffectiveStartEnd()
+        start, _ignore_end = component.mainComponent().getEffectiveStartEnd()
         if start is None:
             # Yes VTODOs might have no DTSTART or DUE - in this case we do not add a default
             return

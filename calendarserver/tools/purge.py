@@ -1038,11 +1038,7 @@ class PurgePrincipalService(WorkerService):
         if event.mainType() != "VEVENT":
             return cls.CANCELEVENT_SKIPPED
 
-        main = event.masterComponent()
-        if main is None:
-            # No master component, so this is an attendee being invited to one or
-            # more occurrences
-            main = event.mainComponent(allow_multiple=True)
+        main = event.mainComponent()
 
         # Anything completely in the future is deleted
         dtstart = main.getStartDateUTC()

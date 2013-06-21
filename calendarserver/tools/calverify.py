@@ -66,7 +66,7 @@ from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import pyCalendarTodatetime
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.ical import Component, ignoredComponents, \
-    InvalidICalendarDataError, Property
+    InvalidICalendarDataError, Property, PERUSER_COMPONENT
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.util import normalizationLookup
@@ -184,7 +184,7 @@ def new_hasDuplicateAlarms(self, doFix=False):
     test and optionally remove alarms that have the same ACTION and TRIGGER values in the same component.
     """
     changed = False
-    if self.name() in ("VCALENDAR", "X-CALENDARSERVER-PERUSER",):
+    if self.name() in ("VCALENDAR", PERUSER_COMPONENT,):
         for component in self.subcomponents():
             if component.name() in ("VTIMEZONE",):
                 continue

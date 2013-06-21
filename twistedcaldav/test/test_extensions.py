@@ -266,6 +266,7 @@ class CalendarServerPrincipalSearchTests(TestCase):
         self.assertTrue(applyTo)
         self.assertEquals(clientLimit, 42)
 
+
     def test_validateTokens(self):
         """
         Ensure validateTokens only returns True if there is at least one token
@@ -278,5 +279,3 @@ class CalendarServerPrincipalSearchTests(TestCase):
         self.assertFalse(validateTokens(["a", "b", "c"]))
         self.assertFalse(validateTokens([""]))
         self.assertFalse(validateTokens([]))
-
-

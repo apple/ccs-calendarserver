@@ -323,10 +323,7 @@ class MailSender(object):
             duration = PyCalendarDuration(days=self.suppressionDays)
             onlyAfter = PyCalendarDateTime.getNowUTC() - duration
 
-        component = calendar.masterComponent()
-        if component is None:
-            component = calendar.mainComponent(True)
-        icaluid = component.propertyValue("UID")
+        icaluid = calendar.resourceUID()
         method = calendar.propertyValue("METHOD")
 
         # Clean up the attendee list which is purely used within the human
@@ -705,9 +702,7 @@ class MailSender(object):
         """
 
         # Get the most appropriate component
-        component = calendar.masterComponent()
-        if component is None:
-            component = calendar.mainComponent(True)
+        component = calendar.mainComponent()
 
         results = {}
 

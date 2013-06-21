@@ -775,8 +775,7 @@ class ImplicitProcessor(object):
 
         # Extract UID from primary component as we want to ignore this one if we match it
         # in any calendars.
-        comp = calendar.mainComponent(allow_multiple=True)
-        uid = comp.propertyValue("UID")
+        uid = calendar.resourceUID()
 
         # Now compare each instance time-range with the index and see if there is an overlap
         fbset = (yield self.recipient.inbox.ownerHome().loadCalendars())
