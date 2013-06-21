@@ -1063,7 +1063,7 @@ class Stepper(object):
 
 
     def defaultStepWithFailure(self, failure):
-        log.warn(failure)
+        log.failure("Step failure", failure=failure)
         return failure
 
     # def protectStep(self, callback):
