@@ -49,9 +49,9 @@ if __name__ == '__main__':
         newqs = {}
         for line in output.split("\n"):
 
-            if not line.startswith("tcp4 ") and not line.startswith("tcp "):
-                continue
             splits = line.split()
+            if splits[0] not in ("tcp4", "tcp6", "tcp"):
+                continue
             if not splits[3].endswith("8443") and not splits[3].endswith("8008"):
                 continue
             for ctr, items in enumerate(stateNames):
