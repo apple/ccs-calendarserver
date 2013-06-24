@@ -854,6 +854,13 @@ dependencies () {
     "${n}" "${n}" "${p}" \
     "${pypi}/s/${n}/${p}.tar.gz";
 
+  local v="0.6";
+  local n="cffi";
+  local p="${n}-${v}";
+  py_dependency -v "0.6" -m "5be33b1ab0247a984d42b27344519337" \
+    "${n}" "${n}" "${p}" \
+    "${pypi}/c/${n}/${p}.tar.gz";
+
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
       "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
