@@ -528,6 +528,10 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
                 if count * 100.0 / len(times) > cutoff:
                     reasons.append(reason % dict(method=method, cutoff=cutoff))
 
+        if self.countClientFailures() != 0:
+            reasons.append("Client failures: %d" % (self.countClientFailures(),))
+        if self.countSimFailures() != 0:
+            reasons.append("Overall failures: %d" % (self.countSimFailures(),))
         return reasons
 
 
