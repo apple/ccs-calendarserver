@@ -42,7 +42,7 @@ class HTTPTestBase(object):
         self.result = None
 
 
-    def execute(self):
+    def execute(self, count):
         """
         Execute the HTTP request and read the results.
         """
@@ -50,7 +50,7 @@ class HTTPTestBase(object):
         self.prepare()
         self.clearLog()
         self.doRequest()
-        self.collectResults()
+        self.collectResults(count)
         self.cleanup()
         return self.result
 
@@ -76,7 +76,7 @@ class HTTPTestBase(object):
         raise NotImplementedError
 
 
-    def collectResults(self):
+    def collectResults(self, event_count):
         """
         Parse the server log file to extract the details we need.
         """
@@ -95,6 +95,9 @@ class HTTPTestBase(object):
         rows = extractInt(lines[5])
         timing = extractFloat(lines[6])
         self.result = HTTPTestBase.SQLResults(count, rows, timing)
+
+        with open("%s-%d-%s" % (self.logFilePath, event_count, self.label), "w") as f:
+            f.write(data)
 
 
     def cleanup(self):

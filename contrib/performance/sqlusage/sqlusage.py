@@ -135,7 +135,7 @@ class SQLUsage(object):
             result = {}
             for request in requests:
                 print("  Test = %s" % (request.label,))
-                result[request.label] = request.execute()
+                result[request.label] = request.execute(count)
             self.results[count] = result
 
 
