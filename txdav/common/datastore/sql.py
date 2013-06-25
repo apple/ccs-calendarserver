@@ -25,39 +25,44 @@ __all__ = [
     "CommonHome",
 ]
 
-import sys
+from cStringIO import StringIO
 
-from uuid import uuid4, UUID
+from pycalendar.datetime import PyCalendarDateTime
 
-from zope.interface import implements, directlyProvides
-
+from twext.enterprise.dal.syntax import \
+    Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction, \
+    Select, Update, ColumnSyntax, TableSyntax, Upper, Count, ALL_COLUMNS, Sum
+from twext.enterprise.ienterprise import AlreadyFinishedError
+from twext.enterprise.queue import LocalQueuer
+from twext.enterprise.util import parseSQLTimestamp
+from twext.internet.decorate import memoizedKey, Memoizable
+from twext.python.clsprop import classproperty
 from twext.python.log import Logger
-
-from txdav.xml.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
 
-from twisted.python import hashlib
-from twisted.python.modules import getModule
-from twisted.python.util import FancyEqMixin
-from twisted.python.failure import Failure
-
+from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.python import hashlib
+from twisted.python.failure import Failure
+from twisted.python.modules import getModule
+from twisted.python.util import FancyEqMixin
 
-from twisted.application.service import Service
+from twistedcaldav.config import config
+from twistedcaldav.customxml import NotificationType
+from twistedcaldav.dateops import datetimeMktime, pyCalendarTodatetime
 
 from txdav.base.datastore.util import QueryCacher
-
-from twext.internet.decorate import memoizedKey, Memoizable
-
+from txdav.base.datastore.util import normalizeUUIDOrNot
+from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
+from txdav.base.propertystore.sql import PropertyStore
 from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
-
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
-
 from txdav.common.datastore.common import HomeChildBase
-from txdav.common.datastore.sql_tables import schema, splitSQLString
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED
+from txdav.common.datastore.sql_tables import schema, splitSQLString
+from txdav.common.icommondatastore import ConcurrentModification
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
@@ -66,30 +71,13 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
+from txdav.xml.parser import WebDAVDocument
 
-from twext.python.clsprop import classproperty
-from twext.enterprise.ienterprise import AlreadyFinishedError
+from uuid import uuid4, UUID
 
-from twext.enterprise.dal.syntax import \
-    Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction, \
-    Select, Update, ColumnSyntax, TableSyntax, Upper, Count, ALL_COLUMNS, Sum
+from zope.interface import implements, directlyProvides
 
-from twistedcaldav.config import config
-
-from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
-from txdav.base.propertystore.sql import PropertyStore
-
-from txdav.common.icommondatastore import ConcurrentModification
-from twistedcaldav.customxml import NotificationType
-from twistedcaldav.dateops import datetimeMktime, pyCalendarTodatetime
-
-from txdav.base.datastore.util import normalizeUUIDOrNot
-from twext.enterprise.queue import LocalQueuer
-from twext.enterprise.util import parseSQLTimestamp
-
-from pycalendar.datetime import PyCalendarDateTime
-
-from cStringIO import StringIO
+import sys
 import time
 
 current_sql_schema = getModule(__name__).filePath.sibling("sql_schema").child("current.sql").getContent()
@@ -1970,7 +1958,12 @@ class CommonHome(object):
                                 deleted.add("%s/%s" % (path, name,))
 
                 for path, name, wasdeleted in results:
-                    changed.add("%s/%s" % (path, "" if depth == "1" else name,))
+                    # Always report collection as changed
+                    changed.add("%s/" % (path,))
+                    if name:
+                        # Resource changed - for depth "infinity" report resource as changed
+                        if depth != "1":
+                            changed.add("%s/%s" % (path, name,))
 
         changed = sorted(changed)
         deleted = sorted(deleted)
@@ -2783,7 +2776,7 @@ class SharingMixIn(object):
                 yield shareeView._initBindRevision()
 
         # Must send notification to ensure cache invalidation occurs
-        yield self.notifyChanged()
+        yield self.notifyPropertyChanged()
         yield shareeHome.notifyChanged()
 
         returnValue(bindName)
@@ -2862,7 +2855,7 @@ class SharingMixIn(object):
             shareeView._name = sharedname[0][0]
 
             # Must send notification to ensure cache invalidation occurs
-            yield self.notifyChanged()
+            yield self.notifyPropertyChanged()
             yield shareeView.viewerHome().notifyChanged()
 
         returnValue(shareeView._name)
@@ -2890,7 +2883,7 @@ class SharingMixIn(object):
                 shareeHome._children.pop(shareeChild._resourceID, None)
 
                 # Must send notification to ensure cache invalidation occurs
-                yield self.notifyChanged()
+                yield self.notifyPropertyChanged()
                 yield shareeHome.notifyChanged()
                 break
 
@@ -3048,7 +3041,7 @@ class SharingMixIn(object):
         ).on(self._txn, resourceID=self._resourceID, homeID=self.viewerHome()._resourceID)
 
         yield self.invalidateQueryCache()
-        yield self.notifyChanged()
+        yield self.notifyPropertyChanged()
 
 
     def shareStatus(self):
@@ -3471,7 +3464,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         # Change notification for a create is on the home collection
         yield home.notifyChanged()
-        yield child.notifyChanged()
+        yield child.notifyPropertyChanged()
         returnValue(child)
 
 
@@ -3591,7 +3584,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         self._home._children[name] = self
         yield self._renameSyncToken()
 
-        yield self.notifyChanged()
+        yield self.notifyPropertyChanged()
         yield self._home.notifyChanged()
 
 
@@ -3608,7 +3601,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     def remove(self):
 
         # Do before setting _resourceID making changes
-        yield self.notifyChanged()
+        yield self.notifyPropertyChanged()
 
         queryCacher = self._home._txn._queryCacher
         if queryCacher:
@@ -3997,7 +3990,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 self.viewerHome().uid(),
                 self._txn,
                 self._resourceID,
-                notifyCallback=self.notifyChanged
+                notifyCallback=self.notifyPropertyChanged
             )
         self.initPropertyStore(props)
         self._properties = props
@@ -4056,12 +4049,35 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         return self.ownerHome().notifierID()
 
 
-    @inlineCallbacks
     def notifyChanged(self):
+        """
+        Send notifications when a child resource is changed.
+        """
+        return self._notifyChanged(property_change=False)
+
+
+    def notifyPropertyChanged(self):
+        """
+        Send notifications when properties on this object change.
+        """
+        return self._notifyChanged(property_change=True)
+
+
+    @inlineCallbacks
+    def _notifyChanged(self, property_change=False):
         """
         Send notifications, change sync token and bump last modified because
         the resource has changed.  We ensure we only do this once per object
         per transaction.
+
+        Note that we distinguish between property changes and child resource changes. For property
+        changes we need to bump the collections revision token, but we must not do that for child
+        changes because that can cause a deadlock (plus it is not needed as the overall revision
+        token includes the child token via the max() construct in the query).
+
+        @param property_change: indicates whether this is the result of a property change as opposed to
+            a child resource being added, changed or removed.
+        @type property_change: C{bool}
         """
         if self._txn.isNotifiedAlready(self):
             returnValue(None)
@@ -4071,8 +4087,9 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         if self._resourceID:
             yield self.bumpModified()
 
-            # We now also bump the collection level sync token on any change
-            yield self._bumpSyncToken()
+            # Bump the collection level sync token only for property change
+            if property_change:
+                yield self._bumpSyncToken()
 
         # Send notifications
         if self._notifiers:

@@ -188,21 +188,21 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def addressbookUnderTest(self, txn=None, name=None):
+    def addressbookUnderTest(self, txn=None, name=None, home="home1"):
         """
         Get the addressbook detailed by C{requirements['home1']['addressbook']}.
         """
-        returnValue((yield (yield self.homeUnderTest(txn=txn))
+        returnValue((yield (yield self.homeUnderTest(txn=txn, name=home))
             .addressbookWithName(name if name else "addressbook")))
 
 
     @inlineCallbacks
-    def addressbookObjectUnderTest(self, txn=None, name=None):
+    def addressbookObjectUnderTest(self, txn=None, name=None, addressbook_name="addressbook", home="home1"):
         """
         Get the addressbook detailed by
         C{requirements['home1']['addressbook']['1.vcf']}.
         """
-        returnValue((yield (yield self.addressbookUnderTest(txn=txn))
+        returnValue((yield (yield self.addressbookUnderTest(txn=txn, name=addressbook_name, home=home))
                     .addressbookObjectWithName(name if name else "1.vcf")))
 
 

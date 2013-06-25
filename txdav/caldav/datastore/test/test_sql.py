@@ -26,7 +26,7 @@ from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete
 from twext.python.vcomponent import VComponent
 
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from twisted.internet.task import deferLater
 from twisted.trial import unittest
 
@@ -607,7 +607,7 @@ END:VCALENDAR
             yield cal1.createObjectResourceWithName("1.ics", VComponent.fromString(
 """BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Apple Inc.//iCal 4.0.1//EN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VTIMEZONE
 TZID:US/Pacific
@@ -653,7 +653,7 @@ END:VCALENDAR
             yield cal2.createObjectResourceWithName("2.ics", VComponent.fromString(
 """BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Apple Inc.//iCal 4.0.1//EN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
 BEGIN:VTIMEZONE
 TZID:US/Pacific
@@ -1557,7 +1557,7 @@ END:VCALENDAR
     @inlineCallbacks
     def test_objectResourceWithID(self):
         """
-        L{ICalendarHome.objectResourceWithID} will return the calendar object..
+        L{ICalendarHome.objectResourceWithID} will return the calendar object.
         """
         home = yield self.homeUnderTest()
         calendarObject = (yield home.objectResourceWithID(9999))
@@ -1571,7 +1571,7 @@ END:VCALENDAR
     @inlineCallbacks
     def test_defaultAlarms(self):
         """
-        L{ICalendarHome.objectResourceWithID} will return the calendar object..
+        L{ICalendarHome.objectResourceWithID} will return the calendar object.
         """
 
         alarmhome1 = """BEGIN:VALARM
@@ -1859,3 +1859,80 @@ END:VCALENDAR
         cal = yield self.calendarUnderTest()
         self.assertEqual(cal.getTimezone(), None)
         yield self.commit()
+
+
+    @inlineCallbacks
+    def test_calendarRevisionChangeConcurrency(self):
+        """
+        Test that two concurrent attempts to add resources in two separate
+        calendar homes does not deadlock on the revision table update.
+        """
+
+        calendarStore = self._sqlCalendarStore
+
+        # Make sure homes are provisioned
+        txn = self.transactionUnderTest()
+        home_uid1 = yield txn.homeWithUID(ECALENDARTYPE, "user01", create=True)
+        home_uid2 = yield txn.homeWithUID(ECALENDARTYPE, "user02", create=True)
+        self.assertNotEqual(home_uid1, None)
+        self.assertNotEqual(home_uid2, None)
+        yield self.commit()
+
+        # Create first events in different calendar homes
+        txn1 = calendarStore.newTransaction()
+        txn2 = calendarStore.newTransaction()
+
+        calendar_uid1_in_txn1 = yield self.calendarUnderTest(txn1, "calendar", "user01")
+        calendar_uid2_in_txn2 = yield self.calendarUnderTest(txn2, "calendar", "user02")
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:data%(ctr)s
+DTSTART:20130102T140000Z
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+SUMMARY:data%(ctr)s
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data % {"ctr": 1})
+        yield calendar_uid1_in_txn1.createCalendarObjectWithName("data1.ics", component)
+
+        component = Component.fromString(data % {"ctr": 2})
+        yield calendar_uid2_in_txn2.createCalendarObjectWithName("data2.ics", component)
+
+        # Setup deferreds to run concurrently and create second events in the calendar homes
+        # previously used by the other transaction - this could create the deadlock.
+        @inlineCallbacks
+        def _defer_uid3():
+            calendar_uid1_in_txn2 = yield self.calendarUnderTest(txn2, "calendar", "user01")
+            component = Component.fromString(data % {"ctr": 3})
+            yield calendar_uid1_in_txn2.createCalendarObjectWithName("data3.ics", component)
+            yield txn2.commit()
+        d1 = _defer_uid3()
+
+        @inlineCallbacks
+        def _defer_uid4():
+            calendar_uid2_in_txn1 = yield self.calendarUnderTest(txn1, "calendar", "user02")
+            component = Component.fromString(data % {"ctr": 4})
+            yield calendar_uid2_in_txn1.createCalendarObjectWithName("data4.ics", component)
+            yield txn1.commit()
+        d2 = _defer_uid4()
+
+        # Now do the concurrent provision attempt
+        yield DeferredList([d1, d2])
+
+        # Verify we did not have a deadlock and all resources have been created.
+        caldata1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        caldata2 = yield self.calendarObjectUnderTest(name="data2.ics", calendar_name="calendar", home="user02")
+        caldata3 = yield self.calendarObjectUnderTest(name="data3.ics", calendar_name="calendar", home="user01")
+        caldata4 = yield self.calendarObjectUnderTest(name="data4.ics", calendar_name="calendar", home="user02")
+        self.assertNotEqual(caldata1, None)
+        self.assertNotEqual(caldata2, None)
+        self.assertNotEqual(caldata3, None)
+        self.assertNotEqual(caldata4, None)

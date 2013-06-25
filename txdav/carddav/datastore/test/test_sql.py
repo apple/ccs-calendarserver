@@ -22,7 +22,7 @@ L{txdav.carddav.datastore.test.common}.
 from twext.enterprise.dal.syntax import Select, Parameter
 
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from twisted.internet.task import deferLater
 
 from twisted.trial import unittest
@@ -472,7 +472,7 @@ END:VCARD
         group = VCard.fromString(
             """BEGIN:VCARD
 VERSION:3.0
-PRODID:-//Apple Inc.//AddressBook 6.1//EN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 UID:uid2
 FN:Top Group
 N:Top Group;;;;
@@ -489,7 +489,7 @@ END:VCARD
         badgroup = VCard.fromString(
             """BEGIN:VCARD
 VERSION:3.0
-PRODID:-//Apple Inc.//AddressBook 6.1//EN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 UID:uid3
 FN:Bad Group
 N:Bad Group;;;;
@@ -562,7 +562,7 @@ END:VCARD
         group = VCard.fromString(
             """BEGIN:VCARD
 VERSION:3.0
-PRODID:-//Apple Inc.//AddressBook 6.1//EN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 UID:uid2
 FN:Top Group
 N:Top Group;;;;
@@ -585,7 +585,7 @@ END:VCARD
         subgroup = VCard.fromString(
             """BEGIN:VCARD
 VERSION:3.0
-PRODID:-//Apple Inc.//AddressBook 6.1//EN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 UID:uid3
 FN:Sub Group
 N:Sub Group;;;;
@@ -949,3 +949,74 @@ END:VCARD
             changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
+
+
+    @inlineCallbacks
+    def test_addressbookRevisionChangeConcurrency(self):
+        """
+        Test that two concurrent attempts to add resources in two separate
+        calendar homes does not deadlock on the revision table update.
+        """
+
+        # Make sure homes are provisioned
+        txn = self.transactionUnderTest()
+        home_uid1 = yield txn.homeWithUID(EADDRESSBOOKTYPE, "user01", create=True)
+        home_uid2 = yield txn.homeWithUID(EADDRESSBOOKTYPE, "user02", create=True)
+        self.assertNotEqual(home_uid1, None)
+        self.assertNotEqual(home_uid2, None)
+        yield self.commit()
+
+        # Create first events in different calendar homes
+        txn1 = self._sqlStore.newTransaction()
+        txn2 = self._sqlStore.newTransaction()
+
+        addressbook_uid1_in_txn1 = yield self.addressbookUnderTest(txn1, "addressbook", "user01")
+        addressbook_uid2_in_txn2 = yield self.addressbookUnderTest(txn2, "addressbook", "user02")
+
+        data = """BEGIN:VCARD
+VERSION:3.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+UID:data%(ctr)s
+FN:Data %(ctr)s
+N:Sub Group;;;;
+REV:20120503T194243Z
+END:VCARD
+
+"""
+
+        component = VComponent.fromString(data % {"ctr": 1})
+        yield addressbook_uid1_in_txn1.createAddressBookObjectWithName("data1.ics", component)
+
+        component = VComponent.fromString(data % {"ctr": 2})
+        yield addressbook_uid2_in_txn2.createAddressBookObjectWithName("data2.ics", component)
+
+        # Setup deferreds to run concurrently and create second events in the calendar homes
+        # previously used by the other transaction - this could create the deadlock.
+        @inlineCallbacks
+        def _defer_uid3():
+            addressbook_uid1_in_txn2 = yield self.addressbookUnderTest(txn2, "addressbook", "user01")
+            component = VComponent.fromString(data % {"ctr": 3})
+            yield addressbook_uid1_in_txn2.createAddressBookObjectWithName("data3.ics", component)
+            yield txn2.commit()
+        d1 = _defer_uid3()
+
+        @inlineCallbacks
+        def _defer_uid4():
+            addressbook_uid2_in_txn1 = yield self.addressbookUnderTest(txn1, "addressbook", "user02")
+            component = VComponent.fromString(data % {"ctr": 4})
+            yield addressbook_uid2_in_txn1.createAddressBookObjectWithName("data4.ics", component)
+            yield txn1.commit()
+        d2 = _defer_uid4()
+
+        # Now do the concurrent provision attempt
+        yield DeferredList([d1, d2])
+
+        # Verify we did not have a deadlock and all resources have been created.
+        vcarddata1 = yield self.addressbookObjectUnderTest(name="data1.ics", addressbook_name="addressbook", home="user01")
+        vcarddata2 = yield self.addressbookObjectUnderTest(name="data2.ics", addressbook_name="addressbook", home="user02")
+        vcarddata3 = yield self.addressbookObjectUnderTest(name="data3.ics", addressbook_name="addressbook", home="user01")
+        vcarddata4 = yield self.addressbookObjectUnderTest(name="data4.ics", addressbook_name="addressbook", home="user02")
+        self.assertNotEqual(vcarddata1, None)
+        self.assertNotEqual(vcarddata2, None)
+        self.assertNotEqual(vcarddata3, None)
+        self.assertNotEqual(vcarddata4, None)

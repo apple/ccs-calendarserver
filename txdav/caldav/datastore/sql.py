@@ -15,9 +15,6 @@
 # limitations under the License.
 ##
 
-from twext.enterprise.locking import NamedLock
-from urlparse import urlparse, urlunparse
-from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 
 """
 SQL backend for CalDAV storage.
@@ -36,9 +33,8 @@ from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import Select, Count, ColumnSyntax
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import utcNowSQL
-
+from twext.enterprise.locking import NamedLock
 from twext.enterprise.util import parseSQLTimestamp
-
 from twext.python.clsprop import classproperty
 from twext.python.filepath import CachingFilePath
 from twext.python.log import Logger
@@ -49,6 +45,7 @@ from twext.web2.stream import readStream
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
 
+
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.config import config
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
@@ -57,8 +54,8 @@ from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
 from twistedcaldav.ical import Component, InvalidICalendarDataError, Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
-
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.util import AttachmentRetrievalTransport, \
     normalizationLookup
 from txdav.caldav.datastore.util import CalendarObjectBase
@@ -96,6 +93,7 @@ from pycalendar.value import PyCalendarValue
 
 from zope.interface.declarations import implements
 
+from urlparse import urlparse, urlunparse
 import collections
 import os
 import tempfile
@@ -706,7 +704,7 @@ class CalendarHome(CommonHome):
         # CalDAV stores the default calendar properties on the inbox so we also need to send a changed notification on that
         inbox = (yield self.calendarWithName("inbox"))
         if inbox is not None:
-            yield inbox.notifyChanged()
+            yield inbox.notifyPropertyChanged()
 
 
     @inlineCallbacks
@@ -858,6 +856,11 @@ class CalendarHome(CommonHome):
         ).on(self._txn)
         yield self.invalidateQueryCache()
         yield self.notifyChanged()
+
+        # CalDAV stores the availability properties on the inbox so we also need to send a changed notification on that
+        inbox = (yield self.calendarWithName("inbox"))
+        if inbox is not None:
+            yield inbox.notifyPropertyChanged()
 
 
 CalendarHome._register(ECALENDARTYPE)
@@ -1040,7 +1043,7 @@ class Calendar(CommonHomeChild):
         ).on(self._txn)
         self._supportedComponents = supported_components
         yield self.invalidateQueryCache()
-        yield self.notifyChanged()
+        yield self.notifyPropertyChanged()
 
 
     def getTimezone(self):
@@ -1073,7 +1076,7 @@ class Calendar(CommonHomeChild):
             Where=(cal.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cal.CALENDAR_RESOURCE_ID == self._resourceID)
         ).on(self._txn)
         yield self.invalidateQueryCache()
-        yield self.notifyChanged()
+        yield self.notifyPropertyChanged()
 
     ALARM_DETAILS = {
         (True, True): (_bindSchema.ALARM_VEVENT_TIMED, "_alarm_vevent_timed"),
@@ -1120,7 +1123,7 @@ class Calendar(CommonHomeChild):
             Where=(cal.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cal.CALENDAR_RESOURCE_ID == self._resourceID)
         ).on(self._txn)
         yield self.invalidateQueryCache()
-        yield self.notifyChanged()
+        yield self.notifyPropertyChanged()
 
 
     def isInbox(self):
@@ -1160,7 +1163,7 @@ class Calendar(CommonHomeChild):
             Where=(cal.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cal.CALENDAR_RESOURCE_ID == self._resourceID)
         ).on(self._txn)
         yield self.invalidateQueryCache()
-        yield self.notifyChanged()
+        yield self.notifyPropertyChanged()
 
 
     def initPropertyStore(self, props):
