@@ -385,6 +385,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         ('mean', 8, '%8.4f'),
         ('median', 8, '%8.4f'),
         ('stddev', 8, '%8.4f'),
+        ('QoS', 8, '%8.4f'),
         ('STATUS', 8, '%8s'),
     ]
 
@@ -412,6 +413,11 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         for threshold, _ignore_fail_at in self._thresholds:
             self._fields.append(('>%g sec' % (threshold,), 10, '%10s'))
         self._fields.extend(self._fields_extend)
+
+        if "benchmarksPath" in params:
+            self.benchmarks = json.load(open(params["benchmarksPath"]))
+        else:
+            self.benchmarks = {}
 
         if "failCutoff" in params:
             self._fail_cut_off = params["failCutoff"]
@@ -455,6 +461,44 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             output.write(fmt % (k.title(), items[k],))
 
 
+    def qos(self):
+        """
+        Determine a "quality of service" value that can be used for comparisons between runs. This value
+        is based on the percentage deviation of means of each request from a set of "benchmarks" for each
+        type of request.
+        """
+
+        # Get means for each type of method
+        means = {}
+        for method, results in self._perMethodTimes.items():
+            means[method] = mean([duration for success, duration in results if success])
+
+        # Determine percentage differences with weighting
+        differences = []
+        for method, value in means.items():
+            result = self.qos_value(method, value)
+            if result is not None:
+                differences.append(result)
+
+        return mean(differences) if differences else "None"
+
+
+    def qos_value(self, method, value):
+        benchmark = self.benchmarks.get(method)
+        if benchmark is None:
+            return None
+        test_mean, weight = (benchmark["mean"], benchmark["weight"],)
+        return ((value / test_mean) - 1.0) * weight + 1.0
+
+
+    def _summarizeData(self, operation, data):
+        data = SummarizingMixin._summarizeData(self, operation, data)
+        value = self.qos_value(operation, data[-4])
+        if value is None:
+            value = 0.0
+        return data[:-1] + (value,) + data[-1:]
+
+
     def report(self, output):
         output.write("\n")
         output.write("** REPORT **\n")
@@ -473,7 +517,8 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             'Clients': self.countClients(),
             'Start time': self._startTime.strftime('%m/%d %H:%M:%S'),
             'Run time': "%02d:%02d:%02d" % (runHours, runMinutes, runSeconds),
-            'CPU Time': "user %-5.2f sys %-5.2f total %02d:%02d:%02d" % (cpuUser, cpuSys, cpuHours, cpuMinutes, cpuSeconds,)
+            'CPU Time': "user %-5.2f sys %-5.2f total %02d:%02d:%02d" % (cpuUser, cpuSys, cpuHours, cpuMinutes, cpuSeconds,),
+            'QoS': "%-8.4f" % (self.qos(),),
         }
         if self.countClientFailures() > 0:
             items['Failed clients'] = self.countClientFailures()

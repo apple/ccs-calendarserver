@@ -1,0 +1,42 @@
+{
+	"GET{event}"                    : {"mean": 0.100, "weight": 1.000},
+
+	"PUT{event}"                    : {"mean": 0.250, "weight": 1.000},
+	"PUT{attendee-small}"           : {"mean": 0.500, "weight": 1.000},
+	"PUT{attendee-medium}"          : {"mean": 1.000, "weight": 0.900},
+	"PUT{attendee-large}"           : {"mean": 1.500, "weight": 0.750},
+	"PUT{attendee-huge}"            : {"mean": 2.000, "weight": 0.500},
+	"PUT{organizer-small}"          : {"mean": 0.250, "weight": 1.000},
+	"PUT{organizer-medium}"         : {"mean": 0.500, "weight": 0.900},
+	"PUT{organizer-large}"          : {"mean": 1.000, "weight": 0.750},
+	"PUT{organizer-huge}"           : {"mean": 3.000, "weight": 0.500},
+
+	"DELETE{event}"                 : {"mean": 0.500, "weight": 0.750},
+
+	"POST{fb-small}"                : {"mean": 0.500, "weight": 1.000},
+	"POST{fb-medium}"               : {"mean": 0.750, "weight": 1.000},
+	"POST{fb-large}"                : {"mean": 1.000, "weight": 0.800},
+	"POST{fb-huge}"                 : {"mean": 2.000, "weight": 0.700},
+
+	"PROPFIND{well-known}"          : {"mean": 0.100, "weight": 0.100},
+	"PROPFIND{find-principal}"      : {"mean": 0.250, "weight": 0.100},
+	"PROPFIND{principal}"           : {"mean": 0.250, "weight": 0.100},
+	"PROPFIND{home}"                : {"mean": 0.250, "weight": 1.000},
+	"PROPFIND{calendar}"            : {"mean": 0.250, "weight": 1.000},
+	"PROPFIND{notification}"        : {"mean": 0.100, "weight": 0.500},
+	"PROPFIND{notification-items}"  : {"mean": 0.100, "weight": 0.500},
+
+	"PROPPATCH{calendar}"           : {"mean": 0.250, "weight": 0.500},
+
+	"REPORT{pset}"                  : {"mean": 0.250, "weight": 0.100},
+	"REPORT{expand}"                : {"mean": 0.250, "weight": 1.000},
+	"REPORT{psearch}"               : {"mean": 0.250, "weight": 0.100},
+	"REPORT{sync-init}"             : {"mean": 0.250, "weight": 0.500},
+	"REPORT{sync}"                  : {"mean": 0.250, "weight": 1.000},
+	"REPORT{vevent}"                : {"mean": 0.250, "weight": 1.000},
+	"REPORT{vtodo}"                 : {"mean": 0.250, "weight": 1.000},
+	"REPORT{multiget-small}"        : {"mean": 0.250, "weight": 1.000},
+	"REPORT{multiget-medium}"       : {"mean": 0.500, "weight": 0.900},
+	"REPORT{multiget-large}"        : {"mean": 1.000, "weight": 0.750},
+	"REPORT{multiget-huge}"         : {"mean": 2.000, "weight": 0.500}
+}
