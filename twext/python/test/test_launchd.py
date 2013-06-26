@@ -18,9 +18,22 @@
 Tests for L{twext.python.launchd}.
 """
 
+import sys, os, plistlib
+
+if __name__ == '__main__':
+    import time
+    sys.stdout.write("HELLO WORLD\n")
+    sys.stderr.write("ERROR WORLD\n")
+    sys.stdout.flush()
+    sys.stderr.flush()
+    time.sleep(1)
+    sys.exit(0)
+
+
 from twext.python.launchd import lib, ffi, LaunchDictionary, LaunchArray
 
 from twisted.trial.unittest import TestCase
+from twisted.python.filepath import FilePath
 
 class DictionaryTests(TestCase):
     """
@@ -61,7 +74,7 @@ class DictionaryTests(TestCase):
         """
         dictionary = LaunchDictionary(self.testDict)
         self.assertEquals(set(dictionary.keys()),
-                          set([u"alpha", u"beta", u"gamma"]))
+                          set([b"alpha", b"beta", b"gamma"]))
 
 
     def test_launchDictionaryValues(self):
@@ -71,7 +84,7 @@ class DictionaryTests(TestCase):
         """
         dictionary = LaunchDictionary(self.testDict)
         self.assertEquals(set(dictionary.values()),
-                          set([u"alpha-value", u"beta-value", 3]))
+                          set([b"alpha-value", b"beta-value", 3]))
 
 
     def test_launchDictionaryItems(self):
@@ -81,8 +94,8 @@ class DictionaryTests(TestCase):
         """
         dictionary = LaunchDictionary(self.testDict)
         self.assertEquals(set(dictionary.items()),
-                          set([(u"alpha", u"alpha-value"),
-                               (u"beta", u"beta-value"), (u"gamma", 3)]))
+                          set([(b"alpha", b"alpha-value"),
+                               (b"beta", b"beta-value"), (b"gamma", 3)]))
 
 
 class ArrayTests(TestCase):
@@ -122,8 +135,8 @@ class ArrayTests(TestCase):
         C{LaunchArray(...)[n]} returns the n'th element in the array.
         """
         array = LaunchArray(self.testArray)
-        self.assertEquals(array[0], u"test-string-1")
-        self.assertEquals(array[1], u"another string.")
+        self.assertEquals(array[0], b"test-string-1")
+        self.assertEquals(array[1], b"another string.")
         self.assertEquals(array[2], 4321)
 
 
@@ -142,8 +155,42 @@ class ArrayTests(TestCase):
         """
         array = LaunchArray(self.testArray)
         i = iter(array)
-        self.assertEquals(i.next(), u"test-string-1")
-        self.assertEquals(i.next(), u"another string.")
+        self.assertEquals(i.next(), b"test-string-1")
+        self.assertEquals(i.next(), b"another string.")
         self.assertEquals(i.next(), 4321)
         self.assertRaises(StopIteration, i.next)
+
+
+
+class CheckInTests(TestCase):
+    """
+    Integration tests making sure that actual checkin with launchd results in
+    the expected values.
+    """
+
+    def setUp(self):
+        fp = FilePath(self.mktemp())
+        fp.makedirs()
+        plist = {
+            "Label": "org.calendarserver.UNIT-TESTS." + repr(os.getpid()),
+            "ProgramArguments": [sys.executable, "-m", __name__],
+            "EnvironmentVariables": dict(os.environ),
+            "KeepAlive": False,
+            "StandardOutPath": fp.child("stdout.txt").path,
+            "StandardErrorPath": fp.child("stderr.txt").path,
+            "RunAtLoad": True,
+        }
+        self.job = fp.child("job.plist")
+        self.job.setContent(plistlib.writePlistToString(plist))
+        os.spawnlp(os.P_WAIT, "launchctl", "launchctl", "load", self.job.path)
+
+
+    def test_something(self):
+        """
+        Test something.
+        """
+
+
+    def tearDown(self):
+        os.spawnlp(os.P_WAIT, "launchctl", "launchctl", "unload", self.job.path)
 

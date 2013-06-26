@@ -21,6 +21,8 @@ CFFI bindings for launchd check-in API.
 
 from __future__ import print_function
 
+import sys
+
 from cffi import FFI
 
 ffi = FFI()
@@ -183,9 +185,7 @@ def _launchify(launchvalue):
         cvalue = lib.launch_data_get_string(launchvalue)
         if cvalue == ffi.NULL:
             return None
-        pybytes = ffi.string(cvalue)
-        pyunicode = pybytes.decode('utf-8')
-        return pyunicode
+        return ffi.string(cvalue)
     elif dtype == lib.LAUNCH_DATA_OPAQUE:
         return launchvalue
     elif dtype == lib.LAUNCH_DATA_ERRNO:
@@ -195,7 +195,13 @@ def _launchify(launchvalue):
     else:
         raise TypeError("Unknown Launch Data Type", dtype)
 
-import sys
+
+
+def checkin():
+    """
+    Perform a launchd checkin, returning a Pythonic wrapped data structure
+    representing the retrieved check-in plist.
+    """
 
 def getLaunchDSocketFDs():
     result = {}
