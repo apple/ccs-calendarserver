@@ -222,9 +222,9 @@ def checkin():
     @return: a C{dict}-like object.
     """
     return _launchify(
-        lib.launch_msg(
-            _managed(lib.launch_data_new_string(lib.LAUNCH_KEY_CHECKIN))
-        )
+        (lib.launch_msg(
+            (lib.launch_data_new_string(lib.LAUNCH_KEY_CHECKIN))
+        ))
     )
 
 

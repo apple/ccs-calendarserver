@@ -18,7 +18,7 @@
 Tests for L{twext.python.launchd}.
 """
 
-import sys, os, plistlib, socket
+import sys, os, plistlib, socket, json
 
 if __name__ == '__main__':
     testID = sys.argv[1]
@@ -27,13 +27,15 @@ if __name__ == '__main__':
     try:
         namedAny(".".join([a, b.replace("test_", "job_")]))()
     finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
         skt = socket.socket()
         skt.connect(("127.0.0.1", int(os.environ["TESTING_PORT"])))
     sys.exit(0)
 
 
 from twext.python.launchd import (lib, ffi, LaunchDictionary, LaunchArray,
-                                  _managed, constants, plainPython)
+                                  _managed, constants, plainPython, checkin)
 
 from twisted.trial.unittest import TestCase
 from twisted.python.filepath import FilePath
@@ -260,6 +262,7 @@ class CheckInTests(TestCase):
             "KeepAlive": False,
             "StandardOutPath": self.stdout.path,
             "StandardErrorPath": fp.child("stderr.txt").path,
+            "Sockets": [{"SecureSocketWithKey": "GeneratedSocket"}],
             "RunAtLoad": True,
         }
         self.job = fp.child("job.plist")
@@ -290,13 +293,16 @@ class CheckInTests(TestCase):
         """
         Check in in the subprocess.
         """
-        checkin()
+        sys.stdout.write(json.dumps(plainPython(checkin())))
 
 
     def test_checkin(self):
         """
-        Checking in results 
+        L{checkin} performs launchd checkin and returns a launchd data
+        structure.
         """
+        d = json.loads(self.stdout.getContent())
+        self.assertIsInstance(d, dict)
 
 
     def tearDown(self):
