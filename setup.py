@@ -88,6 +88,9 @@ if sys.platform == "darwin":
         )
     )
 
+    from twext.python import launchd
+    extensions.append(launchd.ffi.verifier.get_extension())
+
 
 
 #
