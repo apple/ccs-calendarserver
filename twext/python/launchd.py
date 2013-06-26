@@ -55,6 +55,11 @@ launch_data_type_t launch_data_get_type(const launch_data_t);
 launch_data_t launch_data_dict_lookup(const launch_data_t, const char *);
 size_t launch_data_dict_get_count(const launch_data_t);
 
+void launch_data_dict_iterate(
+    const launch_data_t,
+    void (*)(const launch_data_t, const char *, void *),
+    void *);
+
 const char * launch_data_get_string(const launch_data_t);
 
 size_t launch_data_array_get_count(const launch_data_t);
@@ -94,9 +99,14 @@ class LaunchDictionary(object):
 
     def keys(self):
         """
-        Keys.
+        Return keys in the dictionary.
         """
-        return []
+        keys = []
+        @ffi.callback("void (*)(const launch_data_t, const char *, void *)")
+        def icb(v, k, n):
+            keys.append(ffi.string(k))
+        lib.launch_data_dict_iterate(self.launchdata, icb, ffi.NULL)
+        return keys
 
 
     def __getitem__(self, key):
@@ -120,20 +130,37 @@ class LaunchErrno(Exception):
 
 
 def _launchify(launchvalue):
+    if launchvalue == ffi.NULL:
+        return None
     dtype = lib.launch_data_get_type(launchvalue)
-    if dtype == lib.LAUNCH_DATA_ERRNO:
-        raise LaunchErrno(launchvalue)
+
+    if dtype == lib.LAUNCH_DATA_DICTIONARY:
+        return LaunchDictionary(launchvalue)
+    elif dtype == lib.LAUNCH_DATA_ARRAY:
+        return LaunchArray(launchvalue)
+    elif dtype == lib.LAUNCH_DATA_FD:
+        return lib.launch_data_get_fd(launchvalue)
+    elif dtype == lib.LAUNCH_DATA_INTEGER:
+        return lib.launch_data_get_integer(launchvalue)
+    elif dtype == lib.LAUNCH_DATA_REAL:
+        raise TypeError("REALs unsupported.")
+    elif dtype == lib.LAUNCH_DATA_BOOL:
+        return lib.launch_data_get_bool(launchvalue)
     elif dtype == lib.LAUNCH_DATA_STRING:
         cvalue = lib.launch_data_get_string(launchvalue)
+        if cvalue == ffi.NULL:
+            return None
         pybytes = ffi.string(cvalue)
         pyunicode = pybytes.decode('utf-8')
         return pyunicode
-    elif dtype == lib.LAUNCH_DATA_ARRAY:
-        return LaunchArray(launchvalue)
-    elif dtype == lib.LAUNCH_DATA_DICTIONARY:
-        return LaunchDictionary(launchvalue)
-    elif dtype in lib.LAUNCH_DATA_FD:
-        return lib.launch_data_get_fd(launchvalue)
+    elif dtype == lib.LAUNCH_DATA_OPAQUE:
+        return launchvalue
+    elif dtype == lib.LAUNCH_DATA_ERRNO:
+        raise LaunchErrno(launchvalue)
+    elif dtype == lib.LAUNCH_DATA_MACHPORT:
+        return lib.launch_data_get_machport(launchvalue)
+    else:
+        raise TypeError("Unknown Launch Data Type", dtype)
 
 import sys
 

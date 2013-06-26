@@ -39,12 +39,13 @@ class WrapperTests(TestCase):
             lib.launch_data_alloc(lib.LAUNCH_DATA_DICTIONARY),
             lib.launch_data_free
         )
-        key1 = lib.launch_data_new_string("alpha")
+        key1 = ffi.new("char[]", "alpha")
         val1 = lib.launch_data_new_string("alpha-value")
-        key2 = lib.launch_data_new_string("beta")
+        key2 = ffi.new("char[]", "beta")
         val2 = lib.launch_data_new_string("beta-value")
-        lib.launch_data_dict_insert(self.testDict, key1, val1)
-        lib.launch_data_dict_insert(self.testDict, key2, val2)
+        lib.launch_data_dict_insert(self.testDict, val1, key1)
+        lib.launch_data_dict_insert(self.testDict, val2, key2)
+        self.assertEquals(lib.launch_data_dict_get_count(self.testDict), 2) 
 
 
     def test_launchDictionaryKeys(self):
