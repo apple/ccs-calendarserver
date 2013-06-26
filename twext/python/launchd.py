@@ -21,6 +21,8 @@ CFFI bindings for launchd check-in API.
 
 from __future__ import print_function
 
+import sys
+
 from cffi import FFI
 
 ffi = FFI()
@@ -221,11 +223,9 @@ def checkin():
 
     @return: a C{dict}-like object.
     """
-    return _launchify(
-        (lib.launch_msg(
-            (lib.launch_data_new_string(lib.LAUNCH_KEY_CHECKIN))
-        ))
-    )
+    lkey = lib.launch_data_new_string(lib.LAUNCH_KEY_CHECKIN)
+    msgr = lib.launch_msg(lkey)
+    return _launchify(msgr)
 
 
 

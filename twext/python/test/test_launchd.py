@@ -255,14 +255,17 @@ class CheckInTests(TestCase):
         env = dict(os.environ)
         env["TESTING_PORT"] = repr(port.getHost().port)
         self.stdout = fp.child("stdout.txt")
+        self.stderr = fp.child("stderr.txt")
         plist = {
             "Label": "org.calendarserver.UNIT-TESTS." + repr(os.getpid()),
             "ProgramArguments": [sys.executable, "-m", __name__, self.id()],
             "EnvironmentVariables": env,
             "KeepAlive": False,
             "StandardOutPath": self.stdout.path,
-            "StandardErrorPath": fp.child("stderr.txt").path,
-            "Sockets": [{"SecureSocketWithKey": "GeneratedSocket"}],
+            "StandardErrorPath": self.stderr.path,
+            "Sockets": {
+                "Awesome": [{"SecureSocketWithKey": "GeneratedSocket"}]
+            },
             "RunAtLoad": True,
         }
         self.job = fp.child("job.plist")
@@ -307,4 +310,8 @@ class CheckInTests(TestCase):
 
     def tearDown(self):
         os.spawnlp(os.P_WAIT, "launchctl", "launchctl", "unload", self.job.path)
+        err = self.stderr.getContent()
+        if 'Traceback' in err:
+            self.fail(err)
+
 
