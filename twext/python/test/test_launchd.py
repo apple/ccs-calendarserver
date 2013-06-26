@@ -306,6 +306,12 @@ class CheckInTests(TestCase):
         """
         d = json.loads(self.stdout.getContent())
         self.assertIsInstance(d, dict)
+        sockets = d[constants.LAUNCH_JOBKEY_SOCKETS]
+        self.assertEquals(len(sockets), 1)
+        self.assertEqual(['Awesome'], sockets.keys())
+        awesomeSocket = sockets['Awesome']
+        self.assertEqual(len(awesomeSocket), 1)
+        self.assertIsInstance(awesomeSocket[0], int)
 
 
     def tearDown(self):
