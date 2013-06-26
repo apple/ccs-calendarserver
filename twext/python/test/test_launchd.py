@@ -22,15 +22,21 @@ import sys, os, plistlib
 
 if __name__ == '__main__':
     import time
+    from pprint import pformat
     sys.stdout.write("HELLO WORLD\n")
     sys.stderr.write("ERROR WORLD\n")
+    sys.stdout.write(pformat(dict(os.environ)))
     sys.stdout.flush()
     sys.stderr.flush()
     time.sleep(1)
+    import socket
+    skt = socket.socket()
+    skt.connect(("127.0.0.1", int(os.environ["TESTING_PORT"])))
     sys.exit(0)
 
 
-from twext.python.launchd import lib, ffi, LaunchDictionary, LaunchArray
+from twext.python.launchd import (lib, ffi, LaunchDictionary, LaunchArray,
+                                  _managed, constants)
 
 from twisted.trial.unittest import TestCase
 from twisted.python.filepath import FilePath
@@ -44,9 +50,8 @@ class DictionaryTests(TestCase):
         """
         Assemble a test dictionary.
         """
-        self.testDict = ffi.gc(
-            lib.launch_data_alloc(lib.LAUNCH_DATA_DICTIONARY),
-            lib.launch_data_free
+        self.testDict = _managed(
+            lib.launch_data_alloc(lib.LAUNCH_DATA_DICTIONARY)
         )
         key1 = ffi.new("char[]", "alpha")
         val1 = lib.launch_data_new_string("alpha-value")
@@ -162,6 +167,24 @@ class ArrayTests(TestCase):
 
 
 
+class SimpleStringConstants(TestCase):
+    """
+    Tests for bytestring-constants wrapping.
+    """
+
+    def test_constant(self):
+        """
+        C{launchd.constants.LAUNCH_*} will return a bytes object corresponding
+        to a constant.
+        """
+        self.assertEqual(constants.LAUNCH_JOBKEY_SOCKETS,
+                         b"Sockets")
+        self.assertRaises(AttributeError, getattr, constants,
+                          "launch_data_alloc")
+        self.assertEquals(constants.LAUNCH_DATA_ARRAY, 2)
+
+
+
 class CheckInTests(TestCase):
     """
     Integration tests making sure that actual checkin with launchd results in
@@ -171,10 +194,25 @@ class CheckInTests(TestCase):
     def setUp(self):
         fp = FilePath(self.mktemp())
         fp.makedirs()
+        from twisted.internet.protocol import Protocol, Factory
+        from twisted.internet import reactor, defer
+        d = defer.Deferred()
+        class JustLetMeMoveOn(Protocol):
+            def connectionMade(self):
+                d.callback(None)
+                self.transport.abortConnection()
+        f = Factory()
+        f.protocol = JustLetMeMoveOn
+        port = reactor.listenTCP(0, f, interface="127.0.0.1")
+        @self.addCleanup
+        def goodbyePort():
+            return port.stopListening()
+        env = dict(os.environ)
+        env["TESTING_PORT"] = repr(port.getHost().port)
         plist = {
             "Label": "org.calendarserver.UNIT-TESTS." + repr(os.getpid()),
             "ProgramArguments": [sys.executable, "-m", __name__],
-            "EnvironmentVariables": dict(os.environ),
+            "EnvironmentVariables": env,
             "KeepAlive": False,
             "StandardOutPath": fp.child("stdout.txt").path,
             "StandardErrorPath": fp.child("stderr.txt").path,
@@ -183,11 +221,13 @@ class CheckInTests(TestCase):
         self.job = fp.child("job.plist")
         self.job.setContent(plistlib.writePlistToString(plist))
         os.spawnlp(os.P_WAIT, "launchctl", "launchctl", "load", self.job.path)
+        return d
 
 
-    def test_something(self):
+    def test_test(self):
         """
-        Test something.
+        Since this test framework is somewhat finicky, let's just make sure
+        that a test can complete.
         """
 
 

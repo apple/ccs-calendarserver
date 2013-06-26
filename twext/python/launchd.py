@@ -21,8 +21,6 @@ CFFI bindings for launchd check-in API.
 
 from __future__ import print_function
 
-import sys
-
 from cffi import FFI
 
 ffi = FFI()
@@ -79,10 +77,6 @@ lib = ffi.verify("""
 #include <launch.h>
 """)
 
-class NullPointerException(Exception):
-    """
-    Python doesn't have one of these.
-    """
 
 
 class LaunchArray(object):
@@ -165,6 +159,11 @@ class LaunchErrno(Exception):
 
 
 def _launchify(launchvalue):
+    """
+    Convert a ctypes value wrapping a C{_launch_data} structure into the
+    relevant Python object (integer, bytes, L{LaunchDictionary},
+    L{LaunchArray}).
+    """
     if launchvalue == ffi.NULL:
         return None
     dtype = lib.launch_data_get_type(launchvalue)
@@ -201,32 +200,53 @@ def checkin():
     """
     Perform a launchd checkin, returning a Pythonic wrapped data structure
     representing the retrieved check-in plist.
+
+    @return: a C{dict}-like object.
     """
+    return _launchify(
+        lib.launch_msg(
+            _managed(lib.launch_data_new_string(lib.LAUNCH_KEY_CHECKIN))
+        )
+    )
+
+
+
+def _managed(obj):
+    """
+    Automatically free an object that was allocated with a launch_data_*
+    function, or raise L{MemoryError} if it's C{NULL}.
+    """
+    if obj == ffi.NULL:
+        raise MemoryError()
+    else:
+        return ffi.gc(obj, lib.launch_data_free)
+
+
+
+class _Strings(object):
+    """
+    Expose constants as Python-readable values rather than wrapped ctypes
+    pointers.
+    """
+    def __getattribute__(self, name):
+        value = getattr(lib, name)
+        if isinstance(value, int):
+            return value
+        if ffi.typeof(value) != ffi.typeof("char *"):
+            raise AttributeError("no such constant", name)
+        return ffi.string(value)
+
+constants = _Strings()
+
+
 
 def getLaunchDSocketFDs():
     result = {}
-    req = lib.launch_data_new_string(lib.LAUNCH_KEY_CHECKIN)
-    if req == ffi.NULL:
-        # Good luck reproducing this case.
-        raise NullPointerException()
-    response = lib.launch_msg(req)
-    if response == ffi.NULL:
-        raise NullPointerException()
-    if lib.launch_data_get_type(response) == lib.LAUNCH_DATA_ERRNO:
-        raise NullPointerException()
-    response = LaunchDictionary(response)
+    response = {}
     label = response[lib.LAUNCH_JOBKEY_LABEL]
     skts = response[lib.LAUNCH_JOBKEY_SOCKETS]
     result['label'] = label
     result['sockets'] = list(skts['TestSocket'])
     return result
 
-if __name__ == '__main__':
-    # Unit tests :-(
-    import traceback
-    try:
-        print(getLaunchDSocketFDs())
-    except:
-        traceback.print_exc()
-        sys.stdout.flush()
-        sys.stderr.flush()
+
