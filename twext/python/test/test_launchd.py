@@ -187,6 +187,15 @@ class ArrayTests(TestCase):
         self.assertRaises(StopIteration, i.next)
 
 
+    def test_plainPython(self):
+        """
+        L{plainPython} converts a L{LaunchArray} into a Python list.
+        """
+        array = LaunchArray(self.testArray)
+        self.assertEquals(plainPython(array),
+                          [b"test-string-1", b"another string.", 4321])
+
+
 
 class SimpleStringConstants(TestCase):
     """
