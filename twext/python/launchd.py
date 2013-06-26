@@ -158,10 +158,13 @@ def plainPython(x):
     """
     if isinstance(x, LaunchDictionary):
         result = {}
-        result.update(x)
+        for k, v in x.items():
+            result[k] = plainPython(v)
         return result
     elif isinstance(x, LaunchArray):
         result = []
+    else:
+        return x
 
 
 

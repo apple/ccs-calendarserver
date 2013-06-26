@@ -110,6 +110,20 @@ class DictionaryTests(TestCase):
                            plainPython(LaunchDictionary(self.testDict)))
 
 
+    def test_nestedLaunchDictionaryPlainPython(self):
+        """
+        L{plainPython} will convert a L{LaunchDictionary} containing another
+        L{LaunchDictionary} into a nested Python dictionary.
+        """
+        otherDict = lib.launch_data_alloc(lib.LAUNCH_DATA_DICTIONARY)
+        lib.launch_data_dict_insert(otherDict,
+                                    lib.launch_data_new_string("bar"), "foo")
+        lib.launch_data_dict_insert(self.testDict, otherDict, "delta")
+        self.assertEquals({b"alpha": b"alpha-value", b"beta": b"beta-value",
+                           b"gamma": 3, b"delta": {b"foo": b"bar"}},
+                           plainPython(LaunchDictionary(self.testDict)))
+
+
 class ArrayTests(TestCase):
     """
     Tests for L{LaunchArray}
