@@ -53,6 +53,9 @@ bool launch_data_dict_insert(launch_data_t, const launch_data_t, const char *);
 launch_data_t launch_data_alloc(launch_data_type_t);
 launch_data_t launch_data_new_string(const char *);
 launch_data_t launch_data_new_integer(long long);
+launch_data_t launch_data_new_fd(int);
+launch_data_t launch_data_new_bool(bool);
+launch_data_t launch_data_new_real(double);
 
 launch_data_t launch_msg(const launch_data_t);
 
@@ -66,7 +69,10 @@ void launch_data_dict_iterate(
     void (*)(const launch_data_t, const char *, void *),
     void *);
 
+int launch_data_get_fd(const launch_data_t);
+bool launch_data_get_bool(const launch_data_t);
 const char * launch_data_get_string(const launch_data_t);
+double launch_data_get_real(const launch_data_t);
 
 size_t launch_data_array_get_count(const launch_data_t);
 launch_data_t launch_data_array_get_index(const launch_data_t, size_t);
@@ -197,7 +203,7 @@ def _launchify(launchvalue):
     elif dtype == lib.LAUNCH_DATA_INTEGER:
         return lib.launch_data_get_integer(launchvalue)
     elif dtype == lib.LAUNCH_DATA_REAL:
-        raise TypeError("REALs unsupported.")
+        return lib.launch_data_get_real(launchvalue)
     elif dtype == lib.LAUNCH_DATA_BOOL:
         return lib.launch_data_get_bool(launchvalue)
     elif dtype == lib.LAUNCH_DATA_STRING:

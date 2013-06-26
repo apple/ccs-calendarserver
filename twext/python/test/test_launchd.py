@@ -35,10 +35,45 @@ if __name__ == '__main__':
 
 
 from twext.python.launchd import (lib, ffi, LaunchDictionary, LaunchArray,
-                                  _managed, constants, plainPython, checkin)
+                                  _managed, constants, plainPython, checkin,
+                                  _launchify)
 
 from twisted.trial.unittest import TestCase
 from twisted.python.filepath import FilePath
+
+
+class LaunchDataStructures(TestCase):
+    """
+    Tests for L{_launchify} converting data structures from launchd's internals
+    to Python objects.
+    """
+
+    def test_fd(self):
+        """
+        Test converting a launchd FD to an integer.
+        """
+        fd = _managed(lib.launch_data_new_fd(2))
+        self.assertEquals(_launchify(fd), 2)
+
+
+    def test_bool(self):
+        """
+        Test converting a launchd bool to a Python bool.
+        """
+        t = _managed(lib.launch_data_new_bool(True))
+        f = _managed(lib.launch_data_new_bool(False))
+        self.assertEqual(_launchify(t), True)
+        self.assertEqual(_launchify(f), False)
+
+
+    def test_real(self):
+        """
+        Test converting a launchd real to a Python float.
+        """
+        notQuitePi = _managed(lib.launch_data_new_real(3.14158))
+        self.assertEqual(_launchify(notQuitePi), 3.14158)
+
+
 
 class DictionaryTests(TestCase):
     """
