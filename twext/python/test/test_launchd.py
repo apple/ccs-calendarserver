@@ -38,9 +38,10 @@ if __name__ == '__main__':
 
 
 try:
-    from twext.python.launchd import (lib, ffi, _LaunchDictionary, _LaunchArray,
-                                      _managed, constants, plainPython, checkin,
-                                      _launchify)
+    from twext.python.launchd import (
+        lib, ffi, _LaunchDictionary, _LaunchArray, _managed, constants,
+        plainPython, checkin, _launchify, getLaunchDSocketFDs
+    )
 except ImportError:
     skip = "LaunchD not available."
 else:
@@ -107,7 +108,7 @@ class DictionaryTests(TestCase):
         self.assertEquals(lib.launch_data_dict_get_count(self.testDict), 3)
 
 
-    def test__LaunchDictionaryLength(self):
+    def test_len(self):
         """
         C{len(_LaunchDictionary())} returns the number of keys in the
         dictionary.
@@ -115,7 +116,7 @@ class DictionaryTests(TestCase):
         self.assertEquals(len(_LaunchDictionary(self.testDict)), 3)
 
 
-    def test__LaunchDictionaryKeys(self):
+    def test_keys(self):
         """
         L{_LaunchDictionary.keys} returns keys present in a C{launch_data_dict}.
         """
@@ -124,7 +125,7 @@ class DictionaryTests(TestCase):
                           set([b"alpha", b"beta", b"gamma"]))
 
 
-    def test__LaunchDictionaryValues(self):
+    def test_values(self):
         """
         L{_LaunchDictionary.values} returns keys present in a
         C{launch_data_dict}.
@@ -134,7 +135,7 @@ class DictionaryTests(TestCase):
                           set([b"alpha-value", b"beta-value", 3]))
 
 
-    def test__LaunchDictionaryItems(self):
+    def test_items(self):
         """
         L{_LaunchDictionary.items} returns all (key, value) tuples present in a
         C{launch_data_dict}.
@@ -145,7 +146,7 @@ class DictionaryTests(TestCase):
                                (b"beta", b"beta-value"), (b"gamma", 3)]))
 
 
-    def test__LaunchDictionaryPlainPython(self):
+    def test_plainPython(self):
         """
         L{plainPython} will convert a L{_LaunchDictionary} into a Python
         dictionary.
@@ -155,7 +156,7 @@ class DictionaryTests(TestCase):
                            plainPython(_LaunchDictionary(self.testDict)))
 
 
-    def test_nested_LaunchDictionaryPlainPython(self):
+    def test_plainPythonNested(self):
         """
         L{plainPython} will convert a L{_LaunchDictionary} containing another
         L{_LaunchDictionary} into a nested Python dictionary.
@@ -353,6 +354,29 @@ class CheckInTests(TestCase):
         self.assertEqual(d[constants.LAUNCH_JOBKEY_LABEL], self.launchLabel)
         self.assertIsInstance(d, dict)
         sockets = d[constants.LAUNCH_JOBKEY_SOCKETS]
+        self.assertEquals(len(sockets), 1)
+        self.assertEqual(['Awesome'], sockets.keys())
+        awesomeSocket = sockets['Awesome']
+        self.assertEqual(len(awesomeSocket), 1)
+        self.assertIsInstance(awesomeSocket[0], int)
+
+
+    @staticmethod
+    def job_getFDs():
+        """
+        Check-in via the high-level C{getLaunchDSocketFDs} API, that just gives
+        us listening FDs.
+        """
+        sys.stdout.write(json.dumps(getLaunchDSocketFDs()))
+
+
+    def test_getFDs(self):
+        """
+        L{getLaunchDSocketFDs} returns a Python dictionary mapping the names of
+        sockets specified in the property list to lists of integers
+        representing FDs.
+        """
+        sockets = json.loads(self.stdout.getContent())
         self.assertEquals(len(sockets), 1)
         self.assertEqual(['Awesome'], sockets.keys())
         awesomeSocket = sockets['Awesome']

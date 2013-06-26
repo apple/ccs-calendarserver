@@ -278,13 +278,12 @@ constants = _Strings()
 
 
 def getLaunchDSocketFDs():
-    result = {}
-    response = {}
-    label = response[lib.LAUNCH_JOBKEY_LABEL]
-    skts = response[lib.LAUNCH_JOBKEY_SOCKETS]
-    result['label'] = label
-    result['sockets'] = list(skts['TestSocket'])
-    return result
+    """
+    Perform checkin via L{checkin} and return just a dictionary mapping the
+    sockets to file descriptors.
+    """
+    return plainPython(checkin()[constants.LAUNCH_JOBKEY_SOCKETS])
+
 
 
 __all__ = [
