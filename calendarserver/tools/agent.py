@@ -15,6 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
+"""
+A service spawned on-demand by launchd, meant to handle configuration requests
+from Server.app.  When a request comes in on the socket specified in the launchd
+agent.plist, launchd will run "caldavd -t Agent" which ends up creating this
+service.  Requests are made using HTTP POSTS to /gateway, and are authenticated
+by OpenDirectory.
+"""
+
 from __future__ import print_function
 
 import cStringIO
@@ -51,13 +60,6 @@ from twext.python.log import Logger
 log = Logger()
 
 
-"""
-A service spawned on-demand by launchd, meant to handle configuration requests
-from Server.app.  When a request comes in on the socket specified in the launchd
-agent.plist, launchd will run "caldavd -t Agent" which ends up creating this
-service.  Requests are made using HTTP POSTS to /gateway, and are authenticated
-by OpenDirectory.
-"""
 
 class DirectoryServiceChecker:
     """
