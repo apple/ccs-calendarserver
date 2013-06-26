@@ -61,6 +61,7 @@ SETPROCTITLE = setproctitle-1.1.6
 PSUTIL       = psutil-0.6.1
 PYCRYPTO     = pycrypto-2.5
 CFFI         = cffi-0.6
+PYCPARSER    = pycparser-2.09.1
 
 $(CALDAVTESTER):: $(BuildDirectory)/$(CALDAVTESTER)
 $(PYKERBEROS)::   $(BuildDirectory)/$(PYKERBEROS)
@@ -68,19 +69,20 @@ $(PYCALENDAR)::   $(BuildDirectory)/$(PYCALENDAR)
 $(PYGRESQL)::     $(BuildDirectory)/$(PYGRESQL)
 $(SQLPARSE)::     $(BuildDirectory)/$(SQLPARSE)
 $(SETPROCTITLE):: $(BuildDirectory)/$(SETPROCTITLE)
-$(PSUTIL)::	  $(BuildDirectory)/$(PSUTIL)
+$(PSUTIL)::       $(BuildDirectory)/$(PSUTIL)
 $(PYCRYPTO)::	  $(BuildDirectory)/$(PYCRYPTO)
-$(CFFI)::	  $(BuildDirectory)/$(CFFI)
+$(CFFI)::	      $(BuildDirectory)/$(CFFI)
+$(PYCPARSER)::	  $(BuildDirectory)/$(PYCPARSER)
 $(Project)::      $(BuildDirectory)/$(Project)
 
-build:: $(PYKERBEROS) $(PYCALENDAR) $(PYGRESQL) $(SQLPARSE) $(SETPROCTITLE) $(PSUTIL) $(PYCRYPTO) $(CFFI) $(Project)
+build:: $(PYKERBEROS) $(PYCALENDAR) $(PYGRESQL) $(SQLPARSE) $(SETPROCTITLE) $(PSUTIL) $(PYCRYPTO) $(CFFI) $(PYCPARSER) $(Project)
 
 setup:
 	$(_v) ./run -g
 
-prep:: setup $(CALDAVTESTER).tgz $(PYKERBEROS).tgz $(PYCALENDAR).tgz $(PYGRESQL).tgz $(SQLPARSE).tgz $(SETPROCTITLE).tgz $(PSUTIL).tgz $(PYCRYPTO).tgz $(CFFI).tgz
+prep:: setup $(CALDAVTESTER).tgz $(PYKERBEROS).tgz $(PYCALENDAR).tgz $(PYGRESQL).tgz $(SQLPARSE).tgz $(SETPROCTITLE).tgz $(PSUTIL).tgz $(PYCRYPTO).tgz $(CFFI).tgz $(PYCPARSER).tgz
 
-$(PYKERBEROS) $(PYCALENDAR) $(PYGRESQL) $(SQLPARSE) $(SETPROCTITLE) $(PSUTIL) $(PYCRYPTO) $(CFFI) $(Project)::
+$(PYKERBEROS) $(PYCALENDAR) $(PYGRESQL) $(SQLPARSE) $(SETPROCTITLE) $(PSUTIL) $(PYCRYPTO) $(CFFI) $(PYCPARSER) $(Project)::
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
@@ -94,6 +96,7 @@ install:: build
 	$(_v) cd $(BuildDirectory)/$(PSUTIL)       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(PYCRYPTO)     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(CFFI)         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(PYCPARSER)    && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist"
