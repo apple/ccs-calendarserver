@@ -46,19 +46,12 @@ limitations under the License.
           <key>AgentSocket</key>
           <dict>
                   <key>SockServiceName</key>
-                  <string>12345</string>
+                  <string>62308</string>
+                  <key>SockNodeName</key>
+                  <string>127.0.0.1</string>
                   <key>SockFamily</key>
                   <string>IPv4</string>
           </dict>
-          <!--
-          <key>AgentSocket</key>
-          <dict>
-                  <key>SockFamily</key>
-                  <string>UNIX</string>
-                  <key>SockPathName</key>
-                  <string>/some/path/org.calendarserver.agent.sock</string>
-          </dict>
-          -->
   </dict>
 
   <key>HardResourceLimits</key>
@@ -72,9 +65,6 @@ limitations under the License.
     <key>NumberOfFiles</key>
     <integer>12000</integer>
   </dict>
-
-  <key>PreventsSleep</key>
-  <true/>
 
   <key>StandardOutPath</key>
   <string>/var/log/caldavd/agent.log</string>
