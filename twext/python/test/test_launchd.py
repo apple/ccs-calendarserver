@@ -24,14 +24,16 @@ if __name__ == '__main__':
     testID = sys.argv[1]
     a, b = testID.rsplit(".", 1)
     from twisted.python.reflect import namedAny
-    namedAny(".".join([a, b.replace("test_", "job_")]))()
-    skt = socket.socket()
-    skt.connect(("127.0.0.1", int(os.environ["TESTING_PORT"])))
+    try:
+        namedAny(".".join([a, b.replace("test_", "job_")]))()
+    finally:
+        skt = socket.socket()
+        skt.connect(("127.0.0.1", int(os.environ["TESTING_PORT"])))
     sys.exit(0)
 
 
 from twext.python.launchd import (lib, ffi, LaunchDictionary, LaunchArray,
-                                  _managed, constants)
+                                  _managed, constants, plainPython)
 
 from twisted.trial.unittest import TestCase
 from twisted.python.filepath import FilePath
@@ -96,6 +98,16 @@ class DictionaryTests(TestCase):
         self.assertEquals(set(dictionary.items()),
                           set([(b"alpha", b"alpha-value"),
                                (b"beta", b"beta-value"), (b"gamma", 3)]))
+
+
+    def test_launchDictionaryPlainPython(self):
+        """
+        L{plainPython} will convert a L{LaunchDictionary} into a Python
+        dictionary.
+        """
+        self.assertEquals({b"alpha": b"alpha-value", b"beta": b"beta-value",
+                           b"gamma": 3},
+                           plainPython(LaunchDictionary(self.testDict)))
 
 
 class ArrayTests(TestCase):
@@ -220,8 +232,8 @@ class CheckInTests(TestCase):
         return d
 
 
-    @classmethod
-    def job_test(self):
+    @staticmethod
+    def job_test():
         """
         Do something observable in a subprocess.
         """
@@ -236,6 +248,19 @@ class CheckInTests(TestCase):
         """
         self.assertEquals("Sample Value.", self.stdout.getContent())
 
+
+    @staticmethod
+    def job_checkin():
+        """
+        Check in in the subprocess.
+        """
+        checkin()
+
+
+    def test_checkin(self):
+        """
+        Checking in results 
+        """
 
 
     def tearDown(self):

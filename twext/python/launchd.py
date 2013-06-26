@@ -151,6 +151,21 @@ class LaunchDictionary(object):
 
 
 
+def plainPython(x):
+    """
+    Convert a launchd python-like data structure into regular Python
+    dictionaries and lists.
+    """
+    if isinstance(x, LaunchDictionary):
+        result = {}
+        result.update(x)
+        return result
+    elif isinstance(x, LaunchArray):
+        result = []
+
+
+
+
 class LaunchErrno(Exception):
     """
     Error from launchd.
