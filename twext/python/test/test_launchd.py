@@ -21,14 +21,6 @@ Tests for L{twext.python.launchd}.
 import sys, os, plistlib
 
 if __name__ == '__main__':
-    import time
-    from pprint import pformat
-    sys.stdout.write("HELLO WORLD\n")
-    sys.stderr.write("ERROR WORLD\n")
-    sys.stdout.write(pformat(dict(os.environ)))
-    sys.stdout.flush()
-    sys.stderr.flush()
-    time.sleep(1)
     import socket
     skt = socket.socket()
     skt.connect(("127.0.0.1", int(os.environ["TESTING_PORT"])))
@@ -211,7 +203,7 @@ class CheckInTests(TestCase):
         env["TESTING_PORT"] = repr(port.getHost().port)
         plist = {
             "Label": "org.calendarserver.UNIT-TESTS." + repr(os.getpid()),
-            "ProgramArguments": [sys.executable, "-m", __name__],
+            "ProgramArguments": [sys.executable, "-m", __name__, self.id()],
             "EnvironmentVariables": env,
             "KeepAlive": False,
             "StandardOutPath": fp.child("stdout.txt").path,
