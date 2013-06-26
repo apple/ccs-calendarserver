@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# -*- test-case-name: calendarserver.tools.test.test_agent -*-
 ##
 # Copyright (c) 2013 Apple Inc. All rights reserved.
 #
@@ -45,17 +45,7 @@ from twisted.web.resource import IResource, Resource, ForbiddenResource
 from twisted.web.server import Site, NOT_DONE_YET
 from zope.interface import implements
 
-
-# TODO, implement this:
-# from launchd import getLaunchdSocketFds
-
-def getLaunchdSocketFds():
-    pass
-
-# For the sample client, below:
-from twisted.internet import reactor
-from twisted.internet.protocol import ClientCreator
-
+from twext.python.launchd import getLaunchDSocketFDs
 from twext.python.log import Logger
 log = Logger()
 
@@ -234,7 +224,7 @@ def makeAgentService(store):
     """
     from twisted.internet import reactor
 
-    sockets = getLaunchdSocketFds() 
+    sockets = getLaunchDSocketFDs() 
     fd = sockets["AgentSocket"][0]
     
     family = socket.AF_INET
@@ -355,8 +345,16 @@ command = """<?xml version="1.0" encoding="UTF-8"?>
 </plist>"""
 
 def getList():
+    # For the sample client, below:
+    from twisted.internet import reactor
+    from twisted.internet.protocol import ClientCreator
+
     creator = ClientCreator(reactor, amp.AMP)
-    d = creator.connectTCP('sagen.apple.com', 62308)
+    host = '127.0.0.1'
+    import sys
+    if len(sys.argv) > 1:
+        host = sys.argv[1]
+    d = creator.connectTCP(host, 62308)
 
     def connected(ampProto):
         return ampProto.callRemote(GatewayAMPCommand, command=command)
@@ -370,7 +368,7 @@ def getList():
         print('Done: %s' % (result,))
         reactor.stop()
     d.addCallback(done)
+    reactor.run()
 
 if __name__ == '__main__':
     getList()
-    reactor.run()
