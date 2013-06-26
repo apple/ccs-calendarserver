@@ -21,8 +21,6 @@ CFFI bindings for launchd check-in API.
 
 from __future__ import print_function
 
-import sys
-
 from cffi import FFI
 
 ffi = FFI()
