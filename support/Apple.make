@@ -39,6 +39,7 @@ CALDAVDSUBDIR = /caldavd
 
 PYTHON = $(USRBINDIR)/python
 PY_HOME = $(SIPP)$(SHAREDIR)$(CALDAVDSUBDIR)
+PY_TMP_LIB = "$(DSTROOT)$(SIPP)/usr/share/caldavd/lib/python/"
 PY_INSTALL_FLAGS = --root="$(DSTROOT)" --prefix="$(SIPP)" --install-lib="$(PY_HOME)/lib/python" --install-scripts="$(SIPP)$(LIBEXECDIR)$(CALDAVDSUBDIR)"
 CS_INSTALL_FLAGS = --install-scripts="$(SIPP)$(USRSBINDIR)" --install-data="$(SIPP)$(ETCDIR)"
 CS_BUILD_EXT_FLAGS = --include-dirs="$(SIPP)/usr/include" --library-dirs="$(SIPP)/usr/lib"
@@ -82,12 +83,11 @@ setup:
 
 prep:: setup $(CALDAVTESTER).tgz $(PYKERBEROS).tgz $(PYCALENDAR).tgz $(PYGRESQL).tgz $(SQLPARSE).tgz $(SETPROCTITLE).tgz $(PSUTIL).tgz $(PYCRYPTO).tgz $(CFFI).tgz $(PYCPARSER).tgz
 
-$(PYKERBEROS) $(PYCALENDAR) $(PYGRESQL) $(SQLPARSE) $(SETPROCTITLE) $(PSUTIL) $(PYCRYPTO) $(CFFI) $(PYCPARSER) $(Project)::
-	@echo "Building $@..."
-	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
+# $(PYKERBEROS) $(PYCALENDAR) $(PYGRESQL) $(SQLPARSE) $(SETPROCTITLE) $(PSUTIL) $(PYCRYPTO) $(CFFI) $(PYCPARSER) $(Project)::
+# 	@echo "Building $@..."
+# 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
 install:: build
-	$(_v) cd $(BuildDirectory)/$(Project)      && $(Environment) $(PYTHON) setup.py build_ext $(CS_BUILD_EXT_FLAGS) install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(PYKERBEROS)   && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(PYCALENDAR)   && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(PYGRESQL)     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
@@ -97,6 +97,7 @@ install:: build
 	$(_v) cd $(BuildDirectory)/$(PYCRYPTO)     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(CFFI)         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(PYCPARSER)    && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(Project)      && $(Environment) PYTHONPATH=$(PY_TMP_LIB) $(PYTHON) setup.py build_ext $(CS_BUILD_EXT_FLAGS) install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist"
