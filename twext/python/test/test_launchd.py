@@ -18,10 +18,13 @@
 Tests for L{twext.python.launchd}.
 """
 
-import sys, os, plistlib
+import sys, os, plistlib, socket
 
 if __name__ == '__main__':
-    import socket
+    testID = sys.argv[1]
+    a, b = testID.rsplit(".", 1)
+    from twisted.python.reflect import namedAny
+    namedAny(".".join([a, b.replace("test_", "job_")]))()
     skt = socket.socket()
     skt.connect(("127.0.0.1", int(os.environ["TESTING_PORT"])))
     sys.exit(0)
@@ -201,12 +204,13 @@ class CheckInTests(TestCase):
             return port.stopListening()
         env = dict(os.environ)
         env["TESTING_PORT"] = repr(port.getHost().port)
+        self.stdout = fp.child("stdout.txt")
         plist = {
             "Label": "org.calendarserver.UNIT-TESTS." + repr(os.getpid()),
             "ProgramArguments": [sys.executable, "-m", __name__, self.id()],
             "EnvironmentVariables": env,
             "KeepAlive": False,
-            "StandardOutPath": fp.child("stdout.txt").path,
+            "StandardOutPath": self.stdout.path,
             "StandardErrorPath": fp.child("stderr.txt").path,
             "RunAtLoad": True,
         }
@@ -216,11 +220,22 @@ class CheckInTests(TestCase):
         return d
 
 
+    @classmethod
+    def job_test(self):
+        """
+        Do something observable in a subprocess.
+        """
+        sys.stdout.write("Sample Value.")
+        sys.stdout.flush()
+
+
     def test_test(self):
         """
         Since this test framework is somewhat finicky, let's just make sure
         that a test can complete.
         """
+        self.assertEquals("Sample Value.", self.stdout.getContent())
+
 
 
     def tearDown(self):
