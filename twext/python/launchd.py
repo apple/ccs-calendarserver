@@ -162,7 +162,7 @@ def plainPython(x):
             result[k] = plainPython(v)
         return result
     elif isinstance(x, LaunchArray):
-        return list(x)
+        return map(plainPython, x)
     else:
         return x
 

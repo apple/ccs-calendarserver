@@ -196,6 +196,19 @@ class ArrayTests(TestCase):
                           [b"test-string-1", b"another string.", 4321])
 
 
+    def test_plainPythonNested(self):
+        """
+        L{plainPython} converts a L{LaunchArray} containing another
+        L{LaunchArray} into a Python list.
+        """
+        sub = lib.launch_data_alloc(lib.LAUNCH_DATA_ARRAY)
+        lib.launch_data_array_set_index(sub, lib.launch_data_new_integer(7), 0)
+        lib.launch_data_array_set_index(self.testArray, sub, 3)
+        array = LaunchArray(self.testArray)
+        self.assertEqual(plainPython(array), [b"test-string-1",
+                                              b"another string.", 4321, [7]])
+
+
 
 class SimpleStringConstants(TestCase):
     """
