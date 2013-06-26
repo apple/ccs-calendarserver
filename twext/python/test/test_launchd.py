@@ -21,6 +21,8 @@ Tests for L{twext.python.launchd}.
 import sys, os, plistlib, socket, json
 
 if __name__ == '__main__':
+    # This module is loaded as a launchd job by test-cases below; the following
+    # code looks up an appropriate function to run.
     testID = sys.argv[1]
     a, b = testID.rsplit(".", 1)
     from twisted.python.reflect import namedAny
@@ -34,9 +36,15 @@ if __name__ == '__main__':
     sys.exit(0)
 
 
-from twext.python.launchd import (lib, ffi, LaunchDictionary, LaunchArray,
-                                  _managed, constants, plainPython, checkin,
-                                  _launchify)
+
+try:
+    from twext.python.launchd import (lib, ffi, _LaunchDictionary, _LaunchArray,
+                                      _managed, constants, plainPython, checkin,
+                                      _launchify)
+except ImportError:
+    skip = "LaunchD not available."
+else:
+    skip = False
 
 from twisted.trial.unittest import TestCase
 from twisted.python.filepath import FilePath
@@ -77,7 +85,7 @@ class LaunchDataStructures(TestCase):
 
 class DictionaryTests(TestCase):
     """
-    Tests for L{LaunchDictionary}
+    Tests for L{_LaunchDictionary}
     """
 
     def setUp(self):
@@ -99,58 +107,58 @@ class DictionaryTests(TestCase):
         self.assertEquals(lib.launch_data_dict_get_count(self.testDict), 3)
 
 
-    def test_launchDictionaryLength(self):
+    def test__LaunchDictionaryLength(self):
         """
-        C{len(LaunchDictionary())} returns the number of keys in the
+        C{len(_LaunchDictionary())} returns the number of keys in the
         dictionary.
         """
-        self.assertEquals(len(LaunchDictionary(self.testDict)), 3)
+        self.assertEquals(len(_LaunchDictionary(self.testDict)), 3)
 
 
-    def test_launchDictionaryKeys(self):
+    def test__LaunchDictionaryKeys(self):
         """
-        L{LaunchDictionary.keys} returns keys present in a C{launch_data_dict}.
+        L{_LaunchDictionary.keys} returns keys present in a C{launch_data_dict}.
         """
-        dictionary = LaunchDictionary(self.testDict)
+        dictionary = _LaunchDictionary(self.testDict)
         self.assertEquals(set(dictionary.keys()),
                           set([b"alpha", b"beta", b"gamma"]))
 
 
-    def test_launchDictionaryValues(self):
+    def test__LaunchDictionaryValues(self):
         """
-        L{LaunchDictionary.values} returns keys present in a
+        L{_LaunchDictionary.values} returns keys present in a
         C{launch_data_dict}.
         """
-        dictionary = LaunchDictionary(self.testDict)
+        dictionary = _LaunchDictionary(self.testDict)
         self.assertEquals(set(dictionary.values()),
                           set([b"alpha-value", b"beta-value", 3]))
 
 
-    def test_launchDictionaryItems(self):
+    def test__LaunchDictionaryItems(self):
         """
-        L{LaunchDictionary.items} returns all (key, value) tuples present in a
+        L{_LaunchDictionary.items} returns all (key, value) tuples present in a
         C{launch_data_dict}.
         """
-        dictionary = LaunchDictionary(self.testDict)
+        dictionary = _LaunchDictionary(self.testDict)
         self.assertEquals(set(dictionary.items()),
                           set([(b"alpha", b"alpha-value"),
                                (b"beta", b"beta-value"), (b"gamma", 3)]))
 
 
-    def test_launchDictionaryPlainPython(self):
+    def test__LaunchDictionaryPlainPython(self):
         """
-        L{plainPython} will convert a L{LaunchDictionary} into a Python
+        L{plainPython} will convert a L{_LaunchDictionary} into a Python
         dictionary.
         """
         self.assertEquals({b"alpha": b"alpha-value", b"beta": b"beta-value",
                            b"gamma": 3},
-                           plainPython(LaunchDictionary(self.testDict)))
+                           plainPython(_LaunchDictionary(self.testDict)))
 
 
-    def test_nestedLaunchDictionaryPlainPython(self):
+    def test_nested_LaunchDictionaryPlainPython(self):
         """
-        L{plainPython} will convert a L{LaunchDictionary} containing another
-        L{LaunchDictionary} into a nested Python dictionary.
+        L{plainPython} will convert a L{_LaunchDictionary} containing another
+        L{_LaunchDictionary} into a nested Python dictionary.
         """
         otherDict = lib.launch_data_alloc(lib.LAUNCH_DATA_DICTIONARY)
         lib.launch_data_dict_insert(otherDict,
@@ -158,12 +166,12 @@ class DictionaryTests(TestCase):
         lib.launch_data_dict_insert(self.testDict, otherDict, "delta")
         self.assertEquals({b"alpha": b"alpha-value", b"beta": b"beta-value",
                            b"gamma": 3, b"delta": {b"foo": b"bar"}},
-                           plainPython(LaunchDictionary(self.testDict)))
+                           plainPython(_LaunchDictionary(self.testDict)))
 
 
 class ArrayTests(TestCase):
     """
-    Tests for L{LaunchArray}
+    Tests for L{_LaunchArray}
     """
 
     def setUp(self):
@@ -188,16 +196,16 @@ class ArrayTests(TestCase):
 
     def test_length(self):
         """
-        C{len(LaunchArray(...))} returns the number of elements in the array.
+        C{len(_LaunchArray(...))} returns the number of elements in the array.
         """
-        self.assertEquals(len(LaunchArray(self.testArray)), 3)
+        self.assertEquals(len(_LaunchArray(self.testArray)), 3)
 
 
     def test_indexing(self):
         """
-        C{LaunchArray(...)[n]} returns the n'th element in the array.
+        C{_LaunchArray(...)[n]} returns the n'th element in the array.
         """
-        array = LaunchArray(self.testArray)
+        array = _LaunchArray(self.testArray)
         self.assertEquals(array[0], b"test-string-1")
         self.assertEquals(array[1], b"another string.")
         self.assertEquals(array[2], 4321)
@@ -205,18 +213,18 @@ class ArrayTests(TestCase):
 
     def test_indexTooBig(self):
         """
-        C{LaunchArray(...)[n]}, where C{n} is greater than the length of the
+        C{_LaunchArray(...)[n]}, where C{n} is greater than the length of the
         array, raises an L{IndexError}.
         """
-        array = LaunchArray(self.testArray)
+        array = _LaunchArray(self.testArray)
         self.assertRaises(IndexError, lambda: array[3])
 
 
     def test_iterating(self):
         """
-        Iterating over a C{LaunchArray} returns each item in sequence.
+        Iterating over a C{_LaunchArray} returns each item in sequence.
         """
-        array = LaunchArray(self.testArray)
+        array = _LaunchArray(self.testArray)
         i = iter(array)
         self.assertEquals(i.next(), b"test-string-1")
         self.assertEquals(i.next(), b"another string.")
@@ -226,22 +234,22 @@ class ArrayTests(TestCase):
 
     def test_plainPython(self):
         """
-        L{plainPython} converts a L{LaunchArray} into a Python list.
+        L{plainPython} converts a L{_LaunchArray} into a Python list.
         """
-        array = LaunchArray(self.testArray)
+        array = _LaunchArray(self.testArray)
         self.assertEquals(plainPython(array),
                           [b"test-string-1", b"another string.", 4321])
 
 
     def test_plainPythonNested(self):
         """
-        L{plainPython} converts a L{LaunchArray} containing another
-        L{LaunchArray} into a Python list.
+        L{plainPython} converts a L{_LaunchArray} containing another
+        L{_LaunchArray} into a Python list.
         """
         sub = lib.launch_data_alloc(lib.LAUNCH_DATA_ARRAY)
         lib.launch_data_array_set_index(sub, lib.launch_data_new_integer(7), 0)
         lib.launch_data_array_set_index(self.testArray, sub, 3)
-        array = LaunchArray(self.testArray)
+        array = _LaunchArray(self.testArray)
         self.assertEqual(plainPython(array), [b"test-string-1",
                                               b"another string.", 4321, [7]])
 
@@ -291,8 +299,10 @@ class CheckInTests(TestCase):
         env["TESTING_PORT"] = repr(port.getHost().port)
         self.stdout = fp.child("stdout.txt")
         self.stderr = fp.child("stderr.txt")
+        self.launchLabel = ("org.calendarserver.UNIT-TESTS." +
+                            str(os.getpid()) + "." + self.id())
         plist = {
-            "Label": "org.calendarserver.UNIT-TESTS." + repr(os.getpid()),
+            "Label": self.launchLabel,
             "ProgramArguments": [sys.executable, "-m", __name__, self.id()],
             "EnvironmentVariables": env,
             "KeepAlive": False,
@@ -340,6 +350,7 @@ class CheckInTests(TestCase):
         structure.
         """
         d = json.loads(self.stdout.getContent())
+        self.assertEqual(d[constants.LAUNCH_JOBKEY_LABEL], self.launchLabel)
         self.assertIsInstance(d, dict)
         sockets = d[constants.LAUNCH_JOBKEY_SOCKETS]
         self.assertEquals(len(sockets), 1)
@@ -350,7 +361,11 @@ class CheckInTests(TestCase):
 
 
     def tearDown(self):
-        os.spawnlp(os.P_WAIT, "launchctl", "launchctl", "unload", self.job.path)
+        """
+        Un-load the launchd job and report any errors it encountered.
+        """
+        os.spawnlp(os.P_WAIT, "launchctl",
+                   "launchctl", "unload", self.job.path)
         err = self.stderr.getContent()
         if 'Traceback' in err:
             self.fail(err)

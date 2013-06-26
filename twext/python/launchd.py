@@ -16,12 +16,21 @@
 ##
 
 """
-CFFI bindings for launchd check-in API.
+Bindings for launchd check-in API.
+
+@see: U{SampleD.c
+    <http://developer.apple.com/library/mac/#samplecode/SampleD/>}
+
+@var ffi: a L{cffi.FFI} instance wrapping the functions exposed by C{launch.h}.
+
+@var lib: a L{cffi} "U{dynamic library object
+    <http://cffi.readthedocs.org/en/release-0.6/#the-verification-step>}"
+    wrapping the functions exposed by C{launch.h}.
 """
 
 from __future__ import print_function
 
-from cffi import FFI
+from cffi import FFI, VerificationError
 
 ffi = FFI()
 
@@ -54,7 +63,6 @@ launch_data_t launch_data_new_integer(long long);
 launch_data_t launch_data_new_fd(int);
 launch_data_t launch_data_new_bool(bool);
 launch_data_t launch_data_new_real(double);
-
 launch_data_t launch_msg(const launch_data_t);
 
 launch_data_type_t launch_data_get_type(const launch_data_t);
@@ -63,8 +71,7 @@ launch_data_t launch_data_dict_lookup(const launch_data_t, const char *);
 size_t launch_data_dict_get_count(const launch_data_t);
 long long launch_data_get_integer(const launch_data_t);
 void launch_data_dict_iterate(
-    const launch_data_t,
-    void (*)(const launch_data_t, const char *, void *),
+    const launch_data_t, void (*)(const launch_data_t, const char *, void *),
     void *);
 
 int launch_data_get_fd(const launch_data_t);
@@ -79,13 +86,17 @@ bool launch_data_array_set_index(launch_data_t, const launch_data_t, size_t);
 void launch_data_free(launch_data_t);
 """)
 
-lib = ffi.verify("""
-#include <launch.h>
-""")
+try:
+    lib = ffi.verify("""
+    #include <launch.h>
+    """,
+    tag=__name__.replace(".", "_"))
+except VerificationError as ve:
+    raise ImportError(ve)
 
 
 
-class LaunchArray(object):
+class _LaunchArray(object):
     def __init__(self, launchdata):
         self.launchdata = launchdata
 
@@ -103,7 +114,7 @@ class LaunchArray(object):
 
 
 
-class LaunchDictionary(object):
+class _LaunchDictionary(object):
     def __init__(self, launchdata):
         self.launchdata = launchdata
 
@@ -162,12 +173,12 @@ def plainPython(x):
     Convert a launchd python-like data structure into regular Python
     dictionaries and lists.
     """
-    if isinstance(x, LaunchDictionary):
+    if isinstance(x, _LaunchDictionary):
         result = {}
         for k, v in x.items():
             result[k] = plainPython(v)
         return result
-    elif isinstance(x, LaunchArray):
+    elif isinstance(x, _LaunchArray):
         return map(plainPython, x)
     else:
         return x
@@ -185,17 +196,17 @@ class LaunchErrno(Exception):
 def _launchify(launchvalue):
     """
     Convert a ctypes value wrapping a C{_launch_data} structure into the
-    relevant Python object (integer, bytes, L{LaunchDictionary},
-    L{LaunchArray}).
+    relevant Python object (integer, bytes, L{_LaunchDictionary},
+    L{_LaunchArray}).
     """
     if launchvalue == ffi.NULL:
         return None
     dtype = lib.launch_data_get_type(launchvalue)
 
     if dtype == lib.LAUNCH_DATA_DICTIONARY:
-        return LaunchDictionary(launchvalue)
+        return _LaunchDictionary(launchvalue)
     elif dtype == lib.LAUNCH_DATA_ARRAY:
-        return LaunchArray(launchvalue)
+        return _LaunchArray(launchvalue)
     elif dtype == lib.LAUNCH_DATA_FD:
         return lib.launch_data_get_fd(launchvalue)
     elif dtype == lib.LAUNCH_DATA_INTEGER:
@@ -272,3 +283,9 @@ def getLaunchDSocketFDs():
     return result
 
 
+__all__ = [
+    'checkin',
+    'lib',
+    'ffi',
+    'plainPython',
+]
