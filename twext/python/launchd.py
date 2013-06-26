@@ -26,6 +26,10 @@ Bindings for launchd check-in API.
 @var lib: a L{cffi} "U{dynamic library object
     <http://cffi.readthedocs.org/en/release-0.6/#the-verification-step>}"
     wrapping the functions exposed by C{launch.h}.
+
+@var constants: Select C{LAUNCH_*} constants from C{launch.h}, exposed as plain
+    Python values.  Note that this is not a complete wrapping, but as the
+    header file suggests, these APIs are only for use during check-in.
 """
 
 from __future__ import print_function
