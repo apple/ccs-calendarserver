@@ -50,11 +50,15 @@ bool launch_data_dict_insert(launch_data_t, const launch_data_t, const char *);
 
 launch_data_t launch_data_alloc(launch_data_type_t);
 launch_data_t launch_data_new_string(const char *);
+launch_data_t launch_data_new_integer(long long);
+
 launch_data_t launch_msg(const launch_data_t);
+
 launch_data_type_t launch_data_get_type(const launch_data_t);
+
 launch_data_t launch_data_dict_lookup(const launch_data_t, const char *);
 size_t launch_data_dict_get_count(const launch_data_t);
-
+long long launch_data_get_integer(const launch_data_t);
 void launch_data_dict_iterate(
     const launch_data_t,
     void (*)(const launch_data_t, const char *, void *),
@@ -64,6 +68,7 @@ const char * launch_data_get_string(const launch_data_t);
 
 size_t launch_data_array_get_count(const launch_data_t);
 launch_data_t launch_data_array_get_index(const launch_data_t, size_t);
+bool launch_data_array_set_index(launch_data_t, const launch_data_t, size_t);
 
 void launch_data_free(launch_data_t);
 """)
@@ -88,7 +93,11 @@ class LaunchArray(object):
 
 
     def __getitem__(self, index):
-        return lib.launch_data_array_get_index(self.launchdata, index)
+        if index >= len(self):
+            raise IndexError(index)
+        return _launchify(
+            lib.launch_data_array_get_index(self.launchdata, index)
+        )
 
 
 
@@ -107,6 +116,30 @@ class LaunchDictionary(object):
             keys.append(ffi.string(k))
         lib.launch_data_dict_iterate(self.launchdata, icb, ffi.NULL)
         return keys
+
+
+    def values(self):
+        """
+        Return values in the dictionary.
+        """
+        values = []
+        @ffi.callback("void (*)(const launch_data_t, const char *, void *)")
+        def icb(v, k, n):
+            values.append(_launchify(v))
+        lib.launch_data_dict_iterate(self.launchdata, icb, ffi.NULL)
+        return values
+
+
+    def items(self):
+        """
+        Return items in the dictionary.
+        """
+        values = []
+        @ffi.callback("void (*)(const launch_data_t, const char *, void *)")
+        def icb(v, k, n):
+            values.append((ffi.string(k), _launchify(v)))
+        lib.launch_data_dict_iterate(self.launchdata, icb, ffi.NULL)
+        return values
 
 
     def __getitem__(self, key):
