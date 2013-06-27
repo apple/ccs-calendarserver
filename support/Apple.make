@@ -34,12 +34,13 @@ SERVERSETUP = $(SIPP)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
 
 Cruft += .dependencies
 Extra_Environment += PATH="$(SIPP)/usr/bin:$$PATH"
+Extra_Environment += PYTHONPATH="$(PY_TMP_LIB)"
 
 CALDAVDSUBDIR = /caldavd
 
 PYTHON = $(USRBINDIR)/python
 PY_HOME = $(SIPP)$(SHAREDIR)$(CALDAVDSUBDIR)
-PY_TMP_LIB = "$(DSTROOT)$(SIPP)/usr/share/caldavd/lib/python/"
+PY_TMP_LIB = $(DSTROOT)$(SIPP)/usr/share/caldavd/lib/python/
 PY_INSTALL_FLAGS = --root="$(DSTROOT)" --prefix="$(SIPP)" --install-lib="$(PY_HOME)/lib/python" --install-scripts="$(SIPP)$(LIBEXECDIR)$(CALDAVDSUBDIR)"
 CS_INSTALL_FLAGS = --install-scripts="$(SIPP)$(USRSBINDIR)" --install-data="$(SIPP)$(ETCDIR)"
 CS_BUILD_EXT_FLAGS = --include-dirs="$(SIPP)/usr/include" --library-dirs="$(SIPP)/usr/lib"
@@ -72,7 +73,7 @@ $(SQLPARSE)::     $(BuildDirectory)/$(SQLPARSE)
 $(SETPROCTITLE):: $(BuildDirectory)/$(SETPROCTITLE)
 $(PSUTIL)::       $(BuildDirectory)/$(PSUTIL)
 $(PYCRYPTO)::	  $(BuildDirectory)/$(PYCRYPTO)
-$(CFFI)::	      $(BuildDirectory)/$(CFFI)
+$(CFFI)::	  $(BuildDirectory)/$(CFFI)
 $(PYCPARSER)::	  $(BuildDirectory)/$(PYCPARSER)
 $(Project)::      $(BuildDirectory)/$(Project)
 
@@ -95,9 +96,9 @@ install:: build
 	$(_v) cd $(BuildDirectory)/$(SETPROCTITLE) && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(PSUTIL)       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(PYCRYPTO)     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/$(CFFI)         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(PYCPARSER)    && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/$(Project)      && $(Environment) PYTHONPATH=$(PY_TMP_LIB) $(PYTHON) setup.py build_ext $(CS_BUILD_EXT_FLAGS) install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(CFFI)         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(Project)      && $(Environment) $(PYTHON) setup.py build_ext $(CS_BUILD_EXT_FLAGS) install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist"
@@ -155,13 +156,14 @@ $(BuildDirectory)/%: %.tgz
 	@echo "Archiving sources for $(notdir $<)..."
 	$(_v) if [ -f "$</setup.py" ] && grep setuptools "$</setup.py" > /dev/null; then \
 	        echo "Working around setuptools' stupid need to download a new version."; \
-	        cd "$<" && $(PYTHON) "setup.py" --help >/dev/null; \
+	        cd "$<" && $(Environment) $(PYTHON) "setup.py" --help >/dev/null; \
 	      fi
 	$(_v) $(TAR) -C "$(dir $<)"        \
 	          --exclude=.svn           \
 	          --exclude=build          \
 	          --exclude=_trial_temp    \
 	          --exclude=dropin.cache   \
+	          --exclude='*.exe'        \
 	          -czf "$@" "$(notdir $<)"
 
 #
