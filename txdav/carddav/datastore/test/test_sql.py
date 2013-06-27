@@ -886,6 +886,28 @@ END:VCARD
 
 
     @inlineCallbacks
+    def test_shareGroupWithRevision(self):
+        """
+        Verify that bindRevision on addressbooks and shared groups has the correct value.
+        """
+        ab = yield self.addressbookUnderTest(home="home3")
+        self.assertEqual(ab._bindRevision, 0)
+        group = yield ab.objectResourceWithName("4.vcf")
+        other = yield self.homeUnderTest(name="home2")
+        newGroupShareUID = yield group.shareWith(other, _BIND_MODE_WRITE)
+        yield self.commit()
+
+        normalAB = yield self.addressbookUnderTest()
+        self.assertEqual(normalAB._bindRevision, 0)
+        otherHome = yield self.homeUnderTest(name="home2")
+        otherGroup = yield otherHome.objectWithShareUID(newGroupShareUID)
+        self.assertNotEqual(otherGroup.addressbook()._bindRevision, 0)
+        self.assertNotEqual(otherHome.addressbook(), 0)
+
+    test_shareGroupWithRevision.todo = "fix shared group revisions"
+
+
+    @inlineCallbacks
     def test_updateShareRevision(self):
         """
         Verify that bindRevision on addressbooks and shared addressbooks has the correct value.
@@ -914,6 +936,41 @@ END:VCARD
         otherHome = yield self.homeUnderTest(name="home2")
         otherAB = yield otherHome.objectWithShareUID(newABShareUID)
         self.assertNotEqual(otherAB._bindRevision, 0)
+
+
+    @inlineCallbacks
+    def test_updateSharedGroupRevision(self):
+        """
+        Verify that bindRevision on addressbooks and shared addressbooks has the correct value.
+        """
+        ab = yield self.addressbookUnderTest(home="home3")
+        self.assertEqual(ab._bindRevision, 0)
+        group = yield ab.objectResourceWithName("4.vcf")
+        other = yield self.homeUnderTest(name="home2")
+        newGroupShareUID = yield group.shareWith(other, _BIND_MODE_WRITE, status=_BIND_STATUS_INVITED)
+        yield self.commit()
+
+        normalAB = yield self.addressbookUnderTest(home="home3")
+        self.assertEqual(normalAB._bindRevision, 0)
+        otherHome = yield self.homeUnderTest(name="home2")
+        otherGroup = yield otherHome.invitedObjectWithShareUID(newGroupShareUID)
+
+        self.assertEqual(otherGroup.addressbook()._bindRevision, 0)
+        yield self.commit()
+
+        normalAB = yield self.addressbookUnderTest(home="home3")
+        normalGroup = yield normalAB.objectResourceWithName("4.vcf")
+        otherHome = yield self.homeUnderTest(name="home2")
+        otherGroup = yield otherHome.invitedObjectWithShareUID(newGroupShareUID)
+        yield normalGroup.updateShare(otherGroup, status=_BIND_STATUS_ACCEPTED)
+        yield self.commit()
+
+        normalAB = yield self.addressbookUnderTest(home="home3")
+        self.assertEqual(normalAB._bindRevision, 0)
+        otherHome = yield self.homeUnderTest(name="home2")
+        otherGroup = yield otherHome.objectWithShareUID(newGroupShareUID)
+        self.assertNotEqual(otherGroup.addressbook()._bindRevision, 0)
+    test_updateSharedGroupRevision.todo = "fix shared group revisions"
 
 
     @inlineCallbacks
@@ -949,6 +1006,45 @@ END:VCARD
             changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
+
+
+    @inlineCallbacks
+    def test_sharedGroupRevisions(self):
+        """
+        Verify that resourceNamesSinceRevision returns all resources after initial bind and sync.
+        """
+        ab = yield self.addressbookUnderTest(home="home3")
+        self.assertEqual(ab._bindRevision, 0)
+        group = yield ab.objectResourceWithName("4.vcf")
+        other = yield self.homeUnderTest(name="home2")
+        newGroupShareUID = yield group.shareWith(other, _BIND_MODE_WRITE)
+        yield self.commit()
+
+        normalAB = yield self.addressbookUnderTest(home="home3")
+        self.assertEqual(normalAB._bindRevision, 0)
+        otherHome = yield self.homeUnderTest(name="home2")
+        otherGroup = yield otherHome.objectWithShareUID(newGroupShareUID)
+        otherAB = otherGroup.addressbook()
+        self.assertNotEqual(otherAB._bindRevision, 0)
+
+        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision - 1)
+        self.assertNotEqual(len(changed), 0)
+        self.assertEqual(len(deleted), 0)
+
+        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
+        self.assertEqual(len(changed), 0)
+        self.assertEqual(len(deleted), 0)
+
+        for depth in ("1", "infinity",):
+            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision - 1, depth)
+            self.assertNotEqual(len(changed), 0)
+            self.assertEqual(len(deleted), 0)
+
+            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
+            self.assertEqual(len(changed), 0)
+            self.assertEqual(len(deleted), 0)
+
+    test_sharedGroupRevisions.todo = "fix shared group revisions"
 
 
     @inlineCallbacks

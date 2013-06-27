@@ -44,9 +44,11 @@ storePath = FilePath(__file__).parent().child("addressbook_store")
 
 home1Root = storePath.child("ho").child("me").child("home1")
 home2Root = storePath.child("ho").child("me").child("home2")
+home3Root = storePath.child("ho").child("me").child("home3")
 
 adbk1Root = home1Root.child("addressbook")
 adbk2Root = home2Root.child("addressbook")
+adbk3Root = home3Root.child("addressbook")
 
 addressbook1_objectNames = [
     "1.vcf",
@@ -69,6 +71,20 @@ addressbook2_objectNames = [
 
 
 home2_addressbookNames = [
+    "addressbook",
+]
+
+addressbook3_objectNames = [
+    "1.vcf",
+    "2.vcf",
+    "3.vcf",
+    "4.vcf",
+    "5.vcf",
+    "6.vcf",
+]
+
+
+home3_addressbookNames = [
     "addressbook",
 ]
 
@@ -122,6 +138,7 @@ class CommonTests(CommonCommonTests):
         hashlib.md5("9ABC").hexdigest(),
         hashlib.md5("DEFG").hexdigest(),
         hashlib.md5("HIJK").hexdigest(),
+        hashlib.md5("LMNO").hexdigest(),
     )
     requirements = {
         "home1": {
@@ -139,6 +156,16 @@ class CommonTests(CommonCommonTests):
                 "3.vcf": adbk2Root.child("3.vcf").getContent(),
                 "4.vcf": adbk2Root.child("4.vcf").getContent(),
                 "5.vcf": adbk2Root.child("5.vcf").getContent(),
+            },
+        },
+        "home3": {
+            "addressbook": {
+                "1.vcf": adbk3Root.child("1.vcf").getContent(),
+                "2.vcf": adbk3Root.child("2.vcf").getContent(),
+                "3.vcf": adbk3Root.child("3.vcf").getContent(),
+                "4.vcf": adbk3Root.child("4.vcf").getContent(),
+                "5.vcf": adbk3Root.child("5.vcf").getContent(),
+                "6.vcf": adbk3Root.child("6.vcf").getContent(),
             },
         },
         "not_a_home": None
@@ -159,6 +186,16 @@ class CommonTests(CommonCommonTests):
                 "3.vcf": md5Values[2],
                 "4.vcf": md5Values[3],
                 "5.vcf": md5Values[4],
+            },
+        },
+        "home3": {
+            "addressbook": {
+                "1.vcf": md5Values[0],
+                "2.vcf": md5Values[1],
+                "3.vcf": md5Values[2],
+                "4.vcf": md5Values[3],
+                "5.vcf": md5Values[4],
+                "6.vcf": md5Values[5],
             },
         },
         "not_a_home": None
@@ -882,10 +919,10 @@ class CommonTests(CommonCommonTests):
         Addressbooks in one user's addressbook home should not show up in another
         user's addressbook home.
         """
-        home3 = yield self.transactionUnderTest().addressbookHomeWithUID(
-            "home3", create=True
+        homeNew = yield self.transactionUnderTest().addressbookHomeWithUID(
+            "homeNew", create=True
         )
-        ab = yield home3.addressbookWithName("addressbook")
+        ab = yield homeNew.addressbookWithName("addressbook")
         self.assertEquals((yield ab.addressbookObjects()), [])
 
 
@@ -896,11 +933,11 @@ class CommonTests(CommonCommonTests):
         user's via uid or name queries.
         """
         home1 = yield self.homeUnderTest()
-        home3 = yield self.transactionUnderTest().addressbookHomeWithUID(
-            "home3", create=True)
+        homeNew = yield self.transactionUnderTest().addressbookHomeWithUID(
+            "homeNew", create=True)
         addressbook1 = yield home1.addressbookWithName("addressbook")
-        addressbook2 = yield home3.addressbookWithName("addressbook")
-        objects = list((yield (yield home3.addressbookWithName("addressbook")).addressbookObjects()))
+        addressbook2 = yield homeNew.addressbookWithName("addressbook")
+        objects = list((yield (yield homeNew.addressbookWithName("addressbook")).addressbookObjects()))
         self.assertEquals(objects, [])
         for resourceName in self.requirements['home1']['addressbook'].keys():
             obj = yield addressbook1.addressbookObjectWithName(resourceName)

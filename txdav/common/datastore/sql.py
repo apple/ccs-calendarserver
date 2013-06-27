@@ -2840,7 +2840,7 @@ class SharingMixIn(object):
                     shareeView._home._children[shareeView._name] = shareeView
                     shareeView._home._children[shareeView._resourceID] = shareeView
                 elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
-                    shareeView._deletedSyncToken(sharedRemoval=True)
+                    yield shareeView._deletedSyncToken(sharedRemoval=True)
                     shareeView._home._children.pop(shareeView._name, None)
                     shareeView._home._children.pop(shareeView._resourceID, None)
 
@@ -2878,7 +2878,7 @@ class SharingMixIn(object):
         shareeChildren = yield shareeHome.children()
         for shareeChild in shareeChildren:
             if not shareeChild.owned() and shareeChild._resourceID == self._resourceID:
-                shareeChild._deletedSyncToken(sharedRemoval=True)
+                yield shareeChild._deletedSyncToken(sharedRemoval=True)
                 shareeHome._children.pop(shareeChild._name, None)
                 shareeHome._children.pop(shareeChild._resourceID, None)
 
@@ -2979,8 +2979,9 @@ class SharingMixIn(object):
 
     @inlineCallbacks
     def _initBindRevision(self):
-        bind = self._bindSchema
         self._bindRevision = self._syncTokenRevision
+        
+        bind = self._bindSchema
         yield Update(
             {bind.BIND_REVISION : Parameter("revision"), },
             Where=(bind.RESOURCE_ID == Parameter("resourceID")).And
