@@ -948,7 +948,7 @@ class CalDAVServiceMaker (object):
 
         requestFactory = underlyingSite
 
-        if config.RedirectHTTPToHTTPS:
+        if config.EnableSSL and config.RedirectHTTPToHTTPS:
             self.log.info("Redirecting to HTTPS port %s" % (config.SSLPort,))
             def requestFactory(*args, **kw):
                 return SSLRedirectRequest(site=underlyingSite, *args, **kw)
