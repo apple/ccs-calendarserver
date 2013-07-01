@@ -897,14 +897,12 @@ END:VCARD
         newGroupShareUID = yield group.shareWith(other, _BIND_MODE_WRITE)
         yield self.commit()
 
-        normalAB = yield self.addressbookUnderTest()
+        normalAB = yield self.addressbookUnderTest(home="home3")
         self.assertEqual(normalAB._bindRevision, 0)
         otherHome = yield self.homeUnderTest(name="home2")
         otherGroup = yield otherHome.objectWithShareUID(newGroupShareUID)
-        self.assertNotEqual(otherGroup.addressbook()._bindRevision, 0)
-        self.assertNotEqual(otherHome.addressbook(), 0)
-
-    test_shareGroupWithRevision.todo = "fix shared group revisions"
+        otherAB = otherGroup.addressbook()
+        self.assertNotEqual(otherAB._bindRevision, 0)
 
 
     @inlineCallbacks
@@ -954,8 +952,8 @@ END:VCARD
         self.assertEqual(normalAB._bindRevision, 0)
         otherHome = yield self.homeUnderTest(name="home2")
         otherGroup = yield otherHome.invitedObjectWithShareUID(newGroupShareUID)
-
-        self.assertEqual(otherGroup.addressbook()._bindRevision, 0)
+        otherAB = otherGroup.addressbook()
+        self.assertEqual(otherAB._bindRevision, 0)
         yield self.commit()
 
         normalAB = yield self.addressbookUnderTest(home="home3")
@@ -969,8 +967,8 @@ END:VCARD
         self.assertEqual(normalAB._bindRevision, 0)
         otherHome = yield self.homeUnderTest(name="home2")
         otherGroup = yield otherHome.objectWithShareUID(newGroupShareUID)
-        self.assertNotEqual(otherGroup.addressbook()._bindRevision, 0)
-    test_updateSharedGroupRevision.todo = "fix shared group revisions"
+        otherAB = otherGroup.addressbook()
+        self.assertNotEqual(otherAB._bindRevision, 0)
 
 
     @inlineCallbacks
@@ -1043,8 +1041,6 @@ END:VCARD
             changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
-
-    test_sharedGroupRevisions.todo = "fix shared group revisions"
 
 
     @inlineCallbacks

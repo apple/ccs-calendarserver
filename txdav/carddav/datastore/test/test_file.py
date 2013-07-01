@@ -49,7 +49,6 @@ def _todo(f, why):
 featureUnimplemented = lambda f: _todo(f, "Feature unimplemented")
 testUnimplemented = lambda f: _todo(f, "Test unimplemented")
 todo = lambda why: lambda f: _todo(f, why)
-fixFile = lambda f: _todo(f, "fix file implementation")
 
 
 def setUpAddressBookStore(test):
@@ -460,21 +459,17 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         yield self.test_addressbookObjects()
 
 
-    @inlineCallbacks
-    @fixFile
+    @testUnimplemented
     def test_createAddressBookWithName_absent(self):
         """
         L{IAddressBookHome.createAddressBookWithName} creates a new L{IAddressBook} that
         can be retrieved with L{IAddressBookHome.addressbookWithName}.
         """
-        pass
 
 
-    @inlineCallbacks
-    @fixFile
+    @testUnimplemented
     def test_removeAddressBookWithName_exists(self):
         """
         L{IAddressBookHome.removeAddressBookWithName} removes a addressbook that already
         exists.
         """
-        pass

@@ -494,6 +494,11 @@ create index SHARED_GROUP_BIND_RESOURCE_ID on
 
 create sequence REVISION_SEQ;
 
+
+-------------------------------
+-- Calendar Object Revisions --
+-------------------------------
+
 create table CALENDAR_OBJECT_REVISIONS (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
   CALENDAR_RESOURCE_ID      integer      references CALENDAR,

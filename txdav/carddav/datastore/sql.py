@@ -191,9 +191,7 @@ class AddressBookHome(CommonHome):
 
     @inlineCallbacks
     def createdHome(self):
-        # initialize synctoken
         yield self.addressbook()._initSyncToken()
-        yield self.addressbook()._initBindRevision()
 
 
     @inlineCallbacks
@@ -366,7 +364,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
 
     @inlineCallbacks
-    def _init_isShared(self):
+    def _initIsShared(self):
         """
             Temporary hack to set isShared on the owner addressbook
             1) This is not up to spec because an addressbook can be shared even without invitations
@@ -637,7 +635,7 @@ END:VCARD
         optimization for Depth:1 operations on the home.
         """
         addressbook = home.addressbook()
-        yield addressbook._init_isShared()
+        yield addressbook._initIsShared()
         results = [addressbook]
         ownerHomeToDataRowMap = {}
 
@@ -663,7 +661,6 @@ END:VCARD
                 groupBindRow[0] = _BIND_MODE_WRITE
                 groupBindRow[3] = None  # bindName
                 groupBindRow[4] = None  # bindStatus
-                groupBindRow[5] = 0  # bindRevision
                 groupBindRow[6] = None  # bindMessage
                 ownerHomeToDataRowMap[ownerHome] = groupBindRow
 
@@ -726,7 +723,7 @@ END:VCARD
         """
         if accepted and name == home.addressbook().name():
             addressbook = home.addressbook()
-            yield addressbook._init_isShared()
+            yield addressbook._initIsShared()
             returnValue(addressbook)
 
         # all shared address books now
@@ -762,7 +759,6 @@ END:VCARD
                         groupBindRow[0] = _BIND_MODE_WRITE
                         groupBindRow[3] = None  # bindName
                         groupBindRow[4] = None  # bindStatus
-                        groupBindRow[5] = 0  # bindRevision
                         groupBindRow[6] = None  # bindMessage
                         groupBindRow.insert(cls.bindColumnCount, ownerAddressBook._resourceID)
                         groupBindRow.insert(cls.bindColumnCount + 1, cachedBindStatus)
@@ -861,7 +857,7 @@ END:VCARD
         """
         if home._resourceID == resourceID:
             addressbook = home.addressbook()
-            yield addressbook._init_isShared()
+            yield addressbook._initIsShared()
             returnValue(addressbook)
 
         bindRows = yield cls._bindForResourceIDAndHomeID.on(
@@ -1454,7 +1450,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @inlineCallbacks
-    def _init_isShared(self):
+    def _initIsShared(self):
         """
             Temporary hack to set isShared on the owner group
             1) This is not up to spec because an group can be shared even without invitations
@@ -1552,7 +1548,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                     self._bindName = bindName
 
                 if self.owned():
-                    yield self._init_isShared()
+                    yield self._initIsShared()
 
             yield self._loadPropertyStore()
 
@@ -2368,13 +2364,35 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         else:
             if status == _BIND_STATUS_ACCEPTED:
                 shareeView = yield shareeHome.objectWithShareUID(bindName)
-                yield shareeView.addressbook()._initSyncToken()
-                yield shareeView.addressbook()._initBindRevision()
+                yield shareeView._initSyncToken()
+                yield shareeView._initBindRevision()
 
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
 
         returnValue(bindName)
+
+
+    @inlineCallbacks
+    def _initSyncToken(self):
+        yield self.addressbook()._initSyncToken()
+
+
+    @inlineCallbacks
+    def _initBindRevision(self):
+        yield self.addressbook()._initBindRevision()
+
+        bind = self._bindSchema
+        yield Update(
+            {bind.BIND_REVISION : Parameter("revision"), },
+            Where=(bind.RESOURCE_ID == Parameter("resourceID")).And
+                  (bind.HOME_RESOURCE_ID == Parameter("homeID")),
+        ).on(
+            self._txn,
+            revision=self.addressbook()._bindRevision,
+            resourceID=self._resourceID,
+            homeID=self.viewerHome()._resourceID,
+        )
 
 
     @inlineCallbacks
@@ -2441,8 +2459,8 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 shareeView._bindStatus = columnMap[bind.BIND_STATUS]
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
                     if 0 == previouslyAcceptedBindCount:
-                        yield shareeView.addressbook()._initSyncToken()
-                        yield shareeView.addressbook()._initBindRevision()
+                        yield shareeView._initSyncToken()
+                        yield shareeView._initBindRevision()
                         shareeView._home._children[shareeView.addressbook()._name] = shareeView._addressbook
                         shareeView._home._children[shareeView.addressbook()._resourceID] = shareeView._addressbook
                 elif shareeView._bindStatus != _BIND_STATUS_INVITED:
