@@ -38,6 +38,9 @@ from calendarserver.tools.cmdline import utilityMain
 
 from pycalendar.datetime import PyCalendarDateTime
 
+from twistedcaldav.config import config, ConfigDict 
+
+from calendarserver.tools.config import WRITABLE_CONFIG_KEYS, setKeyPath, getKeyPath, flattenDictionary, WritableConfig
 
 def usage(e=None):
 
@@ -357,6 +360,53 @@ class Runner(object):
         
     def command_getLocationAndResourceList(self, command):
         self.respondWithRecordsOfTypes(self.dir, command, ["locations", "resources"])
+
+
+    # Config
+
+    def command_readConfig(self, command):
+        """
+        Return current configuration
+
+        @param command: the dictionary parsed from the plist read from stdin
+        @type command: C{dict}
+        """
+        config.reload()
+        # config.Memcached.Pools.Default.ClientEnabled = False
+
+        result = {}
+        for keyPath in WRITABLE_CONFIG_KEYS:
+            value = getKeyPath(config, keyPath)
+            if value is not None:
+                # Note: config contains utf-8 encoded strings, but plistlib
+                # wants unicode, so decode here:
+                if isinstance(value, str):
+                    value = value.decode("utf-8")
+                setKeyPath(result, keyPath, value)
+        self.respond(command, result)
+
+
+    def command_writeConfig(self, command):
+        """
+        Write config to secondary, writable plist
+
+        @param command: the dictionary parsed from the plist read from stdin
+        @type command: C{dict}
+        """
+        writable = WritableConfig(config, config.WritableConfigFile)
+        writable.read()
+        valuesToWrite = command.get("Values", {})
+        # Note: values are unicode if they contain non-ascii
+        for keyPath, value in flattenDictionary(valuesToWrite):
+            if keyPath in WRITABLE_CONFIG_KEYS:
+                writable.set(setKeyPath(ConfigDict(), keyPath, value))
+        try:
+            writable.save(restart=False)
+        except Exception, e:
+            self.respond(command, {"error": str(e)})
+        else:
+            self.command_readConfig(command)
+
 
 
     # Proxies

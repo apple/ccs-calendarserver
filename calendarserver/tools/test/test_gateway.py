@@ -28,6 +28,7 @@ from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tools.util import getDirectory
 from txdav.common.datastore.test.util import SQLStoreBuilder
+import plistlib
 
 
 class RunCommandTestCase(TestCase):
@@ -314,6 +315,47 @@ class GatewayTestCase(RunCommandTestCase):
         results = yield self.runCommand(command_purgeOldEventsNoDays)
         self.assertEquals(results["result"]["RetainDays"], 365)
 
+    @inlineCallbacks
+    def test_readConfig(self):
+        """
+        Verify readConfig returns with only the writable keys
+        """
+        results = yield self.runCommand(command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(results["result"]["RedirectHTTPToHTTPS"], False)
+        self.assertEquals(results["result"]["EnableSearchAddressBook"], False)
+        self.assertEquals(results["result"]["EnableCalDAV"], True)
+        self.assertEquals(results["result"]["EnableCardDAV"], True)
+        self.assertEquals(results["result"]["EnableSSL"], False)
+        self.assertEquals(results["result"]["DefaultLogLevel"], "warn")
+
+        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], False)
+        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/calendar.cer")
+
+        # Verify not all keys are present, such as ServerRoot which is not writable
+        self.assertFalse("ServerRoot" in results["result"])
+
+
+    @inlineCallbacks
+    def test_writeConfig(self):
+        """
+        Verify writeConfig updates the writable plist file only
+        """
+        results = yield self.runCommand(command_writeConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(results["result"]["EnableCalDAV"], False)
+        self.assertEquals(results["result"]["EnableCardDAV"], False)
+        self.assertEquals(results["result"]["EnableSSL"], True)
+        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], True)
+        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/changed.cer")
+        dataRoot = "Data/%s/%s" % (unichr(208), u"\ud83d\udca3")
+        self.assertTrue(results["result"]["DataRoot"].endswith(dataRoot))
+
+        # The static plist should still have EnableCalDAV = True
+        staticPlist = plistlib.readPlist(self.configFileName)
+        self.assertTrue(staticPlist["EnableCalDAV"])
 
 
 command_addReadProxy = """<?xml version="1.0" encoding="UTF-8"?>
@@ -658,3 +700,38 @@ command_purgeOldEventsNoDays = """<?xml version="1.0" encoding="UTF-8"?>
 </dict>
 </plist>
 """
+
+command_readConfig = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>readConfig</string>
+</dict>
+</plist>
+"""
+
+command_writeConfig = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>writeConfig</string>
+        <key>Values</key>
+        <dict>
+            <key>EnableCalDAV</key>
+            <false/>
+            <key>EnableCardDAV</key>
+            <false/>
+            <key>EnableSSL</key>
+            <true/>
+            <key>Notifications.Services.APNS.Enabled</key>
+            <true/>
+            <key>Notifications.Services.APNS.CalDAV.CertificatePath</key>
+            <string>/example/changed.cer</string>
+            <key>DataRoot</key>
+            <string>Data/%s/%s</string>
+        </dict>
+</dict>
+</plist>
+""" % (unichr(208), u"\ud83d\udca3")

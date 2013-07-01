@@ -547,7 +547,7 @@ class ReExecService(MultiService):
         Removes pidfile, registers an exec to happen after shutdown, then
         stops the reactor.
         """
-        self.log.info("SIGHUP received - restarting")
+        self.log.warn("SIGHUP received - restarting")
         try:
             self.log.info("Removing pidfile: %s" % (self.pidfilePath,))
             os.remove(self.pidfilePath)
@@ -1243,8 +1243,13 @@ class CalDAVServiceMaker (object):
 
         # Don't use memcached -- calendar server might take it away at any
         # moment
-        config.Memcached.Pools.Default.ClientEnabled = False
+        def agentPostUpdateHook(configDict, reloading=False):
+            configDict.Memcached.Pools.Default.ClientEnabled = False
 
+        config.addPostUpdateHooks((agentPostUpdateHook,))
+        config.reload()
+
+        # These we need to set in order to open the store
         config.EnableCalDAV = config.EnableCardDAV = True
 
         def agentServiceCreator(pool, store, ignored):
