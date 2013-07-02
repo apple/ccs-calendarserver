@@ -150,6 +150,7 @@ class AddressBookHome(CommonHome):
             )
             self._created, self._modified = data
             yield addressbook._loadPropertyStore()
+            yield addressbook._initIsShared()
             self._addressbook = addressbook
 
             returnValue(self)
@@ -336,9 +337,47 @@ class AddressBookHome(CommonHome):
 
 AddressBookHome._register(EADDRESSBOOKTYPE)
 
+class AddressBookSharingMixIn(SharingMixIn):
+    """
+        Sharing code shared between AddressBook and AddressBookObject
+    """
+
+    def setShared(self, shared):
+        """
+        Set an owned collection to shared or unshared state. Technically this is not useful as "shared"
+        really means it has invitees, but the current sharing spec supports a notion of a shared collection
+        that has not yet had invitees added. For the time being we will support that option by using a new
+        MESSAGE value to indicate an owned collection that is "shared".
+
+        @param shared: whether or not the owned collection is "shared"
+        @type shared: C{bool}
+        """
+        if self.owned():
+            self._bindMessage = "shared" if shared else None
 
 
-class AddressBook(CommonHomeChild, SharingMixIn):
+    @inlineCallbacks
+    def _isSharedOrInvited(self):
+        """
+        return a bool if this L{AddressBook} is shared or invited
+        """
+        sharedRows = []
+        if self.owned():
+            bind = self._bindSchema
+            sharedRows = yield self._bindFor(
+                (bind.RESOURCE_ID == Parameter("resourceID"))).on(
+                self._txn, resourceID=self._resourceID,
+            )
+
+        returnValue(bool(sharedRows))
+
+    @inlineCallbacks
+    def _initIsShared(self):
+        isShared = yield self._isSharedOrInvited()
+        self.setShared(isShared)
+
+
+class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
     """
     SQL-based implementation of L{IAddressBook}.
     """
@@ -362,22 +401,6 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
     def __repr__(self):
         return '<%s: %s("%s")>' % (self.__class__.__name__, self._resourceID, self.name())
-
-
-    @inlineCallbacks
-    def _initIsShared(self):
-        """
-            Temporary hack to set isShared on the owner addressbook
-            1) This is not up to spec because an addressbook can be shared even without invitations
-            2) This should be setup in AddressBookHome.initFromStore, but calling asShared() from there creates a loop
-            3) It would be a better hack to change self.addressbook() to a deferred. But his is sufficient for now.
-        """
-        if not hasattr(self, "_isShared_inited"):
-            isShared = bool((yield self.asShared())) or bool((yield self.asInvited()))
-            yield self.setShared(isShared)
-            self._isShared_inited = True
-        else:
-            yield None
 
 
     def getCreated(self):
@@ -630,9 +653,7 @@ END:VCARD
         operations to keep this constant wrt the number of children.  This is an
         optimization for Depth:1 operations on the home.
         """
-        addressbook = home.addressbook()
-        yield addressbook._initIsShared()
-        results = [addressbook]
+        results = [home.addressbook()]
         ownerHomeToDataRowMap = {}
 
         # Load from the main table first
@@ -650,7 +671,7 @@ END:VCARD
             home._txn, homeID=home._resourceID
         )
         for groupBindRow in groupBindRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:cls.bindColumnCount]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount]  #@UnusedVariable
             ownerAddressBookID = yield AddressBookObject.ownerAddressBookIDFromGroupID(home._txn, resourceID)
             ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
             if ownerHome not in ownerHomeToDataRowMap:
@@ -718,9 +739,7 @@ END:VCARD
             exists.
         """
         if accepted and name == home.addressbook().name():
-            addressbook = home.addressbook()
-            yield addressbook._initIsShared()
-            returnValue(addressbook)
+            returnValue(home.addressbook())
 
         # all shared address books now
         rows = None
@@ -756,8 +775,8 @@ END:VCARD
                         groupBindRow[3] = None  # bindName
                         groupBindRow[4] = None  # bindStatus
                         groupBindRow[6] = None  # bindMessage
-                        groupBindRow.insert(cls.bindColumnCount, ownerAddressBook._resourceID)
-                        groupBindRow.insert(cls.bindColumnCount + 1, cachedBindStatus)
+                        groupBindRow.insert(AddressBookObject.bindColumnCount, ownerAddressBook._resourceID)
+                        groupBindRow.insert(AddressBookObject.bindColumnCount + 1, cachedBindStatus)
                         rows = [groupBindRow]
 
             if rows and queryCacher:
@@ -852,9 +871,7 @@ END:VCARD
             exists.
         """
         if home._resourceID == resourceID:
-            addressbook = home.addressbook()
-            yield addressbook._initIsShared()
-            returnValue(addressbook)
+            returnValue(home.addressbook())
 
         bindRows = yield cls._bindForResourceIDAndHomeID.on(
             home._txn, resourceID=resourceID, homeID=home._resourceID
@@ -897,35 +914,6 @@ END:VCARD
 
     def fullyShared(self):
         return not self.owned() and self._bindStatus == _BIND_STATUS_ACCEPTED
-
-
-    @inlineCallbacks
-    def setShared(self, shared):
-        """
-        Set an owned collection to shared or unshared state. Technically this is not useful as "shared"
-        really means it has invitees, but the current sharing spec supports a notion of a shared collection
-        that has not yet had invitees added. For the time being we will support that option by using a new
-        MESSAGE value to indicate an owned collection that is "shared".
-
-        @param shared: whether or not the owned collection is "shared"
-        @type shared: C{bool}
-        """
-        assert self.owned()
-
-        self._bindMessage = "shared" if shared else None
-
-        ''' FIXME:  Make shared persistent:  Owned group does not have a bind table
-        bind = self._bindSchema
-        yield Update(
-            {bind.MESSAGE: self._bindMessage},
-            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
-                  .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
-        ).on(self._txn, resourceID=self._resourceID, homeID=self.viewerHome()._resourceID)
-
-        yield self.invalidateQueryCache()
-        yield self.notifyPropertyChanged()
-        '''
-        yield None
 
 
     @classmethod
@@ -1021,7 +1009,7 @@ END:VCARD
             readWriteGroupIDs = []
             readOnlyGroupIDs = []
             for groupBindRow in groupBindRows:
-                bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:self.bindColumnCount]  #@UnusedVariable
+                bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount]  #@UnusedVariable
                 if bindMode == _BIND_MODE_WRITE:
                     readWriteGroupIDs.append(resourceID)
                 else:
@@ -1069,7 +1057,7 @@ END:VCARD
         readWriteGroupIDs = []
         readOnlyGroupIDs = []
         for groupBindRow in groupBindRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:self.bindColumnCount]  #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount]  #@UnusedVariable
             if bindMode == _BIND_MODE_WRITE:
                 readWriteGroupIDs.append(resourceID)
             else:
@@ -1192,10 +1180,10 @@ END:VCARD
     @inlineCallbacks
     def asShared(self):
         """
-        Retrieve all the versions of this L{CommonHomeChild} as it is shared to
+        Retrieve all the versions of this L{AddressBook} as it is shared to
         everyone.
 
-        @see: L{ICalendarHome.asShared}
+        @see: L{IAddressBookHome.asShared}
 
         @return: L{CommonHomeChild} objects that represent this
             L{CommonHomeChild} as a child of different L{CommonHome}s
@@ -1244,6 +1232,16 @@ END:VCARD
 
 
     @inlineCallbacks
+    def shareWith(self, shareeHome, mode, status=None, message=None):
+        """
+            call super and set isShared = True
+        """
+        bindName = yield super(AddressBook, self).shareWith(shareeHome, mode, status, message)
+        self.setShared(True)
+        returnValue(bindName)
+
+
+    @inlineCallbacks
     def unshareWith(self, shareeHome):
         """
         Remove the shared version of this (owned) L{CommonHomeChild} from the
@@ -1287,11 +1285,12 @@ END:VCARD
         else:
             deletedBindName = None
 
+        self._initIsShared()
         returnValue(deletedBindName)
 
 
 
-class AddressBookObject(CommonObjectResource, SharingMixIn):
+class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
     implements(IAddressBookObject)
 
@@ -1446,20 +1445,6 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @inlineCallbacks
-    def _initIsShared(self):
-        """
-            Temporary hack to set isShared on the owner group
-            1) This is not up to spec because an group can be shared even without invitations
-        """
-        if not hasattr(self, "_isShared_inited"):
-            isShared = bool((yield self.asShared())) or bool((yield self.asInvited()))
-            yield self.setShared(isShared)
-            self._isShared_inited = True
-        else:
-            yield None
-
-
-    @inlineCallbacks
     def initFromStore(self):
         """
         Initialise this object from the store. We read in and cache all the
@@ -1537,14 +1522,13 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
                 if groupBindRows:
                     groupBindRow = groupBindRows[0]
-                    bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:self.bindColumnCount]  #@UnusedVariable
+                    bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount]  #@UnusedVariable
                     self._bindMode = bindMode
                     self._bindStatus = bindStatus
                     self._bindMessage = bindMessage
                     self._bindName = bindName
 
-                if self.owned():
-                    yield self._initIsShared()
+                yield self._initIsShared()
 
             yield self._loadPropertyStore()
 
@@ -2100,35 +2084,6 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         return self._bindName
 
 
-    @inlineCallbacks
-    def setShared(self, shared):
-        """
-        Set an owned collection to shared or unshared state. Technically this is not useful as "shared"
-        really means it has invitees, but the current sharing spec supports a notion of a shared collection
-        that has not yet had invitees added. For the time being we will support that option by using a new
-        MESSAGE value to indicate an owned collection that is "shared".
-
-        @param shared: whether or not the owned collection is "shared"
-        @type shared: C{bool}
-        """
-        assert self.owned()
-
-        self._bindMessage = "shared" if shared else None
-
-        ''' FIXME:  Make shared persistent:  Owned address book does not have a bind table
-        bind = self._bindSchema
-        yield Update(
-            {bind.MESSAGE: self._bindMessage},
-            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
-                  .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
-        ).on(self._txn, resourceID=self._resourceID, homeID=self.viewerHome()._resourceID)
-
-        yield self.invalidateQueryCache()
-        yield self.notifyChanged()
-        '''
-        yield None
-
-
     @classmethod
     def metadataColumns(cls):
         """
@@ -2167,7 +2122,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         Retrieve all the versions of this L{AddressBookObject} as it is shared to
         everyone.
 
-        @see: L{ICalendarHome.asShared}
+        @see: L{IAddressBookHome.asShared}
 
         @return: L{AddressBookObject} objects that represent this
             L{AddressBookObject} as a child of different L{AddressBooks}s
@@ -2301,6 +2256,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         else:
             deletedBindName = None
 
+        yield self._initIsShared()
         returnValue(deletedBindName)
 
 
@@ -2365,7 +2321,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
-
+        self.setShared(True)
         returnValue(bindName)
 
 
