@@ -317,10 +317,6 @@
     <key>DefaultLogLevel</key>
     <string>warn</string> <!-- debug, info, warn, error -->
 
-    <!-- Global server stats --> 
-    <key>GlobalStatsSocket</key> 
-    <string>caldavd-stats.sock</string> 
-
     <!-- Server process ID file -->
     <key>PIDFile</key>
     <string>caldavd.pid</string>
