@@ -191,7 +191,8 @@ class AddressBookHome(CommonHome):
 
     @inlineCallbacks
     def createdHome(self):
-        yield self.addressbook()._initSyncToken()
+        if not self._syncTokenRevision:
+            yield self.addressbook()._initSyncToken()
 
 
     @inlineCallbacks
@@ -396,11 +397,6 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
     _created = property(getCreated, setCreated,)
     _modified = property(getModified, setModified,)
-
-
-    @property
-    def _addressbookHome(self):
-        return self._home
 
     ownerAddressBookHome = CommonHomeChild.ownerHome
     viewerAddressBookHome = CommonHomeChild.viewerHome
@@ -2382,17 +2378,17 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
     def _initBindRevision(self):
         yield self.addressbook()._initBindRevision()
 
+        # almost works
+        # yield super(AddressBookObject, self)._initBindRevision()
         bind = self._bindSchema
-        yield Update(
-            {bind.BIND_REVISION : Parameter("revision"), },
-            Where=(bind.RESOURCE_ID == Parameter("resourceID")).And
-                  (bind.HOME_RESOURCE_ID == Parameter("homeID")),
-        ).on(
+        yield self._updateBindColumnsQuery(
+            {bind.BIND_REVISION : Parameter("revision"), }).on(
             self._txn,
             revision=self.addressbook()._bindRevision,
             resourceID=self._resourceID,
             homeID=self.viewerHome()._resourceID,
         )
+        yield self.invalidateQueryCache()
 
 
     @inlineCallbacks

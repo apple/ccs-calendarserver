@@ -203,7 +203,7 @@ class CommonDataStore(Service, object):
 
 
     @inlineCallbacks
-    def _withEachHomeDo(self, homeTable, homeFromTxn, action, batchSize): #@UnusedVariable
+    def _withEachHomeDo(self, homeTable, homeFromTxn, action, batchSize):  #@UnusedVariable
         """
         Implementation of L{ICalendarStore.withEachCalendarHomeDo} and
         L{IAddressbookStore.withEachAddressbookHomeDo}.
@@ -503,7 +503,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _calendarserver(cls): #@NoSelf
+    def _calendarserver(cls):  #@NoSelf
         cs = schema.CALENDARSERVER
         return Select(
             [cs.VALUE, ],
@@ -548,7 +548,7 @@ class CommonStoreTransaction(object):
         return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
 
-    def _determineMemo(self, storeType, uid, create=False): #@UnusedVariable
+    def _determineMemo(self, storeType, uid, create=False):  #@UnusedVariable
         """
         Determine the memo dictionary to use for homeWithUID.
         """
@@ -612,7 +612,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _insertAPNSubscriptionQuery(cls): #@NoSelf
+    def _insertAPNSubscriptionQuery(cls):  #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
         return Insert({apn.TOKEN: Parameter("token"),
                        apn.RESOURCE_KEY: Parameter("resourceKey"),
@@ -623,7 +623,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _updateAPNSubscriptionQuery(cls): #@NoSelf
+    def _updateAPNSubscriptionQuery(cls):  #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
         return Update({apn.MODIFIED: Parameter("modified"),
                        apn.SUBSCRIBER_GUID: Parameter("subscriber"),
@@ -634,7 +634,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _selectAPNSubscriptionQuery(cls): #@NoSelf
+    def _selectAPNSubscriptionQuery(cls):  #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
         return Select([apn.MODIFIED, apn.SUBSCRIBER_GUID], From=apn,
                 Where=(
@@ -678,7 +678,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _removeAPNSubscriptionQuery(cls): #@NoSelf
+    def _removeAPNSubscriptionQuery(cls):  #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
         return Delete(From=apn,
                       Where=(apn.TOKEN == Parameter("token")).And(
@@ -691,7 +691,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _purgeOldAPNSubscriptionQuery(cls): #@NoSelf
+    def _purgeOldAPNSubscriptionQuery(cls):  #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
         return Delete(From=apn,
                       Where=(apn.MODIFIED < Parameter("olderThan")))
@@ -703,7 +703,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _apnSubscriptionsByTokenQuery(cls): #@NoSelf
+    def _apnSubscriptionsByTokenQuery(cls):  #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
         return Select([apn.RESOURCE_KEY, apn.MODIFIED, apn.SUBSCRIBER_GUID],
                       From=apn, Where=apn.TOKEN == Parameter("token"))
@@ -714,7 +714,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _apnSubscriptionsByKeyQuery(cls): #@NoSelf
+    def _apnSubscriptionsByKeyQuery(cls):  #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
         return Select([apn.TOKEN, apn.SUBSCRIBER_GUID],
                       From=apn, Where=apn.RESOURCE_KEY == Parameter("resourceKey"))
@@ -725,7 +725,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _apnSubscriptionsBySubscriberQuery(cls): #@NoSelf
+    def _apnSubscriptionsBySubscriberQuery(cls):  #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
         return Select([apn.TOKEN, apn.RESOURCE_KEY, apn.MODIFIED, apn.USER_AGENT, apn.IP_ADDR],
                       From=apn, Where=apn.SUBSCRIBER_GUID == Parameter("subscriberGUID"))
@@ -738,7 +738,7 @@ class CommonStoreTransaction(object):
     # Create IMIP token
 
     @classproperty
-    def _insertIMIPTokenQuery(cls): #@NoSelf
+    def _insertIMIPTokenQuery(cls):  #@NoSelf
         imip = schema.IMIP_TOKENS
         return Insert({imip.TOKEN: Parameter("token"),
                        imip.ORGANIZER: Parameter("organizer"),
@@ -768,7 +768,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _selectIMIPTokenByTokenQuery(cls): #@NoSelf
+    def _selectIMIPTokenByTokenQuery(cls):  #@NoSelf
         imip = schema.IMIP_TOKENS
         return Select([imip.ORGANIZER, imip.ATTENDEE, imip.ICALUID], From=imip,
                       Where=(imip.TOKEN == Parameter("token")))
@@ -781,7 +781,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _selectIMIPTokenQuery(cls): #@NoSelf
+    def _selectIMIPTokenQuery(cls):  #@NoSelf
         imip = schema.IMIP_TOKENS
         return Select([imip.TOKEN], From=imip,
                       Where=(imip.ORGANIZER == Parameter("organizer")).And(
@@ -790,7 +790,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _updateIMIPTokenQuery(cls): #@NoSelf
+    def _updateIMIPTokenQuery(cls):  #@NoSelf
         imip = schema.IMIP_TOKENS
         return Update({imip.ACCESSED: utcNowSQL, },
                       Where=(imip.ORGANIZER == Parameter("organizer")).And(
@@ -814,7 +814,7 @@ class CommonStoreTransaction(object):
 
     # Remove IMIP token
     @classproperty
-    def _removeIMIPTokenQuery(cls): #@NoSelf
+    def _removeIMIPTokenQuery(cls):  #@NoSelf
         imip = schema.IMIP_TOKENS
         return Delete(From=imip,
                       Where=(imip.TOKEN == Parameter("token")))
@@ -826,7 +826,7 @@ class CommonStoreTransaction(object):
 
     # Purge old IMIP tokens
     @classproperty
-    def _purgeOldIMIPTokensQuery(cls): #@NoSelf
+    def _purgeOldIMIPTokensQuery(cls):  #@NoSelf
         imip = schema.IMIP_TOKENS
         return Delete(From=imip,
                       Where=(imip.ACCESSED < Parameter("olderThan")))
@@ -1365,15 +1365,15 @@ class CommonStoreTransaction(object):
 
 class _EmptyCacher(object):
 
-    def set(self, key, value): #@UnusedVariable
+    def set(self, key, value):  #@UnusedVariable
         return succeed(True)
 
 
-    def get(self, key, withIdentifier=False): #@UnusedVariable
+    def get(self, key, withIdentifier=False):  #@UnusedVariable
         return succeed(None)
 
 
-    def delete(self, key): #@UnusedVariable
+    def delete(self, key):  #@UnusedVariable
         return succeed(True)
 
 
@@ -1423,14 +1423,14 @@ class CommonHome(object):
 
 
     @classproperty
-    def _resourceIDFromOwnerQuery(cls): #@NoSelf
+    def _resourceIDFromOwnerQuery(cls):  #@NoSelf
         home = cls._homeSchema
         return Select([home.RESOURCE_ID],
                       From=home, Where=home.OWNER_UID == Parameter("ownerUID"))
 
 
     @classproperty
-    def _ownerFromResourceID(cls): #@NoSelf
+    def _ownerFromResourceID(cls):  #@NoSelf
         home = cls._homeSchema
         return Select([home.OWNER_UID],
                       From=home,
@@ -1438,7 +1438,7 @@ class CommonHome(object):
 
 
     @classproperty
-    def _metaDataQuery(cls): #@NoSelf
+    def _metaDataQuery(cls):  #@NoSelf
         metadata = cls._homeMetaDataSchema
         return Select(cls.metadataColumns(),
                       From=metadata,
@@ -1756,7 +1756,7 @@ class CommonHome(object):
 
 
     @classproperty
-    def _syncTokenQuery(cls): #@NoSelf
+    def _syncTokenQuery(cls):  #@NoSelf
         """
         DAL Select statement to find the sync token.
 
@@ -1820,7 +1820,7 @@ class CommonHome(object):
 
 
     @classproperty
-    def _changesQuery(cls): #@NoSelf
+    def _changesQuery(cls):  #@NoSelf
         bind = cls._bindSchema
         rev = cls._revisionsSchema
         return Select(
@@ -2026,12 +2026,12 @@ class CommonHome(object):
 
 
     @classproperty
-    def _resourceByUIDQuery(cls): #@NoSelf
+    def _resourceByUIDQuery(cls):  #@NoSelf
         return cls._objectResourceQuery(checkBindMode=False)
 
 
     @classproperty
-    def _resourceByUIDBindQuery(cls): #@NoSelf
+    def _resourceByUIDBindQuery(cls):  #@NoSelf
         return cls._objectResourceQuery(checkBindMode=True)
 
 
@@ -2092,7 +2092,7 @@ class CommonHome(object):
 
 
     @classproperty
-    def _quotaQuery(cls): #@NoSelf
+    def _quotaQuery(cls):  #@NoSelf
         meta = cls._homeMetaDataSchema
         return Select(
             [meta.QUOTA_USED_BYTES], From=meta,
@@ -2109,7 +2109,7 @@ class CommonHome(object):
 
 
     @classproperty
-    def _preLockResourceIDQuery(cls): #@NoSelf
+    def _preLockResourceIDQuery(cls):  #@NoSelf
         meta = cls._homeMetaDataSchema
         return Select(From=meta,
                       Where=meta.RESOURCE_ID == Parameter("resourceID"),
@@ -2117,7 +2117,7 @@ class CommonHome(object):
 
 
     @classproperty
-    def _increaseQuotaQuery(cls): #@NoSelf
+    def _increaseQuotaQuery(cls):  #@NoSelf
         meta = cls._homeMetaDataSchema
         return Update({meta.QUOTA_USED_BYTES: meta.QUOTA_USED_BYTES +
                        Parameter("delta")},
@@ -2126,7 +2126,7 @@ class CommonHome(object):
 
 
     @classproperty
-    def _resetQuotaQuery(cls): #@NoSelf
+    def _resetQuotaQuery(cls):  #@NoSelf
         meta = cls._homeMetaDataSchema
         return Update({meta.QUOTA_USED_BYTES: 0},
                       Where=meta.RESOURCE_ID == Parameter("resourceID"))
@@ -2192,7 +2192,7 @@ class CommonHome(object):
 
 
     @classproperty
-    def _lockLastModifiedQuery(cls): #@NoSelf
+    def _lockLastModifiedQuery(cls):  #@NoSelf
         meta = cls._homeMetaDataSchema
         return Select(
             From=meta,
@@ -2203,7 +2203,7 @@ class CommonHome(object):
 
 
     @classproperty
-    def _changeLastModifiedQuery(cls): #@NoSelf
+    def _changeLastModifiedQuery(cls):  #@NoSelf
         meta = cls._homeMetaDataSchema
         return Update({meta.MODIFIED: utcNowSQL},
                       Where=meta.RESOURCE_ID == Parameter("resourceID"),
@@ -2270,7 +2270,7 @@ class _SharedSyncLogic(object):
     """
 
     @classproperty
-    def _childSyncTokenQuery(cls): #@NoSelf
+    def _childSyncTokenQuery(cls):  #@NoSelf
         """
         DAL query for retrieving the sync token of a L{CommonHomeChild} based on
         its resource ID.
@@ -2303,7 +2303,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _objectNamesSinceRevisionQuery(cls): #@NoSelf
+    def _objectNamesSinceRevisionQuery(cls):  #@NoSelf
         """
         DAL query for (resource, deleted-flag)
         """
@@ -2357,7 +2357,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _removeDeletedRevision(cls): #@NoSelf
+    def _removeDeletedRevision(cls):  #@NoSelf
         rev = cls._revisionsSchema
         return Delete(From=rev,
                       Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
@@ -2365,7 +2365,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _addNewRevision(cls): #@NoSelf
+    def _addNewRevision(cls):  #@NoSelf
         rev = cls._revisionsSchema
         return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
                        rev.RESOURCE_ID: Parameter("resourceID"),
@@ -2390,7 +2390,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _renameSyncTokenQuery(cls): #@NoSelf
+    def _renameSyncTokenQuery(cls):  #@NoSelf
         """
         DAL query to change sync token for a rename (increment and adjust
         resource name).
@@ -2415,7 +2415,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _bumpSyncTokenQuery(cls): #@NoSelf
+    def _bumpSyncTokenQuery(cls):  #@NoSelf
         """
         DAL query to change collection sync token.
         """
@@ -2438,7 +2438,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _deleteSyncTokenQuery(cls): #@NoSelf
+    def _deleteSyncTokenQuery(cls):  #@NoSelf
         """
         DAL query to update a sync revision to be a tombstone instead.
         """
@@ -2452,7 +2452,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _sharedRemovalQuery(cls): #@NoSelf
+    def _sharedRemovalQuery(cls):  #@NoSelf
         """
         DAL query to update the sync token for a shared collection.
         """
@@ -2467,7 +2467,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _unsharedRemovalQuery(cls): #@NoSelf
+    def _unsharedRemovalQuery(cls):  #@NoSelf
         """
         DAL query to update the sync token for an owned collection.
         """
@@ -2514,7 +2514,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _deleteBumpTokenQuery(cls): #@NoSelf
+    def _deleteBumpTokenQuery(cls):  #@NoSelf
         rev = cls._revisionsSchema
         return Update({rev.REVISION: schema.REVISION_SEQ,
                        rev.DELETED: True},
@@ -2524,7 +2524,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _updateBumpTokenQuery(cls): #@NoSelf
+    def _updateBumpTokenQuery(cls):  #@NoSelf
         rev = cls._revisionsSchema
         return Update({rev.REVISION: schema.REVISION_SEQ},
                       Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
@@ -2533,7 +2533,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _insertFindPreviouslyNamedQuery(cls): #@NoSelf
+    def _insertFindPreviouslyNamedQuery(cls):  #@NoSelf
         rev = cls._revisionsSchema
         return Select([rev.RESOURCE_ID], From=rev,
                       Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
@@ -2541,7 +2541,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _updatePreviouslyNamedQuery(cls): #@NoSelf
+    def _updatePreviouslyNamedQuery(cls):  #@NoSelf
         rev = cls._revisionsSchema
         return Update({rev.REVISION: schema.REVISION_SEQ,
                        rev.DELETED: False},
@@ -2551,7 +2551,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _completelyNewRevisionQuery(cls): #@NoSelf
+    def _completelyNewRevisionQuery(cls):  #@NoSelf
         rev = cls._revisionsSchema
         return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
                        rev.RESOURCE_ID: Parameter("resourceID"),
@@ -2618,7 +2618,7 @@ class SharingMixIn(object):
     """
 
     @classproperty
-    def _bindInsertQuery(cls, **kw): #@NoSelf #@UnusedVariable
+    def _bindInsertQuery(cls, **kw):  #@NoSelf #@UnusedVariable
         """
         DAL statement to create a bind entry that connects a collection to its
         home.
@@ -2635,7 +2635,7 @@ class SharingMixIn(object):
 
 
     @classmethod
-    def _updateBindColumnsQuery(cls, columnMap): #@NoSelf
+    def _updateBindColumnsQuery(cls, columnMap):  #@NoSelf
         bind = cls._bindSchema
         return Update(columnMap,
                       Where=(bind.RESOURCE_ID == Parameter("resourceID"))
@@ -2644,7 +2644,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _updateBindQuery(cls): #@NoSelf
+    def _updateBindQuery(cls):  #@NoSelf
         bind = cls._bindSchema
         return cls._updateBindColumnsQuery(
                     {bind.BIND_MODE: Parameter("mode"),
@@ -2653,7 +2653,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _deleteBindForResourceIDAndHomeID(cls): #@NoSelf
+    def _deleteBindForResourceIDAndHomeID(cls):  #@NoSelf
         bind = cls._bindSchema
         return Delete(
             From=bind,
@@ -2664,7 +2664,7 @@ class SharingMixIn(object):
 
 
     @classmethod
-    def _bindFor(cls, condition): #@NoSelf
+    def _bindFor(cls, condition):  #@NoSelf
         bind = cls._bindSchema
         columns = cls.bindColumns() + cls.additionalBindColumns()
         return Select(
@@ -2675,7 +2675,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _sharedBindForResourceID(cls): #@NoSelf
+    def _sharedBindForResourceID(cls):  #@NoSelf
         bind = cls._bindSchema
         return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
                             .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
@@ -2684,14 +2684,14 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _acceptedBindForHomeID(cls): #@NoSelf
+    def _acceptedBindForHomeID(cls):  #@NoSelf
         bind = cls._bindSchema
         return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
                             .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
 
 
     @classproperty
-    def _unacceptedBindForResourceID(cls): #@NoSelf
+    def _unacceptedBindForResourceID(cls):  #@NoSelf
         bind = cls._bindSchema
         return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
                             .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
@@ -2699,7 +2699,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _bindForResourceIDAndHomeID(cls): #@NoSelf
+    def _bindForResourceIDAndHomeID(cls):  #@NoSelf
         """
         DAL query that looks up home bind rows by home child
         resource ID and home resource ID.
@@ -2711,7 +2711,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _bindForNameAndHomeID(cls): #@NoSelf
+    def _bindForNameAndHomeID(cls):  #@NoSelf
         """
         DAL query that looks up any bind rows by home child
         resource ID and home resource ID.
@@ -2940,7 +2940,7 @@ class SharingMixIn(object):
 
         result = []
         for row in acceptedRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:self.bindColumnCount] #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:self.bindColumnCount]  #@UnusedVariable
             home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
             new = yield home.objectWithShareUID(bindName)
             result.append(new)
@@ -2969,7 +2969,7 @@ class SharingMixIn(object):
 
         result = []
         for row in rows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:self.bindColumnCount] #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:self.bindColumnCount]  #@UnusedVariable
             home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
             new = yield home.invitedObjectWithShareUID(bindName)
             result.append(new)
@@ -2980,13 +2980,10 @@ class SharingMixIn(object):
     @inlineCallbacks
     def _initBindRevision(self):
         self._bindRevision = self._syncTokenRevision
-        
+
         bind = self._bindSchema
-        yield Update(
-            {bind.BIND_REVISION : Parameter("revision"), },
-            Where=(bind.RESOURCE_ID == Parameter("resourceID")).And
-                  (bind.HOME_RESOURCE_ID == Parameter("homeID")),
-        ).on(
+        yield self._updateBindColumnsQuery(
+            {bind.BIND_REVISION : Parameter("revision"), }).on(
             self._txn,
             revision=self._bindRevision,
             resourceID=self._resourceID,
@@ -3141,7 +3138,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _childrenAndMetadataForHomeID(cls): #@NoSelf
+    def _childrenAndMetadataForHomeID(cls):  #@NoSelf
         bind = cls._bindSchema
         child = cls._homeChildSchema
         childMetaData = cls._homeChildMetaDataSchema
@@ -3231,7 +3228,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         self._index = None  # Derived classes need to set this
 
 
-    def memoMe(self, key, memo): #@UnusedVariable
+    def memoMe(self, key, memo):  #@UnusedVariable
         """
         Add this object to the memo dictionary in whatever fashion is appropriate.
 
@@ -3289,7 +3286,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         # Create the actual objects merging in properties
         for dataRow in dataRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = dataRow[:cls.bindColumnCount] #@UnusedVariable
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = dataRow[:cls.bindColumnCount]  #@UnusedVariable
             additionalBind = dataRow[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
             metadata = dataRow[cls.bindColumnCount + len(cls.additionalBindColumns()):]
 
@@ -3358,7 +3355,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             returnValue(None)
 
         row = rows[0]
-        bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount] #@UnusedVariable
+        bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount]  #@UnusedVariable
         if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
             returnValue(None)
         additionalBind = row[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
@@ -3399,7 +3396,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             returnValue(None)
 
         row = rows[0]
-        bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount] #@UnusedVariable]
+        bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount]  #@UnusedVariable]
         if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
             returnValue(None)
 
@@ -3410,7 +3407,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _insertHomeChild(cls): #@NoSelf
+    def _insertHomeChild(cls):  #@NoSelf
         """
         DAL statement to create a home child with all default values.
         """
@@ -3420,7 +3417,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _insertHomeChildMetaData(cls): #@NoSelf
+    def _insertHomeChildMetaData(cls):  #@NoSelf
         """
         DAL statement to create a home child with all default values.
         """
@@ -3470,7 +3467,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _metadataByIDQuery(cls): #@NoSelf
+    def _metadataByIDQuery(cls):  #@NoSelf
         """
         DAL query to retrieve created/modified dates based on a resource ID.
         """
@@ -3551,7 +3548,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _renameQuery(cls): #@NoSelf
+    def _renameQuery(cls):  #@NoSelf
         """
         DAL statement to rename a L{CommonHomeChild}
         """
@@ -3590,7 +3587,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _deleteQuery(cls): #@NoSelf
+    def _deleteQuery(cls):  #@NoSelf
         """
         DAL statement to delete a L{CommonHomeChild} by its resource ID.
         """
@@ -3640,7 +3637,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _ownerHomeWithResourceID(cls): #@NoSelf
+    def _ownerHomeWithResourceID(cls):  #@NoSelf
         """
         DAL query to retrieve the home resource ID and resource name of the owner from the bound
         home-child ID.
@@ -3681,7 +3678,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _objectResourceNamesQuery(cls): #@NoSelf
+    def _objectResourceNamesQuery(cls):  #@NoSelf
         """
         DAL query to load all object resource names for a home child.
         """
@@ -3700,7 +3697,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _objectCountQuery(cls): #@NoSelf
+    def _objectCountQuery(cls):  #@NoSelf
         """
         DAL query to count all object resources for a home child.
         """
@@ -3766,7 +3763,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _resourceNameForUIDQuery(cls): #@NoSelf
+    def _resourceNameForUIDQuery(cls):  #@NoSelf
         """
         DAL query to retrieve the resource name for an object resource based on
         its UID column.
@@ -3795,7 +3792,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _resourceUIDForNameQuery(cls): #@NoSelf
+    def _resourceUIDForNameQuery(cls):  #@NoSelf
         """
         DAL query to retrieve the UID for an object resource based on its
         resource name column.
@@ -3863,7 +3860,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _moveParentUpdateQuery(cls, adjustName=False): #@NoSelf
+    def _moveParentUpdateQuery(cls, adjustName=False):  #@NoSelf
         """
         DAL query to update a child to be in a new parent.
         """
@@ -3879,7 +3876,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         )
 
 
-    def _movedObjectResource(self, child, newparent): #@UnusedVariable
+    def _movedObjectResource(self, child, newparent):  #@UnusedVariable
         """
         Method that subclasses can override to do an extra DB adjustments when a resource
         is moved.
@@ -4099,7 +4096,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _lockLastModifiedQuery(cls): #@NoSelf
+    def _lockLastModifiedQuery(cls):  #@NoSelf
         schema = cls._homeChildMetaDataSchema
         return Select(
             From=schema,
@@ -4110,7 +4107,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _changeLastModifiedQuery(cls): #@NoSelf
+    def _changeLastModifiedQuery(cls):  #@NoSelf
         schema = cls._homeChildMetaDataSchema
         return Update({schema.MODIFIED: utcNowSQL},
                       Where=schema.RESOURCE_ID == Parameter("resourceID"),
@@ -4160,7 +4157,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
     BATCH_LOAD_SIZE = 50
 
-    def __init__(self, parent, name, uid, resourceID=None, options=None): #@UnusedVariable
+    def __init__(self, parent, name, uid, resourceID=None, options=None):  #@UnusedVariable
         self._parentCollection = parent
         self._resourceID = resourceID
         self._name = name
@@ -4175,7 +4172,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classproperty
-    def _allColumnsWithParentQuery(cls): #@NoSelf
+    def _allColumnsWithParentQuery(cls):  #@NoSelf
         obj = cls._objectSchema
         return Select(cls._allColumns, From=obj,
                       Where=obj.PARENT_RESOURCE_ID == Parameter("parentID"))
@@ -4349,17 +4346,17 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classproperty
-    def _allColumnsWithParentAndName(cls): #@NoSelf
+    def _allColumnsWithParentAndName(cls):  #@NoSelf
         return cls._allColumnsWithParentAnd(cls._objectSchema.RESOURCE_NAME, "name")
 
 
     @classproperty
-    def _allColumnsWithParentAndUID(cls): #@NoSelf
+    def _allColumnsWithParentAndUID(cls):  #@NoSelf
         return cls._allColumnsWithParentAnd(cls._objectSchema.UID, "uid")
 
 
     @classproperty
-    def _allColumnsWithParentAndID(cls): #@NoSelf
+    def _allColumnsWithParentAndID(cls):  #@NoSelf
         return cls._allColumnsWithParentAnd(cls._objectSchema.RESOURCE_ID, "resourceID")
 
 
@@ -4395,7 +4392,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classproperty
-    def _allColumns(cls): #@NoSelf
+    def _allColumns(cls):  #@NoSelf
         """
         Full set of columns in the object table that need to be loaded to
         initialize the object resource state.
@@ -4494,7 +4491,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classmethod
-    def _selectForUpdateQuery(cls, nowait): #@NoSelf
+    def _selectForUpdateQuery(cls, nowait):  #@NoSelf
         """
         DAL statement to lock a L{CommonObjectResource} by its resource ID.
         """
@@ -4538,7 +4535,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classproperty
-    def _deleteQuery(cls): #@NoSelf
+    def _deleteQuery(cls):  #@NoSelf
         """
         DAL statement to delete a L{CommonObjectResource} by its resource ID.
         """
@@ -4613,7 +4610,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classproperty
-    def _textByIDQuery(cls): #@NoSelf
+    def _textByIDQuery(cls):  #@NoSelf
         """
         DAL query to load iCalendar/vCard text via an object's resource ID.
         """
@@ -4928,7 +4925,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _completelyNewRevisionQuery(cls): #@NoSelf
+    def _completelyNewRevisionQuery(cls):  #@NoSelf
         rev = cls._revisionsSchema
         return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
                        # rev.RESOURCE_ID: Parameter("resourceID"),
@@ -5000,7 +4997,7 @@ class NotificationObject(FancyEqMixin, object):
 
 
     @classproperty
-    def _allColumnsByHomeIDQuery(cls): #@NoSelf
+    def _allColumnsByHomeIDQuery(cls):  #@NoSelf
         """
         DAL query to load all columns by home ID.
         """
@@ -5059,7 +5056,7 @@ class NotificationObject(FancyEqMixin, object):
 
 
     @classproperty
-    def _oneNotificationQuery(cls): #@NoSelf
+    def _oneNotificationQuery(cls):  #@NoSelf
         no = cls._objectSchema
         return Select(
             [
@@ -5100,7 +5097,7 @@ class NotificationObject(FancyEqMixin, object):
             returnValue(None)
 
 
-    def _loadPropertyStore(self, props=None, created=False): #@UnusedVariable
+    def _loadPropertyStore(self, props=None, created=False):  #@UnusedVariable
         if props is None:
             props = NonePropertyStore(self._home.uid())
         self._propertyStore = props
@@ -5138,7 +5135,7 @@ class NotificationObject(FancyEqMixin, object):
 
 
     @classproperty
-    def _newNotificationQuery(cls): #@NoSelf
+    def _newNotificationQuery(cls):  #@NoSelf
         no = cls._objectSchema
         return Insert(
             {
@@ -5153,7 +5150,7 @@ class NotificationObject(FancyEqMixin, object):
 
 
     @classproperty
-    def _updateNotificationQuery(cls): #@NoSelf
+    def _updateNotificationQuery(cls):  #@NoSelf
         no = cls._objectSchema
         return Update(
             {
