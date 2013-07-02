@@ -300,13 +300,11 @@ class CachingDirectoryService(DirectoryService):
     def recordWithCalendarUserAddress(self, address):
         address = normalizeCUAddr(address)
         record = None
-        if address.startswith("urn:uuid:"):
-            guid = address[9:]
-            record = self.recordWithGUID(guid)
-        elif address.startswith("mailto:"):
+        if address.startswith("mailto:"):
             record = self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_CUA, address)
-
-        return record if record and record.enabledForCalendaring else None
+            return record if record and record.enabledForCalendaring else None
+        else:
+            return DirectoryService.recordWithCalendarUserAddress(self, address)
 
 
     def recordWithAuthID(self, authID):

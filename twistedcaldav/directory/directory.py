@@ -231,12 +231,12 @@ class DirectoryService(object):
                 return None
         elif address.startswith("/principals/"):
             parts = address.split("/")
-            if len(parts) == 3:
-                if parts[1] == "__uids__":
-                    guid = parts[2]
+            if len(parts) == 4:
+                if parts[2] == "__uids__":
+                    guid = parts[3]
                     record = self.recordWithGUID(guid)
                 else:
-                    record = self.recordWithShortName(parts[1], parts[2])
+                    record = self.recordWithShortName(parts[2], parts[3])
 
         return record if record and record.enabledForCalendaring else None
 
