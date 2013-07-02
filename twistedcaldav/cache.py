@@ -127,7 +127,7 @@ class MemcacheChangeNotifier(CachePoolUserMixIn):
         # For shared resources we use the owner URL as the cache key
         url = self._resource.url()
 
-        self.log.debug("Changing Cache Token for %r" % (url,))
+        self.log.debug("Changing Cache Token for {url}", url=url)
         return self.getCachePool().set(
             'cacheToken:%s' % (url,),
             self._newCacheToken(), expireTime=config.ResponseCacheTimeout * 60)
@@ -309,7 +309,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         oldkey = (yield self._requestKey(request))
         request.cacheKey = key = hashlib.md5(
             ':'.join([str(t) for t in oldkey])).hexdigest()
-        self.log.debug("hashing key for get: %r to %r" % (oldkey, key))
+        self.log.debug("hashing key for get: {old!r} to {new!r}", old=oldkey, new=key)
         returnValue(request.cacheKey)
 
 
@@ -323,56 +323,64 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         try:
             key = (yield self._hashedRequestKey(request))
 
-            self.log.debug("Checking cache for: %r" % (key,))
+            self.log.debug("Checking cache for: {key!r}", key=key)
             _ignore_flags, value = (yield self.getCachePool().get(key))
 
             if value is None:
-                self.log.debug("Not in cache: %r" % (key,))
+                self.log.debug("Not in cache: {key!r}", key=key)
                 returnValue(None)
 
             (principalToken, directoryToken, uriToken, childTokens, (code, headers, body)) = cPickle.loads(value)
-            self.log.debug("Found in cache: %r = %r" % (key, (
-                principalToken,
-                directoryToken,
-                uriToken,
-                childTokens,
-            )))
+            self.log.debug(
+                "Found in cache: {key!r} = {value!r}",
+                key=key,
+                value=(
+                    principalToken,
+                    directoryToken,
+                    uriToken,
+                    childTokens,
+                )
+            )
 
             currentTokens = (yield self._getTokens(request))
 
             if currentTokens[0] != principalToken:
                 self.log.debug(
-                    "Principal token doesn't match for %r: %r != %r" % (
-                        request.cacheKey,
-                        currentTokens[0],
-                        principalToken))
+                    "Principal token doesn't match for {key!r}: {currentToken!r} != {principalToken!r}",
+                    key=request.cacheKey,
+                    currentToken=currentTokens[0],
+                    principalToken=principalToken,
+                )
                 returnValue(None)
 
             if currentTokens[1] != directoryToken:
                 self.log.debug(
-                    "Directory Record Token doesn't match for %r: %r != %r" % (
-                        request.cacheKey,
-                        currentTokens[1],
-                        directoryToken))
+                    "Directory Record Token doesn't match for {key!r}: {currentToken!r} != {directoryToken!r}",
+                    key=request.cacheKey,
+                    currentToken=currentTokens[1],
+                    directoryToken=directoryToken,
+                )
                 returnValue(None)
 
             if currentTokens[2] != uriToken:
                 self.log.debug(
-                    "URI token doesn't match for %r: %r != %r" % (
-                        request.cacheKey,
-                        currentTokens[2],
-                        uriToken))
+                    "URI token doesn't match for {key!r}: {currentToken!r} != {uriToken!r}",
+                    key=request.cacheKey,
+                    currentToken=currentTokens[2],
+                    uriToken=uriToken,
+                )
                 returnValue(None)
 
             for childuri, token in childTokens.items():
                 currentToken = (yield self._tokenForURI(childuri))
                 if currentToken != token:
                     self.log.debug(
-                        "Child %s token doesn't match for %r: %r != %r" % (
-                            childuri,
-                            request.cacheKey,
-                            currentToken,
-                            token))
+                        "Child {uri} token doesn't match for {key!r}: {currentToken!r} != {token!r}",
+                        uri=childuri,
+                        key=request.cacheKey,
+                        currentToken=currentToken,
+                        token=token,
+                    )
                     returnValue(None)
 
             self.log.debug("Response cache matched")
@@ -384,7 +392,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             returnValue(r)
 
         except URINotFoundException, e:
-            self.log.debug("Could not locate URI: %r" % (e,))
+            self.log.debug("Could not locate URI: {e!r}", e=e)
             returnValue(None)
 
 
@@ -418,17 +426,21 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                     responseBody
                 )
             ))
-            self.log.debug("Adding to cache: %r = tokens - %r" % (key, (
-                pToken,
-                dToken,
-                uToken,
-                cTokens,
-            )))
+            self.log.debug(
+                "Adding to cache: {key!r} = tokens - {tokens!r}",
+                key=key,
+                tokens=(
+                    pToken,
+                    dToken,
+                    uToken,
+                    cTokens,
+                )
+            )
             yield self.getCachePool().set(key, cacheEntry,
                 expireTime=config.ResponseCacheTimeout * 60)
 
         except URINotFoundException, e:
-            self.log.debug("Could not locate URI: %r" % (e,))
+            self.log.debug("Could not locate URI: {e!r}", e=e)
 
         returnValue(response)
 
@@ -502,7 +514,7 @@ class CacheStoreNotifierFactory(CachePoolUserMixIn):
         return: A L{Deferred} that fires when the token has been changed.
         """
 
-        self.log.debug("Changing Cache Token for %r" % (cache_id,))
+        self.log.debug("Changing Cache Token for {id!r}", id=cache_id)
         return self.getCachePool().set(
             'cacheToken:%s' % (cache_id,),
             self._newCacheToken(), expireTime=config.ResponseCacheTimeout * 60)
