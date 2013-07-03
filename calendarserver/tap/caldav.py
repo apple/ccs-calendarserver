@@ -69,6 +69,7 @@ from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
     UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
+    UpgradeAcquireLockStep, UpgradeReleaseLockStep
 )
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
 from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
@@ -1307,6 +1308,10 @@ class CalDAVServiceMaker (object):
                 # the subsequent steps' stepWithFailure methods will be called
                 # instead, until one of them returns a non-Failure.
 
+                pps.addStep(
+                    UpgradeAcquireLockStep(store)
+                )
+
                 # Still need this for Snow Leopard support
                 pps.addStep(
                     UpgradeFileSystemFormatStep(config)
@@ -1324,6 +1329,7 @@ class CalDAVServiceMaker (object):
                         store, uid=overrideUID, gid=overrideGID
                     )
                 )
+
                 pps.addStep(
                     UpgradeDatabaseCalendarDataStep(
                         store, uid=overrideUID, gid=overrideGID
@@ -1356,6 +1362,11 @@ class CalDAVServiceMaker (object):
                         getattr(self, "doPostImport", True)
                     )
                 )
+
+                pps.addStep(
+                    UpgradeReleaseLockStep(store)
+                )
+
                 pps.setServiceParent(ms)
                 return ms
 

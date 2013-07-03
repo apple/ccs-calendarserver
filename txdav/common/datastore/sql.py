@@ -1362,6 +1362,12 @@ class CommonStoreTransaction(object):
         returnValue(count)
 
 
+    def acquireUpgradeLock(self):
+        return self.execSQL("select pg_advisory_lock(1)")
+
+    def releaseUpgradeLock(self):
+        return self.execSQL("select pg_advisory_unlock(1)")
+
 
 class _EmptyCacher(object):
 

@@ -402,6 +402,22 @@ class PostgresService(MultiService):
             createDatabaseCursor.execute("commit")
             return createDatabaseConn, createDatabaseCursor
 
+        # TODO: always go through pg_ctl start
+        try:
+            createDatabaseConn, createDatabaseCursor = createConnection()
+        except pgdb.DatabaseError:
+            # We could not connect the database, so attempt to start it
+            pass
+        except Exception, e:
+            # Some other unexpected error is preventing us from connecting
+            # to the database
+            log.warn("Failed to connect to Postgres: {e}", e=e)
+        else:
+            # Database is running, so just use our connection
+            self.ready(createDatabaseConn, createDatabaseCursor)
+            self.deactivateDelayedShutdown()
+            return
+
         monitor = _PostgresMonitor(self)
         pgCtl = self.pgCtl()
         # check consistency of initdb and postgres?

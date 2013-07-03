@@ -31,6 +31,49 @@ from twisted.python.reflect import namedObject
 
 from txdav.common.datastore.upgrade.sql.others import attachment_migration
 
+
+class UpgradeAcquireLockStep(object):
+    """
+    A Step which acquires the upgrade lock, blocking later Steps until it's
+    been acquired.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+    """
+
+    def __init__(self, sqlStore):
+        self.sqlStore = sqlStore
+
+    @inlineCallbacks
+    def stepWithResult(self, result):
+        sqlTxn = self.sqlStore.newTransaction()
+        yield sqlTxn.acquireUpgradeLock()
+        yield sqlTxn.commit()
+
+
+class UpgradeReleaseLockStep(object):
+    """
+    A Step which releases the upgrade lock.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+    """
+
+    def __init__(self, sqlStore):
+        self.sqlStore = sqlStore
+
+    @inlineCallbacks
+    def stepWithResult(self, result):
+        sqlTxn = self.sqlStore.newTransaction()
+        yield sqlTxn.releaseUpgradeLock()
+        yield sqlTxn.commit()
+
+    def stepWithFailure(self, failure):
+        return self.stepWithResult(None)
+
+
 class UpgradeDatabaseCoreStep(object):
     """
     Base class for either schema or data upgrades on the database.
