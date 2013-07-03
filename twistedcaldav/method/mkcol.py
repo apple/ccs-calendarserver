@@ -118,7 +118,7 @@ def http_MKCOL(self, request):
         if not isinstance(mkcol, mkcolxml.MakeCollection):
             error = ("Non-%s element in MKCOL request body: %s"
                      % (mkcolxml.MakeCollection.name, mkcol))
-            log.error(error)
+            log.error("Error: {err}", err=error)
             raise HTTPError(StatusResponse(responsecode.UNSUPPORTED_MEDIA_TYPE, error))
 
         errors = PropertyStatusResponseQueue("PROPPATCH", request.uri, responsecode.NO_CONTENT)
@@ -135,7 +135,7 @@ def http_MKCOL(self, request):
                 if isinstance(property, davxml.ResourceType):
                     if rtype:
                         error = "Multiple {DAV:}resourcetype properties in MKCOL request body: %s" % (mkcol,)
-                        log.error(error)
+                        log.error("Error: {err}", err=error)
                         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
                     else:
                         if property.childrenOfType(davxml.Collection):
@@ -146,18 +146,18 @@ def http_MKCOL(self, request):
 
             if not rtype:
                 error = "No {DAV:}resourcetype property in MKCOL request body: %s" % (mkcol,)
-                log.error(error)
+                log.error("Error: {err}", err=error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
             elif rtype not in ("calendar", "addressbook"):
                 error = "{DAV:}resourcetype property in MKCOL request body not supported: %s" % (mkcol,)
-                log.error(error)
+                log.error("Error: {err}", err=error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
             # Make sure feature is enabled
             if (rtype == "calendar" and not config.EnableCalDAV or
                 rtype == "addressbook" and not config.EnableCardDAV):
                 error = "{DAV:}resourcetype property in MKCOL request body not supported: %s" % (mkcol,)
-                log.error(error)
+                log.error("Error: {err}", err=error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
             # Now create the special collection

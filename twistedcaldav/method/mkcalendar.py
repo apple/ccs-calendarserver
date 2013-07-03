@@ -83,7 +83,7 @@ def http_MKCALENDAR(self, request):
         if not isinstance(makecalendar, caldavxml.MakeCalendar):
             error = ("Non-%s element in MKCALENDAR request body: %s"
                      % (caldavxml.MakeCalendar.name, makecalendar))
-            log.error(error)
+            log.error("Error: {err}", err=error)
             raise HTTPError(StatusResponse(responsecode.UNSUPPORTED_MEDIA_TYPE, error))
 
         errors = PropertyStatusResponseQueue("PROPPATCH", request.uri, responsecode.NO_CONTENT)

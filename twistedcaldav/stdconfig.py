@@ -1028,7 +1028,7 @@ class PListConfigProvider(ConfigProvider):
                         log.info("Adding configuration from file: '%s'" % (path,))
                         mergeData(configDict, additionalDict)
                 else:
-                    log.warn("Missing configuration file: '%s'" % (path,))
+                    log.debug("Missing configuration file: '%s'" % (path,))
         return configDict
 
 

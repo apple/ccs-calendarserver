@@ -108,7 +108,7 @@ class DirectoryServiceChecker:
                 else:
                     log.error("Failed digest auth with response: %s" % (response,))
                     return fail(UnauthorizedLogin())
-            except self.directoryModule.ODNSerror as e:
+            except Exception as e:
                 log.error(
                     "OpenDirectory error while performing digest authentication for user %s: %s"
                     % (credentials.username, e)

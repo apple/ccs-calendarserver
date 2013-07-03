@@ -73,7 +73,7 @@ def http_ACL(self, request):
     #
     if doc is None:
         error = "Request XML body is required."
-        log.error(error)
+        log.error("Error: {err}", err=error)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
     #
@@ -83,7 +83,7 @@ def http_ACL(self, request):
     if not isinstance(acl, davxml.ACL):
         error = ("Request XML body must be an acl element."
                  % (davxml.PropertyUpdate.sname(),))
-        log.error(error)
+        log.error("Error: {err}", err=error)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
     #

@@ -85,7 +85,7 @@ def http_PROPFIND(self, request):
         if not isinstance(find, davxml.PropertyFind):
             error = ("Non-%s element in PROPFIND request body: %s"
                      % (davxml.PropertyFind.sname(), find))
-            log.error(error)
+            log.error("Error: {err}", err=error)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
         container = find.children[0]

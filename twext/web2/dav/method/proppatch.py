@@ -67,7 +67,7 @@ def http_PROPPATCH(self, request):
 
     if doc is None:
         error = "Request XML body is required."
-        log.error(error)
+        log.error("Error: {err}", error)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
     #
@@ -77,7 +77,7 @@ def http_PROPPATCH(self, request):
     if not isinstance(update, davxml.PropertyUpdate):
         error = ("Request XML body must be a propertyupdate element."
                  % (davxml.PropertyUpdate.sname(),))
-        log.error(error)
+        log.error("Error: {err}", error)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
     responses = PropertyStatusResponseQueue("PROPPATCH", request.uri, responsecode.NO_CONTENT)
