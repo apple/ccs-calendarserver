@@ -192,8 +192,7 @@ class AddressBookHome(CommonHome):
 
     @inlineCallbacks
     def createdHome(self):
-        if not self._syncTokenRevision:
-            yield self.addressbook()._initSyncToken()
+        yield self.addressbook()._initSyncToken()
 
 
     @inlineCallbacks
