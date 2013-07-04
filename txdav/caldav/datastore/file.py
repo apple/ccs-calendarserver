@@ -379,16 +379,6 @@ class Calendar(CommonHomeChild):
         pass
 
 
-    def creatingResourceCheckAttachments(self, component):
-        """
-        When component data is created or changed we need to look for changes related to managed attachments.
-
-        @param component: the new calendar data
-        @type component: L{Component}
-        """
-        return succeed(None)
-
-
 
 class CalendarObject(CommonObjectResource, CalendarObjectBase):
     """

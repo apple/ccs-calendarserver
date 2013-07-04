@@ -50,7 +50,7 @@ class CollectionContents(StoreTestCase):
 
         # Need to not do implicit behavior during these tests
         def _fakeDoImplicitScheduling(self, component, inserting, internal_state):
-            return False, None, False
+            return False, None, False, None
 
         self.patch(CalendarObject , "doImplicitScheduling",
                    _fakeDoImplicitScheduling)

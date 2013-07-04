@@ -75,7 +75,7 @@ create table CALENDAR_BIND (
     "ALARM_VEVENT_TIMED" nclob default null,
     "ALARM_VEVENT_ALLDAY" nclob default null,
     "ALARM_VTODO_TIMED" nclob default null,
-    "ALARM_VTODO_ALLDAY" nclob default null,
+    "ALARM_VTODO_ALLDAY" nclob default null, 
     "TIMEZONE" nclob default null, 
     primary key("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
     unique("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
@@ -354,18 +354,12 @@ create table GROUP_CACHER_POLLING_WORK (
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
-create table CALENDAR_OBJECT_SPLITTER_WORK (
-    "WORK_ID" integer primary key not null,
-    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
-);
-
 create table CALENDARSERVER (
     "NAME" nvarchar2(255) primary key,
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '23');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '22');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (

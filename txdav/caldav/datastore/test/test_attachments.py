@@ -1602,7 +1602,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
 
         # Managed attachment present
         txn = self._sqlCalendarStore.newTransaction()
-        mattachment2 = (yield ManagedAttachment.load(txn, None, attachmentID=dattachment._attachmentID))
+        mattachment2 = (yield ManagedAttachment.load(txn, None, None, attachmentID=dattachment._attachmentID))
         self.assertNotEqual(mattachment2, None)
         self.assertTrue(mattachment2.isManaged())
 
@@ -1626,21 +1626,21 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         self.assertTrue(dattachment._path.exists())
         mattachment = (yield dattachment.convertToManaged())
         self.assertNotEqual(mattachment, None)
-        self.assertEqual(mattachment.managedID(), None)
+        self.assertNotEqual(mattachment.managedID(), None)
 
         mnew4 = (yield mattachment.newReference(event4._resourceID))
         self.assertNotEqual(mnew4, None)
-        self.assertNotEqual(mnew4.managedID(), None)
+        self.assertEqual(mnew4.managedID(), mattachment.managedID())
 
         mnew5 = (yield mattachment.newReference(event5._resourceID))
         self.assertNotEqual(mnew5, None)
-        self.assertNotEqual(mnew5.managedID(), None)
+        self.assertEqual(mnew5.managedID(), mattachment.managedID())
 
         yield txn.commit()
 
         # Managed attachment present
         txn = self._sqlCalendarStore.newTransaction()
-        mtest4 = (yield ManagedAttachment.load(txn, mnew4.managedID()))
+        mtest4 = (yield ManagedAttachment.load(txn, event4._resourceID, mnew4.managedID()))
         self.assertNotEqual(mtest4, None)
         self.assertTrue(mtest4.isManaged())
         self.assertEqual(mtest4._objectResourceID, event4._resourceID)
@@ -1648,7 +1648,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
 
         # Managed attachment present
         txn = self._sqlCalendarStore.newTransaction()
-        mtest5 = (yield ManagedAttachment.load(txn, mnew5.managedID()))
+        mtest5 = (yield ManagedAttachment.load(txn, event5._resourceID, mnew5.managedID()))
         self.assertNotEqual(mtest5, None)
         self.assertTrue(mtest5.isManaged())
         self.assertEqual(mtest5._objectResourceID, event5._resourceID)

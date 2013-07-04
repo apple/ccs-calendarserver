@@ -494,11 +494,6 @@ create index SHARED_GROUP_BIND_RESOURCE_ID on
 
 create sequence REVISION_SEQ;
 
-
--------------------------------
--- Calendar Object Revisions --
--------------------------------
-
 create table CALENDAR_OBJECT_REVISIONS (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
   CALENDAR_RESOURCE_ID      integer      references CALENDAR,
@@ -658,16 +653,6 @@ create table GROUP_CACHER_POLLING_WORK (
 );
 
 
---------------------------
--- Object Splitter Work --
---------------------------
-
-create table CALENDAR_OBJECT_SPLITTER_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade
-);
-
 --------------------
 -- Schema Version --
 --------------------
@@ -677,6 +662,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '23');
+insert into CALENDARSERVER values ('VERSION', '22');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');

@@ -2421,27 +2421,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         returnValue(NO_CONTENT)
 
 
-    @inlineCallbacks
-    def preProcessManagedAttachments(self, calendar):
-        # If store object exists pass through, otherwise use underlying store ManagedAttachments object to determine changes
-        if self._newStoreObject:
-            copied, removed = (yield self._newStoreObject.updatingResourceCheckAttachments(calendar))
-        else:
-            copied = (yield self._newStoreParent.creatingResourceCheckAttachments(calendar))
-            removed = None
-
-        returnValue((copied, removed,))
-
-
-    @inlineCallbacks
-    def postProcessManagedAttachments(self, copied, removed):
-        # Pass through directly to store object
-        if copied:
-            yield self._newStoreObject.copyResourceAttachments(copied)
-        if removed:
-            yield self._newStoreObject.removeResourceAttachments(removed)
-
-
 
 class _MetadataProperty(object):
     """

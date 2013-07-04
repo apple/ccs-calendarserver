@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from pycalendar.datetime import PyCalendarDateTime
+
 from twistedcaldav.ical import Property
 
 
@@ -61,35 +63,35 @@ class iCalSplitter(object):
         now.offsetDay(1)
         instances = ical.cacheExpandedTimeRanges(now)
         instances = sorted(instances.instances.values(), key=lambda x: x.start)
-        if instances[0].start > self.past or instances[-1].start < self.now or len(instances) <= 1:
+        if instances[0].start >= self.past or instances[-1].start < self.now or len(instances) <= 1:
             return False
 
         # Make sure there are some overridden components in the past - as splitting only makes sense when
         # overrides are present
+        past_count = 0
         for instance in instances:
-            if instance.start > self.past:
-                return False
-            elif instance.component.hasProperty("RECURRENCE-ID"):
+            if instance.start >= self.past:
                 break
-        else:
+            elif instance.component.hasProperty("RECURRENCE-ID"):
+                past_count += 1
+
+        # Only split when there is more than one past override to split off
+        if past_count < 2:
             return False
 
         # Now see if overall size exceeds our threshold
         return len(str(ical)) > self.threshold
 
 
-    def split(self, ical):
+    def whereSplit(self, ical):
         """
-        Split the specified iCalendar object. This assumes that L{willSplit} has already
-        been called and returned C{True}. Splitting is done by carving out old instances
-        into a new L{Component} and adjusting the specified component for the on-going
-        set. A RELATED-TO property is added to link old to new.
+        Determine where a split is going to happen - i.e., the RECURRENCE-ID.
 
-        @param ical: the iCalendar object to split
+        @param ical: the iCalendar object to test
         @type ical: L{Component}
 
-        @return: iCalendar object for the old "carved out" instances
-        @rtype: L{Component}
+        @return: recurrence-id of the split
+        @rtype: L{PyCalendarDateTime}
         """
 
         # Find the instance RECURRENCE-ID where a split is going to happen
@@ -102,10 +104,41 @@ class iCalSplitter(object):
             rid = instance.rid
             if instance.start >= self.past:
                 break
+        else:
+            # We can get here when splitting and event for overrides only in the past,
+            # which happens when splitting an Attendee's copy of an Organizer event
+            # where the Organizer event has L{willSplit} == C{True}
+            rid = self.past
 
-        # Create the old one with a new UID value
+        return rid
+
+
+    def split(self, ical, rid=None, newUID=None):
+        """
+        Split the specified iCalendar object. This assumes that L{willSplit} has already
+        been called and returned C{True}. Splitting is done by carving out old instances
+        into a new L{Component} and adjusting the specified component for the on-going
+        set. A RELATED-TO property is added to link old to new.
+
+        @param ical: the iCalendar object to split
+        @type ical: L{Component}
+
+        @param rid: recurrence-id where the split should occur, or C{None} to determine it here
+        @type rid: L{PyCalendarDateTime} or C{None}
+
+        @param newUID: UID to use for the split off component, or C{None} to generate one here
+        @type newUID: C{str} or C{None}
+
+        @return: iCalendar object for the old "carved out" instances
+        @rtype: L{Component}
+        """
+
+        # Find the instance RECURRENCE-ID where a split is going to happen
+        rid = self.whereSplit(ical) if rid is None else rid
+
+        # Create the old one with a new UID value (or the one passed in)
         icalOld = ical.duplicate()
-        oldUID = icalOld.newUID()
+        oldUID = icalOld.newUID(newUID=newUID)
         icalOld.onlyPastInstances(rid)
 
         # Adjust the current one

@@ -730,6 +730,13 @@ DEFAULT_CONFIG = {
                                                                    # "decline-if-busy" - decline if busy, do nothing if free
                                                                    # "automatic"       - accept if free, decline if busy
                 "FutureFreeBusyDays"              : 3 * 365,       # How far into the future to check for booking conflicts
+            },
+
+            "Splitting": {
+                "Enabled"                         : True,
+                "Size"                            : 100 * 1024,     # Consider splitting when greater than 100KB
+                "PastDays"                        : 14,             # Number of days in the past where the split will occur
+                "Delay"                           : 60,             # How many seconds to delay the split work item
             }
         }
     },

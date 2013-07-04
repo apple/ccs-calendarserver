@@ -1083,9 +1083,9 @@ class Component (object):
         @type rid: L{PyCalendarDateTime}
         """
 
-        master = self.masterComponent()
-        if not master.isRecurring():
+        if not self.isRecurring():
             return
+        master = self.masterComponent()
         if master:
             # Adjust any RRULE first
             rrules = master._pycalendar.getRecurrenceSet()
@@ -1128,6 +1128,11 @@ class Component (object):
 
         self._markAsDirty()
 
+        # We changed the instance set so remove any instance cache
+        # TODO: we could be smarter here and truncate the instance list
+        if hasattr(self, "cachedInstances"):
+            delattr(self, "cachedInstances")
+
 
     def onlyFutureInstances(self, rid):
         """
@@ -1140,9 +1145,9 @@ class Component (object):
         @type rid: L{PyCalendarDateTime}
         """
 
-        master = self.masterComponent()
-        if not master.isRecurring():
+        if not self.isRecurring():
             return
+        master = self.masterComponent()
         if master:
             # Check if cut-off matches an RDATE
             adjusted_rid = rid
@@ -1220,6 +1225,11 @@ class Component (object):
                     self.removeComponent(component)
 
         self._markAsDirty()
+
+        # We changed the instance set so remove any instance cache
+        # TODO: we could be smarter here and truncate the instance list
+        if hasattr(self, "cachedInstances"):
+            delattr(self, "cachedInstances")
 
 
     def expand(self, start, end, timezone=None):
@@ -1617,13 +1627,13 @@ class Component (object):
         return self._resource_uid
 
 
-    def newUID(self):
+    def newUID(self, newUID=None):
         """
         Generate a new UID for all components in this VCALENDAR
         """
         assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
 
-        newUID = str(uuid.uuid4())
+        newUID = str(uuid.uuid4()) if newUID is None else newUID
         self._pycalendar.changeUID(self.resourceUID(), newUID)
         self._resource_uid = newUID
         self._markAsDirty()

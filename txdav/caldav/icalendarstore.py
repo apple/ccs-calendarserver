@@ -863,6 +863,9 @@ class ComponentUpdateState(Names):
 
     ATTACHMENT_UPDATE     - change to a managed attachment that is re-writing calendar data.
 
+    SPLIT                 - calendar data is being split. Some validation and implicit scheduling is not done.
+                            Schedule-Tag is changed.
+
     RAW                   - store the supplied data as-is without any processing or validation. This is used
                             for unit testing purposes only.
     """
@@ -872,6 +875,7 @@ class ComponentUpdateState(Names):
     ORGANIZER_ITIP_UPDATE = NamedConstant()
     ATTENDEE_ITIP_UPDATE = NamedConstant()
     ATTACHMENT_UPDATE = NamedConstant()
+    SPLIT = NamedConstant()
     RAW = NamedConstant()
 
     NORMAL.description = "normal"
@@ -879,6 +883,7 @@ class ComponentUpdateState(Names):
     ORGANIZER_ITIP_UPDATE.description = "organizer-update"
     ATTENDEE_ITIP_UPDATE.description = "attendee-update"
     ATTACHMENT_UPDATE.description = "attachment-update"
+    SPLIT.description = "split"
     RAW.description = "raw"
 
 

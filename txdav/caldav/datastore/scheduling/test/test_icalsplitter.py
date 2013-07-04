@@ -290,7 +290,7 @@ END:VCALENDAR
                 False,
             ),
             (
-                "#4.2 Large, old, recurring component with past override",
+                "#4.2 Large, old, recurring component with one past override",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -337,6 +337,65 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """,
+                False,
+            ),
+            (
+                "#4.2 Large, old, recurring component with two past overrides",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back30)s
+DURATION:PT1H
+ORGANIZER:mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+ATTENDEE:mailto:user4@example.com
+ATTENDEE:mailto:user5@example.com
+ATTENDEE:mailto:user6@example.com
+ATTENDEE:mailto:user7@example.com
+ATTENDEE:mailto:user8@example.com
+ATTENDEE:mailto:user9@example.com
+ATTENDEE:mailto:user10@example.com
+ATTENDEE:mailto:user11@example.com
+ATTENDEE:mailto:user12@example.com
+ATTENDEE:mailto:user13@example.com
+ATTENDEE:mailto:user14@example.com
+ATTENDEE:mailto:user15@example.com
+ATTENDEE:mailto:user16@example.com
+ATTENDEE:mailto:user17@example.com
+ATTENDEE:mailto:user18@example.com
+ATTENDEE:mailto:user19@example.com
+ATTENDEE:mailto:user20@example.com
+ATTENDEE:mailto:user21@example.com
+ATTENDEE:mailto:user22@example.com
+ATTENDEE:mailto:user23@example.com
+ATTENDEE:mailto:user24@example.com
+ATTENDEE:mailto:user25@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ORGANIZER:mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ORGANIZER:mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
                 True,
             ),
             (
@@ -367,7 +426,7 @@ END:VCALENDAR
                 False,
             ),
             (
-                "#4.2 Large, old, limited recurring component with past override",
+                "#5.2 Large, old, limited recurring component with past override",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -444,7 +503,7 @@ END:VCALENDAR
                 False,
             ),
             (
-                "#6.2 Large, old, limited future recurring component with past override",
+                "#6.2 Large, old, limited future recurring component with two past overrides",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -484,6 +543,15 @@ BEGIN:VEVENT
 UID:12345-67890
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
+DURATION:PT1H
+ORGANIZER:mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
 DURATION:PT1H
 ORGANIZER:mailto:user1@example.com
 ATTENDEE:mailto:user1@example.com
@@ -552,6 +620,15 @@ ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
 END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
 END:VCALENDAR
 """,
                 """BEGIN:VCALENDAR
@@ -632,6 +709,16 @@ BEGIN:VEVENT
 UID:%(relID)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
@@ -693,6 +780,15 @@ ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
 END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
 END:VCALENDAR
 """,
                 """BEGIN:VCALENDAR
@@ -785,6 +881,16 @@ ATTENDEE:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
 END:VCALENDAR
 """,
             ),
@@ -830,6 +936,15 @@ BEGIN:VEVENT
 UID:12345-67890
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
@@ -922,6 +1037,16 @@ ATTENDEE:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
 END:VCALENDAR
 """,
             ),
@@ -963,12 +1088,21 @@ ORGANIZER:mailto:user1@example.com
 RDATE:%(now_back15)s
 RDATE:%(now_back14)s
 RDATE:%(now_back13)s
-RRULE:FREQ=DAILY;INTERVAL=20
+RRULE:FREQ=DAILY;INTERVAL=10
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890
 RECURRENCE-ID:%(now_back30)s
 DTSTART:%(now_back30)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back20)s
+DTSTART:%(now_back20)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
@@ -1021,7 +1155,7 @@ ORGANIZER:mailto:user1@example.com
 RDATE:%(now_back14)s
 RDATE:%(now_back13)s
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
-RRULE:FREQ=DAILY;INTERVAL=20
+RRULE:FREQ=DAILY;INTERVAL=10
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890
@@ -1070,12 +1204,22 @@ ATTENDEE:mailto:user25@example.com
 ORGANIZER:mailto:user1@example.com
 RDATE:%(now_back15)s
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
-RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s;INTERVAL=20
+RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s;INTERVAL=10
 END:VEVENT
 BEGIN:VEVENT
 UID:%(relID)s
 RECURRENCE-ID:%(now_back30)s
 DTSTART:%(now_back30)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back20)s
+DTSTART:%(now_back20)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
@@ -1138,6 +1282,15 @@ ORGANIZER:mailto:user1@example.com
 END:VEVENT
 BEGIN:VEVENT
 UID:12345-67890
+RECURRENCE-ID:%(now_back15)s
+DTSTART:%(now_back15)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
 RECURRENCE-ID:%(now_back14)s
 DTSTART:%(now_back14)s
 DURATION:PT1H
@@ -1257,6 +1410,16 @@ BEGIN:VEVENT
 UID:%(relID)s
 RECURRENCE-ID:%(now_back30)s
 DTSTART:%(now_back30)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back15)s
+DTSTART:%(now_back15)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
@@ -1311,6 +1474,15 @@ BEGIN:VEVENT
 UID:12345-67890
 RECURRENCE-ID:%(now_back30)s
 DTSTART:%(now_back30)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back15)s
+DTSTART:%(now_back15)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
@@ -1423,6 +1595,16 @@ ATTENDEE:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back15)s
+DTSTART:%(now_back15)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
 END:VCALENDAR
 """,
             ),
@@ -1467,6 +1649,15 @@ BEGIN:VEVENT
 UID:12345-67890
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
@@ -1609,6 +1800,16 @@ ATTENDEE:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
 UID:%(relID)s
 X-CALENDARSERVER-PERUSER-UID:user01
@@ -1633,14 +1834,187 @@ END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """,
             ),
+            (
+                "2.1 - Overrides only - one future, one past",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "2.2 - Overrides only - all past",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "2.3 - Overrides only - all future",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd9)s
+DTSTART:%(now_fwd9)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd9)s
+DTSTART:%(now_fwd9)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+END:VCALENDAR
+""",
+            ),
         )
 
         for title, calendar, split_future, split_past in data:
             ical = Component.fromString(calendar % self.subs)
             splitter = iCalSplitter(1024, 14)
-            self.assertTrue(splitter.willSplit(ical))
+            if title[0] == "1":
+                self.assertTrue(splitter.willSplit(ical), "Failed will split: %s" % (title,))
             icalOld = splitter.split(ical)
             relsubs = dict(self.subs)
             relsubs["relID"] = icalOld.resourceUID()
             self.assertEqual(str(ical).replace("\r\n ", ""), split_future.replace("\n", "\r\n") % relsubs, "Failed future: %s" % (title,))
             self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
+
+            # Make sure new items won't split again
+            self.assertFalse(splitter.willSplit(ical), "Failed future will split: %s" % (title,))
+            self.assertFalse(splitter.willSplit(icalOld), "Failed past will split: %s" % (title,))
