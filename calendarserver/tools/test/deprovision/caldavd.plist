@@ -99,15 +99,8 @@
 
     <!-- Child aliases -->
     <key>Aliases</key>
-    <dict>
-      <!--
-      <key>foo</key>
-      <dict>
-        <key>path</key>
-        <string>/path/to/foo</string>
-      </dict>
-       -->
-    </dict>
+    <array>
+    </array>
 
     <!-- User quota (in bytes) -->
     <key>UserQuota</key>
