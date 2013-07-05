@@ -124,15 +124,16 @@
 
     <!-- Child aliases -->
     <key>Aliases</key>
-    <dict>
+    <array>
       <!--
-      <key>foo</key>
       <dict>
+        <key>url</key>
+        <string>/foo</string>
         <key>path</key>
         <string>/path/to/foo</string>
       </dict>
        -->
-    </dict>
+    </array>
 
 
     <!--

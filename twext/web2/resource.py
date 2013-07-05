@@ -215,6 +215,19 @@ class Resource(RenderMixin):
             return self
         return None
 
+    def getChild(self, path):
+        """
+        Get a static child - when registered using L{putChild}.
+
+        @param path: the name of the child to get
+        @type path: C{str}
+
+        @return: the child or C{None} if not present
+        @rtype: L{iweb.IResource}
+        """
+        return getattr(self, 'child_%s' % (path,), None)
+
+
     def putChild(self, path, child):
         """
         Register a static child.

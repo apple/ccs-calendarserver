@@ -348,7 +348,8 @@ DEFAULT_CONFIG = {
     # browser authentication dialog should be used.
     "WebCalendarAuthPath"     : "",
 
-    "Aliases": {},
+    # Define mappings of URLs to file system objects (directories or files)
+    "Aliases": [],
 
     #
     # Directory service
@@ -733,7 +734,7 @@ DEFAULT_CONFIG = {
             },
 
             "Splitting": {
-                "Enabled"                         : True,
+                "Enabled"                         : False,          # False for now whilst we experiment with this
                 "Size"                            : 100 * 1024,     # Consider splitting when greater than 100KB
                 "PastDays"                        : 14,             # Number of days in the past where the split will occur
                 "Delay"                           : 60,             # How many seconds to delay the split work item

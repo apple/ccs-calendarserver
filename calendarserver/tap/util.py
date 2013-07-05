@@ -37,6 +37,7 @@ from twext.python.log import Logger
 from twext.web2.auth.basic import BasicCredentialFactory
 from twext.web2.dav import auth
 from twext.web2.http_headers import Headers
+from twext.web2.resource import Resource
 from twext.web2.static import File as FileResource
 
 from twisted.application.service import Service
@@ -582,13 +583,26 @@ def getRootResource(config, newStore, resources=None):
                         scheme=scheme, port=port, path=redirected_to)
                 )
 
-    for name, info in config.Aliases.iteritems():
-        if os.path.sep in name or not info.get("path", None):
-            log.error("Invalid alias: {name}", name=name)
+    for alias in config.Aliases:
+        url = alias.get("url", None)
+        path = alias.get("path", None)
+        if not url or not path or url[0] != "/":
+            log.error("Invalid alias: URL: {url}  Path: {path}", url=url, path=path)
             continue
-        log.info("Adding alias {name} -> {path}", name=name, path=info["path"])
-        resource = FileResource(info["path"])
-        root.putChild(name, resource)
+        urlbits = url[1:].split("/")
+        parent = root
+        for urlpiece in urlbits[:-1]:
+            child = parent.getChild(urlpiece)
+            if child is None:
+                child = Resource()
+                parent.putChild(urlpiece, child)
+            parent = child
+        if parent.getChild(urlbits[-1]) is not None:
+            log.error("Invalid alias: URL: {url}  Path: {path} already exists", url=url, path=path)
+            continue
+        resource = FileResource(path)
+        parent.putChild(urlbits[-1], resource)
+        log.info("Added alias {url} -> {path}", url=url, path=path)
 
     # Need timezone cache before setting up any timezone service
     log.info("Setting up Timezone Cache")
