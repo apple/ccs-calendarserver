@@ -28,6 +28,8 @@ from twext.web2.channel.http import HTTPChannel
 from twext.web2.metafd import ReportingHTTPService, ConnectionLimiter
 from twisted.internet.tcp import Server
 from twisted.application.service import Service
+from twext.internet.sendfdport import InheritedSocketDispatcher
+from twext.internet.test.test_sendfdport import ReaderAdder
 from twisted.trial.unittest import TestCase
 
 
@@ -182,15 +184,11 @@ class ConnectionLimiterTests(TestCase):
         self.assertEqual(cl.statusFromMessage(2, "+"), 2)
 
 
-    def test_statusFromMessageStartsReadingAgain(self):
+    def serverServiceMakerMaker(self, s):
         """
-        L{ConnectionLimiter.statusFromMessage} determines whether load has gone
-        up or down based on the previous status being compared to, and, if load
-        has gone down, will always start reading again.
+        Make a serverServiceMaker for use with
+        L{ConnectionLimiter.addPortService}.
         """
-        cl = ConnectionLimiter(2, 20)
-        s = Service()
-
         class NotAPort(object):
             def startReading(self):
                 self.reading = True
@@ -200,16 +198,57 @@ class ConnectionLimiterTests(TestCase):
         def serverServiceMaker(port, factory, *a, **k):
             s.factory = factory
             s.myPort = NotAPort()
+            s.myPort.startReading() # TODO: technically, should wait for startService
             factory.myServer = s
             return s
+        return serverServiceMaker
 
-        cl.addPortService("TCP", 4321, "127.0.0.1", 5, serverServiceMaker)
+
+    def test_loadReducedStartsReadingAgain(self):
+        """
+        L{ConnectionLimiter.statusesChanged} determines whether the current
+        "load" of all subprocesses - that is, the total outstanding request
+        count - is high enough that the listening ports attached to it should
+        be suspended.
+        """
+        maxReq = 3
+        cl = ConnectionLimiter(2, maxRequests=maxReq)
+        dispatcher = cl.dispatcher
+        dispatcher.reactor = ReaderAdder()
+        s = Service()
+        cl.addPortService("TCP", 4321, "127.0.0.1", 5,
+                          self.serverServiceMakerMaker(s))
+        dispatcher.addSocket()
         # Has to be running in order to add stuff.
         cl.startService()
         # Make sure it's stopped.
-        s.myPort.stopReading()
+        for x in range(maxReq + 1):
+            dispatcher.sendFileDescriptor(None, "SSL")
+            dispatcher.statusMessage(dispatcher._subprocessSockets[0], "+")
         self.assertEquals(s.myPort.reading, False) # sanity check
-        cl.statusFromMessage(2, "-")
+        dispatcher.statusMessage(dispatcher._subprocessSockets[0], "-")
         self.assertEquals(s.myPort.reading, True)
+
+
+    def test_processRestartedStartsReadingAgain(self):
+        """
+        L{ConnectionLimiter.statusesChanged} determines whether the current
+        number of outstanding requests is above the limit, and either stops or
+        resumes reading on the listening port.
+        """
+        maxReq = 3
+        cl = ConnectionLimiter(2, maxRequests=maxReq)
+        dispatcher = cl.dispatcher
+        dispatcher.reactor = ReaderAdder()
+        dispatcher.startDispatching()
+        dispatcher.addSocket()
+        s = Service()
+        cl.addPortService("SSL", 4312, "127.0.0.1", 5,
+                          self.serverServiceMakerMaker(s))
+        # Fill up all the slots...
+        for x in range(maxReq + 1):
+            dispatcher.sendFileDescriptor(None, "SSL")
+            dispatcher.statusMessage(dispatcher._subprocessSockets[0], "+")
+        self.assertEquals(s.myPort.reading, False)
 
 
