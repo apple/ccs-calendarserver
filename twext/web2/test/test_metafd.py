@@ -27,6 +27,7 @@ from twext.web2 import metafd
 from twext.web2.channel.http import HTTPChannel
 from twext.web2.metafd import ReportingHTTPService, ConnectionLimiter
 from twisted.internet.tcp import Server
+from twisted.application.service import Service
 from twisted.trial.unittest import TestCase
 
 
@@ -153,8 +154,11 @@ class ConnectionLimiterTests(TestCase):
     
     def test_statusFromMessage(self):
         """
-        Test ConnectionLimiter.statusFromMessage to make sure count cannot go below zero and that
-        zeroing out does not wipe out an existing count.
+        L{ConnectionLimiter.statusFromMessage} will not return a value below
+        zero, and a "0" status - a new process reporting its launching - will
+        leave the previous status value the same, on the assumption that the 0
+        is simply being reported late, and the master has given the worker some
+        work to do before it reports its initial status.
         """
         
         cl = ConnectionLimiter(2, 20)
@@ -176,4 +180,36 @@ class ConnectionLimiterTests(TestCase):
         self.assertEqual(cl.statusFromMessage(0, "+"), 0)
         self.assertEqual(cl.statusFromMessage(1, "+"), 1)
         self.assertEqual(cl.statusFromMessage(2, "+"), 2)
+
+
+    def test_statusFromMessageStartsReadingAgain(self):
+        """
+        L{ConnectionLimiter.statusFromMessage} determines whether load has gone
+        up or down based on the previous status being compared to, and, if load
+        has gone down, will always start reading again.
+        """
+        cl = ConnectionLimiter(2, 20)
+        s = Service()
+
+        class NotAPort(object):
+            def startReading(self):
+                self.reading = True
+            def stopReading(self):
+                self.reading = False
+
+        def serverServiceMaker(port, factory, *a, **k):
+            s.factory = factory
+            s.myPort = NotAPort()
+            factory.myServer = s
+            return s
+
+        cl.addPortService("TCP", 4321, "127.0.0.1", 5, serverServiceMaker)
+        # Has to be running in order to add stuff.
+        cl.startService()
+        # Make sure it's stopped.
+        s.myPort.stopReading()
+        self.assertEquals(s.myPort.reading, False) # sanity check
+        cl.statusFromMessage(2, "-")
+        self.assertEquals(s.myPort.reading, True)
+
 

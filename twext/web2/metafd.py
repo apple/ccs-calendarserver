@@ -173,13 +173,14 @@ class ConnectionLimiter(MultiService, object):
         self.dispatcher.startDispatching()
 
 
-    def addPortService(self, description, port, interface, backlog):
+    def addPortService(self, description, port, interface, backlog,
+                       serverServiceMaker=MaxAcceptTCPServer):
         """
         Add a L{MaxAcceptTCPServer} to bind a TCP port to a socket description.
         """
         lipf = LimitingInheritingProtocolFactory(self, description)
         self.factories.append(lipf)
-        MaxAcceptTCPServer(
+        serverServiceMaker(
             port, lipf,
             interface=interface,
             backlog=backlog
@@ -194,25 +195,26 @@ class ConnectionLimiter(MultiService, object):
         Determine a subprocess socket's status from its previous status and a
         status message.
         """
-        if message in ('-', '0'):
-            if message == '-':
-                # A connection has gone away in a subprocess; we should start
-                # accepting connections again if we paused (see
-                # newConnectionStatus)
-                result = self.intWithNoneAsZero(previousStatus) - 1
-                if result < 0:
-                    log.error("metafd: trying to decrement status below zero")
-                    result = 0
+        if message == '-':
+            # A connection has gone away in a subprocess; we should start
+            # accepting connections again if we paused (see
+            # newConnectionStatus)
+            result = self.intWithNoneAsZero(previousStatus) - 1
+            if result < 0:
+                log.error("metafd: trying to decrement status below zero")
+                result = 0
+        elif message == '0':
+            # A new process just started accepting new connections; zero
+            # out its expected load, but only if previous status is still
+            # None
+            result = 0 if previousStatus is None else previousStatus
+            if previousStatus is None:
+                result = 0
             else:
-                # A new process just started accepting new connections; zero
-                # out its expected load, but only if previous status is still None
-                result = 0 if previousStatus is None else previousStatus
-                if previousStatus is None:
-                    result = 0
-                else:
-                    log.error("metafd: trying to zero status that is not None")
-                    result = previousStatus
+                log.error("metafd: trying to zero status that is not None")
+                result = previousStatus
 
+        if message in ('-', '0'):
             # If load has indeed decreased (i.e. in any case except 'a new,
             # idle process replaced an old, idle process'), then start
             # listening again.
