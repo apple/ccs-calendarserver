@@ -65,6 +65,25 @@ def isNonBlocking(skt):
 
 
 
+class Watcher(object):
+    def __init__(self, q):
+        self.q = q
+
+    def newConnectionStatus(self, previous):
+        if previous is None:
+            previous = 0
+        return previous + 1
+
+    def statusFromMessage(self, previous, message):
+        if previous is None:
+            previous = 1
+        return previous - 1
+
+    def statusesChanged(self, statuses):
+        self.q.append(statuses)
+
+
+
 class InheritedSocketDispatcherTests(TestCase):
     """
     Inherited socket dispatcher tests.
@@ -157,21 +176,8 @@ class InheritedSocketDispatcherTests(TestCase):
         C{statusWatcher} via C{statusesChanged}.
         """
         q = []
-        class Watcher(object):
-            def newConnectionStatus(self, previous):
-                if previous is None:
-                    previous = 0
-                return previous + 1
-
-            def statusFromMessage(self, previous, message):
-                if previous is None:
-                    previous = 1
-                return previous - 1
-
-            def statusesChanged(self, statuses):
-                q.append(statuses)
         dispatcher = self.dispatcher
-        dispatcher.statusWatcher = Watcher()
+        dispatcher.statusWatcher = Watcher(q)
         description = "whatever"
         # Need to have a socket that will accept the descriptors.
         dispatcher.addSocket()
@@ -187,21 +193,8 @@ class InheritedSocketDispatcherTests(TestCase):
         C{statusesChanged}.
         """
         q = []
-        class Watcher(object):
-            def newConnectionStatus(self, previous):
-                if previous is None:
-                    previous = 0
-                return previous + 1
-
-            def statusFromMessage(self, previous, message):
-                if previous is None:
-                    previous = 1
-                return previous - 1
-
-            def statusesChanged(self, statuses):
-                q.append(statuses)
         dispatcher = self.dispatcher
-        dispatcher.statusWatcher = Watcher()
+        dispatcher.statusWatcher = Watcher(q)
         message = "whatever"
         # Need to have a socket that will accept the descriptors.
         dispatcher.addSocket()
