@@ -42,6 +42,8 @@ class ReportingHTTPService(Service, object):
     Service which starts up an HTTP server that can report back to its parent
     process via L{InheritedPort}.
 
+    This is instantiated in the I{worker process}.
+
     @ivar site: a twext.web2 'site' object, i.e. a request factory
 
     @ivar fd: the file descriptor of a UNIX socket being used to receive
@@ -109,7 +111,11 @@ class ReportingHTTPService(Service, object):
 class ReportingHTTPFactory(HTTPFactory):
     """
     An L{HTTPFactory} which reports its status to a
-    L{twext.internet.sendfdport.InheritedPort}.
+    L{InheritedPort<twext.internet.sendfdport.InheritedPort>}.
+
+    Since this is processing application-level bytes, it is of course
+    instantiated in the I{worker process}, as is
+    L{InheritedPort<twext.internet.sendfdport.InheritedPort>}.
 
     @ivar inheritedPort: an L{InheritedPort} to report status (the current
         number of outstanding connections) to.  Since this - the
@@ -268,6 +274,9 @@ class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
     An L{InheritingProtocolFactory} that supports the implicit factory contract
     required by L{MaxAcceptTCPServer}/L{MaxAcceptTCPPort}.
 
+    Since L{InheritingProtocolFactory} is instantiated in the I{master
+    process}, so is L{LimitingInheritingProtocolFactory}.
+
     @ivar outstandingRequests: a read-only property for the number of currently
         active connections.
 
@@ -275,8 +284,8 @@ class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
         single reactor loop iteration.
 
     @ivar maxRequests: The maximum number of concurrent connections to accept
-        at once - note that this is for the I{entire server}, whereas the
-        value in the configuration file is for only a single process.
+        at once - note that this is for the I{entire server}, whereas the value
+        in the configuration file is for only a single process.
     """
 
     def __init__(self, limiter, description):
