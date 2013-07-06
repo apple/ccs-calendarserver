@@ -25,6 +25,8 @@ from errno import EAGAIN, ENOBUFS
 from socket import (socketpair, fromfd, error as SocketError, AF_UNIX,
                     SOCK_STREAM, SOCK_DGRAM)
 
+from zope.interface import Interface
+
 from twisted.internet.abstract import FileDescriptor
 from twisted.internet.protocol import Protocol, Factory
 
@@ -58,8 +60,12 @@ class InheritingProtocol(Protocol, object):
 
 class InheritingProtocolFactory(Factory, object):
     """
-    In the 'master' process, make one of these and hook it up to the sockets
-    where you want to hear stuff.
+    An L{InheritingProtocolFactory} is a protocol factory which listens for
+    incoming connections in a I{master process}, then sends those connections
+    off to be inherited by a I{worker process} via an
+    L{InheritedSocketDispatcher}.
+
+    L{InheritingProtocolFactory} is instantiated in the master process.
 
     @ivar dispatcher: an L{InheritedSocketDispatcher} to use to dispatch
         incoming connections to an appropriate subprocess.
@@ -91,21 +97,22 @@ class _SubprocessSocket(FileDescriptor, object):
     @ivar skt: the UNIX socket used as the sendmsg() transport.
 
     @ivar outgoingSocketQueue: an outgoing queue of sockets to send to the
-        subprocess.
-
-    @ivar outgoingSocketQueue: a C{list} of 2-tuples of C{(socket-object, str)}
+        subprocess, along with their descriptions (strings describing their
+        protocol so that the subprocess knows how to handle them; as of this
+        writing, either C{"TCP"} or C{"SSL"})
+    @ivar outgoingSocketQueue: a C{list} of 2-tuples of C{(socket-object,
+        bytes)}
 
     @ivar status: a record of the last status message received (via recvmsg)
         from the subprocess: this is an application-specific indication of how
         ready this subprocess is to receive more connections.  A typical usage
-        would be to count the open connections: this is what is passed to 
-
+        would be to count the open connections: this is what is passed to
     @type status: C{str}
     """
 
-    def __init__(self, dispatcher, skt):
+    def __init__(self, dispatcher, skt, status):
         FileDescriptor.__init__(self, dispatcher.reactor)
-        self.status = None
+        self.status = status
         self.dispatcher = dispatcher
         self.skt = skt          # XXX needs to be set non-blocking by somebody
         self.fileno = skt.fileno
@@ -151,11 +158,81 @@ class _SubprocessSocket(FileDescriptor, object):
 
 
 
+class IStatusWatcher(Interface):
+    """
+    A provider of L{IStatusWatcher} tracks the I{status messages} reported by
+    the worker processes over their control sockets, and computes internal
+    I{status values} for those messages.  The I{messages} are individual
+    octets, representing one of three operations.  C{0} meaning "a new worker
+    process has started, with zero connections being processed", C{+} meaning
+    "I have received and am processing your request; I am confirming that my
+    requests-being-processed count has gone up by one", and C{-} meaning "I
+    have completed processing a request, my requests-being-processed count has
+    gone down by one".  The I{status value} tracked by
+    L{_SubprocessSocket.status} is an integer, indicating the current
+    requests-being-processed value.  (FIXME: the intended design here is
+    actually just that all I{this} object knows about is that
+    L{_SubprocessSocket.status} is an orderable value, and that this
+    C{statusWatcher} will compute appropriate values so the status that I{sorts
+    the least} is the socket to which new connections should be directed; also,
+    the format of the status messages is only known / understood by the
+    C{statusWatcher}, not the L{InheritedSocketDispatcher}.  It's hard to
+    explain it in that manner though.)
+
+    @note: the intention of this interface is to eventually provide a broader
+        notion of what might constitute 'status', so the above explanation just
+        explains the current implementation, in for expediency's sake, rather
+        than the somewhat more abstract language that would be accurate.
+    """
+
+    def initialStatus():
+        """
+        A new socket was created and added to the dispatcher.  Compute an
+        initial value for its status.
+
+        @return: the new status.
+        """
+
+
+    def newConnectionStatus(previousStatus):
+        """
+        A new connection was sent to a given socket.  Compute its status based
+        on the previous status of that socket.
+
+        @param previousStatus: A status value for the socket being sent work,
+            previously returned by one of the methods on this interface.
+
+        @return: the socket's status after incrementing its outstanding work.
+        """
+
+
+    def statusFromMessage(previousStatus, message):
+        """
+        A status message was received by a worker.  Convert the previous status
+        value (returned from L{newConnectionStatus}, L{initialStatus}, or
+        L{statusFromMessage}).
+
+        @param previousStatus: A status value for the socket being sent work,
+            previously returned by one of the methods on this interface.
+
+        @return: the socket's status after taking the reported message into
+            account.
+        """
+
+
+
 class InheritedSocketDispatcher(object):
     """
     Used by one or more L{InheritingProtocolFactory}s, this keeps track of a
-    list of available sockets in subprocesses and sends inbound connections
-    towards them.
+    list of available sockets that connect to I{worker process}es and sends
+    inbound connections to be inherited over those sockets, by those processes.
+
+    L{InheritedSocketDispatcher} is therefore insantiated in the I{master
+    process}.
+
+    @ivar statusWatcher: The object which will handle status messages and
+        convert them into current statuses, as well as .
+    @type statusWatcher: L{IStatusWatcher}
     """
 
     def __init__(self, statusWatcher):
@@ -183,17 +260,22 @@ class InheritedSocketDispatcher(object):
         The status of a connection has changed; update all registered status
         change listeners.
         """
-        subsocket.status = self.statusWatcher.statusFromMessage(subsocket.status, message)
+        subsocket.status = self.statusWatcher.statusFromMessage(
+            subsocket.status, message
+        )
+        self.statusWatcher.statusesChanged(self.statuses)
 
 
     def sendFileDescriptor(self, skt, description):
         """
         A connection has been received.  Dispatch it.
 
-        @param skt: a socket object
+        @param skt: the I{connection socket} (i.e.: not the listening socket)
+        @type skt: L{socket.socket}
 
         @param description: some text to identify to the subprocess's
             L{InheritedPort} what type of transport to create for this socket.
+        @type description: C{bytes}
         """
         # We want None to sort after 0 and before 1, so coerce to 0.5 - this
         # allows the master to first schedule all child process that are up but
@@ -208,7 +290,10 @@ class InheritedSocketDispatcher(object):
         selectedSocket.sendSocketToPeer(skt, description)
         # XXX Maybe want to send along 'description' or 'skt' or some
         # properties thereof? -glyph
-        selectedSocket.status = self.statusWatcher.newConnectionStatus(selectedSocket.status)
+        selectedSocket.status = self.statusWatcher.newConnectionStatus(
+           selectedSocket.status
+        )
+        self.statusWatcher.statusesChanged(self.statuses)
 
 
     def startDispatching(self):
@@ -232,7 +317,7 @@ class InheritedSocketDispatcher(object):
         i, o = socketpair(AF_UNIX, SOCK_DGRAM)
         i.setblocking(False)
         o.setblocking(False)
-        a = _SubprocessSocket(self, o)
+        a = _SubprocessSocket(self, o, self.statusWatcher.initialStatus())
         self._subprocessSockets.append(a)
         if self._isDispatching:
             a.startReading()
@@ -242,13 +327,16 @@ class InheritedSocketDispatcher(object):
 
 class InheritedPort(FileDescriptor, object):
     """
-    Create this in the 'slave' process to handle incoming connections
-    dispatched via C{sendmsg}.
+    An L{InheritedPort} is an L{IReadDescriptor}/L{IWriteDescriptor} created in
+    the I{worker process} to handle incoming connections dispatched via
+    C{sendmsg}.
     """
 
     def __init__(self, fd, transportFactory, protocolFactory):
         """
-        @param fd: a file descriptor
+        @param fd: the file descriptor representing a UNIX socket connected to
+            a I{master process}.  We will call C{recvmsg} on this socket to
+            receive file descriptors.
         @type fd: C{int}
 
         @param transportFactory: a 4-argument function that takes the socket

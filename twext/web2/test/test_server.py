@@ -5,7 +5,7 @@
 A test harness for the twext.web2 server.
 """
 
-from zope.interface import implements
+from zope.interface import implementer
 
 from twisted.python import components
 from twext.web2 import http, http_headers, iweb, server
@@ -27,7 +27,7 @@ class NotResource(object):
     """
 
 
-
+@implementer(iweb.IResource)
 class ResourceAdapter(object):
     """
     Adapter to IResource.
@@ -36,7 +36,6 @@ class ResourceAdapter(object):
     L{AdaptionTestCase.test_registered} can test that such an adapter will
     be used.
     """
-    implements(iweb.IResource)
 
     def __init__(self, original):
         pass
@@ -57,7 +56,7 @@ class NotOldResource(object):
     """
 
 
-
+@implementer(iweb.IOldNevowResource)
 class OldResourceAdapter(object):
     """
     Adapter to IOldNevowResource.
@@ -66,7 +65,6 @@ class OldResourceAdapter(object):
     that L{AdaptionTestCase.test_transitive} can test that such an adapter
     will be used to allow the initial input to be adapted to IResource.
     """
-    implements(iweb.IOldNevowResource)
 
     def __init__(self, original):
         pass
@@ -100,8 +98,8 @@ class AdaptionTestCase(unittest.TestCase):
         Test that the adaption to IResource of an object which provides
         IResource returns the same object.
         """
-        class Resource(object):
-            implements(iweb.IResource)
+        @implementer(iweb.IResource)
+        class Resource(object): ""
         resource = Resource()
         self.assertIdentical(iweb.IResource(resource), resource)
 
@@ -116,15 +114,17 @@ class AdaptionTestCase(unittest.TestCase):
 
 
 
+@implementer(iweb.IChanRequest)
 class TestChanRequest:
-    implements(iweb.IChanRequest)
 
     hostInfo = address.IPv4Address('TCP', 'host', 80), False
     remoteHost = address.IPv4Address('TCP', 'remotehost', 34567)
+    finished = False
 
 
     def __init__(self, site, method, prepath, uri, length=None,
                  headers=None, version=(1,1), content=None):
+        self.producer = None
         self.site = site
         self.method = method
         self.prepath = prepath
@@ -171,10 +171,12 @@ class TestChanRequest:
         self.finish(failed=True)
 
     def registerProducer(self, producer, streaming):
-        pass
+        if self.producer is not None:
+            raise ValueError("Producer still set: " + repr(self.producer))
+        self.producer = producer
 
     def unregisterProducer(self):
-        pass
+        self.producer = None
 
     def getHostInfo(self):
         return self.hostInfo
@@ -203,6 +205,24 @@ class BaseTestResource(resource.Resource):
 
     def responseStream(self):
         return stream.MemoryStream(self.responseText)
+
+
+class MyRenderError(Exception):
+    ""
+
+
+class ErrorWithProducerResource(BaseTestResource):
+
+    addSlash = True
+
+    def render(self, req):
+        req.chanRequest.registerProducer(object(), None)
+        return defer.fail(MyRenderError())
+
+
+    def child_(self, request):
+        return self
+
 
 
 
@@ -264,6 +284,34 @@ class BaseCase(unittest.TestCase):
         for key, value in expected_headers.iteritems():
             self.assertEquals(headers.getHeader(key), value)
         self.assertEquals(failed, expectedfailure)
+
+
+class ErrorHandlingTest(BaseCase):
+    """
+    Tests for error handling.
+    """
+
+    def test_processingReallyReallyReallyFailed(self):
+        """
+        The HTTP connection will be shut down if there's really no way to relay
+        any useful information about the error to the HTTP client.
+        """
+        root = ErrorWithProducerResource()
+        site = server.Site(root)
+        tcr = TestChanRequest(site, "GET", "/", "http://localhost/")
+        request = server.Request(tcr, "GET", "/", (1, 1),
+                                 0, http_headers.Headers(
+                                        {"host": "localhost"}),
+                                        site=site)
+        proc = request.process()
+        done = []
+        proc.addBoth(done.append)
+        self.assertEquals(done, [None])
+        errs = self.flushLoggedErrors(ValueError)
+        self.assertIn('producer', str(errs[0]).lower())
+        errs = self.flushLoggedErrors(MyRenderError)
+        self.assertEquals(bool(errs), True)
+        self.assertEquals(tcr.finished, True)
 
 
 

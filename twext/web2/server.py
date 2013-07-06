@@ -22,12 +22,12 @@
 # SOFTWARE.
 #
 ##
-from __future__ import print_function
 
 """
 This is a web-server which integrates with the twisted.internet
 infrastructure.
 """
+from __future__ import print_function
 
 import cgi, time, urlparse
 from urllib import quote, unquote
@@ -628,18 +628,39 @@ class Request(http.Request):
         d.addErrback(self._processingReallyFailed, reason)
         return d
 
+
     def _processingReallyFailed(self, reason, origReason):
+        """
+        An error occurred when attempting to report an error to the HTTP
+        client.
+        """
         log.failure("Exception rendering error page", reason)
         log.failure("Original exception", origReason)
 
-        body = ("<html><head><title>Internal Server Error</title></head>"
-                "<body><h1>Internal Server Error</h1>An error occurred rendering the requested page. Additionally, an error occurred rendering the error page.</body></html>")
+        try:
+            body = (
+                "<html><head><title>Internal Server Error</title></head>"
+                "<body><h1>Internal Server Error</h1>"
+                "An error occurred rendering the requested page. "
+                "Additionally, an error occurred rendering the error page."
+                "</body></html>"
+            )
+            response = http.Response(
+                responsecode.INTERNAL_SERVER_ERROR,
+                {'content-type': http_headers.MimeType('text','html')},
+                body
+            )
+            self.writeResponse(response)
+        except:
+            log.failure(
+                "An error occurred.  We tried to report that error.  "
+                "Reporting that error caused an error.  "
+                "In the process of reporting the error-reporting error to "
+                "the client, there was *yet another* error.  Here it is.  "
+                "I give up."
+            )
+            self.chanRequest.abortConnection()
 
-        response = http.Response(
-            responsecode.INTERNAL_SERVER_ERROR,
-            {'content-type': http_headers.MimeType('text','html')},
-            body)
-        self.writeResponse(response)
 
     def _cbFinishRender(self, result):
         def filterit(response, f):
