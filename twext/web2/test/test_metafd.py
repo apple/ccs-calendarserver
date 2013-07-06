@@ -212,6 +212,10 @@ class ConnectionLimiterTests(TestCase):
 
 
 class LimiterBuilder(object):
+    """
+    A L{LimiterBuilder} can build a L{ConnectionLimiter} and associated objects
+    for a given unit test.
+    """
 
     def __init__(self, test, maxReq=3):
         self.limiter = ConnectionLimiter(2, maxRequests=maxReq)
