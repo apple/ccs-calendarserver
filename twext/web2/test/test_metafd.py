@@ -184,6 +184,49 @@ class ConnectionLimiterTests(TestCase):
         self.assertEqual(cl.statusFromMessage(2, "+"), 2)
 
 
+    def test_loadReducedStartsReadingAgain(self):
+        """
+        L{ConnectionLimiter.statusesChanged} determines whether the current
+        "load" of all subprocesses - that is, the total outstanding request
+        count - is high enough that the listening ports attached to it should
+        be suspended.
+        """
+        builder = LimiterBuilder(self)
+        builder.fillUp()
+        self.assertEquals(builder.port.reading, False) # sanity check
+        builder.loadDown()
+        self.assertEquals(builder.port.reading, True)
+
+
+    def test_processRestartedStartsReadingAgain(self):
+        """
+        L{ConnectionLimiter.statusesChanged} determines whether the current
+        number of outstanding requests is above the limit, and either stops or
+        resumes reading on the listening port.
+        """
+        builder = LimiterBuilder(self)
+        builder.fillUp()
+        self.assertEquals(builder.port.reading, False)
+        builder.processRestart()
+        self.assertEquals(builder.port.reading, True)
+
+
+
+class LimiterBuilder(object):
+
+    def __init__(self, test, maxReq=3):
+        self.limiter = ConnectionLimiter(2, maxRequests=maxReq)
+        self.dispatcher = self.limiter.dispatcher
+        self.dispatcher.reactor = ReaderAdder()
+        self.service = Service()
+        self.limiter.addPortService("TCP", 4321, "127.0.0.1", 5,
+                                    self.serverServiceMakerMaker(self.service))
+        self.dispatcher.addSocket()
+        # Has to be running in order to add stuff.
+        self.limiter.startService()
+        self.port = self.service.myPort
+
+
     def serverServiceMakerMaker(self, s):
         """
         Make a serverServiceMaker for use with
@@ -204,51 +247,24 @@ class ConnectionLimiterTests(TestCase):
         return serverServiceMaker
 
 
-    def test_loadReducedStartsReadingAgain(self):
+    def fillUp(self):
         """
-        L{ConnectionLimiter.statusesChanged} determines whether the current
-        "load" of all subprocesses - that is, the total outstanding request
-        count - is high enough that the listening ports attached to it should
-        be suspended.
+        Fill up all the slots on the connection limiter.
         """
-        maxReq = 3
-        cl = ConnectionLimiter(2, maxRequests=maxReq)
-        dispatcher = cl.dispatcher
-        dispatcher.reactor = ReaderAdder()
-        s = Service()
-        cl.addPortService("TCP", 4321, "127.0.0.1", 5,
-                          self.serverServiceMakerMaker(s))
-        dispatcher.addSocket()
-        # Has to be running in order to add stuff.
-        cl.startService()
-        # Make sure it's stopped.
-        for x in range(maxReq + 1):
-            dispatcher.sendFileDescriptor(None, "SSL")
-            dispatcher.statusMessage(dispatcher._subprocessSockets[0], "+")
-        self.assertEquals(s.myPort.reading, False) # sanity check
-        dispatcher.statusMessage(dispatcher._subprocessSockets[0], "-")
-        self.assertEquals(s.myPort.reading, True)
+        for x in range(self.limiter.maxRequests):
+            self.dispatcher.sendFileDescriptor(None, "SSL")
+            self.dispatcher.statusMessage(
+                self.dispatcher._subprocessSockets[0], "+"
+            )
 
 
-    def test_processRestartedStartsReadingAgain(self):
-        """
-        L{ConnectionLimiter.statusesChanged} determines whether the current
-        number of outstanding requests is above the limit, and either stops or
-        resumes reading on the listening port.
-        """
-        maxReq = 3
-        cl = ConnectionLimiter(2, maxRequests=maxReq)
-        dispatcher = cl.dispatcher
-        dispatcher.reactor = ReaderAdder()
-        dispatcher.startDispatching()
-        dispatcher.addSocket()
-        s = Service()
-        cl.addPortService("SSL", 4312, "127.0.0.1", 5,
-                          self.serverServiceMakerMaker(s))
-        # Fill up all the slots...
-        for x in range(maxReq + 1):
-            dispatcher.sendFileDescriptor(None, "SSL")
-            dispatcher.statusMessage(dispatcher._subprocessSockets[0], "+")
-        self.assertEquals(s.myPort.reading, False)
+    def processRestart(self):
+        self.dispatcher.statusMessage(
+            self.dispatcher._subprocessSockets[0], "0"
+        )
 
 
+    def loadDown(self):
+        self.dispatcher.statusMessage(
+            self.dispatcher._subprocessSockets[0], "-"
+        )
