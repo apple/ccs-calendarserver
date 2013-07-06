@@ -96,8 +96,8 @@ class InheritedSocketDispatcherTests(TestCase):
 
     def test_sendFileDescriptorSorting(self):
         """
-        Make sure InheritedSocketDispatcher.sendFileDescriptor sorts sockets with status None
-        higher than those with int status values.
+        Make sure InheritedSocketDispatcher.sendFileDescriptor sorts sockets
+        with status None higher than those with int status values.
         """
 
         self.patch(_SubprocessSocket, 'sendSocketToPeer', lambda x, y, z:None)
@@ -125,7 +125,8 @@ class InheritedSocketDispatcherTests(TestCase):
         self.assertEqual(sockets[1].status, 1)
         self.assertEqual(sockets[2].status, 1)
 
-        # Check that after going to 1 and back to 0 that is still preferred over None
+        # Check that after going to 1 and back to 0 that is still preferred
+        # over None
         sockets[0].status = 0
         sockets[1].status = 1
         sockets[2].status = None
@@ -143,3 +144,38 @@ class InheritedSocketDispatcherTests(TestCase):
         self.assertEqual(sockets[0].status, 1)
         self.assertEqual(sockets[1].status, 1)
         self.assertEqual(sockets[2].status, None)
+
+
+    def test_statusChangedOnNewConnection(self):
+        """
+        L{InheritedSocketDispatcher.sendFileDescriptor} will update its
+        C{statusWatcher} via C{statusChanged}.
+        """
+        q = []
+        class Watcher(object):
+            def newConnectionStatus(self, previous):
+                if previous is None:
+                    previous = 0
+                return previous + 1
+
+            def statusFromMessage(self, previous, message):
+                if previous is None:
+                    previous = 1
+                return previous + 1
+
+            def statusesChanged(self, statuses):
+                q.append(statuses)
+        dispatcher = InheritedSocketDispatcher(Watcher())
+        class Reactish(object):
+            def addReader(self, reader):
+                pass
+            def addWriter(self, writer):
+                pass
+        dispatcher.reactor = Reactish()
+        description = "whatever"
+        # Need to have a socket that will accept the descriptors.
+        dispatcher.addSocket()
+        dispatcher.sendFileDescriptor(object(), description)
+        dispatcher.sendFileDescriptor(object(), description)
+        self.assertEquals(q, [1, 1])
+
