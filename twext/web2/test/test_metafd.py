@@ -152,8 +152,7 @@ class ConnectionLimiterTests(TestCase):
     """
     Tests for L{ConnectionLimiter}
     """
-    
-    
+
     def test_statusFromMessage(self):
         """
         L{ConnectionLimiter.statusFromMessage} will not return a value below
