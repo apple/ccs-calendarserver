@@ -1758,6 +1758,22 @@ class TwistdSlaveProcess(object):
 
     def getFileDescriptors(self):
         """
+        Get the file descriptors that will be passed to the subprocess, as a
+        mapping that will be used with L{IReactorProcess.spawnProcess}.
+
+        If this server is configured to use a meta FD, pass the client end of
+        the meta FD.  If this server is configured to use an AMP database
+        connection pool, pass a pre-connected AMP socket.
+
+        Note that, contrary to the documentation for
+        L{twext.internet.sendfdport.InheritedSocketDispatcher.addSocket}, this
+        does I{not} close the added child socket; this method
+        (C{getFileDescriptors}) is called repeatedly to start a new process
+        with the same C{LogID} if the previous one exits.  Therefore we
+        consistently re-use the same file descriptor and leave it open in the
+        master, relying upon process-exit notification rather than noticing the
+        meta-FD socket was closed in the subprocess.
+
         @return: a mapping of file descriptor numbers for the new (child)
             process to file descriptor numbers in the current (master) process.
         """
