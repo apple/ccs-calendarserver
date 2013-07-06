@@ -83,7 +83,9 @@ class ReportingHTTPService(Service, object):
     def stopService(self):
         """
         Stop reading on the inherited port.
-        @return: a Deferred which fires after the last outstanding request is complete.
+
+        @return: a Deferred which fires after the last outstanding request is
+            complete.
         """
         Service.stopService(self)
         # XXX stopping should really be destructive, because otherwise we will
