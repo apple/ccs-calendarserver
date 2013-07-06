@@ -95,15 +95,15 @@ class _SubprocessSocket(FileDescriptor, object):
     @ivar skt: the UNIX socket used as the sendmsg() transport.
 
     @ivar outgoingSocketQueue: an outgoing queue of sockets to send to the
-        subprocess.
-
-    @ivar outgoingSocketQueue: a C{list} of 2-tuples of C{(socket-object, str)}
+        subprocess, along with their descriptions (strings describing their
+        protocol so that the subprocess knows how to handle them; as of this
+        writing, either C{"TCP"} or C{"SSL"})
+    @ivar outgoingSocketQueue: a C{list} of 2-tuples of C{(socket-object, bytes)}
 
     @ivar status: a record of the last status message received (via recvmsg)
         from the subprocess: this is an application-specific indication of how
         ready this subprocess is to receive more connections.  A typical usage
-        would be to count the open connections: this is what is passed to 
-
+        would be to count the open connections: this is what is passed to
     @type status: C{str}
     """
 
