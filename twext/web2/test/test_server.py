@@ -171,10 +171,12 @@ class TestChanRequest:
         self.finish(failed=True)
 
     def registerProducer(self, producer, streaming):
-        pass
+        if self.producer is not None:
+            raise ValueError("Producer still set: " + repr(self.producer))
+        self.producer = producer
 
     def unregisterProducer(self):
-        pass
+        self.producer = None
 
     def getHostInfo(self):
         return self.hostInfo
@@ -203,6 +205,24 @@ class BaseTestResource(resource.Resource):
 
     def responseStream(self):
         return stream.MemoryStream(self.responseText)
+
+
+class MyRenderError(Exception):
+    ""
+
+
+class ErrorWithProducerResource(BaseTestResource):
+
+    addSlash = True
+
+    def render(self, req):
+        req.chanRequest.registerProducer(object(), None)
+        return defer.fail(MyRenderError())
+
+
+    def child_(self, request):
+        return self
+
 
 
 
@@ -264,6 +284,34 @@ class BaseCase(unittest.TestCase):
         for key, value in expected_headers.iteritems():
             self.assertEquals(headers.getHeader(key), value)
         self.assertEquals(failed, expectedfailure)
+
+
+class ErrorHandlingTest(BaseCase):
+    """
+    Tests for error handling.
+    """
+
+    def test_processingReallyReallyReallyFailed(self):
+        """
+        The HTTP connection will be shut down if there's really no way to relay
+        any useful information about the error to the HTTP client.
+        """
+        root = ErrorWithProducerResource()
+        site = server.Site(root)
+        tcr = TestChanRequest(site, "GET", "/", "http://localhost/")
+        request = server.Request(tcr, "GET", "/", (1, 1),
+                                 0, http_headers.Headers(
+                                        {"host": "localhost"}),
+                                        site=site)
+        proc = request.process()
+        done = []
+        proc.addBoth(done.append)
+        self.assertEquals(done, [None])
+        errs = self.flushLoggedErrors(ValueError)
+        self.assertIn('producer', str(errs[0]).lower())
+        errs = self.flushLoggedErrors(MyRenderError)
+        self.assertEquals(bool(errs), True)
+        self.assertEquals(tcr.finished, True)
 
 
 
