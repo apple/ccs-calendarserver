@@ -91,7 +91,7 @@ class InheritedSocketDispatcherTests(TestCase):
     def setUp(self):
         self.dispatcher = InheritedSocketDispatcher(ConnectionLimiter(2, 20))
         self.dispatcher.reactor = ReaderAdder()
-            
+
 
     def test_nonBlocking(self):
         """
