@@ -22,25 +22,31 @@ Tests for L{twext.internet.sendfdport}.
 import os
 import fcntl
 
-from twext.internet.sendfdport import InheritedSocketDispatcher,\
-    _SubprocessSocket
+from twext.internet.sendfdport import InheritedSocketDispatcher
+
 from twext.web2.metafd import ConnectionLimiter
 from twisted.internet.interfaces import IReactorFDSet
 from twisted.trial.unittest import TestCase
-from zope.interface.declarations import implements
+from zope.interface import implementer
 
-
+@implementer(IReactorFDSet)
 class ReaderAdder(object):
-    implements(IReactorFDSet)
 
     def __init__(self):
         self.readers = []
+        self.writers = []
+
 
     def addReader(self, reader):
         self.readers.append(reader)
 
+
     def getReaders(self):
         return self.readers[:]
+
+
+    def addWriter(self, writer):
+        self.writers.append(writer)
 
 
 
@@ -63,6 +69,10 @@ class InheritedSocketDispatcherTests(TestCase):
     """
     Inherited socket dispatcher tests.
     """
+    def setUp(self):
+        self.dispatcher = InheritedSocketDispatcher(ConnectionLimiter(2, 20))
+        self.dispatcher.reactor = ReaderAdder()
+            
 
     def test_nonBlocking(self):
         """
@@ -71,12 +81,10 @@ class InheritedSocketDispatcherTests(TestCase):
         L{socket.socket} object being assigned to its C{skt} attribute, as well
         as a non-blocking L{socket.socket} object being returned.
         """
-        dispatcher = InheritedSocketDispatcher(None)
+        dispatcher = self.dispatcher
         dispatcher.startDispatching()
-        reactor = ReaderAdder()
-        dispatcher.reactor = reactor
         inputSocket = dispatcher.addSocket()
-        outputSocket = reactor.readers[-1]
+        outputSocket = self.dispatcher.reactor.readers[-1]
         self.assertTrue(isNonBlocking(inputSocket), "Input is blocking.")
         self.assertTrue(isNonBlocking(outputSocket), "Output is blocking.")
 
@@ -86,12 +94,11 @@ class InheritedSocketDispatcherTests(TestCase):
         Adding a socket to an L{InheritedSocketDispatcher} after it has already
         been started results in it immediately starting reading.
         """
-        reactor = ReaderAdder()
-        dispatcher = InheritedSocketDispatcher(None)
-        dispatcher.reactor = reactor
+        dispatcher = self.dispatcher
         dispatcher.startDispatching()
         dispatcher.addSocket()
-        self.assertEquals(reactor.getReaders(), dispatcher._subprocessSockets)
+        self.assertEquals(dispatcher.reactor.getReaders(),
+                          dispatcher._subprocessSockets)
 
 
     def test_sendFileDescriptorSorting(self):
@@ -99,9 +106,7 @@ class InheritedSocketDispatcherTests(TestCase):
         Make sure InheritedSocketDispatcher.sendFileDescriptor sorts sockets
         with status None higher than those with int status values.
         """
-
-        self.patch(_SubprocessSocket, 'sendSocketToPeer', lambda x, y, z:None)
-        dispatcher = InheritedSocketDispatcher(ConnectionLimiter(2, 20))
+        dispatcher = self.dispatcher
         dispatcher.addSocket()
         dispatcher.addSocket()
         dispatcher.addSocket()
@@ -146,10 +151,10 @@ class InheritedSocketDispatcherTests(TestCase):
         self.assertEqual(sockets[2].status, None)
 
 
-    def test_statusChangedOnNewConnection(self):
+    def test_statusesChangedOnNewConnection(self):
         """
         L{InheritedSocketDispatcher.sendFileDescriptor} will update its
-        C{statusWatcher} via C{statusChanged}.
+        C{statusWatcher} via C{statusesChanged}.
         """
         q = []
         class Watcher(object):
@@ -165,17 +170,13 @@ class InheritedSocketDispatcherTests(TestCase):
 
             def statusesChanged(self, statuses):
                 q.append(statuses)
-        dispatcher = InheritedSocketDispatcher(Watcher())
-        class Reactish(object):
-            def addReader(self, reader):
-                pass
-            def addWriter(self, writer):
-                pass
-        dispatcher.reactor = Reactish()
+        dispatcher = self.dispatcher
+        dispatcher.statusWatcher = Watcher()
         description = "whatever"
         # Need to have a socket that will accept the descriptors.
         dispatcher.addSocket()
         dispatcher.sendFileDescriptor(object(), description)
         dispatcher.sendFileDescriptor(object(), description)
         self.assertEquals(q, [1, 1])
+
 
