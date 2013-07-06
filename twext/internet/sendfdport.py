@@ -58,8 +58,12 @@ class InheritingProtocol(Protocol, object):
 
 class InheritingProtocolFactory(Factory, object):
     """
-    In the 'master' process, make one of these and hook it up to the sockets
-    where you want to hear stuff.
+    An L{InheritingProtocolFactory} is a protocol factory which listens for
+    incoming connections in a I{master process}, then sends those connections
+    off to be inherited by a I{worker process} via an
+    L{InheritedSocketDispatcher}.
+
+    L{InheritingProtocolFactory} is instantiated in the master process.
 
     @ivar dispatcher: an L{InheritedSocketDispatcher} to use to dispatch
         incoming connections to an appropriate subprocess.
@@ -154,8 +158,35 @@ class _SubprocessSocket(FileDescriptor, object):
 class InheritedSocketDispatcher(object):
     """
     Used by one or more L{InheritingProtocolFactory}s, this keeps track of a
-    list of available sockets in subprocesses and sends inbound connections
-    towards them.
+    list of available sockets that connect to I{worker process}es and sends
+    inbound connections to be inherited over those sockets, by those processes.
+
+    L{InheritedSocketDispatcher} is therefore insantiated in the I{master
+    process}.
+
+    @ivar statusWatcher: An object that tracks the I{status messages} reported
+        by the worker processes over their control sockets, and computes
+        internal I{status values} for those messages.  The I{messages} are
+        individual octets, representing one of three operations.  C{0} meaning
+        "a new worker process has started, with zero connections being
+        processed", C{+} meaning "I have received and am processing your
+        request; I am confirming that my requests-being-processed count has
+        gone up by one", and C{-} meaning "I have completed processing a
+        request, my requests-being-processed count has gone down by one".  The
+        I{status value} tracked by L{_SubprocessSocket.status} is an integer,
+        indicating the current requests-being-processed value.  (FIXME: the
+        intended design here is actually just that all I{this} object knows
+        about is that L{_SubprocessSocket.status} is an orderable value, and
+        that this C{statusWatcher} will compute appropriate values so the
+        status that I{sorts the least} is the socket to which new connections
+        should be directed; also, the format of the status messages is only
+        known / understood by the C{statusWatcher}, not the
+        L{InheritedSocketDispatcher}.  It's hard to explain it in that manner
+        though.)
+    @type statusWatcher: L{twext.web2.metafd.ConnectionLimiter} (FIXME: this
+        should be a bit more abstract; declared in an interface or something,
+        since we may in principle want to throttle connections from more than
+        just HTTP.)
     """
 
     def __init__(self, statusWatcher):
@@ -183,17 +214,21 @@ class InheritedSocketDispatcher(object):
         The status of a connection has changed; update all registered status
         change listeners.
         """
-        subsocket.status = self.statusWatcher.statusFromMessage(subsocket.status, message)
+        subsocket.status = self.statusWatcher.statusFromMessage(
+            subsocket.status, message
+        )
 
 
     def sendFileDescriptor(self, skt, description):
         """
         A connection has been received.  Dispatch it.
 
-        @param skt: a socket object
+        @param skt: the I{connection socket} (i.e.: not the listening socket)
+        @type skt: L{socket.socket}
 
         @param description: some text to identify to the subprocess's
             L{InheritedPort} what type of transport to create for this socket.
+        @type description: C{bytes}
         """
         # We want None to sort after 0 and before 1, so coerce to 0.5 - this
         # allows the master to first schedule all child process that are up but
@@ -208,7 +243,9 @@ class InheritedSocketDispatcher(object):
         selectedSocket.sendSocketToPeer(skt, description)
         # XXX Maybe want to send along 'description' or 'skt' or some
         # properties thereof? -glyph
-        selectedSocket.status = self.statusWatcher.newConnectionStatus(selectedSocket.status)
+        selectedSocket.status = self.statusWatcher.newConnectionStatus(
+           selectedSocket.status
+        )
 
 
     def startDispatching(self):
