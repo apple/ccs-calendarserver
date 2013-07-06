@@ -279,13 +279,16 @@ class InheritedSocketDispatcher(object):
 
 class InheritedPort(FileDescriptor, object):
     """
-    Create this in the 'slave' process to handle incoming connections
-    dispatched via C{sendmsg}.
+    An L{InheritedPort} is an L{IReadDescriptor}/L{IWriteDescriptor} created in
+    the I{worker process} to handle incoming connections dispatched via
+    C{sendmsg}.
     """
 
     def __init__(self, fd, transportFactory, protocolFactory):
         """
-        @param fd: a file descriptor
+        @param fd: the file descriptor representing a UNIX socket connected to
+            a I{master process}.  We will call C{recvmsg} on this socket to
+            receive file descriptors.
         @type fd: C{int}
 
         @param transportFactory: a 4-argument function that takes the socket
