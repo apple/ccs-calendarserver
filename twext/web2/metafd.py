@@ -250,6 +250,12 @@ class ConnectionLimiter(MultiService, object):
         return result
 
 
+    def statusesChanged(self, statuses):
+        """
+        FIXME
+        """
+
+
     def intWithNoneAsZero(self, x):
         """
         Convert 'x' to an C{int}, unless x is C{None}, in which case return 0.

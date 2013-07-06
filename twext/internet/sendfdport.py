@@ -218,6 +218,7 @@ class InheritedSocketDispatcher(object):
         subsocket.status = self.statusWatcher.statusFromMessage(
             subsocket.status, message
         )
+        self.statusWatcher.statusesChanged(self.statuses)
 
 
     def sendFileDescriptor(self, skt, description):
@@ -247,6 +248,7 @@ class InheritedSocketDispatcher(object):
         selectedSocket.status = self.statusWatcher.newConnectionStatus(
            selectedSocket.status
         )
+        self.statusWatcher.statusesChanged(self.statuses)
 
 
     def startDispatching(self):
