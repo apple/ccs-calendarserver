@@ -166,7 +166,7 @@ class InheritedSocketDispatcherTests(TestCase):
             def statusFromMessage(self, previous, message):
                 if previous is None:
                     previous = 1
-                return previous + 1
+                return previous - 1
 
             def statusesChanged(self, statuses):
                 q.append(statuses)
@@ -177,6 +177,34 @@ class InheritedSocketDispatcherTests(TestCase):
         dispatcher.addSocket()
         dispatcher.sendFileDescriptor(object(), description)
         dispatcher.sendFileDescriptor(object(), description)
-        self.assertEquals(q, [1, 1])
+        self.assertEquals(q, [[1], [2]])
 
 
+    def test_statusesChangedOnStatusMessage(self):
+        """
+        L{InheritedSocketDispatcher.sendFileDescriptor} will update its
+        C{statusWatcher} will update its C{statusWatcher} via
+        C{statusesChanged}.
+        """
+        q = []
+        class Watcher(object):
+            def newConnectionStatus(self, previous):
+                if previous is None:
+                    previous = 0
+                return previous + 1
+
+            def statusFromMessage(self, previous, message):
+                if previous is None:
+                    previous = 1
+                return previous - 1
+
+            def statusesChanged(self, statuses):
+                q.append(statuses)
+        dispatcher = self.dispatcher
+        dispatcher.statusWatcher = Watcher()
+        message = "whatever"
+        # Need to have a socket that will accept the descriptors.
+        dispatcher.addSocket()
+        dispatcher.statusMessage(dispatcher._subprocessSockets[0], message)
+        dispatcher.statusMessage(dispatcher._subprocessSockets[0], message)
+        self.assertEquals(q, [[-1], [-2]])
