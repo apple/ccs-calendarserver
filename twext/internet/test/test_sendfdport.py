@@ -69,18 +69,21 @@ class Watcher(object):
     def __init__(self, q):
         self.q = q
 
+
     def newConnectionStatus(self, previous):
         if previous is None:
             previous = 0
         return previous + 1
 
+
     def statusFromMessage(self, previous, message):
         if previous is None:
-            previous = 1
+            previous = 0
         return previous - 1
 
+
     def statusesChanged(self, statuses):
-        self.q.append(statuses)
+        self.q.append(list(statuses))
 
 
 
