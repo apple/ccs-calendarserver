@@ -219,14 +219,6 @@ class ConnectionLimiter(MultiService, object):
             else:
                 log.error("metafd: trying to zero status that is not None")
                 result = previousStatus
-
-        if message in ('-', '0'):
-            # If load has indeed decreased (i.e. in any case except 'a new,
-            # idle process replaced an old, idle process'), then start
-            # listening again.
-            if result < previousStatus and self.running:
-                for f in self.factories:
-                    f.myServer.myPort.startReading()
         else:
             # '+' is just an acknowledgement of newConnectionStatus, so we can
             # ignore it.
@@ -239,21 +231,28 @@ class ConnectionLimiter(MultiService, object):
         Determine the effect of a new connection being sent on a subprocess
         socket.
         """
-        current = self.outstandingRequests + 1
-        maximum = self.maxRequests
-        overloaded = (current >= maximum)
-        if overloaded:
-            for f in self.factories:
-                f.myServer.myPort.stopReading()
-
         result = self.intWithNoneAsZero(previousStatus) + 1
         return result
 
 
     def statusesChanged(self, statuses):
         """
-        FIXME
+        The L{InheritedSocketDispatcher} is reporting that the list of
+        connection-statuses have changed.
+
+        (The argument to this function is currently duplicated by the
+        C{self.dispatcher.statuses} attribute, which is what
+        C{self.outstandingRequests} uses to compute it.)
         """
+        current = self.outstandingRequests + 1
+        maximum = self.maxRequests
+        overloaded = (current >= maximum)
+        if overloaded:
+            for f in self.factories:
+                f.myServer.myPort.stopReading()
+        else:
+            for f in self.factories:
+                f.myServer.myPort.startReading()
 
 
     def intWithNoneAsZero(self, x):
