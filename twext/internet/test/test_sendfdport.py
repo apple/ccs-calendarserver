@@ -1,3 +1,4 @@
+from twext.internet.sendfdport import IStatusWatcher
 # -*- test-case-name: twext.internet.test.test_sendfdport -*-
 ##
 # Copyright (c) 2010-2013 Apple Inc. All rights reserved.
@@ -65,25 +66,38 @@ def isNonBlocking(skt):
 
 
 
+from zope.interface.verify import verifyClass
+from zope.interface import implementer
+
+def verifiedImplementer(interface):
+    def _(cls):
+        result = implementer(interface)(cls)
+        verifyClass(interface, result)
+        return result
+    return _
+
+
+
+@verifiedImplementer(IStatusWatcher)
 class Watcher(object):
     def __init__(self, q):
         self.q = q
 
 
     def newConnectionStatus(self, previous):
-        if previous is None:
-            previous = 0
         return previous + 1
 
 
     def statusFromMessage(self, previous, message):
-        if previous is None:
-            previous = 0
         return previous - 1
 
 
     def statusesChanged(self, statuses):
         self.q.append(list(statuses))
+
+
+    def initialStatus(self):
+        return 0
 
 
 

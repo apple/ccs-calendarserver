@@ -28,7 +28,7 @@ from twext.web2.channel.http import HTTPChannel
 from twext.web2.metafd import ReportingHTTPService, ConnectionLimiter
 from twisted.internet.tcp import Server
 from twisted.application.service import Service
-from twext.internet.sendfdport import InheritedSocketDispatcher
+
 from twext.internet.test.test_sendfdport import ReaderAdder
 from twisted.trial.unittest import TestCase
 

@@ -25,6 +25,8 @@ from errno import EAGAIN, ENOBUFS
 from socket import (socketpair, fromfd, error as SocketError, AF_UNIX,
                     SOCK_STREAM, SOCK_DGRAM)
 
+from zope.interface import Interface
+
 from twisted.internet.abstract import FileDescriptor
 from twisted.internet.protocol import Protocol, Factory
 
@@ -108,9 +110,9 @@ class _SubprocessSocket(FileDescriptor, object):
     @type status: C{str}
     """
 
-    def __init__(self, dispatcher, skt):
+    def __init__(self, dispatcher, skt, status):
         FileDescriptor.__init__(self, dispatcher.reactor)
-        self.status = None
+        self.status = status
         self.dispatcher = dispatcher
         self.skt = skt          # XXX needs to be set non-blocking by somebody
         self.fileno = skt.fileno
@@ -156,6 +158,69 @@ class _SubprocessSocket(FileDescriptor, object):
 
 
 
+class IStatusWatcher(Interface):
+    """
+    A provider of L{IStatusWatcher} tracks the I{status messages} reported by
+    the worker processes over their control sockets, and computes internal
+    I{status values} for those messages.  The I{messages} are individual
+    octets, representing one of three operations.  C{0} meaning "a new worker
+    process has started, with zero connections being processed", C{+} meaning
+    "I have received and am processing your request; I am confirming that my
+    requests-being-processed count has gone up by one", and C{-} meaning "I
+    have completed processing a request, my requests-being-processed count has
+    gone down by one".  The I{status value} tracked by
+    L{_SubprocessSocket.status} is an integer, indicating the current
+    requests-being-processed value.  (FIXME: the intended design here is
+    actually just that all I{this} object knows about is that
+    L{_SubprocessSocket.status} is an orderable value, and that this
+    C{statusWatcher} will compute appropriate values so the status that I{sorts
+    the least} is the socket to which new connections should be directed; also,
+    the format of the status messages is only known / understood by the
+    C{statusWatcher}, not the L{InheritedSocketDispatcher}.  It's hard to
+    explain it in that manner though.)
+
+    @note: the intention of this interface is to eventually provide a broader
+        notion of what might constitute 'status', so the above explanation just
+        explains the current implementation, in for expediency's sake, rather
+        than the somewhat more abstract language that would be accurate.
+    """
+
+    def initialStatus():
+        """
+        A new socket was created and added to the dispatcher.  Compute an
+        initial value for its status.
+
+        @return: the new status.
+        """
+
+
+    def newConnectionStatus(previousStatus):
+        """
+        A new connection was sent to a given socket.  Compute its status based
+        on the previous status of that socket.
+
+        @param previousStatus: A status value for the socket being sent work,
+            previously returned by one of the methods on this interface.
+
+        @return: the socket's status after incrementing its outstanding work.
+        """
+
+
+    def statusFromMessage(previousStatus, message):
+        """
+        A status message was received by a worker.  Convert the previous status
+        value (returned from L{newConnectionStatus}, L{initialStatus}, or
+        L{statusFromMessage}).
+
+        @param previousStatus: A status value for the socket being sent work,
+            previously returned by one of the methods on this interface.
+
+        @return: the socket's status after taking the reported message into
+            account.
+        """
+
+
+
 class InheritedSocketDispatcher(object):
     """
     Used by one or more L{InheritingProtocolFactory}s, this keeps track of a
@@ -165,29 +230,9 @@ class InheritedSocketDispatcher(object):
     L{InheritedSocketDispatcher} is therefore insantiated in the I{master
     process}.
 
-    @ivar statusWatcher: An object that tracks the I{status messages} reported
-        by the worker processes over their control sockets, and computes
-        internal I{status values} for those messages.  The I{messages} are
-        individual octets, representing one of three operations.  C{0} meaning
-        "a new worker process has started, with zero connections being
-        processed", C{+} meaning "I have received and am processing your
-        request; I am confirming that my requests-being-processed count has
-        gone up by one", and C{-} meaning "I have completed processing a
-        request, my requests-being-processed count has gone down by one".  The
-        I{status value} tracked by L{_SubprocessSocket.status} is an integer,
-        indicating the current requests-being-processed value.  (FIXME: the
-        intended design here is actually just that all I{this} object knows
-        about is that L{_SubprocessSocket.status} is an orderable value, and
-        that this C{statusWatcher} will compute appropriate values so the
-        status that I{sorts the least} is the socket to which new connections
-        should be directed; also, the format of the status messages is only
-        known / understood by the C{statusWatcher}, not the
-        L{InheritedSocketDispatcher}.  It's hard to explain it in that manner
-        though.)
-    @type statusWatcher: L{twext.web2.metafd.ConnectionLimiter} (FIXME: this
-        should be a bit more abstract; declared in an interface or something,
-        since we may in principle want to throttle connections from more than
-        just HTTP.)
+    @ivar statusWatcher: The object which will handle status messages and
+        convert them into current statuses, as well as .
+    @type statusWatcher: L{IStatusWatcher}
     """
 
     def __init__(self, statusWatcher):
@@ -272,7 +317,7 @@ class InheritedSocketDispatcher(object):
         i, o = socketpair(AF_UNIX, SOCK_DGRAM)
         i.setblocking(False)
         o.setblocking(False)
-        a = _SubprocessSocket(self, o)
+        a = _SubprocessSocket(self, o, self.statusWatcher.initialStatus())
         self._subprocessSockets.append(a)
         if self._isDispatching:
             a.startReading()

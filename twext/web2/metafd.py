@@ -195,8 +195,16 @@ class ConnectionLimiter(MultiService, object):
         ).setServiceParent(self)
 
 
-    # implementation of implicit statusWatcher interface required by
-    # InheritedSocketDispatcher
+    def intWithNoneAsZero(self, n):
+        if n is None:
+            return 0
+        return n
+    # IStatusWatcher
+
+    def initialStatus(self):
+        """
+        TODO
+        """
 
     def statusFromMessage(self, previousStatus, message):
         """
@@ -257,22 +265,9 @@ class ConnectionLimiter(MultiService, object):
                 f.myServer.myPort.startReading()
 
 
-    def intWithNoneAsZero(self, x):
-        """
-        Convert 'x' to an C{int}, unless x is C{None}, in which case return 0.
-        """
-        if x is None:
-            return 0
-        else:
-            return int(x)
-
-
     @property
     def outstandingRequests(self):
-        outstanding = 0
-        for status in self.dispatcher.statuses:
-            outstanding += self.intWithNoneAsZero(status)
-        return outstanding
+        return sum(map(self.intWithNoneAsZero, self.dispatcher.statuses))
 
 
 
