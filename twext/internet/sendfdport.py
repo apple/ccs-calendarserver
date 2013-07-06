@@ -98,7 +98,8 @@ class _SubprocessSocket(FileDescriptor, object):
         subprocess, along with their descriptions (strings describing their
         protocol so that the subprocess knows how to handle them; as of this
         writing, either C{"TCP"} or C{"SSL"})
-    @ivar outgoingSocketQueue: a C{list} of 2-tuples of C{(socket-object, bytes)}
+    @ivar outgoingSocketQueue: a C{list} of 2-tuples of C{(socket-object,
+        bytes)}
 
     @ivar status: a record of the last status message received (via recvmsg)
         from the subprocess: this is an application-specific indication of how
