@@ -153,36 +153,6 @@ class ConnectionLimiterTests(TestCase):
     Tests for L{ConnectionLimiter}
     """
 
-    def test_statusFromMessage(self):
-        """
-        L{ConnectionLimiter.statusFromMessage} will not return a value below
-        zero, and a "0" status - a new process reporting its launching - will
-        leave the previous status value the same, on the assumption that the 0
-        is simply being reported late, and the master has given the worker some
-        work to do before it reports its initial status.
-        """
-
-        cl = ConnectionLimiter(2, 20)
-
-        # "0" Zeroing out does not overwrite legitimate count
-        self.assertEqual(cl.statusFromMessage(None, "0"), 0)
-        self.assertEqual(cl.statusFromMessage(0, "0"), 0)
-        self.assertEqual(cl.statusFromMessage(1, "0"), 1)
-        self.assertEqual(cl.statusFromMessage(2, "0"), 2)
-
-        # "-" No negative counts
-        self.assertEqual(cl.statusFromMessage(None, "-"), 0)
-        self.assertEqual(cl.statusFromMessage(0, "-"), 0)
-        self.assertEqual(cl.statusFromMessage(1, "-"), 0)
-        self.assertEqual(cl.statusFromMessage(2, "-"), 1)
-
-        # "+" No change
-        self.assertEqual(cl.statusFromMessage(None, "+"), 0)
-        self.assertEqual(cl.statusFromMessage(0, "+"), 0)
-        self.assertEqual(cl.statusFromMessage(1, "+"), 1)
-        self.assertEqual(cl.statusFromMessage(2, "+"), 2)
-
-
     def test_loadReducedStartsReadingAgain(self):
         """
         L{ConnectionLimiter.statusesChanged} determines whether the current

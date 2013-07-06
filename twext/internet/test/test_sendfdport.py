@@ -137,56 +137,6 @@ class InheritedSocketDispatcherTests(TestCase):
                           dispatcher._subprocessSockets)
 
 
-    def test_sendFileDescriptorSorting(self):
-        """
-        Make sure InheritedSocketDispatcher.sendFileDescriptor sorts sockets
-        with status None higher than those with int status values.
-        """
-        dispatcher = self.dispatcher
-        dispatcher.addSocket()
-        dispatcher.addSocket()
-        dispatcher.addSocket()
-
-        sockets = dispatcher._subprocessSockets[:]
-
-        # Check that 0 is preferred over None
-        sockets[0].status = 0
-        sockets[1].status = 1
-        sockets[2].status = None
-
-        dispatcher.sendFileDescriptor(None, "")
-
-        self.assertEqual(sockets[0].status, 1)
-        self.assertEqual(sockets[1].status, 1)
-        self.assertEqual(sockets[2].status, None)
-
-        dispatcher.sendFileDescriptor(None, "")
-
-        self.assertEqual(sockets[0].status, 1)
-        self.assertEqual(sockets[1].status, 1)
-        self.assertEqual(sockets[2].status, 1)
-
-        # Check that after going to 1 and back to 0 that is still preferred
-        # over None
-        sockets[0].status = 0
-        sockets[1].status = 1
-        sockets[2].status = None
-
-        dispatcher.sendFileDescriptor(None, "")
-
-        self.assertEqual(sockets[0].status, 1)
-        self.assertEqual(sockets[1].status, 1)
-        self.assertEqual(sockets[2].status, None)
-
-        sockets[1].status = 0
-
-        dispatcher.sendFileDescriptor(None, "")
-
-        self.assertEqual(sockets[0].status, 1)
-        self.assertEqual(sockets[1].status, 1)
-        self.assertEqual(sockets[2].status, None)
-
-
     def test_statusesChangedOnNewConnection(self):
         """
         L{InheritedSocketDispatcher.sendFileDescriptor} will update its

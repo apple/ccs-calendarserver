@@ -15,6 +15,14 @@
 # limitations under the License.
 ##
 
+"""
+Implementation of dispatching HTTP connections to child processes using
+L{twext.internet.sendfdport.InheritedSocketDispatcher}.
+"""
+from __future__ import print_function
+
+from functools import total_ordering
+
 from twext.internet.sendfdport import (
     InheritedPort, InheritedSocketDispatcher, InheritingProtocolFactory)
 from twext.internet.tcp import MaxAcceptTCPServer
@@ -152,6 +160,73 @@ class ReportingHTTPFactory(HTTPFactory):
 
 
 
+@total_ordering
+class WorkerStatus(object):
+    """
+    The status of a worker process.
+    """
+
+    def __init__(self, acknowledged=0, unacknowledged=0, started=0):
+        """
+        Create a L{ConnectionStatus} with a number of sent connections and a
+        number of un-acknowledged connections.
+
+        @param acknowledged: the number of connections which we know the
+            subprocess to be presently processing; i.e. those which have been
+            transmitted to the subprocess.
+
+        @param unacknowledged: The number of connections which we have sent to
+            the subprocess which have never received a status response (a
+            "C{+}" status message).
+
+        @param started: The number of times this worker has been started.
+        """
+        self.acknowledged = acknowledged
+        self.unacknowledged = unacknowledged
+        self.started = started
+
+
+    def restarted(self):
+        """
+        The L{WorkerStatus} derived from the current status of a process and
+        the fact that it just restarted.
+        """
+        return self.__class__(0, self.unacknowledged, self.started + 1)
+
+
+    def _tuplify(self):
+        return (self.acknowledged, self.unacknowledged, self.started)
+
+
+    def __lt__(self, other):
+        if not isinstance(other, WorkerStatus):
+            return NotImplemented
+        return self._tuplify() < other._tuplify()
+
+
+    def __eq__(self, other):
+        if not isinstance(other, WorkerStatus):
+            return NotImplemented
+        return self._tuplify() == other._tuplify()
+
+
+    def __add__(self, other):
+        if not isinstance(other, WorkerStatus):
+            return NotImplemented
+        return self.__class__(self.acknowledged + other.acknowledged,
+                              self.unacknowledged + other.unacknowledged,
+                              self.started + other.started)
+
+
+    def __sub__(self, other):
+        if not isinstance(other, WorkerStatus):
+            return NotImplemented
+        return self + self.__class__(-other.acknowledged,
+                                     -other.unacknowledged,
+                                     -other.started)
+
+
+
 class ConnectionLimiter(MultiService, object):
     """
     Connection limiter for use with L{InheritedSocketDispatcher}.
@@ -195,16 +270,14 @@ class ConnectionLimiter(MultiService, object):
         ).setServiceParent(self)
 
 
-    def intWithNoneAsZero(self, n):
-        if n is None:
-            return 0
-        return n
     # IStatusWatcher
 
     def initialStatus(self):
         """
-        TODO
+        The status of a new worker added to the pool.
         """
+        return WorkerStatus()
+
 
     def statusFromMessage(self, previousStatus, message):
         """
@@ -215,25 +288,19 @@ class ConnectionLimiter(MultiService, object):
             # A connection has gone away in a subprocess; we should start
             # accepting connections again if we paused (see
             # newConnectionStatus)
-            result = self.intWithNoneAsZero(previousStatus) - 1
-            if result < 0:
-                log.error("metafd: trying to decrement status below zero")
-                result = 0
+            return previousStatus - WorkerStatus(acknowledged=1)
         elif message == '0':
-            # A new process just started accepting new connections; zero
-            # out its expected load, but only if previous status is still
-            # None
-            result = 0 if previousStatus is None else previousStatus
-            if previousStatus is None:
-                result = 0
-            else:
-                log.error("metafd: trying to zero status that is not None")
-                result = previousStatus
+            # A new process just started accepting new connections.  It might
+            # still have some unacknowledged connections, but any connections
+            # that it acknowledged working on are now completed.  (We have no
+            # way of knowing whether the acknowledged connections were acted
+            # upon or dropped, so we have to treat that number with a healthy
+            # amount of skepticism.)
+            return previousStatus.restarted()
         else:
-            # '+' is just an acknowledgement of newConnectionStatus, so we can
-            # ignore it.
-            result = self.intWithNoneAsZero(previousStatus)
-        return result
+            # '+' acknowledges that the subprocess has taken on the work.
+            return previousStatus + WorkerStatus(acknowledged=1,
+                                                 unacknowledged=-1)
 
 
     def newConnectionStatus(self, previousStatus):
@@ -241,8 +308,7 @@ class ConnectionLimiter(MultiService, object):
         Determine the effect of a new connection being sent on a subprocess
         socket.
         """
-        result = self.intWithNoneAsZero(previousStatus) + 1
-        return result
+        return previousStatus + WorkerStatus(unacknowledged=1)
 
 
     def statusesChanged(self, statuses):
@@ -254,7 +320,9 @@ class ConnectionLimiter(MultiService, object):
         C{self.dispatcher.statuses} attribute, which is what
         C{self.outstandingRequests} uses to compute it.)
         """
-        current = self.outstandingRequests + 1
+        current = sum(status.acknowledged
+                      for status in self.dispatcher.statuses)
+        self._outstandingRequests = current # preserve for or= field in log
         maximum = self.maxRequests
         overloaded = (current >= maximum)
         if overloaded:
@@ -265,9 +333,10 @@ class ConnectionLimiter(MultiService, object):
                 f.myServer.myPort.startReading()
 
 
-    @property
+    _outstandingRequests = 0
+    @property # make read-only
     def outstandingRequests(self):
-        return sum(map(self.intWithNoneAsZero, self.dispatcher.statuses))
+        return self._outstandingRequests
 
 
 
