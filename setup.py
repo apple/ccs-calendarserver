@@ -155,7 +155,7 @@ def doSetup():
                              "bin/calendarserver_purge_events",
                              "bin/calendarserver_purge_principals",
                              "bin/calendarserver_shell",
-                            #"bin/calendarserver_upgrade",
+                             "bin/calendarserver_upgrade",
                             #"bin/calendarserver_verify_data",
                            ],
         data_files=[("caldavd", ["conf/caldavd.plist"]), ],

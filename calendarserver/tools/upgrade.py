@@ -28,7 +28,7 @@ import time
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 
-from twext.python.log import Logger, LogLevel
+from twext.python.log import Logger, LogLevel, formatEvent, addObserver
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twisted.application.service import Service
@@ -194,13 +194,14 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     def makeService(store):
         return UpgraderService(store, options, output, reactor, config)
 
-    def onlyUpgradeEvents(event):
-        output.write(logDateString() + " " + log.textFromEventDict(event) + "\n")
+    def onlyUpgradeEvents(eventDict):
+        text = formatEvent(eventDict)
+        output.write(logDateString() + " " + text + "\n")
         output.flush()
 
     if not options["status"]:
         log.publisher.levels.setLogLevelForNamespace(None, LogLevel.debug)
-        log.addObserver(onlyUpgradeEvents)
+        addObserver(onlyUpgradeEvents)
 
     def customServiceMaker():
         customService = CalDAVServiceMaker()
