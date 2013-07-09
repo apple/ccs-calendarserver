@@ -63,9 +63,11 @@ classifiers = None
 # Write version file
 #
 
-version_string = "%s (%s)" % version()
+version_number, version_info = version()
+
+version_string = "{number} ({info})".format(number=version_number, info=version_info)
 version_file = file(os.path.join("calendarserver", "version.py"), "w")
-version_file.write('version = "%s"\n' % version_string)
+version_file.write('version = "{version}"\n'.format(version=version_string))
 version_file.close()
 
 #
@@ -178,7 +180,7 @@ def doSetup():
         for script in dist.scripts:
             scriptPath = os.path.join(install_scripts, os.path.basename(script))
 
-            print("rewriting %s" % (scriptPath,))
+            print("rewriting {0}".format(scriptPath))
 
             script = []
 
@@ -195,17 +197,17 @@ def doSetup():
                 line = line.rstrip("\n")
                 if fileType == "sh":
                     if line == "#PYTHONPATH":
-                        script.append('PYTHONPATH="%s:$PYTHONPATH"' % (install_lib,))
+                        script.append('PYTHONPATH="{add}:$PYTHONPATH"'.format(add=install_lib))
                     elif line == "#PATH":
-                        script.append('PATH="%s:$PATH"' % (os.path.join(base, "usr", "bin"),))
+                        script.append('PATH="{add}:$PATH"'.format(add=os.path.join(base, "usr", "bin")))
                     else:
                         script.append(line)
 
                 elif fileType == "python":
                     if line == "#PYTHONPATH":
-                        script.append('PYTHONPATH="%s"' % (install_lib,))
+                        script.append('PYTHONPATH="{path}"'.format(path=install_lib))
                     elif line == "#PATH":
-                        script.append('PATH="%s"' % (os.path.join(base, "usr", "bin"),))
+                        script.append('PATH="{path}"'.format(path=os.path.join(base, "usr", "bin")))
                     else:
                         script.append(line)
 
