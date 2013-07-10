@@ -21,6 +21,8 @@ L{txdav.caldav.datastore.test.common}.
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
+from twistedcaldav.memcacher import Memcacher
+
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 
 from txdav.base.propertystore.test.base import (
@@ -208,6 +210,64 @@ class PropertyStoreTest(PropertyStoreTest):
 
         yield store1_user1.__setitem__(pname, pvalue)
         self.assertEqual(store1_user1[pname], pvalue)
+
+
+    @inlineCallbacks
+    def test_cacher_failure(self):
+        """
+        Test that properties can still be read and written even when they are too larger for the
+        cacher to handle.
+        """
+
+        # Existing store - add a normal property
+        self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
+        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 10)
+        self.assertTrue("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
+
+        pname1 = propertyName("dummy1")
+        pvalue1 = propertyValue("*")
+
+        yield store1_user1.__setitem__(pname1, pvalue1)
+        self.assertEqual(store1_user1[pname1], pvalue1)
+
+        self.assertEqual(len(store1_user1._cached), 1)
+
+        yield self._txn.commit()
+
+        # Existing store - add a large property
+        self._txn = self.store.newTransaction()
+        self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
+        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 10)
+        self.assertTrue("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
+
+        pname2 = propertyName("dummy2")
+        pvalue2 = propertyValue("*" * (Memcacher.MEMCACHE_VALUE_LIMIT + 10))
+
+        yield store1_user1.__setitem__(pname2, pvalue2)
+        self.assertEqual(store1_user1[pname2], pvalue2)
+
+        self.assertEqual(len(store1_user1._cached), 2)
+
+        yield self._txn.commit()
+
+        # Try again - the cacher will fail large values
+        self._txn = self.store.newTransaction()
+        self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
+        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 10)
+        self.assertFalse("SQL.props:10/user01" in store1_user1._cacher._memcacheProtocol._cache)
+
+        self.assertEqual(store1_user1[pname1], pvalue1)
+        self.assertEqual(store1_user1[pname2], pvalue2)
+        self.assertEqual(len(store1_user1._cached), 2)
+
+        yield store1_user1.__delitem__(pname1)
+        self.assertTrue(pname1 not in store1_user1)
+
+        yield store1_user1.__delitem__(pname2)
+        self.assertTrue(pname2 not in store1_user1)
+
+        self.assertEqual(len(store1_user1._cached), 0)
+        self.assertFalse("SQL.props:10/user01" in store1_user1._cacher._memcacheProtocol._cache)
 
 if PropertyStore is None:
     PropertyStoreTest.skip = importErrorMessage

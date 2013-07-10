@@ -182,3 +182,23 @@ class MemcacherTestCase(TestCase):
         self.assertFalse((yield cacher.checkAndSet("akey", "yetanother", "0")))
         # Should work because identifier does match:
         self.assertTrue((yield cacher.checkAndSet("akey", "yetanother", "1")))
+
+
+    @inlineCallbacks
+    def test_keyValueLimits(self):
+
+        config.ProcessType = "Single"
+        cacher = Memcacher("testing", key_normalization=False)
+
+        result = yield cacher.set("*", "*")
+        self.assertTrue(result)
+
+        # Key limits
+        result = yield cacher.set("*" * (Memcacher.MEMCACHE_KEY_LIMIT + 10), "*")
+        self.assertFalse(result)
+        value = yield cacher.get("*" * (Memcacher.MEMCACHE_KEY_LIMIT + 10), "*")
+        self.assertEquals(value, (None, "",))
+
+        # Value limits
+        result = yield cacher.set("*", "*" * (Memcacher.MEMCACHE_VALUE_LIMIT + 10))
+        self.assertFalse(result)
