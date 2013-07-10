@@ -521,7 +521,10 @@ class LogPublisher(object):
 
         @param observer: An L{ILogObserver} to remove.
         """
-        self._observers.remove(observer)
+        try:
+            self._observers.remove(observer)
+        except KeyError:
+            pass
 
 
     def __call__(self, event): 
@@ -779,10 +782,10 @@ class DefaultLogPublisher(object):
                 ...
 
         # Send all events to the AMPObserver
-        log.publisher.rootPublisher.addObserver(AMPObserver())
+        log.publisher.addObserver(AMPObserver(), filtered=False)
 
         # Send filtered events to the FileObserver
-        log.publisher.filteredPublisher.addObserver(FileObserver())
+        log.publisher.addObserver(AMPObserver())
 
     With no observers added, the default behavior is that the legacy Twisted
     logging system sees messages as controlled by L{LogLevelFilterPredicate}.
@@ -794,6 +797,33 @@ class DefaultLogPublisher(object):
         self.levels            = LogLevelFilterPredicate()
         self.filters           = FilteringLogObserver(self.filteredPublisher, (self.levels,))
         self.rootPublisher     = LogPublisher(self.filters)
+
+
+    def addObserver(self, observer, filtered=True):
+        """
+        Registers an observer with this publisher.
+
+        @param observer: An L{ILogObserver} to add.
+
+        @param filtered: If true, registers C{observer} after filters are
+            applied; otherwise C{observer} will get all events.
+        """
+        if filtered:
+            self.filteredPublisher.addObserver(observer)
+            self.rootPublisher.removeObserver(observer)
+        else:
+            self.rootPublisher.addObserver(observer)
+            self.filteredPublisher.removeObserver(observer)
+
+
+    def removeObserver(self, observer):
+        """
+        Unregisters an observer with this publisher.
+
+        @param observer: An L{ILogObserver} to remove.
+        """
+        self.rootPublisher.removeObserver(observer)
+        self.filteredPublisher.removeObserver(observer)
 
 
     def __call__(self, event):
