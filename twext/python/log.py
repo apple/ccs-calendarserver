@@ -114,10 +114,10 @@ class LogLevel(Names):
        etc.
 
      - C{warn}: Warnings events: Events that may require greater attention than
-       informational events but are a failure condition, such as authorization
-       failures, bad data from a network client, etc.
+       informational events but are not a systemic failure condition, such as
+       authorization failures, bad data from a network client, etc.
 
-     - C{error}: Error conditions: Events indicating a software failure, such
+     - C{error}: Error conditions: Events indicating a systemic failure, such
        as unhandled exceptions, loss of connectivity to a back-end database,
        etc.
     """
@@ -752,8 +752,10 @@ class DefaultLogPublisher(object):
 
         3. B{filteredPublisher} - a L{LogPublisher}
 
-        4. B{legacyLogObserver} - a A{LegacyLogObserver} wired up to
-           L{twisted.python.log.msg}
+        4. B{legacyLogObserver} - a L{LegacyLogObserver} wired up to
+           L{twisted.python.log.msg}.  This allows any observers registered
+           with Twisted's logging (that is, most observers in presently use) to
+           receive (filtered) events.
 
     The purpose of this class is to provide a default log observer with
     sufficient hooks to enable applications to add observers that can either
