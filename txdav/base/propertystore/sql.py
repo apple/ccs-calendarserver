@@ -41,6 +41,12 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 prop = schema.RESOURCE_PROPERTY
 
 class PropertyStore(AbstractPropertyStore):
+    """
+    We are going to use memcache to cache properties per-resource/per-user. However, we
+    need to be able to invalidate on a per-resource basis, in addition to per-resource/per-user.
+    So we will also track in memcache which resource/uid tokens are valid. That way we can remove
+    the tracking entry to completely invalidate all the per-resource/per-user pairs.
+    """
 
     _cacher = Memcacher("SQL.props", pickle=True, key_normalization=False)
 
@@ -49,9 +55,22 @@ class PropertyStore(AbstractPropertyStore):
             "do not construct directly, call PropertyStore.load()"
         )
 
-    _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
-                        From=prop,
-                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+    _allWithID = Select(
+        [prop.NAME, prop.VIEWER_UID, prop.VALUE],
+        From=prop,
+        Where=prop.RESOURCE_ID == Parameter("resourceID")
+    )
+
+    _allWithIDViewer = Select(
+        [prop.NAME, prop.VALUE],
+        From=prop,
+        Where=(prop.RESOURCE_ID == Parameter("resourceID")).And
+              (prop.VIEWER_UID == Parameter("viewerID"))
+    )
+
+
+    def _cacheToken(self, userid):
+        return "{0!s}/{1}".format(self._resourceID, userid)
 
 
     @inlineCallbacks
@@ -62,13 +81,41 @@ class PropertyStore(AbstractPropertyStore):
         """
         # Cache existing properties in this object
         # Look for memcache entry first
-        rows = yield self._cacher.get(str(self._resourceID))
-        if rows is None:
-            rows = yield self._allWithID.on(txn, resourceID=self._resourceID)
-            yield self._cacher.set(str(self._resourceID),
-                                   rows if rows is not None else ())
-        for name, uid, value in rows:
-            self._cached[(name, uid)] = value
+
+        @inlineCallbacks
+        def _cache_user_props(uid):
+
+            # First check whether uid already has a valid cached entry
+            valid_cached_users = yield self._cacher.get(str(self._resourceID))
+            if valid_cached_users is None:
+                valid_cached_users = set()
+
+            # Fetch cached user data if valid and present
+            if uid in valid_cached_users:
+                rows = yield self._cacher.get(self._cacheToken(uid))
+            else:
+                rows = None
+
+            # If no cached data, fetch from SQL DB and cache
+            if rows is None:
+                rows = yield self._allWithIDViewer.on(
+                    txn,
+                    resourceID=self._resourceID,
+                    viewerID=uid,
+                )
+                yield self._cacher.set(self._cacheToken(uid), rows if rows is not None else ())
+
+                # Mark this uid as valid
+                valid_cached_users.add(uid)
+                yield self._cacher.set(str(self._resourceID), valid_cached_users)
+
+            for name, value in rows:
+                self._cached[(name, uid)] = value
+
+        # Cache for the owner first, then the sharee if different
+        yield _cache_user_props(self._defaultUser)
+        if self._perUser != self._defaultUser:
+            yield _cache_user_props(self._perUser)
 
 
     @classmethod
@@ -258,7 +305,7 @@ class PropertyStore(AbstractPropertyStore):
                 yield self._insertQuery.on(
                     txn, resourceID=self._resourceID, value=value_str,
                     name=key_str, uid=uid)
-            self._cacher.delete(str(self._resourceID))
+            self._cacher.delete(self._cacheToken(uid))
 
         # Call the registered notification callback - we need to do this as a preCommit since it involves
         # a bunch of deferred operations, but this propstore api is not deferred. preCommit will execute
@@ -290,7 +337,7 @@ class PropertyStore(AbstractPropertyStore):
                                  resourceID=self._resourceID,
                                  name=key_str, uid=uid
                                 )
-            self._cacher.delete(str(self._resourceID))
+            self._cacher.delete(self._cacheToken(uid))
 
         # Call the registered notification callback - we need to do this as a preCommit since it involves
         # a bunch of deferred operations, but this propstore api is not deferred. preCommit will execute
@@ -319,6 +366,8 @@ class PropertyStore(AbstractPropertyStore):
 
         self._cached = {}
         yield self._deleteResourceQuery.on(self._txn, resourceID=self._resourceID)
+
+        # Invalidate entire set of cached per-user data for this resource
         self._cacher.delete(str(self._resourceID))
 
 
@@ -341,7 +390,7 @@ class PropertyStore(AbstractPropertyStore):
                     self._txn, resourceID=self._resourceID, value=value_str,
                     name=key_str, uid=uid)
 
-        # Reload from the DB
+        # Invalidate entire set of cached per-user data for this resource and reload
         self._cached = {}
         self._cacher.delete(str(self._resourceID))
         yield self._refresh(self._txn)
