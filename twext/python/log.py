@@ -767,18 +767,19 @@ class DefaultLogPublisher(object):
         @implementer(ILogObserver)
         class AMPObserver(object):
             def __call__(self, event):
-                # eg.: Hold all emitted events in a ring buffer and expose them
-                # via AMP.
+                # eg.: Hold events in a ring buffer and expose them via AMP.
                 ...
 
         @implementer(ILogObserver)
         class FileObserver(object):
             def __call__(self, event):
-                # eg.: Take only the filtered events and write them into a
-                # file.
+                # eg.: Take events and write them into a file.
                 ...
 
+        # Send all events to the AMPObserver
         log.publisher.rootPublisher.addObserver(AMPObserver())
+
+        # Send filtered events to the FileObserver
         log.publisher.filteredPublisher.addObserver(FileObserver())
 
     With no observers added, the default behavior is that the legacy Twisted
