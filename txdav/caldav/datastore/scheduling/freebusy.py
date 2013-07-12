@@ -136,8 +136,8 @@ def generateFreeBusyInfo(
     organizer_uid = organizer_record.uid if organizer_record else ""
 
     # Free busy is per-user
-    useruid = calresource.viewerHome().uid()
-    user_record = calresource.directoryService().recordWithUID(useruid)
+    attendee_uid = calresource.viewerHome().uid()
+    attendee_record = calresource.directoryService().recordWithUID(attendee_uid)
 
     # Get the timezone property from the collection.
     tz = calresource.getTimezone()
@@ -149,26 +149,34 @@ def generateFreeBusyInfo(
         "resource": False,
     }
     do_event_details = False
-    if event_details is not None and organizer_record is not None and user_record is not None:
+    if event_details is not None and organizer_record is not None and attendee_record is not None:
 
-        # Check if organizer is attendee
-        if organizer_uid == useruid:
+        # Get the principal of the authorized user which may be different from the organizer if a delegate of
+        # the organizer is making the request
+        authz_uid = organizer_uid
+        authz_record = organizer_record
+        if hasattr(calresource._txn, "_authz_uid") and calresource._txn._authz_uid != organizer_uid:
+            authz_uid = calresource._txn._authz_uid
+            authz_record = calresource.directoryService().recordWithUID(authz_uid)
+
+        # Check if attendee is also the organizer or the delegate doing the request
+        if attendee_uid in (organizer_uid, authz_uid):
             do_event_details = True
             rich_options["organizer"] = True
 
-        # Check if organizer is a delegate of attendee
-        proxy = (yield organizer_record.isProxyFor(user_record))
+        # Check if authorized user is a delegate of attendee
+        proxy = (yield authz_record.isProxyFor(attendee_record))
         if config.Scheduling.Options.DelegeteRichFreeBusy and proxy:
             do_event_details = True
             rich_options["delegate"] = True
 
         # Check if attendee is room or resource
-        if config.Scheduling.Options.RoomResourceRichFreeBusy and user_record.getCUType() in ("RESOURCE", "ROOM",):
+        if config.Scheduling.Options.RoomResourceRichFreeBusy and attendee_record.getCUType() in ("RESOURCE", "ROOM",):
             do_event_details = True
             rich_options["resource"] = True
 
     # Try cache
-    resources = (yield FBCacheEntry.getCacheEntry(calresource, useruid, timerange)) if config.EnableFreeBusyCache else None
+    resources = (yield FBCacheEntry.getCacheEntry(calresource, attendee_uid, timerange)) if config.EnableFreeBusyCache else None
 
     if resources is None:
 
@@ -207,9 +215,9 @@ def generateFreeBusyInfo(
         tzinfo = filter.settimezone(tz)
 
         try:
-            resources = yield calresource._index.indexedSearch(filter, useruid=useruid, fbtype=True)
+            resources = yield calresource._index.indexedSearch(filter, useruid=attendee_uid, fbtype=True)
             if caching:
-                yield FBCacheEntry.makeCacheEntry(calresource, useruid, cache_timerange, resources)
+                yield FBCacheEntry.makeCacheEntry(calresource, attendee_uid, cache_timerange, resources)
         except IndexedSearchException:
             resources = yield calresource._index.bruteForceSearch()
 
