@@ -172,7 +172,7 @@ def odInit(nodeName):
             return Directory(session, node, nodeName)
 
         code = error.code()
-        log.debug("Received code %d from node call: %s" % (code, error))
+        log.debug("Received code {code} from node call: {err}", code=code, err=error)
 
         if code in RETRY_CODES:
             tries -= 1
@@ -205,7 +205,7 @@ def getNodeAttributes(directory, nodeName, attributes):
             return details
 
         code = error.code()
-        log.debug("Received code %d from node details call: %s" % (code, error))
+        log.debug("Received code {code} from node details call: {err}", code=code, err=error)
 
         if code in RETRY_CODES:
             tries -= 1
@@ -254,7 +254,7 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
             return results
 
         code = error.code()
-        log.debug("Received code %d from query call: %s" % (code, error))
+        log.debug("Received code {code} from query call: {err}", code=code, err=error)
 
         if code in RETRY_CODES:
             tries -= 1
@@ -308,7 +308,7 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
             return results
 
         code = error.code()
-        log.debug("Received code %d from query call: %s" % (code, error))
+        log.debug("Received code {code} from query call: {err}", code=code, err=error)
 
         if code in RETRY_CODES:
             tries -= 1
@@ -361,7 +361,7 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
             return results
 
         code = error.code()
-        log.debug("Received code %d from query call: %s" % (code, error))
+        log.debug("Received code {code} from query call: {err}", code=code, err=error)
 
         if code in RETRY_CODES:
             tries -= 1
@@ -393,7 +393,7 @@ def getUserRecord(directory, user):
             return record
 
         code = error.code()
-        log.debug("Received code %d from recordWithRecordType call: %s" % (code, error))
+        log.debug("Received code {code} from recordWithRecordType call: {err}", code=code, err=error)
 
         if code in RETRY_CODES:
             tries -= 1
@@ -422,22 +422,22 @@ def authenticateUserBasic(directory, nodeName, user, password):
     tries = NUM_TRIES
     while tries:
 
-        log.debug("Checking basic auth for user '%s' (tries remaining: %d)" %
-            (user, tries))
+        log.debug("Checking basic auth for user '{user}' (tries remaining: {tries})", 
+            user=user, tries=tries)
 
         result, error = record.verifyPassword_error_(password, None)
         if not error:
-            log.debug("Basic auth for user '%s' result: %s" % (user, result))
+            log.debug("Basic auth for user '{user}' result: {result}", user=user, result=result)
             return result
 
         code = error.code()
 
         if code == INCORRECT_CREDENTIALS:
-            log.debug("Basic auth for user '%s' failed due to incorrect credentials" % (user,))
+            log.debug("Basic auth for user '{user}' failed due to incorrect credentials", user=user)
             return False
 
-        log.debug("Basic auth for user '%s' failed with code %d (%s)" %
-            (user, code, error))
+        log.debug("Basic auth for user '{user}' failed with code {code} ({err})",
+            user=user, code=code, err=error)
 
         if code in RETRY_CODES:
             tries -= 1
@@ -468,8 +468,8 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
     tries = NUM_TRIES
     while tries:
 
-        log.debug("Checking digest auth for user '%s' (tries remaining: %d)" %
-            (user, tries))
+        log.debug("Checking digest auth for user '{user}' (tries remaining: {tries})",
+            user=user, tries=tries)
 
         # TODO: what are these other return values?
         result, mystery1, mystery2, error = record.verifyExtendedWithAuthenticationType_authenticationItems_continueItems_context_error_(
@@ -478,17 +478,17 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
             None, None, None
         )
         if not error:
-            log.debug("Digest auth for user '%s' result: %s" % (user, result))
+            log.debug("Digest auth for user '{user}' result: {result}", user=user, result=result)
             return result
 
         code = error.code()
 
         if code == INCORRECT_CREDENTIALS:
-            log.debug("Digest auth for user '%s' failed due to incorrect credentials" % (user,))
+            log.debug("Digest auth for user '{user}' failed due to incorrect credentials", user=user)
             return False
 
-        log.debug("Digest auth for user '%s' failed with code %d (%s)" %
-            (user, code, error))
+        log.debug("Digest auth for user '{user}' failed with code {code} ({err})",
+            user=user, code=code, err=error)
 
         if code in RETRY_CODES:
             tries -= 1
