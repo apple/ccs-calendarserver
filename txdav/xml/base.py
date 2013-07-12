@@ -616,7 +616,7 @@ class WebDAVTextElement (WebDAVElement):
             return "<%s>" % (self.sname(),)
 
     def __eq__(self, other):
-        if isinstance(other, WebDAVTextElement):
+        if isinstance(other, self.__class__):
             return str(self) == str(other)
         elif type(other) in (str, unicode):
             return str(self) == other
@@ -659,7 +659,7 @@ class WebDAVDateTimeElement (WebDAVTextElement):
         self.datetime() # Raise ValueError if the format is wrong
 
     def __eq__(self, other):
-        if isinstance(other, WebDAVDateTimeElement):
+        if isinstance(other, self.__class__):
             return self.datetime() == other.datetime()
         else:
             return NotImplemented
@@ -672,7 +672,7 @@ class WebDAVDateTimeElement (WebDAVTextElement):
             return parse_date(s)
 
 
-class DateTimeHeaderElement (WebDAVTextElement):
+class DateTimeHeaderElement (WebDAVDateTimeElement):
     """
     WebDAV date-time element for elements that substitute for HTTP
     headers. (RFC 2068, section 3.3.1)
@@ -706,16 +706,6 @@ class DateTimeHeaderElement (WebDAVTextElement):
             raise ValueError("Unknown date type: %r" % (date,))
 
         return clazz(PCDATAElement(date))
-
-    def __init__(self, *children, **attributes):
-        super(DateTimeHeaderElement, self).__init__(*children, **attributes)
-        self.datetime() # Raise ValueError if the format is wrong
-
-    def __eq__(self, other):
-        if isinstance(other, WebDAVDateTimeElement):
-            return self.datetime() == other.datetime()
-        else:
-            return NotImplemented
 
     def datetime(self):
         s = str(self)
