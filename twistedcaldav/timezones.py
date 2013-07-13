@@ -128,21 +128,45 @@ class TimezoneCache(object):
     def validatePath():
         dbpath = FilePath(TimezoneCache.getDBPath())
         if not dbpath.exists():
-            # Move package data to the path
-            pkgpath = TimezoneCache.FilteredFilePath(TimezoneCache._getPackageDBPath())
-            log.info("Copying timezones from %s to %s" % (pkgpath.path, dbpath.path,))
-            pkgpath.copyFilteredDirectoryTo(dbpath)
+            TimezoneCache.copyPackage("Copying")
         else:
             # Check if pkg is more recent and copy over
             pkgversion = TimezoneCache.getTZVersion(TimezoneCache._getPackageDBPath())
             dbversion = TimezoneCache.getTZVersion(dbpath.path)
             if pkgversion > dbversion:
                 dbpath.remove()
-                pkgpath = TimezoneCache.FilteredFilePath(TimezoneCache._getPackageDBPath())
-                log.info("Updating timezones at %s with %s" % (dbpath.path, pkgpath.path,))
-                pkgpath.copyFilteredDirectoryTo(dbpath)
+                TimezoneCache.copyPackage("Updating")
             else:
                 log.info("Valid timezones at %s" % (dbpath.path,))
+
+
+    @staticmethod
+    def copyPackage(title):
+        """
+        Copy package directory to db path using a temporary sibling to avoid potential
+        concurrency race conditions.
+
+        @param title: string to use in log entry
+        @type title: C{str}
+        """
+        dbpath = FilePath(TimezoneCache.getDBPath())
+        pkgpath = TimezoneCache.FilteredFilePath(TimezoneCache._getPackageDBPath())
+        log.info(
+            "{title} timezones from {pkg} to {to}",
+            title=title,
+            pkg=pkgpath.path,
+            to=dbpath.path
+        )
+
+        # Use temp directory to copy to first
+        temp = dbpath.temporarySibling()
+        pkgpath.copyFilteredDirectoryTo(temp)
+
+        # Move to actual path if it stll does not exist
+        if not dbpath.exists():
+            temp.moveTo(dbpath)
+        else:
+            temp.remove()
 
 
     @staticmethod

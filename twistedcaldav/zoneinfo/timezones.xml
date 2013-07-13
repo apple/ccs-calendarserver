@@ -2,7 +2,7 @@
 <!DOCTYPE timezones SYSTEM "timezones.dtd">
 
 <timezones>
-  <dtstamp>2013-05-08T18:04:04Z</dtstamp>
+  <dtstamp>2013-07-11T02:11:45Z</dtstamp>
   <timezone>
     <tzid>Africa/Abidjan</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
@@ -78,8 +78,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/Casablanca</tzid>
-    <dtstamp>2013-05-08T18:04:04Z</dtstamp>
-    <md5>031f182ccba88915e1c8f21279626360</md5>
+    <dtstamp>2013-07-11T02:11:45Z</dtstamp>
+    <md5>b4e345b053c4699911078dcd16854bab</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ceuta</tzid>
@@ -1396,10 +1396,10 @@
   </timezone>
   <timezone>
     <tzid>Asia/Jerusalem</tzid>
-    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <dtstamp>2013-07-11T02:11:45Z</dtstamp>
     <alias>Asia/Tel_Aviv</alias>
     <alias>Israel</alias>
-    <md5>68bab258f99496577d53abe2f2a12963</md5>
+    <md5>3140f1012e92c007911e7e0c02e83659</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kabul</tzid>
@@ -1613,8 +1613,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Tel_Aviv</tzid>
-    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
-    <md5>955a3e37e6a05d03e74e732f0dfa8247</md5>
+    <dtstamp>2013-07-11T02:11:45Z</dtstamp>
+    <md5>1d5f36db5275e5264d3abea959dd82a5</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Thimbu</tzid>
@@ -2609,8 +2609,8 @@
   </timezone>
   <timezone>
     <tzid>Israel</tzid>
-    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
-    <md5>52d4f616c8db8d8df19f022dab5c328c</md5>
+    <dtstamp>2013-07-11T02:11:45Z</dtstamp>
+    <md5>109a908eaae716ddeb70a5c6dfbb3782</md5>
   </timezone>
   <timezone>
     <tzid>Jamaica</tzid>

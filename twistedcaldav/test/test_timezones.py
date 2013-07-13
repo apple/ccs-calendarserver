@@ -23,6 +23,7 @@ from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 
 import os
+import threading
 
 class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
     """
@@ -216,6 +217,7 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
     """
 
     def setUp(self):
+        super(TimezonePackageTest, self).setUp()
         TimezoneCache.clear()
         TimezoneCache.create()
 
@@ -274,3 +276,32 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
         copy_tz = readTZ("America/New_York")
 
         self.assertEqual(str(pkg_tz), str(copy_tz))
+
+
+    def test_copyPackage_Concurrency(self):
+        """
+        Test that concurrent copying of the tz package works.
+        """
+
+        self.patch(config, "UsePackageTimezones", False)
+        TimezoneCache.clear()
+
+        ex = [False, False]
+        def _try(n):
+            try:
+                TimezoneCache.create()
+            except:
+                ex[n] = True
+
+        t1 = threading.Thread(target=_try, args=(0,))
+        t2 = threading.Thread(target=_try, args=(1,))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        self.assertFalse(ex[0])
+        self.assertFalse(ex[1])
+
+        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo")))
+        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo", "America", "New_York.ics")))
