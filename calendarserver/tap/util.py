@@ -38,6 +38,7 @@ from twext.web2.auth.basic import BasicCredentialFactory
 from twext.web2.dav import auth
 from twext.web2.dav.util import joinURL
 from twext.web2.http_headers import Headers
+from twext.web2.resource import Resource
 from twext.web2.static import File as FileResource
 
 from twisted.application.service import Service
@@ -50,6 +51,7 @@ from twisted.python.reflect import namedClass
 # from twisted.python.failure import Failure
 
 from twistedcaldav.bind import doBind
+from twistedcaldav.cache import CacheStoreNotifierFactory
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
@@ -59,12 +61,12 @@ from twistedcaldav.directory.directory import GroupMembershipCache
 from twistedcaldav.directory.internal import InternalDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.wiki import WikiDirectoryService
-from calendarserver.push.notifier import NotifierFactory 
+from calendarserver.push.notifier import NotifierFactory
 from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import AuthenticationWrapper
-from twistedcaldav.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
-from twistedcaldav.scheduling.ischedule.resource import IScheduleInboxResource
+from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
+from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
 from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
@@ -126,6 +128,7 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
     return PostgresService(
         dbRoot, subServiceFactory, current_sql_schema,
         databaseName=config.Postgres.DatabaseName,
+        clusterName=config.Postgres.ClusterName,
         logFile=config.Postgres.LogFile,
         socketDir=config.RunRoot,
         listenAddresses=config.Postgres.ListenAddresses,
@@ -215,7 +218,7 @@ class ConnectionDispenser(object):
 
 
 
-def storeFromConfig(config, txnFactory):
+def storeFromConfig(config, txnFactory, directoryService=None):
     """
     Produce an L{IDataStore} from the given configuration, transaction factory,
     and notifier factory.
@@ -226,13 +229,16 @@ def storeFromConfig(config, txnFactory):
     #
     # Configure NotifierFactory
     #
+    notifierFactories = {}
     if config.Notifications.Enabled:
-        # FIXME: NotifierFactory needs reference to the store in order
-        # to get a txn in order to create a Work item
-        notifierFactory = NotifierFactory(None, config.ServerHostName,
-            config.Notifications.CoalesceSeconds)
-    else:
-        notifierFactory = None
+        notifierFactories["push"] = NotifierFactory(config.ServerHostName, config.Notifications.CoalesceSeconds)
+
+    if config.EnableResponseCache and config.Memcached.Pools.Default.ClientEnabled:
+        notifierFactories["cache"] = CacheStoreNotifierFactory()
+
+    if directoryService is None:
+        directoryService = directoryFromConfig(config)
+
     quota = config.UserQuota
     if quota == 0:
         quota = None
@@ -243,7 +249,8 @@ def storeFromConfig(config, txnFactory):
             uri = "http://%s:%s" % (config.ServerHostName, config.HTTPPort,)
         attachments_uri = uri + "/calendars/__uids__/%(home)s/dropbox/%(dropbox_id)s/%(name)s"
         store = CommonSQLDataStore(
-            txnFactory, notifierFactory,
+            txnFactory, notifierFactories,
+            directoryService,
             FilePath(config.AttachmentsRoot), attachments_uri,
             config.EnableCalDAV, config.EnableCardDAV,
             config.EnableManagedAttachments,
@@ -261,10 +268,14 @@ def storeFromConfig(config, txnFactory):
     else:
         store = CommonFileDataStore(
             FilePath(config.DocumentRoot),
-            notifierFactory, config.EnableCalDAV, config.EnableCardDAV,
+            notifierFactories, directoryService,
+            config.EnableCalDAV, config.EnableCardDAV,
             quota=quota
         )
-    if notifierFactory is not None:
+
+    # FIXME: NotifierFactories need a reference to the store in order
+    # to get a txn in order to possibly create a Work item
+    for notifierFactory in notifierFactories.values():
         notifierFactory.store = store
     return store
 
@@ -279,7 +290,8 @@ def directoryFromConfig(config):
     #
     if config.AugmentService.type:
         augmentClass = namedClass(config.AugmentService.type)
-        log.info("Configuring augment service of type: %s" % (augmentClass,))
+        log.info("Configuring augment service of type: {augmentClass}",
+            augmentClass=augmentClass)
         try:
             augmentService = augmentClass(**config.AugmentService.params)
         except IOError:
@@ -306,8 +318,8 @@ def directoryFromConfig(config):
     directoryClass = namedClass(config.DirectoryService.type)
     principalResourceClass = DirectoryPrincipalProvisioningResource
 
-    log.info("Configuring directory service of type: %s"
-        % (config.DirectoryService.type,))
+    log.info("Configuring directory service of type: {directoryType}",
+        directoryType=config.DirectoryService.type)
 
     config.DirectoryService.params.augmentService = augmentService
     config.DirectoryService.params.groupMembershipCache = groupMembershipCache
@@ -325,7 +337,8 @@ def directoryFromConfig(config):
     if config.ResourceService.Enabled:
         resourceClass = namedClass(config.ResourceService.type)
 
-        log.info("Configuring resource service of type: %s" % (resourceClass,))
+        log.info("Configuring resource service of type: {resourceClass}",
+            resourceClass=resourceClass)
 
         config.ResourceService.params.augmentService = augmentService
         config.ResourceService.params.groupMembershipCache = groupMembershipCache
@@ -360,14 +373,13 @@ def directoryFromConfig(config):
         directory.setRealm(realmName)
     except ImportError:
         pass
-    log.info("Setting up principal collection: %r"
-                  % (principalResourceClass,))
+    log.info("Setting up principal collection: {cls}", cls=principalResourceClass)
     principalResourceClass("/principals/", directory)
     return directory
 
 
 
-def getRootResource(config, newStore, resources=None, directory=None):
+def getRootResource(config, newStore, resources=None):
     """
     Set up directory service and resource hierarchy based on config.
     Return root resource.
@@ -403,15 +415,14 @@ def getRootResource(config, newStore, resources=None, directory=None):
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
     apnSubscriptionResourceClass = APNSubscriptionResource
 
-    if directory is None:
-        directory = directoryFromConfig(config)
+    directory = newStore.directoryService()
 
     #
     # Setup the ProxyDB Service
     #
     proxydbClass = namedClass(config.ProxyDBService.type)
 
-    log.info("Configuring proxydb service of type: %s" % (proxydbClass,))
+    log.info("Configuring proxydb service of type: {cls}", cls=proxydbClass)
 
     try:
         calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
@@ -431,7 +442,7 @@ def getRootResource(config, newStore, resources=None, directory=None):
 
     realm = directory.realmName or ""
 
-    log.info("Configuring authentication for realm: %s" % (realm,))
+    log.info("Configuring authentication for realm: {realm}", realm=realm)
 
     for scheme, schemeConfig in config.Authentication.iteritems():
         scheme = scheme.lower()
@@ -439,7 +450,7 @@ def getRootResource(config, newStore, resources=None, directory=None):
         credFactory = None
 
         if schemeConfig["Enabled"]:
-            log.info("Setting up scheme: %s" % (scheme,))
+            log.info("Setting up scheme: {scheme}", scheme=scheme)
 
             if scheme == "kerberos":
                 if not NegotiateCredentialFactory:
@@ -475,7 +486,7 @@ def getRootResource(config, newStore, resources=None, directory=None):
                 pass
 
             else:
-                log.error("Unknown scheme: %s" % (scheme,))
+                log.error("Unknown scheme: {scheme}", scheme=scheme)
 
         if credFactory:
             wireEncryptedCredentialFactories.append(credFactory)
@@ -485,12 +496,12 @@ def getRootResource(config, newStore, resources=None, directory=None):
     #
     # Setup Resource hierarchy
     #
-    log.info("Setting up document root at: %s" % (config.DocumentRoot,))
+    log.info("Setting up document root at: {root}", root=config.DocumentRoot)
 
     principalCollection = directory.principalCollection
 
     if config.EnableCalDAV:
-        log.info("Setting up calendar collection: %r" % (calendarResourceClass,))
+        log.info("Setting up calendar collection: {cls}", cls=calendarResourceClass)
         calendarCollection = calendarResourceClass(
             directory,
             "/calendars/",
@@ -498,7 +509,7 @@ def getRootResource(config, newStore, resources=None, directory=None):
         )
 
     if config.EnableCardDAV:
-        log.info("Setting up address book collection: %r" % (addressBookResourceClass,))
+        log.info("Setting up address book collection: {cls}", cls=addressBookResourceClass)
         addressBookCollection = addressBookResourceClass(
             directory,
             "/addressbooks/",
@@ -506,7 +517,8 @@ def getRootResource(config, newStore, resources=None, directory=None):
         )
 
         if config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook:
-            log.info("Setting up directory address book: %r" % (directoryBackedAddressBookResourceClass,))
+            log.info("Setting up directory address book: {cls}",
+                cls=directoryBackedAddressBookResourceClass)
 
             directoryBackedAddressBookCollection = directoryBackedAddressBookResourceClass(
                 principalCollections=(principalCollection,),
@@ -521,12 +533,12 @@ def getRootResource(config, newStore, resources=None, directory=None):
             directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
             try:
                 FilePath(directoryPath).remove()
-                log.info("Deleted: %s" % directoryPath)
+                log.info("Deleted: {path}", path=directoryPath)
             except (OSError, IOError), e:
                 if e.errno != errno.ENOENT:
-                    log.error("Could not delete: %s : %r" % (directoryPath, e,))
+                    log.error("Could not delete: {path} : {error}", path=directoryPath, error=e)
 
-    log.info("Setting up root resource: %r" % (rootResourceClass,))
+    log.info("Setting up root resource: {cls}", cls=rootResourceClass)
 
     root = rootResourceClass(
         config.DocumentRoot,
@@ -573,18 +585,35 @@ def getRootResource(config, newStore, resources=None, directory=None):
                         scheme=scheme, port=port, path=redirected_to)
                 )
 
-    for name, info in config.Aliases.iteritems():
-        if os.path.sep in name or not info.get("path", None):
-            log.error("Invalid alias: %s" % (name,))
+    for alias in config.Aliases:
+        url = alias.get("url", None)
+        path = alias.get("path", None)
+        if not url or not path or url[0] != "/":
+            log.error("Invalid alias: URL: {url}  Path: {path}", url=url, path=path)
             continue
-        log.info("Adding alias %s -> %s" % (name, info["path"]))
-        resource = FileResource(info["path"])
-        root.putChild(name, resource)
+        urlbits = url[1:].split("/")
+        parent = root
+        for urlpiece in urlbits[:-1]:
+            child = parent.getChild(urlpiece)
+            if child is None:
+                child = Resource()
+                parent.putChild(urlpiece, child)
+            parent = child
+        if parent.getChild(urlbits[-1]) is not None:
+            log.error("Invalid alias: URL: {url}  Path: {path} already exists", url=url, path=path)
+            continue
+        resource = FileResource(path)
+        parent.putChild(urlbits[-1], resource)
+        log.info("Added alias {url} -> {path}", url=url, path=path)
+
+    # Need timezone cache before setting up any timezone service
+    log.info("Setting up Timezone Cache")
+    TimezoneCache.create()
 
     # Timezone service is optional
     if config.EnableTimezoneService:
-        log.info("Setting up time zone service resource: %r"
-                      % (timezoneServiceResourceClass,))
+        log.info("Setting up time zone service resource: {cls}",
+                      cls=timezoneServiceResourceClass)
 
         timezoneService = timezoneServiceResourceClass(
             root,
@@ -593,8 +622,8 @@ def getRootResource(config, newStore, resources=None, directory=None):
 
     # Standard Timezone service is optional
     if config.TimezoneService.Enabled:
-        log.info("Setting up standard time zone service resource: %r"
-                      % (timezoneStdServiceResourceClass,))
+        log.info("Setting up standard time zone service resource: {cls}",
+                      cls=timezoneStdServiceResourceClass)
 
         timezoneStdService = timezoneStdServiceResourceClass(
             root,
@@ -611,8 +640,8 @@ def getRootResource(config, newStore, resources=None, directory=None):
     # iSchedule service
     #
     if config.Scheduling.iSchedule.Enabled:
-        log.info("Setting up iSchedule inbox resource: %r"
-                      % (iScheduleResourceClass,))
+        log.info("Setting up iSchedule inbox resource: {cls}",
+                      cls=iScheduleResourceClass)
 
         ischedule = iScheduleResourceClass(
             root,
@@ -623,7 +652,8 @@ def getRootResource(config, newStore, resources=None, directory=None):
         # Do DomainKey resources
         DKIMUtils.validConfiguration(config)
         if config.Scheduling.iSchedule.DKIM.Enabled:
-            log.info("Setting up domainkey resource: %r" % (DomainKeyResource,))
+            log.info("Setting up domainkey resource: {res}",
+                res=DomainKeyResource)
             domain = config.Scheduling.iSchedule.DKIM.Domain if config.Scheduling.iSchedule.DKIM.Domain else config.ServerHostName
             dk = DomainKeyResource(
                 domain,
@@ -636,8 +666,8 @@ def getRootResource(config, newStore, resources=None, directory=None):
     # WebCal
     #
     if config.WebCalendarRoot:
-        log.info("Setting up WebCalendar resource: %s"
-                      % (config.WebCalendarRoot,))
+        log.info("Setting up WebCalendar resource: {res}",
+                      res=config.WebCalendarRoot)
         webCalendar = webCalendarResourceClass(
             config.WebCalendarRoot,
             principalCollections=(principalCollection,),
@@ -663,17 +693,14 @@ def getRootResource(config, newStore, resources=None, directory=None):
     #
     apnConfig = config.Notifications.Services.APNS
     if apnConfig.Enabled:
-        log.info("Setting up APNS resource at /%s" %
-            (apnConfig["SubscriptionURL"],))
+        log.info("Setting up APNS resource at /{url}",
+            url=apnConfig["SubscriptionURL"])
         apnResource = apnSubscriptionResourceClass(root, newStore)
         root.putChild(apnConfig["SubscriptionURL"], apnResource)
 
     #
     # Configure ancillary data
     #
-    log.info("Setting up Timezone Cache")
-    TimezoneCache.create()
-
     log.info("Configuring authentication wrapper")
 
     overrides = {}
@@ -698,7 +725,8 @@ def getRootResource(config, newStore, resources=None, directory=None):
                         schemeConfig["Qop"],
                         realm,
                     ))
-            log.info("Overriding %s with %s (%s)" % (path, cls, schemes))
+            log.info("Overriding {path} with {cls} ({schemes})",
+                path=path, cls=cls, schemes=schemes)
 
     authWrapper = AuthenticationWrapper(
         root,
@@ -764,8 +792,6 @@ def getDBPool(config):
         )
 
     return (pool, txnFactory)
-
-
 
 
 
@@ -926,21 +952,25 @@ class MemoryLimitService(Service, object):
                     try:
                         memory = self._memoryForPID(pid, self._residentOnly)
                     except Exception, e:
-                        log.error("Unable to determine memory usage of PID: %d (%s)" % (pid, e))
+                        log.error("Unable to determine memory usage of PID: {pid} ({err})",
+                            pid=pid, err=e)
                         continue
                     if memory > self._bytes:
-                        log.warn("Killing large process: %s PID:%d %s:%d" %
-                            (name, pid, "Resident" if self._residentOnly else "Virtual", memory))
+                        log.warn("Killing large process: {name} PID:{pid} {memtype}:{mem}",
+                            name=name, pid=pid,
+                            memtype=("Resident" if self._residentOnly else "Virtual"),
+                            mem=memory)
                         self._processMonitor.stopProcess(name)
         finally:
             self._delayedCall = self._reactor.callLater(self._seconds, self.checkMemory)
+
 
 
 def checkDirectories(config):
     """
     Make sure that various key directories exist (and create if needed)
     """
-    
+
     #
     # Verify that server root actually exists
     #
@@ -949,7 +979,7 @@ def checkDirectories(config):
         "Server root",
         # Require write access because one might not allow editing on /
         access=os.W_OK,
-        wait=True # Wait in a loop until ServerRoot exists
+        wait=True  # Wait in a loop until ServerRoot exists
     )
 
     #
@@ -993,7 +1023,6 @@ def checkDirectories(config):
 
 
 
-
 class Stepper(object):
     """
     Manages the sequential, deferred execution of "steps" which are objects
@@ -1007,14 +1036,14 @@ class Stepper(object):
             @param failure: a Failure encapsulating the exception from the
                 previous step
             @returns: Failure to continue down the errback chain, or a
-                Deferred returning a non-Failure to switch back to the 
+                Deferred returning a non-Failure to switch back to the
                 callback chain
 
     "Step" objects are added in order by calling addStep(), and when start()
     is called, the Stepper will call the stepWithResult() of the first step.
     If stepWithResult() doesn't raise an Exception, the Stepper will call the
     next step's stepWithResult().  If a stepWithResult() raises an Exception,
-    the Stepper will call the next step's stepWithFailure() -- if it's 
+    the Stepper will call the next step's stepWithFailure() -- if it's
     implemented -- passing it a Failure object.  If the stepWithFailure()
     decides it can handle the Failure and proceed, it can return a non-Failure
     which is an indicator to the Stepper to call the next step's
@@ -1028,6 +1057,7 @@ class Stepper(object):
         self.failure = None
         self.result = None
         self.running = False
+
 
     def addStep(self, step):
         """
@@ -1043,11 +1073,13 @@ class Stepper(object):
         self.steps.append(step)
         return self
 
+
     def defaultStepWithResult(self, result):
         return succeed(result)
 
+
     def defaultStepWithFailure(self, failure):
-        log.warn(failure)
+        log.failure("Step failure", failure=failure)
         return failure
 
     # def protectStep(self, callback):
@@ -1058,6 +1090,7 @@ class Stepper(object):
     #             # TODO: how to turn Exception into Failure
     #             return Failure()
     #     return _protected
+
 
     def start(self, result=None):
         """
@@ -1075,8 +1108,8 @@ class Stepper(object):
 
             # See if we need to use a default implementation of the step methods:
             if hasattr(step, "stepWithResult"):
-               callBack = step.stepWithResult
-               # callBack = self.protectStep(step.stepWithResult)
+                callBack = step.stepWithResult
+                # callBack = self.protectStep(step.stepWithResult)
             else:
                 callBack = self.defaultStepWithResult
             if hasattr(step, "stepWithFailure"):
@@ -1091,4 +1124,3 @@ class Stepper(object):
         self.deferred.callback(result)
 
         return self.deferred
-

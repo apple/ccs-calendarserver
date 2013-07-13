@@ -82,7 +82,7 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
     outAddressbook.properties().update(inAddressbook.properties())
     inObjects = yield inAddressbook.addressbookObjects()
     for addressbookObject in inObjects:
-        
+
         try:
             component = (yield addressbookObject.component()) # XXX WRONG SHOULD CALL getComponent
             component.md5 = addressbookObject.md5()
@@ -90,7 +90,7 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
                 addressbookObject.name(),
                 component,
             )
-    
+
             # Only the owner's properties are migrated, since previous releases of
             # addressbook server didn't have per-user properties.
             outObject = yield outAddressbook.addressbookObjectWithName(
@@ -98,7 +98,7 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
             if outAddressbook.objectResourcesHaveProperties():
                 outObject.properties().update(addressbookObject.properties())
 
-            ok_count += 1 
+            ok_count += 1
 
         except InternalDataStoreError:
             log.error("  InternalDataStoreError: Failed to migrate address book object: %s/%s/%s" % (
@@ -106,7 +106,7 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
                 inAddressbook.name(),
                 addressbookObject.name(),
             ))
-            bad_count += 1 
+            bad_count += 1
 
         except Exception, e:
             log.error("  %s: Failed to migrate address book object: %s/%s/%s" % (
@@ -115,13 +115,14 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
                 inAddressbook.name(),
                 addressbookObject.name(),
             ))
-            bad_count += 1 
+            bad_count += 1
 
     returnValue((ok_count, bad_count,))
 
 
+
 @inlineCallbacks
-def migrateHome(inHome, outHome, getComponent=lambda x:x.component(),
+def migrateHome(inHome, outHome, getComponent=lambda x: x.component(),
                 merge=None):
     yield outHome.removeAddressBookWithName("addressbook")
     outHome.properties().update(inHome.properties())
@@ -134,6 +135,3 @@ def migrateHome(inHome, outHome, getComponent=lambda x:x.component(),
             yield _migrateAddressbook(addressbook, outAddressbook, getComponent)
         except InternalDataStoreError:
             log.error("  Failed to migrate address book: %s/%s" % (inHome.name(), name,))
-
-
-

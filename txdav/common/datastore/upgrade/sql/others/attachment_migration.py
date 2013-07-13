@@ -33,7 +33,7 @@ def doUpgrade(upgrader):
 
     # Ignore if the store is not enabled for managed attachments
     if not upgrader.sqlStore.enableManagedAttachments:
-        upgrader.log_warn("No dropbox migration - managed attachments not enabled")
+        upgrader.log.warn("No dropbox migration - managed attachments not enabled")
         returnValue(None)
 
     statusKey = "MANAGED-ATTACHMENTS"
@@ -42,16 +42,16 @@ def doUpgrade(upgrader):
     try:
         managed = (yield txn.calendarserverValue(statusKey, raiseIfMissing=False))
         if managed is None:
-            upgrader.log_warn("Checking for dropbox migration")
+            upgrader.log.warn("Checking for dropbox migration")
             needUpgrade = (yield storeWrapper.hasDropboxAttachments(txn))
         else:
             needUpgrade = False
         if needUpgrade:
-            upgrader.log_warn("Starting dropbox migration")
+            upgrader.log.warn("Starting dropbox migration")
             yield storeWrapper.upgradeToManagedAttachments(batchSize=10)
-            upgrader.log_warn("Finished dropbox migration")
+            upgrader.log.warn("Finished dropbox migration")
         else:
-            upgrader.log_warn("No dropbox migration needed")
+            upgrader.log.warn("No dropbox migration needed")
         if managed is None:
             yield txn.setCalendarserverValue(statusKey, "1")
     except RuntimeError:

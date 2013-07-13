@@ -18,28 +18,29 @@
 from __future__ import print_function
 
 import os
-from os.path import dirname, basename
+from os.path import dirname
+import subprocess
 
 def version():
     #
     # Compute the version number.
     #
 
-    base_version = "4.2"
+    base_version = "5.1"
 
-    branches = (
-        "tags/release/CalendarServer-" + base_version,
-        "branches/release/CalendarServer-" + base_version + "-dev",
-        "trunk",
+    branches = tuple(
+        branch.format(version=base_version)
+        for branch in (
+            "tags/release/CalendarServer-{version}",
+            "branches/release/CalendarServer-{version}-dev",
+            "trunk",
+        )
     )
-
+    
     source_root = dirname(dirname(__file__))
 
     for branch in branches:
-        cmd = "svnversion -n %r %s" % (source_root, branch)
-        svnversion = os.popen(cmd)
-        svn_revision = svnversion.read()
-        svnversion.close()
+        svn_revision = subprocess.check_output(["svnversion", "-n", source_root, branch])
 
         if "S" in svn_revision:
             continue
@@ -49,31 +50,22 @@ def version():
         elif branch.endswith("-dev"):
             base_version += "-dev"
 
-        if svn_revision == "exported":
-            if "RC_XBS" in os.environ and os.environ["RC_XBS"] == "YES":
-                project_name = basename(os.environ["SRCROOT"])
-
-                prefix = "CalendarServer-"
-
-                if project_name.startswith(prefix):
-                    rc_version = project_name[len(prefix):]
-                    if "." in rc_version:
-                        comment = "Calendar Server v%s" % (rc_version,)
-                    else:
-                        comment = "Calendar Server [dev] r%s" % (rc_version,)
-                    break
-
-            comment = "unknown"
+        if svn_revision in ("exported", "Unversioned directory"):
+            if os.environ.get("RC_XBS", None) == "YES":
+                xbs_version = os.environ.get("RC_ProjectSourceVersion", "?")
+                comment = "Apple Calendar Server {version}".format(version=xbs_version)
+            else:
+                comment = "unknown"
         else:
-            comment = "r%s" % (svn_revision,)
+            comment = "r{revision}".format(revision=svn_revision)
 
         break
     else:
         base_version += "-unknown"
-        comment = "r%s" % (svn_revision,)
+        comment = "r{revision}".format(revision=svn_revision)
 
     return (base_version, comment)
 
 if __name__ == "__main__":
     base_version, comment = version()
-    print("%s (%s)" % (base_version, comment))
+    print("{version} ({comment})".format(version=base_version, comment=comment))

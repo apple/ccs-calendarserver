@@ -14,26 +14,29 @@
 # limitations under the License.
 ##
 
-from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import Delete, Insert, Select, Count
 
 from twisted.internet.defer import inlineCallbacks, succeed, returnValue
-from twisted.trial.unittest import TestCase
 
 from twistedcaldav.config import config
 
 from txdav.caldav.datastore.sql import CalendarStoreFeatures
+from txdav.caldav.datastore.test.util import CommonStoreTests
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import theStoreBuilder, \
     StubNotifierFactory
 from txdav.common.datastore.upgrade.sql.others import attachment_migration
 from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseOtherStep
 
+import hashlib
+import os
+
 """
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
 """
 
 
-class AttachmentMigrationTests(TestCase):
+class AttachmentMigrationModeTests(CommonStoreTests):
     """
     Tests for L{UpgradeDatabaseSchemaStep}.
     """
@@ -47,7 +50,7 @@ class AttachmentMigrationTests(TestCase):
         self.patch(config, "EnableManagedAttachments", enableManagedAttachments)
 
         store = yield theStoreBuilder.buildStore(
-            self, StubNotifierFactory()
+            self, {"push": StubNotifierFactory()}
         )
         store.enableManagedAttachments = enableManagedAttachments
 
@@ -175,3 +178,77 @@ class AttachmentMigrationTests(TestCase):
         managed = (yield txn.calendarserverValue("MANAGED-ATTACHMENTS", raiseIfMissing=False))
         yield txn.commit()
         self.assertEqual(managed, None)
+
+
+
+class AttachmentMigrationTests(CommonStoreTests):
+    """
+    Tests for L{UpgradeDatabaseSchemaStep}.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        self.patch(config, "EnableManagedAttachments", True)
+
+        yield super(AttachmentMigrationTests, self).setUp()
+
+        self._sqlCalendarStore.enableManagedAttachments = True
+
+        txn = self.transactionUnderTest()
+        cs = schema.CALENDARSERVER
+        yield Delete(
+            From=cs,
+            Where=cs.NAME == "MANAGED-ATTACHMENTS"
+        ).on(txn)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_upgradeOrphanedAttachment(self):
+        """
+        Test L{attachment_migration.doUpgrade} when an orphaned attachment is present.
+        """
+
+        def _hasDropboxAttachments(_self, txn):
+            return succeed(True)
+        self.patch(CalendarStoreFeatures, "hasDropboxAttachments", _hasDropboxAttachments)
+
+        # Create orphaned attachment
+        dropboxID = "ABCD.dropbox"
+        attachmentName = "test.txt"
+        home = yield self.homeUnderTest(name="user01")
+        at = schema.ATTACHMENT
+        yield Insert(
+            {
+                at.CALENDAR_HOME_RESOURCE_ID: home._resourceID,
+                at.DROPBOX_ID: dropboxID,
+                at.CONTENT_TYPE: "text/plain",
+                at.SIZE: 10,
+                at.MD5: "abcd",
+                at.PATH: attachmentName,
+            }
+        ).on(self.transactionUnderTest())
+        yield self.commit()
+
+        hasheduid = hashlib.md5(dropboxID).hexdigest()
+        fp = self._sqlCalendarStore.attachmentsPath.child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
+        fp.makedirs()
+        fp = fp.child(attachmentName)
+        fp.setContent("1234567890")
+
+        self.assertTrue(os.path.exists(fp.path))
+
+        upgrader = UpgradeDatabaseOtherStep(self._sqlCalendarStore)
+        yield attachment_migration.doUpgrade(upgrader)
+
+        txn = upgrader.sqlStore.newTransaction()
+        managed = (yield txn.calendarserverValue("MANAGED-ATTACHMENTS", raiseIfMissing=False))
+        count = (yield Select(
+            [Count(at.DROPBOX_ID), ],
+            From=at,
+        ).on(txn))[0][0]
+        yield txn.commit()
+        self.assertEqual(count, 0)
+        self.assertNotEqual(managed, None)
+
+        self.assertFalse(os.path.exists(fp.path))

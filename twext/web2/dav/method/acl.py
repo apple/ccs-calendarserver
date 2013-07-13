@@ -46,7 +46,7 @@ def http_ACL(self, request):
     Respond to a ACL request. (RFC 3744, section 8.1)
     """
     if not self.exists():
-        log.err("File not found: %s" % (self,))
+        log.error("File not found: %s" % (self,))
         yield responsecode.NOT_FOUND
         return
 
@@ -65,7 +65,7 @@ def http_ACL(self, request):
     try:
         doc = doc.getResult()
     except ValueError, e:
-        log.err("Error while handling ACL body: %s" % (e,))
+        log.error("Error while handling ACL body: %s" % (e,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     #
@@ -73,7 +73,7 @@ def http_ACL(self, request):
     #
     if doc is None:
         error = "Request XML body is required."
-        log.err(error)
+        log.error("Error: {err}", err=error)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
     #
@@ -83,7 +83,7 @@ def http_ACL(self, request):
     if not isinstance(acl, davxml.ACL):
         error = ("Request XML body must be an acl element."
                  % (davxml.PropertyUpdate.sname(),))
-        log.err(error)
+        log.error("Error: {err}", err=error)
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
     #

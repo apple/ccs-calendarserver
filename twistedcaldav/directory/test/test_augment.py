@@ -23,9 +23,13 @@ from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 import cStringIO
 import os
 from twext.python.filepath import CachingFilePath as FilePath
+from twistedcaldav.xmlutil import readXML
+from twistedcaldav.directory import xmlaugmentsparser
+
 
 xmlFile = os.path.join(os.path.dirname(__file__), "augments-test.xml")
 xmlFileDefault = os.path.join(os.path.dirname(__file__), "augments-test-default.xml")
+xmlFileNormalization = os.path.join(os.path.dirname(__file__), "augments-normalization.xml")
 
 testRecords = (
     {"uid":"D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "enabled":True,  "partitionID":"", "enabledForCalendaring":False, "enabledForAddressBooks":False, "autoSchedule":False, "autoScheduleMode":"default"},
@@ -299,6 +303,30 @@ class AugmentXMLTests(AugmentTests):
         keys = dbxml.db.keys()
         dbxml.refresh()
         self.assertEquals(keys, dbxml.db.keys())
+
+    def uidsFromFile(self, filename):
+        """
+        Return all uids from the augments xml file
+        """
+
+        _ignore_etree, augments_node = readXML(filename)
+        for record_node in augments_node:
+            if record_node.tag != xmlaugmentsparser.ELEMENT_RECORD:
+                continue
+            uid = record_node.find(xmlaugmentsparser.ELEMENT_UID).text
+            yield uid
+
+    def test_normalize(self):
+        """
+        Ensure augment uids are normalized upon opening
+        """
+        newxmlfile = FilePath(self.mktemp())
+        FilePath(xmlFileNormalization).copyTo(newxmlfile)
+        uids = list(self.uidsFromFile(newxmlfile.path))
+        self.assertEquals(uids, ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'])
+        AugmentXMLDB((newxmlfile.path,))
+        uids = list(self.uidsFromFile(newxmlfile.path))
+        self.assertEquals(uids, ['AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA'])
 
 class AugmentSqliteTests(AugmentTests, AugmentTestsMixin):
 

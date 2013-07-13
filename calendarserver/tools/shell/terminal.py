@@ -35,7 +35,6 @@ import tty
 import termios
 from shlex import shlex
 
-from twisted.python import log
 from twisted.python.failure import Failure
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
@@ -46,6 +45,8 @@ from twisted.conch.recvline import HistoricRecvLine as ReceiveLineProtocol
 from twisted.conch.insults.insults import ServerProtocol
 from twisted.application.service import Service
 
+from twext.python.log import Logger
+
 from txdav.common.icommondatastore import NotFoundError
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
@@ -53,6 +54,9 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from calendarserver.tools.cmdline import utilityMain
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.shell.cmd import Commands, UsageError as CommandUsageError
+
+log = Logger()
+
 
 
 def usage(e=None):
@@ -291,7 +295,7 @@ class ShellProtocol(ReceiveLineProtocol):
             except Exception, e:
                 self.handleFailure(Failure(e))
                 return
-            log.msg("COMPLETIONS: %r" % (completions,))
+            log.info("COMPLETIONS: %r" % (completions,))
         else:
             # Completing command name
             completions = tuple(self.commands.complete_commands(cmd))
@@ -325,7 +329,7 @@ class ShellProtocol(ReceiveLineProtocol):
             self.terminal.nextLine()
         self.terminal.write("Error: %s !!!" % (f.value,))
         if not f.check(NotImplementedError, NotFoundError):
-            log.msg(f.getTraceback())
+            log.info(f.getTraceback())
         self.resetInputLine()
 
     #

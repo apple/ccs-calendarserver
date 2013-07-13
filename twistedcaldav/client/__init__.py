@@ -26,4 +26,3 @@ DefaultHTTPHandler.updateGenerators({
     "x-forwarded-host": (generateList, singleHeader),
     "x-forwarded-server": (generateList, singleHeader),
 })
-

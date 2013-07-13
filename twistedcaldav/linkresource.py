@@ -15,7 +15,7 @@
 ##
 
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from twext.web2 import responsecode, server, http
 from txdav.xml import element as davxml
 from twext.web2.http import HTTPError, StatusResponse
@@ -41,11 +41,12 @@ class CalDAVComplianceMixIn(object):
 A resource that is a soft-link to another.
 """
 
-class LinkResource(CalDAVComplianceMixIn, WrapperResource, LoggingMixIn):
+class LinkResource(CalDAVComplianceMixIn, WrapperResource):
     """
     This is similar to a WrapperResource except that we locate our resource dynamically. We need to deal with the
     case of a missing underlying resource (broken link) as indicated by self._linkedResource being None.
     """
+    log = Logger()
     
     def __init__(self, parent, link_url):
         self.parent = parent

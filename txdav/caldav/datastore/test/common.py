@@ -31,14 +31,13 @@ from twext.python.vcomponent import VComponent
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
-from txdav.xml.element import WebDAVUnknownElement, ResourceType
+from txdav.xml.element import WebDAVUnknownElement
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.icommondatastore import HomeChildNameAlreadyExistsError, \
-    ICommonTransaction
+    ICommonTransaction, InvalidComponentForStoreError, InvalidUIDError
 from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError
-from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.common.inotifications import INotificationObject
 from txdav.common.datastore.test.util import CommonCommonTests
@@ -46,7 +45,8 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE, _BIND_MODE_READ
 
 from txdav.caldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
-    ICalendar, ICalendarTransaction)
+    ICalendar, ICalendarTransaction,
+    ComponentUpdateState)
 
 from twistedcaldav.customxml import InviteNotification, InviteSummary
 from txdav.common.datastore.test.util import transactionClean
@@ -65,6 +65,9 @@ cal2SplitsRoot = homeSplitsRoot.child("calendar_2")
 
 homeNoSplitsRoot = storePath.child("ho").child("me").child("home_no_splits")
 cal1NoSplitsRoot = homeNoSplitsRoot.child("calendar_1")
+
+homeDefaultsRoot = storePath.child("ho").child("me").child("home_defaults")
+cal1DefaultsRoot = homeDefaultsRoot.child("calendar_1")
 
 calendar1_objectNames = [
     "1.ics",
@@ -270,6 +273,13 @@ class CommonTests(CommonCommonTests):
         "home_splits_shared": {
             "calendar_1": {},
         },
+        "home_defaults": {
+            "calendar_1": {
+                "1.ics": (cal1DefaultsRoot.child("1.ics").getContent(), metadata1),
+                "3.ics": (cal1DefaultsRoot.child("3.ics").getContent(), metadata3),
+            },
+            "inbox" : {},
+        },
     }
     md5s = {
         "home1": {
@@ -443,11 +453,12 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertEquals(self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/notification",
-            ]
+        self.assertEquals(
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/notification/",
+            ])
         )
 
         notifications = yield self.transactionUnderTest().notificationsWithUID(
@@ -461,11 +472,12 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertEquals(self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/notification",
-            ]
+        self.assertEquals(
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/notification/",
+            ])
         )
 
 
@@ -523,17 +535,9 @@ class CommonTests(CommonCommonTests):
     @inlineCallbacks
     def test_notifierID(self):
         home = yield self.homeUnderTest()
-        self.assertEquals(home.notifierID(), "CalDAV|home1")
+        self.assertEquals(home.notifierID(), ("CalDAV", "home1",))
         calendar = yield home.calendarWithName("calendar_1")
-        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
-        self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
-
-
-    @inlineCallbacks
-    def test_nodeNameSuccess(self):
-        home = yield self.homeUnderTest()
-        name = yield home.nodeName()
-        self.assertEquals(name, "/CalDAV/example.com/home1/")
+        self.assertEquals(calendar.notifierID(), ("CalDAV", "home1/calendar_1",))
 
 
     @inlineCallbacks
@@ -691,33 +695,16 @@ class CommonTests(CommonCommonTests):
         self.assertIdentical((yield home.calendarWithName(name)), None)
         yield home.createCalendarWithName(name)
         self.assertNotIdentical((yield home.calendarWithName(name)), None)
-        @inlineCallbacks
-        def checkProperties():
-            calendarProperties = (
-                yield home.calendarWithName(name)).properties()
-            self.assertEquals(
-                calendarProperties[
-                    PropertyName.fromString(ResourceType.sname())
-                ],
-                ResourceType.calendar #@UndefinedVariable
-            )
-        yield checkProperties()
-
+        calendarProperties = (yield home.calendarWithName(name)).properties()
+        self.assertEqual(len(calendarProperties), 0)
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue("CalDAV|home1" in self.notifierFactory.history)
+        self.assertTrue("/CalDAV/example.com/home1/" in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
         self.assertNotIdentical((yield home.calendarWithName(name)), None)
-
-        # Sanity check: are the properties actually persisted?  Check in
-        # subsequent transaction.
-        yield checkProperties()
-
-        # FIXME: no independent testing of the property store's persistence
-        # right now
 
 
     @inlineCallbacks
@@ -753,15 +740,13 @@ class CommonTests(CommonCommonTests):
 
         # Make sure notification fired after commit
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_1",
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_2",
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_empty",
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/calendar_1/",
+                "/CalDAV/example.com/home1/calendar_2/",
+                "/CalDAV/example.com/home1/calendar_empty/",
+            ])
         )
 
 
@@ -840,11 +825,12 @@ class CommonTests(CommonCommonTests):
     def test_calendarObjectsWithRemovedObject(self):
         """
         L{ICalendar.calendarObjects} skips those objects which have been
-        removed by L{Calendar.removeCalendarObjectWithName} in the same
+        removed by L{CalendarObject.remove} in the same
         transaction, even if it has not yet been committed.
         """
         calendar1 = yield self.calendarUnderTest()
-        yield calendar1.removeCalendarObjectWithName("2.ics")
+        obj1 = yield calendar1.calendarObjectWithName("2.ics")
+        yield obj1.remove()
         calendarObjects = list((yield calendar1.calendarObjects()))
         self.assertEquals(set(o.name() for o in calendarObjects),
                           set(calendar1_objectNames) - set(["2.ics"]))
@@ -862,7 +848,8 @@ class CommonTests(CommonCommonTests):
         calendarObject = yield self.calendarObjectUnderTest()
         ctxn = self.concurrentTransaction()
         calendar1prime = yield self.calendarUnderTest(ctxn)
-        yield calendar1prime.removeCalendarObjectWithName("1.ics")
+        obj1 = yield calendar1prime.calendarObjectWithName("1.ics")
+        yield obj1.remove()
         yield ctxn.commit()
         try:
             retrieval = yield calendarObject.component()
@@ -909,16 +896,16 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_removeCalendarObjectWithUID_exists(self):
+    def test_CalendarObjectWithUID_remove_exists(self):
         """
         Remove an existing calendar object.
         """
         calendar = yield self.calendarUnderTest()
         for name in calendar1_objectNames:
             uid = (u'uid' + name.rstrip(".ics"))
-            self.assertNotIdentical((yield calendar.calendarObjectWithUID(uid)),
-                                    None)
-            yield calendar.removeCalendarObjectWithUID(uid)
+            obj1 = (yield calendar.calendarObjectWithUID(uid))
+            self.assertNotIdentical(obj1, None)
+            yield obj1.remove()
             self.assertEquals(
                 (yield calendar.calendarObjectWithUID(uid)),
                 None
@@ -931,40 +918,27 @@ class CommonTests(CommonCommonTests):
         # Make sure notifications are fired after commit
         yield self.commit()
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_1",
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/calendar_1/",
+            ])
         )
 
 
     @inlineCallbacks
-    def test_removeCalendarObjectWithName_exists(self):
+    def test_CalendarObject_remove(self):
         """
         Remove an existing calendar object.
         """
         calendar = yield self.calendarUnderTest()
         for name in calendar1_objectNames:
-            self.assertNotIdentical(
-                (yield calendar.calendarObjectWithName(name)), None
-            )
-            yield calendar.removeCalendarObjectWithName(name)
+            obj1 = (yield calendar.calendarObjectWithName(name))
+            self.assertNotIdentical(obj1, None)
+            yield obj1.remove()
             self.assertIdentical(
                 (yield calendar.calendarObjectWithName(name)), None
             )
-
-
-    @inlineCallbacks
-    def test_removeCalendarObjectWithName_absent(self):
-        """
-        Attempt to remove an non-existing calendar object should raise.
-        """
-        calendar = yield self.calendarUnderTest()
-        yield self.failUnlessFailure(
-            maybeDeferred(calendar.removeCalendarObjectWithName, "xyzzy"),
-            NoSuchObjectResourceError
-        )
 
 
     @inlineCallbacks
@@ -1114,17 +1088,15 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         home = yield self.homeUnderTest()
-        self.assertEquals(home.notifierID(), "CalDAV|home1")
+        self.assertEquals(home.notifierID(), ("CalDAV", "home1",))
         calendar = yield home.calendarWithName("calendar_1")
-        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
-        self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
+        self.assertEquals(calendar.notifierID(), ("CalDAV", "home1/calendar_1",))
         yield self.commit()
 
         home = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        self.assertEquals(home.notifierID(), "CalDAV|%s" % (OTHER_HOME_UID,))
+        self.assertEquals(home.notifierID(), ("CalDAV", OTHER_HOME_UID,))
         calendar = yield home.calendarWithName(self.sharedName)
-        self.assertEquals(calendar.notifierID(), "CalDAV|home1")
-        self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
+        self.assertEquals(calendar.notifierID(), ("CalDAV", "home1/calendar_1",))
         yield self.commit()
 
 
@@ -1141,10 +1113,10 @@ class CommonTests(CommonCommonTests):
         self.assertFalse(result)
 
         result = (yield home.hasCalendarResourceUIDSomewhereElse("uid1", object, "schedule"))
-        self.assertFalse(result)
+        self.assertFalse(result is not None)
 
         result = (yield home.hasCalendarResourceUIDSomewhereElse("uid2", object, "schedule"))
-        self.assertTrue(result)
+        self.assertTrue(result is not None)
 
         # FIXME:  do this without legacy calls
         '''
@@ -1159,7 +1131,7 @@ class CommonTests(CommonCommonTests):
         result = (yield home.hasCalendarResourceUIDSomewhereElse(
             "uid2-5", object, "schedule"
         ))
-        self.assertFalse(result)
+        self.assertFalse(result is not None)
         '''
         yield None
 
@@ -1341,9 +1313,10 @@ END:VCALENDAR
         Set up state for testing of per-user components.
         """
         cal = yield self.calendarUnderTest()
-        yield cal.createCalendarObjectWithName(
+        yield cal._createCalendarObjectWithNameInternal(
             "per-user-stuff.ics",
-            self.perUserComponent())
+            self.perUserComponent(),
+            internal_state=ComponentUpdateState.RAW)
         returnValue((yield cal.calendarObjectWithName("per-user-stuff.ics")))
 
 
@@ -1493,21 +1466,21 @@ END:VCALENDAR
             "scheduleEtags": (),
             "hasPrivateComment": False,
         }
-        yield calendar1.createCalendarObjectWithName(name, component, metadata=metadata)
+        yield calendar1._createCalendarObjectWithNameInternal(name, component, internal_state=ComponentUpdateState.RAW, options=metadata)
 
         calendarObject = yield calendar1.calendarObjectWithName(name)
-        self.assertEquals((yield calendarObject.component()), component)
+        self.assertEquals((yield calendarObject.componentForUser()), component)
         self.assertEquals((yield calendarObject.getMetadata()), metadata)
 
         yield self.commit()
 
         # Make sure notifications fire after commit
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_1",
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/calendar_1/",
+            ])
         )
 
 
@@ -1537,6 +1510,7 @@ END:VCALENDAR
             maybeDeferred((yield self.calendarUnderTest()).createCalendarObjectWithName,
             "new", VComponent.fromString(test_event_notCalDAV_text)),
             InvalidObjectResourceError,
+            InvalidComponentForStoreError,
         )
 
 
@@ -1551,6 +1525,7 @@ END:VCALENDAR
             maybeDeferred(calendarObject.setComponent,
                           VComponent.fromString(test_event_notCalDAV_text)),
             InvalidObjectResourceError,
+            InvalidComponentForStoreError,
         )
 
 
@@ -1566,6 +1541,7 @@ END:VCALENDAR
         yield self.failUnlessFailure(
             maybeDeferred(calendarObject.setComponent, component),
             InvalidObjectResourceError,
+            InvalidUIDError,
         )
 
 
@@ -1607,24 +1583,24 @@ END:VCALENDAR
 
         calendar1 = yield self.calendarUnderTest()
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
-        oldComponent = yield calendarObject.component()
+        oldComponent = yield calendarObject.componentForUser()
         self.assertNotEqual(component, oldComponent)
         yield calendarObject.setComponent(component)
-        self.assertEquals((yield calendarObject.component()), component)
+        self.assertEquals((yield calendarObject.componentForUser()), component)
 
         # Also check a new instance
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
-        self.assertEquals((yield calendarObject.component()), component)
+        self.assertEquals((yield calendarObject.componentForUser()), component)
 
         yield self.commit()
 
         # Make sure notification fired after commit
         self.assertEquals(
-            self.notifierFactory.history,
-            [
-                "CalDAV|home1",
-                "CalDAV|home1/calendar_1",
-            ]
+            set(self.notifierFactory.history),
+            set([
+                "/CalDAV/example.com/home1/",
+                "/CalDAV/example.com/home1/calendar_1/",
+            ])
         )
 
 
@@ -1748,7 +1724,8 @@ END:VCALENDAR
             )
         )
 
-        yield cal.removeCalendarObjectWithName("2.ics")
+        obj1 = yield cal.calendarObjectWithName("2.ics")
+        yield obj1.remove()
         yield home.createCalendarWithName("other-calendar")
         st2 = yield home.syncToken()
         self.failIfEquals(st, st2)
@@ -1756,15 +1733,16 @@ END:VCALENDAR
         home = yield self.homeUnderTest()
 
         changed, deleted = yield home.resourceNamesSinceToken(
-            self.token2revision(st), "depth_is_ignored")
+            self.token2revision(st), "infinity")
 
-        self.assertEquals(set(changed), set(["calendar_1/new.ics",
+        self.assertEquals(set(changed), set(["calendar_1/",
+                                             "calendar_1/new.ics",
                                              "calendar_1/2.ics",
                                              "other-calendar/"]))
         self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
 
         changed, deleted = yield home.resourceNamesSinceToken(
-            self.token2revision(st2), "depth_is_ignored")
+            self.token2revision(st2), "infinity")
         self.assertEquals(changed, [])
         self.assertEquals(deleted, [])
 
@@ -1782,7 +1760,8 @@ END:VCALENDAR
                 test_event_text
             )
         )
-        yield cal.removeCalendarObjectWithName("2.ics")
+        obj1 = yield cal.calendarObjectWithName("2.ics")
+        yield obj1.remove()
         st2 = yield cal.syncToken()
         rev2 = self.token2revision(st2)
         changed, deleted = yield cal.resourceNamesSinceToken(rev)

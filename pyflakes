@@ -4,9 +4,14 @@ set -e
 set -u
 
 wd="$(cd "$(dirname "$0")" && pwd)";
-flakes="$(cd "${wd}/../pyflakes-0.6.1" && pwd)";
 
-export PYTHONPATH="${flakes}:${PYTHONPATH:-}";
+if type -P pyflakes > /dev/null; then
+    pyflakes="pyflakes";
+else
+    flakes="$(cd "${wd}/../pyflakes-0.6.1" && pwd)";
+    export PYTHONPATH="${flakes}:${PYTHONPATH:-}";
+    pyflakes="${flakes}/bin/pyflakes";
+fi;
 
 if [ $# -eq 0 ]; then
   set - calendarserver twext twisted twistedcaldav txdav contrib;
@@ -14,7 +19,7 @@ fi;
 
 tmp="$(mktemp "/tmp/pyflakes.XXXXX")";
 
-cd "${wd}" && "${flakes}/bin/pyflakes" "$@" | sed                         \
+cd "${wd}" && "${pyflakes}" "$@" | sed                                    \
   -e "/'from ctypes import \\*' used; unable to detect undefined names/d" \
   -e "/redefinition of unused/d"                                          \
   -e "/^twext\\/backport/d"                                               \

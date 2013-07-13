@@ -90,7 +90,7 @@ class XMLAccountsParser(object):
         try:
             _ignore_tree, accounts_node = readXML(self.xmlFile.path, ELEMENT_ACCOUNTS)
         except ValueError, e:
-            log.error("XML parse error for '%s' because: %s" % (self.xmlFile, e,), raiseException=RuntimeError)
+            raise RuntimeError("XML parse error for '%s' because: %s" % (self.xmlFile, e,))
         self._parseXML(accounts_node)
 
     def _parseXML(self, node):
@@ -107,7 +107,7 @@ class XMLAccountsParser(object):
                 if item is not None:
                     item.groups.add(group.shortNames[0])
 
-        for child in node.getchildren():
+        for child in node:
             try:
                 recordType = RECORD_TYPES[child.tag]
             except KeyError:
@@ -235,7 +235,7 @@ class XMLAccountRecord (object):
         return result
 
     def parseXML(self, node):
-        for child in node.getchildren():
+        for child in node:
             if child.tag == ELEMENT_SHORTNAME:
                 self.shortNames.append(child.text.encode("utf-8"))
             elif child.tag == ELEMENT_GUID:
@@ -263,11 +263,11 @@ class XMLAccountRecord (object):
             self.shortNames.append(self.guid)
 
     def _parseMembers(self, node, addto):
-        for child in node.getchildren():
+        for child in node:
             if child.tag == ELEMENT_MEMBER:
                 recordType = child.get(ATTRIBUTE_RECORDTYPE, DirectoryService.recordType_users)
                 addto.add((recordType, child.text.encode("utf-8")))
 
     def _parseExtras(self, node, addto):
-        for child in node.getchildren():
+        for child in node:
             addto[child.tag] = child.text.encode("utf-8")

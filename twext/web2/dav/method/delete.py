@@ -46,7 +46,7 @@ def http_DELETE(self, request):
     Respond to a DELETE request. (RFC 2518, section 8.6)
     """
     if not self.exists():
-        log.err("File not found: %s" % (self,))
+        log.error("File not found: %s" % (self,))
         raise HTTPError(responsecode.NOT_FOUND)
 
     depth = request.headers.getHeader("depth", "infinity")

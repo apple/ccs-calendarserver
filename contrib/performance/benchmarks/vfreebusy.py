@@ -82,9 +82,11 @@ def formatDate(d):
     return ''.join(filter(str.isalnum, d.isoformat()))
 
 
+
 def makeEvent(i):
     # Backwards compat interface, don't delete it for a little while.
     return makeEventNear(datetime(2010, 7, 30, 11, 15, 00), i)
+
 
 
 def makeEventNear(base, i):
@@ -112,8 +114,11 @@ END:VEVENT
         }
     return data.replace("\n", "\r\n")
 
+
+
 def makeEvents(base, n):
     return [makeEventNear(base, i) for i in range(n)]
+
 
 
 @inlineCallbacks
@@ -146,7 +151,7 @@ def measure(host, port, dtrace, events, samples):
             "content-type": ["text/calendar"],
             "originator": ["mailto:%s@example.com" % (user,)],
             "recipient": ["urn:uuid:%s, urn:uuid:user02" % (user,)]})
-    
+
     vfb = VFREEBUSY % {
             "attendees": "".join([
                     "ATTENDEE:urn:uuid:%s\n" % (user,),
@@ -161,4 +166,3 @@ def measure(host, port, dtrace, events, samples):
         agent, lambda: (method, uri, headers, body),
         OK)
     returnValue(samples)
-

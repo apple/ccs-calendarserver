@@ -43,7 +43,7 @@ class LdapDirectoryBackingService(LdapDirectoryService):
 
     def _actuallyConfigure(self, **params):
 
-        self.log_debug("_actuallyConfigure: params=%s" % (params,))
+        self.log.debug("_actuallyConfigure: params=%s" % (params,))
         defaults = {
             "recordTypes": (),  # for super
             "rdnSchema": {
@@ -77,7 +77,7 @@ class LdapDirectoryBackingService(LdapDirectoryService):
             return params
 
         params = addDefaults(params, defaults)
-        self.log_debug("_actuallyConfigure after addDefaults: params=%s" % (params,))
+        self.log.debug("_actuallyConfigure after addDefaults: params=%s" % (params,))
 
         # super does not like these extra params
         directoryBackedAddressBook = params["directoryBackedAddressBook"]
@@ -115,7 +115,7 @@ class LdapDirectoryBackingService(LdapDirectoryService):
                     ldapAttrToDSAttrMap[ldapAttrName] = normalizedDSAttrNames[0]
 
 
-        self.log_debug("_actuallyConfigure after clean: params=%s" % (params,))
+        self.log.debug("_actuallyConfigure after clean: params=%s" % (params,))
 
         assert directoryBackedAddressBook is not None
         self.directoryBackedAddressBook = directoryBackedAddressBook
@@ -146,14 +146,14 @@ class LdapDirectoryBackingService(LdapDirectoryService):
         # can't resist also using a timeout, 1 sec per request result for now
         timeout = maxResults
 
-        self.log_debug("_getLdapQueryResults: LDAP query base=%s and filter=%s and attributes=%s timeout=%s resultLimit=%s" % (ldap.dn.dn2str(base), queryStr, attributes, timeout, maxResults))
+        self.log.debug("_getLdapQueryResults: LDAP query base=%s and filter=%s and attributes=%s timeout=%s resultLimit=%s" % (ldap.dn.dn2str(base), queryStr, attributes, timeout, maxResults))
 
         ldapSearchResult = (yield self.timedSearch(ldap.dn.dn2str(base), ldap.SCOPE_SUBTREE, filterstr=queryStr, attrlist=attributes, timeoutSeconds=timeout, resultLimit=maxResults))
-        self.log_debug("_getLdapQueryResults: ldapSearchResult=%s" % (ldapSearchResult,))
+        self.log.debug("_getLdapQueryResults: ldapSearchResult=%s" % (ldapSearchResult,))
 
         if maxResults and len(ldapSearchResult) >= maxResults:
             limited = True
-            self.log_debug("_getLdapQueryResults: limit (= %d) reached." % (maxResults,))
+            self.log.debug("_getLdapQueryResults: limit (= %d) reached." % (maxResults,))
 
         for dn, ldapAttributes in ldapSearchResult:
             #dn = normalizeDNstr(dn)
@@ -166,7 +166,7 @@ class LdapDirectoryBackingService(LdapDirectoryService):
                 dsRecordAttributes = {}
                 for ldapAttributeName, ldapAttributeValues in ldapAttributes.iteritems():
 
-                    #self.log_debug("inspecting ldapAttributeName %s with values %s" % (ldapAttributeName, ldapAttributeValues,))
+                    #self.log.debug("inspecting ldapAttributeName %s with values %s" % (ldapAttributeName, ldapAttributeValues,))
 
                     # get rid of '' values
                     ldapAttributeValues = [attr for attr in ldapAttributeValues if len(attr)]
@@ -201,7 +201,7 @@ class LdapDirectoryBackingService(LdapDirectoryService):
                                         transformedValues += [transformedValue, ]
 
                                     if (ldapAttributeValues != transformedValues):
-                                        self.log_debug("_getLdapQueryResults: %s %s transformed to %s" % (ldapAttributeName, ldapAttributeValues, transformedValues))
+                                        self.log.debug("_getLdapQueryResults: %s %s transformed to %s" % (ldapAttributeName, ldapAttributeValues, transformedValues))
                                         ldapAttributeValues = transformedValues
 
                             if not isinstance(dsAttributeNames, list):
@@ -218,24 +218,24 @@ class LdapDirectoryBackingService(LdapDirectoryService):
                                     dsRecordAttributes[dsAttributeName] = list()
 
                                 dsRecordAttributes[dsAttributeName] = list(set(dsRecordAttributes[dsAttributeName] + ldapAttributeValues))
-                                self.log_debug("doAddressBookQuery: dsRecordAttributes[%s] = %s" % (dsAttributeName, dsRecordAttributes[dsAttributeName],))
+                                self.log.debug("doAddressBookQuery: dsRecordAttributes[%s] = %s" % (dsAttributeName, dsRecordAttributes[dsAttributeName],))
 
                 # get a record for dsRecordAttributes
                 result = ABDirectoryQueryResult(self.directoryBackedAddressBook, dsRecordAttributes, kind=kind, additionalVCardProps=additionalVCardProps, appleInternalServer=self.appleInternalServer)
             except:
                 traceback.print_exc()
-                self.log_info("Could not get vcard for %s" % (dn,))
+                self.log.info("Could not get vcard for %s" % (dn,))
             else:
                 uid = result.vCard().propertyValue("UID")
 
                 if uid in resultsDictionary:
-                    self.log_info("Record skipped due to duplicate UID: %s" % (dn,))
+                    self.log.info("Record skipped due to duplicate UID: %s" % (dn,))
                     continue
 
-                self.log_debug("VCard text =\n%s" % (result.vCardText(),))
+                self.log.debug("VCard text =\n%s" % (result.vCardText(),))
                 resultsDictionary[uid] = result
 
-        self.log_debug("%s results (limited=%s)." % (len(resultsDictionary), limited))
+        self.log.debug("%s results (limited=%s)." % (len(resultsDictionary), limited))
         returnValue((resultsDictionary, limited,))
 
 
@@ -268,7 +268,7 @@ class LdapDirectoryBackingService(LdapDirectoryService):
             constantProperties["KIND"] = kind
 
             filterPropertyNames, dsFilter = dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToLdapAttrMap, constantProperties=constantProperties);
-            self.log_debug("doAddressBookQuery: rdn=%s, query=%s, propertyNames=%s" % (rdn, dsFilter if isinstance(dsFilter, bool) else dsFilter.generate(), filterPropertyNames))
+            self.log.debug("doAddressBookQuery: rdn=%s, query=%s, propertyNames=%s" % (rdn, dsFilter if isinstance(dsFilter, bool) else dsFilter.generate(), filterPropertyNames))
 
             if dsFilter:
                 if dsFilter is True:
@@ -292,7 +292,7 @@ class LdapDirectoryBackingService(LdapDirectoryService):
 
                     queryAttributes = ldapAttrToDSAttrMap.keys()
 
-                self.log_debug("doAddressBookQuery: etagRequested=%s, queryPropNames=%s, queryAttributes=%s" % (etagRequested, queryPropNames, queryAttributes,))
+                self.log.debug("doAddressBookQuery: etagRequested=%s, queryPropNames=%s, queryAttributes=%s" % (etagRequested, queryPropNames, queryAttributes,))
 
                 #get all ldap attributes -- for debug
                 if queryMap.get("getAllAttributes"):
@@ -327,11 +327,11 @@ class LdapDirectoryBackingService(LdapDirectoryService):
                     for uid, ldapQueryResult in ldapQueryResultsDictionary.iteritems():
 
                         if self.removeDuplicateUIDs and uid in results:
-                            self.log_info("Record skipped due to duplicate UID: %s" % (uid,))
+                            self.log.info("Record skipped due to duplicate UID: %s" % (uid,))
                             continue
 
                         if not addressBookFilter.match(ldapQueryResult.vCard()):
-                            self.log_debug("doAddressBookQuery did not match filter: %s (%s)" % (ldapQueryResult.vCard().propertyValue("FN"), uid,))
+                            self.log.debug("doAddressBookQuery did not match filter: %s (%s)" % (ldapQueryResult.vCard().propertyValue("FN"), uid,))
                             continue
 
                         if self.removeDuplicateUIDs:
@@ -365,6 +365,6 @@ class LdapDirectoryBackingService(LdapDirectoryService):
 
         limited = maxResults and len(results) >= maxResults
 
-        self.log_info("limited %s len(results) %s" % (limited, len(results),))
+        self.log.info("limited %s len(results) %s" % (limited, len(results),))
         returnValue((results.values() if self.removeDuplicateUIDs else results, limited,))
 

@@ -23,26 +23,21 @@ __all__ = [
     "OpenDirectoryBackingService", "ABDirectoryQueryResult",
 ]
 
-import traceback
-import hashlib
-import time
-from random import random
+from calendarserver.platform.darwin.od import opendirectory, dsattributes, dsquery
 
-from calendarserver.platform.darwin.od import dsattributes, dsquery
-from pycalendar.n import N
 from pycalendar.adr import Adr
 from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.n import N
 
-from twisted.internet.defer import inlineCallbacks, returnValue, deferredGenerator, succeed
-from twisted.python.reflect import namedModule
+from random import random
 
-from txdav.xml import element as davxml
-from txdav.xml.base import twisted_dav_namespace, dav_namespace, parse_date, twisted_private_namespace
-
-from twext.python.log import LoggingMixIn, Logger
+from twext.python.log import Logger
 from twext.web2.dav.resource import DAVPropertyMixIn
 from twext.web2.dav.util import joinURL
 from twext.web2.http_headers import MimeType, generateContentType, ETag
+
+from twisted.internet.defer import inlineCallbacks, returnValue, deferredGenerator, succeed
+from twisted.python.reflect import namedModule
 
 from twistedcaldav import carddavxml
 from twistedcaldav.config import config
@@ -50,10 +45,15 @@ from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.query import addressbookqueryfilter
 from twistedcaldav.vcard import Component, Property, vCardProductID
 
+from txdav.xml import element as davxml
+from txdav.xml.base import twisted_dav_namespace, dav_namespace, parse_date, twisted_private_namespace
+
 from xmlrpclib import datetime
 
-log = Logger()
+import hashlib
+import time
 
+log = Logger()
 addSourceProperty = False
 
 
@@ -135,19 +135,17 @@ class OpenDirectoryBackingService(DirectoryService):
 
         # get query info
         nodeDirectoryRecordTypeMap = {}
-        self.odModule = namedModule(config.OpenDirectoryModule)
         for node in nodeRecordTypeMap:
             queryInfo = {"recordTypes":nodeRecordTypeMap[node], }
             try:
-                queryInfo["directory"] = self.odModule.odInit(node)
-            except self.odModule.ODError, e:
-                self.log_error("Open Directory (node=%s) Initialization error: %s" % (node, e))
+                queryInfo["directory"] = opendirectory.odInit(node)
+            except opendirectory.ODError, e:
+                self.log.error("Open Directory (node=%s) Initialization error: %s" % (node, e))
                 raise
 
             nodeDirectoryRecordTypeMap[node] = queryInfo
 
         self.nodeDirectoryRecordTypeMap = nodeDirectoryRecordTypeMap
-
 
         # calc realm name
         self.realmName = "+".join(nodeDirectoryRecordTypeMap.keys())
@@ -188,7 +186,7 @@ class OpenDirectoryBackingService(DirectoryService):
         elif not searchAttributes:
             # if search Attributes is [], don't restrict searching (but no binary)
             searchAttributes = ABDirectoryQueryResult.stringDSAttrNames
-        self.log_debug("self.searchAttributes=%s" % (searchAttributes,))
+        self.log.debug("self.searchAttributes=%s" % (searchAttributes,))
 
         # calculate search map
         vcardPropToSearchableDSAttrMap = {}
@@ -198,13 +196,13 @@ class OpenDirectoryBackingService(DirectoryService):
                 vcardPropToSearchableDSAttrMap[prop] = dsIndexedAttributeList
 
         self.vcardPropToSearchableDSAttrMap = vcardPropToSearchableDSAttrMap
-        self.log_debug("self.vcardPropToSearchableDSAttrMap=%s" % (self.vcardPropToSearchableDSAttrMap,))
+        self.log.debug("self.vcardPropToSearchableDSAttrMap=%s" % (self.vcardPropToSearchableDSAttrMap,))
 
         #get attributes required for needed for valid vCard
         requiredAttributes = [attr for prop in ("UID", "FN", "N") for attr in ABDirectoryQueryResult.vcardPropToDSAttrMap[prop]]
         requiredAttributes += [dsattributes.kDS1AttrModificationTimestamp, dsattributes.kDS1AttrCreationTimestamp, ]  # for VCardResult DAVPropertyMixIn
         self.requiredAttributes = list(set(requiredAttributes))
-        self.log_debug("self.requiredAttributes=%s" % (self.requiredAttributes,))
+        self.log.debug("self.requiredAttributes=%s" % (self.requiredAttributes,))
 
         # get returned attributes
         #allowedAttributes = [dsattributes.kDS1AttrUniqueID,]
@@ -213,7 +211,7 @@ class OpenDirectoryBackingService(DirectoryService):
             returnedAttributes = [attr for attr in ABDirectoryQueryResult.allDSQueryAttributes
                                                     if (isinstance(attr, str) and attr in allowedAttributes) or
                                                        (isinstance(attr, tuple) and attr[0] in allowedAttributes)]
-            self.log_debug("allowedAttributes%s" % (allowedAttributes,))
+            self.log.debug("allowedAttributes%s" % (allowedAttributes,))
         else:
             returnedAttributes = ABDirectoryQueryResult.allDSQueryAttributes
 
@@ -234,7 +232,7 @@ class OpenDirectoryBackingService(DirectoryService):
         returnedAttributes += [dsattributes.kDSNAttrRecordType, ]
 
         self.returnedAttributes = list(set(returnedAttributes))
-        self.log_debug("self.returnedAttributes=%s" % (self.returnedAttributes,))
+        self.log.debug("self.returnedAttributes=%s" % (self.returnedAttributes,))
 
 
         self._dsLocalResults = {}
@@ -254,18 +252,18 @@ class OpenDirectoryBackingService(DirectoryService):
         if type(guid) is list:
             guid = guid[0]
         if guid and guid.startswith("FFFFEEEE-DDDD-CCCC-BBBB-AAAA"):
-            self.log_info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDS1AttrGeneratedUID, guid,))
+            self.log.info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDS1AttrGeneratedUID, guid,))
             return True
 
         uniqueID = recordAttributes.get(dsattributes.kDS1AttrUniqueID)
         if type(uniqueID) is list:
             uniqueID = uniqueID[0]
         if uniqueID and (int(uniqueID) < 500 or (recordType == dsattributes.kDSStdRecordTypeUsers and int(uniqueID) == 1000)):
-            self.log_info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDS1AttrUniqueID, uniqueID,))
+            self.log.info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDS1AttrUniqueID, uniqueID,))
             return True
 
         if recordShortName.startswith("_"):
-            self.log_info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDSNAttrRecordName, recordShortName,))
+            self.log.info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDSNAttrRecordName, recordShortName,))
             return True
 
         return False
@@ -282,43 +280,42 @@ class OpenDirectoryBackingService(DirectoryService):
             resultsDictionary = {}
 
             try:
-                localNodeDirectory = self.odModule.odInit("/Local/Default")
-                self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
+                localNodeDirectory = opendirectory.odInit("/Local/Default")
+                self.log.debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
                         "/DSLocal",
                         self.recordTypes,
                         self.returnedAttributes,
                     ))
-                records = list(self.odModule.listAllRecordsWithAttributes_list(
+                records = list(opendirectory.listAllRecordsWithAttributes_list(
                         localNodeDirectory,
                         self.recordTypes,
                         self.returnedAttributes,
                     ))
-            except self.odModule.ODError, ex:
-                self.log_error("Open Directory (node=%s) error: %s" % ("/Local/Default", str(ex)))
+            except opendirectory.ODError, ex:
+                self.log.error("Open Directory (node=%s) error: %s" % ("/Local/Default", str(ex)))
                 raise
 
             for (recordShortName, recordAttributes) in records:  #@UnusedVariable
 
                 try:
-                    self.log_info("Inspecting record %s" % (recordAttributes,))
+                    self.log.info("Inspecting record %s" % (recordAttributes,))
                     if self.ignoreSystemRecords:
                         if self._isSystemRecord(recordShortName, recordAttributes):
                             continue
 
                     result = ABDirectoryQueryResult(self.directoryBackedAddressBook, recordAttributes)
 
-                except:
-                    traceback.print_exc()
-                    self.log_info("Could not get vcard for record %s" % (recordShortName,))
+                except Exception, e:
+                    self.log.info("Could not get vcard for record %s:%s" % (recordShortName, e))
 
                 else:
                     uid = result.vCard().propertyValue("UID")
 
                     if uid in resultsDictionary:
-                        self.log_info("Record %s skipped due to duplicate UID: %s" % (recordShortName, uid,))
+                        self.log.info("Record %s skipped due to duplicate UID: %s" % (recordShortName, uid,))
                         continue
 
-                    self.log_debug("VCard text =\n%s" % (result.vCardText(),))
+                    self.log.debug("VCard text =\n%s" % (result.vCardText(),))
                     resultsDictionary[uid] = result
 
 
@@ -346,12 +343,12 @@ class OpenDirectoryBackingService(DirectoryService):
         records = (yield self._queryDirectory(query, attributes, maxRecords, allowedRecordTypes=allowedRecordTypes))
         if maxRecords and len(records) >= maxRecords:
             limited = True
-            self.log_debug("Directory address book record limit (= %d) reached." % (maxRecords,))
+            self.log.debug("Directory address book record limit (= %d) reached." % (maxRecords,))
 
-        self.log_debug("Query done. Inspecting %s records" % (len(records),))
+        self.log.debug("Query done. Inspecting %s records" % (len(records),))
 
         resultsDictionary = self._getAllDSLocalResults().copy()
-        self.log_debug("Adding %s DSLocal results" % len(resultsDictionary.keys()))
+        self.log.debug("Adding %s DSLocal results" % len(resultsDictionary.keys()))
 
         for (recordShortName, recordAttributes) in records:  #@UnusedVariable
 
@@ -376,28 +373,27 @@ class OpenDirectoryBackingService(DirectoryService):
                         recordType = recordAttributes.get(dsattributes.kDSNAttrRecordType)
                         if type(recordType) is list:
                             recordType = recordType[0]
-                        self.log_info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDSNAttrMetaNodeLocation, node,))
+                        self.log.info("Ignoring record %s (type %s) with %s %s" % (recordShortName, recordType, dsattributes.kDSNAttrMetaNodeLocation, node,))
                         continue
 
                 result = ABDirectoryQueryResult(self.directoryBackedAddressBook, recordAttributes,
                                      addDSAttrXProperties=self.addDSAttrXProperties,
                                      appleInternalServer=self.appleInternalServer,
                                      )
-            except:
-                traceback.print_exc()
-                self.log_info("Could not get vcard for record %s" % (recordShortName,))
+            except Exception, e:
+                self.log.info("Could not get vcard for record %s:%s" % (recordShortName, e))
 
             else:
                 uid = result.vCard().propertyValue("UID")
 
                 if uid in resultsDictionary:
-                    self.log_info("Record skipped due to duplicate UID: %s" % (recordShortName,))
+                    self.log.info("Record skipped due to duplicate UID: %s" % (recordShortName,))
                     continue
 
-                self.log_debug("VCard text =\n%s" % (result.vCardText(),))
+                self.log.debug("VCard text =\n%s" % (result.vCardText(),))
                 resultsDictionary[uid] = result
 
-        self.log_debug("_getDirectoryQueryResults: %s results (limited=%s)." % (len(resultsDictionary), limited))
+        self.log.debug("_getDirectoryQueryResults: %s results (limited=%s)." % (len(resultsDictionary), limited))
         returnValue((resultsDictionary.values(), limited,))
 
 
@@ -419,7 +415,7 @@ class OpenDirectoryBackingService(DirectoryService):
             try:
                 if query:
                     if isinstance(query, dsquery.match) and query.value is not "":
-                        self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r,%r)" % (
+                        self.log.debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r,%r)" % (
                             node,
                             query.attribute,
                             query.value,
@@ -430,7 +426,7 @@ class OpenDirectoryBackingService(DirectoryService):
                             maxRecords,
                         ))
                         results = list(
-                            self.odModule.queryRecordsWithAttribute_list(
+                            opendirectory.queryRecordsWithAttribute_list(
                                 directory,
                                 query.attribute,
                                 query.value,
@@ -441,7 +437,7 @@ class OpenDirectoryBackingService(DirectoryService):
                                 maxRecords,
                             ))
                     else:
-                        self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r)" % (
+                        self.log.debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r)" % (
                             node,
                             query.generate(),
                             False,
@@ -450,7 +446,7 @@ class OpenDirectoryBackingService(DirectoryService):
                             maxRecords,
                         ))
                         results = list(
-                            self.odModule.queryRecordsWithAttributes_list(
+                            opendirectory.queryRecordsWithAttributes_list(
                                 directory,
                                 query.generate(),
                                 False,
@@ -459,21 +455,21 @@ class OpenDirectoryBackingService(DirectoryService):
                                 maxRecords,
                             ))
                 else:
-                    self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r,%r)" % (
+                    self.log.debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r,%r)" % (
                         node,
                         recordTypes,
                         attributes,
                         maxRecords,
                     ))
                     results = list(
-                        self.odModule.listAllRecordsWithAttributes_list(
+                        opendirectory.listAllRecordsWithAttributes_list(
                             directory,
                             recordTypes,
                             attributes,
                             maxRecords,
                         ))
-            except self.odModule.ODError, ex:
-                self.log_error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
+            except opendirectory.ODError, ex:
+                self.log.error("Open Directory (node=%s) error: %s" % (self.realmName, str(ex)))
                 raise
 
             allResults.extend(results)
@@ -485,7 +481,7 @@ class OpenDirectoryBackingService(DirectoryService):
 
 
         elaspedTime = time.time() - startTime
-        self.log_info("Timing: Directory query: %.1f ms (%d records, %.2f records/sec)" % (elaspedTime * 1000, len(allResults), len(allResults) / elaspedTime))
+        self.log.info("Timing: Directory query: %.1f ms (%d records, %.2f records/sec)" % (elaspedTime * 1000, len(allResults), len(allResults) / elaspedTime))
         return succeed(allResults)
 
 
@@ -522,7 +518,7 @@ class OpenDirectoryBackingService(DirectoryService):
         filterPropertyNames, dsFilter = dsFilterFromAddressBookFilter(addressBookFilter,
                                                                                  self.vcardPropToSearchableDSAttrMap,
                                                                                  constantProperties=ABDirectoryQueryResult.constantProperties);
-        self.log_debug("doAddressBookQuery: query=%s, propertyNames=%s" % (dsFilter if isinstance(dsFilter, bool) else dsFilter.generate(), filterPropertyNames,))
+        self.log.debug("doAddressBookQuery: query=%s, propertyNames=%s" % (dsFilter if isinstance(dsFilter, bool) else dsFilter.generate(), filterPropertyNames,))
 
         results = []
         limited = False
@@ -546,18 +542,18 @@ class OpenDirectoryBackingService(DirectoryService):
 
                 queryAttributes = list(set(queryAttributes + self.requiredAttributes).intersection(self.returnedAttributes))
 
-            self.log_debug("doAddressBookQuery: etagRequested=%s, queryPropNames=%s, queryAttributes=%s" % (etagRequested, queryPropNames, queryAttributes,))
+            self.log.debug("doAddressBookQuery: etagRequested=%s, queryPropNames=%s, queryAttributes=%s" % (etagRequested, queryPropNames, queryAttributes,))
 
             '''
             # change query to ignore system records rather than post filtering
             # but this is broken in open directory client
             if self.ignoreSystemRecords:
-                ignoreExpression = dsquery.expression( dsquery.expression.NOT, 
+                ignoreExpression = dsquery.expression(dsquery.expression.NOT, 
                                                        dsquery.match(dsattributes.kDS1AttrGeneratedUID, "FFFFEEEE-DDDD-CCCC-BBBB-AAAA", dsattributes.eDSStartsWith)
                                                        )
                 filterAttributes = list(set(filterAttributes).union(dsattributes.kDS1AttrGeneratedUID))
                 
-                dsFilter = dsquery.expression( dsquery.expression.AND, (dsFilter, ignoreExpression,) ) if dsFilter else ignoreExpression
+                dsFilter = dsquery.expression(dsquery.expression.AND, (dsFilter, ignoreExpression,)) if dsFilter else ignoreExpression
             '''
             maxRecords = int(maxResults * 1.2)
 
@@ -570,7 +566,7 @@ class OpenDirectoryBackingService(DirectoryService):
                     if addressBookFilter.match(dsQueryResult.vCard()):
                         filteredResults.append(dsQueryResult)
                     else:
-                        self.log_debug("doAddressBookQuery: result did not match filter: %s (%s)" % (dsQueryResult.vCard().propertyValue("FN"), dsQueryResult.vCard().propertyValue("UID"),))
+                        self.log.debug("doAddressBookQuery: result did not match filter: %s (%s)" % (dsQueryResult.vCard().propertyValue("FN"), dsQueryResult.vCard().propertyValue("UID"),))
 
                 #no more results
                 if not dsQueryLimited:
@@ -600,7 +596,7 @@ class OpenDirectoryBackingService(DirectoryService):
         #if self.sortResults:
         #    results = sorted(list(results), key=lambda result:result.vCard().propertyValue("UID"))
 
-        self.log_debug("doAddressBookQuery: %s results (limited=%s)." % (len(results), limited))
+        self.log.debug("doAddressBookQuery: %s results (limited=%s)." % (len(results), limited))
         returnValue((results, limited,))
 
 
@@ -919,10 +915,12 @@ def dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToSearchableAttrMa
 
 
 
-class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
+class ABDirectoryQueryResult(DAVPropertyMixIn):
     """
     Result from ab query report or multiget on directory
     """
+
+    log = Logger()
 
     # od attributes that may contribute to vcard properties
     # will be used to translate vCard queries to od queries
@@ -1073,7 +1071,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                  appleInternalServer=False,
                  ):
 
-        self.log_debug("directoryBackedAddressBook=%s, attributes=%s, additionalVCardProps=%s" % (directoryBackedAddressBook, recordAttributes, additionalVCardProps,))
+        self.log.debug("directoryBackedAddressBook=%s, attributes=%s, additionalVCardProps=%s" % (directoryBackedAddressBook, recordAttributes, additionalVCardProps,))
 
         constantProperties = ABDirectoryQueryResult.constantProperties.copy()
         if additionalVCardProps:
@@ -1081,7 +1079,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                 if key not in constantProperties:
                     constantProperties[key] = value
         self.constantProperties = constantProperties
-        self.log_debug("directoryBackedAddressBook=%s, attributes=%s, self.constantProperties=%s" % (directoryBackedAddressBook, recordAttributes, self.constantProperties,))
+        self.log.debug("directoryBackedAddressBook=%s, attributes=%s, self.constantProperties=%s" % (directoryBackedAddressBook, recordAttributes, self.constantProperties,))
 
         #save off for debugging
         self.addDSAttrXProperties = addDSAttrXProperties;
@@ -1219,7 +1217,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                     vcard.addProperty(newProperty)
                 else:
                     if attrType and attrValue:
-                        self.log_info("Ignoring attribute %r with value %r in creating property %r. A duplicate property already exists." % (attrType, attrValue, newProperty,))
+                        self.log.info("Ignoring attribute %r with value %r in creating property %r. A duplicate property already exists." % (attrType, attrValue, newProperty,))
 
 
             def addPropertyAndLabel(groupCount, label, propertyName, propertyValue, parameters=None):
@@ -1275,9 +1273,8 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                         preferred = False
 
                     except Exception, e:
-                        traceback.print_exc()
-                        self.log_debug("addPropertiesAndLabelsForPrefixedAttribute(): groupCount=%r, propertyPrefix=%r, propertyName=%r, nolabelParamTypes=%r, labelMap=%r, attrType=%r" % (groupCount[0], propertyPrefix, propertyName, nolabelParamTypes, labelMap, attrType,))
-                        self.log_error("addPropertiesAndLabelsForPrefixedAttribute(): Trouble parsing attribute %s, with value \"%s\".  Error = %s" % (attrType, attrValue, e,))
+                        self.log.debug("addPropertiesAndLabelsForPrefixedAttribute(): groupCount=%r, propertyPrefix=%r, propertyName=%r, nolabelParamTypes=%r, labelMap=%r, attrType=%r" % (groupCount[0], propertyPrefix, propertyName, nolabelParamTypes, labelMap, attrType,))
+                        self.log.error("addPropertiesAndLabelsForPrefixedAttribute(): Trouble parsing attribute %s, with value \"%s\".  Error = %s" % (attrType, attrValue, e,))
 
 
             # create vCard
@@ -1502,7 +1499,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                 if (len(parts) == 2):
                     vcard.addProperty(Property("GEO", parts))
                 else:
-                    self.log_info("Ignoring malformed attribute %r with value %r. Well-formed example: 7.7,10.6." % (dsattributes.kDSNAttrMapCoordinates, coordinate))
+                    log.info("Ignoring malformed attribute %r with value %r." % (dsattributes.kDSNAttrMapCoordinates, coordinate))
             #
             # 3.5 ORGANIZATIONAL TYPES http://tools.ietf.org/html/rfc2426#section-3.5
             #

@@ -1,0 +1,9 @@
+BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//AddressBook 6.1//EN
+UID:uid5
+FN:Subsub Group
+N:Subsub Group;;;;
+X-ADDRESSBOOKSERVER-KIND:group
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid1
+END:VCARD

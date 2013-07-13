@@ -25,7 +25,7 @@ from hashlib import md5, sha1
 from twisted.internet import ssl, reactor
 from twisted.web import client
 from twisted.python import failure
-from twext.python.log import LoggingMixIn, Logger
+from twext.python.log import Logger
 
 log = Logger()
 from twext.internet.gaiendpoint import GAIEndpoint
@@ -64,6 +64,7 @@ if sys.platform == "darwin" and hasCtypes:
 
         return int(ncpu.value)
 
+
     def getMemorySize():
         """
         Returns the physical amount of RAM installed, in bytes
@@ -91,6 +92,7 @@ elif sys.platform == "linux2" and hasCtypes:
     def getNCPU():
         return libc.get_nprocs()
 
+
     def getMemorySize():
         return libc.getpagesize() * libc.get_phys_pages()
 
@@ -103,8 +105,10 @@ else:
 
         raise NotImplementedError("getNCPU not supported on %s%s" % (sys.platform, msg))
 
+
     def getMemorySize():
         raise NotImplementedError("getMemorySize not yet supported on %s" % (sys.platform))
+
 
 
 def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
@@ -135,6 +139,7 @@ def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
 
     # ...but at least "minimum"
     return max(count, minimum)
+
 
 
 ##
@@ -169,6 +174,8 @@ def printTracebacks(f):
             raise
     return wrapper
 
+
+
 ##
 # Helpers
 ##
@@ -180,6 +187,7 @@ class Alternator (object):
     def __init__(self, state=False):
         self._state = bool(state)
 
+
     def state(self):
         """
         @return: the current state
@@ -188,10 +196,14 @@ class Alternator (object):
         self._state = not state
         return state
 
+
+
 def utf8String(s):
     if isinstance(s, unicode):
         s = s.encode("utf-8")
     return s
+
+
 
 ##
 # Keychain access
@@ -201,6 +213,8 @@ class KeychainPasswordNotFound(Exception):
     """
     Exception raised when the password does not exist
     """
+
+
 
 class KeychainAccessError(Exception):
     """
@@ -233,7 +247,6 @@ def getPasswordFromKeychain(account):
     else:
         error = "Keychain access utility ('security') not found"
         raise KeychainAccessError(error)
-
 
 
 
@@ -300,6 +313,8 @@ def calcHA1(
 
     return HA1.encode('hex')
 
+
+
 # DigestCalcResponse
 def calcResponse(
     HA1,
@@ -337,10 +352,15 @@ def calcResponse(
     respHash = m.digest().encode('hex')
     return respHash
 
+
+
 class Unauthorized(Exception):
     pass
 
-class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
+
+
+class AuthorizedHTTPGetter(client.HTTPPageGetter):
+    log = Logger()
 
     def handleStatus_401(self):
 
@@ -357,7 +377,7 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
 
         self.factory.retried = True
 
-        # self.log_debug("Got a 401 trying to inject [%s]" % (self.headers,))
+        # self.log.debug("Got a 401 trying to inject [%s]" % (self.headers,))
         details = {}
         basicAvailable = digestAvailable = False
         wwwauth = self.headers.get("www-authenticate")
@@ -439,14 +459,14 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
                 connect(
                     GAIEndpoint(reactor, self.factory.host, self.factory.port),
                     self.factory)
-            # self.log_debug("Retrying with digest after 401")
+            # self.log.debug("Retrying with digest after 401")
 
             return self.factory.deferred
 
         elif basicAvailable:
             basicauth = "%s:%s" % (user, pswd)
-            basicauth = "Basic " + base64.encodestring( basicauth )
-            basicauth = basicauth.replace( "\n", "" )
+            basicauth = "Basic " + base64.encodestring(basicauth)
+            basicauth = basicauth.replace("\n", "")
 
             self.factory.headers['Authorization'] = basicauth
 
@@ -459,10 +479,9 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
                 connect(
                     GAIEndpoint(reactor, self.factory.host, self.factory.port),
                     self.factory)
-            # self.log_debug("Retrying with basic after 401")
+            # self.log.debug("Retrying with basic after 401")
 
             return self.factory.deferred
-
 
         else:
             self.factory.deferred.errback(failure.Failure(Unauthorized("Mail gateway not able to process reply; calendar server returned 401 and doesn't support basic or digest")))

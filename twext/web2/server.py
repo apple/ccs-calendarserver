@@ -22,12 +22,12 @@
 # SOFTWARE.
 #
 ##
-from __future__ import print_function
 
 """
 This is a web-server which integrates with the twisted.internet
 infrastructure.
 """
+from __future__ import print_function
 
 import cgi, time, urlparse
 from urllib import quote, unquote
@@ -351,7 +351,7 @@ class Request(http.Request):
 
     def process(self):
         "Process a request."
-        log.msg("%s %s %s" % (
+        log.info("%s %s %s" % (
             self.method,
             self.uri,
             "HTTP/%s.%s" % self.clientproto
@@ -628,20 +628,39 @@ class Request(http.Request):
         d.addErrback(self._processingReallyFailed, reason)
         return d
 
+
     def _processingReallyFailed(self, reason, origReason):
-        log.msg("Exception rendering error page:", isErr=1)
-        log.err(reason)
-        log.msg("Original exception:", isErr=1)
-        log.err(origReason)
+        """
+        An error occurred when attempting to report an error to the HTTP
+        client.
+        """
+        log.failure("Exception rendering error page", reason)
+        log.failure("Original exception", origReason)
 
-        body = ("<html><head><title>Internal Server Error</title></head>"
-                "<body><h1>Internal Server Error</h1>An error occurred rendering the requested page. Additionally, an error occurred rendering the error page.</body></html>")
+        try:
+            body = (
+                "<html><head><title>Internal Server Error</title></head>"
+                "<body><h1>Internal Server Error</h1>"
+                "An error occurred rendering the requested page. "
+                "Additionally, an error occurred rendering the error page."
+                "</body></html>"
+            )
+            response = http.Response(
+                responsecode.INTERNAL_SERVER_ERROR,
+                {'content-type': http_headers.MimeType('text','html')},
+                body
+            )
+            self.writeResponse(response)
+        except:
+            log.failure(
+                "An error occurred.  We tried to report that error.  "
+                "Reporting that error caused an error.  "
+                "In the process of reporting the error-reporting error to "
+                "the client, there was *yet another* error.  Here it is.  "
+                "I give up."
+            )
+            self.chanRequest.abortConnection()
 
-        response = http.Response(
-            responsecode.INTERNAL_SERVER_ERROR,
-            {'content-type': http_headers.MimeType('text','html')},
-            body)
-        self.writeResponse(response)
 
     def _cbFinishRender(self, result):
         def filterit(response, f):
@@ -670,8 +689,7 @@ class Request(http.Request):
         raise TypeError("html is not a resource or a response")
 
     def renderHTTP_exception(self, req, reason):
-        log.msg("Exception rendering:", isErr=1)
-        log.err(reason)
+        log.failure("Exception rendering request: {request}", reason, request=req)
 
         body = ("<html><head><title>Internal Server Error</title></head>"
                 "<body><h1>Internal Server Error</h1>An error occurred rendering the requested page. More information is available in the server log.</body></html>")

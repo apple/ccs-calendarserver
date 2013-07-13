@@ -21,9 +21,11 @@ Common utility functions for a datastores.
 
 from uuid import UUID
 
-from twisted.python import log
+from twext.python.log import Logger
 
 from twistedcaldav.memcacher import Memcacher
+
+log = Logger()
 
 _unset = object()
 
@@ -53,6 +55,7 @@ class cached(object):
         return inner
 
 
+
 class QueryCacher(Memcacher):
     """
     A Memcacher for the object-with-name query (more to come)
@@ -62,8 +65,10 @@ class QueryCacher(Memcacher):
         super(QueryCacher, self).__init__(cachePool, pickle=True)
         self.cacheExpireSeconds = cacheExpireSeconds
 
+
     def set(self, key, value):
         return super(QueryCacher, self).set(key, value, expireTime=self.cacheExpireSeconds)
+
 
     def delete(self, key):
         return super(QueryCacher, self).delete(key)
@@ -72,6 +77,7 @@ class QueryCacher(Memcacher):
     def setAfterCommit(self, transaction, key, value):
         transaction.postCommit(lambda: self.set(key, value))
 
+
     def invalidateAfterCommit(self, transaction, key):
         # Invalidate now (so that operations within this transaction see it)
         # and *also* post-commit (because there could be a scheduled setAfterCommit
@@ -79,15 +85,18 @@ class QueryCacher(Memcacher):
         transaction.postCommit(lambda: self.delete(key))
         return self.delete(key)
 
+
     # Home child objects by name
 
     def keyForObjectWithName(self, homeResourceID, name):
         return "objectWithName:%s:%s" % (homeResourceID, name)
 
+
     # Home metadata (Created/Modified)
 
     def keyForHomeMetaData(self, homeResourceID):
         return "homeMetaData:%s" % (homeResourceID)
+
 
     # HomeChild metadata (Created/Modified (and SUPPORTED_COMPONENTS))
 
@@ -129,8 +138,8 @@ def normalizeUUIDOrNot(somestr):
         uu = UUID(normstr)
     except ValueError:
         if isURI:
-            log.msg(format="normalizing urn:uuid: without UUID: %(uid)r",
-                    uid=somestr)
+            log.info(format="normalizing urn:uuid: without UUID: %(uid)r",
+                     uid=somestr)
         # not a UUID, whatever
         return somestr
     else:
@@ -139,6 +148,3 @@ def normalizeUUIDOrNot(somestr):
             return uuu + normalForm
         else:
             return normalForm
-
-
-

@@ -42,14 +42,13 @@ from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
-from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.ical import Component
-from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
-from twistedcaldav.scheduling.imip.mailgateway import MailGatewayTokensDatabase
-from twistedcaldav.scheduling.scheduler import DirectScheduler
+from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
+from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
+from txdav.caldav.datastore.scheduling.scheduler import DirectScheduler
 from twistedcaldav.util import normalizationLookup
 
 from twisted.internet.defer import (
@@ -66,8 +65,7 @@ from calendarserver.tap.util import getRootResource, FakeRequest, directoryFromC
 from calendarserver.tools.resources import migrateResources
 from calendarserver.tools.util import getDirectory
 
-from twistedcaldav.scheduling.imip.mailgateway import migrateTokensToStore
-from twistedcaldav.scheduling.imip.inbound import scheduleNextMailPoll
+from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
 
 
 deadPropertyXattrPrefix = namedAny(
@@ -307,11 +305,11 @@ def upgrade_to_1(config, directory):
     errorOccurred = []
     def setError(f=None):
         if f is not None:
-            log.err(f)
+            log.error(f)
         errorOccurred.append(True)
 
 
-    def doProxyDatabaseMoveUpgrade(config, uid=-1, gid=-1):
+    def doProxyDatabaseMoveUpgrade(config, uid= -1, gid= -1):
         # See if the new one is already present
         oldFilename = ".db.calendaruserproxy"
         newFilename = "proxies.sqlite"
@@ -350,7 +348,7 @@ def upgrade_to_1(config, directory):
         )
 
 
-    def moveCalendarHome(oldHome, newHome, uid=-1, gid=-1):
+    def moveCalendarHome(oldHome, newHome, uid= -1, gid= -1):
         if os.path.exists(newHome):
             # Both old and new homes exist; stop immediately to let the
             # administrator fix it
@@ -819,7 +817,7 @@ def updateFreeBusySet(value, directory):
         try:
             freeBusySet = unpickle(value)
         except UnpicklingError:
-            log.err("Invalid free/busy property value")
+            log.error("Invalid free/busy property value")
             # MOR: continue on?
             return None
 
@@ -845,7 +843,7 @@ def updateFreeBusySet(value, directory):
 
 
 
-def makeDirsUserGroup(path, uid=-1, gid=-1):
+def makeDirsUserGroup(path, uid= -1, gid= -1):
     parts = path.split("/")
     if parts[0] == "": # absolute path
         parts[0] = "/"
@@ -989,7 +987,7 @@ class UpgradeFileSystemFormatStep(object):
         # Restore memcached client setting
         self.config.Memcached.Pools.Default.ClientEnabled = memcacheEnabled
 
-        returnValue(None) 
+        returnValue(None)
 
 
     def stepWithResult(self, result):
@@ -1010,7 +1008,6 @@ class PostDBImportStep(object):
         1. Populating the group-membership cache
         2. Processing non-implicit inbox items
     """
-
 
     def __init__(self, store, config, doPostImport):
         """
@@ -1064,15 +1061,7 @@ class PostDBImportStep(object):
             # Migrate mail tokens from sqlite to store
             yield migrateTokensToStore(self.config.DataRoot, self.store)
 
-            # Set mail polling in motion
-            if self.config.Scheduling.iMIP.Enabled:
-                yield scheduleNextMailPoll(self.store, 0)
-
-            if (self.config.GroupCaching.Enabled and
-                self.config.GroupCaching.EnableUpdater):
-                # Set in motion the work queue based updates:
-                yield scheduleNextGroupCachingUpdate(self.store, 0)
-
+            
 
     @inlineCallbacks
     def processInboxItems(self):
@@ -1201,7 +1190,6 @@ class PostDBImportStep(object):
                     log.info("Completed inbox item processing.")
 
 
-
     @inlineCallbacks
     def processInboxItem(self, root, directory, principal, request, inbox,
         inboxItem, uuid, uri):
@@ -1242,7 +1230,7 @@ class PostDBImportStep(object):
             scheduler = DirectScheduler(request, inboxItem)
             # Process inbox item
             yield scheduler.doSchedulingViaPUT(originator, recipients, calendar,
-                internal_request=False)
+                internal_request=False, noAttendeeRefresh=True)
         else:
             log.warn("Removing invalid inbox item: %s" % (uri,))
 

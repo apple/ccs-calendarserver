@@ -34,6 +34,7 @@ class IProbe(Interface):
         pass
 
 
+
 class Probe(object):
     implements(IProbe)
 
@@ -42,9 +43,11 @@ class Probe(object):
     def __init__(self, result=None):
         self._result = result
 
+
     def probe(self):
         self._probed = True
         return self._result
+
 
 
 class TrafficLoggingReactorTests(TestCase):
@@ -152,7 +155,7 @@ class TrafficLoggingFactoryTests(TestCase):
         self.wrapped.protocol = Discard
         self.factory = _TrafficLoggingFactory(self.wrapped)
 
-        
+
     def test_receivedBytesLogged(self):
         """
         When bytes are delivered through a protocol created by

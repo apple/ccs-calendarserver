@@ -24,7 +24,7 @@ import errno
 import xattr
 
 from twisted.python.failure import Failure
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
 from twisted.python.runtime import platform
 from twisted.python.reflect import namedAny, qual
@@ -60,7 +60,7 @@ def _getFixedComponent(cobj):
     @return: a L{Deferred} which fires with the appropriate L{Component}.
     """
     comp = yield cobj.component()
-    fixes, fixed = fixOneCalendarObject(comp)
+    _ignore_fixes, fixed = fixOneCalendarObject(comp)
     returnValue(fixed)
 
 
@@ -200,7 +200,7 @@ class UpgradeHelperProcess(AMP):
         subsvc = None
         self.upgrader = UpgradeToDatabaseStep(
             FileStore(
-                CachingFilePath(filename), None, True, True,
+                CachingFilePath(filename), None, None, True, True,
                 propertyStoreClass=namedAny(appropriateStoreClass)
             ), self.store, subsvc, merge=merge
         )
@@ -212,7 +212,7 @@ class UpgradeHelperProcess(AMP):
         """
         Upgrade one calendar home.
         """
-        migrateFunc, destFunc = homeTypeLookup[homeType]
+        _ignore_migrateFunc, destFunc = homeTypeLookup[homeType]
         fileTxn = self.upgrader.fileStore.newTransaction()
         return (
             maybeDeferred(destFunc(fileTxn), uid)
@@ -228,10 +228,11 @@ class UpgradeHelperProcess(AMP):
 
 
 
-class UpgradeToDatabaseStep(LoggingMixIn, object):
+class UpgradeToDatabaseStep(object):
     """
     Upgrade resources from a filesystem store to a database store.
     """
+    log = Logger()
 
     def __init__(self, fileStore, sqlStore, uid=None, gid=None, merge=False):
         """
@@ -253,13 +254,14 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
         self.gid = gid
         self.merge = merge
 
+
     @classmethod
     def fileStoreFromPath(cls, path):
-        """ 
+        """
         @param path: a path pointing at the document root, where the file-based
             data-store is located.
         @type path: L{CachingFilePath}
-        """ 
+        """
 
         # TODO: TOPPATHS should be computed based on enabled flags in 'store',
         # not hard coded.
@@ -295,9 +297,9 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
 
                     appropriateStoreClass = AppleDoubleStore
 
-                    return FileStore(path, None, True, True,
+                    return FileStore(path, None, None, True, True,
                               propertyStoreClass=appropriateStoreClass)
-        return None 
+        return None
 
 
     @inlineCallbacks
@@ -307,13 +309,13 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
         """
         migrateFunc, destFunc = homeTypeLookup.get(homeType)
         uid = normalizeUUIDOrNot(fileHome.uid())
-        self.log_warn("Starting migration transaction %s UID %r" %
+        self.log.warn("Starting migration transaction %s UID %r" %
                       (homeType, uid))
         sqlTxn = self.sqlStore.newTransaction()
         homeGetter = destFunc(sqlTxn)
         sqlHome = yield homeGetter(uid, create=False)
         if sqlHome is not None and not self.merge:
-            self.log_warn(
+            self.log.warn(
                 "%s home %r already existed not migrating" % (
                     homeType, uid))
             yield sqlTxn.abort()
@@ -344,7 +346,7 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
         @return: a Deferred which fires when the migration is complete.
         """
         self.sqlStore.setMigrating(True)
-        self.log_warn("Beginning filesystem -> database upgrade.")
+        self.log.warn("Beginning filesystem -> database upgrade.")
 
         for homeType, eachFunc in [
                 ("calendar", self.fileStore.withEachCalendarHomeDo),
@@ -352,7 +354,7 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
             ]:
             yield eachFunc(
                 lambda txn, home: self._upgradeAction(
-                    txn, home, homeType 
+                    txn, home, homeType
                 )
             )
 
@@ -374,7 +376,7 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
 
         self.sqlStore.setMigrating(False)
 
-        self.log_warn(
+        self.log.warn(
             "Filesystem upgrade complete, launching database service."
         )
 
@@ -382,7 +384,7 @@ class UpgradeToDatabaseStep(LoggingMixIn, object):
     @inlineCallbacks
     def _upgradeAction(self, fileTxn, fileHome, homeType):
         uid = fileHome.uid()
-        self.log_warn("Migrating %s UID %r" % (homeType, uid))
+        self.log.warn("Migrating %s UID %r" % (homeType, uid))
         yield self.migrateOneHome(fileTxn, homeType, fileHome)
 
 

@@ -44,7 +44,7 @@ class UserInteractionTests(TestCase):
         path.setContent(
             # A user accessing his own calendar
             format % dict(user="user01", other="user01") +
-            
+
             # A user accessing the calendar of one other person
             format % dict(user="user02", other="user01") +
 

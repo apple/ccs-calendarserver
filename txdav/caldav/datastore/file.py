@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
 """
 File calendar store.
@@ -36,7 +37,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
 
 from twext.python.vcomponent import VComponent
 from txdav.xml import element as davxml
-from txdav.xml.rfc2518 import ResourceType, GETContentType
+from txdav.xml.rfc2518 import GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.http_headers import generateContentType, MimeType
 
@@ -83,9 +84,8 @@ class CalendarHome(CommonHome):
     _topPath = "calendars"
     _notifierPrefix = "CalDAV"
 
-    def __init__(self, uid, path, calendarStore, transaction, notifiers):
-        super(CalendarHome, self).__init__(uid, path, calendarStore,
-                                           transaction, notifiers)
+    def __init__(self, uid, path, calendarStore, transaction):
+        super(CalendarHome, self).__init__(uid, path, calendarStore, transaction)
 
         self._childClass = Calendar
 
@@ -134,9 +134,9 @@ class CalendarHome(CommonHome):
                 continue
             matched_type = "schedule" if objectResource.isScheduleObject else "calendar"
             if type == "schedule" or matched_type == "schedule":
-                returnValue(True)
+                returnValue(objectResource)
 
-        returnValue(False)
+        returnValue(None)
 
 
     @inlineCallbacks
@@ -260,10 +260,6 @@ class Calendar(CommonHomeChild):
     def _calendarHome(self):
         return self._home
 
-
-    def resourceType(self):
-        return ResourceType.calendar #@UndefinedVariable
-
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome
     calendarObjects = CommonHomeChild.objectResources
@@ -271,9 +267,11 @@ class Calendar(CommonHomeChild):
     calendarObjectWithName = CommonHomeChild.objectResourceWithName
     calendarObjectWithUID = CommonHomeChild.objectResourceWithUID
     createCalendarObjectWithName = CommonHomeChild.createObjectResourceWithName
-    removeCalendarObjectWithName = CommonHomeChild.removeObjectResourceWithName
-    removeCalendarObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
     calendarObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
+
+
+    def _createCalendarObjectWithNameInternal(self, name, component, internal_state, options=None):
+        return self.createCalendarObjectWithName(name, component, options)
 
 
     def calendarObjectsInTimeRange(self, start, end, timeZone):
@@ -381,16 +379,6 @@ class Calendar(CommonHomeChild):
         pass
 
 
-    def creatingResourceCheckAttachments(self, component):
-        """
-        When component data is created or changed we need to look for changes related to managed attachments.
-
-        @param component: the new calendar data
-        @type component: L{Component}
-        """
-        return succeed(None)
-
-
 
 class CalendarObject(CommonObjectResource, CalendarObjectBase):
     """
@@ -489,16 +477,28 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
 
         if unfixed:
-            self.log_error("Calendar data at %s had unfixable problems:\n  %s" % (self._path.path, "\n  ".join(unfixed),))
+            self.log.error("Calendar data at %s had unfixable problems:\n  %s" % (self._path.path, "\n  ".join(unfixed),))
 
         if fixed:
-            self.log_error("Calendar data at %s had fixable problems:\n  %s" % (self._path.path, "\n  ".join(fixed),))
+            self.log.error("Calendar data at %s had fixable problems:\n  %s" % (self._path.path, "\n  ".join(fixed),))
 
         return component
 
 
-    def remove(self):
-        pass
+    def componentForUser(self, user_uuid=None):
+        """
+        Return the iCalendar component filtered for the specified user's per-user data.
+
+        @param user_uuid: the user UUID to filter on
+        @type user_uuid: C{str}
+
+        @return: the filtered calendar component
+        @rtype: L{twistedcaldav.ical.Component}
+        """
+
+        if user_uuid is None:
+            user_uuid = self._parentCollection.viewerHome().uid()
+        return PerUserDataFilter(user_uuid).filter(self.component().duplicate())
 
 
     def _text(self):

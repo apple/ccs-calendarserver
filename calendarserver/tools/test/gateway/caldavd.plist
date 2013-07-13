@@ -85,6 +85,10 @@
     <key>ServerRoot</key>
     <string>%(ServerRoot)s</string>
 
+    <!-- Database root -->
+    <key>DatabaseRoot</key>
+    <string>%(DatabaseRoot)s</string>
+
     <!-- Data root -->
     <key>DataRoot</key>
     <string>Data</string>
@@ -107,15 +111,8 @@
 
     <!-- Child aliases -->
     <key>Aliases</key>
-    <dict>
-      <!--
-      <key>foo</key>
-      <dict>
-        <key>path</key>
-        <string>/path/to/foo</string>
-      </dict>
-       -->
-    </dict>
+    <array>
+    </array>
 
     <!-- User quota (in bytes) -->
     <key>UserQuota</key>
@@ -413,17 +410,6 @@
       -->
     </dict>
 
-    <!-- Global server stats --> 
-    <key>GlobalStatsSocket</key> 
-    <string>logs/caldavd-stats.sock</string> 
-
-    <!-- Global server stats logging period --> 
-    <key>GlobalStatsLoggingPeriod</key> 
-    <integer>60</integer> 
-
-    <!-- Global server stats logging frequency [0 = disable stats] --> 
-    <key>GlobalStatsLoggingFrequency</key> 
-    <integer>12</integer>
 
     <!-- Server process ID file -->
     <key>PIDFile</key>
@@ -662,6 +648,8 @@
     <key>EnableTimezoneService</key>
     <true/>
 
+	<key>UsePackageTimezones</key>
+	<true/>
 
     <!--
         Miscellaneous items

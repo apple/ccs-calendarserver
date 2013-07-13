@@ -16,10 +16,10 @@
 
 from calendarserver.push.amppush import AMPPushMaster, AMPPushNotifierProtocol
 from calendarserver.push.amppush import NotificationForID
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import StoreTestCase
 from twisted.internet.task import Clock
 
-class AMPPushMasterTests(TestCase):
+class AMPPushMasterTests(StoreTestCase):
 
     def test_AMPPushMaster(self):
 
@@ -92,14 +92,17 @@ class AMPPushMasterTests(TestCase):
         self.assertEquals(client2.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp' : 1354815999})])
 
 
+
 class TestProtocol(AMPPushNotifierProtocol):
 
     def __init__(self, service):
         super(TestProtocol, self).__init__(service)
         self.reset()
 
+
     def callRemote(self, cls, **kwds):
         self.history.append((cls, kwds))
+
 
     def reset(self):
         self.history = []

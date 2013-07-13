@@ -109,7 +109,7 @@ class AugmentDB(object):
                 old = yield self._lookupAugmentRecord(uid)
                 new = copy.deepcopy(old)
                 new.uid = uid.upper()
-                remove.append(old)
+                remove.append(uid)
                 add.append(new)
         try:
             yield self.removeAugmentRecords(remove)
@@ -384,7 +384,7 @@ class AugmentXMLDB(AugmentDB):
 
         # Make sure UID is present
         changed = False
-        for record_node in augments_node.getchildren():
+        for record_node in augments_node:
             
             if record_node.tag != xmlaugmentsparser.ELEMENT_RECORD:
                 continue
@@ -404,8 +404,8 @@ class AugmentXMLDB(AugmentDB):
         """
         Remove AugmentRecords with the specified UIDs.
 
-        @param uid: directory UID to lookup
-        @type uid: C{list} of C{str}
+        @param uids: list of uids to remove
+        @type uids: C{list} of C{str}
         
         @return: L{Deferred}
         """
@@ -429,15 +429,14 @@ class AugmentXMLDB(AugmentDB):
     
         # Remove all UIDs present
         changed = False
-        for child in tuple(augments_node.getchildren()):
-            
+        for child in augments_node:
             if child.tag != xmlaugmentsparser.ELEMENT_RECORD:
                 continue
 
             if child.find(xmlaugmentsparser.ELEMENT_UID).text in uids:
                 augments_node.remove(child)
                 changed = True
-        
+
         # Modify xmlfile
         if changed:
             writeXML(xmlfile, augments_node)
@@ -448,7 +447,7 @@ class AugmentXMLDB(AugmentDB):
         self._updateRecordInXMLDB(record, record_node)
 
     def _updateRecordInXMLDB(self, record, recordNode):
-        del recordNode.getchildren()[:]
+        del recordNode[:]
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_UID, record.uid)
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
         if record.serverID:
@@ -610,6 +609,14 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
 
     @inlineCallbacks
     def removeAugmentRecords(self, uids):
+        """
+        Remove AugmentRecords with the specified UIDs.
+
+        @param uids: list of uids to remove
+        @type uids: C{list} of C{str}
+        
+        @return: L{Deferred}
+        """
 
         for uid in uids:
             yield self.execute("delete from AUGMENTS where UID = :1", (uid,))

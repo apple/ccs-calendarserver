@@ -51,6 +51,7 @@ class NoSuchRecord(Exception):
     """
 
 
+
 class _RecordMeta(type):
     """
     Metaclass for associating a L{fromTable} with a L{Record} at inheritance
@@ -257,12 +258,13 @@ class Record(object):
         """
         Delete this row from the database.
 
-        @return: a L{Deferred} which fires when the underlying row has been
-            deleted.
+        @return: a L{Deferred} which fires with C{None} when the underlying row
+            has been deleted, or fails with L{NoSuchRecord} if the underlying
+            row was already deleted.
         """
         return Delete(From=self.table,
                       Where=self._primaryKeyComparison(self._primaryKeyValue())
-                      ).on(self.transaction)
+                      ).on(self.transaction, raiseOnZeroRowCount=NoSuchRecord)
 
 
     @inlineCallbacks

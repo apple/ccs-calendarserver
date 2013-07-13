@@ -38,11 +38,13 @@ def _increment(event, marker, amount):
     return event[:colon + 1] + new.strftime(TIME_FORMAT) + event[eol:]
 
 
+
 def replaceTimestamp(event, i):
     offset = datetime.timedelta(hours=i)
     return _increment(
         _increment(event, 'DTSTART', offset),
         'DTEND', offset)
+
 
 
 def measure(host, port, dtrace, attendeeCount, samples):

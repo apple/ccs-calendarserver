@@ -58,7 +58,7 @@ def report_DAV__principal_match(self, request, principal_match):
     # Only handle Depth: 0
     depth = request.headers.getHeader("depth", "0")
     if depth != "0":
-        log.err("Non-zero depth is not allowed: %s" % (depth,))
+        log.error("Non-zero depth is not allowed: %s" % (depth,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
     
     # Get a single DAV:prop element from the REPORT request body
@@ -78,8 +78,8 @@ def report_DAV__principal_match(self, request, principal_match):
         elif child.qname() == (dav_namespace, "principal-property"):
             # Must have one and only one property in this element
             if len(child.children) != 1:
-                log.err("Wrong number of properties in DAV:principal-property: %s"
-                        % (len(child.children),))
+                log.error("Wrong number of properties in DAV:principal-property: %s"
+                          % (len(child.children),))
                 raise HTTPError(StatusResponse(
                     responsecode.BAD_REQUEST,
                     "DAV:principal-property must contain exactly one property"
@@ -191,7 +191,7 @@ def report_DAV__principal_match(self, request, principal_match):
                     pass
 
     except NumberOfMatchesWithinLimits:
-        log.err("Too many matching components in principal-match report")
+        log.error("Too many matching components in principal-match report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             element.NumberOfMatchesWithinLimits()

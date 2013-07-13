@@ -21,6 +21,7 @@ def replaceSummary(event, i):
     return event.replace(SUMMARY, 'Replacement summary %d' % (i,))
 
 
+
 def measure(host, port, dtrace, attendeeCount, samples):
     return _measure(
         host, port, dtrace, attendeeCount, samples, "change-summary",

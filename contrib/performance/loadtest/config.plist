@@ -543,6 +543,10 @@
 					<key>thresholdsPath</key>
 					<string>contrib/performance/loadtest/thresholds.json</string>
 					
+					<!-- The benchmarks for overall QoS -->
+					<key>benchmarksPath</key>
+					<string>contrib/performance/loadtest/benchmarks.json</string>
+
 					<!-- The % of failures that constitute a failed test -->
 					<key>failCutoff</key>
 					<real>1.0</real>

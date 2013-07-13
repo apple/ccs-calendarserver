@@ -322,16 +322,17 @@ def printHistogramSummary(stat, index):
 def printMultiHistogramSummary(stats, index):
 
     # Totals first
-    keys = ("requests", "<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s", "Over 1s", "Over 10s",)
+    keys = ("<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s", "Over 1s", "Over 10s",)
     totals = {
         "T"        : dict([(k, 0) for k in keys]),
         "T-RESP-WR": dict([(k, 0) for k in keys]),
+        "requests" : 0,
     }
 
     for stat in stats:
         for i in ("T", "T-RESP-WR",):
-            totals[i][keys[0]] += stat[index][keys[0]]
-            for k in keys[1:]:
+            totals["requests"] += stat[index]["requests"]
+            for k in keys:
                 totals[i][k] += stat[index][i][k]
 
     printHistogramSummary(totals, index)
@@ -389,8 +390,9 @@ def printMultiMethodCounts(stats, index):
     for stat in stats:
         for method in stat[index]["method"]:
             methods[method] += stat[index]["method"][method]
-        for method_time in stat[index]["method-t"]:
-            method_times[method_time] += stat[index]["method-t"][method_time]
+        if "method-t" in stat[index]:
+            for method_time in stat[index]["method-t"]:
+                method_times[method_time] += stat[index]["method-t"][method_time]
 
     printMethodCounts({"method": methods, "method-t": method_times})
 

@@ -14,6 +14,7 @@
 # limitations under the License.
 # #
 
+from twext.enterprise.dal.parseschema import schemaFromPath
 from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
 import re
@@ -100,3 +101,20 @@ class SQLSchemaFiles(TestCase):
         current_oracle_version = self.versionFromSchema(currentOracleSchema)
 
         self.assertEqual(current_version, current_oracle_version)
+
+
+    def test_schema_compare(self):
+
+        sqlSchema = getModule(__name__).filePath.parent().sibling("sql_schema")
+
+        # Test with same schema
+        currentSchema = schemaFromPath(sqlSchema.child("current.sql"))
+        duplicateSchema = schemaFromPath(sqlSchema.child("current.sql"))
+        mismatched = currentSchema.compare(duplicateSchema)
+        self.assertEqual(len(mismatched), 0)
+
+        # Test with same schema
+        v6Schema = schemaFromPath(sqlSchema.child("old").child("postgres-dialect").child("v6.sql"))
+        v5Schema = schemaFromPath(sqlSchema.child("old").child("postgres-dialect").child("v5.sql"))
+        mismatched = v6Schema.compare(v5Schema)
+        self.assertEqual(len(mismatched), 3, msg="\n".join(mismatched))

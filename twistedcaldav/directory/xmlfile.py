@@ -23,8 +23,10 @@ __all__ = [
 ]
 
 from time import time
+import grp
+import os
+import pwd
 import types
-import os, pwd, grp
 
 from twisted.cred.credentials import UsernamePassword
 from twext.web2.auth.digest import DigestedCredentials
@@ -36,7 +38,7 @@ from twistedcaldav.config import fullServerPath
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser, XMLAccountRecord
 from twistedcaldav.directory.util import normalizeUUID
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.xmlutil import addSubElement, createElement, elementToXML
 from uuid import uuid4
 
@@ -49,14 +51,15 @@ class XMLDirectoryService(DirectoryService):
 
     realmName = None
 
-    INDEX_TYPE_GUID      = "guid"
+    INDEX_TYPE_GUID = "guid"
     INDEX_TYPE_SHORTNAME = "shortname"
-    INDEX_TYPE_CUA       = "cua"
-    INDEX_TYPE_AUTHID    = "authid"
+    INDEX_TYPE_CUA = "cua"
+    INDEX_TYPE_AUTHID = "authid"
 
 
     def __repr__(self):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName, self.xmlFile)
+
 
     def __init__(self, params, alwaysStat=False):
 
@@ -101,18 +104,17 @@ class XMLDirectoryService(DirectoryService):
             try:
                 uid = pwd.getpwnam(config.UserName).pw_uid
             except KeyError:
-                self.log_error("User not found: %s" % (config.UserName,))
+                self.log.error("User not found: %s" % (config.UserName,))
 
         gid = -1
         if config.GroupName:
             try:
                 gid = grp.getgrnam(config.GroupName).gr_gid
             except KeyError:
-                self.log_error("Group not found: %s" % (config.GroupName,))
+                self.log.error("Group not found: %s" % (config.GroupName,))
 
         if uid != -1 and gid != -1:
             os.chown(xmlFile.path, uid, gid)
-
 
         self.xmlFile = xmlFile
         self._fileInfo = None
@@ -121,6 +123,7 @@ class XMLDirectoryService(DirectoryService):
         self.directoryBackedAddressBook = params.get('directoryBackedAddressBook')
         self._initIndexes()
         self._accounts()
+
 
     def _initIndexes(self):
         """
@@ -137,6 +140,7 @@ class XMLDirectoryService(DirectoryService):
                 self.INDEX_TYPE_CUA      : {},
                 self.INDEX_TYPE_AUTHID   : {},
             }
+
 
     def _accounts(self):
         """
@@ -169,19 +173,20 @@ class XMLDirectoryService(DirectoryService):
                         if xmlAccountRecord.recordType not in self.recordTypes():
                             continue
                         record = XMLDirectoryRecord(
-                            service       = self,
-                            recordType    = xmlAccountRecord.recordType,
-                            shortNames    = tuple(xmlAccountRecord.shortNames),
-                            xmlPrincipal  = xmlAccountRecord,
+                            service=self,
+                            recordType=xmlAccountRecord.recordType,
+                            shortNames=tuple(xmlAccountRecord.shortNames),
+                            xmlPrincipal=xmlAccountRecord,
                         )
                         if self.augmentService is not None:
                             d = self.augmentService.getAugmentRecord(record.guid,
                                 record.recordType)
-                            d.addCallback(lambda x:record.addAugmentInformation(x))
+                            d.addCallback(lambda x: record.addAugmentInformation(x))
 
                         self._addToIndex(record)
 
         return self._parsedAccounts
+
 
     def _addToIndex(self, record):
         """
@@ -198,6 +203,7 @@ class XMLDirectoryService(DirectoryService):
             self.recordIndexes[record.recordType][self.INDEX_TYPE_CUA][cua] = record
         self.records[record.recordType].add(record)
 
+
     def _removeFromIndex(self, record):
         """
         Removes a record from all indexes.  Note this is only used for unit
@@ -210,7 +216,7 @@ class XMLDirectoryService(DirectoryService):
             del self.recordIndexes[record.recordType][self.INDEX_TYPE_AUTHID][authID]
         for cua in record.calendarUserAddresses:
             cua = normalizeCUAddr(cua)
-            del self.recordIndexes[record.recordType][self.INDEX_TYPE_CUA][cua] 
+            del self.recordIndexes[record.recordType][self.INDEX_TYPE_CUA][cua]
         if record in self.records[record.recordType]:
             self.records[record.recordType].remove(record)
 
@@ -223,12 +229,14 @@ class XMLDirectoryService(DirectoryService):
         self._accounts()
         return self.recordIndexes.get(recordType, {}).get(indexType, {}).get(key, None)
 
+
     def _initCaches(self):
         """
         Invalidates the indexes
         """
         self._lastCheck = 0
         self._initIndexes()
+
 
     def _forceReload(self):
         """
@@ -247,8 +255,10 @@ class XMLDirectoryService(DirectoryService):
                 return record
         return None
 
+
     def recordWithShortName(self, recordType, shortName):
         return self._lookupInIndex(recordType, self.INDEX_TYPE_SHORTNAME, shortName)
+
 
     def recordWithAuthID(self, authID):
         for recordType in self.recordTypes():
@@ -256,6 +266,7 @@ class XMLDirectoryService(DirectoryService):
             if record is not None:
                 return record
         return None
+
 
     def recordWithGUID(self, guid):
         guid = normalizeUUID(guid)
@@ -272,9 +283,9 @@ class XMLDirectoryService(DirectoryService):
         No-op to pacify addressbook backing.
         """
 
-
     def recordTypes(self):
         return self._recordTypes
+
 
     def listRecords(self, recordType):
         self._accounts()
@@ -388,14 +399,14 @@ class XMLDirectoryService(DirectoryService):
     def _persistRecords(self, element):
 
         def indent(elem, level=0):
-            i = "\n" + level*"  "
+            i = "\n" + level * "  "
             if len(elem):
                 if not elem.text or not elem.text.strip():
                     elem.text = i + "  "
                 if not elem.tail or not elem.tail.strip():
                     elem.tail = i
                 for elem in elem:
-                    indent(elem, level+1)
+                    indent(elem, level + 1)
                 if not elem.tail or not elem.tail.strip():
                     elem.tail = i
             else:
@@ -412,14 +423,14 @@ class XMLDirectoryService(DirectoryService):
             try:
                 uid = pwd.getpwnam(config.UserName).pw_uid
             except KeyError:
-                self.log_error("User not found: %s" % (config.UserName,))
+                self.log.error("User not found: %s" % (config.UserName,))
 
         gid = -1
         if config.GroupName:
             try:
                 gid = grp.getgrnam(config.GroupName).gr_gid
             except KeyError:
-                self.log_error("Group not found: %s" % (config.GroupName,))
+                self.log.error("Group not found: %s" % (config.GroupName,))
 
         if uid != -1 and gid != -1:
             os.chown(self.xmlFile.path, uid, gid)
@@ -531,6 +542,7 @@ class XMLDirectoryService(DirectoryService):
         self._forceReload()
         return self.recordWithGUID(guid)
 
+
     def createRecords(self, data):
         """
         Create records in bulk
@@ -539,8 +551,8 @@ class XMLDirectoryService(DirectoryService):
         # Make sure latest XML records are read in
         accounts = self._forceReload()
 
-        knownGUIDs = { }
-        knownShortNames = { }
+        knownGUIDs = {}
+        knownShortNames = {}
 
         accountsElement = createElement("accounts", realm=self.realmName)
         for recType in self.recordTypes():
@@ -577,26 +589,28 @@ class XMLDirectoryService(DirectoryService):
         self._forceReload()
 
 
+
 class XMLDirectoryRecord(DirectoryRecord):
     """
     XML based implementation implementation of L{IDirectoryRecord}.
     """
     def __init__(self, service, recordType, shortNames, xmlPrincipal):
         super(XMLDirectoryRecord, self).__init__(
-            service               = service,
-            recordType            = recordType,
-            guid                  = xmlPrincipal.guid,
-            shortNames            = shortNames,
-            fullName              = xmlPrincipal.fullName,
-            firstName             = xmlPrincipal.firstName,
-            lastName              = xmlPrincipal.lastName,
-            emailAddresses        = xmlPrincipal.emailAddresses,
+            service=service,
+            recordType=recordType,
+            guid=xmlPrincipal.guid,
+            shortNames=shortNames,
+            fullName=xmlPrincipal.fullName,
+            firstName=xmlPrincipal.firstName,
+            lastName=xmlPrincipal.lastName,
+            emailAddresses=xmlPrincipal.emailAddresses,
             **xmlPrincipal.extras
         )
 
-        self.password          = xmlPrincipal.password
-        self._members          = xmlPrincipal.members
-        self._groups           = xmlPrincipal.groups
+        self.password = xmlPrincipal.password
+        self._members = xmlPrincipal.members
+        self._groups = xmlPrincipal.groups
+
 
     def members(self):
         for recordType, shortName in self._members:
@@ -607,12 +621,14 @@ class XMLDirectoryRecord(DirectoryRecord):
         for shortName in self._groups:
             yield self.service.recordWithShortName(DirectoryService.recordType_groups, shortName)
 
+
     def memberGUIDs(self):
         results = set()
         for recordType, shortName in self._members:
             record = self.service.recordWithShortName(recordType, shortName)
             results.add(record.guid)
         return results
+
 
     def verifyCredentials(self, credentials):
         if self.enabled:

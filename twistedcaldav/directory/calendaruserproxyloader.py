@@ -59,9 +59,10 @@ class XMLCalendarUserProxyLoader(object):
         # Read in XML
         try:
             _ignore_tree, proxies_node = readXML(self.xmlFile, ELEMENT_PROXIES)
-        except ValueError, e:
-            log.error("XML parse error for '%s' because: %s" % (self.xmlFile, e,), raiseException=RuntimeError)
+        except ValueError:
+            log.failure("XML parse error for proxy data file {xmlfile}", xmlfile=self.xmlFile)
 
+        # FIXME: RuntimeError is dumb.
         self._parseXML(proxies_node)
 
     def _parseXML(self, rootnode):
@@ -69,17 +70,17 @@ class XMLCalendarUserProxyLoader(object):
         Parse the XML root node from the augments configuration document.
         @param rootnode: the L{Element} to parse.
         """
-        for child in rootnode.getchildren():
+        for child in rootnode:
             
             if child.tag != ELEMENT_RECORD:
-                log.error("Unknown augment type: '%s' in augment file: '%s'" % (child.tag, self.xmlFile,), raiseException=RuntimeError)
+                raise RuntimeError("Unknown augment type: '%s' in augment file: '%s'" % (child.tag, self.xmlFile,))
 
             repeat = int(child.get(ATTRIBUTE_REPEAT, "1"))
 
             guid = None
             write_proxies = set()
             read_proxies = set()
-            for node in child.getchildren():
+            for node in child:
                 
                 if node.tag == ELEMENT_GUID:
                     guid = node.text
@@ -90,11 +91,11 @@ class XMLCalendarUserProxyLoader(object):
                 ):
                     self._parseMembers(node, write_proxies if node.tag == ELEMENT_PROXIES else read_proxies)
                 else:
-                    log.error("Invalid element '%s' in proxies file: '%s'" % (node.tag, self.xmlFile,), raiseException=RuntimeError)
+                    raise RuntimeError("Invalid element '%s' in proxies file: '%s'" % (node.tag, self.xmlFile,))
                     
             # Must have at least a guid
             if not guid:
-                log.error("Invalid record '%s' without a guid in proxies file: '%s'" % (child, self.xmlFile,), raiseException=RuntimeError)
+                raise RuntimeError("Invalid record '%s' without a guid in proxies file: '%s'" % (child, self.xmlFile,))
                 
             if repeat > 1:
                 for i in xrange(1, repeat+1):
@@ -103,7 +104,7 @@ class XMLCalendarUserProxyLoader(object):
                 self._buildRecord(guid, write_proxies, read_proxies)
 
     def _parseMembers(self, node, addto):
-        for child in node.getchildren():
+        for child in node:
             if child.tag == ELEMENT_MEMBER:
                 addto.add(child.text)
     

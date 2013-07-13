@@ -17,25 +17,35 @@
 ##
 from __future__ import print_function
 
-from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, checkDirectory
-from getopt import getopt, GetoptError
+import os
+import sys
 from grp import getgrnam
 from pwd import getpwnam
-from twext.python.log import StandardIOObserver
-from twext.python.log import clearLogLevels
+from getopt import getopt, GetoptError
+
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.util import switchUID
+
+from twext.python.log import Logger, StandardIOObserver
+
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
-import os
-import sys
 
 from calendarserver.platform.darwin.od import dsattributes
+from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, checkDirectory
 
-__all__ = [ "migrateResources", ]
+log = Logger()
+
+
+
+__all__ = [
+    "migrateResources",
+]
+
+
 
 def usage():
 
@@ -99,7 +109,7 @@ def main():
 
         # Do this first, because modifying the config object will cause
         # some logging activity at whatever log level the plist says
-        clearLogLevels()
+        log.publisher.levels.clearLogLevels()
 
         config.DefaultLogLevel = "info" if verbose else "error"
 

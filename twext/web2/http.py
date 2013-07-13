@@ -30,7 +30,7 @@ The second coming.
 Maintainer: James Y Knight
 
 """
-#        import traceback; log.msg(''.join(traceback.format_stack()))
+#        import traceback; log.info(''.join(traceback.format_stack()))
 
 import json
 import time
@@ -489,9 +489,9 @@ class Request(object):
 
     def _error(self, reason):
         if reason.check(error.ConnectionLost):
-            log.msg("Request error: " + reason.getErrorMessage())
+            log.info("Request error: {message}", message=reason.getErrorMessage())
         else:
-            log.err(reason)
+            log.failure("Request error", reason)
             # Only bother with cleanup on errors other than lost connection.
             self.chanRequest.abortConnection()
 

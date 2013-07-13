@@ -22,8 +22,8 @@ class CustomXML (twistedcaldav.test.util.TestCase):
 
 
     def test_DTStamp(self):
-        
+
         dtstamp = customxml.DTStamp()
         now = time.time()
-        now_tm = time.gmtime( now )
+        now_tm = time.gmtime(now)
         self.assertEqual(str(dtstamp)[:4], "%s" % (now_tm.tm_year,))

@@ -18,14 +18,15 @@ from new import instancemethod
 import hashlib
 import cPickle
 
-from twisted.internet.defer import succeed, maybeDeferred
+from twisted.internet.defer import succeed, maybeDeferred, inlineCallbacks
 
-from txdav.xml import element as davxml
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.stream import MemoryStream
 from twext.web2.http_headers import Headers
 
-from twistedcaldav.cache import MemcacheResponseCache
+from txdav.xml import element as davxml
+
+from twistedcaldav.cache import MemcacheResponseCache, CacheStoreNotifier
 from twistedcaldav.cache import MemcacheChangeNotifier
 from twistedcaldav.cache import PropfindCacheMixin
 
@@ -40,10 +41,13 @@ def _newCacheToken(self):
     setattr(self, '_called', called + 1)
     return token
 
+
+
 class StubDirectoryRecord(object):
-    
+
     def __init__(self, uid):
         self.uid = uid
+
 
     def cacheToken(self):
         """
@@ -55,23 +59,32 @@ class StubDirectoryRecord(object):
             self.uid,
         ))
 
+
+
 class StubDirectory(object):
-    
+
     def recordWithShortName(self, recordType, recordName):
         return StubDirectoryRecord(recordName)
+
+
 
 class StubSiteResource(object):
 
     def __init__(self):
         self.directory = StubDirectory()
-    
+
+
     def getDirectory(self):
         return self.directory
 
+
+
 class StubSite(object):
-    
+
     def __init__(self):
         self.resource = StubSiteResource()
+
+
 
 class StubRequest(object):
     resources = {}
@@ -87,7 +100,7 @@ class StubRequest(object):
 
         self.body = body
         self.stream = MemoryStream(body)
-        
+
         self.site = StubSite()
 
 
@@ -113,6 +126,7 @@ class StubURLResource(object):
         if record is not None:
             self.record = record
 
+
     def url(self):
         return self._url
 
@@ -129,6 +143,7 @@ class MemCacheChangeNotifierTests(TestCase):
         self.ccn._newCacheToken = instancemethod(_newCacheToken,
                                                  self.ccn,
                                                  MemcacheChangeNotifier)
+
 
     def assertToken(self, expectedToken):
         token = self.memcache._cache['cacheToken::memory:'][1]
@@ -335,13 +350,11 @@ class BaseCacheTestMixin(object):
                     '/principals/__uids__/dreid/',
                     '/principals/__uids__/dreid/'))
 
-
             d1.addCallback(self.assertResponse,
                            (expected_response.code,
                             expected_response.headers,
                             expected_response.body))
             return d1
-
 
         d = self.rc.cacheResponseForRequest(
             StubRequest('PROPFIND',
@@ -374,7 +387,6 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
 
         memcacheStub = InMemoryMemcacheProtocol()
         self.rc = MemcacheResponseCache(None, cachePool=memcacheStub)
-        self.rc.logger.setLevel('debug')
         self.tokens = {}
 
         self.tokens['/calendars/__uids__/cdaboo/'] = 'uriToken0'
@@ -403,16 +415,18 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
             'principalToken0',
             StubDirectoryRecord('cdaboo').cacheToken(),
             'uriToken0',
-            {'/calendars/__uids__/cdaboo/calendars/':'childToken0'},
+            {'/calendars/__uids__/cdaboo/calendars/': 'childToken0'},
             (self.expected_response[0],
              dict(list(self.expected_response[1].getAllRawHeaders())),
              self.expected_response[2]))))
 
         self.memcacheStub = memcacheStub
 
+
     def tearDown(self):
         for call in self.memcacheStub._timeouts.itervalues():
             call.cancel()
+
 
     def test_givenURIsForKeys(self):
         expected_response = (200, Headers({}), "Foobarbaz")
@@ -433,7 +447,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
                     'principalToken0',
                     StubDirectoryRecord('cdaboo').cacheToken(),
                     'uriToken0',
-                    {'/calendars/__uids__/cdaboo/calendars/':'childToken0'},
+                    {'/calendars/__uids__/cdaboo/calendars/': 'childToken0'},
                     (expected_response[0],
                      dict(list(expected_response[1].getAllRawHeaders())),
                      expected_response[2]))))
@@ -481,6 +495,48 @@ class TestCachingResource(PropfindCacheMixin, TestRenderMixin):
 
 
 
+class TestCacheStoreNotifier(TestCase):
+
+    @inlineCallbacks
+    def test_notify_home_child(self):
+        """
+        Verify that L{CacheStoreNotifier.notify} will generate notifications for homes and home childs.
+        """
+
+        class StubCacheStoreNotifierFactory(object):
+
+            def __init__(self):
+                self.results = set()
+
+            def changed(self, uri):
+                self.results.add(uri)
+                return succeed(None)
+
+
+        class StubCacheResource(object):
+
+            def __init__(self, notifierID):
+                self.nid = notifierID
+
+            def notifierID(self):
+                return self.nid
+
+        data = (
+            (("CalDAV", "user01"), ("/calendars/__uids__/user01/",),),
+            (("CalDAV", "user01/calendar"), ("/calendars/__uids__/user01/", "/calendars/__uids__/user01/calendar/",),),
+            (("CardDAV", "user01"), ("/addressbooks/__uids__/user01/",),),
+            (("CardDAV", "user01/addressbook"), ("/addressbooks/__uids__/user01/", "/addressbooks/__uids__/user01/addressbook/",),),
+        )
+
+        for item, results in data:
+            factory = StubCacheStoreNotifierFactory()
+            notifier = CacheStoreNotifier(factory, StubCacheResource(item))
+            yield notifier.notify()
+
+            self.assertEqual(factory.results, set(results))
+
+
+
 class PropfindCacheMixinTests(TestCase):
     """
     Test the PropfindCacheMixin
@@ -489,6 +545,7 @@ class PropfindCacheMixinTests(TestCase):
         TestCase.setUp(self)
         self.resource = TestCachingResource(StubResponse(200, {}, "foobar"))
         self.responseCache = StubResponseCacheResource()
+
 
     def test_DAVHeaderCached(self):
         """

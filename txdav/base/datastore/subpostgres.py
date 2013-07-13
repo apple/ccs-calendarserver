@@ -75,20 +75,26 @@ class _PostgresMonitor(ProcessProtocol):
 
 
     def outReceived(self, out):
-        log.msg("received postgres stdout %r" % (out,))
+        log.warn("received postgres stdout {out!r}", out=out)
         # self.lineReceiver.dataReceived(out)
 
 
     def errReceived(self, err):
-        log.msg("received postgres stderr %r" % (err,))
+        log.warn("received postgres stderr {err}", err=err)
         self.lineReceiver.dataReceived(err)
 
 
     def processEnded(self, reason):
-        log.msg("postgres process ended %r" % (reason,))
-        result = (reason.value.status == 0)
+        log.warn("postgres process ended with status {status}", status=reason.value.status)
+        # If pg_ctl exited with zero, we were successful in starting postgres
+        # If pg_ctl exited with nonzero, we need to give up.
         self.lineReceiver.connectionLost(reason)
-        self.completionDeferred.callback(result)
+
+        if reason.value.status == 0:
+            self.completionDeferred.callback(None)
+        else:
+            log.warn("Could not start postgres; see postgres.log")
+            self.completionDeferred.errback(reason)
 
 
 
@@ -158,6 +164,7 @@ class PostgresService(MultiService):
 
     def __init__(self, dataStoreDirectory, subServiceFactory,
                  schema, resetSchema=False, databaseName='subpostgres',
+                 clusterName="cluster",
                  logFile="postgres.log", socketDir="/tmp",
                  listenAddresses=[], sharedBuffers=30,
                  maxConnections=20, options=[],
@@ -205,6 +212,7 @@ class PostgresService(MultiService):
 
         # Options from config
         self.databaseName = databaseName
+        self.clusterName = clusterName
         # Make logFile absolute in case the working directory of postgres is
         # elsewhere:
         self.logFile = os.path.abspath(logFile)
@@ -242,6 +250,7 @@ class PostgresService(MultiService):
         self._pgCtl = pgCtl
         self._initdb = initDB
         self._reactor = reactor
+
 
     @property
     def reactor(self):
@@ -352,7 +361,6 @@ class PostgresService(MultiService):
             connection.commit()
             connection.close()
 
-
         if self.shutdownDeferred is None:
             # Only continue startup if we've not begun shutdown
             self.subServiceFactory(self.produceConnection).setServiceParent(self)
@@ -394,6 +402,7 @@ class PostgresService(MultiService):
             createDatabaseCursor.execute("commit")
             return createDatabaseConn, createDatabaseCursor
 
+        # TODO: always go through pg_ctl start
         try:
             createDatabaseConn, createDatabaseCursor = createConnection()
         except pgdb.DatabaseError:
@@ -402,7 +411,7 @@ class PostgresService(MultiService):
         except Exception, e:
             # Some other unexpected error is preventing us from connecting
             # to the database
-            log.warn("Failed to connect to Postgres: %s" % (str(e)))
+            log.warn("Failed to connect to Postgres: {e}", e=e)
         else:
             # Database is running, so just use our connection
             self.ready(createDatabaseConn, createDatabaseCursor)
@@ -426,6 +435,7 @@ class PostgresService(MultiService):
         options.append("-c standard_conforming_strings=on")
         options.extend(self.options)
 
+        log.warn("Requesting postgres start via {cmd}", cmd=pgCtl)
         self.reactor.spawnProcess(
             monitor, pgCtl,
             [
@@ -443,12 +453,14 @@ class PostgresService(MultiService):
         )
         self.monitor = monitor
         def gotReady(result):
-            self.shouldStopDatabase = result
+            log.warn("{cmd} exited", cmd=pgCtl)
+            self.shouldStopDatabase = True
             self.ready(*createConnection())
             self.deactivateDelayedShutdown()
         def reportit(f):
-            log.err(f)
+            log.failure("starting postgres", f)
             self.deactivateDelayedShutdown()
+            self.reactor.stop()
         self.monitor.completionDeferred.addCallback(
             gotReady).addErrback(reportit)
 
@@ -457,7 +469,7 @@ class PostgresService(MultiService):
     def startService(self):
         MultiService.startService(self)
         self.activateDelayedShutdown()
-        clusterDir = self.dataStoreDirectory.child("cluster")
+        clusterDir = self.dataStoreDirectory.child(self.clusterName)
         env = self.env = os.environ.copy()
         env.update(PGDATA=clusterDir.path,
                    PGHOST=self.host,
@@ -468,11 +480,10 @@ class PostgresService(MultiService):
                 self.socketDir.createDirectory()
             if self.uid and self.gid:
                 os.chown(self.socketDir.path, self.uid, self.gid)
-        if clusterDir.isdir():
+        if self.dataStoreDirectory.isdir():
             self.startDatabase()
         else:
-            if not self.dataStoreDirectory.isdir():
-                self.dataStoreDirectory.createDirectory()
+            self.dataStoreDirectory.createDirectory()
             if not self.workingDir.isdir():
                 self.workingDir.createDirectory()
             if self.uid and self.gid:

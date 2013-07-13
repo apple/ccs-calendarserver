@@ -318,18 +318,22 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
         )
 
 
-    def test_cascade(self):
+    def test_deleteAction(self):
         """
         A column with an 'on delete cascade' constraint will have its C{cascade}
         attribute set to True.
         """
         s = self.schemaFromString(
             """
-            create table a (b integer primary key);
-            create table c (d integer references a on delete cascade);
+            create table a1 (b1 integer primary key);
+            create table c2 (d2 integer references a1 on delete cascade);
+            create table e3 (f3 integer references a1 on delete set null);
+            create table g4 (h4 integer references a1 on delete set default);
             """)
-        self.assertEquals(s.tableNamed("a").columnNamed("b").cascade, False)
-        self.assertEquals(s.tableNamed("c").columnNamed("d").cascade, True)
+        self.assertEquals(s.tableNamed("a1").columnNamed("b1").deleteAction, None)
+        self.assertEquals(s.tableNamed("c2").columnNamed("d2").deleteAction, "cascade")
+        self.assertEquals(s.tableNamed("e3").columnNamed("f3").deleteAction, "set null")
+        self.assertEquals(s.tableNamed("g4").columnNamed("h4").deleteAction, "set default")
 
 
     def test_indexes(self):
@@ -344,7 +348,8 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
             create table z (c integer); -- make sure we get the right table
 
             create index idx_a_b on a(b);
-            create index idx_a_b_c on a(c, b);
+            create index idx_a_b_c on a (c, b);
+            create index idx_c on z using btree (c);
             """)
 
         a = s.tableNamed("a")
@@ -356,3 +361,23 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
         self.assertEquals(bc.columns, [a.columnNamed("c"), a.columnNamed("b")])
 
 
+    def test_pseudoIndexes(self):
+        """
+        A implicit and explicit indexes are listed.
+        """
+        s = self.schemaFromString(
+            """
+            create table q (b integer); -- noise
+            create table a (b integer primary key, c integer);
+            create table z (c integer, unique(c) );
+
+            create unique index idx_a_c on a(c);
+            create index idx_a_b_c on a (c, b);
+            """)
+
+        self.assertEqual(set([pseudo.name for pseudo in s.pseudoIndexes()]), set((
+            "a-unique:(c)",
+            "a:(c,b)",
+            "a-unique:(b)",
+            "z-unique:(c)",
+        )))

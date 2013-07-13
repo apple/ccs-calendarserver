@@ -15,9 +15,9 @@
 ##
 
 from calendarserver.push.util import PushScheduler
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.endpoints import TCP4ClientEndpoint 
+from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.protocol import Factory, ServerFactory
 from twisted.protocols import amp
 import time
@@ -38,9 +38,11 @@ class SubscribeToID(amp.Command):
     response = [('status', amp.String())]
 
 
+
 class UnsubscribeFromID(amp.Command):
     arguments = [('token', amp.String()), ('id', amp.String())]
     response = [('status', amp.String())]
+
 
 
 # AMP Commands sent to client (and forwarded to Master)
@@ -50,25 +52,33 @@ class NotificationForID(amp.Command):
     response = [('status', amp.String())]
 
 
+
 # Server classes
 
-class AMPPushForwardingFactory(Factory, LoggingMixIn):
+class AMPPushForwardingFactory(Factory):
+    log = Logger()
 
     def __init__(self, forwarder):
         self.forwarder = forwarder
+
 
     def buildProtocol(self, addr):
         protocol = amp.AMP()
         self.forwarder.protocols.append(protocol)
         return protocol
 
-class AMPPushForwarder(LoggingMixIn):
+
+
+class AMPPushForwarder(object):
     """
     Runs in the slaves, forwards notifications to the master via AMP
     """
+    log = Logger()
+
     def __init__(self, controlSocket):
         self.protocols = []
         controlSocket.addFactory(PUSH_ROUTE, AMPPushForwardingFactory(self))
+
 
     @inlineCallbacks
     def enqueue(self, transaction, id, dataChangedTimestamp=None):
@@ -80,13 +90,16 @@ class AMPPushForwarder(LoggingMixIn):
 
 
 
-class AMPPushMasterListeningProtocol(amp.AMP, LoggingMixIn):
+class AMPPushMasterListeningProtocol(amp.AMP):
     """
     Listens for notifications coming in over AMP from the slaves
     """
+    log = Logger()
+
     def __init__(self, master):
         super(AMPPushMasterListeningProtocol, self).__init__()
         self.master = master
+
 
     @NotificationForID.responder
     def enqueueFromWorker(self, id, dataChangedTimestamp=None):
@@ -94,23 +107,28 @@ class AMPPushMasterListeningProtocol(amp.AMP, LoggingMixIn):
             dataChangedTimestamp = int(time.time())
         self.master.enqueue(None, id, dataChangedTimestamp=dataChangedTimestamp)
         return {"status" : "OK"}
- 
 
-class AMPPushMasterListenerFactory(Factory, LoggingMixIn):
+
+
+class AMPPushMasterListenerFactory(Factory):
+    log = Logger()
 
     def __init__(self, master):
         self.master = master
+
 
     def buildProtocol(self, addr):
         protocol = AMPPushMasterListeningProtocol(self.master)
         return protocol
 
 
-class AMPPushMaster(LoggingMixIn):
+
+class AMPPushMaster(object):
     """
     AMPPushNotifierService allows clients to use AMP to subscribe to,
     and receive, change notifications.
     """
+    log = Logger()
 
     def __init__(self, controlSocket, parentService, port, enableStaggering,
         staggerSeconds, reactor=None):
@@ -137,13 +155,16 @@ class AMPPushMaster(LoggingMixIn):
         else:
             self.scheduler = None
 
+
     def addSubscriber(self, p):
-        self.log_debug("Added subscriber")
+        self.log.debug("Added subscriber")
         self.subscribers.append(p)
 
+
     def removeSubscriber(self, p):
-        self.log_debug("Removed subscriber")
+        self.log.debug("Removed subscriber")
         self.subscribers.remove(p)
+
 
     def enqueue(self, transaction, pushKey, dataChangedTimestamp=None):
         """
@@ -189,13 +210,16 @@ class AMPPushMaster(LoggingMixIn):
                 yield self.sendNotification(token, id, dataChangedTimestamp)
 
 
-class AMPPushNotifierProtocol(amp.AMP, LoggingMixIn):
+
+class AMPPushNotifierProtocol(amp.AMP):
+    log = Logger()
 
     def __init__(self, service):
         super(AMPPushNotifierProtocol, self).__init__()
         self.service = service
         self.subscriptions = {}
         self.any = None
+
 
     def subscribe(self, token, id):
         if id == "any":
@@ -215,31 +239,37 @@ class AMPPushNotifierProtocol(amp.AMP, LoggingMixIn):
 
     def notify(self, token, id, dataChangedTimestamp):
         if self.subscribedToID(id) == token:
-            self.log_debug("Sending notification for %s to %s" % (id, token))
+            self.log.debug("Sending notification for %s to %s" % (id, token))
             return self.callRemote(NotificationForID, id=id,
                 dataChangedTimestamp=dataChangedTimestamp)
+
 
     def subscribedToID(self, id):
         if self.any is not None:
             return self.any
         return self.subscriptions.get(id, None)
 
+
     def connectionLost(self, reason=None):
         self.service.removeSubscriber(self)
 
 
-class AMPPushNotifierFactory(ServerFactory, LoggingMixIn):
+
+class AMPPushNotifierFactory(ServerFactory):
+    log = Logger()
 
     protocol = AMPPushNotifierProtocol
 
     def __init__(self, service):
         self.service = service
 
+
     def buildProtocol(self, addr):
         p = self.protocol(self.service)
         self.service.addSubscriber(p)
         p.service = self.service
         return p
+
 
 
 # Client classes
@@ -255,24 +285,29 @@ class AMPPushClientProtocol(amp.AMP):
         super(AMPPushClientProtocol, self).__init__()
         self.callback = callback
 
+
     @inlineCallbacks
     def notificationForID(self, id, dataChangedTimestamp):
         yield self.callback(id, dataChangedTimestamp)
-        returnValue( {"status" : "OK"} )
+        returnValue({"status" : "OK"})
 
     NotificationForID.responder(notificationForID)
 
 
-class AMPPushClientFactory(Factory, LoggingMixIn):
+
+class AMPPushClientFactory(Factory):
+    log = Logger()
 
     protocol = AMPPushClientProtocol
 
     def __init__(self, callback):
         self.callback = callback
 
+
     def buildProtocol(self, addr):
         p = self.protocol(self.callback)
         return p
+
 
 
 # Client helper methods

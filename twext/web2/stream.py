@@ -59,9 +59,15 @@ import copy, os, types, sys
 from zope.interface import Interface, Attribute, implements
 from twisted.internet.defer import Deferred
 from twisted.internet import interfaces as ti_interfaces, defer, reactor, protocol, error as ti_error
-from twisted.python import components, log
+from twisted.python import components
 from twisted.python.failure import Failure
-from twisted.python.hashlib import md5
+from hashlib import md5
+
+from twext.python.log import Logger
+
+log = Logger()
+
+
 
 # Python 2.4.2 (only) has a broken mmap that leaks a fd every time you call it.
 if sys.version_info[0:3] != (2,4,2):
@@ -831,8 +837,7 @@ class _ProcessStreamerProtocol(protocol.ProcessProtocol):
                        self._inputError)
 
     def _inputError(self, f):
-        log.msg("Error in input stream for %r" % self.transport)
-        log.err(f)
+        log.failure("Error in input stream for transport {transport}", f, transport=self.transport)
         self.transport.closeStdin()
     
     def outReceived(self, data):

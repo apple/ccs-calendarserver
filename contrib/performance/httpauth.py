@@ -13,15 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from __future__ import print_function
-
-import urlparse, urllib2
-
-from twisted.python.log import msg
-from twisted.web.http_headers import Headers
-from twisted.web.http import UNAUTHORIZED
-
 from caldavclientlibrary.protocol.http.authentication.digest import Digest
+from twisted.python.log import msg
+from twisted.web.http import UNAUTHORIZED
+from twisted.web.http_headers import Headers
+import urlparse
+import urllib2
 
 class BasicChallenge(object):
     def __init__(self, realm):
@@ -74,7 +73,7 @@ class DigestChallenge(object):
         BigSigh.url = uri
 
         digest.addHeaders(authorization, BigSigh())
-        return {'authorization': [value for (name, value) in authorization]}
+        return {'authorization': [value for (_ignore_name, value) in authorization]}
 
 
 
@@ -104,7 +103,12 @@ class AuthHandlerAgent(object):
 
 
     def _parse(self, authorization):
-        scheme, rest = authorization.split(None, 1)
+        try:
+            scheme, rest = authorization.split(None, 1)
+        except ValueError:
+            # Probably "negotiate", which we don't support
+            scheme = authorization
+            rest = ""
         args = urllib2.parse_keqv_list(urllib2.parse_http_list(rest))
         challengeType = {
             'basic': BasicChallenge,

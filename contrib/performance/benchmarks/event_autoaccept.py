@@ -36,12 +36,13 @@ def makeEvent(i, organizerSequence, attendeeCount):
         'ATTENDEE;CN="Resource 01";CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=T\n'
         ' RUE;SCHEDULE-STATUS="1.2":urn:uuid:resource01\n')
     return makeVCalendar(
-        uuid4(), 
+        uuid4(),
         base + i * interval,
         base + i * interval + duration,
         None,
         organizerSequence,
         attendees)
+
 
 
 def measure(host, port, dtrace, attendeeCount, samples):

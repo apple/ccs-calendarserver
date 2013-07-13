@@ -27,6 +27,8 @@ from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twistedcaldav.config import config
 from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tools.util import getDirectory
+from txdav.common.datastore.test.util import SQLStoreBuilder
+import plistlib
 
 
 class RunCommandTestCase(TestCase):
@@ -40,8 +42,11 @@ class RunCommandTestCase(TestCase):
         template = templateFile.read()
         templateFile.close()
 
+        # Use the same DatabaseRoot as the SQLStoreBuilder
+        databaseRoot = os.path.abspath(SQLStoreBuilder.SHARED_DB_PATH)
         newConfig = template % {
             "ServerRoot" : os.path.abspath(config.ServerRoot),
+            "DatabaseRoot" : databaseRoot,
             "WritablePlist" : os.path.join(os.path.abspath(config.ConfigRoot), "caldavd-writable.plist"),
         }
         configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
@@ -70,6 +75,7 @@ class RunCommandTestCase(TestCase):
         d = Deferred()
         reactor.callLater(0, d.callback, True)
         return d
+
 
     @inlineCallbacks
     def runCommand(self, command, error=False,
@@ -104,16 +110,24 @@ class RunCommandTestCase(TestCase):
         returnValue(plist)
 
 
+
 class GatewayTestCase(RunCommandTestCase):
+
+    @inlineCallbacks
+    def test_getLocationAndResourceList(self):
+        results = yield self.runCommand(command_getLocationAndResourceList)
+        self.assertEquals(len(results["result"]), 20)
+
 
     @inlineCallbacks
     def test_getLocationList(self):
         results = yield self.runCommand(command_getLocationList)
         self.assertEquals(len(results["result"]), 10)
 
+
     @inlineCallbacks
     def test_getLocationAttributes(self):
-        results = yield self.runCommand(command_createLocation)
+        yield self.runCommand(command_createLocation)
         results = yield self.runCommand(command_getLocationAttributes)
         self.assertEquals(results["result"]["Building"], "Test Building")
         self.assertEquals(results["result"]["City"], "Cupertino")
@@ -125,26 +139,29 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["State"], "CA")
         self.assertEquals(results["result"]["Street"], "1 Infinite Loop")
         self.assertEquals(results["result"]["RealName"],
-            "Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3" ))
+            "Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
         self.assertEquals(results["result"]["Comment"], "Test Comment")
         self.assertEquals(results["result"]["AutoSchedule"], True)
         self.assertEquals(results["result"]["AutoAcceptGroup"], "E5A6142C-4189-4E9E-90B0-9CD0268B314B")
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
 
+
     @inlineCallbacks
     def test_getResourceList(self):
         results = yield self.runCommand(command_getResourceList)
         self.assertEquals(len(results["result"]), 10)
 
+
     @inlineCallbacks
     def test_getResourceAttributes(self):
-        results = yield self.runCommand(command_createResource)
+        yield self.runCommand(command_createResource)
         results = yield self.runCommand(command_getResourceAttributes)
         self.assertEquals(results["result"]["Comment"], "Test Comment")
         self.assertEquals(results["result"]["Type"], "Computer")
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
+
 
     @inlineCallbacks
     def test_createLocation(self):
@@ -183,12 +200,12 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
 
+
     @inlineCallbacks
     def test_setLocationAttributes(self):
         directory = getDirectory()
 
         yield self.runCommand(command_createLocation)
-        record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         yield self.runCommand(command_setLocationAttributes)
         directory.flushCaches()
 
@@ -232,6 +249,7 @@ class GatewayTestCase(RunCommandTestCase):
         record = directory.recordWithUID("location01")
         self.assertEquals(record, None)
 
+
     @inlineCallbacks
     def test_createResource(self):
         directory = getDirectory()
@@ -244,6 +262,7 @@ class GatewayTestCase(RunCommandTestCase):
         directory.flushCaches()
         record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
         self.assertNotEquals(record, None)
+
 
     @inlineCallbacks
     def test_setResourceAttributes(self):
@@ -260,6 +279,7 @@ class GatewayTestCase(RunCommandTestCase):
         record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
         self.assertEquals(record.fullName, "Updated Laptop 1")
 
+
     @inlineCallbacks
     def test_destroyResource(self):
         directory = getDirectory()
@@ -273,16 +293,19 @@ class GatewayTestCase(RunCommandTestCase):
         record = directory.recordWithUID("resource01")
         self.assertEquals(record, None)
 
+
     @inlineCallbacks
     def test_addWriteProxy(self):
         results = yield self.runCommand(command_addWriteProxy)
         self.assertEquals(len(results["result"]["Proxies"]), 1)
 
+
     @inlineCallbacks
     def test_removeWriteProxy(self):
-        results = yield self.runCommand(command_addWriteProxy)
+        yield self.runCommand(command_addWriteProxy)
         results = yield self.runCommand(command_removeWriteProxy)
         self.assertEquals(len(results["result"]["Proxies"]), 0)
+
 
     @inlineCallbacks
     def test_purgeOldEvents(self):
@@ -292,6 +315,47 @@ class GatewayTestCase(RunCommandTestCase):
         results = yield self.runCommand(command_purgeOldEventsNoDays)
         self.assertEquals(results["result"]["RetainDays"], 365)
 
+    @inlineCallbacks
+    def test_readConfig(self):
+        """
+        Verify readConfig returns with only the writable keys
+        """
+        results = yield self.runCommand(command_readConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(results["result"]["RedirectHTTPToHTTPS"], False)
+        self.assertEquals(results["result"]["EnableSearchAddressBook"], False)
+        self.assertEquals(results["result"]["EnableCalDAV"], True)
+        self.assertEquals(results["result"]["EnableCardDAV"], True)
+        self.assertEquals(results["result"]["EnableSSL"], False)
+        self.assertEquals(results["result"]["DefaultLogLevel"], "warn")
+
+        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], False)
+        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/calendar.cer")
+
+        # Verify not all keys are present, such as ServerRoot which is not writable
+        self.assertFalse("ServerRoot" in results["result"])
+
+
+    @inlineCallbacks
+    def test_writeConfig(self):
+        """
+        Verify writeConfig updates the writable plist file only
+        """
+        results = yield self.runCommand(command_writeConfig,
+            script="calendarserver_config")
+
+        self.assertEquals(results["result"]["EnableCalDAV"], False)
+        self.assertEquals(results["result"]["EnableCardDAV"], False)
+        self.assertEquals(results["result"]["EnableSSL"], True)
+        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], True)
+        self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/changed.cer")
+        dataRoot = "Data/%s/%s" % (unichr(208), u"\ud83d\udca3")
+        self.assertTrue(results["result"]["DataRoot"].endswith(dataRoot))
+
+        # The static plist should still have EnableCalDAV = True
+        staticPlist = plistlib.readPlist(self.configFileName)
+        self.assertTrue(staticPlist["EnableCalDAV"])
 
 
 command_addReadProxy = """<?xml version="1.0" encoding="UTF-8"?>
@@ -431,6 +495,16 @@ command_deleteResource = """<?xml version="1.0" encoding="UTF-8"?>
         <string>deleteResource</string>
         <key>GeneratedUID</key>
         <string>resource01</string>
+</dict>
+</plist>
+"""
+
+command_getLocationAndResourceList = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>getLocationAndResourceList</string>
 </dict>
 </plist>
 """
@@ -626,3 +700,38 @@ command_purgeOldEventsNoDays = """<?xml version="1.0" encoding="UTF-8"?>
 </dict>
 </plist>
 """
+
+command_readConfig = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>readConfig</string>
+</dict>
+</plist>
+"""
+
+command_writeConfig = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>writeConfig</string>
+        <key>Values</key>
+        <dict>
+            <key>EnableCalDAV</key>
+            <false/>
+            <key>EnableCardDAV</key>
+            <false/>
+            <key>EnableSSL</key>
+            <true/>
+            <key>Notifications.Services.APNS.Enabled</key>
+            <true/>
+            <key>Notifications.Services.APNS.CalDAV.CertificatePath</key>
+            <string>/example/changed.cer</string>
+            <key>DataRoot</key>
+            <string>Data/%s/%s</string>
+        </dict>
+</dict>
+</plist>
+""" % (unichr(208), u"\ud83d\udca3")

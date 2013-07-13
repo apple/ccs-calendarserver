@@ -58,7 +58,7 @@ from twext.web2.dav.resource import (
 from twisted.internet.defer import gatherResults
 from twext.web2.dav.method import prop_common
 
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
@@ -107,7 +107,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         # Only handle Depth: 0
         depth = request.headers.getHeader("depth", "0")
         if depth != "0":
-            log.err("Error in principal-property-search REPORT, Depth set to %s" % (depth,))
+            log.error("Error in principal-property-search REPORT, Depth set to %s" % (depth,))
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
 
         # Get any limit value from xml
@@ -211,7 +211,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                 resource = principalCollection.principalForRecord(record)
                 if resource:
                     matchingResources.append(resource)
-    
+
                     # We've determined this is a matching resource
                     matchcount += 1
                     if clientLimit is not None and matchcount >= clientLimit:
@@ -236,8 +236,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
         if resultsWereLimited is not None:
             if resultsWereLimited[0] == "server":
-                log.err("Too many matching resources in "
-                        "principal-property-search report")
+                log.error("Too many matching resources in principal-property-search report")
             responses.append(element.StatusResponse(
                 element.HRef.fromString(request.uri),
                 element.Status.fromResponseCode(
@@ -269,10 +268,14 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         # Only handle Depth: 0
         depth = request.headers.getHeader("depth", "0")
         if depth != "0":
-            log.err("Error in calendarserver-principal-search REPORT, Depth set to %s" % (depth,))
+            log.error("Error in calendarserver-principal-search REPORT, Depth set to %s" % (depth,))
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
 
         tokens, context, applyTo, clientLimit, propElement = extractCalendarServerPrincipalSearchData(calendarserver_principal_search)
+
+        if not validateTokens(tokens):
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN,
+                "Insufficient search token length"))
 
         # Run report
         resultsWereLimited = None
@@ -324,8 +327,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
         if resultsWereLimited is not None:
             if resultsWereLimited[0] == "server":
-                log.err("Too many matching resources in "
-                        "calendarserver-principal-search report")
+                log.error("Too many matching resources in calendarserver-principal-search report")
             responses.append(element.StatusResponse(
                 element.HRef.fromString(request.uri),
                 element.Status.fromResponseCode(
@@ -346,7 +348,7 @@ class DirectoryElement(Element):
     """
 
     loader = XMLFile(
-        thisModule.filePath.sibling("directory-listing.html").open()
+        thisModule.filePath.sibling("directory-listing.html")
     )
 
     def __init__(self, resource):
@@ -418,9 +420,9 @@ class DirectoryElement(Element):
                 f.trap(HTTPError)
                 code = f.value.response.code
                 if code == responsecode.NOT_FOUND:
-                    log.err("Property %s was returned by listProperties() "
-                            "but does not exist for resource %s."
-                            % (name, self.resource))
+                    log.error("Property %s was returned by listProperties() "
+                              "but does not exist for resource %s."
+                              % (name, self.resource))
                     return (name, None)
                 if code == responsecode.UNAUTHORIZED:
                     return (name, accessDeniedValue)
@@ -429,7 +431,7 @@ class DirectoryElement(Element):
             whenAllProperties = gatherResults([
                 maybeDeferred(self.resource.readProperty, qn, request)
                 .addCallback(lambda p, iqn=qn: (p.sname(), p.toxml())
-                             if p is not None else (encodeXMLName(*iqn), None) )
+                             if p is not None else (encodeXMLName(*iqn), None))
                 .addErrback(gotError, encodeXMLName(*qn))
                 for qn in sorted(qnames)
             ])
@@ -535,54 +537,22 @@ class DirectoryRenderingMixIn(object):
 
 
 
-def updateCacheTokenOnCallback(f):
-    def wrapper(self, *args, **kwargs):
-        if hasattr(self, "cacheNotifier"):
-            def updateToken(response):
-                d = self.cacheNotifier.changed()
-                d.addCallback(lambda _: response)
-                return d
-
-            d = maybeDeferred(f, self, *args, **kwargs)
-
-            if hasattr(self, "cacheNotifier"):
-                d.addCallback(updateToken)
-
-            return d
-        else:
-            return f(self, *args, **kwargs)
-
-    return wrapper
-
 class DAVResource (DirectoryPrincipalPropertySearchMixIn,
-                   SuperDAVResource, LoggingMixIn,
+                   SuperDAVResource,
                    DirectoryRenderingMixIn, StaticRenderMixin):
     """
     Extended L{twext.web2.dav.resource.DAVResource} implementation.
-    
+
     Note we add StaticRenderMixin as a base class because we need all the etag etc behavior
     that is currently in static.py but is actually applicable to any type of resource.
     """
+    log = Logger()
 
-    @updateCacheTokenOnCallback
-    def http_PROPPATCH(self, request):
-        return super(DAVResource, self).http_PROPPATCH(request)
-
-
-    @updateCacheTokenOnCallback
-    def http_DELETE(self, request):
-        return super(DAVResource, self).http_DELETE(request)
-
-
-    @updateCacheTokenOnCallback
-    def http_ACL(self, request):
-        return super(DAVResource, self).http_ACL(request)
-
-    
     http_REPORT = http_REPORT
 
     def davComplianceClasses(self):
         return ("1", "access-control") # Add "2" when we have locking
+
 
     def render(self, request):
         if not self.exists():
@@ -592,14 +562,18 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn,
             return self.renderDirectory(request)
         return super(DAVResource, self).render(request)
 
+
     def resourceType(self):
         # Allow live property to be overridden by dead property
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
             return self.deadProperties().get((dav_namespace, "resourcetype"))
         return element.ResourceType(element.Collection()) if self.isCollection() else element.ResourceType()
 
+
     def contentType(self):
         return MimeType("httpd", "unix-directory") if self.isCollection() else None
+
+
 
 class DAVResourceWithChildrenMixin (object):
     """
@@ -679,22 +653,26 @@ class DAVResourceWithoutChildrenMixin (object):
         self.putChildren = {}
         super(DAVResourceWithChildrenMixin, self).__init__(principalCollections=principalCollections)
 
+
     def findChildren(
         self, depth, request, callback,
         privileges=None, inherited_aces=None
     ):
         return succeed(None)
+
+
     def locateChild(self, request, segments):
         return self, server.StopTraversal
 
 
 
 class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
-                            SuperDAVPrincipalResource, LoggingMixIn,
+                            SuperDAVPrincipalResource,
                             DirectoryRenderingMixIn):
     """
     Extended L{twext.web2.dav.static.DAVFile} implementation.
     """
+    log = Logger()
 
     def liveProperties(self):
         return super(DAVPrincipalResource, self).liveProperties() + (
@@ -712,6 +690,7 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
         if self.isCollection():
             return self.renderDirectory(request)
         return super(DAVResource, self).render(request)
+
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -749,22 +728,25 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
                         "Property %s does not exist." % (qname,)
                     ))
 
-
-
         result = (yield super(DAVPrincipalResource, self).readProperty(property, request))
         returnValue(result)
+
 
     def groupMembers(self):
         return succeed(())
 
+
     def expandedGroupMembers(self):
         return succeed(())
+
 
     def groupMemberships(self):
         return succeed(())
 
+
     def expandedGroupMemberships(self):
         return succeed(())
+
 
     def resourceType(self):
         # Allow live property to be overridden by dead property
@@ -777,10 +759,11 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
 
 
 
-class DAVFile (SuperDAVFile, LoggingMixIn, DirectoryRenderingMixIn):
+class DAVFile (SuperDAVFile, DirectoryRenderingMixIn):
     """
     Extended L{twext.web2.dav.static.DAVFile} implementation.
     """
+    log = Logger()
 
     def resourceType(self):
         # Allow live property to be overridden by dead property
@@ -790,6 +773,7 @@ class DAVFile (SuperDAVFile, LoggingMixIn, DirectoryRenderingMixIn):
             return element.ResourceType.collection #@UndefinedVariable
         return element.ResourceType.empty #@UndefinedVariable
 
+
     def render(self, request):
         if not self.fp.exists():
             return responsecode.NOT_FOUND
@@ -797,7 +781,7 @@ class DAVFile (SuperDAVFile, LoggingMixIn, DirectoryRenderingMixIn):
         if self.fp.isdir():
             if request.path[-1] != "/":
                 # Redirect to include trailing '/' in URI
-                return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/'))
+                return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/') + '/'))
             else:
                 ifp = self.fp.childSearchPreauth(*self.indexNames)
                 if ifp:
@@ -844,8 +828,10 @@ class ReadOnlyWritePropertiesResourceMixIn (object):
         return self.readOnlyResponse
 
     http_DELETE = _forbidden
-    http_MOVE   = _forbidden
-    http_PUT    = _forbidden
+    http_MOVE = _forbidden
+    http_PUT = _forbidden
+
+
 
 class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
     """
@@ -856,12 +842,15 @@ class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
     def writeProperty(self, property, request):
         raise HTTPError(self.readOnlyResponse)
 
+
     def accessControlList(
         self, request, inheritance=True, expanding=False, inherited_aces=None
     ):
-        # Permissions here are fixed, and are not subject to                    
-        # inheritance rules, etc.                                               
+        # Permissions here are fixed, and are not subject to
+        # inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
+
+
 
 class PropertyNotFoundError (HTTPError):
     def __init__(self, qname):
@@ -872,26 +861,31 @@ class PropertyNotFoundError (HTTPError):
             )
         )
 
-class CachingPropertyStore (LoggingMixIn):
+
+
+class CachingPropertyStore (object):
     """
     DAV property store using a dict in memory on top of another
     property store implementation.
     """
+    log = Logger()
+
     def __init__(self, propertyStore):
         self.propertyStore = propertyStore
         self.resource = propertyStore.resource
 
+
     def get(self, qname, uid=None):
-        #self.log_debug("Get: %r, %r" % (self.resource.fp.path, qname))
+        #self.log.debug("Get: %r, %r" % (self.resource.fp.path, qname))
 
         cache = self._cache()
-        
+
         cachedQname = qname + (uid,)
 
         if cachedQname in cache:
             property = cache.get(cachedQname, None)
             if property is None:
-                self.log_debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
+                self.log.debug("Cache miss: %r, %r, %r" % (self, self.resource.fp.path, qname))
                 try:
                     property = self.propertyStore.get(qname, uid)
                 except HTTPError:
@@ -903,8 +897,9 @@ class CachingPropertyStore (LoggingMixIn):
         else:
             raise PropertyNotFoundError(qname)
 
+
     def set(self, property, uid=None):
-        #self.log_debug("Set: %r, %r" % (self.resource.fp.path, property))
+        #self.log.debug("Set: %r, %r" % (self.resource.fp.path, property))
 
         cache = self._cache()
 
@@ -914,8 +909,9 @@ class CachingPropertyStore (LoggingMixIn):
         self.propertyStore.set(property, uid)
         cache[cachedQname] = property
 
+
     def contains(self, qname, uid=None):
-        #self.log_debug("Contains: %r, %r" % (self.resource.fp.path, qname))
+        #self.log.debug("Contains: %r, %r" % (self.resource.fp.path, qname))
 
         cachedQname = qname + (uid,)
 
@@ -928,13 +924,14 @@ class CachingPropertyStore (LoggingMixIn):
                 raise
 
         if cachedQname in cache:
-            #self.log_debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
+            #self.log.debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
             return True
         else:
             return False
 
+
     def delete(self, qname, uid=None):
-        #self.log_debug("Delete: %r, %r" % (self.resource.fp.path, qname))
+        #self.log.debug("Delete: %r, %r" % (self.resource.fp.path, qname))
 
         cachedQname = qname + (uid,)
 
@@ -943,11 +940,12 @@ class CachingPropertyStore (LoggingMixIn):
 
         self.propertyStore.delete(qname, uid)
 
+
     def list(self, uid=None, filterByUID=True):
-        #self.log_debug("List: %r" % (self.resource.fp.path,))
+        #self.log.debug("List: %r" % (self.resource.fp.path,))
         keys = self._cache().iterkeys()
         if filterByUID:
-            return [ 
+            return [
                 (namespace, name)
                 for namespace, name, propuid in keys
                 if propuid == uid
@@ -955,14 +953,17 @@ class CachingPropertyStore (LoggingMixIn):
         else:
             return keys
 
+
     def _cache(self):
         if not hasattr(self, "_data"):
-            #self.log_debug("Cache init: %r" % (self.resource.fp.path,))
+            #self.log.debug("Cache init: %r" % (self.resource.fp.path,))
             self._data = dict(
                 (name, None)
                 for name in self.propertyStore.list(filterByUID=False)
             )
         return self._data
+
+
 
 def extractCalendarServerPrincipalSearchData(doc):
     """
@@ -1002,3 +1003,18 @@ def extractCalendarServerPrincipalSearchData(doc):
 
     return tokens, context, applyTo, clientLimit, propElement
 
+
+def validateTokens(tokens):
+    """
+    Make sure there is at least one token longer than one character
+
+    @param tokens: the tokens to inspect
+    @type tokens: iterable of utf-8 encoded strings
+
+    @return: True if tokens are valid, False otherwise
+    @rtype: boolean
+    """
+    for token in tokens:
+        if len(token) > 1:
+            return True
+    return False

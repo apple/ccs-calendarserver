@@ -87,6 +87,7 @@ def _upload(reactor, url, project, revision, revision_date, benchmark,
     return d
 
 
+
 def upload(reactor, url, project, revision, revision_date, benchmark, param, statistic, backend, environment, samples):
     d = _upload(
         reactor,
@@ -104,6 +105,7 @@ def upload(reactor, url, project, revision, revision_date, benchmark, param, sta
         min_value=min(samples))
     d.addErrback(err, "Upload failed")
     return d
+
 
 
 def main():

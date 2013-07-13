@@ -19,39 +19,16 @@ from txdav.xml import element as davxml
 
 from twistedcaldav import caldavxml
 
-from twistedcaldav.test.util import TestCase
-from twext.web2.test.test_server import SimpleRequest
-from twistedcaldav.directory.util import transactionFromRequest, NotFoundResource
+from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
+from twistedcaldav.directory.util import NotFoundResource
 
-class ProvisionedCalendars (TestCase):
+class ProvisionedCalendars (StoreTestCase):
     """
     Directory service provisioned principals.
     """
 
-    @inlineCallbacks
-    def setUp(self):
-        yield super(ProvisionedCalendars, self).setUp()
-
-        self.createStockDirectoryService()
-        self.setupCalendars()
-
-
     def oneRequest(self, uri):
-        req = self._cleanupRequest = SimpleRequest(self.site, "GET", uri)
-        return req
-
-
-    def tearDown(self):
-        """
-        If the request started by this test has a transaction, commit it.
-        Otherwise, don't bother.
-        """
-        class JustForCleanup(object):
-            def newTransaction(self, *whatever):
-                return self
-            def commit(self):
-                return
-        return transactionFromRequest(self._cleanupRequest, JustForCleanup()).commit()
+        return SimpleStoreRequest(self, "GET", uri)
 
 
     def test_NonExistentCalendarHome(self):
@@ -67,6 +44,8 @@ class ProvisionedCalendars (TestCase):
         request = self.oneRequest("/calendars/users/12345/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
+
 
     def test_ExistentCalendarHome(self):
 
@@ -77,6 +56,8 @@ class ProvisionedCalendars (TestCase):
         request = self.oneRequest("/calendars/users/wsanchez/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
+
 
     def test_ExistentCalendar(self):
 
@@ -87,6 +68,8 @@ class ProvisionedCalendars (TestCase):
         request = self.oneRequest("/calendars/users/wsanchez/calendar/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
+
 
     def test_ExistentInbox(self):
 
@@ -97,6 +80,8 @@ class ProvisionedCalendars (TestCase):
         request = self.oneRequest("/calendars/users/wsanchez/inbox/")
         d = request.locateResource(request.uri)
         d.addCallback(_response)
+        return d
+
 
     @inlineCallbacks
     def test_CalendarTranspProperty(self):
@@ -111,7 +96,7 @@ class ProvisionedCalendars (TestCase):
         inbox = (yield request.locateResource("/calendars/users/wsanchez/inbox/"))
         if inbox is None:
             self.fail("Incorrect response to GET on existent inbox.")
-        
+
         # Provisioned calendar has default opaque property
         transp = (yield calendar.hasProperty(caldavxml.ScheduleCalendarTransp, request))
         self.assertTrue(transp)
@@ -125,29 +110,16 @@ class ProvisionedCalendars (TestCase):
 
         fbset = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
         self.assertEqual(fbset, caldavxml.CalendarFreeBusySet(
-            davxml.HRef.fromString("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar"),
+            davxml.HRef.fromString("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/"),
         ))
 
-        # Now remove the dead property to simulate the old calendar server state with
+        # Now remove the property to simulate the old calendar server state with
         # a calendar listed in the fbset
-        yield calendar.removeDeadProperty(caldavxml.ScheduleCalendarTransp)
+        yield calendar._newStoreObject.setUsedForFreeBusy(False)
         fbset = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
-        self.assertEqual(fbset, caldavxml.CalendarFreeBusySet(
-            davxml.HRef.fromString("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar"),
-        ))
+        self.assertEqual(fbset, caldavxml.CalendarFreeBusySet())
 
         # Calendar has opaque property derived from inbox
-        transp = (yield calendar.hasProperty(caldavxml.ScheduleCalendarTransp, request))
-        self.assertTrue(transp)
-
-        transp = (yield calendar.readProperty(caldavxml.ScheduleCalendarTransp, request))
-        self.assertEqual(transp, caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
-
-        # Now remove the dead property and the inbox fbset item to simulate the old calendar server state
-        yield calendar.removeDeadProperty(caldavxml.ScheduleCalendarTransp)
-        yield inbox.removeDeadProperty(caldavxml.CalendarFreeBusySet)
-
-        # Calendar has transp property derived from inbox
         transp = (yield calendar.hasProperty(caldavxml.ScheduleCalendarTransp, request))
         self.assertTrue(transp)
 
@@ -155,13 +127,12 @@ class ProvisionedCalendars (TestCase):
         self.assertEqual(transp, caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()))
 
         # Force trailing slash on fbset
-        inbox.writeDeadProperty(caldavxml.CalendarFreeBusySet(
+        yield inbox.writeProperty(caldavxml.CalendarFreeBusySet(
             davxml.HRef.fromString("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/"),
-        ))
+        ), request)
 
         # Now remove the dead property to simulate the old calendar server state with
         # a calendar listed in the fbset
-        yield calendar.removeDeadProperty(caldavxml.ScheduleCalendarTransp)
         fbset = (yield inbox.readProperty(caldavxml.CalendarFreeBusySet, request))
         self.assertEqual(fbset, caldavxml.CalendarFreeBusySet(
             davxml.HRef.fromString("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/"),
@@ -173,4 +144,3 @@ class ProvisionedCalendars (TestCase):
 
         transp = (yield calendar.readProperty(caldavxml.ScheduleCalendarTransp, request))
         self.assertEqual(transp, caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
-

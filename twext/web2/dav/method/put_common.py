@@ -24,12 +24,12 @@ __version__ = "0.0"
 
 __all__ = ["storeResource"]
 
-from twisted.internet.defer import deferredGenerator, maybeDeferred, waitForDeferred
-from twisted.python import failure, log
+from twisted.python.failure import Failure
 from twext.python.filepath import CachingFilePath as FilePath
+from twisted.internet.defer import deferredGenerator, maybeDeferred, waitForDeferred
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
-from txdav.xml import element as davxml
-from txdav.xml.base import dav_namespace
 from twext.web2.dav.fileop import copy, delete, put
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.resource import TwistedGETContentMD5
@@ -38,6 +38,13 @@ from twext.web2.http import HTTPError
 from twext.web2.http_headers import generateContentType
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
+
+from txdav.xml import element as davxml
+from txdav.xml.base import dav_namespace
+
+log = Logger()
+
+
 
 def storeResource(
     request,
@@ -66,15 +73,15 @@ def storeResource(
         assert (source is None) or (source is not None and source_uri is not None)
         assert not deletesource or (deletesource and source is not None)
     except AssertionError:
-        log.err("Invalid arguments to storeResource():")
-        log.err("request=%s\n" % (request,))
-        log.err("source=%s\n" % (source,))
-        log.err("source_uri=%s\n" % (source_uri,))
-        log.err("data=%s\n" % (data,))
-        log.err("destination=%s\n" % (destination,))
-        log.err("destination_uri=%s\n" % (destination_uri,))
-        log.err("deletesource=%s\n" % (deletesource,))
-        log.err("depth=%s\n" % (depth,))
+        log.error("Invalid arguments to storeResource():")
+        log.error("request=%s\n" % (request,))
+        log.error("source=%s\n" % (source,))
+        log.error("source_uri=%s\n" % (source_uri,))
+        log.error("data=%s\n" % (data,))
+        log.error("destination=%s\n" % (destination,))
+        log.error("destination_uri=%s\n" % (destination_uri,))
+        log.error("deletesource=%s\n" % (deletesource,))
+        log.error("depth=%s\n" % (depth,))
         raise
 
     class RollbackState(object):
@@ -99,39 +106,39 @@ def storeResource(
             """
             if self.active:
                 self.active = False
-                log.err("Rollback: rollback")
+                log.error("Rollback: rollback")
                 try:
                     if self.source_copy and self.source_deleted:
                         self.source_copy.moveTo(source.fp)
-                        log.err("Rollback: source restored %s to %s" % (self.source_copy.path, source.fp.path))
+                        log.error("Rollback: source restored %s to %s" % (self.source_copy.path, source.fp.path))
                         self.source_copy = None
                         self.source_deleted = False
                     if self.destination_copy:
                         destination.fp.remove()
-                        log.err("Rollback: destination restored %s to %s" % (self.destination_copy.path, destination.fp.path))
+                        log.error("Rollback: destination restored %s to %s" % (self.destination_copy.path, destination.fp.path))
                         self.destination_copy.moveTo(destination.fp)
                         self.destination_copy = None
                     elif self.destination_created:
                         destination.fp.remove()
-                        log.err("Rollback: destination removed %s" % (destination.fp.path,))
+                        log.error("Rollback: destination removed %s" % (destination.fp.path,))
                         self.destination_created = False
                 except:
-                    log.err("Rollback: exception caught and not handled: %s" % failure.Failure())
+                    log.error("Rollback: exception caught and not handled: %s" % Failure())
 
         def Commit(self):
             """
             Commit the resource changes by wiping the rollback state.
             """
             if self.active:
-                log.err("Rollback: commit")
+                log.error("Rollback: commit")
                 self.active = False
                 if self.source_copy:
                     self.source_copy.remove()
-                    log.err("Rollback: removed source backup %s" % (self.source_copy.path,))
+                    log.error("Rollback: removed source backup %s" % (self.source_copy.path,))
                     self.source_copy = None
                 if self.destination_copy:
                     self.destination_copy.remove()
-                    log.err("Rollback: removed destination backup %s" % (self.destination_copy.path,))
+                    log.error("Rollback: removed destination backup %s" % (self.destination_copy.path,))
                     self.destination_copy = None
                 self.destination_created = False
                 self.source_deleted = False
@@ -233,7 +240,7 @@ def storeResource(
             new_dest_size = new_dest_size.getResult()
             diff_size = new_dest_size - old_dest_size
             if diff_size >= destquota[0]:
-                log.err("Over quota: available %d, need %d" % (destquota[0], diff_size))
+                log.error("Over quota: available %d, need %d" % (destquota[0], diff_size))
                 raise HTTPError(ErrorResponse(
                     responsecode.INSUFFICIENT_STORAGE_SPACE,
                     (dav_namespace, "quota-not-exceeded")

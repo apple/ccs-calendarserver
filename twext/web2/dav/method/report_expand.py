@@ -59,7 +59,7 @@ def report_DAV__expand_property(self, request, expand_property):
     # Only handle Depth: 0
     depth = request.headers.getHeader("depth", "0")
     if depth != "0":
-        log.err("Non-zero depth is not allowed: %s" % (depth,))
+        log.error("Non-zero depth is not allowed: %s" % (depth,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
     
     #
@@ -75,7 +75,7 @@ def report_DAV__expand_property(self, request, expand_property):
         props_to_find = []
         for child in property.children:
             if child.children:
-                log.err("expand-property REPORT only supports single level expansion")
+                log.error("expand-property REPORT only supports single level expansion")
                 raise HTTPError(StatusResponse(
                     responsecode.NOT_IMPLEMENTED,
                     "expand-property REPORT only supports single level expansion"
@@ -155,7 +155,7 @@ def report_DAV__expand_property(self, request, expand_property):
         except:
             f = Failure()
 
-            log.err("Error reading property %r for resource %s: %s" % (qname, request.uri, f.value))
+            log.error("Error reading property %r for resource %s: %s" % (qname, request.uri, f.value))
 
             status = statusForFailure(f, "getting property: %s" % (qname,))
             if status not in properties_by_status: properties_by_status[status] = []

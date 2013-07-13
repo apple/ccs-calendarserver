@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.caldavxml import LimitRecurrenceSet, Expand, AllComponents,\
+from twistedcaldav.caldavxml import LimitRecurrenceSet, Expand, AllComponents, \
     AllProperties
 from twistedcaldav.datafilters.filter import CalendarFilter
 from twistedcaldav.dateops import clipPeriod
@@ -32,26 +32,27 @@ class CalendarDataFilter(CalendarFilter):
 
     def __init__(self, calendardata, timezone=None):
         """
-        
+
         @param calendardata: the XML element describing how to filter
         @type calendardata: L{CalendarData}
         @param timezone: the VTIMEZONE to use for floating/all-day
         @type timezone: L{Component}
         """
-        
+
         self.calendardata = calendardata
         self.timezone = timezone
-    
+
+
     def filter(self, ical):
         """
         Filter the supplied iCalendar object using the request information.
 
         @param ical: iCalendar object
         @type ical: L{Component} or C{str}
-        
+
         @return: L{Component} for the filtered calendar data
         """
-        
+
         # Empty element: get all data
         if not self.calendardata.children:
             return ical
@@ -62,7 +63,7 @@ class CalendarDataFilter(CalendarFilter):
         # Process the calendar data based on expand and limit options
         if self.calendardata.freebusy_set:
             ical = self.limitFreeBusy(ical)
-        
+
         if self.calendardata.recurrence_set:
             if isinstance(self.calendardata.recurrence_set, LimitRecurrenceSet):
                 ical = self.limitRecurrence(ical)
@@ -72,8 +73,9 @@ class CalendarDataFilter(CalendarFilter):
         # Filter data based on any provided CALDAV:comp element, or use all current data
         if self.calendardata.component is not None:
             ical = self.compFilter(self.calendardata.component, ical)
-        
+
         return ical
+
 
     def compFilter(self, comp, component):
         """
@@ -116,6 +118,7 @@ class CalendarDataFilter(CalendarFilter):
 
         return result
 
+
     def expandRecurrence(self, calendar, timezone=None):
         """
         Expand the recurrence set into individual items.
@@ -124,7 +127,8 @@ class CalendarDataFilter(CalendarFilter):
         @return: the L{Component} for the result.
         """
         return calendar.expand(self.calendardata.recurrence_set.start, self.calendardata.recurrence_set.end, timezone)
-    
+
+
     def limitRecurrence(self, calendar):
         """
         Limit the set of overridden instances returned to only those
@@ -135,7 +139,8 @@ class CalendarDataFilter(CalendarFilter):
         """
         raise NotImplementedError()
         return calendar
-    
+
+
     def limitFreeBusy(self, calendar):
         """
         Limit the range of any FREEBUSY properties in the calendar, returning
@@ -143,11 +148,11 @@ class CalendarDataFilter(CalendarFilter):
         @param calendar: the L{Component} for the calendar to operate on.
         @return: the L{Component} for the result.
         """
-        
+
         # First check for any VFREEBUSYs - can ignore limit if there are none
         if calendar.mainType() != "VFREEBUSY":
             return calendar
-        
+
         # Create duplicate calendar and filter FREEBUSY properties
         calendar = calendar.duplicate()
         for component in calendar.subcomponents():
@@ -164,6 +169,7 @@ class CalendarDataFilter(CalendarFilter):
                 else:
                     component.removeProperty(property)
         return calendar
+
 
     def merge(self, icalnew, icalold):
         """

@@ -51,7 +51,7 @@ def http_MKCALENDAR(self, request):
     yield parent.authorize(request, (davxml.Bind(),))
 
     if self.exists():
-        log.err("Attempt to create collection where resource exists: %s"  % (self,))
+        log.error("Attempt to create collection where resource exists: %s" % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             (davxml.dav_namespace, "resource-must-be-null"),
@@ -59,8 +59,8 @@ def http_MKCALENDAR(self, request):
         ))
 
     if not parent.isCollection():
-        log.err("Attempt to create collection with non-collection parent: %s"
-                % (self,))
+        log.error("Attempt to create collection with non-collection parent: %s"
+                  % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.CONFLICT,
             (caldavxml.caldav_namespace, "calendar-collection-location-ok"),
@@ -74,7 +74,7 @@ def http_MKCALENDAR(self, request):
         doc = (yield davXMLFromStream(request.stream))
         yield self.createCalendar(request)
     except ValueError, e:
-        log.err("Error while handling MKCALENDAR: %s" % (e,))
+        log.error("Error while handling MKCALENDAR: %s" % (e,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     set_supported_component_set = False
@@ -83,12 +83,12 @@ def http_MKCALENDAR(self, request):
         if not isinstance(makecalendar, caldavxml.MakeCalendar):
             error = ("Non-%s element in MKCALENDAR request body: %s"
                      % (caldavxml.MakeCalendar.name, makecalendar))
-            log.err(error)
+            log.error("Error: {err}", err=error)
             raise HTTPError(StatusResponse(responsecode.UNSUPPORTED_MEDIA_TYPE, error))
 
         errors = PropertyStatusResponseQueue("PROPPATCH", request.uri, responsecode.NO_CONTENT)
         got_an_error = False
-    
+
         if makecalendar.children:
             # mkcalendar -> set -> prop -> property*
             for property in makecalendar.children[0].children[0].children:
@@ -103,15 +103,14 @@ def http_MKCALENDAR(self, request):
                     got_an_error = True
                 else:
                     errors.add(responsecode.OK, property)
-    
+
         if got_an_error:
             # Force a transaction error and proper clean-up
             errors.error()
             raise HTTPError(MultiStatusResponse([errors.response()]))
-        
+
     # When calendar collections are single component only, default MKCALENDAR is VEVENT only
     if not set_supported_component_set and config.RestrictCalendarsToOneComponentType:
         yield self.setSupportedComponents(("VEVENT",))
-            
 
     returnValue(responsecode.CREATED)

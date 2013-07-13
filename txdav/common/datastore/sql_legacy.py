@@ -41,7 +41,7 @@ from txdav.common.icommondatastore import IndexedSearchException, \
 from txdav.common.datastore.sql_tables import schema
 from twext.enterprise.dal.syntax import Parameter, Select
 from twext.python.clsprop import classproperty
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
@@ -56,7 +56,9 @@ indexfbtype_to_icalfbtype = {
     4: 'T',
 }
 
-class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
+class MemcachedUIDReserver(CachePoolUserMixIn):
+    log = Logger()
+
     def __init__(self, index, cachePool=None):
         self.index = index
         self._cachePool = cachePool
@@ -69,7 +71,7 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
 
     def reserveUID(self, uid):
-        self.log_debug("Reserving UID %r @ %r" % (
+        self.log.debug("Reserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
 
@@ -88,7 +90,7 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
 
     def unreserveUID(self, uid):
-        self.log_debug("Unreserving UID %r @ %r" % (
+        self.log.debug("Unreserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
 
@@ -105,7 +107,7 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
 
     def isReservedUID(self, uid):
-        self.log_debug("Is reserved UID %r @ %r" % (
+        self.log.debug("Is reserved UID %r @ %r" % (
                 uid,
                 self.index.resource))
 
@@ -121,7 +123,8 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
 
 
-class DummyUIDReserver(LoggingMixIn):
+class DummyUIDReserver(object):
+    log = Logger()
 
     def __init__(self, index):
         self.index = index
@@ -135,7 +138,7 @@ class DummyUIDReserver(LoggingMixIn):
 
 
     def reserveUID(self, uid):
-        self.log_debug("Reserving UID %r @ %r" % (
+        self.log.debug("Reserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
 
@@ -150,7 +153,7 @@ class DummyUIDReserver(LoggingMixIn):
 
 
     def unreserveUID(self, uid):
-        self.log_debug("Unreserving UID %r @ %r" % (
+        self.log.debug("Unreserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
 
@@ -161,7 +164,7 @@ class DummyUIDReserver(LoggingMixIn):
 
 
     def isReservedUID(self, uid):
-        self.log_debug("Is reserved UID %r @ %r" % (
+        self.log.debug("Is reserved UID %r @ %r" % (
                 uid,
                 self.index.resource))
         key = self._key(uid)
@@ -357,7 +360,8 @@ class oraclesqlgenerator(CalDAVSQLBehaviorMixin, sqlgenerator):
 
 
 
-class LegacyIndexHelper(LoggingMixIn, object):
+class LegacyIndexHelper(object):
+    log = Logger()
 
     @inlineCallbacks
     def isAllowedUID(self, uid, *names):
@@ -527,7 +531,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
 
         # Actually expand recurrence max
         for name in names:
-            self.log_info("Search falls outside range of index for %s %s to %s" %
+            self.log.info("Search falls outside range of index for %s %s to %s" %
                           (name, minDate, maxDate))
             yield self.reExpandResource(name, minDate, maxDate)
 
@@ -749,7 +753,7 @@ class CardDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
         if self.calendarid:
 
             # AND the whole thing
-            test = expression.isExpression("ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID", str(self.calendarid), True)
+            test = expression.isExpression("ADDRESSBOOK_OBJECT.ADDRESSBOOK_HOME_RESOURCE_ID", str(self.calendarid), True)
             self.expression = test.andWith(self.expression)
 
         # Generate ' where ...' partial statement
@@ -861,7 +865,7 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
                 [self._objectSchema.RESOURCE_NAME,
                  self._objectSchema.VCARD_UID],
                 From=self._objectSchema,
-                Where=self._objectSchema.ADDRESSBOOK_RESOURCE_ID ==
+                Where=self._objectSchema.ADDRESSBOOK_HOME_RESOURCE_ID ==
                 self.addressbook._resourceID
             ).on(self.addressbook._txn)
 
@@ -879,4 +883,4 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
     @inlineCallbacks
     def resourcesExist(self, names):
         returnValue(list(set(names).intersection(
-            set((yield self.addressbook.listAddressbookObjects())))))
+            set((yield self.addressbook.listAddressBookObjects())))))

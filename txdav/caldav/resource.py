@@ -30,7 +30,7 @@ __all__ = [
 
 import urllib
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from txdav.xml.base import dav_namespace
 from twext.web2.http_headers import MimeType
 from twext.web2.http import RedirectResponse, Response
@@ -43,10 +43,12 @@ from twistedcaldav.extensions import DAVResource
 from twistedcaldav.ical import allowedComponents
 
 
-class CalDAVResource(DAVResource, LoggingMixIn):
+class CalDAVResource(DAVResource):
     """
     CalDAV resource.
     """
+    log = Logger()
+
     def davComplianceClasses(self):
         return (
             tuple(super(CalDAVResource, self).davComplianceClasses())
@@ -58,12 +60,14 @@ class CalDAVResource(DAVResource, LoggingMixIn):
     )
 
 
+
 class CalendarHomeResource(CalDAVResource):
     """
     Calendar home resource.
 
     This resource is backed by an L{ICalendarHome} implementation.
     """
+
 
 
 class CalendarCollectionResource(CalDAVResource):
@@ -104,7 +108,7 @@ class CalendarCollectionResource(CalDAVResource):
             # Render a monolithic iCalendar file
             if request.path[-1] != "/":
                 # Redirect to include trailing '/' in URI
-                return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/')+'/'))
+                return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/') + '/'))
 
             def _defer(data):
                 response = Response()
@@ -118,18 +122,18 @@ class CalendarCollectionResource(CalDAVResource):
 
         return super(CalDAVResource, self).render(request)
 
+
     #
     # WebDAV
     #
 
     def liveProperties(self):
-        
-        return super(CalendarCollectionResource, self).liveProperties() + (
-            (dav_namespace,    "owner"),               # Private Events needs this but it is also OK to return empty
-            (caldav_namespace, "supported-calendar-component-set"),
-            (caldav_namespace, "supported-calendar-data"         ),
-        )
 
+        return super(CalendarCollectionResource, self).liveProperties() + (
+            (dav_namespace, "owner"),               # Private Events needs this but it is also OK to return empty
+            (caldav_namespace, "supported-calendar-component-set"),
+            (caldav_namespace, "supported-calendar-data"),
+        )
 
 
 
@@ -141,12 +145,14 @@ class CalendarObjectResource(CalDAVResource):
     """
 
 
+
 class ScheduleInboxResource(CalDAVResource):
     """
     Schedule inbox resource.
 
     This resource is backed by an XXXXXXX implementation.
     """
+
 
 
 class ScheduleOutboxResource(CalDAVResource):

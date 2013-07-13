@@ -57,7 +57,7 @@ def http_PROPFIND(self, request):
         parent = (yield request.locateResource(parentURL))
         yield parent.authorize(request, (davxml.Bind(),))
 
-        log.err("Resource not found: %s" % (self,))
+        log.error("Resource not found: %s" % (self,))
         raise HTTPError(responsecode.NOT_FOUND)
 
     #
@@ -71,7 +71,7 @@ def http_PROPFIND(self, request):
     try:
         doc = (yield davXMLFromStream(request.stream))
     except ValueError, e:
-        log.err("Error while handling PROPFIND body: %s" % (e,))
+        log.error("Error while handling PROPFIND body: %s" % (e,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     if doc is None:
@@ -85,7 +85,7 @@ def http_PROPFIND(self, request):
         if not isinstance(find, davxml.PropertyFind):
             error = ("Non-%s element in PROPFIND request body: %s"
                      % (davxml.PropertyFind.sname(), find))
-            log.err(error)
+            log.error("Error: {err}", err=error)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
         container = find.children[0]
@@ -135,14 +135,15 @@ def http_PROPFIND(self, request):
     if depth in ("1", "infinity") and noRoot:
         resources = []
     else:
-        resources = [(True, self, my_url)]
+        resources = [(responsecode.OK, self, my_url)]
 
     yield self.findChildrenFaster(
         depth,
         request,
-        lambda x, y: resources.append((True, x, y)),
-        lambda x, y: resources.append((False, x, y)),
+        lambda x, y: resources.append((responsecode.OK, x, y)),
+        lambda x, y: resources.append((responsecode.FORBIDDEN, x, y)),
         None,
+        lambda x: resources.append((responsecode.SERVICE_UNAVAILABLE, None, x)),
         None,
         (davxml.Read(),),
         inherited_aces=filtered_aces,
@@ -152,13 +153,13 @@ def http_PROPFIND(self, request):
     if depth == "1":
         request.childCacheURIs = []
 
-    for readable, resource, uri in resources:
-        if readable:
+    for respcode, resource, uri in resources:
+        if respcode == responsecode.OK:
             if search_properties is "names":
                 try:
                     resource_properties = (yield resource.listProperties(request))
                 except:
-                    log.err("Unable to get properties for resource %r" % (resource,))
+                    log.error("Unable to get properties for resource %r" % (resource,))
                     raise
 
                 properties_by_status = {
@@ -225,7 +226,7 @@ def http_PROPFIND(self, request):
                     elif hasattr(resource, "url"):
                         request.childCacheURIs.append(resource.url())
         else:
-            xml_response = davxml.StatusResponse(davxml.HRef(uri), davxml.Status.fromResponseCode(responsecode.FORBIDDEN))
+            xml_response = davxml.StatusResponse(davxml.HRef(uri), davxml.Status.fromResponseCode(respcode))
 
         xml_responses.append(xml_response)
 

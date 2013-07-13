@@ -32,6 +32,8 @@ limitations under the License.
     <string>-X</string>
     <string>-R</string>
     <string>caldav_kqueue</string>
+    <string>-o</string>
+    <string>FailIfUpgradeNeeded=False</string>
   </array>
 
   <key>InitGroups</key>
@@ -57,6 +59,12 @@ limitations under the License.
 
   <key>PreventsSleep</key>
   <true/>
+  
+  <key>StandardOutPath</key>
+  <string>/var/log/caldavd/error.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/var/log/caldavd/error.log</string>
 
 </dict>
 </plist>

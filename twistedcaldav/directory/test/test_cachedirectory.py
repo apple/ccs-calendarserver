@@ -245,6 +245,49 @@ class GUIDLookups(CachingDirectoryTest):
         ) is not None)
         self.assertFalse(self.service.queried)
 
+    def test_cacheonePrincipalsURLWithUIDS(self):
+        self.dummyRecords()
+
+        guid = self.guidForShortName("user03", "users")
+        self.assertTrue(self.service.recordWithCalendarUserAddress(
+            "/principals/__uids__/%s" % (guid,)
+        ) is not None)
+        self.assertTrue(self.service.queried)
+        self.verifyRecords(DirectoryService.recordType_users, set((
+            self.guidForShortName("user03", recordType=DirectoryService.recordType_users),
+        )))
+        self.verifyRecords(DirectoryService.recordType_groups, set())
+        self.verifyRecords(DirectoryService.recordType_resources, set())
+        self.verifyRecords(DirectoryService.recordType_locations, set())
+
+        # Make sure it really is cached and won't cause another query
+        self.service.queried = False
+        self.assertTrue(self.service.recordWithCalendarUserAddress(
+            "/principals/__uids__/%s" % (guid,)
+        ) is not None)
+        self.assertFalse(self.service.queried)
+
+    def test_cacheonePrincipalsURLWithUsers(self):
+        self.dummyRecords()
+
+        self.assertTrue(self.service.recordWithCalendarUserAddress(
+            "/principals/users/user03"
+        ) is not None)
+        self.assertTrue(self.service.queried)
+        self.verifyRecords(DirectoryService.recordType_users, set((
+            self.guidForShortName("user03", recordType=DirectoryService.recordType_users),
+        )))
+        self.verifyRecords(DirectoryService.recordType_groups, set())
+        self.verifyRecords(DirectoryService.recordType_resources, set())
+        self.verifyRecords(DirectoryService.recordType_locations, set())
+
+        # Make sure it really is cached and won't cause another query
+        self.service.queried = False
+        self.assertTrue(self.service.recordWithCalendarUserAddress(
+            "/principals/users/user03"
+        ) is not None)
+        self.assertFalse(self.service.queried)
+
     def test_cacheoneauthid(self):
         self.dummyRecords()
 

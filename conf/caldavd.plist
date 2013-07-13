@@ -106,15 +106,16 @@
 
     <!-- Child aliases -->
     <key>Aliases</key>
-    <dict>
+    <array>
       <!--
-      <key>foo</key>
       <dict>
+        <key>url</key>
+        <string>/foo</string>
         <key>path</key>
         <string>/path/to/foo</string>
       </dict>
        -->
-    </dict>
+    </array>
 
 
     <!--
@@ -293,10 +294,6 @@
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
     <string>warn</string> <!-- debug, info, warn, error -->
-
-    <!-- Global server stats --> 
-    <key>GlobalStatsSocket</key> 
-    <string>caldavd-stats.sock</string> 
 
     <!-- Server process ID file -->
     <key>PIDFile</key>

@@ -5,4 +5,3 @@ __bundle__ = _objc.initFrameworkWrapper("EventKit",
     frameworkPath=_objc.pathForFramework(
     "/System/Library/Frameworks/EventKit.framework"),
     globals=globals())
-

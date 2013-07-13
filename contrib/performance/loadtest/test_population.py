@@ -179,16 +179,16 @@ class ReportStatisticsTests(TestCase):
         PUT(xxx-huge/large/medium/small} have different thresholds. Test that requests straddling
         each of those are correctly determined to be failures or not.
         """
-        
+
         _thresholds = {
-            "requests":{
-                "limits":                   [   0.1,   0.5,   1.0,   3.0,   5.0,  10.0,  30.0],
-                "thresholds":{
-                    "default":              [ 100.0, 100.0, 100.0,   5.0,   1.0,   0.5,   0.0],
-                    "PUT{organizer-small}": [ 100.0,  50.0,  25.0,   5.0,   1.0,   0.5,   0.0],
-                    "PUT{organizer-medium}":[ 100.0, 100.0,  50.0,  25.0,   5.0,   1.0,   0.5],
-                    "PUT{organizer-large}": [ 100.0, 100.0, 100.0,  50.0,  25.0,   5.0,   1.0],
-                    "PUT{organizer-huge}":  [ 100.0, 100.0, 100.0, 100.0, 100.0,  50.0,  25.0],
+            "requests": {
+                "limits": [0.1, 0.5, 1.0, 3.0, 5.0, 10.0, 30.0],
+                "thresholds": {
+                    "default": [100.0, 100.0, 100.0, 5.0, 1.0, 0.5, 0.0],
+                    "PUT{organizer-small}": [100.0, 50.0, 25.0, 5.0, 1.0, 0.5, 0.0],
+                    "PUT{organizer-medium}": [100.0, 100.0, 50.0, 25.0, 5.0, 1.0, 0.5],
+                    "PUT{organizer-large}": [100.0, 100.0, 100.0, 50.0, 25.0, 5.0, 1.0],
+                    "PUT{organizer-huge}": [100.0, 100.0, 100.0, 100.0, 100.0, 50.0, 25.0],
                 }
             }
         }
@@ -208,7 +208,7 @@ class ReportStatisticsTests(TestCase):
                 type='response', method='PUT{organizer-small}', success=True,
                 duration=0.2, user='user01', client_type="test", client_id="1234"))
         self.assertEqual([], logger.failures())
-        
+
         # -small above 0.5 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
@@ -227,7 +227,7 @@ class ReportStatisticsTests(TestCase):
             ["Greater than 50% PUT{organizer-small} exceeded 0.5 second response time"],
             logger.failures()
         )
-        
+
         # -medium below 0.5 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
@@ -246,7 +246,7 @@ class ReportStatisticsTests(TestCase):
             [],
             logger.failures()
         )
-        
+
         # -medium above 1.0 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
@@ -265,7 +265,7 @@ class ReportStatisticsTests(TestCase):
             ["Greater than 50% PUT{organizer-medium} exceeded 1 second response time"],
             logger.failures()
         )
-        
+
         # -large below 1.0 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
@@ -284,7 +284,7 @@ class ReportStatisticsTests(TestCase):
             [],
             logger.failures()
         )
-        
+
         # -large above 3.0 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
@@ -322,7 +322,7 @@ class ReportStatisticsTests(TestCase):
             [],
             logger.failures()
         )
-        
+
         # -huge above 10.0 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(

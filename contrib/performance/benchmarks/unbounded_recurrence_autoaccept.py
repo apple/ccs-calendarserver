@@ -41,6 +41,7 @@ def makeEvent(i, organizerSequence, attendeeCount):
         uuid4(), start, end, "RRULE:FREQ=WEEKLY", organizerSequence, attendees)
 
 
+
 def measure(host, port, dtrace, attendeeCount, samples):
     calendar = "unbounded-recurrence-autoaccept"
     organizerSequence = 1
@@ -51,4 +52,3 @@ def measure(host, port, dtrace, attendeeCount, samples):
     return _measure(
         calendar, organizerSequence, events,
         host, port, dtrace, samples)
-

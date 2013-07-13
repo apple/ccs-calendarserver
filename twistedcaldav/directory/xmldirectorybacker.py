@@ -42,7 +42,7 @@ class XMLDirectoryBackingService(XMLDirectoryService):
 
     def _actuallyConfigure(self, **params):
 
-        self.log_debug("_actuallyConfigure: params=%s" % (params,))
+        self.log.debug("_actuallyConfigure: params=%s" % (params,))
         defaults = {
             "recordTypes": (self.recordType_users, self.recordType_groups,),
             "rdnSchema": {
@@ -112,7 +112,7 @@ class XMLDirectoryBackingService(XMLDirectoryService):
             return params
 
         params = addDefaults(params, defaults)
-        self.log_debug("_actuallyConfigure after addDefaults: params=%s" % (params,))
+        self.log.debug("_actuallyConfigure after addDefaults: params=%s" % (params,))
 
         # super does not like these extra params
         directoryBackedAddressBook = params["directoryBackedAddressBook"]
@@ -168,7 +168,7 @@ class XMLDirectoryBackingService(XMLDirectoryService):
             # add KIND as constant so that query can be skipped if addressBookFilter needs a different kind
 
             filterPropertyNames, dsFilter = dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToDirRecordAttrMap, constantProperties=constantProperties);
-            self.log_debug("doAddressBookQuery: rdn=%s, query=%s, propertyNames=%s" % (recordType, dsFilter if isinstance(dsFilter, bool) else dsFilter.generate(), filterPropertyNames))
+            self.log.debug("doAddressBookQuery: rdn=%s, query=%s, propertyNames=%s" % (recordType, dsFilter if isinstance(dsFilter, bool) else dsFilter.generate(), filterPropertyNames))
 
             if dsFilter:
 
@@ -176,8 +176,8 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                 def recordsForDSFilter(dsFilter, recordType):
 
                     """
-                        Athough recordsForDSFilter() exercises the dsFilter expression tree and recordsMatchingFields(),
-                        it make little difference to the result of a addressbook query because of filtering.
+                        Although recordsForDSFilter() exercises the dsFilter expression tree and recordsMatchingFields(),
+                        it make little difference to the result of an address book query because of filtering.
                     """
 
                     if not isinstance(dsFilter, dsquery.expression):
@@ -185,48 +185,48 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                         returnValue((yield recordsForDSFilter(dsquery.expression(dsquery.expression.OR, (dsFilter,)), recordType)))
 
                     else:
-                        #self.log_debug("recordsForDSFilter:  dsFilter=%s" % (dsFilter.generate(), ))
+                        #self.log.debug("recordsForDSFilter:  dsFilter=%s" % (dsFilter.generate(), ))
                         dsFilterSubexpressions = dsFilter.subexpressions if isinstance(dsFilter.subexpressions, list) else (dsFilter.subexpressions,)
-                        #self.log_debug("recordsForDSFilter: #subs %s" % (len(dsFilterSubexpressions), ))
+                        #self.log.debug("recordsForDSFilter: #subs %s" % (len(dsFilterSubexpressions), ))
 
                         # evaluate matches
                         matches = [match for match in dsFilterSubexpressions if isinstance(match, dsquery.match)]
                         fields = []
                         for match in matches:
-                            #self.log_debug("recordsForDSFilter: match=%s" % (match.generate(), ))
+                            #self.log.debug("recordsForDSFilter: match=%s" % (match.generate(), ))
                             xmlMatchType = {
                                 dsattributes.eDSExact :        "exact",
                                 dsattributes.eDSStartsWith :   "starts-with",
                                 dsattributes.eDSContains :     "contains",
                             }.get(match.matchType)
                             if not xmlMatchType:
-                                self.log_debug("recordsForDSFilter: match type=%s match not supported" % (match.generate(),))
+                                self.log.debug("recordsForDSFilter: match type=%s match not supported" % (match.generate(),))
                                 returnValue(None)  # match type not supported by recordsMatchingFields()
 
                             fields += ((match.attribute, match.value, True, xmlMatchType,),)
-                            #self.log_debug("recordsForDSFilter: fields=%s" % (fields,))
+                            #self.log.debug("recordsForDSFilter: fields=%s" % (fields,))
 
                         # if there were matches, call get records that match
                         result = None
                         if len(fields):
                             operand = "and" if dsFilter.operator == dsquery.expression.AND else "or"
-                            #self.log_debug("recordsForDSFilter: recordsMatchingFields(fields=%s, operand=%s, recordType=%s)" % (fields, operand, recordType,))
+                            #self.log.debug("recordsForDSFilter: recordsMatchingFields(fields=%s, operand=%s, recordType=%s)" % (fields, operand, recordType,))
                             result = set((yield self.recordsMatchingFields(fields, operand=operand, recordType=recordType)))
-                            #self.log_debug("recordsForDSFilter: result=%s" % (result,))
+                            #self.log.debug("recordsForDSFilter: result=%s" % (result,))
                             if dsFilter.operator == dsquery.expression.NOT:
                                 if self.implementNot:
                                     result = (yield self.listRecords(recordType)).difference(result)
                                 else:
-                                    self.log_debug("recordsForDSFilter: NOT expression not supported" % (match.generate(),))
+                                    self.log.debug("recordsForDSFilter: NOT expression not supported" % (match.generate(),))
                                     returnValue(None)
 
 
                         # evaluate subexpressions
                         subexpressions = [subexpression for subexpression in dsFilterSubexpressions if isinstance(subexpression, dsquery.expression)]
                         for subexpression in subexpressions:
-                            #self.log_debug("recordsForDSFilter: subexpression=%s" % (subexpression.generate(), ))
+                            #self.log.debug("recordsForDSFilter: subexpression=%s" % (subexpression.generate(), ))
                             subresult = (yield recordsForDSFilter(subexpression, recordType))
-                            #self.log_debug("recordsForDSFilter: subresult=%s" % (subresult,))
+                            #self.log.debug("recordsForDSFilter: subresult=%s" % (subresult,))
                             if subresult is None:
                                 returnValue(None)
 
@@ -234,7 +234,7 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                                 if self.implementNot:
                                     result = (yield self.listRecords(recordType)).difference(subresult)
                                 else:
-                                    self.log_debug("recordsForDSFilter: NOT expression not supported" % (match.generate(),))
+                                    self.log.debug("recordsForDSFilter: NOT expression not supported" % (match.generate(),))
                                     returnValue(None)
                             elif result is None:
                                 result = subresult
@@ -243,24 +243,23 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                             else:
                                 result = result.intersection(subresult)
 
-                    #self.log_debug("recordsForDSFilter:  dsFilter=%s returning %s" % (dsFilter.generate(), result, ))
+                    #self.log.debug("recordsForDSFilter:  dsFilter=%s returning %s" % (dsFilter.generate(), result, ))
                     returnValue(result)
 
                 # calculate minimum attributes needed for this query: results unused
                 etagRequested, queryPropNames = propertiesInAddressBookQuery(addressBookQuery)
-                self.log_debug("doAddressBookQuery: etagRequested=%s, queryPropNames=%s" % (etagRequested, queryPropNames,))
+                self.log.debug("doAddressBookQuery: etagRequested=%s, queryPropNames=%s" % (etagRequested, queryPropNames,))
 
                 # walk the expression tree
                 if dsFilter is True:
                     xmlDirectoryRecords = None
                 else:
                     xmlDirectoryRecords = (yield recordsForDSFilter(dsFilter, recordType))
-                self.log_debug("doAddressBookQuery: #xmlDirectoryRecords %s" % (len(xmlDirectoryRecords) if xmlDirectoryRecords is not None else xmlDirectoryRecords,))
+                self.log.debug("doAddressBookQuery: #xmlDirectoryRecords %s" % (len(xmlDirectoryRecords) if xmlDirectoryRecords is not None else xmlDirectoryRecords,))
 
                 if xmlDirectoryRecords is None:
                     xmlDirectoryRecords = (yield self.listRecords(recordType))
-                    self.log_debug("doAddressBookQuery: all #xmlDirectoryRecords %s" % (len(xmlDirectoryRecords),))
-
+                    self.log.debug("doAddressBookQuery: all #xmlDirectoryRecords %s" % (len(xmlDirectoryRecords),))
 
                 for xmlDirectoryRecord in xmlDirectoryRecords:
 
@@ -276,7 +275,7 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                                 if value:
                                     dsRecordAttributes[dirRecordAttrToDSAttrMap[attr]] = value
                             except AttributeError:
-                                self.log_info("Could not get attribute %s from record %s" % (attr, xmlDirectoryRecord,))
+                                self.log.info("Could not get attribute %s from record %s" % (attr, xmlDirectoryRecord,))
                                 pass
                         return dsRecordAttributes
 
@@ -286,14 +285,14 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                         result = ABDirectoryQueryResult(self.directoryBackedAddressBook, dsRecordAttributes, kind=kind)
                     except:
                         traceback.print_exc()
-                        self.log_info("Could not get vcard for %s" % (xmlDirectoryRecord,))
+                        self.log.info("Could not get vcard for %s" % (xmlDirectoryRecord,))
                     else:
-                        self.log_debug("doAddressBookQuery: VCard text =\n%s" % (result.vCard(),))
+                        self.log.debug("doAddressBookQuery: VCard text =\n%s" % (result.vCard(),))
                         if addressBookFilter.match(result.vCard()):
                             results.append(result)
                         else:
                             # should also filter for duplicate UIDs
-                            self.log_debug("doAddressBookQuery did not match filter: %s (%s)" % (result.vCard().propertyValue("FN"), result.vCard().propertyValue("UID"),))
+                            self.log.debug("doAddressBookQuery did not match filter: %s (%s)" % (result.vCard().propertyValue("FN"), result.vCard().propertyValue("UID"),))
 
                 if len(results) >= maxResults:
                     limited = True
@@ -303,6 +302,6 @@ class XMLDirectoryBackingService(XMLDirectoryService):
         if self.sortResults:
             results = sorted(list(results), key=lambda result:result.vCard().propertyValue("UID"))
 
-        self.log_info("limited  %s len(results) %s" % (limited, len(results),))
+        self.log.info("limited  %s len(results) %s" % (limited, len(results),))
         returnValue((results, limited,))
 

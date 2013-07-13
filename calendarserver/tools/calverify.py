@@ -40,10 +40,12 @@ multiple DBs for inconsistency would be good too.
 
 """
 
-from calendarserver.tools.cmdline import utilityMain
-
-from calendarserver.tools import tables
-from calendarserver.tools.util import getDirectory
+import base64
+import collections
+import sys
+import time
+import traceback
+import uuid
 
 from pycalendar import definitions
 from pycalendar.calendar import PyCalendar
@@ -52,33 +54,35 @@ from pycalendar.exceptions import PyCalendarError
 from pycalendar.period import PyCalendarPeriod
 from pycalendar.timezone import PyCalendarTimezone
 
-from twext.enterprise.dal.syntax import Select, Parameter, Count
-
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python import log, usage
+from twisted.python import usage
 from twisted.python.usage import Options
 
-from twistedcaldav import caldavxml
+from twext.python.log import Logger
+from twext.enterprise.dal.syntax import Select, Parameter, Count
+
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import pyCalendarTodatetime
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.ical import Component, ignoredComponents, \
-    InvalidICalendarDataError, Property
-from twistedcaldav.scheduling.itip import iTipGenerator
+    InvalidICalendarDataError, Property, PERUSER_COMPONENT
+from txdav.caldav.datastore.scheduling.itip import iTipGenerator
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.util import normalizationLookup
 
-from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
 
-import base64
-import collections
-import sys
-import time
-import traceback
-import uuid
+from calendarserver.tools.cmdline import utilityMain
+
+from calendarserver.tools import tables
+from calendarserver.tools.util import getDirectory
+
+log = Logger()
+
+
 
 # Monkey patch
 def new_validRecurrenceIDs(self, doFix=True):
@@ -180,7 +184,7 @@ def new_hasDuplicateAlarms(self, doFix=False):
     test and optionally remove alarms that have the same ACTION and TRIGGER values in the same component.
     """
     changed = False
-    if self.name() in ("VCALENDAR", "X-CALENDARSERVER-PERUSER",):
+    if self.name() in ("VCALENDAR", PERUSER_COMPONENT,):
         for component in self.subcomponents():
             if component.name() in ("VTIMEZONE",):
                 continue
@@ -422,7 +426,7 @@ class CalVerifyService(Service, object):
             yield self.doAction()
             self.output.close()
         except:
-            log.err()
+            log.failure("doCalVerify()")
 
         self.reactor.stop()
 
@@ -773,7 +777,7 @@ class CalVerifyService(Service, object):
         # Write out fix, commit and get a new transaction
         # Use _migrating to ignore possible overridden instance errors - we are either correcting or ignoring those
         self.txn._migrating = True
-        component = yield calendarObj.setComponent(component)
+        component = yield calendarObj._setComponentInternal(component, internal_state=ComponentUpdateState.RAW)
         yield self.txn.commit()
         self.txn = self.store.newTransaction()
 
@@ -824,7 +828,7 @@ class CalVerifyService(Service, object):
             calendar = yield home.childWithID(calendarID)
             calendarObj = yield calendar.objectResourceWithID(resid)
             objname = calendarObj.name()
-            yield calendar.removeObjectResource(calendarObj)
+            yield calendarObj.remove(implicitly=False)
             yield self.txn.commit()
             self.txn = self.store.newTransaction()
 
@@ -1202,6 +1206,9 @@ class BadDataService(CalVerifyService):
                 if component.hasDuplicateAlarms(doFix=False):
                     raise InvalidICalendarDataError("Duplicate VALARMS")
             self.noPrincipalPathCUAddresses(component, doFix=False)
+            if self.options["ical"]:
+                self.attendeesWithoutOrganizer(component, doFix=False)
+
         except ValueError, e:
             result = False
             message = str(e)
@@ -1313,6 +1320,20 @@ class BadDataService(CalVerifyService):
                             raise InvalidICalendarDataError("iCalendar ATTENDEE CALENDARSERVER-OLD-CUA not base64")
 
 
+    def attendeesWithoutOrganizer(self, component, doFix):
+        """
+        Look for events with ATTENDEE properties and no ORGANIZER property.
+        """
+
+        organizer = component.getOrganizer()
+        attendees = component.getAttendees()
+        if organizer is None and attendees:
+            if doFix:
+                raise ValueError("ATTENDEEs without ORGANIZER")
+            else:
+                raise InvalidICalendarDataError("ATTENDEEs without ORGANIZER")
+
+
     @inlineCallbacks
     def fixCalendarData(self, resid, isinbox):
         """
@@ -1338,6 +1359,8 @@ class BadDataService(CalVerifyService):
                 component.validOrganizerForScheduling(doFix=True)
                 component.hasDuplicateAlarms(doFix=True)
             self.noPrincipalPathCUAddresses(component, doFix=True)
+            if self.options["ical"]:
+                self.attendeesWithoutOrganizer(component, doFix=True)
         except ValueError:
             result = False
             message = "Failed fix: "
@@ -1347,7 +1370,7 @@ class BadDataService(CalVerifyService):
             try:
                 # Use _migrating to ignore possible overridden instance errors - we are either correcting or ignoring those
                 self.txn._migrating = True
-                component = yield calendarObj.setComponent(component)
+                component = yield calendarObj._setComponentInternal(component, internal_state=ComponentUpdateState.RAW)
             except Exception, e:
                 print(e, component)
                 print(traceback.print_exc())
@@ -1599,7 +1622,8 @@ class SchedulingMismatchService(CalVerifyService):
 
             # Look at each attendee in the organizer's meeting
             for organizerAttendee, organizerViewOfStatus in organizerViewOfAttendees.iteritems():
-                broken = False
+                missing = False
+                mismatch = False
 
                 self.matched_attendee_to_organizer[uid].add(organizerAttendee)
 
@@ -1628,7 +1652,7 @@ class SchedulingMismatchService(CalVerifyService):
                             if partstat not in ("DECLINED", "CANCELLED"):
                                 results_mismatch.append((uid, resid, organizer, org_created, org_modified, organizerAttendee, att_created, att_modified))
                                 self.results.setdefault("Mismatch Attendee", set()).add((uid, organizer, organizerAttendee,))
-                                broken = True
+                                mismatch = True
                                 if self.options["details"]:
                                     self.output.write("Mismatch: on Organizer's side:\n")
                                     self.output.write("          UID: %s\n" % (uid,))
@@ -1639,10 +1663,10 @@ class SchedulingMismatchService(CalVerifyService):
                         # Check that the difference is only cancelled on the attendees side
                         for _attendeeInstance, partstat in attendeeOwnStatus.difference(organizerViewOfStatus):
                             if partstat not in ("CANCELLED",):
-                                if not broken:
+                                if not mismatch:
                                     results_mismatch.append((uid, resid, organizer, org_created, org_modified, organizerAttendee, att_created, att_modified))
                                     self.results.setdefault("Mismatch Attendee", set()).add((uid, organizer, organizerAttendee,))
-                                broken = True
+                                mismatch = True
                                 if self.options["details"]:
                                     self.output.write("Mismatch: on Attendee's side:\n")
                                     self.output.write("          Organizer: %s\n" % (organizer,))
@@ -1656,12 +1680,19 @@ class SchedulingMismatchService(CalVerifyService):
                         if partstat not in ("DECLINED", "CANCELLED"):
                             results_missing.append((uid, resid, organizer, organizerAttendee, org_created, org_modified))
                             self.results.setdefault("Missing Attendee", set()).add((uid, organizer, organizerAttendee,))
-                            broken = True
+                            missing = True
                             break
 
                 # If there was a problem we can fix it
-                if broken and self.fix:
-                    yield self.fixByReinvitingAttendee(resid, attendeeResIDs.get((organizerAttendee, uid)), organizerAttendee)
+                if (missing or mismatch) and self.fix:
+                    fix_result = (yield self.fixByReinvitingAttendee(resid, attendeeResIDs.get((organizerAttendee, uid)), organizerAttendee))
+                    if fix_result:
+                        if missing:
+                            self.fixAttendeesForOrganizerMissing += 1
+                        else:
+                            self.fixAttendeesForOrganizerMismatch += 1
+                    else:
+                        self.fixFailed += 1
 
         yield self.txn.commit()
         self.txn = None
@@ -1804,7 +1835,11 @@ class SchedulingMismatchService(CalVerifyService):
 
                 # If there is a mismatch we fix by re-inviting the attendee
                 if self.fix:
-                    yield self.fixByReinvitingAttendee(self.organized_byuid[uid][1], resid, attendee)
+                    fix_result = (yield self.fixByReinvitingAttendee(self.organized_byuid[uid][1], resid, attendee))
+                    if fix_result:
+                        self.fixOrganizersForAttendeeMismatch += 1
+                    else:
+                        self.fixFailed += 1
 
         yield self.txn.commit()
         self.txn = None
@@ -1917,18 +1952,18 @@ class SchedulingMismatchService(CalVerifyService):
                 calendar = yield home.childWithID(calendarID)
                 calendarObj = yield calendar.objectResourceWithID(attresid)
                 calendarObj.scheduleTag = str(uuid.uuid4())
-                yield calendarObj.setComponent(attendee_calendar)
+                yield calendarObj._setComponentInternal(attendee_calendar, internal_state=ComponentUpdateState.RAW)
                 self.results.setdefault("Fix change event", set()).add((home.name(), calendar.name(), attendee_calendar.resourceUID(),))
 
                 details["path"] = "/calendars/__uids__/%s/%s/%s" % (home.name(), calendar.name(), calendarObj.name(),)
                 details["rid"] = attresid
             else:
                 # Find default calendar for VEVENTs
-                defaultCalendar = (yield self.defaultCalendarForAttendee(home, inbox))
+                defaultCalendar = (yield self.defaultCalendarForAttendee(home))
                 if defaultCalendar is None:
                     raise ValueError("Cannot find suitable default calendar")
                 new_name = str(uuid.uuid4()) + ".ics"
-                calendarObj = (yield defaultCalendar.createCalendarObjectWithName(new_name, attendee_calendar, self.metadata))
+                calendarObj = (yield defaultCalendar._createCalendarObjectWithNameInternal(new_name, attendee_calendar, internal_state=ComponentUpdateState.RAW, options=self.metadata))
                 self.results.setdefault("Fix add event", set()).add((home.name(), defaultCalendar.name(), attendee_calendar.resourceUID(),))
 
                 details["path"] = "/calendars/__uids__/%s/%s/%s" % (home.name(), defaultCalendar.name(), new_name,)
@@ -1944,7 +1979,7 @@ class SchedulingMismatchService(CalVerifyService):
             details["title"] = instance.component.propertyValue("SUMMARY")
 
             # Write new itip message to attendee inbox
-            yield inbox.createCalendarObjectWithName(str(uuid.uuid4()) + ".ics", itipmsg, self.metadata_inbox)
+            yield inbox.createCalendarObjectWithName(str(uuid.uuid4()) + ".ics", itipmsg, options=self.metadata_inbox)
             self.results.setdefault("Fix add inbox", set()).add((home.name(), itipmsg.resourceUID(),))
 
             yield self.txn.commit()
@@ -1964,22 +1999,11 @@ class SchedulingMismatchService(CalVerifyService):
 
 
     @inlineCallbacks
-    def defaultCalendarForAttendee(self, home, inbox):
+    def defaultCalendarForAttendee(self, home):
 
         # Check for property
-        default = inbox.properties().get(PropertyName.fromElement(caldavxml.ScheduleDefaultCalendarURL))
-        if default:
-            defaultName = str(default.children[0]).rstrip("/").split("/")[-1]
-            defaultCalendar = (yield home.calendarWithName(defaultName))
-            returnValue(defaultCalendar)
-        else:
-            # Iterate for the first calendar that supports VEVENTs
-            calendars = (yield home.calendars())
-            for calendar in calendars:
-                if calendar.name() != "inbox" and calendar.isSupportedComponent("VEVENT"):
-                    returnValue(calendar)
-            else:
-                returnValue(None)
+        calendar = (yield home.defaultCalendar("VEVENT"))
+        returnValue(calendar)
 
 
     def printAutoAccepts(self):

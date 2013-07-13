@@ -34,17 +34,20 @@ class PropertyNameTest(unittest.TestCase):
         except BrokenMethodImplementation, e:
             self.fail(e)
 
+
     def test_init(self):
         name = PropertyName("http://calendarserver.org/", "bleargh")
 
         self.assertEquals(name.namespace, "http://calendarserver.org/")
         self.assertEquals(name.name, "bleargh")
 
+
     def test_fromString(self):
         name = PropertyName.fromString("{http://calendarserver.org/}bleargh")
 
         self.assertEquals(name.namespace, "http://calendarserver.org/")
         self.assertEquals(name.name, "bleargh")
+
 
     def test_toString(self):
         name = PropertyName("http://calendarserver.org/", "bleargh")

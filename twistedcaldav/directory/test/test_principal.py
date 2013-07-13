@@ -71,6 +71,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             url = "/" + name + "/"
 
             provisioningResource = DirectoryPrincipalProvisioningResource(url, directory)
+            directory.setPrincipalCollection(provisioningResource)
 
             self.site.resource.putChild(name, provisioningResource)
 
@@ -138,13 +139,15 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     principalCollections = recordResource.principalCollections()
                     self.assertEquals(set((provisioningURL,)), set(pc.principalCollectionURL() for pc in principalCollections))
 
+
     def test_allRecords(self):
         """
         Test of a test routine...
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabled:
                 self.assertEquals(recordResource.record, record)
+
 
     ##
     # DirectoryPrincipalProvisioningResource
@@ -154,13 +157,14 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         DirectoryPrincipalProvisioningResource.principalForShortName()
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for provisioningResource, recordType, _ignore_recordResource, record in self._allRecords():
             principal = provisioningResource.principalForShortName(recordType, record.shortNames[0])
             if record.enabled:
                 self.failIf(principal is None)
                 self.assertEquals(record, principal.record)
             else:
                 self.failIf(principal is not None)
+
 
     def test_principalForUser(self):
         """
@@ -176,6 +180,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     self.assertEquals(user, userResource.record)
                 else:
                     self.failIf(userResource is not None)
+
 
     def test_principalForAuthID(self):
         """
@@ -193,11 +198,12 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 else:
                     self.failIf(userResource is not None)
 
+
     def test_principalForUID(self):
         """
         DirectoryPrincipalProvisioningResource.principalForUID()
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for provisioningResource, _ignore_recordType, _ignore_recordResource, record in self._allRecords():
             principal = provisioningResource.principalForUID(record.uid)
             if record.enabled:
                 self.failIf(principal is None)
@@ -205,11 +211,12 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             else:
                 self.failIf(principal is not None)
 
+
     def test_principalForRecord(self):
         """
         DirectoryPrincipalProvisioningResource.principalForRecord()
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for provisioningResource, _ignore_recordType, _ignore_recordResource, record in self._allRecords():
             principal = provisioningResource.principalForRecord(record)
             if record.enabled:
                 self.failIf(principal is None)
@@ -217,14 +224,15 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             else:
                 self.failIf(principal is not None)
 
+
     def test_principalForCalendarUserAddress(self):
         """
         DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            provisioningResource, _ignore_recordType, recordResource, record
         ) in self._allRecords():
-        
+
             test_items = tuple(record.calendarUserAddresses)
             if recordResource:
                 principalURL = recordResource.principalURL()
@@ -270,12 +278,13 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             None
         )
 
+
     @inlineCallbacks
     def test_enabledForCalendaring(self):
         """
         DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for provisioningResource, _ignore_recordType, _ignore_recordResource, record in self._allRecords():
             principal = provisioningResource.principalForRecord(record)
             if record.enabled:
                 self.failIf(principal is None)
@@ -295,7 +304,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             def hasProperty(property):
                 self.assertTrue(property in principal.liveProperties())
                 yield principal.readProperty(property, None)
-                
+
             @inlineCallbacks
             def doesNotHaveProperty(property):
                 self.assertTrue(property not in principal.liveProperties())
@@ -307,7 +316,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                     self.fail("Wrong exception type")
                 else:
                     self.fail("No exception principal: %s, property %s" % (principal, property,))
-                
+
             if record.enabledForCalendaring:
                 yield hasProperty((caldav_namespace, "calendar-home-set"))
                 yield hasProperty((caldav_namespace, "calendar-user-address-set"))
@@ -332,16 +341,17 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             else:
                 yield doesNotHaveProperty(carddavxml.AddressBookHomeSet.qname())
 
+
     def test_enabledAsOrganizer(self):
         """
         DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
         """
-        
+
         ok_types = (
             DirectoryService.recordType_users,
         )
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
-            
+        for provisioningResource, recordType, _ignore_recordResource, record in self._allRecords():
+
             if record.enabledForCalendaring:
                 principal = provisioningResource.principalForRecord(record)
                 self.failIf(principal is None)
@@ -356,12 +366,13 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             DirectoryService.recordType_locations,
             DirectoryService.recordType_resources,
         )
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
-            
+        for provisioningResource, recordType, _ignore_recordResource, record in self._allRecords():
+
             if record.enabledForCalendaring:
                 principal = provisioningResource.principalForRecord(record)
                 self.failIf(principal is None)
                 self.assertEqual(principal.enabledAsOrganizer(), recordType in ok_types)
+
 
     # FIXME: Run DirectoryPrincipalProvisioningResource tests on DirectoryPrincipalTypeProvisioningResource also
 
@@ -374,78 +385,80 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         Each DirectoryPrincipalResource should have a cacheNotifier attribute
         that is an instance of DisabledCacheNotifier
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabled:
                 self.failUnless(isinstance(recordResource.cacheNotifier,
                                            DisabledCacheNotifier))
+
 
     def test_displayName(self):
         """
         DirectoryPrincipalResource.displayName()
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabled:
                 self.failUnless(recordResource.displayName())
+
 
     @inlineCallbacks
     def test_groupMembers(self):
         """
         DirectoryPrincipalResource.groupMembers()
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabled:
                 members = yield recordResource.groupMembers()
                 self.failUnless(set(record.members()).issubset(set(r.record for r in members)))
+
 
     @inlineCallbacks
     def test_groupMemberships(self):
         """
         DirectoryPrincipalResource.groupMemberships()
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabled:
                 memberships = yield recordResource.groupMemberships()
                 self.failUnless(set(record.groups()).issubset(set(r.record for r in memberships if hasattr(r, "record"))))
+
 
     def test_principalUID(self):
         """
         DirectoryPrincipalResource.principalUID()
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabled:
                 self.assertEquals(record.guid, recordResource.principalUID())
+
 
     def test_calendarUserAddresses(self):
         """
         DirectoryPrincipalResource.calendarUserAddresses()
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
-                self.failUnless(
-                    (
-                        set((recordResource.principalURL(),)) |
-                        set(record.calendarUserAddresses)
-                    ).issubset(set(recordResource.calendarUserAddresses()))
-                )
+                self.assertEqual(set(record.calendarUserAddresses), set(recordResource.calendarUserAddresses()))
 
                 # Verify that if not enabled for calendaring, no CUAs:
                 record.enabledForCalendaring = False
                 self.failIf(recordResource.calendarUserAddresses())
 
+
     def test_canonicalCalendarUserAddress(self):
         """
         DirectoryPrincipalResource.canonicalCalendarUserAddress()
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
                 self.failUnless(recordResource.canonicalCalendarUserAddress().startswith("urn:uuid:"))
+
 
     def test_addressBookHomeURLs(self):
         """
         DirectoryPrincipalResource.addressBookHomeURLs(),
         """
         # No addressbook home provisioner should result in no addressbook homes.
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabledForAddressBooks:
                 self.failIf(tuple(recordResource.addressBookHomeURLs()))
 
@@ -460,7 +473,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             os.mkdir(path)
 
             # Need a data store
-            _newStore = CommonDataStore(path, None, True, False)
+            _newStore = CommonDataStore(path, None, None, True, False)
 
             provisioningResource = DirectoryAddressBookHomeProvisioningResource(
                 directory,
@@ -471,7 +484,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             addressBookRootResources[directory.__class__.__name__] = provisioningResource
 
         # AddressBook home provisioners should result in addressBook homes.
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabledForAddressBooks:
                 homeURLs = tuple(recordResource.addressBookHomeURLs())
                 self.failUnless(homeURLs)
@@ -487,6 +500,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 for homeURL in homeURLs:
                     self.failUnless(homeURL.startswith(addressBookRootURL))
 
+
     def test_calendarHomeURLs(self):
         """
         DirectoryPrincipalResource.calendarHomeURLs(),
@@ -494,7 +508,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         DirectoryPrincipalResource.scheduleOutboxURL()
         """
         # No calendar home provisioner should result in no calendar homes.
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
                 self.failIf(tuple(recordResource.calendarHomeURLs()))
                 self.failIf(recordResource.scheduleInboxURL())
@@ -511,7 +525,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             os.mkdir(path)
 
             # Need a data store
-            _newStore = CommonDataStore(path, None, True, False)
+            _newStore = CommonDataStore(path, None, None, True, False)
 
             provisioningResource = DirectoryCalendarHomeProvisioningResource(
                 directory,
@@ -522,7 +536,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             calendarRootResources[directory.__class__.__name__] = provisioningResource
 
         # Calendar home provisioners should result in calendar homes.
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
                 homeURLs = tuple(recordResource.calendarHomeURLs())
                 self.failUnless(homeURLs)
@@ -557,19 +571,20 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 self.failIf(inboxURL)
                 self.failIf(outboxURL)
 
+
     def test_canAutoSchedule(self):
         """
         DirectoryPrincipalResource.canAutoSchedule()
         """
 
         # Set all resources and locations to auto-schedule, plus one user
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
                 if recordType in ("locations", "resources") or record.uid == "cdaboo":
                     recordResource.record.autoSchedule = True
 
         # Default state - resources and locations, enabled, others not
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
                 if recordType in ("locations", "resources"):
                     self.assertTrue(recordResource.canAutoSchedule())
@@ -578,7 +593,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
         # Set config to allow users
         self.patch(config.Scheduling.Options.AutoSchedule, "AllowUsers", True)
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
                 if recordType in ("locations", "resources") or record.uid == "cdaboo":
                     self.assertTrue(recordResource.canAutoSchedule())
@@ -587,7 +602,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
         # Set config to disallow all
         self.patch(config.Scheduling.Options.AutoSchedule, "Enabled", False)
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
                 self.assertFalse(recordResource.canAutoSchedule())
 
@@ -600,7 +615,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         # Location "apollo" has an auto-accept group ("both_coasts") set in augments.xml,
         # therefore any organizer in that group should be able to auto schedule
 
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.uid == "apollo":
 
                 # No organizer
@@ -617,10 +632,11 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         Default access controls for principals.
         """
-        for provisioningResource, recordType, recordResource, record in self._allRecords():
+        for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
             if record.enabled:
                 for args in _authReadOnlyPrivileges(self, recordResource, recordResource.principalURL()):
                     yield self._checkPrivileges(*args)
+
 
     @inlineCallbacks
     def test_defaultAccessControlList_provisioners(self):
@@ -640,6 +656,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
                 for args in _authReadOnlyPrivileges(self, typeResource, typeResource.principalCollectionURL()):
                     yield self._checkPrivileges(*args)
+
 
     def test_propertyToField(self):
 
@@ -677,6 +694,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 (field, converted)
             )
 
+
     def _allRecords(self):
         """
         @return: an iterable of tuples
@@ -695,6 +713,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
                 for record in directory.listRecords(recordType):
                     recordResource = provisioningResource.principalForRecord(record)
                     yield provisioningResource, recordType, recordResource, record
+
 
     def _checkPrivileges(self, resource, url, principal, privilege, allowed):
         request = SimpleRequest(self.site, "GET", "/")
@@ -720,14 +739,16 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         d.addCallback(gotResource)
         return d
 
+
+
 def _authReadOnlyPrivileges(self, resource, url):
     items = []
-    for provisioningResource, recordType, recordResource, record in self._allRecords():
+    for _ignore_provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
         if record.enabled:
-            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Read()  , True ))
-            items.append(( davxml.HRef().fromString(recordResource.principalURL()), davxml.Write() , False ))
-    items.append(( davxml.Unauthenticated() , davxml.Read()  , False ))
-    items.append(( davxml.Unauthenticated() , davxml.Write() , False ))
-            
+            items.append((davxml.HRef().fromString(recordResource.principalURL()), davxml.Read()  , True))
+            items.append((davxml.HRef().fromString(recordResource.principalURL()), davxml.Write() , False))
+    items.append((davxml.Unauthenticated() , davxml.Read()  , False))
+    items.append((davxml.Unauthenticated() , davxml.Write() , False))
+
     for principal, privilege, allowed in items:
         yield resource, url, principal, privilege, allowed

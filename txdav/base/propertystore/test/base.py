@@ -69,11 +69,14 @@ class NonePropertyStoreTest(unittest.TestCase):
         self.assertRaises(TypeError, doContains)
 
 
+
 class PropertyStoreTest(NonePropertyStoreTest):
     # Subclass must define self.propertyStore in setUp().
 
     def _changed(self, store):
         store.flush()
+
+
     def _abort(self, store):
         store.abort()
 
@@ -304,9 +307,13 @@ class PropertyStoreTest(NonePropertyStoreTest):
         yield self._changed(self.propertyStore1)
 
         self.failUnless(name in self.propertyStore2.keys())
- 
+
+
+
 def propertyName(name):
     return PropertyName("http://calendarserver.org/ns/test/", name)
+
+
 
 def propertyValue(value):
     return davxml.ResponseDescription(value)

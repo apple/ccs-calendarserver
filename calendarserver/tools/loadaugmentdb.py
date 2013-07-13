@@ -16,15 +16,13 @@
 ##
 from __future__ import print_function
 
-from calendarserver.tools.managetimezones import StandardIOObserver
-from calendarserver.tools.util import loadConfig, getDirectory, \
-    autoDisableMemcached
-
-from getopt import getopt, GetoptError
+import os
+import sys
 from grp import getgrnam
 from pwd import getpwnam
+from getopt import getopt, GetoptError
 
-from twext.python.log import setLogLevelForNamespace
+from twext.python.log import LogLevel, Logger
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
@@ -34,8 +32,13 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.augment import AugmentXMLDB
 
-import os
-import sys
+from calendarserver.tools.managetimezones import StandardIOObserver
+from calendarserver.tools.util import loadConfig, getDirectory, \
+    autoDisableMemcached
+
+log = Logger()
+
+
 
 class UsageError (StandardError):
     pass
@@ -109,7 +112,7 @@ def main():
     #
     try:
         loadConfig(configFileName)
-        setLogLevelForNamespace(None, "warn")
+        log.publisher.levels.setLogLevelForNamespace(None, LogLevel.warn)
 
         # Shed privileges
         if config.UserName and config.GroupName and os.getuid() == 0:

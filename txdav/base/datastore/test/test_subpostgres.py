@@ -20,7 +20,7 @@ Tests for txdav.base.datastore.subpostgres.
 
 from twisted.trial.unittest import TestCase
 
-# NOTE: This import will fail eventuall when this functionality is added to 
+# NOTE: This import will fail eventually when this functionality is added to
 # MemoryReactor:
 from twisted.runner.test.test_procmon import DummyProcessReactor
 
@@ -88,6 +88,7 @@ class SubprocessStartup(TestCase):
         values = cursor.fetchall()
         self.assertEquals(values, [["dummy"]])
 
+
     @inlineCallbacks
     def test_startService_Socket(self):
         """
@@ -127,7 +128,7 @@ class SubprocessStartup(TestCase):
             SimpleService2,
             "create table TEST_DUMMY_TABLE (stub varchar)",
             databaseName="dummy_db",
-            listenAddresses=['127.0.0.1',],
+            listenAddresses=['127.0.0.1', ],
             testMode=True
         )
         svc.startService()
@@ -138,6 +139,7 @@ class SubprocessStartup(TestCase):
         cursor.execute("select * from test_dummy_table")
         values = cursor.fetchall()
         self.assertEquals(values, [["dummy"]])
+
 
     @inlineCallbacks
     def test_startService_withDumpFile(self):
@@ -190,7 +192,8 @@ class SubprocessStartup(TestCase):
         cursor = connection.cursor()
         cursor.execute("select * from import_test_table")
         values = cursor.fetchall()
-        self.assertEquals(values, [["value1"],["value2"]])
+        self.assertEquals(values, [["value1"], ["value2"]])
+
 
     def test_startDatabaseRunning(self):
         """ Ensure that if we can connect to postgres we don't spawn pg_ctl """
@@ -199,7 +202,7 @@ class SubprocessStartup(TestCase):
 
         class DummyCursor(object):
             def __init__(self, historyHolder):
-                self.historyHolder = historyHolder 
+                self.historyHolder = historyHolder
 
             def execute(self, *args):
                 self.historyHolder.cursorHistory.append(args)

@@ -18,6 +18,8 @@ import os
 
 from twext.python.log import Logger
 
+from twisted.python.filepath import FilePath
+
 from twistedcaldav.config import config
 
 from pycalendar.timezonedb import PyCalendarTimezoneDatabase
@@ -47,9 +49,13 @@ __all__ = [
 class TimezoneException(Exception):
     pass
 
+
+
 class TimezoneCache(object):
-    
+
     dirName = None
+    version = "Unknown"
+    IANA_VERSION_PREFIX = "IANA Timezone Registry: "
 
     @staticmethod
     def _getPackageDBPath():
@@ -60,21 +66,85 @@ class TimezoneCache(object):
         else:
             return pkg_resources.resource_filename("twistedcaldav", "zoneinfo") #@UndefinedVariable
 
+
     @staticmethod
     def getDBPath():
         if TimezoneCache.dirName is None:
             if config.TimezoneService.Enabled and config.TimezoneService.BasePath:
                 TimezoneCache.dirName = config.TimezoneService.BasePath
-            else:
+            elif config.UsePackageTimezones or not os.path.exists(config.DataRoot):
                 TimezoneCache.dirName = TimezoneCache._getPackageDBPath()
-        
+            else:
+                TimezoneCache.dirName = os.path.join(config.DataRoot, "zoneinfo")
+
         return TimezoneCache.dirName
 
+
     @staticmethod
-    def create(dbpath=None):
-        TimezoneCache.dirName = dbpath
+    def create(empty=False):
+        """
+        Create a timezone database from the files pointed to by the config. The empty option is used
+        only for testing and will point the DB at an empty directory - i.e., no standard timezones are used.
+
+        @param empty: set to C{True} when doing certain tests that do not want the standard timezone database used.
+        @type empty: C{bool}
+        """
+        if empty:
+            TimezoneCache.dirName = ""
+        else:
+            TimezoneCache.dirName = None
+            TimezoneCache.validatePath()
+        TimezoneCache.version = TimezoneCache.getTZVersion(TimezoneCache.getDBPath())
         PyCalendarTimezoneDatabase.createTimezoneDatabase(TimezoneCache.getDBPath())
-    
+
+
+    @staticmethod
+    def getTZVersion(dbpath):
+        try:
+            return open(os.path.join(dbpath, "version.txt")).read().strip()
+        except IOError:
+            return TimezoneCache.IANA_VERSION_PREFIX + "Unknown"
+
+
+    class FilteredFilePath(FilePath):
+        """
+        A FilePath that does a directory copy ignoring dot-prefixed files or directories.
+        """
+
+        def copyFilteredDirectoryTo(self, destination):
+            if self.isdir():
+                if not destination.exists():
+                    destination.createDirectory()
+                for child in self.children():
+                    if child.basename()[0] != ".":
+                        destChild = destination.child(child.basename())
+                        child = TimezoneCache.FilteredFilePath(child.path)
+                        child.copyFilteredDirectoryTo(destChild)
+            elif self.isfile():
+                self.copyTo(destination)
+
+
+    @staticmethod
+    def validatePath():
+        dbpath = FilePath(TimezoneCache.getDBPath())
+        if not dbpath.exists():
+            # Move package data to the path
+            pkgpath = TimezoneCache.FilteredFilePath(TimezoneCache._getPackageDBPath())
+            log.info("Copying timezones from %s to %s" % (pkgpath.path, dbpath.path,))
+            pkgpath.copyFilteredDirectoryTo(dbpath)
+        else:
+            # Check if pkg is more recent and copy over
+            pkgversion = TimezoneCache.getTZVersion(TimezoneCache._getPackageDBPath())
+            dbversion = TimezoneCache.getTZVersion(dbpath.path)
+            if pkgversion > dbversion:
+                dbpath.remove()
+                pkgpath = TimezoneCache.FilteredFilePath(TimezoneCache._getPackageDBPath())
+                log.info("Updating timezones at %s with %s" % (dbpath.path, pkgpath.path,))
+                pkgpath.copyFilteredDirectoryTo(dbpath)
+            else:
+                log.info("Valid timezones at %s" % (dbpath.path,))
+
+
     @staticmethod
     def clear():
         PyCalendarTimezoneDatabase.clearTimezoneDatabase()
@@ -94,6 +164,8 @@ def hasTZ(tzid):
         readVTZ(tzid)
     return True
 
+
+
 def addVTZ(tzid, tzcal):
     """
     Add a VTIMEZONE component to the cache.
@@ -101,21 +173,25 @@ def addVTZ(tzid, tzcal):
     if tzid not in cachedVTZs:
         cachedVTZs[tzid] = tzcal
         cachedTZs[tzid] = str(tzcal)
-    
+
+
+
 def readVTZ(tzid):
     """
     Try to load the specified TZID as a calendar object from the database. Raise if not found.
     """
 
     if tzid not in cachedVTZs:
-        
+
         tzcal = PyCalendarTimezoneDatabase.getTimezoneInCalendar(tzid)
         if tzcal:
             cachedVTZs[tzid] = tzcal
         else:
             raise TimezoneException("Unknown time zone: %s" % (tzid,))
-        
+
     return cachedVTZs[tzid]
+
+
 
 def readTZ(tzid):
     """
@@ -123,14 +199,16 @@ def readTZ(tzid):
     """
 
     if tzid not in cachedTZs:
-        
+
         tzcal = readVTZ(tzid)
         if tzcal:
             cachedTZs[tzid] = str(tzcal)
         else:
             raise TimezoneException("Unknown time zone: %s" % (tzid,))
-        
+
     return cachedTZs[tzid]
+
+
 
 def listTZs(path=""):
     """
@@ -146,7 +224,7 @@ def listTZs(path=""):
             result.extend(listTZs(os.path.join(path, item)))
         elif item.endswith(".ics"):
             result.append(os.path.join(path, item[:-4]))
-            
+
     if not path:
         cachedTZIDs.extend(result)
     return result

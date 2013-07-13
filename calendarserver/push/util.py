@@ -15,7 +15,7 @@
 ##
 
 from OpenSSL import crypto
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
 def getAPNTopicFromCertificate(certPath):
     """
@@ -36,6 +36,8 @@ def getAPNTopicFromCertificate(certPath):
             return value
     return ""
 
+
+
 def validToken(token):
     """
     Return True if token is in hex and is 64 characters long, False
@@ -50,6 +52,7 @@ def validToken(token):
         return False
 
     return True
+
 
 
 class TokenHistory(object):
@@ -68,6 +71,7 @@ class TokenHistory(object):
         self.identifier = 0
         self.history = []
 
+
     def add(self, token):
         """
         Add a token to the history, and return the new identifier associated
@@ -83,6 +87,7 @@ class TokenHistory(object):
         self.history.append((self.identifier, token))
         del self.history[:-self.maxSize]
         return self.identifier
+
 
     def extractIdentifier(self, identifier):
         """
@@ -103,10 +108,11 @@ class TokenHistory(object):
 
 
 
-class PushScheduler(LoggingMixIn):
+class PushScheduler(object):
     """
     Allows staggered scheduling of push notifications
     """
+    log = Logger()
 
     def __init__(self, reactor, callback, staggerSeconds=1):
         """
@@ -120,6 +126,7 @@ class PushScheduler(LoggingMixIn):
         self.reactor = reactor
         self.callback = callback
         self.staggerSeconds = staggerSeconds
+
 
     def schedule(self, tokens, key, dataChangedTimestamp):
         """
@@ -139,15 +146,16 @@ class PushScheduler(LoggingMixIn):
         scheduleTime = 0.0
         for token in tokens:
             internalKey = (token, key)
-            if self.outstanding.has_key(internalKey):
-                self.log_debug("PushScheduler already has this scheduled: %s" %
+            if internalKey in self.outstanding:
+                self.log.debug("PushScheduler already has this scheduled: %s" %
                     (internalKey,))
             else:
                 self.outstanding[internalKey] = self.reactor.callLater(
                     scheduleTime, self.send, token, key, dataChangedTimestamp)
-                self.log_debug("PushScheduler scheduled: %s in %.0f sec" %
+                self.log.debug("PushScheduler scheduled: %s in %.0f sec" %
                     (internalKey, scheduleTime))
                 scheduleTime += self.staggerSeconds
+
 
     def send(self, token, key, dataChangedTimestamp):
         """
@@ -163,14 +171,15 @@ class PushScheduler(LoggingMixIn):
             which triggered this notification
         @type key: C{int}
         """
-        self.log_debug("PushScheduler fired for %s %s %d" % (token, key, dataChangedTimestamp))
+        self.log.debug("PushScheduler fired for %s %s %d" % (token, key, dataChangedTimestamp))
         del self.outstanding[(token, key)]
         return self.callback(token, key, dataChangedTimestamp)
+
 
     def stop(self):
         """
         Cancel all outstanding delayed calls
         """
         for (token, key), delayed in self.outstanding.iteritems():
-            self.log_debug("PushScheduler cancelling %s %s" % (token, key))
+            self.log.debug("PushScheduler cancelling %s %s" % (token, key))
             delayed.cancel()

@@ -31,6 +31,7 @@ service_type="";
 profile="";
 twistd_reactor="";
 child_reactor=""
+extra="";
 
 py_version ()
 {
@@ -94,13 +95,10 @@ usage ()
     echo "        -t Process type (Master, Slave or Combined)";
     echo "        -p Path to the desired pstats file.";
     echo "        -R The Twisted Reactor to run [${reactor}]";
-    echo "        -o Pass option through to server";
 
     if [ "${1-}" == "-" ]; then return 0; fi;
     exit 64;
 }
-
-extra="-o FailIfUpgradeNeeded=False";
 
 while getopts 'hXLu:g:f:T:P:t:p:R:o:' option; do
     case "${option}" in
@@ -128,6 +126,5 @@ if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 export PYTHONHASHSEED=random
 
 export PYTHONPATH
-
 
 exec "${python}" "${twistdpath}" ${twistd_profile} ${twistd_reactor} ${daemonize} ${username} ${groupname} "${plugin_name}" ${configfile} ${service_type} ${errorlogenabled} ${profile} ${child_reactor} ${extra};

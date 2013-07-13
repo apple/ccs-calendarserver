@@ -20,20 +20,22 @@ import string
 
 from twisted.internet.defer import succeed
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.config import config
 
-class Memcacher(LoggingMixIn, CachePoolUserMixIn):
+class Memcacher(CachePoolUserMixIn):
+    log = Logger()
 
-    MEMCACHE_KEY_LIMIT   = 250      # the memcached key length limit
-    NAMESPACE_MAX_LENGTH = 32       # max size of namespace we will allow
-    HASH_LENGTH          = 32       # length of hash we will generate
+    MEMCACHE_KEY_LIMIT = 250      # the memcached key length limit
+    NAMESPACE_MAX_LENGTH = 32     # max size of namespace we will allow
+    HASH_LENGTH = 32              # length of hash we will generate
     TRUNCATED_KEY_LENGTH = MEMCACHE_KEY_LIMIT - NAMESPACE_MAX_LENGTH - HASH_LENGTH - 2  # 2 accounts for delimiters
+    MEMCACHE_VALUE_LIMIT = 1024 * 1024 # the memcached default value length limit
 
     # Translation table: all ctrls (0x00 - 0x1F) and space and 0x7F mapped to _
-    keyNormalizeTranslateTable = string.maketrans("".join([chr(i) for i in range(33)]) + chr(0x7F), "_"*33 + "_")
+    keyNormalizeTranslateTable = string.maketrans("".join([chr(i) for i in range(33)]) + chr(0x7F), "_" * 33 + "_")
 
     allowTestCache = False
     memoryCacheInstance = None
@@ -51,6 +53,8 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             self._clock = 0
 
         def add(self, key, value, expireTime=0):
+            if len(key) > Memcacher.MEMCACHE_KEY_LIMIT or len(str(value)) > Memcacher.MEMCACHE_VALUE_LIMIT:
+                return succeed(False)
             if key not in self._cache:
                 if not expireTime:
                     expireTime = 99999
@@ -60,9 +64,11 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
                 return succeed(False)
 
         def set(self, key, value, expireTime=0):
+            if len(key) > Memcacher.MEMCACHE_KEY_LIMIT or len(str(value)) > Memcacher.MEMCACHE_VALUE_LIMIT:
+                return succeed(False)
             if not expireTime:
                 expireTime = 99999
-            if self._cache.has_key(key):
+            if key in self._cache:
                 identifier = self._cache[key][2]
                 identifier += 1
             else:
@@ -71,9 +77,11 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             return succeed(True)
 
         def checkAndSet(self, key, value, cas, flags=0, expireTime=0):
+            if len(key) > Memcacher.MEMCACHE_KEY_LIMIT or len(str(value)) > Memcacher.MEMCACHE_VALUE_LIMIT:
+                return succeed(False)
             if not expireTime:
                 expireTime = 99999
-            if self._cache.has_key(key):
+            if key in self._cache:
                 identifier = self._cache[key][2]
                 if cas != str(identifier):
                     return succeed(False)
@@ -84,16 +92,22 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             return succeed(True)
 
         def get(self, key, withIdentifier=False):
-            value, expires, identifier = self._cache.get(key, (None, 0, ""))
-            if self._clock >= expires:
-                value = None
-                identifier = ""
+            if len(key) > Memcacher.MEMCACHE_KEY_LIMIT:
+                value, expires, identifier = (None, 0, "")
+            else:
+                value, expires, identifier = self._cache.get(key, (None, 0, ""))
+                if self._clock >= expires:
+                    value = None
+                    identifier = ""
+
             if withIdentifier:
                 return succeed((0, value, str(identifier)))
             else:
                 return succeed((0, value,))
 
         def delete(self, key):
+            if len(key) > Memcacher.MEMCACHE_KEY_LIMIT:
+                return succeed(False)
             try:
                 del self._cache[key]
                 return succeed(True)
@@ -101,6 +115,8 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
                 return succeed(False)
 
         def incr(self, key, delta=1):
+            if len(key) > Memcacher.MEMCACHE_KEY_LIMIT:
+                return succeed(False)
             value = self._cache.get(key, None)
             if value is not None:
                 value, expire, identifier = value
@@ -114,6 +130,8 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             return succeed(value)
 
         def decr(self, key, delta=1):
+            if len(key) > Memcacher.MEMCACHE_KEY_LIMIT:
+                return succeed(False)
             value = self._cache.get(key, None)
             if value is not None:
                 value, expire, identifier = value
@@ -134,7 +152,8 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
 
         def advanceClock(self, seconds):
             self._clock += seconds
-            
+
+
     #TODO: an sqlite based cacher that can be used for multiple instance servers
     # in the absence of memcached. This is not ideal and we may want to not implement
     # this, but it is being documented for completeness.
@@ -170,6 +189,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         def flushAll(self):
             return succeed(True)
 
+
     def __init__(self, namespace, pickle=False, no_invalidation=False, key_normalization=True):
         """
         @param namespace: a unique namespace for this cache's keys
@@ -186,7 +206,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             work is done to truncate and append a hash.
         @type key_normalization: C{bool}
         """
-        
+
         assert len(namespace) <= Memcacher.NAMESPACE_MAX_LENGTH, "Memcacher namespace must be less than or equal to %s characters long" % (Memcacher.NAMESPACE_MAX_LENGTH,)
         self._memcacheProtocol = None
         self._cachePoolHandle = namespace
@@ -219,7 +239,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
 
 
     def _normalizeKey(self, key):
-        
+
         if isinstance(key, unicode):
             key = key.encode("utf-8")
         assert isinstance(key, str), "Key must be a str."
@@ -231,25 +251,28 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         else:
             return key
 
+
     def add(self, key, value, expireTime=0):
-        
+
         proto = self._getMemcacheProtocol()
 
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
-        self.log_debug("Adding Cache Token for %r" % (key,))
+        self.log.debug("Adding Cache Token for %r" % (key,))
         return proto.add('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expireTime)
 
+
     def set(self, key, value, expireTime=0):
-        
+
         proto = self._getMemcacheProtocol()
 
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
-        self.log_debug("Setting Cache Token for %r" % (key,))
+        self.log.debug("Setting Cache Token for %r" % (key,))
         return proto.set('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, expireTime=expireTime)
+
 
     def checkAndSet(self, key, value, cas, flags=0, expireTime=0):
 
@@ -258,8 +281,9 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
         my_value = value
         if self._pickle:
             my_value = cPickle.dumps(value)
-        self.log_debug("Setting Cache Token for %r" % (key,))
+        self.log.debug("Setting Cache Token for %r" % (key,))
         return proto.checkAndSet('%s:%s' % (self._namespace, self._normalizeKey(key)), my_value, cas, expireTime=expireTime)
+
 
     def get(self, key, withIdentifier=False):
         def _gotit(result, withIdentifier):
@@ -273,23 +297,27 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
                 value = (identifier, value)
             return value
 
-        self.log_debug("Getting Cache Token for %r" % (key,))
+        self.log.debug("Getting Cache Token for %r" % (key,))
         d = self._getMemcacheProtocol().get('%s:%s' % (self._namespace, self._normalizeKey(key)), withIdentifier=withIdentifier)
         d.addCallback(_gotit, withIdentifier)
         return d
 
+
     def delete(self, key):
-        self.log_debug("Deleting Cache Token for %r" % (key,))
+        self.log.debug("Deleting Cache Token for %r" % (key,))
         return self._getMemcacheProtocol().delete('%s:%s' % (self._namespace, self._normalizeKey(key)))
 
+
     def incr(self, key, delta=1):
-        self.log_debug("Incrementing Cache Token for %r" % (key,))
+        self.log.debug("Incrementing Cache Token for %r" % (key,))
         return self._getMemcacheProtocol().incr('%s:%s' % (self._namespace, self._normalizeKey(key)), delta)
+
 
     def decr(self, key, delta=1):
-        self.log_debug("Decrementing Cache Token for %r" % (key,))
+        self.log.debug("Decrementing Cache Token for %r" % (key,))
         return self._getMemcacheProtocol().incr('%s:%s' % (self._namespace, self._normalizeKey(key)), delta)
 
+
     def flushAll(self):
-        self.log_debug("Flushing All Cache Tokens")
+        self.log.debug("Flushing All Cache Tokens")
         return self._getMemcacheProtocol().flushAll()

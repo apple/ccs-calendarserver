@@ -102,8 +102,7 @@ def firstResult(deferreds):
 
     @param deferreds: A sequence of Deferreds to wait on.
     """
-    
-    
+
 
 
 @inlineCallbacks
@@ -160,12 +159,12 @@ def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
 
     start = time()
     requests = []
-    for i in range(concurrency):
+    for _ignore_i in range(concurrency):
         requests.append(once())
 
     while requests:
         try:
-            result, index = yield DeferredList(requests, fireOnOneCallback=True, fireOnOneErrback=True)
+            _ignore_result, index = yield DeferredList(requests, fireOnOneCallback=True, fireOnOneErrback=True)
         except FirstError, e:
             e.subFailure.raiseException()
 
@@ -187,7 +186,7 @@ def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
                 # will demolish inlineCallbacks.
                 if len(requests) == concurrency - 1:
                     msg('exhausted parameter generator')
-    
+
     msg('stopping dtrace')
     leftOver = yield dtrace.stop()
     msg('dtrace stopped')
@@ -197,11 +196,13 @@ def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
     returnValue(data)
 
 
+
 def select(statistics, benchmark, parameter, statistic):
     for stat, samples in statistics[benchmark][int(parameter)].iteritems():
         if stat.name == statistic:
             return (stat, samples)
     raise ValueError("Unknown statistic %r" % (statistic,))
+
 
 
 def load_stats(statfiles):

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-    Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+    Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -124,15 +124,16 @@
 
     <!-- Child aliases -->
     <key>Aliases</key>
-    <dict>
+    <array>
       <!--
-      <key>foo</key>
       <dict>
+        <key>url</key>
+        <string>/foo</string>
         <key>path</key>
         <string>/path/to/foo</string>
       </dict>
        -->
-    </dict>
+    </array>
 
 
     <!--
@@ -215,14 +216,17 @@
 
       <key>params</key>
       <dict>
-        <key>restrictEnabledRecords</key>
-        <false/>
-        <key>restrictToGroup</key>
-        <string>odtestgrouptop</string>
+        <key>recordTypes</key>
+        <array>
+           <string>users</string>
+           <string>groups</string>
+           <string>locations</string>
+           <string>resources</string>
+        </array>
         <key>cacheTimeout</key>
-        <integer>30</integer>
+        <integer>10</integer>
         <key>uri</key>
-        <string>ldap://example.com/</string>
+        <string>ldap://ldapserver.example.com/</string>
         <key>tls</key>
         <false/>
         <key>tlsCACertFile</key>
@@ -234,96 +238,118 @@
         <key>credentials</key>
         <dict>
           <key>dn</key>
-          <string></string>
+          <string>uid=admin,ou=people,o=example.com</string>
           <key>password</key>
-          <string></string>
+          <string>PASSWORD</string>
         </dict>
-        <key>authMethod</key>
-        <string>LDAP</string>
         <key>rdnSchema</key>
         <dict>
           <key>base</key>
-          <string>dc=example,dc=com</string>
+          <string>o=example.com</string>
           <key>guidAttr</key>
-          <string>entryUUID</string>
+          <string>GUID</string>
           <key>users</key>
           <dict>
             <key>rdn</key>
-            <string>cn=users</string>
-            <key>attr</key>
-            <string>uid</string>
-            <key>emailSuffix</key>
-            <string></string>
-            <key>filter</key>
-            <string></string>
-            <key>loginEnabledAttr</key>
-            <string></string>
-            <key>loginEnabledValue</key>
-            <string>yes</string>
+            <string>ou=people</string>
             <key>mapping</key>
             <dict>
-              <key>recordName</key>
-              <string>uid</string>
-              <key>fullName</key>
-              <string>cn</string>
-              <key>emailAddresses</key>
-              <array>
-                  <string>mail</string>
-              </array>
-              <key>firstName</key>
-              <string>givenName</string>
-              <key>lastName</key>
-              <string>sn</string>
+                <key>recordName</key>
+                <string>uid</string>
+                <key>fullName</key>
+                <string>cn</string>
+                <key>emailAddresses</key>
+                <array>
+                    <string>mail</string>
+                    <string>mailAlias</string>
+                </array>
+                <key>firstName</key>
+                <string>givenName</string>
+                <key>lastName</key>
+                <string>sn</string>
             </dict>
           </dict>
           <key>groups</key>
           <dict>
             <key>rdn</key>
-            <string>cn=groups</string>
-            <key>attr</key>
-            <string>cn</string>
-            <key>emailSuffix</key>
-            <string></string>
-            <key>filter</key>
-            <string></string>
+            <string>ou=groups</string>
             <key>mapping</key>
             <dict>
-              <key>recordName</key>
-              <string>cn</string>
-              <key>fullName</key>
-              <string>cn</string>
-              <key>emailAddresses</key>
-              <array>
-                  <string>mail</string>
-              </array>
-              <key>firstName</key>
-              <string>givenName</string>
-              <key>lastName</key>
-              <string>sn</string>
+                <key>recordName</key>
+                <string>cn</string>
+                <key>fullName</key>
+                <string>cn</string>
+                <key>emailAddresses</key>
+                <array>
+                    <string>mail</string>
+                    <string>mailAlias</string>
+                </array>
+                <key>firstName</key>
+                <string></string>
+                <key>lastName</key>
+                <string></string>
+            </dict>
+          </dict>
+          <key>locations</key>
+          <dict>
+            <key>rdn</key>
+            <string>ou=locations</string>
+            <key>mapping</key>
+            <dict>
+                <key>recordName</key>
+                <string>cn</string>
+                <key>fullName</key>
+                <string>cn</string>
+                <key>emailAddresses</key>
+                <array>
+                </array>
+                <key>firstName</key>
+                <string></string>
+                <key>lastName</key>
+                <string></string>
+            </dict>
+          </dict>
+          <key>resources</key>
+          <dict>
+            <key>rdn</key>
+            <string>ou=resources</string>
+            <key>mapping</key>
+            <dict>
+                <key>recordName</key>
+                <string>cn</string>
+                <key>fullName</key>
+                <string>cn</string>
+                <key>emailAddresses</key>
+                <array>
+                </array>
+                <key>firstName</key>
+                <string></string>
+                <key>lastName</key>
+                <string></string>
             </dict>
           </dict>
         </dict>
         <key>groupSchema</key>
         <dict>
           <key>membersAttr</key>
-          <string>apple-group-memberguid</string>
+          <string>uniqueMember</string>
           <key>nestedGroupsAttr</key>
-          <string>apple-group-nestedgroup</string>
+          <string></string>
           <key>memberIdAttr</key>
-          <string>apple-generateduid</string>
+          <string></string>
         </dict>
         <key>resourceSchema</key>
         <dict>
-          <key>resourceInfoAttr</key>
-          <string>apple-resource-info</string>
-          <key>autoScheduleAttr</key>
-          <string></string>
-          <key>autoScheduleEnabledValue</key>
-          <string>yes</string>
-          <key>proxyAttr</key>
-          <string></string>
-          <key>readOnlyProxyAttr</key>
-          <string></string>
+         <key>resourceInfoAttr</key>
+         <string></string>
+         <key>autoScheduleAttr</key>
+         <string></string>
+         <key>autoScheduleEnabledValue</key>
+         <string></string>
+         <key>proxyAttr</key>
+         <string></string>
+         <key>readOnlyProxyAttr</key>
+         <string></string>
         </dict>
       </dict>
     </dict>
@@ -482,12 +508,16 @@
       <dict>
         <key>Enabled</key>
         <true/>
+        <key>AllowedOverWireUnencrypted</key> <!-- advertised over non SSL? -->
+        <true/>
       </dict>
 
       <!-- Digest challenge/response -->
       <key>Digest</key>
       <dict>
         <key>Enabled</key>
+        <true/>
+        <key>AllowedOverWireUnencrypted</key> <!-- advertised over non SSL? -->
         <true/>
         <key>Algorithm</key>
         <string>md5</string>
@@ -499,6 +529,8 @@
       <key>Kerberos</key>
       <dict>
         <key>Enabled</key>
+        <true/>
+        <key>AllowedOverWireUnencrypted</key> <!-- advertised over non SSL? -->
         <true/>
         <key>ServicePrincipal</key>
         <string></string>
@@ -625,21 +657,13 @@
       <key>CoalesceSeconds</key>
       <integer>3</integer>
 
-      <key>InternalNotificationHost</key>
-      <string>localhost</string>
-
-      <key>InternalNotificationPort</key>
-      <integer>62309</integer>
-
       <key>Services</key>
       <dict>
 
-        <key>AMPNotifier</key>
+        <key>AMP</key>
         <dict>
-          <key>Service</key>
-          <string>calendarserver.push.amppush.AMPPushNotifierService</string>
           <key>Enabled</key>
-          <true/>
+          <false/>
           <key>Port</key>
           <integer>62311</integer>
           <key>EnableStaggering</key>
@@ -648,81 +672,6 @@
           <integer>3</integer>
         </dict>
 
-        <key>SimpleLineNotifier</key>
-        <dict>
-          <!-- Simple line notification service (for testing) -->
-          <key>Service</key>
-          <string>twistedcaldav.notify.SimpleLineNotifierService</string>
-          <key>Enabled</key>
-          <false/>
-          <key>Port</key>
-          <integer>62308</integer>
-        </dict>
-
-        <key>XMPPNotifier</key>
-        <dict>
-          <!-- XMPP notification service -->
-          <key>Service</key>
-          <string>twistedcaldav.notify.XMPPNotifierService</string>
-          <key>Enabled</key>
-          <false/>
-
-          <!-- XMPP host and port to contact -->
-          <key>Host</key>
-          <string>xmpp.host.name</string>
-          <key>Port</key>
-          <integer>5222</integer>
-
-          <!-- Jabber ID and password for the server -->
-          <key>JID</key>
-          <string>jid@xmpp.host.name/resource</string>
-          <key>Password</key>
-          <string>password_goes_here</string>
-
-          <!-- PubSub service address -->
-          <key>ServiceAddress</key>
-          <string>pubsub.xmpp.host.name</string>
-
-          <!-- Apple-specific config -->
-          <key>CalDAV</key>
-          <dict>
-              <key>APSBundleID</key>
-              <string></string>
-              <key>SubscriptionURL</key>
-              <string></string>
-          </dict>
-          <key>CardDAV</key>
-          <dict>
-              <key>APSBundleID</key>
-              <string></string>
-              <key>SubscriptionURL</key>
-              <string></string>
-          </dict>
-
-          <key>NodeConfiguration</key>
-          <dict>
-            <key>pubsub#deliver_payloads</key>
-            <string>1</string>
-            <key>pubsub#persist_items</key>
-            <string>1</string>
-          </dict>
-
-          <!-- Sends a presence notification to XMPP server at this interval (prevents disconnect) -->
-          <key>KeepAliveSeconds</key>
-          <integer>120</integer>
-
-          <!-- Sends a pubsub publish to a particular heartbeat node at this interval -->
-          <key>HeartbeatMinutes</key>
-          <integer>30</integer>
-
-          <!-- List of glob-like expressions defining which XMPP JIDs can converse with the server (for debugging) -->
-          <key>AllowedJIDs</key>
-          <array>
-            <!--
-            <string>*.example.com</string>
-             -->
-          </array>
-        </dict>
       </dict>
     </dict>
 
@@ -760,8 +709,8 @@
         <key>AddressPatterns</key>
         <array>
         </array>
-        <key>Servers</key>
-        <string>servertoserver-test.xml</string>
+        <key>RemoteServers</key>
+        <string>remoteservers-test.xml</string>
       </dict>
 
       <!-- iMIP protocol options -->
@@ -824,8 +773,6 @@
         <false/>
         <key>AttendeeRefreshBatch</key>
         <integer>0</integer>
-        <key>V1Compatibility</key> <!-- Allow /path-based CUAs in scheduling replies -->
-        <false/>
 
 		<key>AutoSchedule</key>
 		<dict>
@@ -868,6 +815,10 @@
 
     <!-- Calendar Drop Box -->
     <key>EnableDropBox</key>
+    <false/>
+
+    <!-- Calendar Managed Attachments -->
+    <key>EnableManagedAttachments</key>
     <true/>
 
     <!-- Private Events -->
@@ -877,6 +828,31 @@
     <!-- Timezone Service -->
     <key>EnableTimezoneService</key>
     <true/>
+
+    <!-- Standard Timezone Service -->
+    <key>TimezoneService</key>
+    <dict>
+    	<key>Enabled</key>
+    	<true/>
+    	<key>Mode</key>
+    	<string>primary</string>
+    	<key>BasePath</key>
+    	<string></string>
+    	<key>XMLInfoPath</key>
+    	<string></string>
+    	<key>SecondaryService</key>
+    	<dict>
+    		<key>Host</key>
+    		<string></string>
+    		<key>URI</key>
+    		<string></string>
+    		<key>UpdateIntervalMinutes</key>
+    		<integer>1440</integer>
+    	</dict>
+    </dict>
+
+	<key>UsePackageTimezones</key>
+	<true/>
 
     <!-- Batch Upload via POST -->
     <key>EnableBatchUpload</key>
@@ -1012,7 +988,7 @@
       <key>LocalesDirectory</key>
       <string>locales</string>
       <key>Language</key>
-      <string>English</string>
+      <string>en</string>
     </dict>
 
     <!--

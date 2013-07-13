@@ -41,15 +41,17 @@ import itertools
 
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
-from twisted.python import log
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.application.service import Service
 
+from twext.python.log import Logger
 from twistedcaldav.ical import Component
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from calendarserver.tools.cmdline import utilityMain
-from twisted.application.service import Service
-from calendarserver.tap.util import directoryFromConfig
+
+log = Logger()
+
 
 
 def usage(e=None):
@@ -272,8 +274,7 @@ def exportToFile(calendars, fileobj):
     for calendar in calendars:
         calendar = yield calendar
         for obj in (yield calendar.calendarObjects()):
-            evt = yield obj.filteredComponent(
-                calendar.ownerCalendarHome().uid(), True)
+            evt = yield obj.filteredComponent(calendar.ownerCalendarHome().uid(), True)
             for sub in evt.subcomponents():
                 if sub.name() != 'VTIMEZONE':
                     # Omit all VTIMEZONE components here - we will include them later
@@ -296,7 +297,7 @@ class ExporterService(Service, object):
         self.output = output
         self.reactor = reactor
         self.config = config
-        self._directory = None
+        self._directory = self.store.directoryService()
 
 
     def startService(self):
@@ -325,18 +326,15 @@ class ExporterService(Service, object):
             # update stuff needed to happen, don't want to undo it.
             self.output.close()
         except:
-            log.err()
+            log.failure("doExport()")
 
         self.reactor.stop()
 
 
     def directoryService(self):
         """
-        Get an appropriate directory service for this L{ExporterService}'s
-        configuration, creating one first if necessary.
+        Get an appropriate directory service.
         """
-        if self._directory is None:
-            self._directory = directoryFromConfig(self.config)
         return self._directory
 
 

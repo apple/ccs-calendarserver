@@ -98,7 +98,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             self.timezones.createNewDatabase()
         else:
             self.timezones.readDatabase()
-        self.info_source = "Primary"
+        self.info_source = TimezoneCache.version
 
 
     def _initSecondaryService(self):
@@ -250,6 +250,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
 
         result = {
             "info" : {
+                "version": "1",
                 "primary-source" if self.primary else "secondary_source": self.info_source,
                 "contacts" : [],
             },
@@ -526,7 +527,7 @@ class CommonTimezoneDatabase(object):
         """
         _ignore, root = xmlutil.readXML(self.xmlfile, "timezones")
         self.dtstamp = root.findtext("dtstamp")
-        for child in root.getchildren():
+        for child in root:
             if child.tag == "timezone":
                 tz = TimezoneInfo.readXML(child)
                 if tz:

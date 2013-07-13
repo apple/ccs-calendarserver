@@ -52,7 +52,7 @@ def http_PROPFIND(self, request):
     Respond to a PROPFIND request. (RFC 2518, section 8.1)
     """
     if not self.exists():
-        log.err("File not found: %s" % (self,))
+        log.error("File not found: %s" % (self,))
         raise HTTPError(responsecode.NOT_FOUND)
 
     #
@@ -70,7 +70,7 @@ def http_PROPFIND(self, request):
         yield doc
         doc = doc.getResult()
     except ValueError, e:
-        log.err("Error while handling PROPFIND body: %s" % (e,))
+        log.error("Error while handling PROPFIND body: %s" % (e,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     if doc is None:
@@ -84,7 +84,7 @@ def http_PROPFIND(self, request):
         if not isinstance(find, davxml.PropertyFind):
             error = ("Non-%s element in PROPFIND request body: %s"
                      % (davxml.PropertyFind.sname(), find))
-            log.err(error)
+            log.error("Error: {err}", err=error)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
         container = find.children[0]
@@ -151,7 +151,7 @@ def http_PROPFIND(self, request):
                 yield resource_properties
                 resource_properties = resource_properties.getResult()
             except:
-                log.err("Unable to get properties for resource %r" % (resource,))
+                log.error("Unable to get properties for resource %r" % (resource,))
                 raise
 
             properties_by_status = {

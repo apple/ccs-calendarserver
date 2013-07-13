@@ -63,9 +63,11 @@ classifiers = None
 # Write version file
 #
 
-version_string = "%s (%s)" % version()
+version_number, version_info = version()
+
+version_string = "{number} ({info})".format(number=version_number, info=version_info)
 version_file = file(os.path.join("calendarserver", "version.py"), "w")
-version_file.write('version = "%s"\n' % version_string)
+version_file.write('version = "{version}"\n'.format(version=version_string))
 version_file.close()
 
 #
@@ -83,10 +85,15 @@ if sys.platform == "darwin":
     extensions.append(
         Extension(
             "calendarserver.platform.darwin._sacl",
-            extra_link_args = ["-framework", "Security"],
-            sources = ["calendarserver/platform/darwin/_sacl.c"]
+            extra_link_args=["-framework", "Security"],
+            sources=["calendarserver/platform/darwin/_sacl.c"]
         )
     )
+
+    from twext.python import launchd
+    extensions.append(launchd.ffi.verifier.get_extension())
+
+
 
 #
 # Run setup
@@ -96,18 +103,18 @@ def doSetup():
     from distutils.core import setup
 
     dist = setup(
-        name             = "Calendar and Contacts Server",
-        version          = version_string,
-        description      = description,
-        long_description = long_description,
-        url              = None,
-        classifiers      = classifiers,
-        author           = "Apple Inc.",
-        author_email     = None,
-        license          = None,
-        platforms        = ["all"],
-        packages         = find_modules(),
-        package_data     = {
+        name="Calendar and Contacts Server",
+        version=version_string,
+        description=description,
+        long_description=long_description,
+        url=None,
+        classifiers=classifiers,
+        author="Apple Inc.",
+        author_email=None,
+        license=None,
+        platforms=["all"],
+        packages=find_modules(),
+        package_data={
                              "twistedcaldav": [
                                "*.html",
                                "zoneinfo/*.ics",
@@ -127,7 +134,7 @@ def doSetup():
                                "sql_schema/*/*/*.sql",
                              ],
                            },
-        scripts          = [
+        scripts=[
                              "bin/caldavd",
                              "bin/calendarserver_backup",
                              "bin/calendarserver_bootstrap_database",
@@ -142,7 +149,7 @@ def doSetup():
                             #"bin/calendarserver_manage_postgres",
                              "bin/calendarserver_manage_principals",
                              "bin/calendarserver_manage_push",
-                            #"bin/calendarserver_manage_timezones",
+                             "bin/calendarserver_manage_timezones",
                              "bin/calendarserver_migrate_resources",
                             #"bin/calendarserver_monitor_amp_notifications",
                             #"bin/calendarserver_monitor_notifications",
@@ -150,12 +157,12 @@ def doSetup():
                              "bin/calendarserver_purge_events",
                              "bin/calendarserver_purge_principals",
                              "bin/calendarserver_shell",
-                            #"bin/calendarserver_upgrade",
+                             "bin/calendarserver_upgrade",
                             #"bin/calendarserver_verify_data",
                            ],
-        data_files       = [ ("caldavd", ["conf/caldavd.plist"]), ],
-        ext_modules      = extensions,
-        py_modules       = [],
+        data_files=[("caldavd", ["conf/caldavd.plist"]), ],
+        ext_modules=extensions,
+        py_modules=[],
     )
 
     if "install" in dist.commands:
@@ -173,7 +180,7 @@ def doSetup():
         for script in dist.scripts:
             scriptPath = os.path.join(install_scripts, os.path.basename(script))
 
-            print("rewriting %s" % (scriptPath,))
+            print("rewriting {0}".format(scriptPath))
 
             script = []
 
@@ -190,17 +197,17 @@ def doSetup():
                 line = line.rstrip("\n")
                 if fileType == "sh":
                     if line == "#PYTHONPATH":
-                        script.append('PYTHONPATH="%s:$PYTHONPATH"' % (install_lib,))
+                        script.append('PYTHONPATH="{add}:$PYTHONPATH"'.format(add=install_lib))
                     elif line == "#PATH":
-                        script.append('PATH="%s:$PATH"' % (os.path.join(base, "usr", "bin"),))
+                        script.append('PATH="{add}:$PATH"'.format(add=os.path.join(base, "usr", "bin")))
                     else:
                         script.append(line)
 
                 elif fileType == "python":
                     if line == "#PYTHONPATH":
-                        script.append('PYTHONPATH="%s"' % (install_lib,))
+                        script.append('PYTHONPATH="{path}"'.format(path=install_lib))
                     elif line == "#PATH":
-                        script.append('PATH="%s"' % (os.path.join(base, "usr", "bin"),))
+                        script.append('PATH="{path}"'.format(path=os.path.join(base, "usr", "bin")))
                     else:
                         script.append(line)
 
@@ -215,5 +222,3 @@ def doSetup():
 
 if __name__ == "__main__":
     doSetup()
-
-

@@ -23,7 +23,7 @@ __all__ = [
     "NotificationCollectionResource",
 ]
 
-from twext.python.log import Logger, LoggingMixIn
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from txdav.xml import element as davxml
 
@@ -138,8 +138,9 @@ class NotificationRecord(object):
         self.name = name
         self.xmltype = xmltype
 
-class NotificationsDatabase(AbstractSQLDatabase, LoggingMixIn):
-    
+class NotificationsDatabase(AbstractSQLDatabase):
+    log = Logger()
+
     db_basename = db_prefix + "notifications"
     schema_version = "1"
     db_type = "notifications"

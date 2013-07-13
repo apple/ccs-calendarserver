@@ -45,6 +45,7 @@ except ImportError:
     cx_Oracle = None
 
 
+
 class DiagnosticCursorWrapper(object):
     """
     Diagnostic wrapper around a DB-API 2.0 cursor for debugging connection
@@ -88,6 +89,7 @@ class DiagnosticCursorWrapper(object):
         #            (results, thread.get_ident())
         #        )
         return results
+
 
 
 class OracleCursorWrapper(DiagnosticCursorWrapper):
@@ -239,6 +241,7 @@ def oraclePreflight(connection):
     )
     connection.commit()
     c.close()
+
 
 
 def postgresPreflight(connection):

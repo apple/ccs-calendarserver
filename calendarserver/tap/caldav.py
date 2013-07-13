@@ -37,52 +37,52 @@ from os import getuid, getgid
 
 from zope.interface import implements
 
-from twisted.plugin import IPlugin
-
 from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
-
+from twisted.python.util import uidFromString, gidFromString
+from twisted.plugin import IPlugin
 from twisted.internet.defer import gatherResults, Deferred, inlineCallbacks, succeed
-
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.protocol import ProcessProtocol
-
+from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
 from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
 from twisted.application.service import Service
+from twisted.protocols.amp import AMP
 
-from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twext.web2.server import Site
-from twext.python.log import Logger, LoggingMixIn
-from twext.python.log import logLevelForNamespace, setLogLevelForNamespace
+from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
 from twext.python.filepath import CachingFilePath
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import ORACLE_DIALECT
+from twext.enterprise.adbapi2 import ConnectionPool
+from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
+from twext.enterprise.queue import PeerConnectionPool
 
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
-    UpgradeDatabaseSchemaStep, UpgradeDatabaseDataStep, UpgradeDatabaseOtherStep,
+    UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
+    UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
+    UpgradeAcquireLockStep, UpgradeReleaseLockStep
 )
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
+from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
+from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
 
+from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav import memcachepool
 from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
-
-from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
-from calendarserver.tap.util import directoryFromConfig, checkDirectories
-from calendarserver.tap.util import Stepper
-
-from twext.enterprise.ienterprise import POSTGRES_DIALECT
-from twext.enterprise.ienterprise import ORACLE_DIALECT
-from twext.enterprise.adbapi2 import ConnectionPool
+from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -90,26 +90,23 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
+from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
+from calendarserver.tap.util import checkDirectories
+from calendarserver.tap.util import Stepper
 from calendarserver.tap.util import ConnectionDispenser
-
-from calendarserver.controlsocket import ControlSocket
-from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
-
-from calendarserver.controlsocket import ControlSocketConnectingService
-from twisted.protocols.amp import AMP
-from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
-from twext.enterprise.queue import PeerConnectionPool
-from calendarserver.accesslog import AMPCommonAccessLoggingObserver
-from calendarserver.accesslog import AMPLoggingFactory
-from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource
 from calendarserver.tap.util import storeFromConfig
 from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tap.util import oracleConnectorFromConfig
+from calendarserver.controlsocket import ControlSocket
+from calendarserver.controlsocket import ControlSocketConnectingService
+from calendarserver.accesslog import AMPCommonAccessLoggingObserver
+from calendarserver.accesslog import AMPLoggingFactory
+from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
-from twistedcaldav.scheduling.imip.inbound import MailRetriever
+from calendarserver.tools.agent import makeAgentService
 
 try:
     from calendarserver.version import version
@@ -128,7 +125,6 @@ TWISTED_VERSION = "CalendarServer/%s %s" % (
 
 log = Logger()
 
-from twisted.python.util import uidFromString, gidFromString
 
 
 # Control socket message-routing constants.
@@ -278,7 +274,9 @@ class CalDAVService (ErrorLoggingMultiService):
 
 
 
-class CalDAVOptions (Options, LoggingMixIn):
+class CalDAVOptions (Options):
+    log = Logger()
+
     optParameters = [[
         "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
     ]]
@@ -392,9 +390,10 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         # Having CalDAV *and* CardDAV both disabled is an illegal configuration
         # for a running server (but is fine for command-line utilities)
-        if not config.EnableCalDAV and not config.EnableCardDAV:
-            print("Neither EnableCalDAV nor EnableCardDAV are set to True.")
-            sys.exit(1)
+        if config.ProcessType not in ["Agent", "Utility"]:
+            if not config.EnableCalDAV and not config.EnableCardDAV:
+                print("Neither EnableCalDAV nor EnableCardDAV are set to True.")
+                sys.exit(1)
 
         uid, gid = None, None
 
@@ -417,7 +416,6 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         self.checkDirectories(config)
 
-
         #
         # Nuke the file log observer's time format.
         #
@@ -428,7 +426,7 @@ class CalDAVOptions (Options, LoggingMixIn):
         # Check current umask and warn if changed
         oldmask = os.umask(config.umask)
         if oldmask != config.umask:
-            self.log_info("WARNING: changing umask from: 0%03o to 0%03o"
+            self.log.info("WARNING: changing umask from: 0%03o to 0%03o"
                           % (oldmask, config.umask))
         self.parent['umask'] = config.umask
 
@@ -494,10 +492,43 @@ class SlaveSpawnerService(Service):
 
 
 
-class ReExecService(MultiService, LoggingMixIn):
+class WorkSchedulingService(Service):
+    """
+    A Service to kick off the initial scheduling of periodic work items.
+    """
+    log = Logger()
+
+    def __init__(self, store, doImip, doGroupCaching):
+        """
+        @param store: the Store to use for enqueuing work
+        @param doImip: whether to schedule imip polling
+        @type doImip: boolean
+        @param doGroupCaching: whether to schedule group caching
+        @type doImip: boolean
+        """
+        self.store = store
+        self.doImip = doImip
+        self.doGroupCaching = doGroupCaching
+
+
+    @inlineCallbacks
+    def startService(self):
+        # Note: the "seconds in the future" args are being set to the LogID
+        # numbers to spread them out.  This is only needed until
+        # ultimatelyPerform( ) handles groups correctly.  Once that is fixed
+        # these can be set to zero seconds in the future.
+        if self.doImip:
+            yield scheduleNextMailPoll(self.store, int(config.LogID) if config.LogID else 5)
+        if self.doGroupCaching:
+            yield scheduleNextGroupCachingUpdate(self.store, int(config.LogID) if config.LogID else 5)
+
+
+
+class ReExecService(MultiService):
     """
     A MultiService which catches SIGHUP and re-exec's the process.
     """
+    log = Logger()
 
     def __init__(self, pidfilePath, reactor=None):
         """
@@ -517,9 +548,9 @@ class ReExecService(MultiService, LoggingMixIn):
         Removes pidfile, registers an exec to happen after shutdown, then
         stops the reactor.
         """
-        self.log_info("SIGHUP received - restarting")
+        self.log.warn("SIGHUP received - restarting")
         try:
-            self.log_info("Removing pidfile: %s" % (self.pidfilePath,))
+            self.log.info("Removing pidfile: %s" % (self.pidfilePath,))
             os.remove(self.pidfilePath)
         except OSError:
             pass
@@ -542,12 +573,13 @@ class ReExecService(MultiService, LoggingMixIn):
         MultiService.stopService(self)
 
 
+
 class PreProcessingService(Service):
     """
     A Service responsible for running any work that needs to be finished prior
     to the main service starting.  Once that work is done, it instantiates the
     main service and adds it to the Service hierarchy (specifically to its
-    parent).  If the final work step does not return a Failure, that is an 
+    parent).  If the final work step does not return a Failure, that is an
     indication the store is ready and it is passed to the main service.
     Otherwise, None is passed to the main service in place of a store.  This
     is mostly useful in the case of command line utilities that need to do
@@ -568,11 +600,12 @@ class PreProcessingService(Service):
         self.connectionPool = connectionPool
         self.store = store
         self.logObserver = logObserver
-        self.stepper = Stepper()        
+        self.stepper = Stepper()
 
         if reactor is None:
             from twisted.internet import reactor
         self.reactor = reactor
+
 
     def stepWithResult(self, result):
         """
@@ -584,6 +617,7 @@ class PreProcessingService(Service):
         if self.parent is not None:
             self.reactor.callLater(0, service.setServiceParent, self.parent)
         return succeed(None)
+
 
     def stepWithFailure(self, failure):
         """
@@ -600,6 +634,7 @@ class PreProcessingService(Service):
 
         return succeed(None)
 
+
     def addStep(self, step):
         """
         Hand the step to our Stepper
@@ -608,6 +643,7 @@ class PreProcessingService(Service):
         """
         self.stepper.addStep(step)
         return self
+
 
     def startService(self):
         """
@@ -618,15 +654,20 @@ class PreProcessingService(Service):
         self.stepper.start()
 
 
+
 class PostUpgradeStopRequested(Exception):
     """
     Raised when we've been asked to stop just after upgrade has completed.
     """
 
+
+
 class StoreNotAvailable(Exception):
     """
     Raised when we want to give up because the store is not available
     """
+
+
 
 class QuitAfterUpgradeStep(object):
 
@@ -636,11 +677,13 @@ class QuitAfterUpgradeStep(object):
             from twisted.internet import reactor
         self.reactor = reactor
 
+
     def removeTriggerFile(self):
         try:
             os.remove(self.triggerFile)
         except OSError:
             pass
+
 
     def stepWithResult(self, result):
         if os.path.exists(self.triggerFile):
@@ -649,6 +692,7 @@ class QuitAfterUpgradeStep(object):
             raise PostUpgradeStopRequested()
         else:
             return succeed(result)
+
 
     def stepWithFailure(self, failure):
         if os.path.exists(self.triggerFile):
@@ -659,7 +703,10 @@ class QuitAfterUpgradeStep(object):
             return failure
 
 
-class CalDAVServiceMaker (LoggingMixIn):
+
+class CalDAVServiceMaker (object):
+    log = Logger()
+
     implements(IPlugin, IServiceMaker)
 
     tapname = "caldav"
@@ -671,21 +718,23 @@ class CalDAVServiceMaker (LoggingMixIn):
         """
         Create the top-level service.
         """
-        self.log_info("%s %s starting %s process..." % (self.description, version, config.ProcessType))
+        replaceTwistedLoggers()
+
+        self.log.info("%s %s starting %s process..." % (self.description, version, config.ProcessType))
 
         try:
-            from setproctitle import setproctitle, getproctitle
+            from setproctitle import setproctitle
         except ImportError:
             pass
         else:
-            origTitle = getproctitle()
+            execName = os.path.basename(sys.argv[0])
             if config.LogID:
                 logID = " #%s" % (config.LogID,)
             else:
                 logID = ""
             if config.ProcessType is not "Utility":
-                origTitle = ""
-            setproctitle("CalendarServer %s [%s%s] %s" % (version, config.ProcessType, logID, origTitle))
+                execName = ""
+            setproctitle("CalendarServer %s [%s%s] %s" % (version, config.ProcessType, logID, execName))
 
         serviceMethod = getattr(self, "makeService_%s" % (config.ProcessType,), None)
 
@@ -757,18 +806,18 @@ class CalDAVServiceMaker (LoggingMixIn):
         store = storeFromConfig(config, txnFactory)
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)
-        directory = result.rootResource.getDirectory()
+        directory = store.directoryService()
         if pool is not None:
             pool.setServiceParent(result)
 
         if config.ControlSocket:
             id = config.ControlSocket
-            self.log_info("Control via AF_UNIX: %s" % (id,))
+            self.log.info("Control via AF_UNIX: %s" % (id,))
             endpointFactory = lambda reactor: UNIXClientEndpoint(
                 reactor, id)
         else:
             id = int(config.ControlPort)
-            self.log_info("Control via AF_INET: %d" % (id,))
+            self.log.info("Control via AF_INET: %d" % (id,))
             endpointFactory = lambda reactor: TCP4ClientEndpoint(
                 reactor, "127.0.0.1", id)
         controlSocketClient = ControlSocket()
@@ -872,8 +921,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         # Change default log level to "info" as its useful to have
         # that during startup
         #
-        oldLogLevel = logLevelForNamespace(None)
-        setLogLevelForNamespace(None, "info")
+        oldLogLevel = log.publisher.levels.logLevelForNamespace(None)
+        log.publisher.levels.setLogLevelForNamespace(None, LogLevel.info)
 
         # Note: 'additional' was used for IMIP reply resource, and perhaps
         # we can remove this
@@ -882,9 +931,9 @@ class CalDAVServiceMaker (LoggingMixIn):
         #
         # Configure the service
         #
-        self.log_info("Setting up service")
+        self.log.info("Setting up service")
 
-        self.log_info("Configuring access log observer: %s" % (logObserver,))
+        self.log.info("Configuring access log observer: %s" % (logObserver,))
         service = CalDAVService(logObserver)
 
         rootResource = getRootResource(config, store, additional)
@@ -900,8 +949,8 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         requestFactory = underlyingSite
 
-        if config.RedirectHTTPToHTTPS:
-            self.log_info("Redirecting to HTTPS port %s" % (config.SSLPort,))
+        if config.EnableSSL and config.RedirectHTTPToHTTPS:
+            self.log.info("Redirecting to HTTPS port %s" % (config.SSLPort,))
             def requestFactory(*args, **kw):
                 return SSLRedirectRequest(site=underlyingSite, *args, **kw)
 
@@ -941,6 +990,13 @@ class CalDAVServiceMaker (LoggingMixIn):
         connectionService.setName(CalDAVService.connectionServiceName)
         connectionService.setServiceParent(service)
 
+        # Service to schedule initial work
+        WorkSchedulingService(
+            store,
+            config.Scheduling.iMIP.Enabled,
+            (config.GroupCaching.Enabled and config.GroupCaching.EnableUpdater)
+        ).setServiceParent(service)
+
         # For calendarserver.tap.test.test_caldav.BaseServiceMakerTests.getSite():
         connectionService.underlyingSite = underlyingSite
 
@@ -974,7 +1030,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             try:
                 contextFactory = self.createContextFactory()
             except SSLError, e:
-                self.log_error("Unable to set up SSL context factory: %s" % (e,))
+                self.log.error("Unable to set up SSL context factory: %s" % (e,))
                 # None is okay as a context factory for ReportingHTTPService as
                 # long as we will never receive a file descriptor with the
                 # 'SSL' tag on it, since that's the only time it's used.
@@ -989,15 +1045,15 @@ class CalDAVServiceMaker (LoggingMixIn):
                 self._validatePortConfig()
                 if config.EnableSSL:
                     for port in config.BindSSLPorts:
-                        self.log_info("Adding SSL server at %s:%s"
+                        self.log.info("Adding SSL server at %s:%s"
                                       % (bindAddress, port))
 
                         try:
                             contextFactory = self.createContextFactory()
                         except SSLError, e:
-                            self.log_error("Unable to set up SSL context factory: %s"
+                            self.log.error("Unable to set up SSL context factory: %s"
                                            % (e,))
-                            self.log_error("Disabling SSL port: %s" % (port,))
+                            self.log.error("Disabling SSL port: %s" % (port,))
                         else:
                             httpsService = MaxAcceptSSLServer(
                                 int(port), httpFactory,
@@ -1016,7 +1072,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                     ).setServiceParent(connectionService)
 
         # Change log level back to what it was before
-        setLogLevelForNamespace(None, oldLogLevel)
+        log.publisher.levels.setLogLevelForNamespace(None, oldLogLevel)
         return service
 
 
@@ -1079,7 +1135,6 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             result = self.requestProcessingService(options, store, logObserver)
 
-
             # Optionally set up push notifications
             pushDistributor = None
             if config.Notifications.Enabled:
@@ -1099,8 +1154,8 @@ class CalDAVServiceMaker (LoggingMixIn):
                 if observers:
                     pushDistributor = PushDistributor(observers)
 
-            directory = result.rootResource.getDirectory()
-            
+            directory = store.directoryService()
+
             # Optionally set up mail retrieval
             if config.Scheduling.iMIP.Enabled:
                 mailRetriever = MailRetriever(store, directory,
@@ -1130,7 +1185,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             store.callWithNewTransactions(decorateTransaction)
 
-            return result 
+            return result
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
 
@@ -1146,7 +1201,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         # directly using Popen to spawn memcached.
         for name, pool in config.Memcached.Pools.items():
             if pool.ServerEnabled:
-                self.log_info(
+                self.log.info(
                     "Adding memcached service for pool: %s" % (name,)
                 )
                 memcachedArgv = [
@@ -1180,6 +1235,29 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
         return self.storageService(toolServiceCreator, None, uid=uid, gid=gid)
+
+
+    def makeService_Agent(self, options):
+        """
+        Create an agent service which listens for configuration requests
+        """
+
+        # Don't use memcached -- calendar server might take it away at any
+        # moment
+        def agentPostUpdateHook(configDict, reloading=False):
+            configDict.Memcached.Pools.Default.ClientEnabled = False
+
+        config.addPostUpdateHooks((agentPostUpdateHook,))
+        config.reload()
+
+        # These we need to set in order to open the store
+        config.EnableCalDAV = config.EnableCardDAV = True
+
+        def agentServiceCreator(pool, store, ignored):
+            return makeAgentService(store)
+
+        uid, gid = getSystemIDs(config.UserName, config.GroupName)
+        return self.storageService(agentServiceCreator, None, uid=uid, gid=gid)
 
 
     def storageService(self, createMainService, logObserver, uid=None, gid=None):
@@ -1230,6 +1308,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                 # the subsequent steps' stepWithFailure methods will be called
                 # instead, until one of them returns a non-Failure.
 
+                pps.addStep(
+                    UpgradeAcquireLockStep(store)
+                )
+
                 # Still need this for Snow Leopard support
                 pps.addStep(
                     UpgradeFileSystemFormatStep(config)
@@ -1243,7 +1325,13 @@ class CalDAVServiceMaker (LoggingMixIn):
                 )
 
                 pps.addStep(
-                    UpgradeDatabaseDataStep(
+                    UpgradeDatabaseAddressBookDataStep(
+                        store, uid=overrideUID, gid=overrideGID
+                    )
+                )
+
+                pps.addStep(
+                    UpgradeDatabaseCalendarDataStep(
                         store, uid=overrideUID, gid=overrideGID
                     )
                 )
@@ -1274,6 +1362,11 @@ class CalDAVServiceMaker (LoggingMixIn):
                         getattr(self, "doPostImport", True)
                     )
                 )
+
+                pps.addStep(
+                    UpgradeReleaseLockStep(store)
+                )
+
                 pps.setServiceParent(ms)
                 return ms
 
@@ -1391,7 +1484,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         for name, pool in config.Memcached.Pools.items():
             if pool.ServerEnabled:
-                self.log_info(
+                self.log.info(
                     "Adding memcached service for pool: %s" % (name,)
                 )
                 memcachedArgv = [
@@ -1409,7 +1502,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                 memcachedArgv.extend(config.Memcached.Options)
                 monitor.addProcess('memcached-%s' % (name,), memcachedArgv,
                                    env=PARENT_ENVIRONMENT)
-
 
         # Open the socket(s) to be inherited by the slaves
         inheritFDs = []
@@ -1514,7 +1606,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             # connection pool implementation that can dispense transactions
             # synchronously as the interface requires.
             if pool is not None and config.SharedConnectionPool:
-                self.log_warn("Using Shared Connection Pool")
+                self.log.warn("Using Shared Connection Pool")
                 dispenser = ConnectionDispenser(pool)
             else:
                 dispenser = None
@@ -1528,7 +1620,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             if config.UseMetaFD:
                 cl.setServiceParent(multi)
 
-            directory = directoryFromConfig(config)
+            directory = store.directoryService()
             rootResource = getRootResource(config, store, [])
 
             # Optionally set up mail retrieval
@@ -1576,7 +1668,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             if (os.path.exists(checkSocket)):
                 # See if the file represents a socket.  If not, delete it.
                 if (not stat.S_ISSOCK(os.stat(checkSocket).st_mode)):
-                    self.log_warn("Deleting stale socket file (not a socket): %s" % checkSocket)
+                    self.log.warn("Deleting stale socket file (not a socket): %s" % checkSocket)
                     os.remove(checkSocket)
                 else:
                     # It looks like a socket.  See if it's accepting connections.
@@ -1592,7 +1684,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                     # If the file didn't connect on any expected ports,
                     # consider it stale and remove it.
                     if numConnectFailures == len(testPorts):
-                        self.log_warn("Deleting stale socket file (not accepting connections): %s" % checkSocket)
+                        self.log.warn("Deleting stale socket file (not accepting connections): %s" % checkSocket)
                         os.remove(checkSocket)
 
 
@@ -1666,6 +1758,22 @@ class TwistdSlaveProcess(object):
 
     def getFileDescriptors(self):
         """
+        Get the file descriptors that will be passed to the subprocess, as a
+        mapping that will be used with L{IReactorProcess.spawnProcess}.
+
+        If this server is configured to use a meta FD, pass the client end of
+        the meta FD.  If this server is configured to use an AMP database
+        connection pool, pass a pre-connected AMP socket.
+
+        Note that, contrary to the documentation for
+        L{twext.internet.sendfdport.InheritedSocketDispatcher.addSocket}, this
+        does I{not} close the added child socket; this method
+        (C{getFileDescriptors}) is called repeatedly to start a new process
+        with the same C{LogID} if the previous one exits.  Therefore we
+        consistently re-use the same file descriptor and leave it open in the
+        master, relying upon process-exit notification rather than noticing the
+        meta-FD socket was closed in the subprocess.
+
         @return: a mapping of file descriptor numbers for the new (child)
             process to file descriptor numbers in the current (master) process.
         """

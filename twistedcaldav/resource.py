@@ -32,6 +32,7 @@ __all__ = [
 import hashlib
 from urlparse import urlsplit
 import urllib
+from uuid import UUID
 import uuid
 
 
@@ -40,7 +41,7 @@ from zope.interface import implements
 from twisted.internet.defer import succeed, maybeDeferred, fail
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
 from txdav.xml import element
 from txdav.xml.element import dav_namespace
@@ -59,8 +60,7 @@ from twext.web2.stream import MemoryStream
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav import carddavxml
-from twistedcaldav.cache import PropfindCacheMixin, DisabledCacheNotifier, \
-    CacheStoreNotifier
+from twistedcaldav.cache import PropfindCacheMixin
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
@@ -76,7 +76,7 @@ from twistedcaldav.ical import Component
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
 from calendarserver.push.notifier import getPubSubAPSConfiguration
-from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
+from twistedcaldav.sharing import SharedResourceMixin, SharedHomeMixin
 from twistedcaldav.util import normalizationLookup
 from twistedcaldav.vcard import Component as vComponent
 
@@ -203,33 +203,21 @@ def _calendarPrivilegeSet():
 
 calendarPrivilegeSet = _calendarPrivilegeSet()
 
-def updateCacheTokenOnCallback(f):
-    def fun(self, *args, **kwargs):
-        def _updateToken(response):
-            return self.cacheNotifier.changed().addCallback(
-                lambda _: response)
-
-        d = maybeDeferred(f, self, *args, **kwargs)
-
-        if hasattr(self, 'cacheNotifier'):
-            d.addCallback(_updateToken)
-
-        return d
-
-    return fun
-
-
 
 class CalDAVResource (
-        CalDAVComplianceMixIn, SharedCollectionMixin,
-        DAVResourceWithChildrenMixin, DAVResource, LoggingMixIn
-    ):
+        CalDAVComplianceMixIn, SharedResourceMixin,
+        DAVResourceWithChildrenMixin, DAVResource
+):
     """
     CalDAV resource.
 
     Extends L{DAVResource} to provide CalDAV functionality.
     """
+    log = Logger()
+
     implements(ICalDAVResource)
+
+    uuid_namespace = UUID("DD0E1AC0-56D6-40D4-8765-2F4D8A0F28A5")
 
     ##
     # HTTP
@@ -393,21 +381,6 @@ class CalDAVResource (
     # End transitional new-store interface
 
 
-    @updateCacheTokenOnCallback
-    def http_PROPPATCH(self, request):
-        return super(CalDAVResource, self).http_PROPPATCH(request)
-
-
-    @updateCacheTokenOnCallback
-    def http_DELETE(self, request):
-        return super(CalDAVResource, self).http_DELETE(request)
-
-
-    @updateCacheTokenOnCallback
-    def http_ACL(self, request):
-        return super(CalDAVResource, self).http_ACL(request)
-
-
     ##
     # WebDAV
     ##
@@ -451,7 +424,7 @@ class CalDAVResource (
                 customxml.PubSubXMPPPushKeyProperty.qname(),
             )
 
-        if self.isAddressBookCollection():
+        if self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
             baseProperties += (
                 element.ResourceID.qname(),
                 carddavxml.SupportedAddressData.qname(),
@@ -462,6 +435,12 @@ class CalDAVResource (
                 baseProperties += (
                     carddavxml.MaxResourceSize.qname(),
                 )
+
+        if self.isDirectoryBackedAddressBookCollection():
+            baseProperties += (
+                element.ResourceID.qname(),
+                carddavxml.SupportedAddressData.qname(),
+            )
 
         if self.isNotificationCollection():
             baseProperties += (
@@ -476,7 +455,7 @@ class CalDAVResource (
         if config.EnableSyncReport and (element.Report(element.SyncCollection(),) in self.supportedReports()):
             baseProperties += (element.SyncToken.qname(),)
 
-        if config.EnableAddMember and (self.isCalendarCollection() or self.isAddressBookCollection()):
+        if config.EnableAddMember and (self.isCalendarCollection() or self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection()):
             baseProperties += (element.AddMember.qname(),)
 
         if config.Sharing.Enabled:
@@ -487,7 +466,7 @@ class CalDAVResource (
                     customxml.SharedURL.qname(),
                 )
 
-            elif config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection():
+            elif config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
                 baseProperties += (
                     customxml.Invite.qname(),
                     customxml.AllowedSharingModes.qname(),
@@ -532,21 +511,6 @@ class CalDAVResource (
         returnValue(res)
 
 
-    def _hasSharedProperty(self, qname, request):
-
-        # Always have default alarms on shared calendars
-        if qname in (
-            caldavxml.DefaultAlarmVEventDateTime.qname(),
-            caldavxml.DefaultAlarmVEventDate.qname(),
-            caldavxml.DefaultAlarmVToDoDateTime.qname(),
-            caldavxml.DefaultAlarmVToDoDate.qname(),
-        ) and self.isCalendarCollection():
-            return True
-
-        p = self.deadProperties().contains(qname)
-        return p
-
-
     def _hasGlobalProperty(self, property, request):
         """
         Need to special case schedule-calendar-transp for backwards compatability.
@@ -572,21 +536,15 @@ class CalDAVResource (
         else:
             qname = property.qname()
 
-        if self.isCalendarCollection() or self.isAddressBookCollection():
+        if self.isCalendarCollection() or (self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection()):
 
             # Push notification DAV property "pushkey"
             if qname == customxml.PubSubXMPPPushKeyProperty.qname():
 
-                # FIXME: is there a better way to get back to the associated
-                # datastore object?
-                dataObject = None
                 if hasattr(self, "_newStoreObject"):
-                    dataObject = getattr(self, "_newStoreObject")
-                if dataObject:
-                    label = "collection" if self.isShareeCollection() else "default"
-                    nodeName = (yield dataObject.nodeName(label=label))
-                    if nodeName:
-                        propVal = customxml.PubSubXMPPPushKeyProperty(nodeName)
+                    notifier = self._newStoreObject.getNotifier("push")
+                    if notifier is not None:
+                        propVal = customxml.PubSubXMPPPushKeyProperty(notifier.nodeName())
                         returnValue(propVal)
 
                 returnValue(customxml.PubSubXMPPPushKeyProperty())
@@ -617,7 +575,7 @@ class CalDAVResource (
 
         elif qname == customxml.GETCTag.qname() and (
             self.isPseudoCalendarCollection() or
-            self.isAddressBookCollection() or
+            self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection() or
             self.isNotificationCollection()
         ):
             returnValue(customxml.GETCTag.fromString((yield self.getInternalSyncToken())))
@@ -628,7 +586,7 @@ class CalDAVResource (
             returnValue(element.SyncToken.fromString((yield self.getSyncToken())))
 
         elif qname == element.AddMember.qname() and config.EnableAddMember and (
-            self.isCalendarCollection() or self.isAddressBookCollection()
+            self.isCalendarCollection() or self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection()
         ):
             url = (yield self.canonicalURL(request))
             returnValue(element.AddMember(element.HRef.fromString(url + "/;add-member")))
@@ -670,17 +628,7 @@ class CalDAVResource (
                 ))
 
         elif qname == caldavxml.ScheduleCalendarTransp.qname() and self.isCalendarCollection():
-            # For backwards compatibility, if the property does not exist we need to create
-            # it and default to the old free-busy-set value.
-            if not self.hasDeadProperty(property):
-                # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-                principal = (yield self.resourceOwnerPrincipal(request))
-                fbset = (yield principal.calendarFreeBusyURIs(request))
-                fbset = [fburl.rstrip("/") for fburl in fbset]
-                url = (yield self.canonicalURL(request))
-                url = url.rstrip("/")
-                opaque = url in fbset
-                self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
+            returnValue(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if self._newStoreObject.isUsedForFreeBusy() else caldavxml.Transparent()))
 
         elif qname == carddavxml.SupportedAddressData.qname() and self.isAddressBookCollection():
             # CardDAV, section 6.2.2
@@ -691,7 +639,7 @@ class CalDAVResource (
                 }),
             ))
 
-        elif qname == carddavxml.MaxResourceSize.qname() and self.isAddressBookCollection():
+        elif qname == carddavxml.MaxResourceSize.qname() and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
             # CardDAV, section 6.2.3
             if config.MaxResourceSize:
                 returnValue(carddavxml.MaxResourceSize.fromString(
@@ -701,7 +649,7 @@ class CalDAVResource (
         elif qname == customxml.Invite.qname():
             if config.Sharing.Enabled and (
                 config.Sharing.Calendars.Enabled and self.isCalendarCollection() or
-                config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection()
+                config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection()
             ):
                 result = (yield self.inviteProperty(request))
                 returnValue(result)
@@ -709,13 +657,11 @@ class CalDAVResource (
         elif qname == customxml.AllowedSharingModes.qname():
             if config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.isCalendarCollection():
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
-            elif config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection():
+            elif config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
 
         elif qname == customxml.SharedURL.qname():
-            isShareeCollection = self.isShareeCollection()
-
-            if isShareeCollection:
+            if self.isShareeResource():
                 returnValue(customxml.SharedURL(element.HRef.fromString(self._share.url())))
             else:
                 returnValue(None)
@@ -730,11 +676,12 @@ class CalDAVResource (
             "%r is not a WebDAVElement instance" % (property,)
         )
 
+        self._preProcessWriteProperty(property, request)
+
         res = (yield self._writeGlobalProperty(property, request))
         returnValue(res)
 
 
-    @inlineCallbacks
     def _preProcessWriteProperty(self, property, request, isShare=False):
         if property.qname() == caldavxml.SupportedCalendarComponentSet.qname():
             if not self.isPseudoCalendarCollection():
@@ -793,21 +740,14 @@ class CalDAVResource (
                     "Property %s may only be set on calendar collection." % (property,)
                 ))
 
-            # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-            principal = (yield self.resourceOwnerPrincipal(request))
-
-            # Map owner to their inbox
-            inboxURL = principal.scheduleInboxURL()
-            if inboxURL:
-                inbox = (yield request.locateResource(inboxURL))
-                myurl = (yield self.canonicalURL(request))
-                inbox.processFreeBusyCalendar(myurl, property.children[0] == caldavxml.Opaque())
-
 
     @inlineCallbacks
     def _writeGlobalProperty(self, property, request):
 
-        yield self._preProcessWriteProperty(property, request)
+        if property.qname() == caldavxml.ScheduleCalendarTransp.qname():
+            yield self._newStoreObject.setUsedForFreeBusy(property == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
+            returnValue(None)
+
         result = (yield super(CalDAVResource, self).writeProperty(property, request))
         returnValue(result)
 
@@ -834,8 +774,7 @@ class CalDAVResource (
     def accessControlList(self, request, *args, **kwargs):
 
         acls = None
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        if self.isShareeResource():
             acls = (yield self.shareeAccessControlList(request, *args, **kwargs))
 
         if acls is None:
@@ -891,8 +830,7 @@ class CalDAVResource (
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
 
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        if self.isShareeResource():
             parent = (yield self.locateParent(request, self._share.url()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
@@ -908,8 +846,7 @@ class CalDAVResource (
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        if self.isShareeResource():
             parent = (yield self.locateParent(request, self._share.url()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
@@ -978,10 +915,7 @@ class CalDAVResource (
 
 
     def resourceID(self):
-        if not self.hasDeadProperty(element.ResourceID.qname()):
-            uuidval = uuid.uuid4()
-            self.writeDeadProperty(element.ResourceID(element.HRef.fromString(uuidval.urn)))
-        return str(self.readDeadProperty(element.ResourceID.qname()).children[0])
+        return None
 
 
     ##
@@ -1072,69 +1006,11 @@ class CalDAVResource (
 
     findSpecialCollections = findSpecialCollectionsFaster
 
-    @inlineCallbacks
-    def deletedCalendar(self, request):
-        """
-        Calendar has been deleted. Need to do some extra clean-up.
-
-        @param request:
-        @type request:
-        """
-
-        # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-        principal = (yield self.resourceOwnerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
-        if inboxURL:
-            inbox = (yield request.locateResource(inboxURL))
-            inbox.processFreeBusyCalendar(request.path, False)
-
-
-    @inlineCallbacks
-    def movedCalendar(self, request, defaultCalendarType, destination, destination_uri):
-        """
-        Calendar has been moved. Need to do some extra clean-up.
-        """
-
-        # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
-        principal = (yield self.resourceOwnerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
-        if inboxURL:
-            (_ignore_scheme, _ignore_host, destination_path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(destination_uri))
-
-            inbox = (yield request.locateResource(inboxURL))
-            inbox.processFreeBusyCalendar(request.path, False)
-            inbox.processFreeBusyCalendar(destination_uri, destination.isCalendarOpaque())
-
-            # Adjust the default calendar setting if necessary
-            if defaultCalendarType is not None:
-                yield inbox.writeProperty(defaultCalendarType(element.HRef(destination_path)), request)
-
-
-    def isCalendarOpaque(self):
-
-        assert self.isCalendarCollection()
-
-        if self.hasDeadProperty((caldav_namespace, "schedule-calendar-transp")):
-            property = self.readDeadProperty((caldav_namespace, "schedule-calendar-transp"))
-            return property.children[0] == caldavxml.Opaque()
-        else:
-            return False
-
-
-    @inlineCallbacks
     def isDefaultCalendar(self, request):
 
         assert self.isCalendarCollection()
 
-        # Not allowed to delete the default calendar
-        principal = (yield self.resourceOwnerPrincipal(request))
-        inboxURL = principal.scheduleInboxURL()
-        if inboxURL:
-            inbox = (yield request.locateResource(inboxURL))
-            result = (yield inbox.isDefaultCalendar(request, self))
-            returnValue(result)
-
-        returnValue(None)
+        return self._newStoreParentHome.isDefaultCalendar(self._newStoreObject)
 
 
     @inlineCallbacks
@@ -1238,8 +1114,9 @@ class CalDAVResource (
 
     def supportedReports(self):
         result = super(CalDAVResource, self).supportedReports()
-        result.append(element.Report(caldavxml.CalendarQuery(),))
-        result.append(element.Report(caldavxml.CalendarMultiGet(),))
+        if config.EnableCalDAV:
+            result.append(element.Report(caldavxml.CalendarQuery(),))
+            result.append(element.Report(caldavxml.CalendarMultiGet(),))
         if self.isCollection():
             # Only allowed on collections
             result.append(element.Report(caldavxml.FreeBusyQuery(),))
@@ -1343,15 +1220,13 @@ class CalDAVResource (
         """
 
         sharedParent = None
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        if self.isShareeResource():
             # A sharee collection's quota root is the resource owner's root
             sharedParent = (yield request.locateResource(parentForURL(self._share.url())))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if isCalendarCollectionResource(parent) or isAddressBookCollectionResource(parent):
-                isShareeCollection = parent.isShareeCollection()
-                if isShareeCollection:
+                if parent.isShareeResource():
                     # A sharee collection's quota root is the resource owner's root
                     sharedParent = (yield request.locateResource(parentForURL(parent._share.url())))
 
@@ -1496,12 +1371,12 @@ class CalDAVResource (
             created in this resource.
         """
         if self.exists():
-            self.log_error("Attempt to create collection where file exists: %s" % (self,))
+            self.log.error("Attempt to create collection where file exists: %s" % (self,))
             raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
         # newStore guarantees that we always have a parent calendar home
         #if not self.fp.parent().isdir():
-        #    log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
+        #    log.error("Attempt to create collection with no parent: %s" % (self.fp.path,))
         #    raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
@@ -1511,7 +1386,7 @@ class CalDAVResource (
         parent = (yield self._checkParents(request, isPseudoCalendarCollectionResource))
 
         if parent is not None:
-            self.log_error("Cannot create a calendar collection within a calendar collection %s" % (parent,))
+            self.log.error("Cannot create a calendar collection within a calendar collection %s" % (parent,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldavxml.caldav_namespace, "calendar-collection-location-ok"),
@@ -1522,7 +1397,7 @@ class CalDAVResource (
         if config.MaxCollectionsPerHome:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if (yield parent.countOwnedChildren()) >= config.MaxCollectionsPerHome: # NB this ignores shares
-                self.log_error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
+                self.log.error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     customxml.MaxCollections(),
@@ -1592,12 +1467,12 @@ class CalDAVResource (
         #
 
         if self.exists():
-            self.log_error("Attempt to create collection where file exists: %s" % (self,))
+            self.log.error("Attempt to create collection where file exists: %s" % (self,))
             raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
         # newStore guarantees that we always have a parent calendar home
         #if not os.path.isdir(os.path.dirname(self.fp.path)):
-        #    log.err("Attempt to create collection with no parent: %s" % (self.fp.path,))
+        #    log.error("Attempt to create collection with no parent: %s" % (self.fp.path,))
         #    raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
@@ -1606,7 +1481,7 @@ class CalDAVResource (
 
         parent = (yield self._checkParents(request, isAddressBookCollectionResource))
         if parent is not None:
-            self.log_error("Cannot create an address book collection within an address book collection %s" % (parent,))
+            self.log.error("Cannot create an address book collection within an address book collection %s" % (parent,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (carddavxml.carddav_namespace, "addressbook-collection-location-ok"),
@@ -1617,7 +1492,7 @@ class CalDAVResource (
         if config.MaxCollectionsPerHome:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if (yield parent.countOwnedChildren()) >= config.MaxCollectionsPerHome: # NB this ignores shares
-                self.log_error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
+                self.log.error("Cannot create a calendar collection because there are too many already present in %s" % (parent,))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     customxml.MaxCollections(),
@@ -2041,32 +1916,67 @@ class DefaultAlarmPropertyMixin(object):
     the default alarm properties in a more useful way that using readProperty.
     In particular it will handle inheritance of the property from the home if a
     calendar does not explicitly have the property.
+
+    Important: we need to distinguish between the property not being present, or
+    present but empty, however the store by default is unable to distinguish between
+    None and and empty C{str}. So what we do is use the value "empty" to represent
+    a present but empty property.
     """
 
-    def getDefaultAlarm(self, vevent, timed):
+    ALARM_PROPERTIES = {
+        caldavxml.DefaultAlarmVEventDateTime.qname(): (True, True,),
+        caldavxml.DefaultAlarmVEventDate.qname(): (True, False,),
+        caldavxml.DefaultAlarmVToDoDateTime.qname(): (False, True,),
+        caldavxml.DefaultAlarmVToDoDate.qname(): (False, False,),
+    }
 
-        if vevent:
-            propname = caldavxml.DefaultAlarmVEventDateTime if timed else caldavxml.DefaultAlarmVEventDate
-        else:
-            propname = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
+    ALARM_PROPERTY_CLASSES = {
+        caldavxml.DefaultAlarmVEventDateTime.qname(): caldavxml.DefaultAlarmVEventDateTime,
+        caldavxml.DefaultAlarmVEventDate.qname(): caldavxml.DefaultAlarmVEventDate,
+        caldavxml.DefaultAlarmVToDoDateTime.qname(): caldavxml.DefaultAlarmVToDoDateTime,
+        caldavxml.DefaultAlarmVToDoDate.qname(): caldavxml.DefaultAlarmVToDoDate,
+    }
+
+    def getDefaultAlarmProperty(self, propname):
+
+        vevent, timed = DefaultAlarmPropertyMixin.ALARM_PROPERTIES[propname]
 
         if self.isCalendarCollection():
 
             # Get from calendar or inherit from home
-            try:
-                prop = self.deadProperties().get(propname.qname())
-            except HTTPError:
-                prop = None
-            if prop is None:
-                prop = self.parentResource().getDefaultAlarm(vevent, timed)
+            alarm = self._newStoreObject.getDefaultAlarm(vevent, timed)
+            if alarm is None:
+                return self.parentResource().getDefaultAlarmProperty(propname)
+            elif alarm == "empty":
+                return DefaultAlarmPropertyMixin.ALARM_PROPERTY_CLASSES[propname]()
         else:
             # Just return whatever is on the home
-            try:
-                prop = self.deadProperties().get(propname.qname())
-            except HTTPError:
-                prop = None
+            alarm = self._newStoreHome.getDefaultAlarm(vevent, timed)
 
-        return str(prop) if prop is not None else None
+        return DefaultAlarmPropertyMixin.ALARM_PROPERTY_CLASSES[propname](alarm) if alarm else None
+
+
+    @inlineCallbacks
+    def setDefaultAlarmProperty(self, prop):
+
+        vevent, timed = DefaultAlarmPropertyMixin.ALARM_PROPERTIES[prop.qname()]
+        alarm = str(prop)
+
+        if self.isCalendarCollection():
+            yield self._newStoreObject.setDefaultAlarm(alarm if alarm else "empty", vevent, timed)
+        else:
+            yield self._newStoreHome.setDefaultAlarm(alarm if alarm else "empty", vevent, timed)
+
+
+    @inlineCallbacks
+    def removeDefaultAlarmProperty(self, propname):
+
+        vevent, timed = DefaultAlarmPropertyMixin.ALARM_PROPERTIES[propname]
+
+        if self.isCalendarCollection():
+            yield self._newStoreObject.setDefaultAlarm(None, vevent, timed)
+        else:
+            yield self._newStoreHome.setDefaultAlarm(None, vevent, timed)
 
 
 
@@ -2083,7 +1993,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         server has inserted into this L{CommonHomeResource}.
     @type _provisionedLinks: L{dict} mapping L{bytes} to L{Resource}
     """
-    cacheNotifierFactory = DisabledCacheNotifier
 
     def __init__(self, parent, name, transaction, home):
         self.parent = parent
@@ -2093,8 +2002,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         self._provisionedLinks = {}
         self._setupProvisions()
         self._newStoreHome = home
-        self.cacheNotifier = self.cacheNotifierFactory(self)
-        self._newStoreHome.addNotifier(CacheStoreNotifier(self))
         CalDAVResource.__init__(self)
 
         from twistedcaldav.storebridge import _NewStorePropertiesWrapper
@@ -2106,11 +2013,9 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     @classmethod
     @inlineCallbacks
     def createHomeResource(cls, parent, name, transaction):
-        home, created = yield cls.homeFromTransaction(
+        home, _ignored_created = yield cls.homeFromTransaction(
             transaction, name)
         resource = cls(parent, name, transaction, home)
-        if created:
-            yield resource.postCreateHome()
         returnValue(resource)
 
 
@@ -2128,10 +2033,6 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
 
     def _setupProvisions(self):
-        pass
-
-
-    def postCreateHome(self):
         pass
 
 
@@ -2223,7 +2124,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
     @inlineCallbacks
     def findChildrenFaster(
-        self, depth, request, okcallback, badcallback, missingcallback,
+        self, depth, request, okcallback, badcallback, missingcallback, unavailablecallback,
         names, privileges, inherited_aces
     ):
         """
@@ -2234,7 +2135,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             yield self._newStoreHome.loadChildren()
 
         result = (yield super(CommonHomeResource, self).findChildrenFaster(
-            depth, request, okcallback, badcallback, missingcallback, names, privileges, inherited_aces
+            depth, request, okcallback, badcallback, missingcallback, unavailablecallback, names, privileges, inherited_aces
         ))
 
         returnValue(result)
@@ -2322,7 +2223,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
             if config.Notifications.Services.APNS.Enabled:
 
-                nodeName = (yield self._newStoreHome.nodeName())
+                notifier = self._newStoreHome.getNotifier("push")
+                nodeName = notifier.nodeName() if notifier is not None else None
                 if nodeName:
                     notifierID = self._newStoreHome.notifierID()
                     if notifierID:
@@ -2350,16 +2252,16 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                                 )
                             )
 
-
                         returnValue(customxml.PubSubPushTransportsProperty(*children))
+
             returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
             if (config.Notifications.Services.AMP.Enabled or
                 config.Notifications.Services.APNS.Enabled):
-                nodeName = (yield self._newStoreHome.nodeName())
-                if nodeName:
-                    returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))
+                notifier = self._newStoreHome.getNotifier("push")
+                if notifier is not None:
+                    returnValue(customxml.PubSubXMPPPushKeyProperty(notifier.nodeName()))
             returnValue(None)
 
         returnValue((yield super(CommonHomeResource, self).readProperty(property, request)))
@@ -2440,6 +2342,10 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             returnValue(None)
 
 
+    def resourceID(self):
+        return uuid.uuid5(self.uuid_namespace, str(self._newStoreHome.id())).urn
+
+
     def lastModified(self):
         return self._newStoreHome.modified() if self._newStoreHome else None
 
@@ -2448,8 +2354,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         return self._newStoreHome.created() if self._newStoreHome else None
 
 
-    def notifierID(self, label="default"):
-        self._newStoreHome.notifierID(label)
+    def notifierID(self):
+        return "%s/%s" % self._newStoreHome.notifierID()
 
 
     def notifyChanged(self):
@@ -2503,6 +2409,24 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         return existing
 
 
+    def _hasGlobalProperty(self, property, request):
+        """
+        Need to special case schedule-calendar-transp for backwards compatability.
+        """
+
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        # Force calendar collections to always appear to have the property
+        if qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            return succeed(self.getDefaultAlarmProperty(qname) is not None)
+
+        else:
+            return super(CalendarHomeResource, self)._hasGlobalProperty(property, request)
+
+
     @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
@@ -2536,7 +2460,36 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             else:
                 returnValue(None)
 
+        elif qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            returnValue(self.getDefaultAlarmProperty(qname))
+
         result = (yield super(CalendarHomeResource, self).readProperty(property, request))
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def _writeGlobalProperty(self, property, request):
+
+        if property.qname() in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            yield self.setDefaultAlarmProperty(property)
+            returnValue(None)
+
+        result = (yield super(CalendarHomeResource, self)._writeGlobalProperty(property, request))
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def removeProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            result = (yield self.removeDefaultAlarmProperty(qname))
+            returnValue(result)
+
+        result = (yield super(CalendarHomeResource, self).removeProperty(property, request))
         returnValue(result)
 
 
@@ -2546,7 +2499,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         from twistedcaldav.storebridge import StoreScheduleInboxResource
         self._provisionedChildren["inbox"] = StoreScheduleInboxResource.maybeCreateInbox
 
-        from twistedcaldav.scheduling.caldav.resource import ScheduleOutboxResource
+        from twistedcaldav.scheduling_store.caldav.resource import ScheduleOutboxResource
         self._provisionedChildren["outbox"] = ScheduleOutboxResource
 
         if config.EnableDropBox and not config.EnableManagedAttachments:
@@ -2564,16 +2517,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
             from twistedcaldav.notifications import NotificationCollectionResource
             self._provisionedChildren["notification"] = NotificationCollectionResource
-
-
-    @inlineCallbacks
-    def postCreateHome(self):
-        # This is a bit of a hack.  Really we ought to be always generating
-        # this URL live from a back-end method that tells us what the
-        # default calendar is.
-        inbox = yield self.getChild("inbox")
-        childURL = joinURL(self.url(), "calendar")
-        inbox.processFreeBusyCalendar(childURL, True)
 
 
     def canShare(self):
@@ -2724,9 +2667,12 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         if config.Sharing.Enabled and config.Sharing.Calendars.Enabled:
             noti_changed, noti_deleted, noti_notallowed = yield (yield self.getChild("notification"))._indexWhatChanged(revision, depth)
 
-            changed.extend([joinURL("notification", name) for name in noti_changed])
-            deleted.extend([joinURL("notification", name) for name in noti_deleted])
-            notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
+            if noti_changed or noti_deleted:
+                changed.append("notification")
+            if depth == "infinity":
+                changed.extend([joinURL("notification", name) for name in noti_changed])
+                deleted.extend([joinURL("notification", name) for name in noti_deleted])
+                notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
 
         returnValue((changed, deleted, notallowed))
 
@@ -2736,6 +2682,13 @@ class AddressBookHomeResource (CommonHomeResource):
     """
     Address book home collection resource.
     """
+
+    def __init__(self, *args, **kw):
+        super(AddressBookHomeResource, self).__init__(*args, **kw)
+        # get some Access header items
+        self.http_MKCOL = None
+        self.http_MKCALENDAR = None
+
 
     @classmethod
     @inlineCallbacks
@@ -2772,7 +2725,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if defaultAddressBookProperty and len(defaultAddressBookProperty.children) == 1:
                 defaultAddressBook = str(defaultAddressBookProperty.children[0])
                 adbk = (yield request.locateResource(str(defaultAddressBook)))
-                if adbk is not None and isAddressBookCollectionResource(adbk) and adbk.exists() and not adbk.isShareeCollection():
+                if adbk is not None and isAddressBookCollectionResource(adbk) and adbk.exists() and not adbk.isShareeResource():
                     returnValue(defaultAddressBookProperty)
 
             # Default is not valid - we have to try to pick one
@@ -2795,7 +2748,7 @@ class AddressBookHomeResource (CommonHomeResource):
             if len(new_adbk) == 1:
                 adbkURI = str(new_adbk[0])
                 adbk = (yield request.locateResource(str(new_adbk[0])))
-            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk) or adbk.isShareeCollection():
+            if adbk is None or not adbk.exists() or not isAddressBookCollectionResource(adbk) or adbk.isShareeResource():
                 # Validate that href's point to a valid addressbook.
                 raise HTTPError(ErrorResponse(
                     responsecode.CONFLICT,

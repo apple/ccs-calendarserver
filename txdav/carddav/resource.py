@@ -25,22 +25,25 @@ __all__ = [
     "AddressBookObjectResource",
 ]
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from txdav.xml.base import dav_namespace
 
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVResource
 
-class CardDAVResource(DAVResource, LoggingMixIn):
+class CardDAVResource(DAVResource):
     """
     CardDAV resource.
     """
+    log = Logger()
+
     def davComplianceClasses(self):
         return (
             tuple(super(CardDAVResource, self).davComplianceClasses())
             + config.CardDAVComplianceClasses
         )
+
 
 
 class AddressBookHomeResource(CardDAVResource):
@@ -49,6 +52,7 @@ class AddressBookHomeResource(CardDAVResource):
 
     This resource is backed by an L{IAddressBookHome} implementation.
     """
+
 
 
 class AddressBookCollectionResource(CardDAVResource):
@@ -66,12 +70,11 @@ class AddressBookCollectionResource(CardDAVResource):
     #
 
     def liveProperties(self):
-        
+
         return super(AddressBookCollectionResource, self).liveProperties() + (
-            (dav_namespace,     "owner"),
+            (dav_namespace, "owner"),
             (carddav_namespace, "supported-addressbook-data"),
         )
-
 
 
 

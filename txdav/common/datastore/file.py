@@ -21,8 +21,8 @@ Common utility functions for a file based datastore.
 
 import sys
 from twext.internet.decorate import memoizedKey
-from twext.python.log import LoggingMixIn
-from txdav.xml.rfc2518 import ResourceType, GETContentType, HRef
+from twext.python.log import Logger
+from txdav.xml.rfc2518 import GETContentType, HRef
 from txdav.xml.rfc5842 import ResourceID
 from twext.web2.http_headers import generateContentType, MimeType
 from twext.web2.dav.resource import TwistedGETContentMD5, \
@@ -36,13 +36,15 @@ from twistedcaldav import customxml
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.notifications import NotificationsDatabase as OldNotificationIndex
-from txdav.caldav.icalendarstore import ICalendarStore, BIND_OWN
+from txdav.caldav.icalendarstore import ICalendarStore
 
 from txdav.common.datastore.common import HomeChildBase
+from txdav.common.datastore.sql_tables import _BIND_MODE_OWN
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     InternalDataStoreError, ObjectResourceNameNotAllowedError, \
     ObjectResourceNameAlreadyExistsError, NoSuchObjectResourceError
+from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.base.datastore.file import DataStoreTransaction, DataStore, writeOperation, \
@@ -109,9 +111,16 @@ class CommonDataStore(DataStore):
     """
     implements(ICalendarStore)
 
-    def __init__(self, path, notifierFactory, enableCalendars=True,
-                 enableAddressBooks=True, quota=(2 ** 20),
-                 propertyStoreClass=XattrPropertyStore):
+    def __init__(
+        self,
+        path,
+        notifierFactories,
+        directoryService,
+        enableCalendars=True,
+        enableAddressBooks=True,
+        quota=(2 ** 20),
+        propertyStoreClass=XattrPropertyStore
+    ):
         """
         Create a store.
 
@@ -120,9 +129,10 @@ class CommonDataStore(DataStore):
         assert enableCalendars or enableAddressBooks
 
         super(CommonDataStore, self).__init__(path)
+        self._directoryService = IStoreDirectoryService(directoryService) if directoryService is not None else None
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
-        self._notifierFactory = notifierFactory
+        self._notifierFactories = notifierFactories if notifierFactories is not None else {}
         self._transactionClass = CommonStoreTransaction
         self._propertyStoreClass = propertyStoreClass
         self.quota = quota
@@ -131,6 +141,11 @@ class CommonDataStore(DataStore):
         self._newTransactionCallbacks = set()
         # FIXME: see '@ivar queuer' above.
         self.queuer = _StubQueuer()
+
+
+    def directoryService(self):
+        return self._directoryService
+
 
     def callWithNewTransactions(self, callback):
         """
@@ -153,7 +168,7 @@ class CommonDataStore(DataStore):
             name,
             self.enableCalendars,
             self.enableAddressBooks,
-            self._notifierFactory if self._enableNotifications else None,
+            self._notifierFactories if self._enableNotifications else None,
             self._migrating,
         )
         for callback in self._newTransactionCallbacks:
@@ -252,7 +267,7 @@ class CommonStoreTransaction(DataStoreTransaction):
 
     _homeClass = {}
 
-    def __init__(self, dataStore, name, enableCalendars, enableAddressBooks, notifierFactory, migrating=False):
+    def __init__(self, dataStore, name, enableCalendars, enableAddressBooks, notifierFactories, migrating=False):
         """
         Initialize a transaction; do not call this directly, instead call
         L{DataStore.newTransaction}.
@@ -270,9 +285,8 @@ class CommonStoreTransaction(DataStoreTransaction):
         self._calendarHomes = {}
         self._addressbookHomes = {}
         self._notificationHomes = {}
-        self._notifierFactory = notifierFactory
+        self._notifierFactories = notifierFactories
         self._notifiedAlready = set()
-        self._bumpedAlready = set()
         self._migrating = migrating
 
         extraInterfaces = []
@@ -391,24 +405,6 @@ class CommonStoreTransaction(DataStoreTransaction):
         self._notifiedAlready.add(obj)
 
 
-    def isBumpedAlready(self, obj):
-        """
-        Indicates whether or not bumpAddedForObject has already been
-        called for the given object, in order to facilitate calling
-        bumpModified only once per object.
-        """
-        return obj in self._bumpedAlready
-
-
-    def bumpAddedForObject(self, obj):
-        """
-        Records the fact that a bumpModified( ) call has already been
-        done, in order to facilitate calling bumpModified only once per
-        object.
-        """
-        self._bumpedAlready.add(obj)
-
-
 
 class StubResource(object):
     """
@@ -435,7 +431,8 @@ class SharedCollectionRecord(object):
 
 
 
-class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
+class SharedCollectionsDatabase(AbstractSQLDatabase):
+    log = Logger()
 
     db_basename = db_prefix + "shares"
     schema_version = "1"
@@ -579,19 +576,20 @@ class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
 
 
 
-class CommonHome(FileMetaDataMixin, LoggingMixIn):
+class CommonHome(FileMetaDataMixin):
+    log = Logger()
 
     # All these need to be initialized by derived classes for each store type
     _childClass = None
     _topPath = None
     _notifierPrefix = None
 
-    def __init__(self, uid, path, dataStore, transaction, notifiers):
+    def __init__(self, uid, path, dataStore, transaction):
         self._dataStore = dataStore
         self._uid = uid
         self._path = path
         self._transaction = transaction
-        self._notifiers = notifiers
+        self._notifiers = None
         self._shares = SharedCollectionsDatabase(StubResource(self))
         self._newChildren = {}
         self._removedChildren = set()
@@ -673,13 +671,9 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         else:
             homePath = childPath
 
-        if txn._notifierFactory:
-            notifiers = (txn._notifierFactory.newNotifier(id=uid,
-                prefix=cls._notifierPrefix),)
-        else:
-            notifiers = None
-
-        home = cls(uid, homePath, txn._dataStore, txn, notifiers)
+        home = cls(uid, homePath, txn._dataStore, txn)
+        for factory_name, factory in txn._notifierFactories.items():
+            home.addNotifier(factory_name, factory.newNotifier(home))
         if creating:
             home.createdHome()
             if withNotifications:
@@ -698,6 +692,14 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
     def transaction(self):
         return self._transaction
+
+
+    def directoryService(self):
+        return self._transaction.store().directoryService()
+
+
+    def directoryRecord(self):
+        return self.directoryService().recordWithUID(self.uid())
 
 
     def retrieveOldShares(self):
@@ -808,8 +810,6 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             return lambda: self._path.child(childPath.basename()).remove()
 
         self._transaction.addOperation(do, "create child %r" % (name,))
-        props = c.properties()
-        props[PropertyName(*ResourceType.qname())] = c.resourceType()
 
         self.notifyChanged()
         return c
@@ -907,33 +907,23 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         old_used = self.quotaUsedBytes()
         new_used = old_used + delta
         if new_used < 0:
-            self.log_error("Fixing quota adjusted below zero to %s by change amount %s" % (new_used, delta,))
+            self.log.error("Fixing quota adjusted below zero to %s by change amount %s" % (new_used, delta,))
             new_used = 0
         self.properties()[PropertyName.fromElement(TwistedQuotaUsedProperty)] = TwistedQuotaUsedProperty(str(new_used))
 
 
-    def addNotifier(self, notifier):
+    def addNotifier(self, factory_name, notifier):
         if self._notifiers is None:
-            self._notifiers = ()
-        self._notifiers += (notifier,)
+            self._notifiers = {}
+        self._notifiers[factory_name] = notifier
 
 
-    def notifierID(self, label="default"):
-        if self._notifiers:
-            return self._notifiers[0].getID(label)
-        else:
-            return None
+    def getNotifier(self, factory_name):
+        return self._notifiers.get(factory_name)
 
 
-    @inlineCallbacks
-    def nodeName(self, label="default"):
-        if self._notifiers:
-            for notifier in self._notifiers:
-                name = (yield notifier.nodeName(label=label))
-                if name is not None:
-                    returnValue(name)
-        else:
-            returnValue(None)
+    def notifierID(self):
+        return (self._notifierPrefix, self.uid(),)
 
 
     def notifyChanged(self):
@@ -943,16 +933,17 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
         # Only send one set of change notifications per transaction
         if self._notifiers and not self._transaction.isNotifiedAlready(self):
-            for notifier in self._notifiers:
+            for notifier in self._notifiers.values():
                 self._transaction.postCommit(notifier.notify)
             self._transaction.notificationAddedForObject(self)
 
 
 
-class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBase):
+class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
     """
     Common ancestor class of AddressBooks and Calendars.
     """
+    log = Logger()
 
     compareAttributes = (
         "_name",
@@ -988,12 +979,10 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         self._invites = None # Derived classes need to set this
         self._renamedName = realName
 
-        if home._notifiers:
-            childID = "%s/%s" % (home.uid(), name)
-            notifiers = [notifier.clone(label="collection", id=childID) for notifier in home._notifiers]
+        if self._home._notifiers:
+            self._notifiers = dict([(factory_name, notifier.clone(self),) for factory_name, notifier in self._home._notifiers.items()])
         else:
-            notifiers = None
-        self._notifiers = notifiers
+            self._notifiers = None
 
 
     @classmethod
@@ -1006,8 +995,13 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         return self._home._path.child(self._name)
 
 
-    def resourceType(self):
-        return NotImplementedError
+    @property
+    def _txn(self):
+        return self._transaction
+
+
+    def directoryService(self):
+        return self._transaction.store().directoryService()
 
 
     def retrieveOldIndex(self):
@@ -1036,10 +1030,9 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
 
     def shareMode(self):
         """
-        Stub implementation of L{ICalendar.shareMode}; always returns
-        L{BIND_OWN}.
+        Stub implementation of L{ICalendar.shareMode}; always returns L{_BIND_MODE_OWN}.
         """
-        return BIND_OWN
+        return _BIND_MODE_OWN
 
 
     def owned(self):
@@ -1088,7 +1081,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
                     trash.remove()
                     self.properties()._removeResource()
                 except Exception, e:
-                    self.log_error("Unable to delete trashed child at %s: %s" % (trash.fp, e))
+                    self.log.error("Unable to delete trashed child at %s: %s" % (trash.fp, e))
 
             self._transaction.addOperation(cleanup, "remove child backup %r" % (self._name,))
             def undo():
@@ -1204,32 +1197,12 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         return objectResource
 
 
-    @writeOperation
-    def removeObjectResourceWithName(self, name):
-        if name.startswith("."):
-            raise NoSuchObjectResourceError(name)
+    def removedObjectResource(self, child):
 
-        self.retrieveOldIndex().deleteResource(name)
+        self.retrieveOldIndex().deleteResource(child.name())
 
-        objectResourcePath = self._path.child(name)
-        if objectResourcePath.isfile():
-            self._removedObjectResources.add(name)
-            # FIXME: test for undo
-            def do():
-                objectResourcePath.remove()
-                return lambda: None
-            self._transaction.addOperation(do, "remove object resource object %r" %
-                                           (name,))
-
-            self.notifyChanged()
-        else:
-            raise NoSuchObjectResourceError(name)
-
-
-    @writeOperation
-    def removeObjectResourceWithUID(self, uid):
-        self.removeObjectResourceWithName(
-            self.objectResourceWithUID(uid)._path.basename())
+        self._removedObjectResources.add(child.name())
+        self.notifyChanged()
 
 
     def syncToken(self):
@@ -1281,28 +1254,22 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         pass
 
 
-    def addNotifier(self, notifier):
+    def addNotifier(self, factory_name, notifier):
         if self._notifiers is None:
-            self._notifiers = ()
-        self._notifiers += (notifier,)
+            self._notifiers = {}
+        self._notifiers[factory_name] = notifier
 
 
-    def notifierID(self, label="default"):
-        if self._notifiers:
-            return self._notifiers[0].getID(label)
-        else:
-            return None
+    def getNotifier(self, factory_name):
+        return self._notifiers.get(factory_name)
 
 
-    @inlineCallbacks
-    def nodeName(self, label="default"):
-        if self._notifiers:
-            for notifier in self._notifiers:
-                name = (yield notifier.nodeName(label=label))
-                if name is not None:
-                    returnValue(name)
-        else:
-            returnValue(None)
+    def notifierID(self):
+        return (self.ownerHome()._notifierPrefix, "%s/%s" % (self.ownerHome().uid(), self.name(),),)
+
+
+    def parentNotifierID(self):
+        return self.ownerHome().notifierID()
 
 
     def notifyChanged(self):
@@ -1312,7 +1279,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
 
         # Only send one set of change notifications per transaction
         if self._notifiers and not self._transaction.isNotifiedAlready(self):
-            for notifier in self._notifiers:
+            for notifier in self._notifiers.values():
                 self._transaction.postCommit(notifier.notify)
             self._transaction.notificationAddedForObject(self)
 
@@ -1336,12 +1303,13 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
 
 
 
-class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
+class CommonObjectResource(FileMetaDataMixin, FancyEqMixin):
     """
     @ivar _path: The path of the file on disk
 
     @type _path: L{FilePath}
     """
+    log = Logger()
 
     compareAttributes = (
         "_name",
@@ -1373,6 +1341,10 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         return self._transaction
 
 
+    def directoryService(self):
+        return self._transaction.store().directoryService()
+
+
     @writeOperation
     def setComponent(self, component, inserting=False):
         raise NotImplementedError
@@ -1380,6 +1352,18 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
     def component(self):
         raise NotImplementedError
+
+
+    def remove(self):
+
+        # FIXME: test for undo
+        objectResourcePath = self._path
+        def do():
+            objectResourcePath.remove()
+            return lambda: None
+        self._transaction.addOperation(do, "remove object resource object %r" % (self._name,))
+
+        self._parentCollection.removedObjectResource(self)
 
 
     def _text(self):
@@ -1499,18 +1483,11 @@ class NotificationCollection(CommonHomeChild):
 
         txn.addOperation(do, "create notification child %r" %
                           (collectionName,))
-        props = c.properties()
-        props[PropertyName(*ResourceType.qname())] = c.resourceType()
         return c
-
-
-    def resourceType(self):
-        return ResourceType.notification #@UndefinedVariable
 
     notificationObjects = CommonHomeChild.objectResources
     listNotificationObjects = CommonHomeChild.listObjectResources
     notificationObjectWithName = CommonHomeChild.objectResourceWithName
-    removeNotificationObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
 
     def notificationObjectWithUID(self, uid):
         name = uid + ".xml"

@@ -37,11 +37,15 @@ class FilterBase(object):
     def __init__(self, xml_element):
         self.xmlelement = xml_element
 
+
     def match(self, item, access=None):
         raise NotImplementedError
 
+
     def valid(self, level=0):
         raise NotImplementedError
+
+
 
 class Filter(FilterBase):
     """
@@ -60,6 +64,7 @@ class Filter(FilterBase):
 
         self.children = [PropertyFilter(child) for child in xml_element.children]
 
+
     def match(self, vcard):
         """
         Returns True if the given address property matches this filter, False
@@ -75,11 +80,12 @@ class Filter(FilterBase):
         else:
             return False
 
+
     def valid(self):
         """
         Indicate whether this filter element's structure is valid wrt vCard
         data object model.
-        
+
         @return: True if valid, False otherwise
         """
 
@@ -89,6 +95,8 @@ class Filter(FilterBase):
                 return False
         else:
             return True
+
+
 
 class FilterChildBase(FilterBase):
     """
@@ -169,16 +177,19 @@ class PropertyFilter (FilterChildBase):
             return not self.defined
         return self.defined
 
+
     def valid(self):
         """
         Indicate whether this filter element's structure is valid wrt vCard
         data object model.
-        
+
         @return:      True if valid, False otherwise
         """
 
         # No tests
         return True
+
+
 
 class ParameterFilter (FilterChildBase):
     """
@@ -196,6 +207,8 @@ class ParameterFilter (FilterChildBase):
 
         return result
 
+
+
 class IsNotDefined (FilterBase):
     """
     Specifies that the named iCalendar item does not exist.
@@ -207,6 +220,8 @@ class IsNotDefined (FilterBase):
         # Actually this method should never be called as we special case the
         # is-not-defined option.
         return True
+
+
 
 class TextMatch (FilterBase):
     """
@@ -243,6 +258,7 @@ class TextMatch (FilterBase):
         else:
             self.match_type = "contains"
 
+
     def _match(self, item):
         """
         Match the text for the item.
@@ -257,6 +273,7 @@ class TextMatch (FilterBase):
             values = item
 
         test = unicode(self.text, "utf-8").lower()
+
 
         def _textCompare(s):
             # Currently ignores the collation and does caseless matching

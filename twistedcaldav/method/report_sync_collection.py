@@ -46,33 +46,35 @@ def report_DAV__sync_collection(self, request, sync_collection):
     """
     Generate a sync-collection REPORT.
     """
-    
+
     # These resource support the report
     if not config.EnableSyncReport or element.Report(element.SyncCollection(),) not in self.supportedReports():
-        log.err("sync-collection report is only allowed on calendar/inbox/addressbook/notification collection resources %s" % (self,))
+        log.error("sync-collection report is only allowed on calendar/inbox/addressbook/notification collection resources %s" % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             element.SupportedReport(),
             "Report not supported on this resource",
         ))
-   
+
     responses = []
 
     # Process Depth and sync-level for backwards compatibility
     # Use sync-level if present and ignore Depth, else use Depth
     if sync_collection.sync_level:
         depth = sync_collection.sync_level
+        if depth == "infinite":
+            depth = "infinity"
         descriptor = "DAV:sync-level"
     else:
         depth = request.headers.getHeader("depth", None)
         descriptor = "Depth header without DAV:sync-level"
-    
+
     if depth not in ("1", "infinity"):
-        log.err("sync-collection report with invalid depth header: %s" % (depth,))
+        log.error("sync-collection report with invalid depth header: %s" % (depth,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid %s value" % (descriptor,)))
-        
-    propertyreq = sync_collection.property.children if sync_collection.property else None 
-    
+
+    propertyreq = sync_collection.property.children if sync_collection.property else None
+
     @inlineCallbacks
     def _namedPropertiesForResource(request, props, resource, forbidden=False):
         """
@@ -87,7 +89,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
             responsecode.FORBIDDEN : [],
             responsecode.NOT_FOUND : [],
         }
-        
+
         for property in props:
             if isinstance(property, element.WebDAVElement):
                 qname = property.qname()
@@ -104,15 +106,16 @@ def report_DAV__sync_collection(self, request, sync_collection):
                         properties_by_status[responsecode.OK].append(prop)
                     except:
                         f = Failure()
-                        log.err("Error reading property %r for resource %s: %s" % (qname, request.uri, f.value))
+                        log.error("Error reading property %r for resource %s: %s" % (qname, request.uri, f.value))
                         status = statusForFailure(f, "getting property: %s" % (qname,))
-                        if status not in properties_by_status: properties_by_status[status] = []
+                        if status not in properties_by_status:
+                            properties_by_status[status] = []
                         properties_by_status[status].append(propertyName(qname))
                 else:
                     properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
-        
+
         returnValue(properties_by_status)
-    
+
     # Do some optimization of access control calculation by determining any inherited ACLs outside of
     # the child resource loop and supply those to the checkPrivileges on each child.
     filteredaces = (yield self.inheritedACEsforChildren(request))
@@ -128,6 +131,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
             request,
             lambda x, y: ok_resources.append((x, y)),
             lambda x, y: forbidden_resources.append((x, y)),
+            None,
             None,
             changed,
             (element.Read(),),
@@ -150,7 +154,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
             # of one of these resources in another request.  In this
             # case, we ignore the now missing resource rather
             # than raise an error for the entire report.
-            log.err("Missing resource during sync: %s" % (href,))
+            log.error("Missing resource during sync: %s" % (href,))
 
     for child, child_uri in forbidden_resources:
         href = element.HRef.fromString(child_uri)
@@ -168,16 +172,16 @@ def report_DAV__sync_collection(self, request, sync_collection):
             # of one of these resources in another request.  In this
             # case, we ignore the now missing resource rather
             # than raise an error for the entire report.
-            log.err("Missing resource during sync: %s" % (href,))
+            log.error("Missing resource during sync: %s" % (href,))
 
     for name in removed:
         href = element.HRef.fromString(joinURL(request.uri, name))
         responses.append(element.StatusResponse(element.HRef.fromString(href), element.Status.fromResponseCode(responsecode.NOT_FOUND)))
-    
+
     for name in notallowed:
         href = element.HRef.fromString(joinURL(request.uri, name))
         responses.append(element.StatusResponse(element.HRef.fromString(href), element.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
-    
+
     if not hasattr(request, "extendedLogItems"):
         request.extendedLogItems = {}
     request.extendedLogItems["responses"] = len(responses)

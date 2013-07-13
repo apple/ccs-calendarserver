@@ -23,9 +23,9 @@ import sys
 import traceback
 
 class CalendarServerLogAnalyzer(object):
-    
+
     def __init__(self):
-        
+
         self.userCtr = 1
         self.users = {}
 
@@ -35,49 +35,50 @@ class CalendarServerLogAnalyzer(object):
         self.resourceCtr = 1
         self.resources = {}
 
+
     def anonymizeLogFile(self, logFilePath):
-        
+
         fpath = os.path.expanduser(logFilePath)
         if fpath.endswith(".gz"):
             f = GzipFile(fpath)
         else:
             f = open(fpath)
-            
+
         try:
             for line in f:
-                
+
                 if not line.startswith("Log"):
                     line = self.anonymizeLine(line)
                 print(line, end="")
-        
+
         except Exception, e:
             print("Exception: %s for %s" % (e, line,))
             raise
 
+
     def anonymizeLine(self, line):
 
-        
         startPos = line.find("- ")
         endPos = line.find(" [")
-        userid = line[startPos+2:endPos]
-        
+        userid = line[startPos + 2:endPos]
+
         if userid != "-":
             if userid not in self.users:
                 self.users[userid] = "user%05d" % (self.userCtr,)
                 self.userCtr += 1
-            line = line[:startPos+2] + self.users[userid] + line[endPos:]
+            line = line[:startPos + 2] + self.users[userid] + line[endPos:]
             endPos = line.find(" [")
-        
+
         startPos = endPos + 1
-    
+
         startPos = line.find(']', startPos + 21) + 3
         endPos = line.find(' ', startPos)
         if line[startPos] != '?':
-            
+
             startPos = endPos + 1
             endPos = line.find(" HTTP/", startPos)
             uri = line[startPos:endPos]
-            
+
             splits = uri.split("/")
             if len(splits) >= 4:
                 if splits[1] in ("calendars", "principals"):
@@ -93,7 +94,7 @@ class CalendarServerLogAnalyzer(object):
                                 self.resources[splits[4]] = "resource%d" % (self.resourceCtr,)
                                 self.resourceCtr += 1
                             splits[4] = self.resources[splits[4]]
-                        
+
                     if len(splits) > 5:
                         for x in range(5, len(splits)):
                             if splits[x]:
@@ -101,11 +102,12 @@ class CalendarServerLogAnalyzer(object):
                                     self.resources[splits[x]] = "resource%d%s" % (self.resourceCtr, os.path.splitext(splits[x])[1])
                                     self.resourceCtr += 1
                                 splits[x] = self.resources[splits[x]]
-                                
-                        
+
                     line = line[:startPos] + "/".join(splits) + line[endPos:]
-    
+
         return line
+
+
 
 def usage(error_msg=None):
     if error_msg:

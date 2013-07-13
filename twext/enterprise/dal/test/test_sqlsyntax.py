@@ -37,6 +37,8 @@ from twext.enterprise.test.test_adbapi2 import NetworkedPoolHelper
 from twext.enterprise.test.test_adbapi2 import resultOf, AssertResultHelper
 from twisted.internet.defer import succeed
 from twisted.trial.unittest import TestCase
+from twext.enterprise.dal.syntax import Tuple
+from twext.enterprise.dal.syntax import Constant
 
 
 
@@ -56,6 +58,7 @@ class FakeCXOracleModule(object):
     STRING = 'a string type (for varchars)'
     NCLOB = 'the NCLOB type. (for text)'
     TIMESTAMP = 'for timestamps!'
+
 
 
 class CatchSQL(object):
@@ -134,7 +137,6 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
     Tests for syntactic helpers to generate SQL queries.
     """
 
-
     def test_simplestSelect(self):
         """
         L{Select} generates a 'select' statement, by default, asking for all
@@ -151,7 +153,6 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         """
         self.assertEquals(self.schema.FOO, self.schema.FOO)
         self.assertNotEquals(self.schema.FOO, self.schema.BOZ)
-
 
 
     def test_simpleWhereClause(self):
@@ -295,6 +296,21 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
                    OrderBy=[self.schema.FOO.BAR, self.schema.FOO.BAZ],
                    Ascending=True).toSQL(),
             SQLFragment("select * from FOO order by BAR, BAZ asc")
+        )
+
+
+    def test_orderByParens(self):
+        """
+        L{Select}'s L{OrderBy} paraneter, if specified as a L{Tuple}, generates
+        an SQL expression I{without} parentheses, since the standard format
+        does not allow an arbitrary sort expression but rather a list of
+        columns.
+        """
+        self.assertEquals(
+            Select(From=self.schema.FOO,
+                   OrderBy=Tuple([self.schema.FOO.BAR,
+                                  self.schema.FOO.BAZ])).toSQL(),
+            SQLFragment("select * from FOO order by BAR, BAZ")
         )
 
 
@@ -570,7 +586,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
             Select(
                 From=self.schema.FOO,
                 Where=(self.schema.FOO.BAR == 1),
-                SetExpression= Union(
+                SetExpression=Union(
                     Select(
                         From=self.schema.FOO,
                         Where=(self.schema.FOO.BAR == 2),
@@ -642,7 +658,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
             Select(
                 From=self.schema.FOO,
                 Where=(self.schema.FOO.BAR == 1),
-                SetExpression= Union(
+                SetExpression=Union(
                     Select(
                         From=self.schema.FOO,
                         Where=(self.schema.FOO.BAR == 2),
@@ -696,7 +712,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
                     [self.schema.FOO.BAR],
                     From=self.schema.FOO,
                     Where=(self.schema.FOO.BAR == 1),
-                    SetExpression= Union(
+                    SetExpression=Union(
                         Select(
                             [self.schema.FOO.BAR],
                             From=self.schema.FOO,
@@ -707,6 +723,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
             ).toSQL(),
             SQLFragment(
                 "select max(BAR) from ((select BAR from FOO where BAR = ?) UNION (select BAR from FOO where BAR = ?)) genid_1", [1, 2]))
+
 
     def test_selectColumnAliases(self):
         """
@@ -815,18 +832,18 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         )
 
         # Check various error situations
-        
+
         # No count not allowed
         self.assertRaises(DALError, self.schema.FOO.BAR.In, Parameter("names"))
-        
+
         # count=0 not allowed
-        self.assertRaises(DALError, Parameter,"names", 0)
-        
+        self.assertRaises(DALError, Parameter, "names", 0)
+
         # Mismatched count and len(items)
         self.assertRaises(
             DALError,
             Select(From=self.schema.FOO, Where=self.schema.FOO.BAR.In(Parameter("names", len(items)))).toSQL().bind,
-            names=["a", "b", "c",]
+            names=["a", "b", "c", ]
         )
 
 
@@ -1304,12 +1321,14 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         self.assertEquals(Savepoint("test").toSQL(),
                           SQLFragment("savepoint test"))
 
+
     def test_rollbacktosavepoint(self):
         """
         L{RollbackToSavepoint} generates a ('rollback to savepoint') statement.
         """
         self.assertEquals(RollbackToSavepoint("test").toSQL(),
                           SQLFragment("rollback to savepoint test"))
+
 
     def test_releasesavepoint(self):
         """
@@ -1415,8 +1434,8 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         sequence default value.
         """
         addSQLToSchema(
-            schema=self.schema.model, schemaData=
-            "create table DFLTR (a varchar(255), "
+            schema=self.schema.model,
+            schemaData="create table DFLTR (a varchar(255), "
             "b integer default nextval('A_SEQ'));"
         )
         self.assertEquals(
@@ -1589,6 +1608,23 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         )
 
 
+    def test_tupleOfConstantsComparison(self):
+        """
+        For some reason Oracle requires multiple parentheses for comparisons.
+        """
+        self.assertEquals(
+            Select(
+                [self.schema.FOO.BAR],
+                From=self.schema.FOO,
+                Where=(Tuple([self.schema.FOO.BAR, self.schema.FOO.BAZ]) ==
+                       Tuple([Constant(7), Constant(9)]))
+            ).toSQL(),
+            SQLFragment(
+                "select BAR from FOO where (BAR, BAZ) = ((?, ?))", [7, 9]
+            )
+        )
+
+
     def test_oracleTableTruncation(self):
         """
         L{Table}'s SQL generation logic will truncate table names if the dialect
@@ -1710,7 +1746,6 @@ class OracleConnectionTests(ConnectionPoolHelper, ExampleSchemaHelper,
 
 
 
-
 class OracleNetConnectionTests(NetworkedPoolHelper, ExampleSchemaHelper,
                                OracleConnectionMethods, TestCase):
 
@@ -1721,5 +1756,3 @@ class OracleNetConnectionTests(NetworkedPoolHelper, ExampleSchemaHelper,
         super(OracleNetConnectionTests, self).setUp()
         ExampleSchemaHelper.setUp(self)
         self.pump.client.dialect = ORACLE_DIALECT
-
-

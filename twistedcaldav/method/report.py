@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -49,7 +49,7 @@ def http_REPORT(self, request):
     Respond to a REPORT request. (RFC 3253, section 3.6)
     """
     if not self.exists():
-        log.err("Resource not found: %s" % (self,))
+        log.error("Resource not found: %s" % (self,))
         raise HTTPError(responsecode.NOT_FOUND)
 
     #
@@ -58,7 +58,7 @@ def http_REPORT(self, request):
     try:
         doc = (yield davXMLFromStream(request.stream))
     except ValueError, e:
-        log.err("Error while handling REPORT body: %s" % (e,))
+        log.error("Error while handling REPORT body: %s" % (e,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     if doc is None:
@@ -83,6 +83,7 @@ def http_REPORT(self, request):
     else:
         request.submethod = name
 
+
     def to_method(namespace, name):
         if namespace:
             s = "_".join((namespace, name))
@@ -102,7 +103,7 @@ def http_REPORT(self, request):
 
     try:
         method = getattr(self, method_name)
-        
+
         # Also double-check via supported-reports property
         reports = self.supportedReports()
         test = lookupElement((namespace, name))
@@ -115,8 +116,8 @@ def http_REPORT(self, request):
         #
         # Requested report is not supported.
         #
-        log.err("Unsupported REPORT %s for resource %s (no method %s)"
-                % (encodeXMLName(namespace, name), self, method_name))
+        log.error("Unsupported REPORT %s for resource %s (no method %s)"
+                  % (encodeXMLName(namespace, name), self, method_name))
 
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,

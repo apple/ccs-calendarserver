@@ -124,15 +124,16 @@
 
     <!-- Child aliases -->
     <key>Aliases</key>
-    <dict>
+    <array>
       <!--
-      <key>foo</key>
       <dict>
+        <key>url</key>
+        <string>/foo</string>
         <key>path</key>
         <string>/path/to/foo</string>
       </dict>
        -->
-    </dict>
+    </array>
 
 
     <!--
@@ -849,6 +850,9 @@
     		<integer>1440</integer>
     	</dict>
     </dict>
+
+	<key>UsePackageTimezones</key>
+	<true/>
 
     <!-- Batch Upload via POST -->
     <key>EnableBatchUpload</key>

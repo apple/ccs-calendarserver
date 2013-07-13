@@ -45,7 +45,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     (CalDAV-access-09, section 7.8)
     """
     if not self.isCollection():
-        log.err("freebusy report is only allowed on collection resources %s" % (self,))
+        log.error("freebusy report is only allowed on collection resources %s" % (self,))
         raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Not a calendar collection"))
 
     if freebusy.qname() != (caldavxml.caldav_namespace, "free-busy-query"):
@@ -57,9 +57,9 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
 
     # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
     fbinfo = ([], [], [])
-    
+
     matchcount = [0]
-    
+
     def generateFreeBusyInfo(calresource, uri): #@UnusedVariable
         """
         Run a free busy report on the specified calendar collection
@@ -67,7 +67,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
         @param calresource: the L{CalDAVResource} for a calendar collection.
         @param uri: the uri for the calendar collecton resource.
         """
-        
+
         def _gotResult(result):
             matchcount[0] = result
             return True
@@ -81,7 +81,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
         depth = request.headers.getHeader("depth", "0")
         yield report_common.applyToCalendarCollections(self, request, request.uri, depth, generateFreeBusyInfo, (caldavxml.ReadFreeBusy(),))
     except NumberOfMatchesWithinLimits:
-        log.err("Too many matching components in free-busy report")
+        log.error("Too many matching components in free-busy report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             davxml.NumberOfMatchesWithinLimits(),
@@ -99,10 +99,10 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
             caldavxml.MaxDateTime(),
             "Time-range value too far in the future. Must be on or before %s." % (str(e.limit),)
         ))
-    
+
     # Now build a new calendar object with the free busy info we have
     fbcalendar = report_common.buildFreeBusyResult(fbinfo, timerange)
-    
+
     response = Response()
     response.stream = MemoryStream(str(fbcalendar))
     response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))

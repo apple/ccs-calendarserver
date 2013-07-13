@@ -80,8 +80,8 @@ def preconditions_PUT(self, request):
            #"Content-Range",    # FIXME: Need to implement this
             "Content-Type",
         ):
-            log.err("Client sent unrecognized content header in PUT request: %s"
-                    % (header,))
+            log.error("Client sent unrecognized content header in PUT request: %s"
+                      % (header,))
             raise HTTPError(StatusResponse(
                 responsecode.NOT_IMPLEMENTED,
                 "Unrecognized content header %r in request." % (header,)
@@ -93,7 +93,7 @@ def http_PUT(self, request):
     """
     Respond to a PUT request. (RFC 2518, section 8.7)
     """
-    log.msg("Writing request stream to %s" % (self,))
+    log.info("Writing request stream to %s" % (self,))
 
     #
     # Don't pass in the request URI, since PUT isn't specified to be able

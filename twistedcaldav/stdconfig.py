@@ -15,32 +15,31 @@
 # limitations under the License.
 ##
 
-from socket import getfqdn
-from socket import gethostbyname
-import copy
 import os
+import copy
 import re
+from socket import getfqdn, gethostbyname
 
-from txdav.xml import element as davxml
-from twext.web2.dav.resource import TwistedACLInheritable
+from twisted.python.runtime import platform
 
 from twext.python.plistlib import PlistParser #@UnresolvedImport
-from twext.python.log import Logger, InvalidLogLevelError
-from twext.python.log import clearLogLevels, setLogLevelForNamespace
+from twext.python.log import Logger, InvalidLogLevelError, LogLevel
+from twext.web2.dav.resource import TwistedACLInheritable
+
+from txdav.xml import element as davxml
 
 from twistedcaldav import caldavxml, customxml, carddavxml, mkcolxml
 from twistedcaldav.config import ConfigProvider, ConfigurationError, ConfigDict
 from twistedcaldav.config import config, mergeData, fullServerPath
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
-
-from twisted.python.runtime import platform
-
-from calendarserver.push.util import getAPNTopicFromCertificate
 from twistedcaldav.util import computeProcessCount
 
+from calendarserver.push.util import getAPNTopicFromCertificate
 
 log = Logger()
+
+
 
 if platform.isMacOSX():
     DEFAULT_CONFIG_FILE = "/Applications/Server.app/Contents/ServerRoot/private/etc/caldavd/caldavd-apple.plist"
@@ -208,7 +207,7 @@ DEFAULT_PROXYDB_PARAMS = {
     },
 }
 
- 
+
 directoryAddressBookBackingServiceDefaultParams = {
     "twistedcaldav.directory.xmldirectorybacker.XMLDirectoryBackingService": {
         "xmlFile": "/etc/carddavd/accounts.xml",
@@ -365,7 +364,7 @@ DEFAULT_CONFIG = {
     "LogRoot"                 : "/var/log/caldavd",
     "RunRoot"                 : "/var/run/caldavd",
     "WebCalendarRoot"         : "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd/webcal/public",
-    
+
     #
     # Quotas
     #
@@ -385,7 +384,8 @@ DEFAULT_CONFIG = {
     # browser authentication dialog should be used.
     "WebCalendarAuthPath"     : "",
 
-    "Aliases": {},
+    # Define mappings of URLs to file system objects (directories or files)
+    "Aliases": [],
 
     #
     # Directory service
@@ -552,8 +552,8 @@ DEFAULT_CONFIG = {
         "Enabled" : True,
         "Seconds" : 60, # How often to check memory sizes (in seconds)
         "Bytes"   : 2 * 1024 * 1024 * 1024, # Memory limit (RSS in bytes)
-        "ResidentOnly" : True, # True: only take into account resident memory;
-                              # False: include virtual memory
+        "ResidentOnly" : True,  # True: only take into account resident memory;
+                                # False: include virtual memory
     },
 
     #
@@ -584,7 +584,7 @@ DEFAULT_CONFIG = {
     "TimezoneService"         : {    # New standard timezone service
         "Enabled"       : False, # Overall on/off switch
         "Mode"          : "primary", # Can be "primary" or "secondary"
-        "BasePath"      : "", # Path to zoneinfo - if None use default package path
+        "BasePath"      : "", # Path to directory containing a zoneinfo - if None use default package path
                                      # secondary service MUST define its own writable path
         "XMLInfoPath"   : "", # Path to db cache info - if None use default package path
                                      # secondary service MUST define its own writable path if
@@ -600,6 +600,7 @@ DEFAULT_CONFIG = {
     },
 
     "EnableTimezonesByReference" : False, # Strip out VTIMEZONES that are known
+    "UsePackageTimezones" : False, # Use timezone data from twistedcaldav.zoneinfo - don't copy to Data directory
 
     "EnableBatchUpload"       : True, # POST batch uploads
     "MaxResourcesBatchUpload" : 100, # Maximum number of resources in a batch POST
@@ -680,13 +681,17 @@ DEFAULT_CONFIG = {
                 "X-APPLE-TRAVEL-RETURN-DURATION",
                 "X-APPLE-TRAVEL-RETURN",
             ],
+            "OrganizerPublicProperties"  : [     # Names of X- iCalendar properties that are sent from ORGANIZER to ATTENDEE
+                "X-APPLE-DROPBOX",
+                "X-APPLE-STRUCTURED-LOCATION",
+            ],
         },
 
         "iSchedule": {
             "Enabled"          : False, # iSchedule protocol
             "AddressPatterns"  : [], # Reg-ex patterns to match iSchedule-able calendar user addresses
             "RemoteServers"    : "remoteservers.xml", # iSchedule server configurations
-            "SerialNumber"     : 1, # Capabilities serial number
+            "SerialNumber"     : 1,  # Capabilities serial number
             "DNSDebug"         : "", # File where a fake Bind zone exists for creating fake DNS results
             "DKIM"             : {      # DKIM options
                 "Enabled"               : True, # DKIM signing/verification enabled
@@ -762,6 +767,13 @@ DEFAULT_CONFIG = {
                                                                    # "decline-if-busy" - decline if busy, do nothing if free
                                                                    # "automatic"       - accept if free, decline if busy
                 "FutureFreeBusyDays"              : 3 * 365,       # How far into the future to check for booking conflicts
+            },
+
+            "Splitting": {
+                "Enabled"                         : False,          # False for now whilst we experiment with this
+                "Size"                            : 100 * 1024,     # Consider splitting when greater than 100KB
+                "PastDays"                        : 14,             # Number of days in the past where the split will occur
+                "Delay"                           : 60,             # How many seconds to delay the split work item
             }
         }
     },
@@ -945,6 +957,7 @@ DEFAULT_CONFIG = {
 
     "Postgres": {
         "DatabaseName": "caldav",
+        "ClusterName": "cluster",
         "LogFile": "postgres.log",
         "ListenAddresses": [],
         "SharedBuffers": 0, # BuffersToConnectionsRatio * MaxConnections
@@ -999,13 +1012,6 @@ DEFAULT_CONFIG = {
     "FreeBusyIndexExpandAheadDays": 365,
     "FreeBusyIndexExpandMaxDays": 5 * 365,
     "FreeBusyIndexDelayedExpand": True,
-
-    # Specify which opendirectory module to use:
-    # "opendirectory" is PyOpenDirectory (the old one which uses
-    # DirectoryService.framework)
-    # "calendarserver.platform.darwin.od.opendirectory" is the new PyObjC
-    # version which uses OpenDirectory.framework
-    "OpenDirectoryModule": "calendarserver.platform.darwin.od.opendirectory",
 
     # The RootResource uses a twext property store. Specify the class here
     "RootResourcePropStoreClass": "twext.web2.dav.xattrprops.xattrPropertyStore",
@@ -1066,7 +1072,7 @@ class PListConfigProvider(ConfigProvider):
                         log.info("Adding configuration from file: '%s'" % (path,))
                         mergeData(configDict, additionalDict)
                 else:
-                    log.warn("Missing configuration file: '%s'" % (path,))
+                    log.debug("Missing configuration file: '%s'" % (path,))
         return configDict
 
 
@@ -1076,7 +1082,7 @@ class PListConfigProvider(ConfigProvider):
         try:
             configDict = parser.parse(open(filename))
         except (IOError, OSError):
-            log.err("Configuration file does not exist or is inaccessible: %s" % (filename,))
+            log.error("Configuration file does not exist or is inaccessible: %s" % (filename,))
             raise ConfigurationError("Configuration file does not exist or is inaccessible: %s" % (filename,))
         else:
             configDict = _cleanup(configDict, self._defaults)
@@ -1128,7 +1134,6 @@ def _updateDataStore(configDict, reloading=False):
     except KeyError:
         pass
 
-
     for root, relativePath in RELATIVE_PATHS:
         if root in configDict:
             if isinstance(relativePath, str):
@@ -1175,6 +1180,7 @@ def _updateHostName(configDict, reloading=False):
         configDict.ServerHostName = hostname
 
 
+
 def _updateMultiProcess(configDict, reloading=False):
     """
     Dynamically compute ProcessCount if it's set to 0.  Always compute
@@ -1205,6 +1211,7 @@ def _updateMultiProcess(configDict, reloading=False):
     configDict.Postgres.MaxConnections = maxConnections
     configDict.Postgres.SharedBuffers = int(configDict.Postgres.MaxConnections *
         configDict.Postgres.BuffersToConnectionsRatio)
+
 
 
 def _preUpdateDirectoryService(configDict, items, reloading=False):
@@ -1413,17 +1420,21 @@ def _updateRejectClients(configDict, reloading=False):
 
 
 def _updateLogLevels(configDict, reloading=False):
-    clearLogLevels()
+    log.publisher.levels.clearLogLevels()
 
     try:
         if "DefaultLogLevel" in configDict:
-            level = configDict["DefaultLogLevel"]
-            if level:
-                setLogLevelForNamespace(None, level)
+            levelName = configDict["DefaultLogLevel"]
+            if levelName:
+                log.publisher.levels.setLogLevelForNamespace(
+                    None, LogLevel.levelWithName(levelName)
+                )
 
         if "LogLevels" in configDict:
-            for namespace in configDict["LogLevels"]:
-                setLogLevelForNamespace(namespace, configDict["LogLevels"][namespace])
+            for namespace, levelName in configDict["LogLevels"].iteritems():
+                log.publisher.levels.setLogLevelForNamespace(
+                    namespace, LogLevel.levelWithName(levelName)
+                )
 
     except InvalidLogLevelError, e:
         raise ConfigurationError("Invalid log level: %s" % (e.level))
@@ -1521,7 +1532,7 @@ def _updateScheduling(configDict, reloading=False):
 
 
 def _updateServers(configDict, reloading=False):
-    from twistedcaldav.scheduling.ischedule.localservers import Servers
+    from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
     if configDict.Servers.Enabled:
         Servers.load()
         Servers.getThisServer().installReverseProxies(
@@ -1571,6 +1582,9 @@ def _updateCompliance(configDict, reloading=False):
     compliance += customxml.calendarserver_principal_property_search_compliance
     compliance += customxml.calendarserver_principal_search_compliance
 
+    # Home Depth:1 sync report will include WebDAV property changes on home child resources
+    compliance += customxml.calendarserver_home_sync_compliance
+
     configDict.CalDAVComplianceClasses = compliance
 
 
@@ -1605,12 +1619,12 @@ def _cleanup(configDict, defaultDict):
         if config_key in os.environ and os.environ[config_key] == config_key_value:
             pass
         else:
-            log.err("Ignoring unknown configuration option: %r" % (key,))
+            log.error("Ignoring unknown configuration option: %r" % (key,))
             del cleanDict[key]
 
 
     def deprecated(oldKey, newKey):
-        log.err("Configuration option %r is deprecated in favor of %r." % (oldKey, newKey))
+        log.error("Configuration option %r is deprecated in favor of %r." % (oldKey, newKey))
         if oldKey in configDict and newKey in configDict:
             raise ConfigurationError(
                 "Both %r and %r options are specified; use the %r option only."

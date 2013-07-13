@@ -72,6 +72,10 @@ calendarserver_partstat_changes_compliance = (
     "calendarserver-partstat-changes",
 )
 
+calendarserver_home_sync_compliance = (
+    "calendarserver-home-sync",
+)
+
 
 @registerElement
 class TwistedCalendarSupportedComponents (WebDAVTextElement):
@@ -465,8 +469,6 @@ class PubSubXMPPPushKeyProperty (WebDAVTextElement):
     name = "pushkey"
     protected = True
     hidden = True
-
-
 
 
 
@@ -1460,6 +1462,9 @@ ResourceType.notification = ResourceType(Collection(), Notification())
 
 ResourceType.sharedownercalendar = ResourceType(Collection(), caldavxml.Calendar(), SharedOwner())
 ResourceType.sharedcalendar = ResourceType(Collection(), caldavxml.Calendar(), Shared())
+ResourceType.sharedowneraddressbook = ResourceType(Collection(), carddavxml.AddressBook(), SharedOwner())
 ResourceType.sharedaddressbook = ResourceType(Collection(), carddavxml.AddressBook(), Shared())
+ResourceType.sharedownergroup = ResourceType(SharedOwner())
+ResourceType.sharedgroup = ResourceType(Shared())
 
 ResourceType.link = ResourceType(Link())

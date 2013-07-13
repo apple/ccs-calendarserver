@@ -52,13 +52,13 @@ def report_DAV__principal_search_property_set(self, request, principal_search_pr
     # Only handle Depth: 0
     depth = request.headers.getHeader("depth", "0")
     if depth != "0":
-        log.err("Error in principal-search-property-set REPORT, Depth set to %s" % (depth,))
+        log.error("Error in principal-search-property-set REPORT, Depth set to %s" % (depth,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
     
     # Get details from the resource
     result = self.principalSearchPropertySet()
     if result is None:
-        log.err("Error in principal-search-property-set REPORT not supported on: %s" % (self,))
+        log.error("Error in principal-search-property-set REPORT not supported on: %s" % (self,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Not allowed on this resource"))
         
     yield Response(code=responsecode.OK, stream=MemoryStream(result.toxml()))

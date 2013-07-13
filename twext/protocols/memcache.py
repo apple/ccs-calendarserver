@@ -263,7 +263,7 @@ class MemCacheProtocol(LineReceiver, TimeoutMixin):
         """
         An non-existent command has been sent.
         """
-        log.err("Non-existent command sent.")
+        log.error("Non-existent command sent.")
         cmd = self._current.popleft()
         cmd.fail(NoSuchCommand())
 
@@ -272,7 +272,7 @@ class MemCacheProtocol(LineReceiver, TimeoutMixin):
         """
         An invalid input as been sent.
         """
-        log.err("Invalid input: %s" % (errText,))
+        log.error("Invalid input: %s" % (errText,))
         cmd = self._current.popleft()
         cmd.fail(ClientError(errText))
 
@@ -281,7 +281,7 @@ class MemCacheProtocol(LineReceiver, TimeoutMixin):
         """
         An error has happened server-side.
         """
-        log.err("Server error: %s" % (errText,))
+        log.error("Server error: %s" % (errText,))
         cmd = self._current.popleft()
         cmd.fail(ServerError(errText))
 

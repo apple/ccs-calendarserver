@@ -26,10 +26,9 @@ from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
 from twisted.internet.defer import Deferred
 
-from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor,\
+from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor, \
     CommonHome, CommonHomeChild, ECALENDARTYPE
-from txdav.common.datastore.sql_tables import schema, CALENDAR_BIND_TABLE,\
-    CALENDAR_OBJECT_REVISIONS_TABLE
+from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import CommonCommonTests, buildStore
 from txdav.common.icommondatastore import AllRetriesFailed
 from twext.enterprise.dal.syntax import Insert
@@ -61,7 +60,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         txn.execSQL works with all logging options on.
         """
-        
+
         # Patch config to turn on logging then rebuild the store
         self.patch(self._sqlStore, "logLabels", True)
         self.patch(self._sqlStore, "logStats", True)
@@ -70,7 +69,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         txn = self.transactionUnderTest()
         cs = schema.CALENDARSERVER
         version = (yield Select(
-                [cs.VALUE,],
+                [cs.VALUE, ],
                 From=cs,
                 Where=cs.NAME == 'VERSION',
             ).on(txn))
@@ -78,24 +77,25 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.assertEqual(len(version), 1)
         self.assertEqual(len(version[0]), 1)
 
+
     def test_logWaits(self):
         """
         CommonStoreTransactionMonitor logs waiting transactions.
         """
-        
+
         c = Clock()
         self.patch(CommonStoreTransactionMonitor, "callLater", c.callLater)
 
         # Patch config to turn on log waits then rebuild the store
         self.patch(self._sqlStore, "logTransactionWaits", 1)
-        
+
         ctr = [0]
         def counter(_ignore):
             ctr[0] += 1
         self.patch(log, "error", counter)
 
-        txn = self.transactionUnderTest()        
- 
+        txn = self.transactionUnderTest()
+
         c.advance(2)
         self.assertNotEqual(ctr[0], 0)
         txn.abort()
@@ -105,13 +105,13 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         CommonStoreTransactionMonitor terminates long transactions.
         """
-        
+
         c = Clock()
         self.patch(CommonStoreTransactionMonitor, "callLater", c.callLater)
 
         # Patch config to turn on transaction timeouts then rebuild the store
         self.patch(self._sqlStore, "timeoutTransactions", 1)
-        
+
         ctr = [0]
         def counter(_ignore):
             ctr[0] += 1
@@ -128,14 +128,14 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         CommonStoreTransactionMonitor logs waiting transactions and terminates long transactions.
         """
-        
+
         c = Clock()
         self.patch(CommonStoreTransactionMonitor, "callLater", c.callLater)
 
         # Patch config to turn on log waits then rebuild the store
         self.patch(self._sqlStore, "logTransactionWaits", 1)
         self.patch(self._sqlStore, "timeoutTransactions", 2)
-        
+
         ctr = [0, 0]
         def counter(logStr):
             if "wait" in logStr:
@@ -145,18 +145,19 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(log, "error", counter)
 
         txn = self.transactionUnderTest()
-        
+
         c.advance(2)
         self.assertNotEqual(ctr[0], 0)
         self.assertNotEqual(ctr[1], 0)
         self.assertTrue(txn._sqlTxn._completed)
+
 
     @inlineCallbacks
     def test_subtransactionOK(self):
         """
         txn.subtransaction runs loop once.
         """
-        
+
         txn = self.transactionUnderTest()
         ctr = [0]
 
@@ -164,11 +165,11 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             ctr[0] += 1
             cs = schema.CALENDARSERVER
             return Select(
-                [cs.VALUE,],
+                [cs.VALUE, ],
                 From=cs,
                 Where=cs.NAME == 'VERSION',
             ).on(subtxn)
-            
+
         (yield txn.subtransaction(_test, retries=0))[0][0]
         self.assertEqual(ctr[0], 1)
 
@@ -178,7 +179,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         txn.subtransaction runs loop twice when one failure.
         """
-        
+
         txn = self.transactionUnderTest()
         ctr = [0]
 
@@ -188,11 +189,11 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
                 raise ValueError
             cs = schema.CALENDARSERVER
             return Select(
-                [cs.VALUE,],
+                [cs.VALUE, ],
                 From=cs,
                 Where=cs.NAME == 'VERSION',
             ).on(subtxn)
-            
+
         (yield txn.subtransaction(_test, retries=1))[0][0]
         self.assertEqual(ctr[0], 2)
 
@@ -202,7 +203,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         txn.subtransaction runs loop once when one failure and no retries.
         """
-        
+
         txn = self.transactionUnderTest()
         ctr = [0]
 
@@ -211,11 +212,11 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             raise ValueError
             cs = schema.CALENDARSERVER
             return Select(
-                [cs.VALUE,],
+                [cs.VALUE, ],
                 From=cs,
                 Where=cs.NAME == 'VERSION',
             ).on(subtxn)
-        
+
         try:
             (yield txn.subtransaction(_test, retries=0))[0][0]
         except AllRetriesFailed:
@@ -231,7 +232,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         txn.subtransaction runs loop three times when all fail and two retries
         requested.
         """
-        
+
         txn = self.transactionUnderTest()
         ctr = [0]
 
@@ -240,11 +241,11 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             raise ValueError
             cs = schema.CALENDARSERVER
             return Select(
-                [cs.VALUE,],
+                [cs.VALUE, ],
                 From=cs,
                 Where=cs.NAME == 'VERSION',
             ).on(subtxn)
-        
+
         try:
             (yield txn.subtransaction(_test, retries=2))[0][0]
         except AllRetriesFailed:
@@ -286,26 +287,23 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         CommonHomeChild._changeRevision actions.
         """
-        
+
         class TestCommonHome(CommonHome):
-            _bindTable = CALENDAR_BIND_TABLE
-            _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-    
+            pass
+
         class TestCommonHomeChild(CommonHomeChild):
             _homeChildSchema = schema.CALENDAR
             _homeChildMetaDataSchema = schema.CALENDAR_METADATA
             _bindSchema = schema.CALENDAR_BIND
             _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
-            _bindTable = CALENDAR_BIND_TABLE
-            _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-            
+
             def resourceType(self):
                 return davxml.ResourceType.calendar
-    
+
         txn = self.transactionUnderTest()
         home = yield txn.homeWithUID(ECALENDARTYPE, "uid", create=True)
         homeChild = yield TestCommonHomeChild.create(home, "B")
-        
+
         # insert test
         token = yield homeChild.syncToken()
         yield homeChild._changeRevision("insert", "C")
@@ -427,7 +425,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
 
 
 from uuid import UUID
-exampleUID = UUID("a"*32)
+exampleUID = UUID("a" * 32)
 denormalizedUID = str(exampleUID)
 normalizedUID = denormalizedUID.upper()
-

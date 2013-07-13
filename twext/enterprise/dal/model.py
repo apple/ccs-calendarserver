@@ -102,7 +102,7 @@ class Check(Constraint):
     @ivar expression: the expression that should evaluate to True.
     @type expression: L{twext.enterprise.dal.syntax.ExpressionSyntax}
     """
-    # XXX TODO: model for expression, rather than 
+    # XXX TODO: model for expression, rather than
 
     def __init__(self, syntaxExpression, name=None):
         self.expression = syntaxExpression
@@ -160,10 +160,13 @@ class Column(FancyEqMixin, object):
         this will be a reference to that table; otherwise (normally) C{None}.
     @type references: L{Table} or C{NoneType}
 
-    @ivar cascade: If this column references another table, will this column's
-        row be deleted when the matching row in that other table is deleted?
-        (In other words, the SQL feature 'on delete cascade'.)
-    @type cascade: C{bool}
+    @ivar deleteAction: If this column references another table, home will this column's
+        row be altered when the matching row in that other table is deleted? Possible values are
+        None - for 'on delete no action'
+        'cascade' - for 'on delete cascade'
+        'set null' - for 'on delete set null'
+        'set default' - for 'on delete set default'
+    @type deleteAction: C{bool}
     """
 
     compareAttributes = 'table name'.split()
@@ -175,11 +178,29 @@ class Column(FancyEqMixin, object):
         self.type = type
         self.default = NO_DEFAULT
         self.references = None
-        self.cascade = False
+        self.deleteAction = None
 
 
     def __repr__(self):
         return '<Column (%s %r)>' % (self.name, self.type)
+
+
+    def compare(self, other):
+        """
+        Return the differences between two columns.
+
+        @param other: the column to compare with
+        @type other: L{Column}
+        """
+
+        results = []
+
+        # TODO: sql_dump does not do types write now - so ignore this
+#        if self.type != other.type:
+#            results.append("Table: %s, mismatched column type: %s" % (self.table.name, self.name))
+
+        # TODO: figure out how to compare default, references and deleteAction
+        return results
 
 
     def canBeNull(self):
@@ -261,6 +282,28 @@ class Table(FancyEqMixin, object):
 
     def __repr__(self):
         return '<Table %r:%r>' % (self.name, self.columns)
+
+
+    def compare(self, other):
+        """
+        Return the differences between two tables.
+
+        @param other: the table to compare with
+        @type other: L{Table}
+        """
+
+        results = []
+
+        myColumns = dict([(item.name.lower(), item) for item in self.columns])
+        otherColumns = dict([(item.name.lower(), item) for item in other.columns])
+        for item in set(myColumns.keys()) ^ set(otherColumns.keys()):
+            results.append("Table: %s, missing column: %s" % (self.name, item,))
+
+        for name in set(myColumns.keys()) & set(otherColumns.keys()):
+            results.extend(myColumns[name].compare(otherColumns[name]))
+
+        # TODO: figure out how to compare schemaRows
+        return results
 
 
     def columnNamed(self, name):
@@ -366,15 +409,42 @@ class Index(object):
     An L{Index} is an SQL index.
     """
 
-    def __init__(self, schema, name, table):
+    def __init__(self, schema, name, table, unique=False):
         self.name = name
         self.table = table
+        self.unique = unique
         self.columns = []
         schema.indexes.append(self)
 
 
     def addColumn(self, column):
         self.columns.append(column)
+
+
+
+class PseudoIndex(object):
+    """
+    A class used to represent explicit and implicit indexes. An implicit index is one the
+    DB creates for primary key and unique columns in a table. An explicit index is one
+    created by a CREATE [UNIQUE] INDEX statement. Because the name of an implicit index
+    is implementation defined, instead we create a name based on the table name, uniqueness
+    and column names.
+    """
+
+    def __init__(self, table, columns, unique=False):
+        self.name = "%s%s:(%s)" % (table.name, "-unique" if unique else "", ",".join([col.name for col in columns]))
+
+
+    def compare(self, other):
+        """
+        Return the differences between two indexes.
+
+        @param other: the index to compare with
+        @type other: L{Index}
+        """
+
+        # Nothing to do as name comparison will catch differences
+        return []
 
 
 
@@ -394,6 +464,18 @@ class Sequence(FancyEqMixin, object):
 
     def __repr__(self):
         return '<Sequence %r>' % (self.name,)
+
+
+    def compare(self, other):
+        """
+        Return the differences between two sequences.
+
+        @param other: the sequence to compare with
+        @type other: L{Sequence}
+        """
+
+        # TODO: figure out whether to compare referringColumns attribute
+        return []
 
 
 
@@ -425,6 +507,56 @@ class Schema(object):
         return '<Schema %r>' % (self.filename,)
 
 
+    def compare(self, other):
+        """
+        Return the differences between two schemas.
+
+        @param other: the schema to compare with
+        @type other: L{Schema}
+        """
+
+        results = []
+
+        def _compareLists(list1, list2, descriptor):
+            myItems = dict([(item.name.lower()[:63], item) for item in list1])
+            otherItems = dict([(item.name.lower()[:63], item) for item in list2])
+            for item in set(myItems.keys()) - set(otherItems.keys()):
+                results.append("Schema: %s, missing %s: %s" % (other.filename, descriptor, item,))
+            for item in set(otherItems.keys()) - set(myItems.keys()):
+                results.append("Schema: %s, missing %s: %s" % (self.filename, descriptor, item,))
+
+            for name in set(myItems.keys()) & set(otherItems.keys()):
+                results.extend(myItems[name].compare(otherItems[name]))
+
+        _compareLists(self.tables, other.tables, "table")
+        _compareLists(self.pseudoIndexes(), other.pseudoIndexes(), "index")
+        _compareLists(self.sequences, other.sequences, "sequence")
+
+        return results
+
+
+    def pseudoIndexes(self):
+        """
+        Return a set of indexes that include "implicit" indexes from table/column constraints. The name of the
+        index is formed from the table name and then list of columns.
+        """
+        results = []
+
+        # First add the list of explicit indexes we have
+        for index in self.indexes:
+            results.append(PseudoIndex(index.table, index.columns, index.unique))
+
+        # Now do implicit index for each table
+        for table in self.tables:
+            if table.primaryKey is not None:
+                results.append(PseudoIndex(table, table.primaryKey, True))
+            for constraint in table.constraints:
+                if constraint.type == Constraint.UNIQUE:
+                    results.append(PseudoIndex(table, constraint.affectsColumns, True))
+
+        return results
+
+
     def tableNamed(self, name):
         return _namedFrom(name, self.tables)
 
@@ -435,5 +567,3 @@ class Schema(object):
 
     def indexNamed(self, name):
         return _namedFrom(name, self.indexes)
-
-

@@ -26,29 +26,44 @@ from twistedcaldav.test.util import TestCase
 
 
 class StubProperty(object):
+
     def qname(self):
         return "StubQnamespace", "StubQname"
 
+
+
 class StubHome(object):
+
     def properties(self):
         return []
 
+
     def calendarWithName(self, name):
         return succeed(None)
-    
-    def addNotifier(self, notifier):
+
+
+    def addNotifier(self, factory_name, notifier):
         pass
 
+
+
 class StubCalendarHomeResource(CalendarHomeResource):
+
     def principalForRecord(self):
         return None
 
+
+
 class StubShare(object):
+
     def __init__(self, link):
         self.hosturl = link
 
+
     def url(self):
         return self.hosturl
+
+
 
 class LinkResourceTests(TestCase):
 
@@ -60,8 +75,9 @@ class LinkResourceTests(TestCase):
         resource.putChild("link", link)
 
         request = SimpleRequest(self.site, "GET", "/home/link/")
-        linked_to, _ignore = (yield resource.locateChild(request, ["link",]))
+        linked_to, _ignore = (yield resource.locateChild(request, ["link", ]))
         self.assertTrue(linked_to is resource.getChild("outbox"))
+
 
     @inlineCallbacks
     def test_badLink(self):
@@ -72,11 +88,12 @@ class LinkResourceTests(TestCase):
 
         request = SimpleRequest(self.site, "GET", "/home/link/")
         try:
-            yield resource.locateChild(request, ["link",])
+            yield resource.locateChild(request, ["link", ])
         except HTTPError, e:
             self.assertEqual(e.response.code, responsecode.NOT_FOUND)
         else:
             self.fail("HTTPError exception not raised")
+
 
     @inlineCallbacks
     def test_recursiveLink(self):
@@ -89,7 +106,7 @@ class LinkResourceTests(TestCase):
 
         request = SimpleRequest(self.site, "GET", "/home/link1/")
         try:
-            yield resource.locateChild(request, ["link1",])
+            yield resource.locateChild(request, ["link1", ])
         except HTTPError, e:
             self.assertEqual(e.response.code, responsecode.LOOP_DETECTED)
         else:

@@ -93,13 +93,16 @@ def formatDate(d):
     return ''.join(filter(str.isalnum, d.isoformat()))
 
 
+
 def makeOrganizer(sequence):
     return organizer % {'SEQUENCE': sequence}
+
 
 
 def makeAttendees(count):
     return [
         attendee % {'SEQUENCE': n} for n in range(2, count + 2)]
+
 
 
 def makeVCalendar(uid, start, end, recurrence, organizerSequence, attendees):
@@ -121,17 +124,19 @@ def makeVCalendar(uid, start, end, recurrence, organizerSequence, attendees):
     return cal.replace("\n", "\r\n")
 
 
+
 def makeEvent(i, organizerSequence, attendeeCount):
     base = datetime(2010, 7, 30, 11, 15, 00)
     interval = timedelta(0, 5)
     duration = timedelta(0, 3)
     return makeVCalendar(
-        uuid4(), 
+        uuid4(),
         base + i * interval,
         base + i * interval + duration,
         None,
         organizerSequence,
         makeAttendees(attendeeCount))
+
 
 
 @inlineCallbacks
@@ -161,7 +166,7 @@ def measure(calendar, organizerSequence, events, host, port, dtrace, samples):
 
     # Sample it a bunch of times
     samples = yield sample(
-        dtrace, samples, 
+        dtrace, samples,
         agent, ((method, uri % (i,), headers, StringProducer(body))
                 for (i, body)
                 in events).next,

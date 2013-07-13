@@ -26,16 +26,19 @@ import sys
 import time
 
 from twisted.python.text import wordWrap
-from twisted.python import log
 from twisted.python.usage import Options, UsageError
 
+from twext.python.log import Logger, LogLevel, formatEvent, addObserver
+
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
-from calendarserver.tools.cmdline import utilityMain
 from twisted.application.service import Service
 
-
-from twext.python.log import setLogLevelForNamespace
+from calendarserver.tools.cmdline import utilityMain
 from calendarserver.tap.caldav import CalDAVServiceMaker
+
+log = Logger()
+
+
 
 def usage(e=None):
     if e:
@@ -180,8 +183,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     try:
         output = options.openOutput()
     except IOError, e:
-        stderr.write("Unable to open output file for writing: %s\n" %
-                     (e))
+        stderr.write("Unable to open output file for writing: %s\n" % (e))
         sys.exit(1)
 
     if options.merge:
@@ -189,29 +191,25 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             data.MergeUpgrades = True
         config.addPostUpdateHooks([setMerge])
 
-
     def makeService(store):
         return UpgraderService(store, options, output, reactor, config)
 
-
-    def onlyUpgradeEvents(event):
-        output.write(logDateString() + ' ' + log.textFromEventDict(event) + "\n")
+    def onlyUpgradeEvents(eventDict):
+        text = formatEvent(eventDict)
+        output.write(logDateString() + " " + text + "\n")
         output.flush()
 
     if not options["status"]:
-        setLogLevelForNamespace(None, "debug")
-        log.addObserver(onlyUpgradeEvents)
-
+        log.publisher.levels.setLogLevelForNamespace(None, LogLevel.debug)
+        addObserver(onlyUpgradeEvents)
 
     def customServiceMaker():
         customService = CalDAVServiceMaker()
         customService.doPostImport = options["postprocess"]
         return customService
 
-
     def _patchConfig(config):
         config.FailIfUpgradeNeeded = options["status"]
-
 
     def _onShutdown():
         if not UpgraderService.started:

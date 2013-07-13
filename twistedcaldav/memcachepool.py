@@ -22,7 +22,7 @@ from twisted.internet.protocol import ReconnectingClientFactory
 from twext.internet.gaiendpoint import GAIEndpoint
 from twext.internet.adaptendpoint import connect
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from twext.protocols.memcache import MemCacheProtocol, NoSuchCommand
 
 class PooledMemCacheProtocol(MemCacheProtocol):
@@ -46,7 +46,7 @@ class PooledMemCacheProtocol(MemCacheProtocol):
 
 
 
-class MemCacheClientFactory(ReconnectingClientFactory, LoggingMixIn):
+class MemCacheClientFactory(ReconnectingClientFactory):
     """
     A client factory for MemCache that reconnects and notifies a pool of it's
     state.
@@ -56,6 +56,8 @@ class MemCacheClientFactory(ReconnectingClientFactory, LoggingMixIn):
     @ivar _protocolInstance: The current instance of our protocol that we pass
         to our connectionPool.
     """
+    log = Logger()
+
     protocol = PooledMemCacheProtocol
     connectionPool = None
     _protocolInstance = None
@@ -74,7 +76,7 @@ class MemCacheClientFactory(ReconnectingClientFactory, LoggingMixIn):
             # The reactor is stopping; don't reconnect
             return
 
-        self.log_error("MemCache connection lost: %s" % (reason,))
+        self.log.error("MemCache connection lost: %s" % (reason,))
         if self._protocolInstance is not None:
             self.connectionPool.clientBusy(self._protocolInstance)
 
@@ -88,7 +90,7 @@ class MemCacheClientFactory(ReconnectingClientFactory, LoggingMixIn):
         """
         Notify the connectionPool that we're unable to connect
         """
-        self.log_error("MemCache connection failed: %s" % (reason,))
+        self.log.error("MemCache connection failed: %s" % (reason,))
         if self._protocolInstance is not None:
             self.connectionPool.clientBusy(self._protocolInstance)
 
@@ -111,7 +113,7 @@ class MemCacheClientFactory(ReconnectingClientFactory, LoggingMixIn):
 
 
 
-class MemCachePool(LoggingMixIn):
+class MemCachePool(object):
     """
     A connection pool for MemCacheProtocol instances.
 
@@ -133,6 +135,8 @@ class MemCachePool(LoggingMixIn):
     @ivar _pendingConnects: A C{int} indicating how many connections are in
         progress.
     """
+    log = Logger()
+
     clientFactory = MemCacheClientFactory
 
     REQUEST_LOGGING_SIZE = 1024
@@ -183,7 +187,7 @@ class MemCachePool(LoggingMixIn):
 
         @return: A L{Deferred} that fires with the L{IProtocol} instance.
         """
-        self.log_debug("Initating new client connection to: %r" % (
+        self.log.debug("Initating new client connection to: %r" % (
                 self._endpoint,))
         self._logClientStats()
 
@@ -231,7 +235,7 @@ class MemCachePool(LoggingMixIn):
             Upon memcache error, log the failed request along with the error
             message and free the client.
             """
-            self.log_error("Memcache error: %s; request: %s %s" %
+            self.log.error("Memcache error: %s; request: %s %s" %
                 (failure.value, command,
                 " ".join(args)[:self.REQUEST_LOGGING_SIZE],))
             self.clientFree(client)
@@ -271,7 +275,7 @@ class MemCachePool(LoggingMixIn):
         elif len(self._busyClients) + self._pendingConnects >= self._maxClients:
             d = Deferred()
             self._commands.append((d, command, args, kwargs))
-            self.log_debug("Command queued: %s, %r, %r" % (
+            self.log.debug("Command queued: %s, %r, %r" % (
                     command, args, kwargs))
             self._logClientStats()
 
@@ -284,7 +288,7 @@ class MemCachePool(LoggingMixIn):
 
 
     def _logClientStats(self):
-        self.log_debug("Clients #free: %d, #busy: %d, "
+        self.log.debug("Clients #free: %d, #busy: %d, "
                        "#pending: %d, #queued: %d" % (
                 len(self._freeClients),
                 len(self._busyClients),
@@ -304,7 +308,7 @@ class MemCachePool(LoggingMixIn):
         elif client in self._freeClients:
             self._freeClients.remove(client)
 
-        self.log_debug("Removed client: %r" % (client,))
+        self.log.debug("Removed client: %r" % (client,))
         self._logClientStats()
 
 
@@ -320,7 +324,7 @@ class MemCachePool(LoggingMixIn):
 
         self._busyClients.add(client)
 
-        self.log_debug("Busied client: %r" % (client,))
+        self.log.debug("Busied client: %r" % (client,))
         self._logClientStats()
 
 
@@ -341,7 +345,7 @@ class MemCachePool(LoggingMixIn):
         if len(self._commands) > 0:
             d, command, args, kwargs = self._commands.pop(0)
 
-            self.log_debug("Performing Queued Command: %s, %r, %r" % (
+            self.log.debug("Performing Queued Command: %s, %r, %r" % (
                     command, args, kwargs))
             self._logClientStats()
 
@@ -350,7 +354,7 @@ class MemCachePool(LoggingMixIn):
 
             _ign_d.addCallback(d.callback)
 
-        self.log_debug("Freed client: %r" % (client,))
+        self.log.debug("Freed client: %r" % (client,))
         self._logClientStats()
 
 

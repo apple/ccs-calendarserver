@@ -26,9 +26,9 @@ class SQL (twistedcaldav.test.util.TestCase):
     """
     Test abstract SQL DB class
     """
-    
+
     class TestDB(AbstractSQLDatabase):
-        
+
         def __init__(self, path, persistent=False, autocommit=False, version="1"):
             self.version = version
             super(SQL.TestDB, self).__init__(path, persistent, autocommit=autocommit)
@@ -38,19 +38,19 @@ class SQL (twistedcaldav.test.util.TestCase):
             @return: the schema version assigned to this index.
             """
             return self.version
-            
+
         def _db_type(self):
             """
             @return: the collection type assigned to this index.
             """
             return "TESTTYPE"
-            
+
         def _db_init_data_tables(self, q):
             """
             Initialise the underlying database tables.
             @param q:           a database cursor to use.
             """
-    
+
             #
             # TESTTYPE table
             #
@@ -63,8 +63,9 @@ class SQL (twistedcaldav.test.util.TestCase):
                 """
             )
 
+
     class TestDBRecreateUpgrade(TestDB):
-        
+
         class RecreateDBException(Exception):
             pass
         class UpgradeDBException(Exception):
@@ -76,8 +77,9 @@ class SQL (twistedcaldav.test.util.TestCase):
         def _db_recreate(self, do_commit=True):
             raise self.RecreateDBException()
 
+
     class TestDBCreateIndexOnUpgrade(TestDB):
-        
+
         def __init__(self, path, persistent=False, autocommit=False):
             super(SQL.TestDBCreateIndexOnUpgrade, self).__init__(path, persistent, autocommit=autocommit, version="2")
 
@@ -88,12 +90,14 @@ class SQL (twistedcaldav.test.util.TestCase):
                 """
             )
 
+
     class TestDBPauseInInit(TestDB):
-        
+
         def _db_init(self, db_filename, q):
-            
+
             time.sleep(1)
             super(SQL.TestDBPauseInInit, self)._db_init(db_filename, q)
+
 
     def test_connect(self):
         """
@@ -104,6 +108,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertTrue(db._db() is not None)
         self.assertTrue(db._db_connection is not None)
 
+
     def test_connect_autocommit(self):
         """
         Connect to database and create table
@@ -112,6 +117,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertFalse(hasattr(db, "_db_connection"))
         self.assertTrue(db._db() is not None)
         self.assertTrue(db._db_connection is not None)
+
 
     def test_readwrite(self):
         """
@@ -124,6 +130,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         items = [i for i in q.fetchall()]
         self.assertEqual(items, [("FOO", "BAR")])
 
+
     def test_readwrite_autocommit(self):
         """
         Add a record, search for it
@@ -134,6 +141,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         items = [i for i in q.fetchall()]
         self.assertEqual(items, [("FOO", "BAR")])
 
+
     def test_readwrite_cursor(self):
         """
         Add a record, search for it
@@ -143,6 +151,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         items = db._db_execute("SELECT * from TESTTYPE")
         self.assertEqual(items, [("FOO", "BAR")])
 
+
     def test_readwrite_cursor_autocommit(self):
         """
         Add a record, search for it
@@ -151,6 +160,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         db._db_execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", "FOO", "BAR")
         items = db._db_execute("SELECT * from TESTTYPE")
         self.assertEqual(items, [("FOO", "BAR")])
+
 
     def test_readwrite_rollback(self):
         """
@@ -162,6 +172,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         items = db._db_execute("SELECT * from TESTTYPE")
         self.assertEqual(items, [])
 
+
     def test_close(self):
         """
         Close database
@@ -172,12 +183,13 @@ class SQL (twistedcaldav.test.util.TestCase):
         db._db_close()
         self.assertFalse(hasattr(db, "_db_connection"))
         db._db_close()
-        
+
+
     def test_duplicate_create(self):
         dbname = self.mktemp()
-        
+
         class DBThread(Thread):
-            
+
             def run(self):
                 try:
                     db = SQL.TestDBPauseInInit(dbname)
@@ -195,6 +207,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertTrue(t1.result)
         self.assertTrue(t2.result)
 
+
     def test_version_upgrade_nonpersistent(self):
         """
         Connect to database and create table
@@ -211,6 +224,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertRaises(SQL.TestDBRecreateUpgrade.RecreateDBException, db._db)
         items = db._db_execute("SELECT * from TESTTYPE")
         self.assertEqual(items, [])
+
 
     def test_version_upgrade_persistent(self):
         """
@@ -235,6 +249,7 @@ class SQL (twistedcaldav.test.util.TestCase):
         self.assertTrue(db._db() is not None)
         items = db._db_execute("SELECT * from TESTTYPE")
         self.assertEqual(items, [("FOO", "BAR")])
+
 
     def test_version_upgrade_persistent_add_index(self):
         """

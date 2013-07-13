@@ -47,6 +47,8 @@ try_python () {
 # Detect which version of Python to use, then print out which one was detected.
 
 detect_python_version () {
+  local v;
+  local p;
   for v in "2.7" "2.6" ""
   do
     for p in                                                            \
@@ -86,10 +88,14 @@ py_have_module () {
 
   local module="$1"; shift;
 
-  "${python}" -c "import ${module}" > /dev/null 2>&1;
-  result=$?;
+  if ! "${python}" -c "import ${module}" > /dev/null 2>&1; then
+    return 1;
+  fi;
 
-  if [ $result == 0 ] && [ -n "${version}" ]; then
+  local result=0;
+
+  if [ -n "${version}" ]; then
+    local symbol;
     for symbol in "xxxx" "__version__" "version"; do
       if module_version="$(
         "${python}" -c \

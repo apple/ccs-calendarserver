@@ -30,12 +30,12 @@ import time
 
 import base64
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from twext.python.memcacheclient import ClientFactory, MemcacheError
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError, UnknownRecordTypeError
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.directory.util import normalizeUUID
 
 
@@ -43,30 +43,36 @@ class RecordTypeCache(object):
     """
     Abstract class for a record type cache. We will likely have dict and memcache implementations of this.
     """
-    
+
     def __init__(self, directoryService, recordType):
-        
+
         self.directoryService = directoryService
         self.recordType = recordType
+
 
     def addRecord(self, record, indexType, indexKey, useMemcache=True,
         neverExpire=False):
         raise NotImplementedError()
-    
+
+
     def removeRecord(self, record):
         raise NotImplementedError()
-        
+
+
     def findRecord(self, indexType, indexKey):
         raise NotImplementedError()
-        
-class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
+
+
+
+class DictRecordTypeCache(RecordTypeCache):
     """
     Cache implementation using a dict, and uses memcached to share records
     with other instances.
     """
-    
+    log = Logger()
+
     def __init__(self, directoryService, recordType):
-        
+
         super(DictRecordTypeCache, self).__init__(directoryService, recordType)
         self.records = set()
         self.recordsIndexedBy = {
@@ -77,6 +83,7 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
         }
         self.directoryService = directoryService
         self.lastPurgedTime = time.time()
+
 
     def addRecord(self, record, indexType, indexKey, useMemcache=True,
         neverExpire=False):
@@ -98,18 +105,18 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
             if useMemcache:
                 key = self.directoryService.generateMemcacheKey(indexType, indexKey,
                     record.recordType)
-                self.log_debug("Memcache: storing %s" % (key,))
+                self.log.debug("Memcache: storing %s" % (key,))
                 try:
                     self.directoryService.memcacheSet(key, record)
                 except DirectoryMemcacheError:
-                    self.log_error("Memcache: failed to store %s" % (key,))
+                    self.log.error("Memcache: failed to store %s" % (key,))
                     pass
 
 
     def removeRecord(self, record):
         if record in self.records:
             self.records.remove(record)
-            self.log_debug("Removed record %s" % (record.guid,))
+            self.log.debug("Removed record %s" % (record.guid,))
             for indexType in self.directoryService.indexTypes():
                 try:
                     indexData = getattr(record, CachingDirectoryService.indexTypeToRecordAttribute[indexType])
@@ -122,7 +129,8 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
                         del self.recordsIndexedBy[indexType][item]
                     except KeyError:
                         pass
-        
+
+
     def findRecord(self, indexType, indexKey):
         self.purgeExpiredRecords()
         return self.recordsIndexedBy[indexType].get(indexKey)
@@ -139,18 +147,20 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
                     self.removeRecord(record)
             self.lastPurgedTime = time.time()
 
-            
+
+
 class CachingDirectoryService(DirectoryService):
     """
     Caching Directory implementation of L{IDirectoryService}.
-    
+
     This is class must be overridden to provide a concrete implementation.
     """
+    log = Logger()
 
-    INDEX_TYPE_GUID      = "guid"
+    INDEX_TYPE_GUID = "guid"
     INDEX_TYPE_SHORTNAME = "shortname"
-    INDEX_TYPE_CUA       = "cua"
-    INDEX_TYPE_AUTHID    = "authid"
+    INDEX_TYPE_CUA = "cua"
+    INDEX_TYPE_AUTHID = "authid"
 
     indexTypeToRecordAttribute = {
         "guid"     : "guid",
@@ -168,7 +178,7 @@ class CachingDirectoryService(DirectoryService):
         """
         @param cacheTimeout: C{int} number of minutes before cache is invalidated.
         """
-        
+
         self.cacheTimeout = cacheTimeout * 60
         self.negativeCaching = negativeCaching
 
@@ -177,12 +187,14 @@ class CachingDirectoryService(DirectoryService):
 
         super(CachingDirectoryService, self).__init__()
 
+
     def _getMemcacheClient(self, refresh=False):
         if refresh or not hasattr(self, "memcacheClient"):
             self.memcacheClient = ClientFactory.getClient(['%s:%s' %
                 (config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port)],
                 debug=0, pickleProtocol=2)
         return self.memcacheClient
+
 
     def memcacheSet(self, key, record):
 
@@ -194,17 +206,18 @@ class CachingDirectoryService(DirectoryService):
 
             key = base64.b64encode(key)
             if not self._getMemcacheClient().set(key, record, time=self.cacheTimeout):
-                self.log_error("Could not write to memcache, retrying")
+                self.log.error("Could not write to memcache, retrying")
                 if not self._getMemcacheClient(refresh=True).set(
                     key, record,
                     time=self.cacheTimeout
                 ):
-                    self.log_error("Could not write to memcache again, giving up")
+                    self.log.error("Could not write to memcache again, giving up")
                     del self.memcacheClient
                     raise DirectoryMemcacheError("Failed to write to memcache")
         finally:
             if hideService:
                 record.service = self
+
 
     def memcacheGet(self, key):
 
@@ -214,16 +227,17 @@ class CachingDirectoryService(DirectoryService):
             if record is not None and isinstance(record, DirectoryRecord):
                 record.service = self
         except MemcacheError:
-            self.log_error("Could not read from memcache, retrying")
+            self.log.error("Could not read from memcache, retrying")
             try:
                 record = self._getMemcacheClient(refresh=True).get(key)
                 if record is not None and isinstance(record, DirectoryRecord):
                     record.service = self
             except MemcacheError:
-                self.log_error("Could not read from memcache again, giving up")
+                self.log.error("Could not read from memcache again, giving up")
                 del self.memcacheClient
                 raise DirectoryMemcacheError("Failed to read from memcache")
         return record
+
 
     def generateMemcacheKey(self, indexType, indexKey, recordType):
         """
@@ -242,22 +256,24 @@ class CachingDirectoryService(DirectoryService):
         """
         keyVersion = 2
         if indexType == CachingDirectoryService.INDEX_TYPE_SHORTNAME:
-            return "dir|v%d|%s|%s|%s|%s" % (keyVersion,self.baseGUID, recordType,
+            return "dir|v%d|%s|%s|%s|%s" % (keyVersion, self.baseGUID, recordType,
                 indexType, indexKey)
         else:
             return "dir|v%d|%s|%s|%s" % (keyVersion, self.baseGUID, indexType,
                 indexKey)
+
 
     def _initCaches(self):
         self._recordCaches = dict([
             (recordType, self.cacheClass(self, recordType))
             for recordType in self.recordTypes()
         ])
-            
+
         self._disabledKeys = dict([(indexType, dict()) for indexType in self.indexTypes()])
 
+
     def indexTypes(self):
-        
+
         return (
             CachingDirectoryService.INDEX_TYPE_GUID,
             CachingDirectoryService.INDEX_TYPE_SHORTNAME,
@@ -265,31 +281,35 @@ class CachingDirectoryService(DirectoryService):
             CachingDirectoryService.INDEX_TYPE_AUTHID,
         )
 
+
     def recordCacheForType(self, recordType):
         try:
             return self._recordCaches[recordType]
         except KeyError:
             raise UnknownRecordTypeError(recordType)
 
+
     def listRecords(self, recordType):
         return self.recordCacheForType(recordType).records
+
 
     def recordWithShortName(self, recordType, shortName):
         return self._lookupRecord((recordType,), CachingDirectoryService.INDEX_TYPE_SHORTNAME, shortName)
 
+
     def recordWithCalendarUserAddress(self, address):
         address = normalizeCUAddr(address)
         record = None
-        if address.startswith("urn:uuid:"):
-            guid = address[9:]
-            record = self.recordWithGUID(guid)
-        elif address.startswith("mailto:"):
+        if address.startswith("mailto:"):
             record = self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_CUA, address)
+            return record if record and record.enabledForCalendaring else None
+        else:
+            return DirectoryService.recordWithCalendarUserAddress(self, address)
 
-        return record if record and record.enabledForCalendaring else None
 
     def recordWithAuthID(self, authID):
         return self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_AUTHID, authID)
+
 
     def recordWithGUID(self, guid):
         guid = normalizeUUID(guid)
@@ -343,18 +363,18 @@ class CachingDirectoryService(DirectoryService):
             # one recordType, so using recordTypes[0] here is always safe:
             key = self.generateMemcacheKey(indexType, indexKey, recordTypes[0])
 
-            self.log_debug("Memcache: checking %s" % (key,))
+            self.log.debug("Memcache: checking %s" % (key,))
 
             try:
                 record = self.memcacheGet(key)
             except DirectoryMemcacheError:
-                self.log_error("Memcache: failed to get %s" % (key,))
+                self.log.error("Memcache: failed to get %s" % (key,))
                 record = None
 
             if record is None:
-                self.log_debug("Memcache: miss %s" % (key,))
+                self.log.debug("Memcache: miss %s" % (key,))
             else:
-                self.log_debug("Memcache: hit %s" % (key,))
+                self.log.debug("Memcache: hit %s" % (key,))
                 self.recordCacheForType(record.recordType).addRecord(record, indexType, indexKey, useMemcache=False)
                 return record
 
@@ -364,42 +384,44 @@ class CachingDirectoryService(DirectoryService):
                 try:
                     val = self.memcacheGet("-%s" % (key,))
                 except DirectoryMemcacheError:
-                    self.log_error("Memcache: failed to get -%s" % (key,))
+                    self.log.error("Memcache: failed to get -%s" % (key,))
                     val = None
                 if val == 1:
-                    self.log_debug("Memcache: negative %s" % (key,))
+                    self.log.debug("Memcache: negative %s" % (key,))
                     self._disabledKeys[indexType][indexKey] = time.time()
                     return None
 
         # Try query
-        self.log_debug("Faulting record for attribute '%s' with value '%s'" % (indexType, indexKey,))
+        self.log.debug("Faulting record for attribute '%s' with value '%s'" % (indexType, indexKey,))
         self.queryDirectory(recordTypes, indexType, indexKey)
-        
+
         # Now try again from cache
         record = lookup()
         if record:
-            self.log_debug("Found record for attribute '%s' with value '%s'" % (indexType, indexKey,))
+            self.log.debug("Found record for attribute '%s' with value '%s'" % (indexType, indexKey,))
             return record
 
         if self.negativeCaching:
 
             # Add to negative cache with timestamp
-            self.log_debug("Failed to fault record for attribute '%s' with value '%s'" % (indexType, indexKey,))
+            self.log.debug("Failed to fault record for attribute '%s' with value '%s'" % (indexType, indexKey,))
             self._disabledKeys[indexType][indexKey] = time.time()
 
             if config.Memcached.Pools.Default.ClientEnabled:
-                self.log_debug("Memcache: storing (negative) %s" % (key,))
+                self.log.debug("Memcache: storing (negative) %s" % (key,))
                 try:
                     self.memcacheSet("-%s" % (key,), 1)
                 except DirectoryMemcacheError:
-                    self.log_error("Memcache: failed to set -%s" % (key,))
+                    self.log.error("Memcache: failed to set -%s" % (key,))
                     pass
-
 
         return None
 
+
     def queryDirectory(self, recordTypes, indexType, indexKey):
         raise NotImplementedError()
+
+
 
 class CachingDirectoryRecord(DirectoryRecord):
 
@@ -413,20 +435,22 @@ class CachingDirectoryRecord(DirectoryRecord):
             service,
             recordType,
             guid,
-            shortNames            = shortNames,
-            authIDs               = authIDs,
-            fullName              = fullName,
-            firstName             = firstName,
-            lastName              = lastName,
-            emailAddresses        = emailAddresses,
-            uid                   = uid,
+            shortNames=shortNames,
+            authIDs=authIDs,
+            fullName=fullName,
+            firstName=firstName,
+            lastName=lastName,
+            emailAddresses=emailAddresses,
+            uid=uid,
             **kwargs
         )
-        
+
         self.cachedTime = time.time()
+
 
     def neverExpire(self):
         self.cachedTime = 0
+
 
     def isExpired(self):
         """
@@ -442,8 +466,8 @@ class CachingDirectoryRecord(DirectoryRecord):
             return False
 
 
+
 class DirectoryMemcacheError(DirectoryError):
     """
     Error communicating with memcached.
     """
-

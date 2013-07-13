@@ -55,6 +55,7 @@ class _DirectoryRecord(object):
         self.email = email
 
 
+
 def generateRecords(count, uidPattern="user%d", passwordPattern="user%d",
     namePattern="User %d", emailPattern="user%d@example.com"):
     for i in xrange(count):
@@ -64,6 +65,7 @@ def generateRecords(count, uidPattern="user%d", passwordPattern="user%d",
         name = namePattern % (i,)
         email = emailPattern % (i,)
         yield _DirectoryRecord(uid, password, name, email)
+
 
 
 def recordsFromCSVFile(path):
@@ -99,8 +101,10 @@ class LagTrackingReactor(object):
     def __init__(self, reactor):
         self._reactor = reactor
 
+
     def __getattr__(self, name):
         return getattr(self._reactor, name)
+
 
     def callLater(self, delay, function, *args, **kwargs):
         expected = self._reactor.seconds() + delay
@@ -108,6 +112,7 @@ class LagTrackingReactor(object):
             now = self._reactor.seconds()
             context.call({'lag': now - expected}, function, *args, **kwargs)
         return self._reactor.callLater(delay, modifyContext)
+
 
 
 class SimOptions(Options):
@@ -172,7 +177,7 @@ class SimOptions(Options):
             try:
                 self.config = readPlist(configFile)
             except ExpatError, e:
-                raise UsageError("--config %s: %s" % (self['config'].path, e)) 
+                raise UsageError("--config %s: %s" % (self['config'].path, e))
         finally:
             configFile.close()
 
@@ -254,7 +259,6 @@ class LoadSimulator(object):
             if 'principalPathTemplate' in config:
                 principalPathTemplate = config['principalPathTemplate']
 
-
             if 'clientDataSerialization' in config:
                 if config['clientDataSerialization']['Enabled']:
                     serializationPath = config['clientDataSerialization']['Path']
@@ -268,7 +272,7 @@ class LoadSimulator(object):
 
             if 'arrival' in config:
                 arrival = Arrival(
-                    namedAny(config['arrival']['factory']), 
+                    namedAny(config['arrival']['factory']),
                     config['arrival']['params'])
             else:
                 arrival = Arrival(
@@ -422,6 +426,7 @@ class LoadSimulator(object):
             return self.ms.stopService()
 
 
+
 def attachService(reactor, loadsim, service):
     """
     Attach a given L{IService} provider to the given L{IReactorCore}; cause it
@@ -522,6 +527,7 @@ class ReporterService(SimService):
             output.write('\n')
         else:
             output.write('\n*** PASS\n')
+
 
 
 class ProcessProtocolBridge(ProcessProtocol):

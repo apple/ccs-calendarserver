@@ -34,7 +34,7 @@ class HTTPAuthTests(TestCase):
         )
 
         for hdrvalue in headers:
-            
+
             hdlr = AuthHandlerAgent(None, None)
             ch = hdlr._parse(hdrvalue)
             self.assertTrue(ch is not None)

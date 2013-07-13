@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.caldav.datastore.test.util import buildDirectory
 
 """
 File calendar store tests.
@@ -33,7 +34,6 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError
 from txdav.common.icommondatastore import ObjectResourceNameNotAllowedError
 from txdav.common.icommondatastore import ObjectResourceUIDAlreadyExistsError
 from txdav.common.icommondatastore import NoSuchHomeChildError
-from txdav.common.icommondatastore import NoSuchObjectResourceError
 
 from txdav.caldav.datastore.file import CalendarStore, CalendarHome
 from txdav.caldav.datastore.file import Calendar, CalendarObject
@@ -78,8 +78,12 @@ def setUpCalendarStore(test):
                             resource.setContent(resource.getContent() % {"now": nowYear})
 
     testID = test.id()
-    test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory,
-                                       quota=deriveQuota(test))
+    test.calendarStore = CalendarStore(
+        storeRootPath,
+        {"push": test.notifierFactory} if test.notifierFactory else {},
+        buildDirectory(),
+        quota=deriveQuota(test),
+    )
     test.txn = test.calendarStore.newTransaction(testID + "(old)")
     assert test.calendarStore is not None, "No calendar store?"
 
@@ -290,29 +294,16 @@ class CalendarTest(unittest.TestCase):
 
 
     @inlineCallbacks
-    def test_removeCalendarObject_delayedEffect(self):
+    def test_CalendarObject_remove_delayedEffect(self):
         """
         Removing a calendar object should not immediately remove the underlying
         file; it should only be removed upon commit() of the transaction.
         """
-        self.calendar1.removeCalendarObjectWithName("2.ics")
+        obj1 = self.calendar1.calendarObjectWithName("2.ics")
+        obj1.remove()
         self.failUnless(self.calendar1._path.child("2.ics").exists())
         yield self.txn.commit()
         self.failIf(self.calendar1._path.child("2.ics").exists())
-
-
-    def test_removeCalendarObjectWithName_dot(self):
-        """
-        Filenames starting with "." are reserved by this
-        implementation, so no calendar object names may start with
-        ".".
-        """
-        name = ".foo"
-        self.calendar1._path.child(name).touch()
-        self.assertRaises(
-            NoSuchObjectResourceError,
-            self.calendar1.removeCalendarObjectWithName, name
-        )
 
     counter = 0
 
@@ -388,17 +379,6 @@ class CalendarTest(unittest.TestCase):
         self.assertEquals(
             (yield self.calendar1.calendarObjectWithName("1.ics")).component(),
             originalComponent
-        )
-
-
-    @featureUnimplemented
-    def test_removeCalendarObjectWithUID_absent(self):
-        """
-        Attempt to remove an non-existing calendar object should raise.
-        """
-        self.assertRaises(
-            NoSuchObjectResourceError,
-            self.calendar1.removeCalendarObjectWithUID, "xyzzy"
         )
 
 

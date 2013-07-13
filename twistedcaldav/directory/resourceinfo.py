@@ -26,12 +26,12 @@ import os
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 
-class ResourceInfoDatabase(AbstractSQLDatabase, LoggingMixIn):
+class ResourceInfoDatabase(AbstractSQLDatabase):
     """
     A database to maintain resource (and location) information
 
@@ -40,8 +40,8 @@ class ResourceInfoDatabase(AbstractSQLDatabase, LoggingMixIn):
     Group Database:
 
     ROW: GUID, AUTOSCHEDULE
-
     """
+    log = Logger()
 
     dbType = "RESOURCEINFO"
     dbFilename = "resourceinfo.sqlite"

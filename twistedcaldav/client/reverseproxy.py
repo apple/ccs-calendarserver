@@ -25,34 +25,39 @@ from twext.web2.client.http import ClientRequest
 from twext.web2.http import StatusResponse, HTTPError
 from twext.web2.resource import LeafResource
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 
 from twistedcaldav.client.pool import getHTTPClientPool
 from twistedcaldav.config import config
 
-class ReverseProxyResource(LeafResource, LoggingMixIn):
+class ReverseProxyResource(LeafResource):
     """
     A L{LeafResource} which always performs a reverse proxy operation.
     """
+    log = Logger()
+
     implements(iweb.IResource)
 
     def __init__(self, poolID, *args, **kwargs):
         """
-        
+
         @param poolID: idenitifier of the pool to use
         @type poolID: C{str}
         """
-        
+
         self.poolID = poolID
-        self._args   = args
+        self._args = args
         self._kwargs = kwargs
         self.allowMultiHop = False
+
 
     def isCollection(self):
         return True
 
+
     def exists(self):
         return False
+
 
     def renderHTTP(self, request):
         """
@@ -60,24 +65,23 @@ class ReverseProxyResource(LeafResource, LoggingMixIn):
 
         @param request: the incoming request that needs to be proxied.
         @type request: L{Request}
-        
+
         @return: Deferred L{Response}
         """
-            
-        self.logger.info("%s %s %s" % (request.method, request.uri, "HTTP/%s.%s" % request.clientproto))
+
+        self.log.info("%s %s %s" % (request.method, request.uri, "HTTP/%s.%s" % request.clientproto))
 
         # Check for multi-hop
         if not self.allowMultiHop:
-            x_server =  request.headers.getHeader("x-forwarded-server")
+            x_server = request.headers.getHeader("x-forwarded-server")
             if x_server:
                 for item in x_server:
                     if item.lower() == config.ServerHostName.lower():
                         raise HTTPError(StatusResponse(responsecode.BAD_GATEWAY, "Too many x-forwarded-server hops"))
-                
-            
+
         clientPool = getHTTPClientPool(self.poolID)
         proxyRequest = ClientRequest(request.method, request.uri, request.headers, request.stream)
-        
+
         # Need x-forwarded-(for|host|server) headers. First strip any existing ones out, then add ours
         proxyRequest.headers.removeHeader("x-forwarded-host")
         proxyRequest.headers.removeHeader("x-forwarded-for")
@@ -87,4 +91,3 @@ class ReverseProxyResource(LeafResource, LoggingMixIn):
         proxyRequest.headers.addRawHeader("x-forwarded-server", config.ServerHostName)
 
         return clientPool.submitRequest(proxyRequest)
-

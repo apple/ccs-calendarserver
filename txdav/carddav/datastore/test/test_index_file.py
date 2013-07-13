@@ -18,7 +18,7 @@ from twisted.internet import reactor
 from twisted.internet.task import deferLater
 
 from txdav.common.icommondatastore import ReservationError
-from txdav.carddav.datastore.index_file import AddressBookIndex,\
+from txdav.carddav.datastore.index_file import AddressBookIndex, \
     MemcachedUIDReserver
 
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
@@ -150,6 +150,7 @@ END:VCARD
         for description, name, vcard_txt in data:
             self.assertTrue(self.db.resourceExists(name), msg=description)
 
+
     def test_index_revisions(self):
         data1 = """BEGIN:VCARD
 VERSION:3.0
@@ -188,16 +189,18 @@ END:VCARD
         self.db.deleteResource("data3.vcf")
 
         tests = (
-            (0, (["data1.vcf", "data2.vcf",], [],)),
-            (1, (["data2.vcf",], ["data3.vcf",],)),
-            (2, ([], ["data3.vcf",],)),
-            (3, ([], ["data3.vcf",],)),
+            (0, (["data1.vcf", "data2.vcf", ], [],)),
+            (1, (["data2.vcf", ], ["data3.vcf", ],)),
+            (2, ([], ["data3.vcf", ],)),
+            (3, ([], ["data3.vcf", ],)),
             (4, ([], [],)),
             (5, ([], [],)),
         )
-        
+
         for revision, results in tests:
             self.assertEquals(self.db.whatchanged(revision), results, "Mismatched results for whatchanged with revision %d" % (revision,))
+
+
 
 class MemcacheTests(SQLIndexTests):
     def setUp(self):

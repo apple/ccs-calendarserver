@@ -75,7 +75,8 @@ class DistributionTests(TestCase):
         self.assertRaises(ValueError, LogNormalDistribution, mode=1)
         self.assertRaises(ValueError, LogNormalDistribution, mean=1)
         self.assertRaises(ValueError, LogNormalDistribution, median=1)
-        
+
+
     def test_uniformdiscrete(self):
         population = [1, 5, 6, 9]
         counts = dict.fromkeys(population, 0)
@@ -89,7 +90,7 @@ class DistributionTests(TestCase):
         tzname = "US/Eastern"
         dist = WorkDistribution(["mon", "wed", "thu", "sat"], 10, 20, tzname)
         dist._helperDistribution = UniformDiscreteDistribution([35 * 60 * 60 + 30 * 60])
-        dist.now = lambda tzname=None: PyCalendarDateTime(2011, 5, 29, 18, 5, 36, tzid=tzname)
+        dist.now = lambda tzname = None: PyCalendarDateTime(2011, 5, 29, 18, 5, 36, tzid=tzname)
         value = dist.sample()
         self.assertEqual(
             # Move past three workdays - monday, wednesday, thursday - using 30
@@ -117,7 +118,7 @@ class DistributionTests(TestCase):
             value = dist.sample()
             self.assertTrue(value is None)
 
-        dist = RecurrenceDistribution(True, {"daily":1, "none":2, "weekly":1})
+        dist = RecurrenceDistribution(True, {"daily": 1, "none": 2, "weekly": 1})
         dist._helperDistribution = UniformDiscreteDistribution([0, 3, 2, 1, 0], randomize=False)
         value = dist.sample()
         self.assertTrue(value is not None)
@@ -129,6 +130,7 @@ class DistributionTests(TestCase):
         self.assertTrue(value is not None)
         value = dist.sample()
         self.assertTrue(value is not None)
+
 
     def test_uniform(self):
         dist = UniformIntegerDistribution(-5, 10)
@@ -171,6 +173,7 @@ class QuantizationTests(TestCase):
         the standard deviation of the sample, that bucket is split in
         half so each bucket has one value.
         """
+        pass
 
 
     def xtest_alpha(self):

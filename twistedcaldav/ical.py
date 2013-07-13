@@ -15,7 +15,6 @@
 # limitations under the License.
 ##
 
-
 """
 iCalendar Utilities
 """
@@ -33,6 +32,7 @@ import cStringIO as StringIO
 import codecs
 import heapq
 import itertools
+import uuid
 
 from twext.python.log import Logger
 from twext.web2.stream import IStream
@@ -42,7 +42,7 @@ from twistedcaldav.config import config
 from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime, \
     normalizeForExpand
 from twistedcaldav.instance import InstanceList
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.timezones import hasTZ, TimezoneException
 
 from pycalendar import definitions
@@ -57,7 +57,6 @@ from pycalendar.property import PyCalendarProperty
 from pycalendar.timezone import PyCalendarTimezone
 from pycalendar.utcoffsetvalue import PyCalendarUTCOffsetValue
 
-
 log = Logger()
 
 iCalendarProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
@@ -70,6 +69,11 @@ allowedComponents = (
     "VFREEBUSY",
     # "VAVAILABILITY",
 )
+
+# Additional per-user data components - see datafilters.peruserdata.py for details
+PERUSER_COMPONENT = "X-CALENDARSERVER-PERUSER"
+PERUSER_UID = "X-CALENDARSERVER-PERUSER-UID"
+PERINSTANCE_COMPONENT = "X-CALENDARSERVER-PERINSTANCE"
 
 # 2445 default values and parameters
 # Structure: propname: (<default value>, <parameter defaults dict>)
@@ -137,7 +141,7 @@ normalizePropsValue = {
     "ORGANIZER": normalizeCUAddr,
 }
 
-ignoredComponents = ("VTIMEZONE", "X-CALENDARSERVER-PERUSER",)
+ignoredComponents = ("VTIMEZONE", PERUSER_COMPONENT,)
 
 # Used for min/max time-range query limits
 minDateTime = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
@@ -578,11 +582,12 @@ class Component (object):
         return mtype
 
 
-    def mainComponent(self, allow_multiple=False):
+    def mainComponent(self):
         """
-        Return the primary iCal component in this calendar.
+        Return the primary iCal component in this calendar. If a master component exists, use that,
+        otherwise use the first override.
+
         @return: the L{Component} of the primary type.
-        @raise: L{InvalidICalendarDataError} if there is more than one primary type.
         """
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
 
@@ -590,12 +595,10 @@ class Component (object):
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
-            elif not allow_multiple and (result is not None):
-                raise InvalidICalendarDataError("Calendar contains more than one primary component: %r" % (self,))
-            else:
+            if not component.hasProperty("RECURRENCE-ID"):
+                return component
+            elif result is None:
                 result = component
-                if allow_multiple:
-                    break
 
         return result
 
@@ -664,7 +667,7 @@ class Component (object):
         """
         result = Component(None, pycalendar=self._pycalendar.duplicate())
         if hasattr(self, "noInstanceIndexing"):
-            result.noInstanceIndexing = True
+            result.noInstanceIndexing = self.noInstanceIndexing
         return result
 
 
@@ -1071,6 +1074,164 @@ class Component (object):
         return changed
 
 
+    def onlyPastInstances(self, rid):
+        """
+        Remove all recurrence instances at or beyond the specified recurrence-id. Adjust the bounds of any RRULEs
+        to match the new limit, remove RDATEs/EXDATEs and overridden components beyond the limit.
+
+        @param rid: the recurrence-id limit
+        @type rid: L{PyCalendarDateTime}
+        """
+
+        if not self.isRecurring():
+            return
+        master = self.masterComponent()
+        if master:
+            # Adjust any RRULE first
+            rrules = master._pycalendar.getRecurrenceSet()
+            if rrules:
+                for rrule in rrules.getRules():
+                    rrule.setUseUntil(True)
+                    rrule.setUseCount(False)
+                    until = rid.duplicate()
+                    until.offsetSeconds(-1)
+                    rrule.setUntil(until)
+
+            # Remove any RDATEs or EXDATEs in the future
+            for property in list(itertools.chain(
+                master.properties("RDATE"),
+                master.properties("EXDATE"),
+            )):
+                for value in list(property.value()):
+                    if value.getValue() >= rid:
+                        property.value().remove(value)
+                if len(property.value()) == 0:
+                    master.removeProperty(property)
+
+        # Remove overrides in the future
+        for component in list(self.subcomponents()):
+            if component.name() in ignoredComponents:
+                continue
+            c_rid = component.getRecurrenceIDUTC()
+            if c_rid is not None and c_rid >= rid:
+                self.removeComponent(component)
+
+        # Handle per-user data component by removing ones in the future
+        for component in list(self.subcomponents()):
+            if component.name() == PERUSER_COMPONENT:
+                for subcomponent in list(component.subcomponents()):
+                    c_rid = subcomponent.getRecurrenceIDUTC()
+                    if c_rid is not None and c_rid >= rid:
+                        component.removeComponent(subcomponent)
+                if len(list(component.subcomponents())) == 0:
+                    self.removeComponent(component)
+
+        self._markAsDirty()
+
+        # We changed the instance set so remove any instance cache
+        # TODO: we could be smarter here and truncate the instance list
+        if hasattr(self, "cachedInstances"):
+            delattr(self, "cachedInstances")
+
+
+    def onlyFutureInstances(self, rid):
+        """
+        Remove all recurrence instances from the specified recurrence-id into the past. Adjust the bounds of
+        any RRULEs to match the new limit, remove RDATEs/EXDATEs and overridden components beyond the limit.
+        This also requires "re-basing" the master component to the new first instance - but noting that has to
+        match any RRULE pattern.
+
+        @param rid: the recurrence-id limit
+        @type rid: L{PyCalendarDateTime}
+        """
+
+        if not self.isRecurring():
+            return
+        master = self.masterComponent()
+        if master:
+            # Check if cut-off matches an RDATE
+            adjusted_rid = rid
+            continuing_rrule = True
+            rdates = set([v.getValue() for v in itertools.chain(*[rdate.value() for rdate in master.properties("RDATE")])])
+            if rid in rdates:
+                # Need to detect the first valid RRULE instance after the cut-off
+                rrules = master._pycalendar.getRecurrenceSet()
+                if rrules and len(rrules.getRules()) != 0:
+                    rrule = rrules.getRules()[0]
+                    upperlimit = rid.duplicate()
+                    upperlimit.offsetYear(1)
+                    rrule_expanded = []
+                    rrule.expand(
+                        master.propertyValue("DTSTART"),
+                        PyCalendarPeriod(PyCalendarDateTime(1900, 1, 1), upperlimit),
+                        rrule_expanded,
+                    )
+                    for i in sorted(rrule_expanded):
+                        if i > rid:
+                            adjusted_rid = i
+                            break
+                    else:
+                        # RRULE not needed in derived master
+                        continuing_rrule = False
+
+            # Adjust master to previously derived instance
+            derived = self.deriveInstance(adjusted_rid, allowExcluded=True)
+            if derived is None:
+                return
+
+            # Fix up recurrence properties so the derived one looks like the master
+            derived.removeProperty(derived.getProperty("RECURRENCE-ID"))
+            for property in list(itertools.chain(
+                master.properties("RRULE") if continuing_rrule else (),
+                master.properties("RDATE"),
+                master.properties("EXDATE"),
+            )):
+                derived.addProperty(property)
+
+            # Now switch over to using the new "derived" master
+            self.removeComponent(master)
+            master = derived
+            self.addComponent(master)
+
+            # Remove any RDATEs or EXDATEs in the past
+            for property in list(itertools.chain(
+                master.properties("RDATE"),
+                master.properties("EXDATE"),
+            )):
+                for value in list(property.value()):
+                    # If the derived master was derived from an RDATE we remove the RDATE
+                    if value.getValue() < rid or property.name() == "RDATE" and value.getValue() == adjusted_rid:
+                        property.value().remove(value)
+                if len(property.value()) == 0:
+                    master.removeProperty(property)
+
+        # Remove overrides in the past - but do not remove any override matching
+        # the cut-off as that is still a valid override after "re-basing" the master.
+        for component in list(self.subcomponents()):
+            if component.name() in ignoredComponents:
+                continue
+            c_rid = component.getRecurrenceIDUTC()
+            if c_rid is not None and c_rid < rid:
+                self.removeComponent(component)
+
+        # Handle per-user data component by removing ones in the past
+        for component in list(self.subcomponents()):
+            if component.name() == PERUSER_COMPONENT:
+                for subcomponent in list(component.subcomponents()):
+                    c_rid = subcomponent.getRecurrenceIDUTC()
+                    if c_rid is not None and c_rid < rid:
+                        component.removeComponent(subcomponent)
+                if len(list(component.subcomponents())) == 0:
+                    self.removeComponent(component)
+
+        self._markAsDirty()
+
+        # We changed the instance set so remove any instance cache
+        # TODO: we could be smarter here and truncate the instance list
+        if hasattr(self, "cachedInstances"):
+            delattr(self, "cachedInstances")
+
+
     def expand(self, start, end, timezone=None):
         """
         Expand the components into a set of new components, one for each
@@ -1272,7 +1433,7 @@ class Component (object):
         return False
 
 
-    def deriveInstance(self, rid, allowCancelled=False, newcomp=None):
+    def deriveInstance(self, rid, allowCancelled=False, newcomp=None, allowExcluded=False):
         """
         Derive an instance from the master component that has the provided RECURRENCE-ID, but
         with all other properties, components etc from the master. If the requested override is
@@ -1283,6 +1444,8 @@ class Component (object):
         @type rid: L{PyCalendarDateTime} or C{str}
         @param allowCancelled: whether to allow a STATUS:CANCELLED override
         @type allowCancelled: C{bool}
+        @param allowExcluded: whether to derive an instance for an existing EXDATE
+        @type allowExcluded: C{bool}
 
         @return: L{Component} for newly derived instance, or None if not valid override
         """
@@ -1301,6 +1464,7 @@ class Component (object):
         # TODO: Check that the recurrence-id is a valid instance
         # For now we just check that there is no matching EXDATE
         didCancel = False
+        matchedExdate = False
         for exdate in tuple(master.properties("EXDATE")):
             for exdateValue in exdate.value():
                 if exdateValue.getValue() == rid:
@@ -1314,26 +1478,30 @@ class Component (object):
                         if hasattr(self, "cachedInstances"):
                             delattr(self, "cachedInstances")
                         break
+                    elif allowExcluded:
+                        matchedExdate = True
+                        break
                     else:
                         # Cannot derive from an existing EXDATE
                         return None
 
-        # Check whether recurrence-id matches an RDATE - if so it is OK
-        rdates = set()
-        for rdate in master.properties("RDATE"):
-            rdates.update([item.getValue().duplicateAsUTC() for item in rdate.value()])
-        if rid not in rdates:
-            # Check whether we have a truncated RRULE
-            rrules = master.properties("RRULE")
-            if len(tuple(rrules)):
-                instances = self.cacheExpandedTimeRanges(rid)
-                instance_rid = normalizeForIndex(rid)
-                if str(instance_rid) not in instances.instances:
-                    # No match to a valid RRULE instance
+        if not matchedExdate:
+            # Check whether recurrence-id matches an RDATE - if so it is OK
+            rdates = set()
+            for rdate in master.properties("RDATE"):
+                rdates.update([item.getValue().duplicateAsUTC() for item in rdate.value()])
+            if rid not in rdates:
+                # Check whether we have a truncated RRULE
+                rrules = master.properties("RRULE")
+                if len(tuple(rrules)):
+                    instances = self.cacheExpandedTimeRanges(rid)
+                    instance_rid = normalizeForIndex(rid)
+                    if str(instance_rid) not in instances.instances:
+                        # No match to a valid RRULE instance
+                        return None
+                else:
+                    # No RRULE and no match to an RDATE => error
                     return None
-            else:
-                # No RRULE and no match to an RDATE => error
-                return None
 
         # If we were fed an already derived component, use that, otherwise make a new one
         if newcomp is None:
@@ -1456,6 +1624,19 @@ class Component (object):
             else:
                 self._resource_uid = None
 
+        return self._resource_uid
+
+
+    def newUID(self, newUID=None):
+        """
+        Generate a new UID for all components in this VCALENDAR
+        """
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        newUID = str(uuid.uuid4()) if newUID is None else newUID
+        self._pycalendar.changeUID(self.resourceUID(), newUID)
+        self._resource_uid = newUID
+        self._markAsDirty()
         return self._resource_uid
 
 
@@ -2559,7 +2740,7 @@ END:VCALENDAR
         Test and optionally remove alarms that have the same ACTION and TRIGGER values in the same component.
         """
         changed = False
-        if self.name() in ("VCALENDAR", "X-CALENDARSERVER-PERUSER",):
+        if self.name() in ("VCALENDAR", PERUSER_COMPONENT,):
             for component in self.subcomponents():
                 if component.name() in ("VTIMEZONE",):
                     continue
@@ -3075,8 +3256,8 @@ END:VCALENDAR
 
         results = set()
         for component in self.subcomponents():
-            if component.name() == "X-CALENDARSERVER-PERUSER":
-                results.add(component.propertyValue("X-CALENDARSERVER-PERUSER-UID"))
+            if component.name() == PERUSER_COMPONENT:
+                results.add(component.propertyValue(PERUSER_UID))
         return results
 
 
@@ -3089,10 +3270,10 @@ END:VCALENDAR
 
             # Do per-user data
             for component in self.subcomponents():
-                if component.name() == "X-CALENDARSERVER-PERUSER":
-                    uid = component.propertyValue("X-CALENDARSERVER-PERUSER-UID")
+                if component.name() == PERUSER_COMPONENT:
+                    uid = component.propertyValue(PERUSER_UID)
                     for subcomponent in component.subcomponents():
-                        if subcomponent.name() == "X-CALENDARSERVER-PERINSTANCE":
+                        if subcomponent.name() == PERINSTANCE_COMPONENT:
                             instancerid = subcomponent.propertyValue("RECURRENCE-ID")
                             transp = subcomponent.propertyValue("TRANSP") == "TRANSPARENT"
                             self._perUserTransparency.setdefault(uid, {})[instancerid] = transp

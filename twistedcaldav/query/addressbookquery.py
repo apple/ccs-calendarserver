@@ -38,34 +38,38 @@ def addressbookquery(filter, fields):
     @return: a L{baseExpression} for the expression tree.
     """
     # Lets assume we have a valid filter from the outset.
-    
+
     # Top-level filter contains zero or more prop-filter element
     if len(filter.children) > 0:
         return propfilterListExpression(filter.children, fields)
     else:
         return expression.allExpression()
 
+
+
 def propfilterListExpression(propfilters, fields):
     """
     Create an expression for a list of prop-filter elements.
-    
+
     @param propfilters: the C{list} of L{ComponentFilter} elements.
     @return: a L{baseExpression} for the expression tree.
     """
-    
+
     if len(propfilters) == 1:
         return propfilterExpression(propfilters[0], fields)
     else:
         return expression.orExpression([propfilterExpression(c, fields) for c in propfilters])
 
+
+
 def propfilterExpression(propfilter, fields):
     """
     Create an expression for a single prop-filter element.
-    
+
     @param propfilter: the L{PropertyFilter} element.
     @return: a L{baseExpression} for the expression tree.
     """
-    
+
     # Only handle UID right now
     if propfilter.filter_name != "UID":
         raise ValueError
@@ -74,7 +78,7 @@ def propfilterExpression(propfilter, fields):
     if not propfilter.defined:
         # Test for <<field>> != "*"
         return expression.isExpression(fields["UID"], "", True)
-    
+
     # Handle embedded parameters/text-match
     params = []
     for filter in propfilter.filters:
@@ -102,6 +106,8 @@ def propfilterExpression(propfilter, fields):
         return params[0]
     else:
         return None
+
+
 
 def sqladdressbookquery(filter, addressbookid=None, generator=sqlgenerator.sqlgenerator):
     """

@@ -24,7 +24,7 @@ from zope.interface.declarations import implements
 
 from twisted.python import hashlib
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import Logger
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.web2.dav.resource import TwistedGETContentMD5
 from txdav.idav import IDataStoreObject
@@ -43,8 +43,10 @@ def isValidName(name):
     return not name.startswith(".")
 
 
+
 def hidden(path):
     return path.sibling('.' + path.basename())
+
 
 
 def writeOperation(thunk):
@@ -59,10 +61,11 @@ def writeOperation(thunk):
 
 
 
-class DataStore(LoggingMixIn):
+class DataStore(object):
     """
     Generic data store.
     """
+    log = Logger()
 
     _transactionClass = None    # Derived class must set this
 
@@ -78,8 +81,10 @@ class DataStore(LoggingMixIn):
             # FIXME: Add DataStoreNotFoundError?
 #            raise NotFoundError("No such data store")
 
+
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path.path)
+
 
     def newTransaction(self, name='no name'):
         """
@@ -101,6 +106,7 @@ class _CommitTracker(object):
         self.done = False
         self.info = []
 
+
     def __del__(self):
         if not self.done and self.info:
             print("**** UNCOMMITTED TRANSACTION (%s) BEING GARBAGE COLLECTED ****") % (
@@ -112,10 +118,11 @@ class _CommitTracker(object):
 
 
 
-class DataStoreTransaction(LoggingMixIn):
+class DataStoreTransaction(object):
     """
     In-memory implementation of a data store transaction.
     """
+    log = Logger()
 
     def __init__(self, dataStore, name):
         """
@@ -181,12 +188,12 @@ class DataStoreTransaction(LoggingMixIn):
                 if undo is not None:
                     undos.append(undo)
             except:
-                self.log_debug("Undoing DataStoreTransaction")
+                self.log.debug("Undoing DataStoreTransaction")
                 for undo in undos:
                     try:
                         undo()
                     except:
-                        self.log_error("Cannot undo DataStoreTransaction")
+                        self.log.error("Cannot undo DataStoreTransaction")
                 raise
 
         for operation in self._postCommitOperations:
@@ -203,9 +210,9 @@ class DataStoreTransaction(LoggingMixIn):
 
 
 class FileMetaDataMixin(object):
-    
+
     implements(IDataStoreObject)
-    
+
     def name(self):
         """
         Identify the name of the object
@@ -215,6 +222,7 @@ class FileMetaDataMixin(object):
         """
 
         return self._path.basename()
+
 
     def contentType(self):
         """
@@ -226,6 +234,7 @@ class FileMetaDataMixin(object):
             return self.properties()[PropertyName.fromElement(GETContentType)].mimeType()
         except KeyError:
             return None
+
 
     def md5(self):
         """
@@ -246,6 +255,7 @@ class FileMetaDataMixin(object):
             md5 = hashlib.md5(data).hexdigest()
             return md5
 
+
     def size(self):
         """
         The octet-size of this object's content.
@@ -257,6 +267,7 @@ class FileMetaDataMixin(object):
         else:
             return 0
 
+
     def created(self):
         """
         The creation date-time stamp of this object.
@@ -267,6 +278,7 @@ class FileMetaDataMixin(object):
             return self._path.getmtime() # No creation time on POSIX
         else:
             return None
+
 
     def modified(self):
         """

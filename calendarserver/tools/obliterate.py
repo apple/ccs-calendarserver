@@ -26,19 +26,27 @@ needed when data has been accidently migrated into the DB but no users actually
 have access to it as they are not enabled on the server.
 """
 
-from calendarserver.tools.cmdline import utilityMain
-from twext.enterprise.dal.syntax import Parameter, Delete, Select, Union, \
-    CompoundComparison, ExpressionSyntax, Count
-from twisted.application.service import Service
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python import log
-from twisted.python.text import wordWrap
-from twisted.python.usage import Options
-from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
-from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import os
 import sys
 import time
+
+from twisted.application.service import Service
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.text import wordWrap
+from twisted.python.usage import Options
+
+from twext.enterprise.dal.syntax import Parameter, Delete, Select, Union, \
+    CompoundComparison, ExpressionSyntax, Count
+from twext.python.log import Logger
+
+from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
+
+from calendarserver.tools.cmdline import utilityMain
+
+log = Logger()
+
+
 
 VERSION = "1"
 
@@ -178,7 +186,7 @@ class ObliterateService(Service, object):
         except ConfigError:
             pass
         except:
-            log.err()
+            log.failure("doObliterate()")
 
         self.reactor.stop()
 
@@ -196,7 +204,6 @@ class ObliterateService(Service, object):
         ca = schema.CALENDAR
         co = schema.CALENDAR_OBJECT
         ah = schema.ADDRESSBOOK_HOME
-        aa = schema.ADDRESSBOOK
         ao = schema.ADDRESSBOOK_OBJECT
         rp = schema.RESOURCE_PROPERTY
 
@@ -222,14 +229,8 @@ class ObliterateService(Service, object):
                                             From=ah,
                                             SetExpression=Union(
                                                 Select(
-                                                    [aa.RESOURCE_ID],
-                                                    From=aa,
-                                                    SetExpression=Union(
-                                                        Select(
-                                                            [ao.RESOURCE_ID],
-                                                            From=ao,
-                                                        ),
-                                                    ),
+                                                    [ao.RESOURCE_ID],
+                                                    From=ao,
                                                 ),
                                             ),
                                         ),

@@ -68,7 +68,7 @@ from twistedcaldav.extensions import DirectoryElement
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVPrincipalResource, \
     DAVResourceWithChildrenMixin
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
-from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 
 thisModule = getModule(__name__)
 log = Logger()
@@ -275,7 +275,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         DirectoryProvisioningResource.__init__(self, url, directory)
 
         # FIXME: Smells like a hack
-        self.directory.principalCollection = self
+        self.directory.setPrincipalCollection(self)
 
         #
         # Create children
@@ -368,7 +368,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
     ##
 
     def createSimilarFile(self, path):
-        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone %r of resource %r" % (path, self))
         raise HTTPError(responsecode.NOT_FOUND)
 
 
@@ -389,6 +389,29 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
     def principalCollections(self):
         return (self,)
+
+
+    ##
+    # Proxy callback from directory service
+    ##
+
+    def isProxyFor(self, record1, record2):
+        """
+        Test whether the principal identified by directory record1 is a proxy for the principal identified by
+        record2.
+
+        @param record1: directory record for a user
+        @type record1: L{DirectoryRecord}
+        @param record2: directory record to test with
+        @type record2: L{DirectoryRercord}
+
+        @return: C{True} if record1 is a proxy for record2, otherwise C{False}
+        @rtype: C{bool}
+        """
+
+        principal1 = self.principalForUID(record1.uid)
+        principal2 = self.principalForUID(record2.uid)
+        return principal1.isProxyFor(principal2)
 
 
 
@@ -429,7 +452,7 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
 
 
     def createSimilarFile(self, path):
-        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone %r of resource %r" % (path, self))
         raise HTTPError(responsecode.NOT_FOUND)
 
 
@@ -510,7 +533,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
 
     def createSimilarFile(self, path):
-        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone %r of resource %r" % (path, self))
         raise HTTPError(responsecode.NOT_FOUND)
 
 
@@ -558,7 +581,7 @@ class DirectoryPrincipalDetailElement(Element):
     """
 
     loader = XMLFile(thisModule.filePath.sibling(
-        "directory-principal-resource.html").open()
+        "directory-principal-resource.html")
     )
 
 
@@ -844,10 +867,7 @@ class DirectoryPrincipalResource (
 
 
     def displayName(self):
-        if self.record.fullName:
-            return self.record.fullName
-        else:
-            return self.record.shortNames[0]
+        return self.record.displayName()
 
     ##
     # ACL
@@ -876,6 +896,10 @@ class DirectoryPrincipalResource (
 
 
     def url(self):
+        return self.principalURL()
+
+
+    def notifierID(self):
         return self.principalURL()
 
 
@@ -957,7 +981,7 @@ class DirectoryPrincipalResource (
                 if relative not in records:
                     found = self.parent.principalForRecord(relative)
                     if found is None:
-                        log.err("No principal found for directory record: %r" % (relative,))
+                        log.error("No principal found for directory record: %r" % (relative,))
                     else:
                         if proxy:
                             if proxy == "read-write":
@@ -1076,15 +1100,7 @@ class DirectoryPrincipalResource (
         @param organizer: the CUA of the organizer trying to schedule this principal
         @type organizer: C{str}
         """
-
-        if config.Scheduling.Options.AutoSchedule.Enabled:
-            if (config.Scheduling.Options.AutoSchedule.Always or
-                self.getAutoSchedule() or
-                self.autoAcceptFromOrganizer(organizer)):
-                if (self.getCUType() != "INDIVIDUAL" or
-                    config.Scheduling.Options.AutoSchedule.AllowUsers):
-                    return True
-        return False
+        return self.record.canAutoSchedule(organizer)
 
 
     @inlineCallbacks
@@ -1110,10 +1126,7 @@ class DirectoryPrincipalResource (
             accept-if-free, decline-if-busy, automatic (see stdconfig.py)
         @rtype: C{str}
         """
-        autoScheduleMode = self.record.autoScheduleMode
-        if self.autoAcceptFromOrganizer(organizer):
-            autoScheduleMode = "automatic"
-        return autoScheduleMode
+        return self.record.getAutoScheduleMode(organizer)
 
 
     @inlineCallbacks
@@ -1149,12 +1162,7 @@ class DirectoryPrincipalResource (
             of that group.  False otherwise.
         @rtype: C{bool}
         """
-        if organizer is not None and self.record.autoAcceptGroup is not None:
-            organizerPrincipal = self.parent.principalForCalendarUserAddress(organizer)
-            if organizerPrincipal is not None:
-                if organizerPrincipal.record.guid in self.record.autoAcceptMembers():
-                    return True
-        return False
+        return self.record.autoAcceptFromOrganizer()
 
 
     def getCUType(self):
@@ -1166,7 +1174,7 @@ class DirectoryPrincipalResource (
 
 
     def createSimilarFile(self, path):
-        log.err("Attempt to create clone %r of resource %r" % (path, self))
+        log.error("Attempt to create clone %r of resource %r" % (path, self))
         raise HTTPError(responsecode.NOT_FOUND)
 
 
@@ -1200,7 +1208,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
 
     def calendarsEnabled(self):
-        return config.EnableCalDAV and self.record.enabledForCalendaring
+        return self.record.calendarsEnabled()
 
 
     def addressBooksEnabled(self):
@@ -1222,19 +1230,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
 
     def calendarUserAddresses(self):
-
-        # No CUAs if not enabledForCalendaring.
-        if not self.record.enabledForCalendaring:
-            return set()
-
-        # Get any CUAs defined by the directory implementation.
-        addresses = set(self.record.calendarUserAddresses)
-
-        # Add the principal URL and alternate URIs to the list.
-        for uri in ((self.principalURL(),) + tuple(self.alternateURIs())):
-            addresses.add(uri)
-
-        return addresses
+        return self.record.calendarUserAddresses
 
 
     def htmlElement(self):
@@ -1251,33 +1247,11 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
             mailto: form
             first in calendarUserAddresses( ) list
         """
-
-        cua = ""
-        for candidate in self.calendarUserAddresses():
-            # Pick the first one, but urn:uuid: and mailto: can override
-            if not cua:
-                cua = candidate
-            # But always immediately choose the urn:uuid: form
-            if candidate.startswith("urn:uuid:"):
-                cua = candidate
-                break
-            # Prefer mailto: if no urn:uuid:
-            elif candidate.startswith("mailto:"):
-                cua = candidate
-        return cua
+        return self.record.canonicalCalendarUserAddress()
 
 
     def enabledAsOrganizer(self):
-        if self.record.recordType == DirectoryService.recordType_users:
-            return True
-        elif self.record.recordType == DirectoryService.recordType_groups:
-            return config.Scheduling.Options.AllowGroupAsOrganizer
-        elif self.record.recordType == DirectoryService.recordType_locations:
-            return config.Scheduling.Options.AllowLocationAsOrganizer
-        elif self.record.recordType == DirectoryService.recordType_resources:
-            return config.Scheduling.Options.AllowResourceAsOrganizer
-        else:
-            return False
+        return self.record.enabledAsOrganizer()
 
 
     @inlineCallbacks
@@ -1488,7 +1462,7 @@ def formatList(iterable):
                 yield item
             yield "\n"
     except Exception, e:
-        log.err("Exception while rendering: %s" % (e,))
+        log.error("Exception while rendering: %s" % (e,))
         Failure().printTraceback()
         yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
     if not thereAreAny:

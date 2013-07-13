@@ -23,13 +23,19 @@
 #
 ##
 
-"""Logging tools. This is still in flux (even moreso than the rest of web2)."""
+"""
+Logging tools. This is still in flux (even moreso than the rest of web2).
+
+NOTE: This is now using twext.python.log new-style logging and observers.
+"""
 
 import time
-from twisted.python import log
 from twisted.internet import defer
+from twext.python.log import Logger
 from twext.web2 import iweb, stream, resource
 from zope.interface import implements, Attribute, Interface
+
+log = Logger()
 
 class _LogByteCounter(object):
     implements(stream.IByteStream)
@@ -93,7 +99,7 @@ def logFilter(request, response, startTime=None):
 
         if length:        
             request.timeStamp("t-resp-wr")
-        log.msg(interface=iweb.IRequest, request=request, response=response,
+        log.info(interface=iweb.IRequest, request=request, response=response,
                  loginfo=loginfo)
         # Or just...
         # ILogger(ctx).log(...) ?
@@ -127,6 +133,7 @@ class BaseCommonAccessLoggingObserver(object):
     """
 
     logFormat = '%s - %s [%s] "%s" %s %d "%s" "%s"'
+
     def logMessage(self, message):
         raise NotImplemented, 'You must provide an implementation.'
 
@@ -177,7 +184,7 @@ class BaseCommonAccessLoggingObserver(object):
             '.'.join([str(x) for x in request.clientproto]))
         
         self.logMessage(
-            '%s - %s [%s] "%s" %s %d "%s" "%s"' %(
+            '%s - %s [%s] "%s" %s %d "%s" "%s"' % (
                 request.remoteAddr.host,
                 # XXX: Where to get user from?
                 "-",
@@ -193,11 +200,12 @@ class BaseCommonAccessLoggingObserver(object):
 
     def start(self):
         """Start observing log events."""
-        log.addObserver(self.emit)
+        # Use the root publisher to bypass log level filtering
+        log.publisher.addObserver(self.emit, filtered=False)
 
     def stop(self):
         """Stop observing log events."""
-        log.removeObserver(self.emit)
+        log.publisher.removeObserver(self.emit)
 
 
 class FileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
@@ -222,4 +230,4 @@ class FileAccessLoggingObserver(BaseCommonAccessLoggingObserver):
 class DefaultCommonAccessLoggingObserver(BaseCommonAccessLoggingObserver):
     """Log requests to default twisted logfile."""
     def logMessage(self, message):
-        log.msg(message)
+        log.info(message)

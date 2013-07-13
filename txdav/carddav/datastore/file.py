@@ -29,7 +29,7 @@ __all__ = [
 
 from errno import ENOENT
 
-from txdav.xml.rfc2518 import ResourceType, GETContentType
+from txdav.xml.rfc2518 import GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.http_headers import MimeType
 
@@ -67,8 +67,8 @@ class AddressBookHome(CommonHome):
     _topPath = "addressbooks"
     _notifierPrefix = "CardDAV"
 
-    def __init__(self, uid, path, addressbookStore, transaction, notifiers):
-        super(AddressBookHome, self).__init__(uid, path, addressbookStore, transaction, notifiers)
+    def __init__(self, uid, path, addressbookStore, transaction):
+        super(AddressBookHome, self).__init__(uid, path, addressbookStore, transaction)
 
         self._childClass = AddressBook
 
@@ -83,8 +83,11 @@ class AddressBookHome(CommonHome):
     def _addressbookStore(self):
         return self._dataStore
 
+
     def createdHome(self):
         self.createAddressBookWithName("addressbook")
+
+
 
 class AddressBook(CommonHomeChild):
     """
@@ -113,12 +116,10 @@ class AddressBook(CommonHomeChild):
         self._index = Index(self)
         self._objectResourceClass = AddressBookObject
 
+
     @property
     def _addressbookHome(self):
         return self._home
-
-    def resourceType(self):
-        return ResourceType.addressbook #@UndefinedVariable
 
     ownerAddressBookHome = CommonHomeChild.ownerHome
     addressbookObjects = CommonHomeChild.objectResources
@@ -126,8 +127,6 @@ class AddressBook(CommonHomeChild):
     addressbookObjectWithName = CommonHomeChild.objectResourceWithName
     addressbookObjectWithUID = CommonHomeChild.objectResourceWithUID
     createAddressBookObjectWithName = CommonHomeChild.createObjectResourceWithName
-    removeAddressBookObjectWithName = CommonHomeChild.removeObjectResourceWithName
-    removeAddressBookObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
     addressbookObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
 
 
@@ -142,11 +141,14 @@ class AddressBook(CommonHomeChild):
             ),
         )
 
+
     def contentType(self):
         """
         The content type of Addresbook objects is text/vcard.
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
+
+
 
 class AddressBookObject(CommonObjectResource):
     """
@@ -235,10 +237,10 @@ class AddressBookObject(CommonObjectResource):
         fixed, unfixed = component.validVCardData(doFix=True, doRaise=False)
 
         if unfixed:
-            self.log_error("Address data at %s had unfixable problems:\n  %s" % (self._path.path, "\n  ".join(unfixed),))
+            self.log.error("Address data at %s had unfixable problems:\n  %s" % (self._path.path, "\n  ".join(unfixed),))
 
         if fixed:
-            self.log_error("Address data at %s had fixable problems:\n  %s" % (self._path.path, "\n  ".join(fixed),))
+            self.log.error("Address data at %s had fixable problems:\n  %s" % (self._path.path, "\n  ".join(fixed),))
 
         return component
 
@@ -272,10 +274,12 @@ class AddressBookObject(CommonObjectResource):
         self._objectText = text
         return text
 
+
     def uid(self):
         if not hasattr(self, "_uid"):
             self._uid = self.component().resourceUID()
         return self._uid
+
 
     # IDataStoreObject
     def contentType(self):
@@ -284,6 +288,8 @@ class AddressBookObject(CommonObjectResource):
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
 
+
+
 class AddressBookStubResource(CommonStubResource):
     """
     Just enough resource to keep the addressbook's sql DB classes going.
@@ -291,6 +297,7 @@ class AddressBookStubResource(CommonStubResource):
 
     def isAddressBookCollection(self):
         return True
+
 
     def getChild(self, name):
         addressbookObject = self.resource.addressbookObjectWithName(name)
@@ -305,6 +312,7 @@ class AddressBookStubResource(CommonStubResource):
             return ChildResource(addressbookObject)
         else:
             return None
+
 
 
 class Index(object):
@@ -328,5 +336,3 @@ class Index(object):
             addressbookObject._componentType = componentType
 
             yield addressbookObject
-
-

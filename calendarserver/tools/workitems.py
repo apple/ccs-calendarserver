@@ -28,7 +28,7 @@ from calendarserver.tools.cmdline import utilityMain
 from twisted.application.service import Service
 from calendarserver.push.notifier import PushNotificationWork
 from twistedcaldav.directory.directory import GroupCacherPollingWork
-from twistedcaldav.scheduling.imip.inbound import IMIPPollingWork, IMIPReplyWork
+from txdav.caldav.datastore.scheduling.imip.inbound import IMIPPollingWork, IMIPReplyWork
 
 def usage(e=None):
 
@@ -84,6 +84,8 @@ def main():
 
     utilityMain(configFileName, WorkItemMonitorService, verbose=debug)
 
+
+
 class WorkItemMonitorService(Service):
 
     def __init__(self, store):
@@ -97,6 +99,7 @@ class WorkItemMonitorService(Service):
         self.windows = []
         self.updateScreenGeometry()
         self.reactor.callLater(0, self.updateDisplay)
+
 
     def updateScreenGeometry(self):
         for win in self.windows:
@@ -113,10 +116,10 @@ class WorkItemMonitorService(Service):
         # Specify row and column for each window as though it is a cell in an invisible html table
         # Itemize windows in ascending order by row, col
         for title, height, width, row, col, workItemClass, fmt, attrs in (
-            ("Group Membership Indexing",   "10%", "50%",  1, 1, GroupCacherPollingWork, "", ()),
-            ("IMIP Reply Polling",          "10%", "50%",  1, 2, IMIPPollingWork, "", ()),
-            ("IMIP Reply Processing",       "20%", "100%", 2, 1, IMIPReplyWork, "%s %s", ("organizer", "attendee")),
-            ("Push Notifications",          "69%", "100%", 3, 1, PushNotificationWork, "%s", ("pushID",)),
+            ("Group Membership Indexing", "10%", "50%", 1, 1, GroupCacherPollingWork, "", ()),
+            ("IMIP Reply Polling", "10%", "50%", 1, 2, IMIPPollingWork, "", ()),
+            ("IMIP Reply Processing", "20%", "100%", 2, 1, IMIPReplyWork, "%s %s", ("organizer", "attendee")),
+            ("Push Notifications", "69%", "100%", 3, 1, PushNotificationWork, "%s", ("pushID",)),
         ):
             if (isinstance(height, basestring)):
                 height = max(int(winY * (float(height.strip("%")) / 100.0)), 3)
@@ -144,6 +147,8 @@ class WorkItemMonitorService(Service):
 
         self.reactor.callLater(1, self.updateDisplay)
 
+
+
 class WorkWindow(object):
     def __init__(self, nlines, ncols, begin_y, begin_x,
         store, title, workItemClass, fmt, attrs):
@@ -154,6 +159,7 @@ class WorkWindow(object):
         self.workItemClass = workItemClass
         self.fmt = fmt
         self.attrs = attrs
+
 
     @inlineCallbacks
     def update(self):
@@ -178,7 +184,7 @@ class WorkWindow(object):
                 except Exception, e:
                     s = "Error: %s" % (str(e),)
                 try:
-                    self.window.addnstr(y, x, s, self.ncols-2)
+                    self.window.addnstr(y, x, s, self.ncols - 2)
                 except curses.error:
                     pass
                 y += 1

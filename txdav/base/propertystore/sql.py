@@ -31,7 +31,6 @@ from twext.enterprise.dal.syntax import (
 
 from txdav.xml.parser import WebDAVDocument
 from txdav.common.icommondatastore import AllRetriesFailed
-from twext.python.log import LoggingMixIn
 from txdav.common.datastore.sql_tables import schema
 from txdav.base.propertystore.base import (AbstractPropertyStore,
                                            PropertyName, validKey)
@@ -41,7 +40,13 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 prop = schema.RESOURCE_PROPERTY
 
-class PropertyStore(AbstractPropertyStore, LoggingMixIn):
+class PropertyStore(AbstractPropertyStore):
+    """
+    We are going to use memcache to cache properties per-resource/per-user. However, we
+    need to be able to invalidate on a per-resource basis, in addition to per-resource/per-user.
+    So we will also track in memcache which resource/uid tokens are valid. That way we can remove
+    the tracking entry to completely invalidate all the per-resource/per-user pairs.
+    """
 
     _cacher = Memcacher("SQL.props", pickle=True, key_normalization=False)
 
@@ -50,10 +55,22 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
             "do not construct directly, call PropertyStore.load()"
         )
 
+    _allWithID = Select(
+        [prop.NAME, prop.VIEWER_UID, prop.VALUE],
+        From=prop,
+        Where=prop.RESOURCE_ID == Parameter("resourceID")
+    )
 
-    _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
-                        From=prop,
-                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+    _allWithIDViewer = Select(
+        [prop.NAME, prop.VALUE],
+        From=prop,
+        Where=(prop.RESOURCE_ID == Parameter("resourceID")).And
+              (prop.VIEWER_UID == Parameter("viewerID"))
+    )
+
+
+    def _cacheToken(self, userid):
+        return "{0!s}/{1}".format(self._resourceID, userid)
 
 
     @inlineCallbacks
@@ -64,13 +81,41 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
         """
         # Cache existing properties in this object
         # Look for memcache entry first
-        rows = yield self._cacher.get(str(self._resourceID))
-        if rows is None:
-            rows = yield self._allWithID.on(txn, resourceID=self._resourceID)
-            yield self._cacher.set(str(self._resourceID),
-                                   rows if rows is not None else ())
-        for name, uid, value in rows:
-            self._cached[(name, uid)] = value
+
+        @inlineCallbacks
+        def _cache_user_props(uid):
+
+            # First check whether uid already has a valid cached entry
+            valid_cached_users = yield self._cacher.get(str(self._resourceID))
+            if valid_cached_users is None:
+                valid_cached_users = set()
+
+            # Fetch cached user data if valid and present
+            if uid in valid_cached_users:
+                rows = yield self._cacher.get(self._cacheToken(uid))
+            else:
+                rows = None
+
+            # If no cached data, fetch from SQL DB and cache
+            if rows is None:
+                rows = yield self._allWithIDViewer.on(
+                    txn,
+                    resourceID=self._resourceID,
+                    viewerID=uid,
+                )
+                yield self._cacher.set(self._cacheToken(uid), rows if rows is not None else ())
+
+                # Mark this uid as valid
+                valid_cached_users.add(uid)
+                yield self._cacher.set(str(self._resourceID), valid_cached_users)
+
+            for name, value in rows:
+                self._cached[(name, uid)] = value
+
+        # Cache for the owner first, then the sharee if different
+        yield _cache_user_props(self._defaultUser)
+        if self._perUser != self._defaultUser:
+            yield _cache_user_props(self._perUser)
 
 
     @classmethod
@@ -167,6 +212,17 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
         )
         rows = yield query.on(txn, resourceIDs=resourceIDs)
         stores = cls._createMultipleStores(defaultUser, txn, rows)
+
+        # Make sure we have a store for each resourceID even if no properties exist
+        for resourceID in resourceIDs:
+            if resourceID not in stores:
+                store = cls.__new__(cls)
+                super(PropertyStore, store).__init__(defaultUser)
+                store._txn = txn
+                store._resourceID = resourceID
+                store._cached = {}
+                stores[resourceID] = store
+
         returnValue(stores)
 
 
@@ -213,13 +269,11 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
 
         return WebDAVDocument.fromString(value).root_element
 
-
     _updateQuery = Update({prop.VALUE: Parameter("value")},
                           Where=(
                               prop.RESOURCE_ID == Parameter("resourceID")).And(
                               prop.NAME == Parameter("name")).And(
                               prop.VIEWER_UID == Parameter("uid")))
-
 
     _insertQuery = Insert({prop.VALUE: Parameter("value"),
                            prop.RESOURCE_ID: Parameter("resourceID"),
@@ -251,18 +305,19 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
                 yield self._insertQuery.on(
                     txn, resourceID=self._resourceID, value=value_str,
                     name=key_str, uid=uid)
-            self._cacher.delete(str(self._resourceID))
+            self._cacher.delete(self._cacheToken(uid))
 
-        # Call the registered notification callback
+        # Call the registered notification callback - we need to do this as a preCommit since it involves
+        # a bunch of deferred operations, but this propstore api is not deferred. preCommit will execute
+        # the deferreds properly, and it is fine to wait until everything else is done before sending the
+        # notifications.
         if hasattr(self, "_notifyCallback") and self._notifyCallback is not None:
-            self._notifyCallback()
+            self._txn.preCommit(self._notifyCallback)
 
         def justLogIt(f):
             f.trap(AllRetriesFailed)
-            self.log_error("setting a property failed; probably nothing.")
+            self.log.error("setting a property failed; probably nothing.")
         self._txn.subtransaction(trySetItem).addErrback(justLogIt)
-
-
 
     _deleteQuery = Delete(
         prop, Where=(prop.RESOURCE_ID == Parameter("resourceID")).And(
@@ -276,11 +331,25 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
 
         key_str = key.toString()
         del self._cached[(key_str, uid)]
-        self._deleteQuery.on(self._txn, lambda:KeyError(key),
-                             resourceID=self._resourceID,
-                             name=key_str, uid=uid
-                            )
-        self._cacher.delete(str(self._resourceID))
+        @inlineCallbacks
+        def doIt(txn):
+            yield self._deleteQuery.on(txn, lambda: KeyError(key),
+                                 resourceID=self._resourceID,
+                                 name=key_str, uid=uid
+                                )
+            self._cacher.delete(self._cacheToken(uid))
+
+        # Call the registered notification callback - we need to do this as a preCommit since it involves
+        # a bunch of deferred operations, but this propstore api is not deferred. preCommit will execute
+        # the deferreds properly, and it is fine to wait until everything else is done before sending the
+        # notifications.
+        if hasattr(self, "_notifyCallback") and self._notifyCallback is not None:
+            self._txn.preCommit(self._notifyCallback)
+
+        def justLogIt(f):
+            f.trap(AllRetriesFailed)
+            self.log.error("setting a property failed; probably nothing.")
+        self._txn.subtransaction(doIt).addErrback(justLogIt)
 
 
     def _keys_uid(self, uid):
@@ -292,11 +361,15 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
         prop, Where=(prop.RESOURCE_ID == Parameter("resourceID"))
     )
 
+    @inlineCallbacks
     def _removeResource(self):
 
         self._cached = {}
-        self._deleteResourceQuery.on(self._txn, resourceID=self._resourceID)
+        yield self._deleteResourceQuery.on(self._txn, resourceID=self._resourceID)
+
+        # Invalidate entire set of cached per-user data for this resource
         self._cacher.delete(str(self._resourceID))
+
 
     @inlineCallbacks
     def copyAllProperties(self, other):
@@ -316,9 +389,8 @@ class PropertyStore(AbstractPropertyStore, LoggingMixIn):
                 yield self._insertQuery.on(
                     self._txn, resourceID=self._resourceID, value=value_str,
                     name=key_str, uid=uid)
-                
 
-        # Reload from the DB
+        # Invalidate entire set of cached per-user data for this resource and reload
         self._cached = {}
         self._cacher.delete(str(self._resourceID))
         yield self._refresh(self._txn)

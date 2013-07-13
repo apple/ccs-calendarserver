@@ -15,6 +15,7 @@
 # limitations under the License.
 ##
 
+
 """
 SQL backend for CalDAV storage.
 """
@@ -25,6 +26,7 @@ __all__ = [
     "CalendarObject",
 ]
 
+from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Len
@@ -32,9 +34,9 @@ from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import Select, Count, ColumnSyntax
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import utcNowSQL
-
+from twext.enterprise.locking import NamedLock
+from twext.enterprise.queue import WorkItem
 from twext.enterprise.util import parseSQLTimestamp
-
 from twext.python.clsprop import classproperty
 from twext.python.filepath import CachingFilePath
 from twext.python.log import Logger
@@ -42,12 +44,12 @@ from twext.python.vcomponent import VComponent
 from twext.web2.http_headers import MimeType, generateContentType
 from twext.web2.stream import readStream
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
 
 from twistedcaldav import caldavxml, customxml
-from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
     pyCalendarTodatetime, parseSQLDateToPyCalendar
 from twistedcaldav.ical import Component, InvalidICalendarDataError, Property
@@ -55,30 +57,37 @@ from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.datastore.util import AttachmentRetrievalTransport
+from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
+from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
+from txdav.caldav.datastore.util import AttachmentRetrievalTransport, \
+    normalizationLookup
 from txdav.caldav.datastore.util import CalendarObjectBase
 from txdav.caldav.datastore.util import StorageTransportBase
-from txdav.caldav.datastore.util import validateCalendarComponent, \
-    dropboxIDFromCalendarObject
+from txdav.caldav.datastore.util import dropboxIDFromCalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject, \
     IAttachment, AttachmentStoreFailed, AttachmentStoreValidManagedID, \
-    AttachmentMigrationFailed, AttachmentDropboxNotAllowed
+    AttachmentMigrationFailed, AttachmentDropboxNotAllowed, \
+    TooManyAttendeesError, InvalidComponentTypeError, InvalidCalendarAccessError, \
+    ResourceDeletedError, \
+    AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
+    ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
+    InvalidDefaultCalendar, \
+    InvalidAttachmentOperation
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator, \
     PostgresLegacyInboxIndexEmulator
-from txdav.common.datastore.sql_tables import CALENDAR_TABLE, \
-    CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE, \
-    _ATTACHMENTS_MODE_NONE, _ATTACHMENTS_MODE_WRITE, \
-    CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE, \
-    CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE, \
-    CALENDAR_OBJECT_AND_BIND_TABLE, schema, _BIND_MODE_OWN, \
-    _ATTACHMENTS_MODE_READ
+from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
+    _ATTACHMENTS_MODE_WRITE, schema, _BIND_MODE_OWN, \
+    _ATTACHMENTS_MODE_READ, _TRANSP_OPAQUE, _TRANSP_TRANSPARENT
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
-    HomeChildNameNotAllowedError
-from txdav.xml.rfc2518 import ResourceType
+    HomeChildNameNotAllowedError, ObjectResourceTooBigError, \
+    InvalidObjectResourceError, ObjectResourceNameAlreadyExistsError, \
+    ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
+    InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
+    InvalidResourceMove, InvalidComponentForStoreError
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
@@ -87,7 +96,9 @@ from pycalendar.value import PyCalendarValue
 
 from zope.interface.declarations import implements
 
+from urlparse import urlparse, urlunparse
 import collections
+import datetime
 import os
 import tempfile
 import urllib
@@ -162,13 +173,12 @@ class CalendarStoreFeatures(object):
 
             # Count number to process so we can display progress
             rows = (yield Select(
-                (Count(at.DROPBOX_ID),),
+                (at.DROPBOX_ID,),
                 From=at,
                 Where=at.DROPBOX_ID != ".",
-                GroupBy=at.DROPBOX_ID,
-                Limit=batchSize,
+                Distinct=True,
             ).on(txn))
-            total = rows[0][0]
+            total = len(rows)
             count = 0
             log.warn("%d dropbox ids to migrate" % (total,))
         except RuntimeError, e:
@@ -238,6 +248,13 @@ class CalendarStoreFeatures(object):
             log.debug("  processing attachment object: %s" % (name,))
             attachment = (yield DropBoxAttachment.load(txn, dropbox_id, name))
 
+            # Check for orphans
+            if len(cobjs) == 0:
+                # Just remove the attachment
+                log.warn("Orphaned dropbox id removed: %s" % (attachment._path,))
+                yield attachment.remove()
+                continue
+
             # Find owner objects and group all by UID
             owners = []
             cobj_by_UID = collections.defaultdict(list)
@@ -268,7 +285,10 @@ class CalendarStoreFeatures(object):
             else:
                 # TODO: look for cobjs that were not changed and remove their ATTACH properties.
                 # These could happen if the owner object no longer exists.
-                pass
+                # For now just remove the attachment
+                log.warn("Unowned dropbox id removed: %s" % (attachment._path,))
+                yield attachment.remove()
+                continue
 
         log.debug("  finished dropbox id: %s" % (dropbox_id,))
 
@@ -301,6 +321,74 @@ class CalendarStoreFeatures(object):
         returnValue(results)
 
 
+    @inlineCallbacks
+    def calendarObjectsWithUID(self, txn, uid):
+        """
+        Return all child object resources with the specified UID. Only "owned" resources are returned,
+        no shared resources.
+
+        @param txn: transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param uid: UID to query
+        @type uid: C{str}
+
+        @return: list of matching L{CalendarObject}s
+        @rtype: C{list}
+        """
+
+        # First find the resource-ids of the (home, parent, object) for each object matching the UID.
+        obj = CalendarHome._objectSchema
+        bind = CalendarHome._bindSchema
+        rows = (yield Select(
+            [bind.HOME_RESOURCE_ID, obj.PARENT_RESOURCE_ID, obj.RESOURCE_ID],
+            From=obj.join(bind, obj.PARENT_RESOURCE_ID == bind.RESOURCE_ID),
+            Where=(obj.UID == Parameter("uid")).And(bind.BIND_MODE == _BIND_MODE_OWN),
+        ).on(txn, uid=uid))
+
+        results = []
+        for homeID, parentID, childID in rows:
+            home = (yield txn.calendarHomeWithResourceID(homeID))
+            parent = (yield home.childWithID(parentID))
+            child = (yield parent.objectResourceWithID(childID))
+            results.append(child)
+
+        returnValue(results)
+
+
+    @inlineCallbacks
+    def calendarObjectWithID(self, txn, rid):
+        """
+        Return all child object resources with the specified UID. Only "owned" resources are returned,
+        no shared resources.
+
+        @param txn: transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param rid: resource-id to query
+        @type rid: C{int}
+
+        @return: matching calendar object, or None if not found
+        @rtype: L{CalendarObject} or C{None}
+        """
+
+        # First find the resource-ids of the (home, parent, object) for each object matching the UID.
+        obj = CalendarHome._objectSchema
+        bind = CalendarHome._bindSchema
+        rows = (yield Select(
+            [bind.HOME_RESOURCE_ID, obj.PARENT_RESOURCE_ID, obj.RESOURCE_ID],
+            From=obj.join(bind, obj.PARENT_RESOURCE_ID == bind.RESOURCE_ID),
+            Where=(obj.RESOURCE_ID == Parameter("rid")).And(bind.BIND_MODE == _BIND_MODE_OWN),
+        ).on(txn, rid=rid))
+
+        results = []
+        for homeID, parentID, childID in rows:
+            home = (yield txn.calendarHomeWithResourceID(homeID))
+            parent = (yield home.childWithID(parentID))
+            child = (yield parent.objectResourceWithID(childID))
+            results.append(child)
+
+        returnValue(results[0] if results else None)
+
+
 
 class CalendarHome(CommonHome):
 
@@ -313,23 +401,61 @@ class CalendarHome(CommonHome):
     _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
     _objectSchema = schema.CALENDAR_OBJECT
 
-    # string mappings (old, removing)
-    _homeTable = CALENDAR_HOME_TABLE
-    _homeMetaDataTable = CALENDAR_HOME_METADATA_TABLE
-    _childTable = CALENDAR_TABLE
-    _bindTable = CALENDAR_BIND_TABLE
-    _objectBindTable = CALENDAR_OBJECT_AND_BIND_TABLE
     _notifierPrefix = "CalDAV"
-    _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-
     _dataVersionKey = "CALENDAR-DATAVERSION"
 
     _cacher = Memcacher("SQL.calhome", pickle=True, key_normalization=False)
 
-    def __init__(self, transaction, ownerUID, notifiers):
+    def __init__(self, transaction, ownerUID):
 
         self._childClass = Calendar
-        super(CalendarHome, self).__init__(transaction, ownerUID, notifiers)
+        super(CalendarHome, self).__init__(transaction, ownerUID)
+
+
+    @classmethod
+    def metadataColumns(cls):
+        """
+        Return a list of column name for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            cls._homeMetaDataSchema.DEFAULT_EVENTS,
+            cls._homeMetaDataSchema.DEFAULT_TASKS,
+            cls._homeMetaDataSchema.ALARM_VEVENT_TIMED,
+            cls._homeMetaDataSchema.ALARM_VEVENT_ALLDAY,
+            cls._homeMetaDataSchema.ALARM_VTODO_TIMED,
+            cls._homeMetaDataSchema.ALARM_VTODO_ALLDAY,
+            cls._homeMetaDataSchema.AVAILABILITY,
+            cls._homeMetaDataSchema.CREATED,
+            cls._homeMetaDataSchema.MODIFIED,
+        )
+
+
+    @classmethod
+    def metadataAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            "_default_events",
+            "_default_tasks",
+            "_alarm_vevent_timed",
+            "_alarm_vevent_allday",
+            "_alarm_vtodo_timed",
+            "_alarm_vtodo_allday",
+            "_availability",
+            "_created",
+            "_modified",
+        )
 
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
@@ -407,12 +533,11 @@ class CalendarHome(CommonHome):
         for objectResource in objectResources:
             if ok_object and objectResource._resourceID == ok_object._resourceID:
                 continue
-            matched_mode = ("schedule" if objectResource.isScheduleObject
-                            else "calendar")
+            matched_mode = ("schedule" if objectResource.isScheduleObject else "calendar")
             if mode == "schedule" or matched_mode == "schedule":
-                returnValue(True)
+                returnValue(objectResource)
 
-        returnValue(False)
+        returnValue(None)
 
 
     @inlineCallbacks
@@ -492,28 +617,27 @@ class CalendarHome(CommonHome):
 
 
     @inlineCallbacks
-    def attachmentObjectWithID(self, managedID):
-        attach = (yield ManagedAttachment.load(self._txn, managedID))
-        returnValue(attach)
-
-
-    @inlineCallbacks
     def createdHome(self):
 
         # Default calendar
         defaultCal = yield self.createCalendarWithName("calendar")
-        props = defaultCal.properties()
-        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
 
         # Check whether components type must be separate
         if config.RestrictCalendarsToOneComponentType:
             yield defaultCal.setSupportedComponents("VEVENT")
+            yield self.setDefaultCalendar(defaultCal, False)
 
             # Default tasks
             defaultTasks = yield self.createCalendarWithName("tasks")
             yield defaultTasks.setSupportedComponents("VTODO")
+            yield defaultTasks.setUsedForFreeBusy(False)
+            yield self.setDefaultCalendar(defaultTasks, True)
+        else:
+            yield self.setDefaultCalendar(defaultCal, False)
+            yield self.setDefaultCalendar(defaultCal, True)
 
-        yield self.createCalendarWithName("inbox")
+        inbox = yield self.createCalendarWithName("inbox")
+        yield inbox.setUsedForFreeBusy(False)
 
 
     @inlineCallbacks
@@ -523,15 +647,15 @@ class CalendarHome(CommonHome):
         """
 
         # Make sure the loop does not operate on any new calendars created during the loop
-        self.log_warn("Splitting calendars for user %s" % (self._ownerUID,))
+        self.log.warn("Splitting calendars for user %s" % (self._ownerUID,))
         calendars = yield self.calendars()
         for calendar in calendars:
 
             # Ignore inbox - also shared calendars are not part of .calendars()
-            if calendar.name() == "inbox":
+            if calendar.isInbox():
                 continue
             split_count = yield calendar.splitCollectionByComponentTypes()
-            self.log_warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count + 1,))
+            self.log.warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count + 1,))
 
         yield self.ensureDefaultCalendarsExist()
 
@@ -549,7 +673,7 @@ class CalendarHome(CommonHome):
             names = set()
             calendars = yield self.calendars()
             for calendar in calendars:
-                if calendar.name() == "inbox":
+                if calendar.isInbox():
                     continue
                 names.add(calendar.name())
                 result = yield calendar.getSupportedComponents()
@@ -566,6 +690,243 @@ class CalendarHome(CommonHome):
 
             yield _requireCalendarWithType("VEVENT", "calendar")
             yield _requireCalendarWithType("VTODO", "tasks")
+
+
+    @inlineCallbacks
+    def pickNewDefaultCalendar(self, tasks=False):
+        """
+        First see if default provisioned calendar exists in the calendar home and pick that. Otherwise
+        pick another from the calendar home.
+        """
+
+        componentType = "VTODO" if tasks else "VEVENT"
+        test_name = "tasks" if tasks else "calendar"
+
+        defaultCalendar = (yield self.calendarWithName(test_name))
+        if defaultCalendar is None or not defaultCalendar.owned():
+
+            @inlineCallbacks
+            def _findDefault():
+                for calendarName in (yield self.listCalendars()):
+                    calendar = (yield self.calendarWithName(calendarName))
+                    if calendar.isInbox():
+                        continue
+                    if not calendar.owned():
+                        continue
+                    if not calendar.isSupportedComponent(componentType):
+                        continue
+                    break
+                else:
+                    calendar = None
+                returnValue(calendar)
+
+            defaultCalendar = yield _findDefault()
+            if defaultCalendar is None:
+                # Create a default and try and get its name again
+                yield self.ensureDefaultCalendarsExist()
+                defaultCalendar = yield _findDefault()
+                if defaultCalendar is None:
+                    # Failed to even create a default - bad news...
+                    raise RuntimeError("No valid calendars to use as a default %s calendar." % (componentType,))
+
+        yield self.setDefaultCalendar(defaultCalendar, tasks)
+
+        returnValue(defaultCalendar)
+
+
+    @inlineCallbacks
+    def setDefaultCalendar(self, calendar, tasks=False):
+        """
+        Set the default calendar for a particular type of component.
+
+        @param calendar: the calendar being set as the default
+        @type calendar: L{CalendarObject}
+        @param tasks: C{True} for VTODO, C{False} for VEVENT
+        @type componentType: C{bool}
+        """
+        chm = self._homeMetaDataSchema
+        componentType = "VTODO" if tasks else "VEVENT"
+        attribute_to_test = "_default_tasks" if tasks else "_default_events"
+        column_to_set = chm.DEFAULT_TASKS if tasks else chm.DEFAULT_EVENTS
+
+        # Check validity of the default
+        if calendar.isInbox():
+            raise InvalidDefaultCalendar("Cannot set inbox as a default calendar")
+        elif not calendar.owned():
+            raise InvalidDefaultCalendar("Cannot set shared calendar as a default calendar")
+        elif not calendar.isSupportedComponent(componentType):
+            raise InvalidDefaultCalendar("Cannot set default calendar to unsupported component type")
+        elif calendar.ownerHome().uid() != self.uid():
+            raise InvalidDefaultCalendar("Cannot set default calendar to someone else's calendar")
+
+        setattr(self, attribute_to_test, calendar._resourceID)
+        yield Update(
+            {column_to_set: calendar._resourceID},
+            Where=chm.RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
+        yield self.notifyChanged()
+
+        # CalDAV stores the default calendar properties on the inbox so we also need to send a changed notification on that
+        inbox = (yield self.calendarWithName("inbox"))
+        if inbox is not None:
+            yield inbox.notifyPropertyChanged()
+
+
+    @inlineCallbacks
+    def defaultCalendar(self, componentType, create=True):
+        """
+        Find the default calendar for the supplied iCalendar component type. If one does
+        not exist, automatically provision it.
+
+        @param componentType: the name of the iCalendar component for the default, i.e. "VEVENT" or "VTODO"
+        @type componentType: C{str}
+        @param create: if C{True} and no default is found, create a calendar and make it the default, if C{False}
+            and there is no default, then return C{None}
+        @type create: C{bool}
+
+        @return: the default calendar or C{None} if none found and creation not requested
+        @rtype: L{Calendar} or C{None}
+        """
+
+        # Check any default calendar property first - this will create if none exists
+        attribute_to_test = "_default_tasks" if componentType == "VTODO" else "_default_events"
+        defaultID = getattr(self, attribute_to_test)
+        if defaultID:
+            default = (yield self.childWithID(defaultID))
+        else:
+            default = None
+
+        # Check that default meets requirements
+        if default is not None:
+            if default.isInbox():
+                default = None
+            elif not default.owned():
+                default = None
+            elif not default.isSupportedComponent(componentType):
+                default = None
+
+        # Must have a default - provision one if not
+        if default is None:
+
+            # Try to find a calendar supporting the required component type. If there are multiple, pick
+            # the one with the oldest created timestamp as that will likely be the initial provision.
+            for calendarName in (yield self.listCalendars()):
+                calendar = (yield self.calendarWithName(calendarName))
+                if calendar.isInbox():
+                    continue
+                elif not calendar.owned():
+                    continue
+                elif not calendar.isSupportedComponent(componentType):
+                    continue
+                if default is None or calendar.created() < default.created():
+                    default = calendar
+
+            # If none can be found, provision one
+            if default is None:
+                if not create:
+                    returnValue(None)
+                else:
+                    new_name = "%ss" % (componentType.lower()[1:],)
+                    default = yield self.createCalendarWithName(new_name)
+                    yield default.setSupportedComponents(componentType.upper())
+
+            # Update the metadata
+            yield self.setDefaultCalendar(default, componentType == "VTODO")
+
+        returnValue(default)
+
+
+    def isDefaultCalendar(self, calendar):
+        """
+        Is the supplied calendar one of the possible default calendars.
+        """
+        # Not allowed to delete the default calendar
+        return calendar._resourceID in (self._default_events, self._default_tasks)
+
+    ALARM_DETAILS = {
+        (True, True): (_homeMetaDataSchema.ALARM_VEVENT_TIMED, "_alarm_vevent_timed"),
+        (True, False): (_homeMetaDataSchema.ALARM_VEVENT_ALLDAY, "_alarm_vevent_allday"),
+        (False, True): (_homeMetaDataSchema.ALARM_VTODO_TIMED, "_alarm_vtodo_timed"),
+        (False, False): (_homeMetaDataSchema.ALARM_VTODO_ALLDAY, "_alarm_vtodo_allday"),
+    }
+
+    def getDefaultAlarm(self, vevent, timed):
+        """
+        Return the default alarm (text) for the specified alarm type.
+
+        @param vevent: used for a vevent (C{True}) or vtodo (C{False})
+        @type vevent: C{bool}
+        @param timed: timed ({C{True}) or all-day ({C{False})
+        @type timed: C{bool}
+
+        @return: the alarm (text)
+        @rtype: C{str}
+        """
+
+        return getattr(self, self.ALARM_DETAILS[(vevent, timed)][1])
+
+
+    @inlineCallbacks
+    def setDefaultAlarm(self, alarm, vevent, timed):
+        """
+        Set default alarm of the specified type.
+
+        @param alarm: the alarm text
+        @type alarm: C{str}
+        @param vevent: used for a vevent (C{True}) or vtodo (C{False})
+        @type vevent: C{bool}
+        @param timed: timed ({C{True}) or all-day ({C{False})
+        @type timed: C{bool}
+        """
+
+        colname, attr_alarm = self.ALARM_DETAILS[(vevent, timed)]
+
+        setattr(self, attr_alarm, alarm)
+
+        chm = self._homeMetaDataSchema
+        yield Update(
+            {colname: alarm},
+            Where=chm.RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
+        yield self.notifyChanged()
+
+
+    def getAvailability(self):
+        """
+        Return the VAVAILABILITY data.
+
+        @return: the component (text)
+        @rtype: L{Component}
+        """
+
+        return Component.fromString(self._availability) if self._availability else None
+
+
+    @inlineCallbacks
+    def setAvailability(self, availability):
+        """
+        Set VAVAILABILITY data.
+
+        @param availability: the component
+        @type availability: L{Component}
+        """
+
+        self._availability = str(availability) if availability else None
+
+        chm = self._homeMetaDataSchema
+        yield Update(
+            {chm.AVAILABILITY: self._availability},
+            Where=chm.RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
+        yield self.notifyChanged()
+
+        # CalDAV stores the availability properties on the inbox so we also need to send a changed notification on that
+        inbox = (yield self.calendarWithName("inbox"))
+        if inbox is not None:
+            yield inbox.notifyPropertyChanged()
 
 
 CalendarHome._register(ECALENDARTYPE)
@@ -587,14 +948,6 @@ class Calendar(CommonHomeChild):
     _objectSchema = schema.CALENDAR_OBJECT
     _timeRangeSchema = schema.TIME_RANGE
 
-    # string mappings (old, removing)
-    _bindTable = CALENDAR_BIND_TABLE
-    _homeChildTable = CALENDAR_TABLE
-    _homeChildBindTable = CALENDAR_AND_CALENDAR_BIND
-    _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-    _revisionsBindTable = CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE
-    _objectTable = CALENDAR_OBJECT_TABLE
-
     _supportedComponents = None
 
     def __init__(self, *args, **kw):
@@ -602,10 +955,11 @@ class Calendar(CommonHomeChild):
         Initialize a calendar pointing at a record in a database.
         """
         super(Calendar, self).__init__(*args, **kw)
-        if self.name() == 'inbox':
+        if self.isInbox():
             self._index = PostgresLegacyInboxIndexEmulator(self)
         else:
             self._index = PostgresLegacyIndexEmulator(self)
+        self._transp = _TRANSP_OPAQUE
 
 
     @classmethod
@@ -619,9 +973,9 @@ class Calendar(CommonHomeChild):
         # Common behavior is to have created and modified
 
         return (
+            cls._homeChildMetaDataSchema.SUPPORTED_COMPONENTS,
             cls._homeChildMetaDataSchema.CREATED,
             cls._homeChildMetaDataSchema.MODIFIED,
-            cls._homeChildMetaDataSchema.SUPPORTED_COMPONENTS,
         )
 
 
@@ -636,20 +990,51 @@ class Calendar(CommonHomeChild):
         # Common behavior is to have created and modified
 
         return (
+            "_supportedComponents",
             "_created",
             "_modified",
-            "_supportedComponents",
+        )
+
+
+    @classmethod
+    def additionalBindColumns(cls):
+        """
+        Return a list of column names for retrieval during creation. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        return (
+            cls._bindSchema.TRANSP,
+            cls._bindSchema.ALARM_VEVENT_TIMED,
+            cls._bindSchema.ALARM_VEVENT_ALLDAY,
+            cls._bindSchema.ALARM_VTODO_TIMED,
+            cls._bindSchema.ALARM_VTODO_ALLDAY,
+            cls._bindSchema.TIMEZONE,
+        )
+
+
+    @classmethod
+    def additionalBindAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of during creation. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        return (
+            "_transp",
+            "_alarm_vevent_timed",
+            "_alarm_vevent_allday",
+            "_alarm_vtodo_timed",
+            "_alarm_vtodo_allday",
+            "_timezone",
         )
 
 
     @property
     def _calendarHome(self):
         return self._home
-
-
-    # FIXME: resource type is DAV.  This doesn't belong in the data store.  -wsv
-    def resourceType(self):
-        return ResourceType.calendar # @UndefinedVariable
 
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome
@@ -658,9 +1043,31 @@ class Calendar(CommonHomeChild):
     calendarObjectWithName = CommonHomeChild.objectResourceWithName
     calendarObjectWithUID = CommonHomeChild.objectResourceWithUID
     createCalendarObjectWithName = CommonHomeChild.createObjectResourceWithName
-    removeCalendarObjectWithName = CommonHomeChild.removeObjectResourceWithName
-    removeCalendarObjectWithUID = CommonHomeChild.removeObjectResourceWithUID
     calendarObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
+
+
+    @inlineCallbacks
+    def _createCalendarObjectWithNameInternal(self, name, component, internal_state, options=None):
+
+        # Create => a new resource name
+        if name in self._objects and self._objects[name]:
+            raise ObjectResourceNameAlreadyExistsError()
+
+        # Apply check to the size of the collection
+        if config.MaxResourcesPerCollection:
+            child_count = (yield self.countObjectResources())
+            if child_count >= config.MaxResourcesPerCollection:
+                raise TooManyObjectResourcesError()
+
+        objectResource = (
+            yield self._objectResourceClass._createInternal(self, name, component, internal_state, options)
+        )
+        self._objects[objectResource.name()] = objectResource
+        self._objects[objectResource.uid()] = objectResource
+
+        # Note: create triggers a notification when the component is set, so we
+        # don't need to call notify() here like we do for object removal.
+        returnValue(objectResource)
 
 
     def calendarObjectsInTimeRange(self, start, end, timeZone):
@@ -672,7 +1079,18 @@ class Calendar(CommonHomeChild):
         inbox resources need to store Originator, Recipient etc properties.
         Other calendars do not have object resources with properties.
         """
-        return self._name == "inbox"
+        return self.isInbox()
+
+
+    def isSupportedComponent(self, componentType):
+        if self._supportedComponents:
+            return componentType.upper() in self._supportedComponents.split(",")
+        else:
+            return True
+
+
+    def getSupportedComponents(self):
+        return self._supportedComponents
 
 
     @inlineCallbacks
@@ -690,31 +1108,140 @@ class Calendar(CommonHomeChild):
             Where=(cal.RESOURCE_ID == self._resourceID)
         ).on(self._txn)
         self._supportedComponents = supported_components
-
-        queryCacher = self._txn._queryCacher
-        if queryCacher is not None:
-            cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
-            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+        yield self.invalidateQueryCache()
+        yield self.notifyPropertyChanged()
 
 
-    def getSupportedComponents(self):
-        return self._supportedComponents
+    def getTimezone(self):
+        """
+        Return the VTIMEZONE data.
+
+        @return: the component (text)
+        @rtype: L{Component}
+        """
+
+        return Component.fromString(self._timezone) if self._timezone else None
 
 
-    def isSupportedComponent(self, componentType):
-        if self._supportedComponents:
-            return componentType.upper() in self._supportedComponents.split(",")
-        else:
-            return True
+    @inlineCallbacks
+    def setTimezone(self, timezone):
+        """
+        Set VTIMEZONE data.
+
+        @param timezone: the component
+        @type timezone: L{Component}
+        """
+
+        self._timezone = str(timezone) if timezone else None
+
+        cal = self._bindSchema
+        yield Update(
+            {
+                cal.TIMEZONE : self._timezone
+            },
+            Where=(cal.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cal.CALENDAR_RESOURCE_ID == self._resourceID)
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
+        yield self.notifyPropertyChanged()
+
+    ALARM_DETAILS = {
+        (True, True): (_bindSchema.ALARM_VEVENT_TIMED, "_alarm_vevent_timed"),
+        (True, False): (_bindSchema.ALARM_VEVENT_ALLDAY, "_alarm_vevent_allday"),
+        (False, True): (_bindSchema.ALARM_VTODO_TIMED, "_alarm_vtodo_timed"),
+        (False, False): (_bindSchema.ALARM_VTODO_ALLDAY, "_alarm_vtodo_allday"),
+    }
+
+    def getDefaultAlarm(self, vevent, timed):
+        """
+        Return the default alarm (text) for the specified alarm type.
+
+        @param vevent: used for a vevent (C{True}) or vtodo (C{False})
+        @type vevent: C{bool}
+        @param timed: timed ({C{True}) or all-day ({C{False})
+        @type timed: C{bool}
+        @return: the alarm (text)
+        @rtype: C{str}
+        """
+
+        return getattr(self, self.ALARM_DETAILS[(vevent, timed)][1])
+
+
+    @inlineCallbacks
+    def setDefaultAlarm(self, alarm, vevent, timed):
+        """
+        Set default alarm of the specified type.
+
+        @param alarm: the alarm text
+        @type alarm: C{str}
+        @param vevent: used for a vevent (C{True}) or vtodo (C{False})
+        @type vevent: C{bool}
+        @param timed: timed ({C{True}) or all-day ({C{False})
+        @type timed: C{bool}
+        """
+
+        colname, attr_alarm = self.ALARM_DETAILS[(vevent, timed)]
+
+        setattr(self, attr_alarm, alarm)
+
+        cal = self._bindSchema
+        yield Update(
+            {colname: alarm},
+            Where=(cal.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cal.CALENDAR_RESOURCE_ID == self._resourceID)
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
+        yield self.notifyPropertyChanged()
+
+
+    def isInbox(self):
+        """
+        Indicates whether this calendar is an "inbox".
+
+        @return: C{True} if it is an "inbox, C{False} otherwise
+        @rtype: C{bool}
+        """
+        return self.name() == "inbox"
+
+
+    def isUsedForFreeBusy(self):
+        """
+        Indicates whether the contents of this calendar contributes to free busy.
+
+        @return: C{True} if it does, C{False} otherwise
+        @rtype: C{bool}
+        """
+        return self._transp == _TRANSP_OPAQUE
+
+
+    @inlineCallbacks
+    def setUsedForFreeBusy(self, use_it):
+        """
+        Mark this calendar as being used for free busy request. Note this is a per-user setting so we are setting
+        this on the bind table entry which is related to the user viewing the calendar.
+
+        @param use_it: C{True} if used for free busy, C{False} otherwise
+        @type use_it: C{bool}
+        """
+
+        self._transp = _TRANSP_OPAQUE if use_it else _TRANSP_TRANSPARENT
+        cal = self._bindSchema
+        yield Update(
+            {cal.TRANSP : self._transp},
+            Where=(cal.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cal.CALENDAR_RESOURCE_ID == self._resourceID)
+        ).on(self._txn)
+        yield self.invalidateQueryCache()
+        yield self.notifyPropertyChanged()
 
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
         props.setSpecialProperties(
+            # Shadowable
             (
                 PropertyName.fromElement(caldavxml.CalendarDescription),
                 PropertyName.fromElement(caldavxml.CalendarTimeZone),
             ),
+
+            # Global
             (
                 PropertyName.fromElement(customxml.GETCTag),
                 PropertyName.fromElement(caldavxml.SupportedCalendarComponentSet),
@@ -887,7 +1414,7 @@ class Calendar(CommonHomeChild):
 
 
     @classproperty
-    def _moveTimeRangeUpdateQuery(cls): # @NoSelf
+    def _moveTimeRangeUpdateQuery(cls):  # @NoSelf
         """
         DAL query to update a child to be in a new parent.
         """
@@ -908,23 +1435,6 @@ class Calendar(CommonHomeChild):
             newParentID=newparent._resourceID,
             resourceID=child._resourceID
         )
-
-
-    def unshare(self):
-        """
-        Unshares a collection, regardless of which "direction" it was shared.
-        """
-        return super(Calendar, self).unshare(ECALENDARTYPE)
-
-
-    def creatingResourceCheckAttachments(self, component):
-        """
-        When component data is created or changed we need to look for changes related to managed attachments.
-
-        @param component: the new calendar data
-        @type component: L{Component}
-        """
-        return CalendarObject.creatingResourceCheckAttachments(self._txn, self, component)
 
 
 icalfbtype_to_indexfbtype = {
@@ -960,21 +1470,24 @@ def _pathToName(path):
 class CalendarObject(CommonObjectResource, CalendarObjectBase):
     implements(ICalendarObject)
 
-    _objectTable = CALENDAR_OBJECT_TABLE
     _objectSchema = schema.CALENDAR_OBJECT
 
-    def __init__(self, calendar, name, uid, resourceID=None, metadata=None):
+    def __init__(self, calendar, name, uid, resourceID=None, options=None):
 
         super(CalendarObject, self).__init__(calendar, name, uid, resourceID)
 
-        if metadata is None:
-            metadata = {}
-        self.accessMode = metadata.get("accessMode", "")
-        self.isScheduleObject = metadata.get("isScheduleObject", False)
-        self.scheduleTag = metadata.get("scheduleTag", "")
-        self.scheduleEtags = metadata.get("scheduleEtags", "")
-        self.hasPrivateComment = metadata.get("hasPrivateComment", False)
+        if options is None:
+            options = {}
+        self.accessMode = options.get("accessMode", "")
+        self.isScheduleObject = options.get("isScheduleObject", False)
+        self.scheduleTag = options.get("scheduleTag", "")
+        self.scheduleEtags = options.get("scheduleEtags", "")
+        self.hasPrivateComment = options.get("hasPrivateComment", False)
         self._dropboxID = None
+
+        # Component caching
+        self._cachedComponent = None
+        self._cachedCommponentPerUser = {}
 
     _allColumns = [
         _objectSchema.RESOURCE_ID,
@@ -992,6 +1505,27 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         _objectSchema.CREATED,
         _objectSchema.MODIFIED
     ]
+
+
+    @classmethod
+    @inlineCallbacks
+    def _createInternal(cls, parent, name, component, internal_state, options=None):
+
+        child = (yield cls.objectWithName(parent, name, None))
+        if child:
+            raise ObjectResourceNameAlreadyExistsError(name)
+
+        if name.startswith("."):
+            raise ObjectResourceNameNotAllowedError(name)
+
+        objectResource = cls(parent, name, None, None, options=options)
+        yield objectResource._setComponentInternal(component, inserting=True, internal_state=internal_state)
+        yield objectResource._loadPropertyStore(created=True)
+
+        # Note: setComponent triggers a notification, so we don't need to
+        # call notify( ) here like we do for object removal.
+
+        returnValue(objectResource)
 
 
     def _initFromRow(self, row):
@@ -1024,12 +1558,618 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         return self._calendar
 
 
+    # Stuff from put_common
     @inlineCallbacks
-    def setComponent(self, component, inserting=False):
+    def fullValidation(self, component, inserting, internal_state):
+        """
+        Do full validation of source and destination calendar data.
+        """
 
-        validateCalendarComponent(self, self._calendar, component, inserting, self._txn._migrating)
+        # Basic validation
+
+        # Do validation on external requests
+        if internal_state == ComponentUpdateState.NORMAL:
+
+            # Valid data sizes
+            if config.MaxResourceSize:
+                calsize = len(str(component))
+                if calsize > config.MaxResourceSize:
+                    raise ObjectResourceTooBigError()
+
+        # Possible timezone stripping
+        if config.EnableTimezonesByReference:
+            component.stripKnownTimezones()
+
+        # Do validation on external requests
+        if internal_state == ComponentUpdateState.NORMAL:
+
+            # Valid calendar data checks
+            self.validCalendarDataCheck(component, inserting)
+
+            # Valid calendar component for check
+            if not self.calendar().isSupportedComponent(component.mainType()):
+                raise InvalidComponentTypeError("Invalid component type %s for calendar: %s" % (component.mainType(), self.calendar(),))
+
+            # Valid attendee list size check
+            yield self.validAttendeeListSizeCheck(component, inserting)
+
+            # Normalize the calendar user addresses once we know we have valid
+            # calendar data
+            component.normalizeCalendarUserAddresses(normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
+
+        # Check location/resource organizer requirement
+        self.validLocationResourceOrganizer(component, inserting, internal_state)
+
+        # Check access
+        if config.EnablePrivateEvents:
+            self.validAccess(component, inserting, internal_state)
+
+
+    def validCalendarDataCheck(self, component, inserting):
+        """
+        Check that the calendar data is valid iCalendar.
+        @return:         tuple: (True/False if the calendar data is valid,
+                                 log message string).
+        """
+
+        # Valid calendar data checks
+        if not isinstance(component, VComponent):
+            raise InvalidObjectResourceError("Wrong type of object: %s" % (type(component),))
+
+        try:
+            component.validCalendarData(validateRecurrences=self._txn._migrating)
+        except InvalidICalendarDataError, e:
+            raise InvalidObjectResourceError(str(e))
+        try:
+            component.validCalendarForCalDAV(methodAllowed=self.calendar().isInbox())
+        except InvalidICalendarDataError, e:
+            raise InvalidComponentForStoreError(str(e))
+        try:
+            if self._txn._migrating:
+                component.validOrganizerForScheduling(doFix=True)
+        except InvalidICalendarDataError, e:
+            raise ValidOrganizerError(str(e))
+
+
+    @inlineCallbacks
+    def validAttendeeListSizeCheck(self, component, inserting):
+        """
+        Make sure that the Attendee list length is within bounds. We don't do this check for inbox because we
+        will assume that the limit has been applied on the PUT causing the iTIP message to be created.
+
+        FIXME: The inbox check might not take into account iSchedule stuff from outside. That needs to have
+        the max attendees check applied at the time of delivery.
+        """
+
+        if config.MaxAttendeesPerInstance and not self.calendar().isInbox():
+            uniqueAttendees = set()
+            for attendee in component.getAllAttendeeProperties():
+                uniqueAttendees.add(attendee.value())
+            attendeeListLength = len(uniqueAttendees)
+            if attendeeListLength > config.MaxAttendeesPerInstance:
+
+                # Check to see whether we are increasing the count on an existing resource
+                if not inserting:
+                    oldcalendar = (yield self.componentForUser())
+                    uniqueAttendees = set()
+                    for attendee in oldcalendar.getAllAttendeeProperties():
+                        uniqueAttendees.add(attendee.value())
+                    oldAttendeeListLength = len(uniqueAttendees)
+                else:
+                    oldAttendeeListLength = 0
+
+                if attendeeListLength > oldAttendeeListLength:
+                    raise TooManyAttendeesError("Attendee list size %d is larger than allowed limit %d" % (attendeeListLength, config.MaxAttendeesPerInstance))
+
+
+    def validLocationResourceOrganizer(self, component, inserting, internal_state):
+        """
+        If the calendar owner is a location or resource, check whether an ORGANIZER property is required.
+        """
+
+        if internal_state == ComponentUpdateState.NORMAL:
+            originatorPrincipal = self.calendar().ownerHome().directoryRecord()
+            cutype = originatorPrincipal.getCUType() if originatorPrincipal is not None else "INDIVIDUAL"
+            organizer = component.getOrganizer()
+
+            # Check for an allowed change
+            if organizer is None and (
+                cutype == "ROOM" and not config.Scheduling.Options.AllowLocationWithoutOrganizer or
+                cutype == "RESOURCE" and not config.Scheduling.Options.AllowResourceWithoutOrganizer):
+                raise ValidOrganizerError("Organizer required in calendar data for a %s" % (cutype.lower(),))
+
+            # Check for tracking the modifier
+            if organizer is None and (
+                cutype == "ROOM" and config.Scheduling.Options.TrackUnscheduledLocationData or
+                cutype == "RESOURCE" and config.Scheduling.Options.TrackUnscheduledResourceData):
+
+                # Find current principal and update modified by details
+                if hasattr(self._txn, "_authz_uid"):
+                    authz = self.directoryService().recordWithUID(self._txn._authz_uid)
+                    prop = Property("X-CALENDARSERVER-MODIFIED-BY", authz.canonicalCalendarUserAddress())
+                    prop.setParameter("CN", authz.displayName())
+                    for candidate in authz.calendarUserAddresses:
+                        if candidate.startswith("mailto:"):
+                            prop.setParameter("EMAIL", candidate[7:])
+                            break
+                    component.replacePropertyInAllComponents(prop)
+                else:
+                    component.removeAllPropertiesWithName("X-CALENDARSERVER-MODIFIED-BY")
+                self._componentChanged = True
+
+
+    def validAccess(self, component, inserting, internal_state):
+        """
+        Make sure that the X-CALENDARSERVER-ACCESS property is properly dealt with.
+        """
+
+        if component.hasProperty(Component.ACCESS_PROPERTY):
+
+            # Must be a value we know about
+            access = component.accessLevel(default=None)
+            if access is None:
+                raise InvalidCalendarAccessError("Private event access level not allowed")
+
+            # Only DAV:owner is able to set the property to other than PUBLIC
+            if internal_state == ComponentUpdateState.NORMAL:
+                if self.calendar().viewerHome().uid() != self._txn._authz_uid and access != Component.ACCESS_PUBLIC:
+                    raise InvalidCalendarAccessError("Private event access level change not allowed")
+
+            self.accessMode = access
+        else:
+            # Check whether an access property was present before and write that into the calendar data
+            if not inserting and self.accessMode:
+                old_access = self.accessMode
+                component.addProperty(Property(name=Component.ACCESS_PROPERTY, value=old_access))
+
+
+    @inlineCallbacks
+    def preservePrivateComments(self, component, inserting):
+        """
+        Check for private comments on the old resource and the new resource and re-insert
+        ones that are lost.
+
+        NB Do this before implicit scheduling as we don't want old clients to trigger scheduling when
+        the X- property is missing.
+        """
+        if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
+            old_has_private_comments = not inserting and self.hasPrivateComment
+            new_has_private_comments = component.hasPropertyInAnyComponent((
+                "X-CALENDARSERVER-PRIVATE-COMMENT",
+                "X-CALENDARSERVER-ATTENDEE-COMMENT",
+            ))
+
+            if old_has_private_comments and not new_has_private_comments:
+                # Transfer old comments to new calendar
+                log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
+                old_calendar = (yield self.componentForUser())
+                component.transferProperties(old_calendar, (
+                    "X-CALENDARSERVER-PRIVATE-COMMENT",
+                    "X-CALENDARSERVER-ATTENDEE-COMMENT",
+                ))
+
+            self.hasPrivateComment = new_has_private_comments
+
+
+    @inlineCallbacks
+    def replaceMissingToDoProperties(self, calendar, inserting, internal_state):
+        """
+        Recover any lost ORGANIZER or ATTENDEE properties in non-recurring VTODOs.
+        """
+
+        if not inserting and calendar.resourceType() == "VTODO" and not calendar.isRecurring():
+
+            old_calendar = (yield self.componentForUser())
+
+            new_organizer = calendar.getOrganizer()
+            old_organizer = old_calendar.getOrganizerProperty()
+            new_attendees = calendar.getAttendees()
+            old_attendees = tuple(old_calendar.getAllAttendeeProperties())
+
+            new_completed = calendar.masterComponent().hasProperty("COMPLETED")
+            old_completed = old_calendar.masterComponent().hasProperty("COMPLETED")
+
+            if old_organizer and not new_organizer and len(old_attendees) > 0 and len(new_attendees) == 0:
+                # Transfer old organizer and attendees to new calendar
+                log.debug("Organizer and attendee properties were entirely removed by the client. Restoring existing properties.")
+
+                # Get the originator who is the owner of the calendar resource being modified
+                originatorPrincipal = self.calendar().ownerHome().directoryRecord()
+                originatorAddresses = originatorPrincipal.calendarUserAddresses
+
+                for component in calendar.subcomponents():
+                    if component.name() != "VTODO":
+                        continue
+
+                    if not component.hasProperty("DTSTART"):
+                        # Need to put DTSTART back in or we get a date mismatch failure later
+                        for old_component in old_calendar.subcomponents():
+                            if old_component.name() != "VTODO":
+                                continue
+                            if old_component.hasProperty("DTSTART"):
+                                component.addProperty(old_component.getProperty("DTSTART").duplicate())
+                                break
+
+                    # Add organizer back in from previous resource
+                    component.addProperty(old_organizer.duplicate())
+
+                    # Add attendees back in from previous resource
+                    for anAttendee in old_attendees:
+                        anAttendee = anAttendee.duplicate()
+                        if component.hasProperty("COMPLETED") and anAttendee.value() in originatorAddresses:
+                            anAttendee.setParameter("PARTSTAT", "COMPLETED")
+                        component.addProperty(anAttendee)
+
+            elif new_completed ^ old_completed and internal_state == ComponentUpdateState.NORMAL:
+                # COMPLETED changed - sync up attendee state
+                # We need this because many VTODO clients are not aware of scheduling,
+                # i.e. they do not adjust any ATTENDEE PARTSTATs. We are going to impose
+                # our own requirement that PARTSTAT is set to COMPLETED when the COMPLETED
+                # property is added.
+
+                # Transfer old organizer and attendees to new calendar
+                log.debug("Sync COMPLETED property change.")
+
+                # Get the originator who is the owner of the calendar resource being modified
+                originatorPrincipal = self.calendar().ownerHome().directoryRecord()
+                originatorAddresses = originatorPrincipal.calendarUserAddresses
+
+                for component in calendar.subcomponents():
+                    if component.name() != "VTODO":
+                        continue
+
+                    # Change owner partstat
+                    for anAttendee in component.properties("ATTENDEE"):
+                        if anAttendee.value() in originatorAddresses:
+                            oldpartstat = anAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
+                            newpartstat = "COMPLETED" if component.hasProperty("COMPLETED") else "IN-PROCESS"
+                            if newpartstat != oldpartstat:
+                                anAttendee.setParameter("PARTSTAT", newpartstat)
+
+
+    @inlineCallbacks
+    def dropboxPathNormalization(self, component):
+        """
+        Make sure sharees only use dropbox paths of the sharer.
+        """
+
+        # Only relevant if calendar is sharee collection
+        if not self.calendar().owned():
+
+            # Get all X-APPLE-DROPBOX's and ATTACH's that are http URIs
+            xdropboxes = component.getAllPropertiesInAnyComponent(
+                "X-APPLE-DROPBOX",
+                depth=1,
+            )
+            attachments = component.getAllPropertiesInAnyComponent(
+                "ATTACH",
+                depth=1,
+            )
+            attachments = [
+                attachment for attachment in attachments
+                if attachment.parameterValue("VALUE", "URI") == "URI" and attachment.value().startswith("http")
+            ]
+
+            if len(xdropboxes) or len(attachments):
+
+                # Determine owner GUID
+                owner = (yield self.calendar().ownerHome()).uid()
+
+                def uriNormalize(uri):
+                    urichanged = False
+                    scheme, netloc, path, params, query, fragment = urlparse(uri)
+                    pathbits = path.split("/")
+                    if len(pathbits) >= 6 and pathbits[4] == "dropbox":
+                        if pathbits[1] != "calendars":
+                            pathbits[1] = "calendars"
+                            urichanged = True
+                        if pathbits[2] != "__uids__":
+                            pathbits[2] = "__uids__"
+                            urichanged = True
+                        if pathbits[3] != owner:
+                            pathbits[3] = owner
+                            urichanged = True
+                        if urichanged:
+                            return urlunparse((scheme, netloc, "/".join(pathbits), params, query, fragment,))
+                    return None
+
+                for xdropbox in xdropboxes:
+                    uri = uriNormalize(xdropbox.value())
+                    if uri:
+                        xdropbox.setValue(uri)
+                        self._componentChanged = True
+                for attachment in attachments:
+                    uri = uriNormalize(attachment.value())
+                    if uri:
+                        attachment.setValue(uri)
+                        self._componentChanged = True
+
+
+    def processAlarms(self, component, inserting):
+        """
+        Remove duplicate alarms. Add a default alarm if required.
+
+        @return: indicate whether a change was made
+        @rtype: C{bool}
+        """
+
+        # Remove duplicate alarms
+        if config.RemoveDuplicateAlarms and component.hasDuplicateAlarms(doFix=True):
+            self._componentChanged = True
+
+        # Only if feature enabled
+        if not config.EnableDefaultAlarms:
+            return
+
+        # Check that we are creating and this is not the inbox
+        if not inserting or self.calendar().isInbox():
+            return
+
+        # Never add default alarms to calendar data in shared calendars
+        if not self.calendar().owned():
+            return
+
+        # Add default alarm for VEVENT and VTODO only
+        mtype = component.mainType().upper()
+        if component.mainType().upper() not in ("VEVENT", "VTODO"):
+            return
+        vevent = mtype == "VEVENT"
+
+        # Check timed or all-day
+        start, _ignore_end = component.mainComponent().getEffectiveStartEnd()
+        if start is None:
+            # Yes VTODOs might have no DTSTART or DUE - in this case we do not add a default
+            return
+        timed = not start.isDateOnly()
+
+        # See if default exists and add using appropriate logic
+        alarm = self.calendar().getDefaultAlarm(vevent, timed)
+        if alarm is None:
+            alarm = self.calendar().viewerHome().getDefaultAlarm(vevent, timed)
+        if alarm and alarm != "empty" and component.addAlarms(alarm):
+            self._componentChanged = True
+
+
+    @inlineCallbacks
+    def doImplicitScheduling(self, component, inserting, internal_state):
+
+        new_component = None
+        did_implicit_action = False
+        is_scheduling_resource = False
+        schedule_state = None
+
+        is_internal = internal_state not in (ComponentUpdateState.NORMAL, ComponentUpdateState.ATTACHMENT_UPDATE,)
+
+        # Do scheduling
+        if not self.calendar().isInbox():
+            scheduler = ImplicitScheduler()
+
+            # PUT
+            do_implicit_action, is_scheduling_resource = (yield scheduler.testImplicitSchedulingPUT(
+                self.calendar(),
+                None if inserting else self,
+                component,
+                internal_request=is_internal,
+            ))
+
+            if do_implicit_action and not is_internal:
+
+                # Cannot do implicit in sharee's shared calendar
+                if not self.calendar().owned():
+                    scheduler.setSchedulingNotAllowed(
+                        ShareeAllowedError,
+                        "Sharee's cannot schedule",
+                    )
+
+                new_calendar = (yield scheduler.doImplicitScheduling(self.schedule_tag_match))
+                if new_calendar:
+                    if isinstance(new_calendar, int):
+                        returnValue(new_calendar)
+                    else:
+                        new_component = new_calendar
+                did_implicit_action = True
+                schedule_state = scheduler.state
+
+        returnValue((is_scheduling_resource, new_component, did_implicit_action, schedule_state,))
+
+
+    @inlineCallbacks
+    def mergePerUserData(self, component, inserting):
+        """
+        Merge incoming calendar data with other user's per-user data in existing calendar data.
+
+        @param component: incoming calendar data
+        @type component: L{twistedcaldav.ical.Component}
+        """
+        accessUID = self.calendar().viewerHome().uid()
+        oldCal = (yield self.component()) if not inserting else None
+
+        # Duplicate before we do the merge because someone else may "own" the calendar object
+        # and we should not change it. This is not ideal as we may duplicate it unnecessarily
+        # but we currently have no api to let the caller tell us whether it cares about the
+        # whether the calendar data is changed or not.
+        try:
+            component = PerUserDataFilter(accessUID).merge(component.duplicate(), oldCal)
+        except ValueError:
+            log.error("Invalid per-user data merge")
+            raise InvalidPerUserDataMerge("Cannot merge per-user data")
+
+        returnValue(component)
+
+
+    def processScheduleTags(self, component, inserting, internal_state):
+
+        # Check for scheduling object resource and write property
+        if self.isScheduleObject:
+            # Need to figure out when to change the schedule tag:
+            #
+            # 1. If this is not an internal request then the resource is being explicitly changed
+            # 2. If it is an internal request for the Organizer, schedule tag never changes
+            # 3. If it is an internal request for an Attendee and the message being processed came
+            #    from the Organizer then the schedule tag changes.
+
+            # Check what kind of processing is going on
+            change_scheduletag = not (
+                (internal_state == ComponentUpdateState.ORGANIZER_ITIP_UPDATE) or
+                (internal_state == ComponentUpdateState.ATTENDEE_ITIP_UPDATE) and hasattr(self._txn, "doing_attendee_refresh")
+            )
+
+            if change_scheduletag or not self.scheduleTag:
+                self.scheduleTag = str(uuid.uuid4())
+
+            # Handle weak etag compatibility
+            if config.Scheduling.CalDAV.ScheduleTagCompatibility:
+                if change_scheduletag:
+                    # Schedule-Tag change => weak ETag behavior must not happen
+                    etags = ()
+                else:
+                    # Schedule-Tag did not change => add current ETag to list of those that can
+                    # be used in a weak precondition test
+                    etags = self.scheduleEtags
+                    if etags is None:
+                        etags = ()
+                etags += (self._generateEtag(str(component)),)
+                self.scheduleEtags = etags
+            else:
+                self.scheduleEtags = ()
+        else:
+            self.scheduleTag = ""
+            self.scheduleEtags = ()
+
+
+    @inlineCallbacks
+    def _lockUID(self, component, inserting, internal_state):
+        """
+        Create a lock on the component's UID and verify, after getting the lock, that the incoming UID
+        meets the requirements of the store.
+        """
+
+        new_uid = component.resourceUID()
+        if internal_state == ComponentUpdateState.NORMAL:
+            yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(new_uid).hexdigest(),))
+
+        # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
+        # try to write the same calendar data to two different resource URIs.
+        if not self.calendar().isInbox():
+            # Cannot overwrite a resource with different UID
+            if not inserting:
+                if self._uid != new_uid:
+                    raise InvalidUIDError("Cannot change the UID in an existing resource.")
+            else:
+                # New UID must be unique for the owner - no need to do this on an overwrite as we can assume
+                # the store is already consistent in this regard
+                elsewhere = (yield self.calendar().ownerHome().hasCalendarResourceUIDSomewhereElse(new_uid, self, "schedule"))
+                if elsewhere is not None:
+                    if elsewhere.calendar().id() == self.calendar().id():
+                        raise UIDExistsError("UID already exists in same calendar.")
+                    else:
+                        raise UIDExistsElsewhereError("UID already exists in different calendar: %s." % (elsewhere.calendar().name(),))
+
+
+    def setComponent(self, component, inserting=False, smart_merge=False):
+        """
+        Public api for storing a component. This will do full data validation checks on the specified component.
+        Scheduling will be done automatically.
+        """
+
+        return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, smart_merge)
+
+
+    @inlineCallbacks
+    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL, smart_merge=False):
+        """
+        Setting the component internally to the store itself. This will bypass a whole bunch of data consistency checks
+        on the assumption that those have been done prior to the component data being provided, provided the flag is set.
+        This should always be treated as an api private to the store.
+        """
+
+        self._componentChanged = False
+        self.schedule_tag_match = not self.calendar().isInbox() and internal_state == ComponentUpdateState.NORMAL and smart_merge
+        schedule_state = None
+
+        if internal_state == ComponentUpdateState.SPLIT:
+            # When splitting, some state from the previous resource needs to be properly
+            # preserved in thus new one when storing the component. Since we don't do the "full"
+            # store here, we need to add the explicit pieces we need for state preservation.
+
+            # Check access
+            if config.EnablePrivateEvents:
+                self.validAccess(component, inserting, internal_state)
+
+            # Preserve private comments
+            yield self.preservePrivateComments(component, inserting)
+
+            managed_copied, managed_removed = (yield self.resourceCheckAttachments(component, inserting))
+
+            self.isScheduleObject = True
+            self.processScheduleTags(component, inserting, internal_state)
+
+        elif internal_state != ComponentUpdateState.RAW:
+            # Handle all validation operations here.
+            yield self.fullValidation(component, inserting, internal_state)
+
+            # UID lock - this will remain active until the end of the current txn
+            yield self._lockUID(component, inserting, internal_state)
+
+            # Preserve private comments
+            yield self.preservePrivateComments(component, inserting)
+
+            # Fix broken VTODOs
+            yield self.replaceMissingToDoProperties(component, inserting, internal_state)
+
+            # Handle sharing dropbox normalization
+            yield self.dropboxPathNormalization(component)
+
+            # Pre-process managed attachments
+            if internal_state == ComponentUpdateState.NORMAL:
+                managed_copied, managed_removed = (yield self.resourceCheckAttachments(component, inserting))
+
+            # Default/duplicate alarms
+            self.processAlarms(component, inserting)
+
+            # Do scheduling
+            implicit_result = (yield self.doImplicitScheduling(component, inserting, internal_state))
+            if isinstance(implicit_result, int):
+                if implicit_result == ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT:
+                    raise ResourceDeletedError("Resource created but immediately deleted by the server.")
+
+                elif implicit_result == ImplicitScheduler.STATUS_ORPHANED_EVENT:
+
+                    # Now forcibly delete the event
+                    if not inserting:
+                        yield self._removeInternal(internal_state=ComponentRemoveState.INTERNAL)
+                        raise ResourceDeletedError("Resource modified but immediately deleted by the server.")
+                    else:
+                        raise AttendeeAllowedError("Attendee cannot create event for Organizer: %s" % (implicit_result,))
+
+                else:
+                    msg = "Invalid return status code from ImplicitScheduler: %s" % (implicit_result,)
+                    log.error(msg)
+                    raise InvalidObjectResourceError(msg)
+            else:
+                self.isScheduleObject, new_component, did_implicit_action, schedule_state = implicit_result
+                if new_component is not None:
+                    component = new_component
+                if did_implicit_action:
+                    self._componentChanged = True
+
+            # Always do the per-user data merge right before we store
+            component = (yield self.mergePerUserData(component, inserting))
+
+            self.processScheduleTags(component, inserting, internal_state)
+
+        # When migrating we always do validity check to fix issues
+        elif self._txn._migrating:
+            self.validCalendarDataCheck(component, inserting)
 
         yield self.updateDatabase(component, inserting=inserting)
+
+        # Post process managed attachments
+        if internal_state in (ComponentUpdateState.NORMAL, ComponentUpdateState.SPLIT):
+            if managed_copied:
+                yield self.copyResourceAttachments(managed_copied)
+            if managed_removed:
+                yield self.removeResourceAttachments(managed_removed)
 
         if inserting:
             yield self._calendar._insertRevision(self._name)
@@ -1037,6 +2177,16 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self._calendar._updateRevision(self._name)
 
         yield self._calendar.notifyChanged()
+
+        # Finally check if a split is needed
+        if internal_state != ComponentUpdateState.SPLIT and schedule_state == "organizer":
+            yield self.checkSplit()
+
+        returnValue(self._componentChanged)
+
+
+    def _generateEtag(self, componentText):
+        return hashlib.md5(componentText + (self.scheduleTag if self.scheduleTag else "")).hexdigest()
 
 
     @inlineCallbacks
@@ -1056,12 +2206,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         txn = txn if txn is not None else self._txn
 
         # inbox does things slightly differently
-        isInboxItem = self._parentCollection.name() == "inbox"
+        isInboxItem = self.calendar().isInbox()
 
         # In some cases there is no need to remove/rebuild the instance index because we know no time or
         # freebusy related properties have changed (e.g. an attendee reply and refresh). In those cases
         # the component will have a special attribute present to let us know to suppress the instance indexing.
-        instanceIndexingRequired = not hasattr(component, "noInstanceIndexing") or inserting or reCreate
+        instanceIndexingRequired = not getattr(component, "noInstanceIndexing", False) or inserting or reCreate
 
         if instanceIndexingRequired:
 
@@ -1121,7 +2271,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 recurrenceLimit = instances.limit
                 recurrenceLowerLimit = instances.lowerLimit
             except InvalidOverriddenInstanceError, e:
-                self.log_error("Invalid instance %s when indexing %s in %s" %
+                self.log.error("Invalid instance %s when indexing %s in %s" %
                                (e.rid, self._name, self._calendar,))
 
                 if txn._migrating:
@@ -1146,13 +2296,16 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if not reCreate:
             componentText = str(component)
             self._objectText = componentText
+            self._cachedComponent = component
+            self._cachedCommponentPerUser = {}
+
             organizer = component.getOrganizer()
             if not organizer:
                 organizer = ""
 
             # CALENDAR_OBJECT table update
             self._uid = component.resourceUID()
-            self._md5 = hashlib.md5(componentText + (self._schedule_tag if self._schedule_tag else "")).hexdigest()
+            self._md5 = self._generateEtag(componentText)
             self._size = len(componentText)
 
             # Special - if migrating we need to preserve the original md5
@@ -1163,7 +2316,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # after setting up other properties as UID at least is needed
             self._attachment = _ATTACHMENTS_MODE_NONE
             if not self._dropboxID:
-                if self._parentCollection.name() != "inbox":
+                if not isInboxItem:
                     if component.hasPropertyInAnyComponent("X-APPLE-DROPBOX"):
                         self._attachment = _ATTACHMENTS_MODE_WRITE
                         self._dropboxID = (yield self.dropboxID())
@@ -1333,42 +2486,134 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         only allowed in good data.
         """
 
-        text = yield self._text()
+        if self._cachedComponent is None:
 
-        try:
-            component = VComponent.fromString(text)
-        except InvalidICalendarDataError, e:
-            # This is a really bad situation, so do raise
-            raise InternalDataStoreError(
-                "Data corruption detected (%s) in id: %s"
-                % (e, self._resourceID)
-            )
+            text = yield self._text()
 
-        # Fix any bogus data we can
-        fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
+            try:
+                component = VComponent.fromString(text)
+            except InvalidICalendarDataError, e:
+                # This is a really bad situation, so do raise
+                raise InternalDataStoreError(
+                    "Data corruption detected (%s) in id: %s"
+                    % (e, self._resourceID)
+                )
 
-        if unfixed:
-            self.log_error("Calendar data id=%s had unfixable problems:\n  %s" %
-                           (self._resourceID, "\n  ".join(unfixed),))
+            # Fix any bogus data we can
+            fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
 
-        if fixed:
-            self.log_error("Calendar data id=%s had fixable problems:\n  %s" %
-                           (self._resourceID, "\n  ".join(fixed),))
+            if unfixed:
+                self.log.error("Calendar data id=%s had unfixable problems:\n  %s" %
+                               (self._resourceID, "\n  ".join(unfixed),))
 
-        returnValue(component)
+            if fixed:
+                self.log.error("Calendar data id=%s had fixable problems:\n  %s" %
+                               (self._resourceID, "\n  ".join(fixed),))
+
+            self._cachedComponent = component
+            self._cachedCommponentPerUser = {}
+
+        returnValue(self._cachedComponent)
 
 
     @inlineCallbacks
-    def remove(self):
+    def componentForUser(self, user_uuid=None):
+        """
+        Return the iCalendar component filtered for the specified user's per-user data.
+
+        @param user_uuid: the user UUID to filter on
+        @type user_uuid: C{str}
+
+        @return: the filtered calendar component
+        @rtype: L{twistedcaldav.ical.Component}
+        """
+
+        if user_uuid is None:
+            user_uuid = self._parentCollection.viewerHome().uid()
+
+        if user_uuid not in self._cachedCommponentPerUser:
+            caldata = yield self.component()
+            filtered = PerUserDataFilter(user_uuid).filter(caldata.duplicate())
+            self._cachedCommponentPerUser[user_uuid] = filtered
+        returnValue(self._cachedCommponentPerUser[user_uuid])
+
+
+    def moveValidation(self, destination, name):
+        """
+        Validate whether a move to the specified collection is allowed.
+
+        @param destination: destination calendar collection
+        @type destination: L{CalendarCollection}
+        @param name: name of new resource
+        @type name: C{str}
+        """
+
+        # Calendar to calendar moves are OK if the resource (viewer) owner is the same.
+        # Use resourceOwnerPrincipal for this as that takes into account sharing such that the
+        # returned principal relates to the URI path used to access the resource rather than the
+        # underlying resource owner (sharee).
+        sourceowner = self.calendar().viewerHome().uid()
+        destowner = destination.viewerHome().uid()
+
+        if sourceowner != destowner:
+            msg = "Calendar-to-calendar moves with different homes are not supported."
+            log.debug(msg)
+            raise InvalidResourceMove(msg)
+
+        # Calendar to calendar moves where Organizer is present are not OK if the owners are different.
+        sourceowner = self.calendar().ownerHome().uid()
+        destowner = destination.ownerHome().uid()
+
+        if sourceowner != destowner and self._schedule_object:
+            msg = "Calendar-to-calendar moves with an organizer property present and different owners are not supported."
+            log.debug(msg)
+            raise InvalidResourceMove(msg)
+
+        # NB there is no need to do a UID lock and test here as we are moving an existing resource
+        # with the already imposed constraint of unique UIDs.
+
+        return succeed(None)
+
+
+    def remove(self, implicitly=True):
+        return self._removeInternal(
+            internal_state=ComponentRemoveState.NORMAL if implicitly else ComponentRemoveState.NORMAL_NO_IMPLICIT
+        )
+
+
+    @inlineCallbacks
+    def _removeInternal(self, internal_state=ComponentRemoveState.NORMAL):
+
+        isinbox = self._calendar.isInbox()
+
+        # Pre-flight scheduling operation
+        scheduler = None
+        if not isinbox and internal_state == ComponentRemoveState.NORMAL:
+            # Get data we need for implicit scheduling
+            calendar = (yield self.componentForUser())
+            scheduler = ImplicitScheduler()
+            do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(
+                self.calendar(),
+                self,
+                calendar,
+                internal_request=(internal_state != ComponentUpdateState.NORMAL),
+            ))
+            if do_implicit_action:
+                yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(calendar.resourceUID()).hexdigest(),))
+
         # Need to also remove attachments
         if self._dropboxID:
             yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
         yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
         yield super(CalendarObject, self).remove()
 
+        # Do scheduling
+        if scheduler is not None:
+            yield scheduler.doImplicitScheduling()
+
 
     @classproperty
-    def _recurrenceMinMaxByIDQuery(cls): # @NoSelf
+    def _recurrenceMinMaxByIDQuery(cls):  # @NoSelf
         """
         DAL query to load RECURRANCE_MIN, RECURRANCE_MAX via an object's resource ID.
         """
@@ -1402,7 +2647,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @classproperty
-    def _instanceQuery(cls): # @NoSelf
+    def _instanceQuery(cls):  # @NoSelf
         """
         DAL query to load TIME_RANGE data via an object's resource ID.
         """
@@ -1496,54 +2741,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
 
     @inlineCallbacks
-    def _preProcessAttachmentsOnResourceChange(self, component, inserting):
+    def resourceCheckAttachments(self, component, inserting=False):
         """
-        When component data is created or changed we need to look for changes related to managed attachments.
-
-        @param component: the new calendar data
-        @type component: L{Component}
-        @param inserting: C{True} if resource is being created
-        @type inserting: C{bool}
-        """
-        if inserting:
-            self._copyAttachments = (yield self.creatingResourceCheckAttachments(component))
-            self._removeAttachments = None
-        else:
-            self._copyAttachments, self._removeAttachments = (yield self.updatingResourceCheckAttachments(component))
-
-
-    @classmethod
-    @inlineCallbacks
-    def creatingResourceCheckAttachments(cls, txn, parent, component):
-        """
-        A new component is going to be stored. Check any ATTACH properties that may be present
-        to verify they are owned by the organizer/owner of the resource and re-write the managed-ids.
-
-        @param component: calendar component about to be stored
-        @type component: L{Component}
-        """
-
-        # Retrieve all ATTACH properties with a MANAGED-ID
-        attached = collections.defaultdict(list)
-        attachments = component.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
-        for attachment in attachments:
-            managed_id = attachment.parameterValue("MANAGED-ID")
-            if managed_id is not None:
-                attached[managed_id].append(attachment)
-
-        # Punt if no managed attachments
-        if len(attached) == 0:
-            returnValue(None)
-
-        changes = yield cls._addingManagedIDs(txn, parent, str(uuid.uuid4()), attached, component.resourceUID())
-        returnValue(changes)
-
-
-    @inlineCallbacks
-    def updatingResourceCheckAttachments(self, component):
-        """
-        A component is being changed. Check any ATTACH properties that may be present
-        to verify they are owned by the organizer/owner of the resource and re-write the managed-ids.
+        A component is being changed or added. Check any ATTACH properties that may be present
+        to verify they are owned by the organizer/owner of the resource. Strip any that are invalid.
 
         @param component: calendar component about to be stored
         @type component: L{Component}
@@ -1558,13 +2759,16 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 newattached[managed_id].append(attachment)
 
         # Retrieve all ATTACH properties with a MANAGED-ID in old data
-        oldcomponent = (yield self.component())
-        oldattached = collections.defaultdict(list)
-        oldattachments = oldcomponent.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
-        for attachment in oldattachments:
-            managed_id = attachment.parameterValue("MANAGED-ID")
-            if managed_id is not None:
-                oldattached[managed_id].append(attachment)
+        if not inserting:
+            oldcomponent = (yield self.component())
+            oldattached = collections.defaultdict(list)
+            oldattachments = oldcomponent.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
+            for attachment in oldattachments:
+                managed_id = attachment.parameterValue("MANAGED-ID")
+                if managed_id is not None:
+                    oldattached[managed_id].append(attachment)
+        else:
+            oldattached = collections.defaultdict(list)
 
         # Punt if no managed attachments
         if len(newattached) + len(oldattached) == 0:
@@ -1593,7 +2797,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             oldattachment = oldattached[managed_id][0]
             for newattachment in newattached[managed_id]:
                 if newattachment != oldattachment:
-                    newattachment.setParameter("MTAG", oldattachment.parameterValue("MTAG"))
                     newattachment.setParameter("FMTTYPE", oldattachment.parameterValue("FMTTYPE"))
                     newattachment.setParameter("FILENAME", oldattachment.parameterValue("FILENAME"))
                     newattachment.setParameter("SIZE", oldattachment.parameterValue("SIZE"))
@@ -1602,9 +2805,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue((changes, removed,))
 
 
-    @classmethod
     @inlineCallbacks
-    def _addingManagedIDs(cls, txn, parent, dropbox_id, attached, newuid):
+    def _addingManagedIDs(self, txn, parent, dropbox_id, attached, newuid):
         # Now check each managed-id
         changes = []
         for managed_id, attachments in attached.items():
@@ -1613,38 +2815,40 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             details = (yield ManagedAttachment.usedManagedID(txn, managed_id))
             if len(details) == 0:
                 raise AttachmentStoreValidManagedID
-            if len(details) != 1:
+            homes = set()
+            uids = set()
+            for home_id, _ignore_resource_id, uid in details:
+                homes.add(home_id)
+                uids.add(uid)
+            if len(homes) != 1:
                 # This is a bad store error - there should be only one home associated with a managed-id
                 raise InternalDataStoreError
-            home_id, _ignore_resource_id, uid = details[0]
 
             # Policy:
             #
             # 1. If Managed-ID is re-used in a resource with the same UID - it is fine - just rewrite the details
-            # 2. If Managed-ID is re-used in a different resource but owned by the same user - change managed-id to new one
+            # 2. If Managed-ID is re-used in a different resource but owned by the same user - just rewrite the details
             # 3. Otherwise, strip off the managed-id property and treat as unmanaged.
 
             # 1. UID check
-            if uid == newuid:
-                yield cls._syncAttachmentProperty(txn, managed_id, dropbox_id, attachments)
+            if newuid in uids:
+                yield self._syncAttachmentProperty(txn, managed_id, dropbox_id, attachments)
 
             # 2. Same home
             elif home_id == parent.ownerHome()._resourceID:
 
-                # Need to rewrite the managed-id, value in the properties
-                new_id = str(uuid.uuid4())
-                yield cls._syncAttachmentProperty(txn, managed_id, dropbox_id, attachments, new_id)
-                changes.append((managed_id, new_id,))
+                # Record the change as we will need to add a new reference to this attachment
+                yield self._syncAttachmentProperty(txn, managed_id, dropbox_id, attachments)
+                changes.append(managed_id)
 
             else:
-                cls._stripAttachmentProperty(attachments)
+                self._stripAttachmentProperty(attachments)
 
         returnValue(changes)
 
 
-    @classmethod
     @inlineCallbacks
-    def _syncAttachmentProperty(cls, txn, managed_id, dropbox_id, attachments, new_id=None):
+    def _syncAttachmentProperty(self, txn, managed_id, dropbox_id, attachments):
         """
         Make sure the supplied set of attach properties are all sync'd with the current value of the
         matching managed-id attachment.
@@ -1653,19 +2857,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         @type managed_id: C{str}
         @param attachments: list of attachment properties
         @type attachments: C{list} of L{twistedcaldav.ical.Property}
-        @param new_id: Value of new Managed-ID to use
-        @type new_id: C{str}
         """
-        new_attachment = (yield ManagedAttachment.load(txn, managed_id))
-        if new_id:
-            new_attachment._managedID = new_id
+
+        # Try to load any attachment directly referenced by this object, otherwise load one referenced by some
+        # any other - they are all the same.
+        new_attachment = (yield ManagedAttachment.load(txn, self._resourceID, managed_id))
+        if new_attachment is None:
+            new_attachment = (yield ManagedAttachment.load(txn, None, managed_id))
         new_attachment._objectDropboxID = dropbox_id
         for attachment in attachments:
             yield new_attachment.updateProperty(attachment)
 
 
-    @classmethod
-    def _stripAttachmentProperty(cls, attachments):
+    def _stripAttachmentProperty(self, attachments):
         """
         Strip off managed-id related properties from an attachment.
         """
@@ -1679,11 +2883,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
         Copy an attachment reference for some other resource and link it to this resource.
 
-        @param attached: tuple of old, new managed ids for the attachments to copy
-        @type attached: C{tuple}
+        @param attached: managed id for the attachments to copy
+        @type attached: C{str}
         """
-        for old_id, new_id in attached:
-            yield ManagedAttachment.copyManagedID(self._txn, old_id, new_id, self._resourceID)
+        for managed_id in attached:
+            yield ManagedAttachment.copyManagedID(self._txn, managed_id, self._resourceID)
 
 
     @inlineCallbacks
@@ -1699,7 +2903,36 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def addAttachment(self, rids, content_type, filename, stream, calendar):
+    def _checkValidManagedAttachmentChange(self):
+        """
+        Make sure a managed attachment add, update or remover operation is valid.
+        """
+
+        # Only allow organizers to manipulate managed attachments for now
+        calendar = (yield self.componentForUser())
+        scheduler = ImplicitScheduler()
+        is_attendee = (yield scheduler.testAttendeeEvent(self.calendar(), self, calendar,))
+        if is_attendee:
+            raise InvalidAttachmentOperation("Attendees are not allowed to manipulate managed attachments")
+
+
+    @inlineCallbacks
+    def addAttachment(self, rids, content_type, filename, stream):
+        """
+        Add a new managed attachment to this calendar object.
+
+        @param rids: list of recurrence-ids for components to add to, or C{None} to add to all.
+        @type rids: C{str} or C{None}
+        @param content_type: the MIME media type/subtype of the attachment
+        @type content_type: L{MimeType}
+        @param filename: the name for the attachment
+        @type filename: C{str}
+        @param stream: the stream to read attachment data from
+        @type stream: L{IStream}
+        """
+
+        # Check validity of request
+        yield self._checkValidManagedAttachmentChange()
 
         # First write the data stream
 
@@ -1710,7 +2943,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             t = attachment.store(content_type, filename)
             yield readStream(stream, t.write)
         except Exception, e:
-            self.log_error("Unable to store attachment: %s" % (e,))
+            self.log.error("Unable to store attachment: %s" % (e,))
             raise AttachmentStoreFailed
         yield t.loseConnection()
 
@@ -1718,8 +2951,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             self._dropboxID = str(uuid.uuid4())
         attachment._objectDropboxID = self._dropboxID
 
-        # Now try and adjust the actual calendar data
-        #calendar = (yield self.component())
+        # Now try and adjust the actual calendar data.
+        # NB We need a copy of the original calendar data as implicit scheduling will need to compare that to
+        # the original in order to detect changes that would case scheduling.
+        calendar = (yield self.componentForUser())
+        calendar = calendar.duplicate()
 
         attach, location = (yield attachment.attachProperty())
         if rids is None:
@@ -1728,14 +2964,29 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # TODO - per-recurrence attachments
             pass
 
-        # TODO: Here is where we want to store data implicitly - for now we have to let app layer deal with it
-        #yield self.setComponent(calendar)
+        # Here is where we want to store data implicitly
+        yield self._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTACHMENT_UPDATE)
 
         returnValue((attachment, location,))
 
 
     @inlineCallbacks
-    def updateAttachment(self, managed_id, content_type, filename, stream, calendar):
+    def updateAttachment(self, managed_id, content_type, filename, stream):
+        """
+        Update a managed attachment in this calendar object.
+
+        @param managed_id: the attachment's managed-id
+        @type managed_id: C{str}
+        @param content_type: the new MIME media type/subtype of the attachment
+        @type content_type: L{MIMEType}
+        @param filename: the new name for the attachment
+        @type filename: C{str}
+        @param stream: the stream to read new attachment data from
+        @type stream: L{IStream}
+        """
+
+        # Check validity of request
+        yield self._checkValidManagedAttachmentChange()
 
         # First check the supplied managed-id is associated with this resource
         cobjs = (yield ManagedAttachment.referencesTo(self._txn, managed_id))
@@ -1750,7 +3001,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Check that this is a proper update
             oldattachment = (yield self.attachmentWithManagedID(managed_id))
             if oldattachment is None:
-                self.log_error("Missing managed attachment even though ATTACHMENT_CALENDAR_OBJECT indicates it is present: %s" % (managed_id,))
+                self.log.error("Missing managed attachment even though ATTACHMENT_CALENDAR_OBJECT indicates it is present: %s" % (managed_id,))
                 raise AttachmentStoreFailed
 
             # We actually create a brand new attachment object for the update, but with the same managed-id. That way, other resources
@@ -1759,33 +3010,51 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             t = attachment.store(content_type, filename)
             yield readStream(stream, t.write)
         except Exception, e:
-            self.log_error("Unable to store attachment: %s" % (e,))
+            self.log.error("Unable to store attachment: %s" % (e,))
             raise AttachmentStoreFailed
         yield t.loseConnection()
 
-        # Now try and adjust the actual calendar data
-        #calendar = (yield self.component())
+        # Now try and adjust the actual calendar data.
+        # NB We need a copy of the original calendar data as implicit scheduling will need to compare that to
+        # the original in order to detect changes that would case scheduling.
+        calendar = (yield self.componentForUser())
+        calendar = calendar.duplicate()
 
         attach, location = (yield attachment.attachProperty())
         calendar.replaceAllPropertiesWithParameterMatch(attach, "MANAGED-ID", managed_id)
 
-        # TODO: Here is where we want to store data implicitly - for now we have to let app layer deal with it
-        #yield self.setComponent(calendar)
+        # Here is where we want to store data implicitly
+        yield self._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTACHMENT_UPDATE)
 
         returnValue((attachment, location,))
 
 
     @inlineCallbacks
-    def removeAttachment(self, rids, managed_id, calendar):
+    def removeAttachment(self, rids, managed_id):
+        """
+        Remove a managed attachment from this calendar object.
+
+        @param rids: list of recurrence-ids for components to add to, or C{None} to add to all.
+        @type rids: C{str} or C{None}
+        @param managed_id: the attachment's managed-id
+        @type managed_id: C{str}
+        """
+
+        # Check validity of request
+        yield self._checkValidManagedAttachmentChange()
 
         # First check the supplied managed-id is associated with this resource
         cobjs = (yield ManagedAttachment.referencesTo(self._txn, managed_id))
         if self._resourceID not in cobjs:
             raise AttachmentStoreValidManagedID
 
-        # Now try and adjust the actual calendar data
+        # Now try and adjust the actual calendar data.
+        # NB We need a copy of the original calendar data as implicit scheduling will need to compare that to
+        # the original in order to detect changes that would case scheduling.
         all_removed = False
-        #calendar = (yield self.component())
+        calendar = (yield self.componentForUser())
+        calendar = calendar.duplicate()
+
         if rids is None:
             calendar.removeAllPropertiesWithParameterMatch("ATTACH", "MANAGED-ID", managed_id)
             all_removed = True
@@ -1793,8 +3062,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # TODO: per-recurrence removal
             pass
 
-        # TODO: Here is where we want to store data implicitly - for now we have to let app layer deal with it
-        #yield self.setComponent(calendar)
+        # Here is where we want to store data implicitly
+        yield self._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTACHMENT_UPDATE)
 
         # Remove it - this will take care of actually removing it from the store if there are
         # no more references to the attachment
@@ -1837,7 +3106,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Write the component back (and no need to re-index as we have not
         # changed any timing properties in the calendar data).
         cal.noInstanceIndexing = True
-        yield self.setComponent(cal)
+        yield self._setComponentInternal(cal, internal_state=ComponentUpdateState.RAW)
 
 
     @inlineCallbacks
@@ -1845,11 +3114,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # We need to know the resource_ID of the home collection of the owner
         # (not sharee) of this event
-        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        ownerHomeID = (yield self._parentCollection.ownerHome().id())
         managedID = str(uuid.uuid4())
         returnValue((
             yield ManagedAttachment.create(
-                self._txn, managedID, sharerHomeID, self._resourceID,
+                self._txn, managedID, ownerHomeID, self._resourceID,
             )
         ))
 
@@ -1859,22 +3128,22 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # We need to know the resource_ID of the home collection of the owner
         # (not sharee) of this event
-        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        ownerHomeID = (yield self._parentCollection.ownerHome().id())
         returnValue((
             yield ManagedAttachment.update(
-                self._txn, managedID, sharerHomeID, self._resourceID, oldattachment._attachmentID,
+                self._txn, managedID, ownerHomeID, self._resourceID, oldattachment._attachmentID,
             )
         ))
 
 
     def attachmentWithManagedID(self, managed_id):
-        return ManagedAttachment.load(self._txn, managed_id)
+        return ManagedAttachment.load(self._txn, self._resourceID, managed_id)
 
 
     @inlineCallbacks
     def removeManagedAttachmentWithID(self, managed_id):
         attachment = (yield self.attachmentWithManagedID(managed_id))
-        if attachment._objectResourceID == self._resourceID:
+        if attachment is not None:
             yield attachment.removeFromResource(self._resourceID)
 
 
@@ -1921,11 +3190,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # We need to know the resource_ID of the home collection of the owner
         # (not sharee) of this event
-        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        ownerHomeID = (yield self._parentCollection.ownerHome().id())
         dropboxID = (yield self.dropboxID())
         returnValue((
             yield DropBoxAttachment.create(
-                self._txn, dropboxID, name, sharerHomeID,
+                self._txn, dropboxID, name, ownerHomeID,
             )
         ))
 
@@ -1982,6 +3251,115 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         The content type of Calendar objects is text/calendar.
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
+
+
+    @inlineCallbacks
+    def checkSplit(self):
+        """
+        Determine if the calendar data needs to be split, and enqueue a split work item if needed.
+        """
+
+        if config.Scheduling.Options.Splitting.Enabled:
+            will = (yield self.willSplit())
+            if will:
+                notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.Splitting.Delay)
+                work = (yield self._txn.enqueue(CalendarObject.CalendarObjectSplitterWork, resourceID=self._resourceID, notBefore=notBefore))
+                if not hasattr(self, "_workItems"):
+                    self._workItems = []
+                self._workItems.append(work)
+
+
+    @inlineCallbacks
+    def willSplit(self):
+        """
+        Determine if the calendar data needs to be split as per L{iCalSplitter}.
+        """
+
+        splitter = iCalSplitter(config.Scheduling.Options.Splitting.Size, config.Scheduling.Options.Splitting.PastDays)
+        ical = (yield self.component())
+        will_split = splitter.willSplit(ical)
+        returnValue(will_split)
+
+
+    @inlineCallbacks
+    def split(self):
+        """
+        Split this and all matching UID calendar objects as per L{iCalSplitter}.
+        """
+
+        # First job is to grab a UID lock on this entire series of events
+        yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(self._uid).hexdigest(),))
+
+        # Find all other calendar objects on this server with the same UID
+        resources = (yield CalendarStoreFeatures(self._txn._store).calendarObjectsWithUID(self._txn, self._uid))
+
+        splitter = iCalSplitter(config.Scheduling.Options.Splitting.Size, config.Scheduling.Options.Splitting.PastDays)
+
+        # Determine the recurrence-id of the split and create a new UID for it
+        calendar = (yield self.component())
+        rid = splitter.whereSplit(calendar)
+        newUID = str(uuid.uuid4())
+
+        # Now process this resource, but do implicit scheduling for attendees not hosted on this server.
+        # We need to do this before processing attendee copies.
+        calendar_old = splitter.split(calendar, rid=rid, newUID=newUID)
+
+        # Store changed data
+        if calendar.mainType() is not None:
+            yield self._setComponentInternal(calendar, internal_state=ComponentUpdateState.SPLIT)
+        else:
+            yield self._removeInternal(internal_state=ComponentUpdateState.SPLIT)
+        if calendar_old.mainType() is not None:
+            yield self.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (newUID,), calendar_old, ComponentUpdateState.SPLIT)
+
+        # Split each one - but not this resource
+        for resource in resources:
+            if resource._resourceID == self._resourceID:
+                continue
+            ical = (yield resource.component())
+            ical_old = splitter.split(ical, rid=rid, newUID=newUID)
+
+            # Store changed data
+            if ical.mainType() is not None:
+                yield resource._setComponentInternal(ical, internal_state=ComponentUpdateState.SPLIT)
+            else:
+                # The split removed all components from this object - remove it
+                yield resource._removeInternal(internal_state=ComponentUpdateState.SPLIT)
+
+            # Create a new resource and store its data (but not if the parent is "inbox", or if it is empty)
+            if not resource.calendar().isInbox() and ical_old.mainType() is not None:
+                yield resource.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (newUID,), ical_old, ComponentUpdateState.SPLIT)
+
+        # TODO: scheduling currently turned off until we figure out how to properly do that
+
+        returnValue(newUID)
+
+
+    class CalendarObjectSplitterWork(WorkItem, fromTable(schema.CALENDAR_OBJECT_SPLITTER_WORK)):
+
+        group = property(lambda self: "CalendarObjectSplitterWork:%s" % (self.resourceID,))
+
+        @inlineCallbacks
+        def doWork(self):
+
+            log.debug("Splitting calendar object with resource-id: {rid}", rid=self.resourceID)
+
+            # Delete all other work items with the same resourceID
+            yield Delete(From=self.table,
+                         Where=self.table.RESOURCE_ID == self.resourceID
+                        ).on(self.transaction)
+
+            # Get the actual owned calendar object with this ID
+            cobj = (yield CalendarStoreFeatures(self.transaction._store).calendarObjectWithID(self.transaction, self.resourceID))
+            if cobj is None:
+                returnValue(None)
+
+            # Check it is still split-able
+            will = (yield  cobj.willSplit())
+
+            if will:
+                # Now do the spitting
+                yield cobj.split()
 
 
 
@@ -2170,7 +3548,7 @@ class Attachment(object):
 
 
     def properties(self):
-        pass # stub
+        pass  # stub
 
 
     def store(self, contentType, dispositionName=None):
@@ -2445,7 +3823,8 @@ class DropBoxAttachment(Attachment):
 
         # Create an "orphaned" ManagedAttachment that points to the updated data but without
         # an actual managed-id (which only exists when there is a reference to a calendar object).
-        mattach = (yield ManagedAttachment.load(self._txn, None, attachmentID=self._attachmentID))
+        mattach = (yield ManagedAttachment.load(self._txn, None, None, attachmentID=self._attachmentID))
+        mattach._managedID = str(uuid.uuid4())
         if mattach is None:
             raise AttachmentMigrationFailed
 
@@ -2531,30 +3910,29 @@ class ManagedAttachment(Attachment):
 
         # Now create the DB entry
         attachment = (yield cls._create(txn, managedID, ownerHomeID))
+        attachment._objectResourceID = referencedBy
 
         # Create the attachment<->calendar object relationship for managed attachments
         attco = schema.ATTACHMENT_CALENDAR_OBJECT
         yield Insert({
             attco.ATTACHMENT_ID               : attachment._attachmentID,
-            attco.MANAGED_ID                  : managedID,
-            attco.CALENDAR_OBJECT_RESOURCE_ID : referencedBy,
+            attco.MANAGED_ID                  : attachment._managedID,
+            attco.CALENDAR_OBJECT_RESOURCE_ID : attachment._objectResourceID,
         }).on(txn)
-        attachment._managedID = managedID
-        attachment._objectResourceID = referencedBy
 
         returnValue(attachment)
 
 
     @classmethod
     @inlineCallbacks
-    def update(cls, txn, managedID, ownerHomeID, referencedBy, oldAttachmentID):
+    def update(cls, txn, oldManagedID, ownerHomeID, referencedBy, oldAttachmentID):
         """
         Create a new Attachment object.
 
         @param txn: The transaction to use
         @type txn: L{CommonStoreTransaction}
-        @param managedID: the identifier for the attachment
-        @type managedID: C{str}
+        @param oldManagedID: the identifier for the original attachment
+        @type oldManagedID: C{str}
         @param ownerHomeID: the resource-id of the home collection of the attachment owner
         @type ownerHomeID: C{int}
         @param referencedBy: the resource-id of the calendar object referencing the attachment
@@ -2563,21 +3941,22 @@ class ManagedAttachment(Attachment):
         @type oldAttachmentID: C{int}
         """
 
-        # Now create the DB entry
-        attachment = (yield cls._create(txn, managedID, ownerHomeID))
+        # Now create the DB entry with a new managed-ID
+        managed_id = str(uuid.uuid4())
+        attachment = (yield cls._create(txn, managed_id, ownerHomeID))
+        attachment._objectResourceID = referencedBy
 
         # Update the attachment<->calendar object relationship for managed attachments
         attco = schema.ATTACHMENT_CALENDAR_OBJECT
         yield Update(
             {
                 attco.ATTACHMENT_ID    : attachment._attachmentID,
+                attco.MANAGED_ID       : attachment._managedID,
             },
-            Where=(attco.MANAGED_ID == managedID).And(
-                attco.CALENDAR_OBJECT_RESOURCE_ID == referencedBy
+            Where=(attco.MANAGED_ID == oldManagedID).And(
+                attco.CALENDAR_OBJECT_RESOURCE_ID == attachment._objectResourceID
             ),
         ).on(txn)
-        attachment._managedID = managedID
-        attachment._objectResourceID = referencedBy
 
         # Now check whether old attachmentID is still referenced - if not delete it
         rows = (yield Select(
@@ -2596,30 +3975,31 @@ class ManagedAttachment(Attachment):
 
     @classmethod
     @inlineCallbacks
-    def load(cls, txn, managedID, attachmentID=None):
+    def load(cls, txn, referencedID, managedID, attachmentID=None):
         """
-        Create a ManagedAttachment via either its managedID or attachmentID.
+        Load a ManagedAttachment via either its managedID or attachmentID.
         """
 
         if managedID:
             attco = schema.ATTACHMENT_CALENDAR_OBJECT
+            where = (attco.MANAGED_ID == managedID)
+            if referencedID is not None:
+                where = where.And(attco.CALENDAR_OBJECT_RESOURCE_ID == referencedID)
             rows = (yield Select(
-                [attco.ATTACHMENT_ID, attco.CALENDAR_OBJECT_RESOURCE_ID, ],
+                [attco.ATTACHMENT_ID, ],
                 From=attco,
-                Where=(attco.MANAGED_ID == managedID),
+                Where=where,
             ).on(txn))
             if len(rows) == 0:
                 returnValue(None)
-            elif len(rows) != 1:
+            elif referencedID is not None and len(rows) != 1:
                 raise AttachmentStoreValidManagedID
-            rows = rows[0]
-        else:
-            rows = (attachmentID, None,)
+            attachmentID = rows[0][0]
 
-        attachment = cls(txn, rows[0], None, None)
+        attachment = cls(txn, attachmentID, None, None)
         attachment = (yield attachment.initFromStore())
         attachment._managedID = managedID
-        attachment._objectResourceID = rows[1]
+        attachment._objectResourceID = referencedID
         returnValue(attachment)
 
 
@@ -2678,29 +4058,28 @@ class ManagedAttachment(Attachment):
         ).on(txn))
         mids = set([row[0] for row in rows]) if rows is not None else set()
         for managedID in mids:
-            attachment = (yield ManagedAttachment.load(txn, managedID))
+            attachment = (yield ManagedAttachment.load(txn, resourceID, managedID))
             (yield attachment.removeFromResource(resourceID))
 
 
     @classmethod
     @inlineCallbacks
-    def copyManagedID(cls, txn, oldManagedID, newManagedID, referencedBy):
+    def copyManagedID(cls, txn, managedID, referencedBy):
         """
-        Copy a managed-ID to a new ID and associate the original attachment with the
-        new resource.
+        Associate an existing attachment with the new resource.
         """
 
-        # Find all reference attachment-ids and dereference
+        # Find the associated attachment-id and insert new reference
         attco = schema.ATTACHMENT_CALENDAR_OBJECT
         aid = (yield Select(
             [attco.ATTACHMENT_ID, ],
             From=attco,
-            Where=(attco.MANAGED_ID == oldManagedID),
+            Where=(attco.MANAGED_ID == managedID),
         ).on(txn))[0][0]
 
         yield Insert({
             attco.ATTACHMENT_ID               : aid,
-            attco.MANAGED_ID                  : newManagedID,
+            attco.MANAGED_ID                  : managedID,
             attco.CALENDAR_OBJECT_RESOURCE_ID : referencedBy,
         }).on(txn)
 
@@ -2786,7 +4165,7 @@ class ManagedAttachment(Attachment):
     @inlineCallbacks
     def newReference(self, resourceID):
         """
-        Create a new managed-id that references the supplied calendar object resource id, and
+        Create a new reference of this attachment to the supplied calendar object resource id, and
         return a ManagedAttachment for the new reference.
 
         @param resourceID: the resource id to reference
@@ -2796,15 +4175,14 @@ class ManagedAttachment(Attachment):
         @rtype: L{ManagedAttachment}
         """
 
-        managed_id = str(uuid.uuid4())
         attco = schema.ATTACHMENT_CALENDAR_OBJECT
         yield Insert({
             attco.ATTACHMENT_ID               : self._attachmentID,
-            attco.MANAGED_ID                  : managed_id,
+            attco.MANAGED_ID                  : self._managedID,
             attco.CALENDAR_OBJECT_RESOURCE_ID : resourceID,
         }).on(self._txn)
 
-        mattach = (yield ManagedAttachment.load(self._txn, managed_id))
+        mattach = (yield ManagedAttachment.load(self._txn, resourceID, self._managedID))
         returnValue(mattach)
 
 
@@ -2848,7 +4226,6 @@ class ManagedAttachment(Attachment):
         location = (yield self.location())
 
         attach.setParameter("MANAGED-ID", self.managedID())
-        attach.setParameter("MTAG", self.md5())
         attach.setParameter("FMTTYPE", "%s/%s" % (self.contentType().mediaType, self.contentType().mediaSubtype))
         attach.setParameter("FILENAME", self.name())
         attach.setParameter("SIZE", str(self.size()))

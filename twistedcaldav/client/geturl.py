@@ -87,12 +87,12 @@ def getURL(url, method="GET", redirect=0):
     try:
         response = (yield agent.request(method, url, headers, None))
     except Exception, e:
-        log.err(str(e))
+        log.error(str(e))
         response = None
     else:
         if response.code in (MOVED_PERMANENTLY, FOUND, TEMPORARY_REDIRECT,):
             if redirect > 3:
-                log.err("Too many redirects")
+                log.error("Too many redirects")
             else:
                 location = response.headers.getRawHeaders("location")
                 if location:
@@ -102,7 +102,7 @@ def getURL(url, method="GET", redirect=0):
                         newresponse.location = urlunparse((scheme, netloc, url, None, None, None,))
                     returnValue(newresponse)
                 else:
-                    log.err("Redirect without a Location header")
+                    log.error("Redirect without a Location header")
 
     if response is not None and response.code / 100 == 2:
         protocol = AccumulatingProtocol()

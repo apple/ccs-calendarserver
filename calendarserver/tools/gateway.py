@@ -38,6 +38,9 @@ from calendarserver.tools.cmdline import utilityMain
 
 from pycalendar.datetime import PyCalendarDateTime
 
+from twistedcaldav.config import config, ConfigDict 
+
+from calendarserver.tools.config import WRITABLE_CONFIG_KEYS, setKeyPath, getKeyPath, flattenDictionary, WritableConfig
 
 def usage(e=None):
 
@@ -77,11 +80,10 @@ class RunnerService(WorkerService):
         if runner.validate():
             yield runner.run()
 
+
     def doWorkWithoutStore(self):
         respondWithError("Database is not available")
         return succeed(None)
-
-
 
 
 
@@ -160,23 +162,26 @@ attrMap = {
 
 class Runner(object):
 
-    def __init__(self, root, directory, store, commands):
+    def __init__(self, root, directory, store, commands, output=None):
         self.root = root
         self.dir = directory
         self.store = store
         self.commands = commands
+        if output is None:
+            output = sys.stdout
+        self.output = output
 
 
     def validate(self):
         # Make sure commands are valid
         for command in self.commands:
             if 'command' not in command:
-                respondWithError("'command' missing from plist")
+                self.respondWithError("'command' missing from plist")
                 return False
             commandName = command['command']
             methodName = "command_%s" % (commandName,)
             if not hasattr(self, methodName):
-                respondWithError("Unknown command '%s'" % (commandName,))
+                self.respondWithError("Unknown command '%s'" % (commandName,))
                 return False
         return True
 
@@ -190,17 +195,17 @@ class Runner(object):
                 if hasattr(self, methodName):
                     (yield getattr(self, methodName)(command))
                 else:
-                    respondWithError("Unknown command '%s'" % (commandName,))
+                    self.respondWithError("Unknown command '%s'" % (commandName,))
 
         except Exception, e:
-            respondWithError("Command failed: '%s'" % (str(e),))
+            self.respondWithError("Command failed: '%s'" % (str(e),))
             raise
 
     # Locations
 
 
     def command_getLocationList(self, command):
-        respondWithRecordsOfType(self.dir, command, "locations")
+        self.respondWithRecordsOfTypes(self.dir, command, ["locations"])
 
 
     @inlineCallbacks
@@ -213,7 +218,7 @@ class Runner(object):
         try:
             record = (yield updateRecord(True, self.dir, "locations", **kwargs))
         except DirectoryError, e:
-            respondWithError(str(e))
+            self.respondWithError(str(e))
             return
 
         readProxies = command.get("ReadProxies", None)
@@ -221,7 +226,7 @@ class Runner(object):
         principal = principalForPrincipalID(record.guid, directory=self.dir)
         (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
 
-        respondWithRecordsOfType(self.dir, command, "locations")
+        self.respondWithRecordsOfTypes(self.dir, command, ["locations"])
 
 
     @inlineCallbacks
@@ -229,18 +234,18 @@ class Runner(object):
         guid = command['GeneratedUID']
         record = self.dir.recordWithGUID(guid)
         if record is None:
-            respondWithError("Principal not found: %s" % (guid,))
+            self.respondWithError("Principal not found: %s" % (guid,))
             return
         recordDict = recordToDict(record)
         principal = principalForPrincipalID(guid, directory=self.dir)
         if principal is None:
-            respondWithError("Principal not found: %s" % (guid,))
+            self.respondWithError("Principal not found: %s" % (guid,))
             return
         recordDict['AutoSchedule'] = principal.getAutoSchedule()
         recordDict['AutoAcceptGroup'] = principal.getAutoAcceptGroup()
         recordDict['ReadProxies'], recordDict['WriteProxies'] = (yield getProxies(principal,
             directory=self.dir))
-        respond(command, recordDict)
+        self.respond(command, recordDict)
 
     command_getResourceAttributes = command_getLocationAttributes
 
@@ -261,7 +266,7 @@ class Runner(object):
         try:
             record = (yield updateRecord(False, self.dir, "locations", **kwargs))
         except DirectoryError, e:
-            respondWithError(str(e))
+            self.respondWithError(str(e))
             return
 
         readProxies = command.get("ReadProxies", None)
@@ -280,15 +285,15 @@ class Runner(object):
         try:
             self.dir.destroyRecord("locations", **kwargs)
         except DirectoryError, e:
-            respondWithError(str(e))
+            self.respondWithError(str(e))
             return
-        respondWithRecordsOfType(self.dir, command, "locations")
+        self.respondWithRecordsOfTypes(self.dir, command, ["locations"])
 
     # Resources
 
 
     def command_getResourceList(self, command):
-        respondWithRecordsOfType(self.dir, command, "resources")
+        self.respondWithRecordsOfTypes(self.dir, command, ["resources"])
 
 
     @inlineCallbacks
@@ -301,7 +306,7 @@ class Runner(object):
         try:
             record = (yield updateRecord(True, self.dir, "resources", **kwargs))
         except DirectoryError, e:
-            respondWithError(str(e))
+            self.respondWithError(str(e))
             return
 
         readProxies = command.get("ReadProxies", None)
@@ -309,7 +314,7 @@ class Runner(object):
         principal = principalForPrincipalID(record.guid, directory=self.dir)
         (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
 
-        respondWithRecordsOfType(self.dir, command, "resources")
+        self.respondWithRecordsOfTypes(self.dir, command, ["resources"])
 
 
     @inlineCallbacks
@@ -329,7 +334,7 @@ class Runner(object):
         try:
             record = (yield updateRecord(False, self.dir, "resources", **kwargs))
         except DirectoryError, e:
-            respondWithError(str(e))
+            self.respondWithError(str(e))
             return
 
         readProxies = command.get("ReadProxies", None)
@@ -348,9 +353,61 @@ class Runner(object):
         try:
             self.dir.destroyRecord("resources", **kwargs)
         except DirectoryError, e:
-            respondWithError(str(e))
+            self.respondWithError(str(e))
             return
-        respondWithRecordsOfType(self.dir, command, "resources")
+        self.respondWithRecordsOfTypes(self.dir, command, ["resources"])
+
+        
+    def command_getLocationAndResourceList(self, command):
+        self.respondWithRecordsOfTypes(self.dir, command, ["locations", "resources"])
+
+
+    # Config
+
+    def command_readConfig(self, command):
+        """
+        Return current configuration
+
+        @param command: the dictionary parsed from the plist read from stdin
+        @type command: C{dict}
+        """
+        config.reload()
+        # config.Memcached.Pools.Default.ClientEnabled = False
+
+        result = {}
+        for keyPath in WRITABLE_CONFIG_KEYS:
+            value = getKeyPath(config, keyPath)
+            if value is not None:
+                # Note: config contains utf-8 encoded strings, but plistlib
+                # wants unicode, so decode here:
+                if isinstance(value, str):
+                    value = value.decode("utf-8")
+                setKeyPath(result, keyPath, value)
+        self.respond(command, result)
+
+
+    def command_writeConfig(self, command):
+        """
+        Write config to secondary, writable plist
+
+        @param command: the dictionary parsed from the plist read from stdin
+        @type command: C{dict}
+        """
+        writable = WritableConfig(config, config.WritableConfigFile)
+        writable.read()
+        valuesToWrite = command.get("Values", {})
+        # Note: values are unicode if they contain non-ascii
+        for keyPath, value in flattenDictionary(valuesToWrite):
+            if keyPath in WRITABLE_CONFIG_KEYS:
+                writable.set(setKeyPath(ConfigDict(), keyPath, value))
+        try:
+            writable.save(restart=False)
+        except Exception, e:
+            self.respond(command, {"error": str(e)})
+        else:
+            self.command_readConfig(command)
+
+
 
     # Proxies
 
@@ -359,9 +416,9 @@ class Runner(object):
     def command_listWriteProxies(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
         if principal is None:
-            respondWithError("Principal not found: %s" % (command['Principal'],))
+            self.respondWithError("Principal not found: %s" % (command['Principal'],))
             return
-        (yield respondWithProxies(self.dir, command, principal, "write"))
+        (yield self.respondWithProxies(self.dir, command, principal, "write"))
 
 
     @inlineCallbacks
@@ -369,90 +426,90 @@ class Runner(object):
         principal = principalForPrincipalID(command['Principal'],
             directory=self.dir)
         if principal is None:
-            respondWithError("Principal not found: %s" % (command['Principal'],))
+            self.respondWithError("Principal not found: %s" % (command['Principal'],))
             return
 
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
         if proxy is None:
-            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            self.respondWithError("Proxy not found: %s" % (command['Proxy'],))
             return
         try:
             (yield addProxy(self.root, self.dir, self.store, principal, "write", proxy))
         except ProxyError, e:
-            respondWithError(str(e))
+            self.respondWithError(str(e))
             return
         except ProxyWarning, e:
             pass
-        (yield respondWithProxies(self.dir, command, principal, "write"))
+        (yield self.respondWithProxies(self.dir, command, principal, "write"))
 
 
     @inlineCallbacks
     def command_removeWriteProxy(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
         if principal is None:
-            respondWithError("Principal not found: %s" % (command['Principal'],))
+            self.respondWithError("Principal not found: %s" % (command['Principal'],))
             return
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
         if proxy is None:
-            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            self.respondWithError("Proxy not found: %s" % (command['Proxy'],))
             return
         try:
             (yield removeProxy(self.root, self.dir, self.store, principal, proxy, proxyTypes=("write",)))
         except ProxyError, e:
-            respondWithError(str(e))
+            self.respondWithError(str(e))
             return
         except ProxyWarning, e:
             pass
-        (yield respondWithProxies(self.dir, command, principal, "write"))
+        (yield self.respondWithProxies(self.dir, command, principal, "write"))
 
 
     @inlineCallbacks
     def command_listReadProxies(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
         if principal is None:
-            respondWithError("Principal not found: %s" % (command['Principal'],))
+            self.respondWithError("Principal not found: %s" % (command['Principal'],))
             return
-        (yield respondWithProxies(self.dir, command, principal, "read"))
+        (yield self.respondWithProxies(self.dir, command, principal, "read"))
 
 
     @inlineCallbacks
     def command_addReadProxy(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
         if principal is None:
-            respondWithError("Principal not found: %s" % (command['Principal'],))
+            self.respondWithError("Principal not found: %s" % (command['Principal'],))
             return
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
         if proxy is None:
-            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            self.respondWithError("Proxy not found: %s" % (command['Proxy'],))
             return
         try:
             (yield addProxy(self.root, self.dir, self.store, principal, "read", proxy))
         except ProxyError, e:
-            respondWithError(str(e))
+            self.respondWithError(str(e))
             return
         except ProxyWarning, e:
             pass
-        (yield respondWithProxies(self.dir, command, principal, "read"))
+        (yield self.respondWithProxies(self.dir, command, principal, "read"))
 
 
     @inlineCallbacks
     def command_removeReadProxy(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
         if principal is None:
-            respondWithError("Principal not found: %s" % (command['Principal'],))
+            self.respondWithError("Principal not found: %s" % (command['Principal'],))
             return
         proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
         if proxy is None:
-            respondWithError("Proxy not found: %s" % (command['Proxy'],))
+            self.respondWithError("Proxy not found: %s" % (command['Proxy'],))
             return
         try:
             (yield removeProxy(self.root, self.dir, self.store, principal, proxy, proxyTypes=("read",)))
         except ProxyError, e:
-            respondWithError(str(e))
+            self.respondWithError(str(e))
             return
         except ProxyWarning, e:
             pass
-        (yield respondWithProxies(self.dir, command, principal, "read"))
+        (yield self.respondWithProxies(self.dir, command, principal, "read"))
 
 
     @inlineCallbacks
@@ -469,24 +526,43 @@ class Runner(object):
         cutoff.setDateOnly(False)
         cutoff.offsetDay(-retainDays)
         eventCount = (yield PurgeOldEventsService.purgeOldEvents(self.store, cutoff, DEFAULT_BATCH_SIZE))
-        respond(command, {'EventsRemoved' : eventCount, "RetainDays" : retainDays})
+        self.respond(command, {'EventsRemoved' : eventCount, "RetainDays" : retainDays})
 
 
-@inlineCallbacks
-def respondWithProxies(directory, command, principal, proxyType):
-    proxies = []
-    subPrincipal = proxySubprincipal(principal, proxyType)
-    if subPrincipal is not None:
-        membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
-        if membersProperty.children:
-            for member in membersProperty.children:
-                proxyPrincipal = principalForPrincipalID(str(member), directory=directory)
-                proxies.append(proxyPrincipal.record.guid)
 
-    respond(command, {
-        'Principal' : principal.record.guid, 'Proxies' : proxies
-    })
+    @inlineCallbacks
+    def respondWithProxies(self, directory, command, principal, proxyType):
+        proxies = []
+        subPrincipal = proxySubprincipal(principal, proxyType)
+        if subPrincipal is not None:
+            membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+            if membersProperty.children:
+                for member in membersProperty.children:
+                    proxyPrincipal = principalForPrincipalID(str(member), directory=directory)
+                    proxies.append(proxyPrincipal.record.guid)
 
+        self.respond(command, {
+            'Principal' : principal.record.guid, 'Proxies' : proxies
+        })
+
+
+
+    def respondWithRecordsOfTypes(self, directory, command, recordTypes):
+        result = []
+        for recordType in recordTypes:
+            for record in directory.listRecords(recordType):
+                recordDict = recordToDict(record)
+                result.append(recordDict)
+        self.respond(command, result)
+
+
+
+    def respond(self, command, result):
+        self.output.write(writePlistToString({'command' : command['command'], 'result' : result}))
+
+
+    def respondWithError(self, msg, status=1):
+        self.output.write(writePlistToString({'error' : msg, }))
 
 
 def recordToDict(record):
@@ -504,22 +580,9 @@ def recordToDict(record):
             pass
     return recordDict
 
-
-
-def respondWithRecordsOfType(directory, command, recordType):
-    result = []
-    for record in directory.listRecords(recordType):
-        recordDict = recordToDict(record)
-        result.append(recordDict)
-    respond(command, result)
-
-
-def respond(command, result):
-    sys.stdout.write(writePlistToString({'command' : command['command'], 'result' : result}))
-
-
 def respondWithError(msg, status=1):
     sys.stdout.write(writePlistToString({'error' : msg, }))
+
 
 
 if __name__ == "__main__":

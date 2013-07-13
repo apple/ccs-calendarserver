@@ -14,23 +14,25 @@
 # limitations under the License.
 ##
 
-import cPickle
-import hashlib
-import uuid
-
-from zope.interface import implements
-
-from twisted.internet.defer import succeed, maybeDeferred, inlineCallbacks, \
-    returnValue
+from twext.python.log import Logger
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.http import Response
 from twext.web2.iweb import IResource
 from twext.web2.stream import MemoryStream
 
-from twext.python.log import LoggingMixIn
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
-from twistedcaldav.memcachepool import CachePoolUserMixIn, defaultCachePool
 from twistedcaldav.config import config
+from twistedcaldav.memcachepool import CachePoolUserMixIn, defaultCachePool
+
+from txdav.idav import IStoreNotifierFactory, IStoreNotifier
+
+from zope.interface import implements
+
+import cPickle
+import hashlib
+import urllib
+import uuid
 
 """
 The basic principals of the PROPFIND cache are this:
@@ -52,7 +54,6 @@ in effect at the time the entry was cached, together with the response that was 
   - childTokens - tokens for any child resources the request uri depends on (for depth:1)
 
   The current principalToken, uriToken and childTokens values are themselves stored in the cache using the key prefix 'cacheToken:'.
-When the 'changeCache' api is called the cached value for the matching token is updated.
 
 (4) When a request is being checked in the cache, the response cache entry key is first computed and any value extracted. The
 tokens in the value are then checked against the current set of tokens in the cache. If there is any mismatch between tokens, the
@@ -100,7 +101,11 @@ class URINotFoundException(Exception):
 
 
 
-class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
+class MemcacheChangeNotifier(CachePoolUserMixIn):
+    """
+    A change notifier used by resources (not store objects).
+    """
+    log = Logger()
 
     def __init__(self, resource, cachePool=None, cacheHandle="Default"):
         self._resource = resource
@@ -120,22 +125,21 @@ class MemcacheChangeNotifier(LoggingMixIn, CachePoolUserMixIn):
         """
 
         # For shared resources we use the owner URL as the cache key
-        if hasattr(self._resource, "owner_url"):
-            url = self._resource.owner_url()
-        else:
-            url = self._resource.url()
+        url = self._resource.url()
 
-        self.log_debug("Changing Cache Token for %r" % (url,))
+        self.log.debug("Changing Cache Token for {url}", url=url)
         return self.getCachePool().set(
             'cacheToken:%s' % (url,),
             self._newCacheToken(), expireTime=config.ResponseCacheTimeout * 60)
 
 
 
-class BaseResponseCache(LoggingMixIn):
+class BaseResponseCache(object):
     """
     A base class which provides some common operations
     """
+    log = Logger()
+
     def _principalURI(self, principal):
         return str(principal.children[0])
 
@@ -243,15 +247,19 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         self._cachePool = cachePool
 
 
+    @inlineCallbacks
     def _tokenForURI(self, uri, cachePoolHandle=None):
         """
         Get the current token for a particular URI.
         """
 
         if cachePoolHandle:
-            return defaultCachePool(cachePoolHandle).get('cacheToken:%s' % (uri,))
+            result = (yield defaultCachePool(cachePoolHandle).get('cacheToken:%s' % (uri,)))
         else:
-            return self.getCachePool().get('cacheToken:%s' % (uri,))
+            result = (yield self.getCachePool().get('cacheToken:%s' % (uri,)))
+        if result is not None:
+            _ignore_flags, result = result
+        returnValue(result)
 
 
     @inlineCallbacks
@@ -301,7 +309,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         oldkey = (yield self._requestKey(request))
         request.cacheKey = key = hashlib.md5(
             ':'.join([str(t) for t in oldkey])).hexdigest()
-        self.log_debug("hashing key for get: %r to %r" % (oldkey, key))
+        self.log.debug("hashing key for get: {old!r} to {new!r}", old=oldkey, new=key)
         returnValue(request.cacheKey)
 
 
@@ -315,55 +323,68 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         try:
             key = (yield self._hashedRequestKey(request))
 
-            self.log_debug("Checking cache for: %r" % (key,))
+            self.log.debug("Checking cache for: {key!r}", key=key)
             _ignore_flags, value = (yield self.getCachePool().get(key))
 
             if value is None:
-                self.log_debug("Not in cache: %r" % (key,))
+                self.log.debug("Not in cache: {key!r}", key=key)
                 returnValue(None)
 
-            self.log_debug("Found in cache: %r = %r" % (key, value))
-
             (principalToken, directoryToken, uriToken, childTokens, (code, headers, body)) = cPickle.loads(value)
+            self.log.debug(
+                "Found in cache: {key!r} = {value!r}",
+                key=key,
+                value=(
+                    principalToken,
+                    directoryToken,
+                    uriToken,
+                    childTokens,
+                )
+            )
+
             currentTokens = (yield self._getTokens(request))
 
             if currentTokens[0] != principalToken:
-                self.log_debug(
-                    "Principal token doesn't match for %r: %r != %r" % (
-                        request.cacheKey,
-                        currentTokens[0],
-                        principalToken))
+                self.log.debug(
+                    "Principal token doesn't match for {key!r}: {currentToken!r} != {principalToken!r}",
+                    key=request.cacheKey,
+                    currentToken=currentTokens[0],
+                    principalToken=principalToken,
+                )
                 returnValue(None)
 
             if currentTokens[1] != directoryToken:
-                self.log_debug(
-                    "Directory Record Token doesn't match for %r: %r != %r" % (
-                        request.cacheKey,
-                        currentTokens[1],
-                        directoryToken))
+                self.log.debug(
+                    "Directory Record Token doesn't match for {key!r}: {currentToken!r} != {directoryToken!r}",
+                    key=request.cacheKey,
+                    currentToken=currentTokens[1],
+                    directoryToken=directoryToken,
+                )
                 returnValue(None)
 
             if currentTokens[2] != uriToken:
-                self.log_debug(
-                    "URI token doesn't match for %r: %r != %r" % (
-                        request.cacheKey,
-                        currentTokens[2],
-                        uriToken))
+                self.log.debug(
+                    "URI token doesn't match for {key!r}: {currentToken!r} != {uriToken!r}",
+                    key=request.cacheKey,
+                    currentToken=currentTokens[2],
+                    uriToken=uriToken,
+                )
                 returnValue(None)
 
             for childuri, token in childTokens.items():
                 currentToken = (yield self._tokenForURI(childuri))
                 if currentToken != token:
-                    self.log_debug(
-                        "Child %s token doesn't match for %r: %r != %r" % (
-                            childuri,
-                            request.cacheKey,
-                            currentToken,
-                            token))
+                    self.log.debug(
+                        "Child {uri} token doesn't match for {key!r}: {currentToken!r} != {token!r}",
+                        uri=childuri,
+                        key=request.cacheKey,
+                        currentToken=currentToken,
+                        token=token,
+                    )
                     returnValue(None)
 
-            r = Response(code,
-                         stream=MemoryStream(body))
+            self.log.debug("Response cache matched")
+            r = Response(code, stream=MemoryStream(body))
 
             for key, value in headers.iteritems():
                 r.headers.setRawHeaders(key, value)
@@ -371,7 +392,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             returnValue(r)
 
         except URINotFoundException, e:
-            self.log_debug("Could not locate URI: %r" % (e,))
+            self.log.debug("Could not locate URI: {e!r}", e=e)
             returnValue(None)
 
 
@@ -405,12 +426,21 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                     responseBody
                 )
             ))
-            self.log_debug("Adding to cache: %r = %r" % (key, cacheEntry))
+            self.log.debug(
+                "Adding to cache: {key!r} = tokens - {tokens!r}",
+                key=key,
+                tokens=(
+                    pToken,
+                    dToken,
+                    uToken,
+                    cTokens,
+                )
+            )
             yield self.getCachePool().set(key, cacheEntry,
                 expireTime=config.ResponseCacheTimeout * 60)
 
         except URINotFoundException, e:
-            self.log_debug("Could not locate URI: %r" % (e,))
+            self.log.debug("Could not locate URI: {e!r}", e=e)
 
         returnValue(response)
 
@@ -440,62 +470,96 @@ class PropfindCacheMixin(object):
     A mixin that causes a resource's PROPFIND response to be cached. It also adds an api to change the
     resource's uriToken - this must be used whenever something changes to cause the cache to be invalidated.
     """
+
+    @inlineCallbacks
     def renderHTTP(self, request):
-        def _cacheResponse(responseCache, response):
-            return responseCache.cacheResponseForRequest(request, response)
-
-        def _getResponseCache(response):
-            d1 = request.locateResource("/")
-            d1.addCallback(lambda resource: resource.responseCache)
-            d1.addCallback(_cacheResponse, response)
-            return d1
-
-        d = maybeDeferred(super(PropfindCacheMixin, self).renderHTTP, request)
+        response = (yield super(PropfindCacheMixin, self).renderHTTP(request))
 
         if request.method == 'PROPFIND':
-            d.addCallback(_getResponseCache)
-        return d
+            resource = (yield request.locateResource("/"))
 
+            # responseCache might not be present during unit tests
+            if hasattr(resource, "responseCache"):
+                yield resource.responseCache.cacheResponseForRequest(request, response)
 
-    def changeCache(self):
-        if hasattr(self, 'cacheNotifier'):
-            return self.cacheNotifier.changed()
-        else:
-            self.log_debug("%r does not have a cacheNotifier but was changed" % (self,))
+        returnValue(response)
 
 
 
-class ResponseCacheMixin(object):
+class CacheStoreNotifierFactory(CachePoolUserMixIn):
     """
-    This is a mixin for a child resource that does not itself cache PROPFINDs, but needs to invalidate a parent
-    resource's PROPFIND cache by virtue of a change to its own childToken.
-    """
+    A notifier factory specifically for store object notifications. This is handed of to
+    the data store object, which calls .newNotifier() each time a home object is created
+    and gives the new notifier to the home. That object is also inherited by home child
+    objects created from the home.
 
-    def changeCache(self):
-        if hasattr(self, 'cacheNotifier'):
-            return self.cacheNotifier.changed()
-        else:
-            self.log_debug("%r does not have a cacheNotifier but was changed" % (self,))
+    This object uses a memcachepool for setting new cache tokens.
+    """
+    log = Logger()
+
+    implements(IStoreNotifierFactory)
+
+    def newNotifier(self, storeObject):
+        return CacheStoreNotifier(self, storeObject)
+
+
+    def _newCacheToken(self):
+        return str(uuid.uuid4())
+
+
+    def changed(self, cache_id):
+        """
+        Change the cache token for a store object.
+
+        return: A L{Deferred} that fires when the token has been changed.
+        """
+
+        self.log.debug("Changing Cache Token for {id!r}", id=cache_id)
+        return self.getCachePool().set(
+            'cacheToken:%s' % (cache_id,),
+            self._newCacheToken(), expireTime=config.ResponseCacheTimeout * 60)
 
 
 
 class CacheStoreNotifier(object):
+    """
+    A notifier for store objects. Store objects will call .notify() when they change.
+    """
 
-    def __init__(self, resource):
-        self.resource = resource
+    implements(IStoreNotifier)
 
-
-    def notify(self, op="update"):
-        self.resource.changeCache()
-
-
-    def clone(self, label="default", id=None):
-        return self
+    def __init__(self, notifierFactory, storeObject):
+        self._notifierFactory = notifierFactory
+        self._storeObject = storeObject
 
 
-    def getID(self, label="default"):
-        return None
+    @inlineCallbacks
+    def notify(self):
+        """
+        We need to convert the store object notifier ID into a URI, since the cache uses URIs.
+        Note that for a home child resource we also need to change the token for the home as the
+        sync token on the home changes implicitly without a direct notification.
+        """
+
+        prefix, id = self._storeObject.notifierID()
+        if prefix == "CalDAV":
+            uri = "/calendars/__uids__/%s/" % (id,)
+        elif prefix == "CardDAV":
+            uri = "/addressbooks/__uids__/%s/" % (id,)
+        uris = (urllib.quote(uri),)
+
+        # Also add home if needed
+        if "/" in id:
+            id = id.split("/")[0]
+            if prefix == "CalDAV":
+                uri = "/calendars/__uids__/%s/" % (id,)
+            elif prefix == "CardDAV":
+                uri = "/addressbooks/__uids__/%s/" % (id,)
+            uris += (urllib.quote(uri),)
+
+        for uri in uris:
+            yield self._notifierFactory.changed(uri)
 
 
-    def nodeName(self, label="default"):
-        return succeed(None)
+    def clone(self, storeObject):
+        return self.__class__(self._notifierFactory, storeObject)

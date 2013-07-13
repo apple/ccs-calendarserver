@@ -94,8 +94,8 @@ def _namedPropertiesForResource(request, props, resource):
                 f = Failure()
                 status = statusForFailure(f, "getting property: %s" % (qname,))
                 if status != responsecode.NOT_FOUND:
-                    log.err("Error reading property %r for resource %s: %s" %
-                            (qname, request.uri, f.value))
+                    log.error("Error reading property %r for resource %s: %s" %
+                              (qname, request.uri, f.value))
                 if status not in properties_by_status: properties_by_status[status] = []
                 properties_by_status[status].append(propertyName(qname))
         else:

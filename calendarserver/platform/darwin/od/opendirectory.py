@@ -107,7 +107,7 @@ def recordToResult(record, encodings):
     """
     details, error = record.recordDetailsForAttributes_error_(None, None)
     if error:
-        log.error(error)
+        log.error("Error: {err}", err=error)
         raise ODNSError(error)
     result = {}
     for key, value in details.iteritems():
@@ -179,7 +179,7 @@ def odInit(nodeName):
         else:
             break
 
-    log.error(error)
+    log.error("Error: {err}", err=error)
     raise ODNSError(error)
 
 
@@ -212,7 +212,7 @@ def getNodeAttributes(directory, nodeName, attributes):
         else:
             break
 
-    log.error(error)
+    log.error("Error: {err}", err=error)
     raise ODNSError(error)
 
 
@@ -261,7 +261,7 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
         else:
             break
 
-    log.error(error)
+    log.error("Error: {err}", err=error)
     raise ODNSError(error)
 
 
@@ -315,7 +315,7 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
         else:
             break
 
-    log.error(error)
+    log.error("Error: {err}", err=error)
     raise ODNSError(error)
 
 
@@ -368,7 +368,7 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
         else:
             break
 
-    log.error(error)
+    log.error("Error: {err}", err=error)
     raise ODNSError(error)
 
 
@@ -400,7 +400,7 @@ def getUserRecord(directory, user):
         else:
             break
 
-    log.error(error)
+    log.error("Error: {err}", err=error)
     raise ODNSError(error)
 
 
@@ -444,7 +444,7 @@ def authenticateUserBasic(directory, nodeName, user, password):
         else:
             break
 
-    log.error(error)
+    log.error("Basic auth error: {err}", err=error)
     raise ODNSError(error)
 
 
@@ -495,7 +495,7 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
         else:
             break
 
-    log.error(error)
+    log.error("Digest auth error: {err}", err=error)
     raise ODNSError(error)
 
 

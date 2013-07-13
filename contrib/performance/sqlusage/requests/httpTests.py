@@ -24,12 +24,13 @@ class HTTPTestBase(object):
     """
 
     class SQLResults(object):
-        
+
         def __init__(self, count, rows, timing):
             self.count = count
             self.rows = rows
             self.timing = timing
-        
+
+
     def __init__(self, label, sessions, logFilePath):
         """
         @param label: label used to identify the test
@@ -40,17 +41,19 @@ class HTTPTestBase(object):
         self.logFilePath = logFilePath
         self.result = None
 
-    def execute(self):
+
+    def execute(self, count):
         """
         Execute the HTTP request and read the results.
         """
-        
+
         self.prepare()
         self.clearLog()
         self.doRequest()
-        self.collectResults()
+        self.collectResults(count)
         self.cleanup()
         return self.result
+
 
     def prepare(self):
         """
@@ -58,11 +61,13 @@ class HTTPTestBase(object):
         """
         pass
 
+
     def clearLog(self):
         """
         Clear the server's SQL log file.
         """
         open(self.logFilePath, "w").write("")
+
 
     def doRequest(self):
         """
@@ -70,18 +75,19 @@ class HTTPTestBase(object):
         """
         raise NotImplementedError
 
-    def collectResults(self):
+
+    def collectResults(self, event_count):
         """
         Parse the server log file to extract the details we need.
         """
-        
+
         def extractInt(line):
             pos = line.find(": ")
-            return int(line[pos+2:])
+            return int(line[pos + 2:])
 
         def extractFloat(line):
             pos = line.find(": ")
-            return float(line[pos+2:])
+            return float(line[pos + 2:])
 
         data = open(self.logFilePath).read()
         lines = data.splitlines()
@@ -89,6 +95,10 @@ class HTTPTestBase(object):
         rows = extractInt(lines[5])
         timing = extractFloat(lines[6])
         self.result = HTTPTestBase.SQLResults(count, rows, timing)
+
+        with open("%s-%d-%s" % (self.logFilePath, event_count, self.label), "w") as f:
+            f.write(data)
+
 
     def cleanup(self):
         """

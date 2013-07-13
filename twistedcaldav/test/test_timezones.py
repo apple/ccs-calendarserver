@@ -15,6 +15,7 @@
 ##
 
 import twistedcaldav.test.util
+from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 from twistedcaldav.timezones import TimezoneCache, TimezoneException
 from twistedcaldav.timezones import readTZ, listTZs
@@ -33,16 +34,18 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
     def tearDown(self):
         TimezoneCache.clear()
         TimezoneCache.create()
-        
+
+
     def doTest(self, filename, dtstart, dtend, testEqual=True):
-        
+
         if testEqual:
             testMethod = self.assertEqual
         else:
             testMethod = self.assertNotEqual
 
         calendar = Component.fromStream(file(os.path.join(self.data_dir, filename)))
-        if calendar.name() != "VCALENDAR": self.fail("Calendar is not a VCALENDAR")
+        if calendar.name() != "VCALENDAR":
+            self.fail("Calendar is not a VCALENDAR")
 
         instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
         for key in instances:
@@ -51,14 +54,15 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
             end = instance.end
             testMethod(start, dtstart)
             testMethod(end, dtend)
-            break;
+            break
+
 
     def test_truncatedApr(self):
         """
-        Properties in components
+        Custom VTZ with truncated standard time - 2006. Daylight 2007 OK.
         """
-        
-        TimezoneCache.create("")
+
+        TimezoneCache.create(empty=True)
         TimezoneCache.clear()
 
         self.doTest(
@@ -67,11 +71,13 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
             PyCalendarDateTime(2007, 04, 01, 17, 0, 0, PyCalendarTimezone(utc=True))
         )
 
+
     def test_truncatedDec(self):
         """
-        Properties in components
+        Custom VTZ valid from 2007. Daylight 2007 OK.
         """
-        TimezoneCache.create("")
+
+        TimezoneCache.create(empty=True)
         TimezoneCache.clear()
 
         self.doTest(
@@ -80,12 +86,13 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
             PyCalendarDateTime(2007, 12, 10, 18, 0, 0, PyCalendarTimezone(utc=True))
         )
 
+
     def test_truncatedAprThenDecFail(self):
         """
-        Properties in components
+        Custom VTZ with truncated standard time - 2006 loaded first. Daylight 2007 OK, standard 2007 wrong.
         """
 
-        TimezoneCache.create("")
+        TimezoneCache.create(empty=True)
         TimezoneCache.clear()
 
         self.doTest(
@@ -100,10 +107,12 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
             testEqual=False
         )
 
+
     def test_truncatedAprThenDecOK(self):
         """
-        Properties in components
+        VTZ loaded from std timezone DB. 2007 OK.
         """
+
         TimezoneCache.create()
 
         self.doTest(
@@ -117,11 +126,13 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
             PyCalendarDateTime(2007, 12, 10, 18, 0, 0, PyCalendarTimezone(utc=True)),
         )
 
+
     def test_truncatedDecThenApr(self):
         """
-        Properties in components
+        Custom VTZ valid from 2007 loaded first. Daylight 2007 OK.
         """
-        TimezoneCache.create("")
+
+        TimezoneCache.create(empty=True)
         TimezoneCache.clear()
 
         self.doTest(
@@ -135,6 +146,8 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
             PyCalendarDateTime(2007, 04, 01, 17, 0, 0, PyCalendarTimezone(utc=True))
         )
 
+
+
 class TimezoneCacheTest (twistedcaldav.test.util.TestCase):
     """
     Timezone support tests
@@ -143,13 +156,14 @@ class TimezoneCacheTest (twistedcaldav.test.util.TestCase):
     data_dir = os.path.join(os.path.dirname(__file__), "data")
 
     def test_basic(self):
-        
+
         TimezoneCache.create()
         self.assertTrue(readTZ("America/New_York"))
         self.assertTrue(readTZ("US/Eastern"))
 
+
     def test_not_in_cache(self):
-        
+
         TimezoneCache.create()
 
         data = """BEGIN:VCALENDAR
@@ -183,7 +197,8 @@ END:VCALENDAR
 """
 
         calendar = Component.fromString(data)
-        if calendar.name() != "VCALENDAR": self.fail("Calendar is not a VCALENDAR")
+        if calendar.name() != "VCALENDAR":
+            self.fail("Calendar is not a VCALENDAR")
         instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
@@ -191,7 +206,9 @@ END:VCALENDAR
             end = instance.end
             self.assertEqual(start, PyCalendarDateTime(2007, 12, 25, 05, 0, 0, PyCalendarTimezone(utc=True)))
             self.assertEqual(end, PyCalendarDateTime(2007, 12, 25, 06, 0, 0, PyCalendarTimezone(utc=True)))
-            break;
+            break
+
+
 
 class TimezonePackageTest (twistedcaldav.test.util.TestCase):
     """
@@ -201,30 +218,59 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
     def setUp(self):
         TimezoneCache.clear()
         TimezoneCache.create()
-        
+
+
     def test_ReadTZ(self):
-        
+
         self.assertTrue(readTZ("America/New_York").find("TZID:America/New_York") != -1)
         self.assertRaises(TimezoneException, readTZ, "America/Pittsburgh")
+
 
     def test_ReadTZCached(self):
-        
+
         self.assertTrue(readTZ("America/New_York").find("TZID:America/New_York") != -1)
         self.assertTrue(readTZ("America/New_York").find("TZID:America/New_York") != -1)
         self.assertRaises(TimezoneException, readTZ, "America/Pittsburgh")
         self.assertRaises(TimezoneException, readTZ, "America/Pittsburgh")
+
 
     def test_ListTZs(self):
-        
+
         results = listTZs()
         self.assertTrue("America/New_York" in results)
         self.assertTrue("Europe/London" in results)
         self.assertTrue("GB" in results)
 
+
     def test_ListTZsCached(self):
-        
+
         results = listTZs()
         self.assertTrue("America/New_York" in results)
         self.assertTrue("Europe/London" in results)
         self.assertTrue("GB" in results)
-        
+
+
+    def test_copyPackage(self):
+        """
+        Test that copying of the tz package works.
+        """
+
+        self.patch(config, "UsePackageTimezones", True)
+        TimezoneCache.clear()
+        TimezoneCache.create()
+
+        self.assertFalse(os.path.exists(os.path.join(config.DataRoot, "zoneinfo")))
+        self.assertFalse(os.path.exists(os.path.join(config.DataRoot, "zoneinfo", "America", "New_York.ics")))
+
+        pkg_tz = readTZ("America/New_York")
+
+        self.patch(config, "UsePackageTimezones", False)
+        TimezoneCache.clear()
+        TimezoneCache.create()
+
+        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo")))
+        self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo", "America", "New_York.ics")))
+
+        copy_tz = readTZ("America/New_York")
+
+        self.assertEqual(str(pkg_tz), str(copy_tz))
