@@ -56,6 +56,10 @@ def getIPsFromHost(host):
 @inlineCallbacks
 def lookupServerViaSRV(domain, service="_ischedules"):
 
+    # Hard-code disable of SRV lookups in this root only until we decide on a better
+    # way to disable this for non-POD iSchedule.
+    returnValue(None)
+
     _initResolver()
 
     lookup = "%s._tcp.%s" % (service, domain,)
@@ -82,6 +86,8 @@ def lookupServerViaSRV(domain, service="_ischedules"):
         servers.append((a.payload.priority, a.payload.weight, str(a.payload.target), a.payload.port))
 
     log.debug("DNS SRV: lookup results: %s\n%s" % (lookup, servers,))
+    if len(servers) == 0:
+        returnValue(None)
 
 
     def _serverCmp(a, b):
