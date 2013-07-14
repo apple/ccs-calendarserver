@@ -1099,6 +1099,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
         elif self._newStoreHome._homeType == EADDRESSBOOKTYPE:
             sharerHomeCollection = yield sharer.addressBookHome(request)
 
+        if sharerHomeCollection is None:
+            returnValue(None)
         url = joinURL(sharerHomeCollection.url(), sharerHomeChild.name())
         share = Share(shareeHomeChild=child, sharerHomeChild=sharerHomeChild,
                       url=url)
