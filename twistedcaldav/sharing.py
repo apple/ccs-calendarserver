@@ -1084,6 +1084,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # get the shared object's URL
         sharer = self.principalForUID(sharerHomeChild.viewerHome().uid())
+        from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
+        if not isinstance(sharer, DirectoryCalendarPrincipalResource):
+            returnValue(None)
 
         if not request:
             # FIXME: Fake up a request that can be used to get the sharer home
