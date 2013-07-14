@@ -175,7 +175,8 @@ class PerUserDataFilter(CalendarFilter):
                 self._mergeBackComponent(ical_component, peruser_component)
                 ical.addComponent(ical_component)
         elif peruser_only_set:
-            raise AssertionError("Cannot derive a per-user instance when there is no master component.")
+            # We used to error out here, but instead we should silently ignore this error and keep going
+            pass
                     
         # Process the unions by merging in per-user data
         for rid in union_set:
@@ -233,7 +234,8 @@ class PerUserDataFilter(CalendarFilter):
         for component in components:
             if component.name() == "VTIMEZONE":
                 continue
-            rid = component.getRecurrenceIDUTC()
+            rid = component.propertyValue("RECURRENCE-ID")
+            rid = rid.duplicate() if rid is not None else None
 
             perinstance_component = Component(PerUserDataFilter.PERINSTANCE_COMPONENT) if self.uid else None
             perinstance_id_different = False
