@@ -1593,7 +1593,7 @@ else:
             cache = GroupMembershipCache("ProxyDB", expireSeconds=60)
             self.service.groupMembershipCache = cache
             updater = GroupMembershipCacheUpdater(calendaruserproxy.ProxyDBService,
-                self.service, 30, 15, cache=cache, useExternalProxies=False)
+                self.service, 30, 15, 30, cache=cache, useExternalProxies=False)
 
             self.assertEquals((False, 8, 8), (yield updater.updateCache()))
 

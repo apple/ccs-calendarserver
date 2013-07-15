@@ -1044,6 +1044,7 @@ class PostDBImportStep(object):
                     directory,
                     self.config.GroupCaching.UpdateSeconds,
                     self.config.GroupCaching.ExpireSeconds,
+                    self.config.GroupCaching.LockSeconds,
                     namespace=self.config.GroupCaching.MemcachedPool,
                     useExternalProxies=self.config.GroupCaching.UseExternalProxies)
                 yield updater.updateCache(fast=True)

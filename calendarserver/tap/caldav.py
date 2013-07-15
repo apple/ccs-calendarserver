@@ -870,6 +870,7 @@ class CalDAVServiceMaker (object):
                 directory,
                 config.GroupCaching.UpdateSeconds,
                 config.GroupCaching.ExpireSeconds,
+                config.GroupCaching.LockSeconds,
                 namespace=config.GroupCaching.MemcachedPool,
                 useExternalProxies=config.GroupCaching.UseExternalProxies
                 )
@@ -1171,6 +1172,7 @@ class CalDAVServiceMaker (object):
                     directory,
                     config.GroupCaching.UpdateSeconds,
                     config.GroupCaching.ExpireSeconds,
+                    config.GroupCaching.LockSeconds,
                     namespace=config.GroupCaching.MemcachedPool,
                     useExternalProxies=config.GroupCaching.UseExternalProxies
                     )
@@ -1638,6 +1640,7 @@ class CalDAVServiceMaker (object):
                     directory,
                     config.GroupCaching.UpdateSeconds,
                     config.GroupCaching.ExpireSeconds,
+                    config.GroupCaching.LockSeconds,
                     namespace=config.GroupCaching.MemcachedPool,
                     useExternalProxies=config.GroupCaching.UseExternalProxies
                     )

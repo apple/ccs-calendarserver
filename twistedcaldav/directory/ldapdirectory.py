@@ -58,6 +58,7 @@ from twistedcaldav.directory.directory import DirectoryConfigurationError
 from twistedcaldav.directory.augment import AugmentRecord
 from twistedcaldav.directory.util import splitIntoBatches
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.threads import deferToThread
 from twext.python.log import Logger
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2 import responsecode
@@ -1146,6 +1147,7 @@ class LdapDirectoryService(CachingDirectoryService):
         return succeed(records)
 
 
+    @inlineCallbacks
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         """
         Carries out the work of a principal-property-search against LDAP
@@ -1192,10 +1194,10 @@ class LdapDirectoryService(CachingDirectoryService):
                 # Query the LDAP server
                 self.log.debug("LDAP search %s %s %s" %
                     (ldap.dn.dn2str(base), scope, filterstr))
-                results = self.timedSearch(ldap.dn.dn2str(base), scope,
+                results = (yield deferToThread(self.timedSearch, ldap.dn.dn2str(base), scope,
                     filterstr=filterstr, attrlist=self.attrlist,
                     timeoutSeconds=self.requestTimeoutSeconds,
-                    resultLimit=self.requestResultsLimit)
+                    resultLimit=self.requestResultsLimit))
                 self.log.debug("LDAP search returned %d results" % (len(results),))
                 numMissingGuids = 0
                 numMissingRecordNames = 0
@@ -1233,7 +1235,7 @@ class LdapDirectoryService(CachingDirectoryService):
                         (numMissingRecordNames, recordType))
 
         self.log.debug("Principal property search matched %d records" % (len(records),))
-        return succeed(records)
+        returnValue(records)
 
 
     @inlineCallbacks
