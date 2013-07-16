@@ -33,7 +33,6 @@ from twisted.cred.credentials import UsernamePassword
 from twext.web2.auth.digest import DigestedCredentials
 from twext.python.log import Logger
 
-from twistedcaldav.config import config
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService, \
     CachingDirectoryRecord
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
