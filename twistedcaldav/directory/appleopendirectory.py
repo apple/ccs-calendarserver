@@ -1065,10 +1065,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
             # If restrictToGroup is in effect, all guids which are not a member
             # of that group are disabled (overriding the augments db).
-            if (
-                self.restrictedGUIDs is not None and
-                config.Scheduling.iMIP.Username != recordShortName
-            ):
+            if (self.restrictedGUIDs is not None):
                 unrestricted = recordGUID in self.restrictedGUIDs
             else:
                 unrestricted = True
