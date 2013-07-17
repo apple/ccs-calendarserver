@@ -101,19 +101,20 @@ class SharedCollectionMixin(object):
             # See if it is on the sharee calendar
             if self.isShareeCollection():
                 original = (yield request.locateResource(self._share.url()))
-                invitations = yield original.validateInvites(request)
+                if original is not None:
+                    invitations = yield original.validateInvites(request)
 
-                ownerPrincipal = (yield original.ownerPrincipal(request))
-                owner = ownerPrincipal.principalURL()
-                ownerCN = ownerPrincipal.displayName()
+                    ownerPrincipal = (yield original.ownerPrincipal(request))
+                    owner = ownerPrincipal.principalURL()
+                    ownerCN = ownerPrincipal.displayName()
 
-                returnValue(customxml.Invite(
-                    customxml.Organizer(
-                        element.HRef.fromString(owner),
-                        customxml.CommonName.fromString(ownerCN),
-                    ),
-                    *[invitePropertyElement(invitation, includeUID=False) for invitation in invitations]
-                ))
+                    returnValue(customxml.Invite(
+                        customxml.Organizer(
+                            element.HRef.fromString(owner),
+                            customxml.CommonName.fromString(ownerCN),
+                        ),
+                        *[invitePropertyElement(invitation, includeUID=False) for invitation in invitations]
+                    ))
 
         returnValue(None)
 
@@ -1043,29 +1044,32 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         sharerHomeChild = yield child.ownerHome().childWithID(child._resourceID)
 
-        # get the shared object's URL
+        # Get the shared object's URL - we may need to fake this if the sharer principal is missing or disabled
+        url = None
         sharer = self.principalForUID(sharerHomeChild.viewerHome().uid())
         from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
-        if not isinstance(sharer, DirectoryCalendarPrincipalResource):
-            returnValue(None)
+        if isinstance(sharer, DirectoryCalendarPrincipalResource):
 
-        if not request:
-            # FIXME: Fake up a request that can be used to get the sharer home
-            # resource
-            class _FakeRequest(object):
-                pass
-            fakeRequest = _FakeRequest()
-            setattr(fakeRequest, TRANSACTION_KEY, self._newStoreHome._txn)
-            request = fakeRequest
+            if not request:
+                # FIXME: Fake up a request that can be used to get the sharer home
+                # resource
+                class _FakeRequest(object):
+                    pass
+                fakeRequest = _FakeRequest()
+                setattr(fakeRequest, TRANSACTION_KEY, self._newStoreHome._txn)
+                request = fakeRequest
 
-        if self._newStoreHome._homeType == ECALENDARTYPE:
-            sharerHomeCollection = yield sharer.calendarHome(request)
-        elif self._newStoreHome._homeType == EADDRESSBOOKTYPE:
-            sharerHomeCollection = yield sharer.addressBookHome(request)
+            if self._newStoreHome._homeType == ECALENDARTYPE:
+                sharerHomeCollection = yield sharer.calendarHome(request)
+            elif self._newStoreHome._homeType == EADDRESSBOOKTYPE:
+                sharerHomeCollection = yield sharer.addressBookHome(request)
 
-        if sharerHomeCollection is None:
-            returnValue(None)
-        url = joinURL(sharerHomeCollection.url(), sharerHomeChild.name())
+            if sharerHomeCollection is not None:
+                url = joinURL(sharerHomeCollection.url(), sharerHomeChild.name())
+
+        if url is None:
+            url = "/calendars/__uids__/%s/" % (sharerHomeChild.viewerHome().uid(),)
+
         share = Share(shareeHomeChild=child, sharerHomeChild=sharerHomeChild, url=url)
 
         returnValue(share)
@@ -1274,13 +1278,13 @@ class SharedHomeMixin(LinkFollowerMixIn):
         # Remove it if it is in the DB
         yield self.removeShareByUID(request, inviteUID)
 
-        yield self._changeShare(request, _BIND_STATUS_DECLINED, hostUrl, inviteUID)
+        yield self._changeShare(request, _BIND_STATUS_DECLINED, hostUrl, inviteUID, processed=True)
 
         returnValue(Response(code=responsecode.NO_CONTENT))
 
 
     @inlineCallbacks
-    def _changeShare(self, request, state, hostUrl, replytoUID, displayname=None):
+    def _changeShare(self, request, state, hostUrl, replytoUID, displayname=None, processed=False):
         """
         Accept or decline an invite to a shared collection.
         """
@@ -1290,6 +1294,10 @@ class SharedHomeMixin(LinkFollowerMixIn):
         ownerPrincipalUID = ownerPrincipal.principalUID()
         sharedCollection = (yield request.locateResource(hostUrl))
         if sharedCollection is None:
+            # FIXME: have to return here rather than raise to allow removal of a share for a sharer
+            # whose principal is no longer valid yet still exists in the store. Really we need to get rid of
+            # locateResource calls and just do everything via store objects.
+            returnValue(None)
             # Original shared collection is gone - nothing we can do except ignore it
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -1298,7 +1306,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
             ))
 
         # Change the record
-        yield sharedCollection.changeUserInviteState(request, replytoUID, ownerPrincipalUID, state, displayname)
+        if not processed:
+            yield sharedCollection.changeUserInviteState(request, replytoUID, ownerPrincipalUID, state, displayname)
 
         yield self.sendReply(request, ownerPrincipal, sharedCollection, state, hostUrl, replytoUID, displayname)
 
@@ -1308,6 +1317,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # Locate notifications collection for sharer
         sharer = (yield sharedCollection.ownerPrincipal(request))
+        if sharer is None:
+            # FIXME: have to return here rather than raise to allow removal of a share for a sharer
+            # whose principal is no longer valid yet still exists in the store. Really we need to get rid of
+            # locateResource calls and just do everything via store objects.
+            returnValue(None)
+
         notificationResource = (yield request.locateResource(sharer.notificationURL()))
         notifications = notificationResource._newStoreNotifications
 
