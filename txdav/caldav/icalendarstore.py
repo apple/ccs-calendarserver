@@ -479,7 +479,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         """
 
 
-    def asShared():
+    def sharingInvites():
         """
         Get a view of this L{ICalendar} as present in everyone's calendar home
         except for its owner's.

@@ -34,6 +34,7 @@ from twistedcaldav.resource import CalDAVResource
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 from txdav.caldav.icalendarstore import BIND_DIRECT
 from twistedcaldav.test.test_cache import StubResponseCacheResource
+from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 
 
 sharedOwnerType = davxml.ResourceType.sharedownercalendar #@UndefinedVariable
@@ -71,7 +72,7 @@ class FakeRecord(object):
 
 
 
-class FakePrincipal(object):
+class FakePrincipal(DirectoryCalendarPrincipalResource):
 
     def __init__(self, cuaddr, test):
         if cuaddr.startswith("mailto:"):
@@ -91,9 +92,9 @@ class FakePrincipal(object):
 
     @inlineCallbacks
     def calendarHome(self, request):
-        a, seg = yield self._test.homeProvisioner.locateChild(request,
+        a, _ignore_seg = yield self._test.homeProvisioner.locateChild(request,
                                                               ["__uids__"])
-        b, seg = yield a.locateChild(request, [self._name])
+        b, _ignore_seg = yield a.locateChild(request, [self._name])
         if b is None:
             # XXX all tests except test_noWikiAccess currently rely on the
             # fake thing here.
@@ -496,6 +497,7 @@ class SharingTests(HomeTestCase):
             ),
         ))
 
+
     @inlineCallbacks
     def test_POSTaddRemoveSameInvitee(self):
 
@@ -760,7 +762,3 @@ class SharingTests(HomeTestCase):
         access = "no-access"
         childNames = yield listChildrenViaPropfind()
         self.assertNotIn(sharedName, childNames)
-
-
-
-

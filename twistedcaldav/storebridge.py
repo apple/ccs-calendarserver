@@ -62,7 +62,7 @@ from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     AttachmentStoreValidManagedID, AttachmentRemoveFailed, \
     AttachmentDropboxNotAllowed
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
-    _BIND_MODE_DIRECT
+    _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.idav import PropertyChangeNotAllowedError
 from txdav.xml import element as davxml
@@ -1584,23 +1584,28 @@ class CalendarObjectDropbox(_GetChildHelper):
     def sharedDropboxACEs(self):
 
         aces = ()
-        calendars = yield self._newStoreCalendarObject._parentCollection.asShared()
-        for calendar in calendars:
+
+        invites = yield self._newStoreCalendarObject._parentCollection.sharingInvites()
+        for invite in invites:
+
+            # Only want accepted invites
+            if invite.status() != _BIND_STATUS_ACCEPTED:
+                continue
 
             userprivs = [
             ]
-            if calendar.shareMode() in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
+            if invite.mode() in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Read()))
                 userprivs.append(davxml.Privilege(davxml.ReadACL()))
                 userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
-            if calendar.shareMode() in (_BIND_MODE_READ,):
+            if invite.mode() in (_BIND_MODE_READ,):
                 userprivs.append(davxml.Privilege(davxml.WriteProperties()))
-            if calendar.shareMode() in (_BIND_MODE_WRITE,):
+            if invite.mode() in (_BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Write()))
             proxyprivs = list(userprivs)
             proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
 
-            principal = self.principalForUID(calendar._home.uid())
+            principal = self.principalForUID(invite.shareeUID())
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -1879,7 +1884,7 @@ class AttachmentsChildCollection(_GetChildHelper):
 
 
     @inlineCallbacks
-    def _sharedAccessControl(self, calendar, shareMode):
+    def _sharedAccessControl(self, invite):
         """
         Check the shared access mode of this resource, potentially consulting
         an external access method if necessary.
@@ -1895,10 +1900,10 @@ class AttachmentsChildCollection(_GetChildHelper):
             access control mechanism has dictate the home should no longer have
             any access at all.
         """
-        if shareMode in (_BIND_MODE_DIRECT,):
-            ownerUID = calendar.ownerHome().uid()
+        if invite.mode() in (_BIND_MODE_DIRECT,):
+            ownerUID = invite.ownerUID()
             owner = self.principalForUID(ownerUID)
-            shareeUID = calendar.viewerHome().uid()
+            shareeUID = invite.shareeUID()
             if owner.record.recordType == WikiDirectoryService.recordType_wikis:
                 # Access level comes from what the wiki has granted to the
                 # sharee
@@ -1914,9 +1919,9 @@ class AttachmentsChildCollection(_GetChildHelper):
                     returnValue(None)
             else:
                 returnValue("original")
-        elif shareMode in (_BIND_MODE_READ,):
+        elif invite.mode() in (_BIND_MODE_READ,):
             returnValue("read-only")
-        elif shareMode in (_BIND_MODE_WRITE,):
+        elif invite.mode() in (_BIND_MODE_WRITE,):
             returnValue("read-write")
         returnValue("original")
 
@@ -1925,19 +1930,23 @@ class AttachmentsChildCollection(_GetChildHelper):
     def sharedDropboxACEs(self):
 
         aces = ()
-        calendars = yield self._newStoreCalendarObject._parentCollection.asShared()
-        for calendar in calendars:
+        invites = yield self._newStoreCalendarObject._parentCollection.sharingInvites()
+        for invite in invites:
+
+            # Only want accepted invites
+            if invite.status() != _BIND_STATUS_ACCEPTED:
+                continue
 
             privileges = [
                 davxml.Privilege(davxml.Read()),
                 davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
             ]
             userprivs = []
-            access = (yield self._sharedAccessControl(calendar, calendar.shareMode()))
+            access = (yield self._sharedAccessControl(invite))
             if access in ("read-only", "read-write",):
                 userprivs.extend(privileges)
 
-            principal = self.principalForUID(calendar._home.uid())
+            principal = self.principalForUID(invite.shareeUID())
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(

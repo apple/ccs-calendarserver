@@ -2429,6 +2429,94 @@ class _SharedSyncLogic(object):
 
 
 
+class SharingInvitation(object):
+    """
+    SharingInvitation covers all the information needed to expose sharing invites to upper layers. Its primarily used to
+    minimize the need to load full calendar data when only this subset of information is needed.
+    """
+    def __init__(self, owner_uid, owner_rid, sharee_uid, sharee_rid, resource_id, resource_name, mode, status, summary):
+        self._owner_uid = owner_uid
+        self._owner_rid = owner_rid
+        self._sharee_uid = sharee_uid
+        self._sharee_rid = sharee_rid
+        self._resource_id = resource_id
+        self._resource_name = resource_name
+        self._mode = mode
+        self._status = status
+        self._summary = summary
+
+
+    @classmethod
+    def fromCommonHomeChild(cls, homeChild):
+        return cls(
+            homeChild.shareUID(),
+            homeChild.ownerHome()._resourceID,
+            homeChild.viewerHome().uid(),
+            homeChild.viewerHome()._resourceID,
+            homeChild._resourceID,
+            homeChild.name(),
+            homeChild.shareMode(),
+            homeChild.shareStatus(),
+            homeChild.shareMessage(),
+        )
+
+
+    def uid(self):
+        """
+        uid of an invitation is just the resource name of the shared collection (which is always a uuid).
+        """
+        return self._resource_name
+
+
+    def ownerUID(self):
+        return self._owner_uid
+
+
+    def ownerHomeID(self):
+        return self._owner_rid
+
+
+    def shareeUID(self):
+        return self._sharee_uid
+
+
+    def shareeHomeID(self):
+        return self._sharee_rid
+
+
+    def resourceID(self):
+        return self._resource_id
+
+
+    def resourceName(self):
+        return self._resource_name
+
+
+    def mode(self):
+        return self._mode
+
+
+    def setMode(self, mode):
+        self._mode = mode
+
+
+    def status(self):
+        return self._status
+
+
+    def setStatus(self, status):
+        self._status = status
+
+
+    def summary(self):
+        return self._summary
+
+
+    def setSummary(self, summary):
+        self._summary = summary
+
+
+
 class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase):
     """
     Common ancestor class of AddressBooks and Calendars.
@@ -2674,6 +2762,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
 
 
     @inlineCallbacks
+    def updateShareUIDName(self, shareeUID, resourceName, mode=None, status=None, message=None, name=None):
+        """
+        Like L{updateShare} except that the sharee UID and shared child resource name are provided. Those are
+        used to find the actual sharee L{CommonHomeChild} which is then passed to L{updateShare}.
+        """
+
+        # Look up thr shared child - might be accepted or unaccepted
+        shareeHome = yield self._txn.homeWithUID(self._home._homeType, shareeUID)
+        shareeView = yield shareeHome.childWithName(resourceName)
+        if shareeView is None:
+            shareeView = yield shareeHome.invitedChildWithName(resourceName)
+
+        result = yield self.updateShare(shareeView, mode, status, message, name)
+        returnValue(result)
+
+
+    @inlineCallbacks
     def updateShare(self, shareeView, mode=None, status=None, message=None, name=None):
         """
         Update share mode, status, and message for a home child shared with
@@ -2745,6 +2850,18 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
             yield self.notifyChanged()
 
         returnValue(shareeView._name)
+
+
+    @inlineCallbacks
+    def unshareWithUID(self, shareeUID):
+        """
+        Like L{unshareWith} except this is passed a sharee UID which is then used to lookup the
+        L{CommonHome} for the sharee to pass to L{unshareWith}.
+        """
+
+        shareeHome = yield self._txn.homeWithUID(self._home._homeType, shareeUID)
+        result = yield self.unshareWith(shareeHome)
+        returnValue(result)
 
 
     @inlineCallbacks
@@ -2838,13 +2955,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         """
         if self.owned():
             # This collection may be shared to others
-            for sharedToHome in [x.viewerHome() for x in (yield self.asShared())]:
-                (yield self.unshareWith(sharedToHome))
+            invites = yield self.sharingInvites()
+            for invite in invites:
+                shareeHome = (yield self._txn.homeWithResourceID(homeType, invite.shareeHomeID()))
+                (yield self.unshareWith(shareeHome))
         else:
             # This collection is shared to me
             sharerHomeID = (yield self.sharerHomeID())
-            sharerHome = (yield self._txn.homeWithResourceID(homeType,
-                sharerHomeID))
+            sharerHome = (yield self._txn.homeWithResourceID(homeType, sharerHomeID))
             sharerCollection = (yield sharerHome.childWithID(self._resourceID))
             (yield sharerCollection.unshareWith(self._home))
 
@@ -2864,92 +2982,63 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, 
         )
 
 
-    @classproperty
-    def _sharedBindForResourceID(cls): #@NoSelf
+    @classmethod
+    def _bindInviteFor(cls, condition): #@NoSelf
+        home = cls._homeSchema
         bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+        return Select(
+            [
+                home.OWNER_UID,
+                bind.HOME_RESOURCE_ID,
+                bind.RESOURCE_ID,
+                bind.RESOURCE_NAME,
+                bind.BIND_MODE,
+                bind.BIND_STATUS,
+                bind.MESSAGE,
+            ],
+            From=bind.join(home, on=(bind.HOME_RESOURCE_ID == home.RESOURCE_ID)),
+            Where=condition
+        )
+
+
+    @classproperty
+    def _sharedInvitationBindForResourceID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindInviteFor((bind.RESOURCE_ID == Parameter("resourceID"))
                             .And(bind.BIND_MODE != _BIND_MODE_OWN)
                             )
 
 
     @inlineCallbacks
-    def asShared(self):
+    def sharingInvites(self):
         """
-        Retrieve all the versions of this L{CommonHomeChild} as it is shared to
-        everyone.
+        Retrieve the list of all L{SharingInvitation} for this L{CommonHomeChild}, irrespective of mode.
 
-        @see: L{ICalendarHome.asShared}
-
-        @return: L{CommonHomeChild} objects that represent this
-            L{CommonHomeChild} as a child of different L{CommonHome}s
-        @rtype: a L{Deferred} which fires with a L{list} of L{ICalendar}s.
+        @return: L{SharingInvitation} objects
+        @rtype: a L{Deferred} which fires with a L{list} of L{SharingInvitation}s.
         """
         if not self.owned():
             returnValue([])
 
         # get all accepted binds
-        acceptedRows = yield self._sharedBindForResourceID.on(
+        acceptedRows = yield self._sharedInvitationBindForResourceID.on(
             self._txn, resourceID=self._resourceID, homeID=self._home._resourceID
         )
 
-        cls = self.__class__ # for ease of grepping...
         result = []
-        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
-            assert bindStatus == _BIND_STATUS_ACCEPTED
-            # TODO: this could all be issued in parallel; no need to serialize
-            # the loop.
-            new = cls(
-                home=(yield self._txn.homeWithResourceID(self._home._homeType, homeID)),
-                name=resourceName, resourceID=self._resourceID,
-                mode=bindMode, status=bindStatus,
-                message=bindMessage, ownerHome=self._home
+        for homeUID, homeRID, resourceID, resourceName, bindMode, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
+            invite = SharingInvitation(
+                self._home.name(),
+                self._home._resourceID,
+                homeUID,
+                homeRID,
+                resourceID,
+                resourceName,
+                bindMode,
+                bindStatus,
+                bindMessage,
             )
-            yield new.initFromStore()
-            result.append(new)
-        returnValue(result)
-
-
-    @classproperty
-    def _invitedBindForResourceID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
-                            )
-
-
-    @inlineCallbacks
-    def asInvited(self):
-        """
-        Retrieve all the versions of this L{CommonHomeChild} as it is invited to
-        everyone.
-
-        @see: L{ICalendarHome.asInvited}
-
-        @return: L{CommonHomeChild} objects that represent this
-            L{CommonHomeChild} as a child of different L{CommonHome}s
-        @rtype: a L{Deferred} which fires with a L{list} of L{ICalendar}s.
-        """
-        if not self.owned():
-            returnValue([])
-
-        rows = yield self._invitedBindForResourceID.on(
-            self._txn, resourceID=self._resourceID, homeID=self._home._resourceID,
-        )
-        cls = self.__class__ # for ease of grepping...
-
-        result = []
-        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in rows: #@UnusedVariable
-            # TODO: this could all be issued in parallel; no need to serialize
-            # the loop.
-            new = cls(
-                home=(yield self._txn.homeWithResourceID(self._home._homeType, homeID)),
-                name=resourceName, resourceID=self._resourceID,
-                mode=bindMode, status=bindStatus,
-                message=bindMessage, ownerHome=self._home
-            )
-            yield new.initFromStore()
-            result.append(new)
+            result.append(invite)
         returnValue(result)
 
 

@@ -132,6 +132,7 @@ class CommonDataStore(DataStore):
         # FIXME: see '@ivar queuer' above.
         self.queuer = _StubQueuer()
 
+
     def callWithNewTransactions(self, callback):
         """
         Registers a method to be called whenever a new transaction is
@@ -1318,16 +1319,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
 
 
     @inlineCallbacks
-    def asInvited(self):
-        """
-        Stub for interface-compliance tests.
-        """
-        yield None
-        returnValue([])
-
-
-    @inlineCallbacks
-    def asShared(self):
+    def sharingInvites(self):
         """
         Stub for interface-compliance tests.
         """
