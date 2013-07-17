@@ -172,7 +172,7 @@ class GroupMembershipTests (TestCase):
         self.directoryService.groupMembershipCache = cache
 
         updater = GroupMembershipCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30, 30,
             cache=cache, useExternalProxies=False)
 
         # Exercise getGroups()
@@ -371,7 +371,7 @@ class GroupMembershipTests (TestCase):
             ]
 
         updater = GroupMembershipCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30, 30,
             cache=cache, useExternalProxies=True,
             externalProxiesSource=fakeExternalProxies)
 
@@ -455,7 +455,7 @@ class GroupMembershipTests (TestCase):
             ]
 
         updater = GroupMembershipCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30, 30,
             cache=cache, useExternalProxies=True,
             externalProxiesSource=fakeExternalProxiesRemoved)
 
@@ -622,7 +622,7 @@ class GroupMembershipTests (TestCase):
         self.directoryService.groupMembershipCache = cache
 
         updater = GroupMembershipCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30, 30,
             cache=cache)
 
         dataRoot = FilePath(config.DataRoot)
