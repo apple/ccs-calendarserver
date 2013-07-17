@@ -23,6 +23,7 @@ from calendarserver.tools import tables
 from contrib.performance.sqlusage.requests.invite import InviteTest
 from contrib.performance.sqlusage.requests.multiget import MultigetTest
 from contrib.performance.sqlusage.requests.propfind import PropfindTest
+from contrib.performance.sqlusage.requests.propfind_invite import PropfindInviteTest
 from contrib.performance.sqlusage.requests.put import PutTest
 from contrib.performance.sqlusage.requests.query import QueryTest
 from contrib.performance.sqlusage.requests.sync import SyncTest
@@ -31,6 +32,7 @@ from twext.web2.dav.util import joinURL
 import getopt
 import itertools
 import sys
+from caldavclientlibrary.client.principal import principalCache
 
 """
 This tool is designed to analyze how SQL is being used for various HTTP requests.
@@ -41,7 +43,8 @@ will be repeated against a varying calendar size so the variation in SQL use
 with calendar size can be plotted.
 """
 
-EVENT_COUNTS = (0, 1, 5, 10, 50, 100, 500, 1000, 5000)
+EVENT_COUNTS = (0, 1, 5, 10, 50, 100, 500, 1000,)
+SHAREE_COUNTS = (0, 1, 5, 10, 50, 100,)
 
 ICAL = """BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
@@ -78,16 +81,17 @@ END:VCALENDAR
 
 class SQLUsageSession(CalDAVSession):
 
-    def __init__(self, server, port=None, ssl=False, user="", pswd="", principal=None, root=None, logging=False):
+    def __init__(self, server, port=None, ssl=False, user="", pswd="", principal=None, root=None, calendar="calendar", logging=False):
 
         super(SQLUsageSession, self).__init__(server, port, ssl, user, pswd, principal, root, logging)
         self.homeHref = "/calendars/users/%s/" % (self.user,)
-        self.calendarHref = "/calendars/users/%s/calendar/" % (self.user,)
+        self.calendarHref = "/calendars/users/%s/%s/" % (self.user, calendar,)
         self.inboxHref = "/calendars/users/%s/inbox/" % (self.user,)
+        self.notificationHref = "/calendars/users/%s/notification/" % (self.user,)
 
 
 
-class SQLUsage(object):
+class EventSQLUsage(object):
 
     def __init__(self, server, port, users, pswds, logFilePath):
         self.server = server
@@ -100,7 +104,7 @@ class SQLUsage(object):
         self.currentCount = 0
 
 
-    def runLoop(self, counts):
+    def runLoop(self, event_counts):
 
         # Make the sessions
         sessions = [
@@ -129,7 +133,7 @@ class SQLUsage(object):
             session.getPropertiesOnHierarchy(URL(path=session.calendarHref), props)
 
         # Now loop over sets of events
-        for count in counts:
+        for count in event_counts:
             print("Testing count = %d" % (count,))
             self.ensureEvents(sessions[0], sessions[0].calendarHref, count)
             result = {}
@@ -181,6 +185,112 @@ class SQLUsage(object):
 
 
 
+class SharerSQLUsage(object):
+
+    def __init__(self, server, port, users, pswds, logFilePath):
+        self.server = server
+        self.port = port
+        self.users = users
+        self.pswds = pswds
+        self.logFilePath = logFilePath
+        self.requestLabels = []
+        self.results = {}
+        self.currentCount = 0
+
+
+    def runLoop(self, sharee_counts):
+
+        # Make the sessions
+        sessions = [
+            SQLUsageSession(self.server, self.port, user=user, pswd=pswd, root="/", calendar="shared")
+            for user, pswd in itertools.izip(self.users, self.pswds)
+        ]
+        sessions = sessions[0:1]
+
+        # Create the calendar first
+        sessions[0].makeCalendar(URL(path=sessions[0].calendarHref))
+
+        # Set of requests to execute
+        requests = [
+            MultigetTest("multiget-1", sessions, self.logFilePath, 1),
+            MultigetTest("multiget-50", sessions, self.logFilePath, 50),
+            PropfindInviteTest("propfind", sessions, self.logFilePath, 1),
+            SyncTest("sync-full", sessions, self.logFilePath, True, 0),
+            SyncTest("sync-1", sessions, self.logFilePath, False, 1),
+            QueryTest("query-1", sessions, self.logFilePath, 1),
+            QueryTest("query-10", sessions, self.logFilePath, 10),
+            PutTest("put", sessions, self.logFilePath),
+        ]
+        self.requestLabels = [request.label for request in requests]
+
+        # Warm-up server by doing shared calendar propfinds
+        props = (davxml.resourcetype,)
+        for session in sessions:
+            session.getPropertiesOnHierarchy(URL(path=session.calendarHref), props)
+
+        # Now loop over sets of events
+        for count in sharee_counts:
+            print("Testing count = %d" % (count,))
+            self.ensureSharees(sessions[0], sessions[0].calendarHref, count)
+            result = {}
+            for request in requests:
+                print("  Test = %s" % (request.label,))
+                result[request.label] = request.execute(count)
+            self.results[count] = result
+
+
+    def report(self):
+
+        self._printReport("SQL Statement Count", "count", "%d")
+        self._printReport("SQL Rows Returned", "rows", "%d")
+        self._printReport("SQL Time", "timing", "%.1f")
+
+
+    def _printReport(self, title, attr, colFormat):
+        table = tables.Table()
+
+        print(title)
+        headers = ["Sharees"] + self.requestLabels
+        table.addHeader(headers)
+        formats = [tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY)] + \
+            [tables.Table.ColumnFormat(colFormat, tables.Table.ColumnFormat.RIGHT_JUSTIFY)] * len(self.requestLabels)
+        table.setDefaultColumnFormats(formats)
+        for k in sorted(self.results.keys()):
+            row = [k] + [getattr(self.results[k][item], attr) for item in self.requestLabels]
+            table.addRow(row)
+        os = StringIO()
+        table.printTable(os=os)
+        print(os.getvalue())
+        print("")
+
+
+    def ensureSharees(self, session, calendarhref, n):
+        """
+        Make sure the required number of sharees are present in the calendar.
+
+        @param n: number of sharees
+        @type n: C{int}
+        """
+
+        users = []
+        uids = []
+        for i in range(n - self.currentCount):
+            index = self.currentCount + i + 2
+            users.append("user%02d" % (index,))
+            uids.append("urn:uuid:user%02d" % (index,))
+        session.addInvitees(URL(path=calendarhref), uids, True)
+
+        # Now accept each one
+        for user in users:
+            acceptor = SQLUsageSession(self.server, self.port, user=user, pswd=user, root="/", calendar="shared")
+            notifications = acceptor.getNotifications(URL(path=acceptor.notificationHref))
+            principal = principalCache.getPrincipal(acceptor, acceptor.principalPath)
+            acceptor.processNotification(principal, notifications[0], True)
+
+        self.currentCount = n
+
+
+
 def usage(error_msg=None):
     if error_msg:
         print(error_msg)
@@ -192,7 +302,7 @@ Options:
     --port         Server port
     --user         User name
     --pswd         Password
-    --counts       Comma-separated list of event counts to test
+    --event_counts       Comma-separated list of event event_counts to test
 
 Arguments:
     FILE           File name for sqlstats.log to analyze.
@@ -213,9 +323,14 @@ if __name__ == '__main__':
     users = ("user01", "user02",)
     pswds = ("user01", "user02",)
     file = "sqlstats.logs"
-    counts = EVENT_COUNTS
+    event_counts = EVENT_COUNTS
+    sharee_counts = SHAREE_COUNTS
 
-    options, args = getopt.getopt(sys.argv[1:], "h", ["server=", "port=", "user=", "pswd=", "counts=", ])
+    options, args = getopt.getopt(
+        sys.argv[1:],
+        "h",
+        ["server=", "port=", "user=", "pswd=", "event-counts=", "sharee-counts=", ]
+    )
 
     for option, value in options:
         if option == "-h":
@@ -228,8 +343,10 @@ if __name__ == '__main__':
             users = value.split(",")
         elif option == "--pswd":
             pswds = value.split(",")
-        elif option == "--counts":
-            counts = [int(i) for i in value.split(",")]
+        elif option == "--event-counts":
+            event_counts = [int(i) for i in value.split(",")]
+        elif option == "--sharee-counts":
+            sharee_counts = [int(i) for i in value.split(",")]
         else:
             usage("Unrecognized option: %s" % (option,))
 
@@ -239,6 +356,10 @@ if __name__ == '__main__':
     elif len(args) != 0:
         usage("Must zero or one file arguments")
 
-    sql = SQLUsage(server, port, users, pswds, file)
-    sql.runLoop(counts)
+    sql = EventSQLUsage(server, port, users, pswds, file)
+    sql.runLoop(event_counts)
+    sql.report()
+
+    sql = SharerSQLUsage(server, port, users, pswds, file)
+    sql.runLoop(sharee_counts)
     sql.report()
