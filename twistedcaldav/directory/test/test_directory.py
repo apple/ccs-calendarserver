@@ -239,6 +239,18 @@ class GroupMembershipTests (TestCase):
             )
         )
 
+        # Prevent an update by locking the cache
+        acquiredLock = (yield cache.acquireLock())
+        self.assertTrue(acquiredLock)
+        self.assertEquals((False, 0), (yield updater.updateCache()))
+
+        # You can't lock when already locked:
+        acquiredLockAgain = (yield cache.acquireLock())
+        self.assertFalse(acquiredLockAgain)
+
+        # Allow an update by unlocking the cache
+        yield cache.releaseLock()
+
         self.assertEquals((False, 9, 9), (yield updater.updateCache()))
 
         # Verify cache is populated:
@@ -635,6 +647,10 @@ class GroupMembershipTests (TestCase):
         # time), but since the snapshot doesn't exist we fault in from the
         # directory (fast now is False), and snapshot will get created
 
+        # Note that because fast=True and isPopulated() is False, locking is
+        # ignored:
+        yield cache.acquireLock()
+
         self.assertFalse((yield cache.isPopulated()))
         fast, numMembers, numChanged = (yield updater.updateCache(fast=True))
         self.assertEquals(fast, False)
@@ -642,6 +658,8 @@ class GroupMembershipTests (TestCase):
         self.assertEquals(numChanged, 9)
         self.assertTrue(snapshotFile.exists())
         self.assertTrue((yield cache.isPopulated()))
+
+        yield cache.releaseLock()
 
         # Try another fast update where the snapshot already exists (as in a
         # server-restart scenario), which will only read from the snapshot
