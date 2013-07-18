@@ -125,4 +125,3 @@ class ControlSocketConnectingService(Service, object):
         from twisted.internet import reactor
         endpoint = self.endpointFactory(reactor)
         endpoint.connect(self.controlSocket)
-

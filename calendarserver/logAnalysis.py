@@ -334,6 +334,7 @@ def getAdjustedMethodName(stats):
 
 osClients = (
     "Mac OS X/",
+    "Mac_OS_X/",
     "iOS/",
 )
 
