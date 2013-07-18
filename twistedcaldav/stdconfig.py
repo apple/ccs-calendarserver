@@ -886,7 +886,7 @@ DEFAULT_CONFIG = {
                 "ClientEnabled": True,
                 "ServerEnabled": True,
                 "BindAddress": "127.0.0.1",
-                "Port": 11211,
+                "Port": 11311,
                 "HandleCacheTypes": [
                     "Default",
 #                   "OpenDirectoryBacker",
