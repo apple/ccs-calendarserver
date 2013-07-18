@@ -83,10 +83,6 @@ create table CALENDAR_HOME_METADATA (
   MODIFIED                 timestamp   default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
-create index CALENDAR_HOME_METADATA_DEFAULT_EVENTS on
-	CALENDAR_HOME_METADATA(DEFAULT_EVENTS);
-create index CALENDAR_HOME_METADATA_DEFAULT_TASKS on
-	CALENDAR_HOME_METADATA(DEFAULT_TASKS);
 
 -----------------------
 -- Calendar Metadata --
@@ -123,7 +119,7 @@ create table NOTIFICATION (
 );
 
 create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
-	NOTIFICATION(NOTIFICATION_HOME_RESOURCE_ID);
+  NOTIFICATION(NOTIFICATION_HOME_RESOURCE_ID);
 
 
 -------------------
@@ -151,8 +147,7 @@ create table CALENDAR_BIND (
   unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME)     -- implicit index
 );
 
-create index CALENDAR_BIND_RESOURCE_ID on
-	CALENDAR_BIND(CALENDAR_RESOURCE_ID);
+create index CALENDAR_BIND_RESOURCE_ID on CALENDAR_BIND(CALENDAR_RESOURCE_ID);
 
 -- Enumeration of calendar bind modes
 
@@ -349,8 +344,6 @@ create table ATTACHMENT_CALENDAR_OBJECT (
   unique (MANAGED_ID, CALENDAR_OBJECT_RESOURCE_ID) --implicit index
 );
 
-create index ATTACHMENT_CALENDAR_OBJECT_CALENDAR_OBJECT_RESOURCE_ID on
-	ATTACHMENT_CALENDAR_OBJECT(CALENDAR_OBJECT_RESOURCE_ID);
 
 -----------------------
 -- Resource Property --
@@ -456,14 +449,9 @@ create table ABO_MEMBERS (
     GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
  	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
     MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
-
     primary key (GROUP_ID, MEMBER_ID) -- implicit index
 );
 
-create index ABO_MEMBERS_ADDRESSBOOK_ID on
-	ABO_MEMBERS(ADDRESSBOOK_ID);
-create index ABO_MEMBERS_MEMBER_ID on
-	ABO_MEMBERS(MEMBER_ID);
 
 ------------------------------------------
 -- Address Book Object Foreign Members  --
@@ -473,12 +461,9 @@ create table ABO_FOREIGN_MEMBERS (
     GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
  	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
     MEMBER_ADDRESS  	  varchar(255) not null, 													-- member AddressBook Object's 'calendar' address
-
     primary key (GROUP_ID, MEMBER_ADDRESS) -- implicit index
 );
 
-create index ABO_FOREIGN_MEMBERS_ADDRESSBOOK_ID on
-	ABO_FOREIGN_MEMBERS(ADDRESSBOOK_ID);
 
 -----------------------
 -- Shared Group Bind --
@@ -622,7 +607,7 @@ create sequence WORKITEM_SEQ;
 ---------------------------
 
 create table IMIP_INVITATION_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   FROM_ADDR                     varchar(255) not null,
   TO_ADDR                       varchar(255) not null,
@@ -635,7 +620,7 @@ create table IMIP_INVITATION_WORK (
 -----------------------
 
 create table IMIP_POLLING_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
@@ -645,7 +630,7 @@ create table IMIP_POLLING_WORK (
 ---------------------
 
 create table IMIP_REPLY_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   ORGANIZER                     varchar(255) not null,
   ATTENDEE                      varchar(255) not null,
@@ -658,7 +643,7 @@ create table IMIP_REPLY_WORK (
 ------------------------
 
 create table PUSH_NOTIFICATION_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   PUSH_ID                       varchar(255) not null
 );
@@ -668,7 +653,7 @@ create table PUSH_NOTIFICATION_WORK (
 -----------------
 
 create table GROUP_CACHER_POLLING_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
@@ -678,13 +663,10 @@ create table GROUP_CACHER_POLLING_WORK (
 --------------------------
 
 create table CALENDAR_OBJECT_SPLITTER_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade
 );
-
-create index CALENDAR_OBJECT_SPLITTER_WORK_RESOURCE_ID on
-	CALENDAR_OBJECT_SPLITTER_WORK(RESOURCE_ID);
 
 --------------------
 -- Schema Version --
@@ -695,6 +677,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '24');
+insert into CALENDARSERVER values ('VERSION', '23');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
