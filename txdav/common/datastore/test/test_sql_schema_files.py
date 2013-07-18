@@ -118,3 +118,28 @@ class SQLSchemaFiles(TestCase):
         v5Schema = schemaFromPath(sqlSchema.child("old").child("postgres-dialect").child("v5.sql"))
         mismatched = v6Schema.compare(v5Schema)
         self.assertEqual(len(mismatched), 3, msg="\n".join(mismatched))
+
+
+    def test_references_index(self):
+        """
+        Make sure current-oracle-dialect.sql matches current.sql
+        """
+
+        schema = schemaFromPath(getModule(__name__).filePath.parent().sibling("sql_schema").child("current.sql"))
+
+        # Get index details
+        indexed_columns = set()
+        for index in schema.pseudoIndexes():
+            indexed_columns.add("%s.%s" % (index.table.name, index.columns[0].name,))
+        #print indexed_columns
+
+        # Look at each table
+        failures = []
+        for table in schema.tables:
+            for column in table.columns:
+                if column.references is not None:
+                    id = "%s.%s" % (table.name, column.name,)
+                    if id not in indexed_columns:
+                        failures.append(id)
+
+        self.assertEqual(len(failures), 0, msg="Missing index for references columns: %s" % (", ".join(sorted(failures))))

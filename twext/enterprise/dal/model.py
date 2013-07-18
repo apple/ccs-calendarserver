@@ -433,6 +433,9 @@ class PseudoIndex(object):
 
     def __init__(self, table, columns, unique=False):
         self.name = "%s%s:(%s)" % (table.name, "-unique" if unique else "", ",".join([col.name for col in columns]))
+        self.table = table
+        self.unique = unique
+        self.columns = columns
 
 
     def compare(self, other):

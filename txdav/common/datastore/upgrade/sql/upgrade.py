@@ -16,7 +16,7 @@
 ##
 
 """
-Utilities, mostly related to upgrading, common to calendar and addresbook
+Utilities, mostly related to upgrading, common to calendar and addressbook
 data stores.
 """
 
@@ -45,11 +45,13 @@ class UpgradeAcquireLockStep(object):
     def __init__(self, sqlStore):
         self.sqlStore = sqlStore
 
+
     @inlineCallbacks
     def stepWithResult(self, result):
         sqlTxn = self.sqlStore.newTransaction()
         yield sqlTxn.acquireUpgradeLock()
         yield sqlTxn.commit()
+
 
 
 class UpgradeReleaseLockStep(object):
@@ -64,14 +66,17 @@ class UpgradeReleaseLockStep(object):
     def __init__(self, sqlStore):
         self.sqlStore = sqlStore
 
+
     @inlineCallbacks
     def stepWithResult(self, result):
         sqlTxn = self.sqlStore.newTransaction()
         yield sqlTxn.releaseUpgradeLock()
         yield sqlTxn.commit()
 
+
     def stepWithFailure(self, failure):
         return self.stepWithResult(None)
+
 
 
 class UpgradeDatabaseCoreStep(object):
