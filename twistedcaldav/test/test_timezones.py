@@ -24,6 +24,7 @@ from pycalendar.timezone import PyCalendarTimezone
 
 import os
 import threading
+from twisted.python.failure import Failure
 
 class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
     """
@@ -286,12 +287,13 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
         self.patch(config, "UsePackageTimezones", False)
         TimezoneCache.clear()
 
-        ex = [False, False]
+        ex = [None, None]
         def _try(n):
             try:
                 TimezoneCache.create()
             except:
-                ex[n] = True
+                f = Failure()
+                ex[n] = str(f)
 
         t1 = threading.Thread(target=_try, args=(0,))
         t2 = threading.Thread(target=_try, args=(1,))
@@ -300,8 +302,8 @@ class TimezonePackageTest (twistedcaldav.test.util.TestCase):
         t1.join()
         t2.join()
 
-        self.assertFalse(ex[0])
-        self.assertFalse(ex[1])
+        self.assertTrue(ex[0] is None, msg=ex[0])
+        self.assertTrue(ex[1] is None, msg=ex[1])
 
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo")))
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, "zoneinfo", "America", "New_York.ics")))
