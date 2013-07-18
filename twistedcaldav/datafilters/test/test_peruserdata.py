@@ -706,6 +706,89 @@ END:VCALENDAR
             self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
 
 
+    def test_public_oneuser_master_invalid_derived_override(self):
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test-master
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:OPAQUE
+END:X-CALENDARSERVER-PERINSTANCE
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+RECURRENCE-ID:20080602T000000Z
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test-override
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        result01 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+TRANSP:OPAQUE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test-master
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        result02 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        for item in (data, Component.fromString(data),):
+            self.assertEqual(str(PerUserDataFilter("user01").filter(item)), result01)
+        for item in (data, Component.fromString(data),):
+            self.assertEqual(str(PerUserDataFilter("user02").filter(item)), result02)
+        for item in (data, Component.fromString(data),):
+            self.assertEqual(str(PerUserDataFilter("").filter(item)), result02)
+
+
     def test_public_oneuser_master_derived_override_x2(self):
 
         data = """BEGIN:VCALENDAR
