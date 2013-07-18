@@ -155,6 +155,7 @@ LogLevel._levelPriorities = dict((constant, idx)
                                      (enumerate(LogLevel.iterconstants())))
 
 
+
 #
 # Mappings to Python's logging module
 #
