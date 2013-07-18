@@ -212,6 +212,7 @@ def formatEvent(event):
             return u"MESSAGE LOST"
 
 
+
 def formatUnformattableEvent(event, error):
     """
     Formats an event as a L{unicode} that describes the event
