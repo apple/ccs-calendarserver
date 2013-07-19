@@ -232,6 +232,7 @@ class DirectoryProvisioningResource (
             ("emailAddresses", None, "Email Addresses",
             customxml.EmailAddressSet),
     }
+    _fieldList = [v for _ignore_k, v in sorted(_fieldMap.iteritems(), key=lambda x:x[0])]
 
 
     def propertyToField(self, property, match):
@@ -250,7 +251,7 @@ class DirectoryProvisioningResource (
 
     def principalSearchPropertySet(self):
         props = []
-        for _ignore_field, _ignore_converter, description, xmlClass in self._fieldMap.itervalues():
+        for _ignore_field, _ignore_converter, description, xmlClass in self._fieldList:
             props.append(
                 davxml.PrincipalSearchProperty(
                     davxml.PropertyContainer(

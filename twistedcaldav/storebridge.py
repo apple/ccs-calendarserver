@@ -82,6 +82,7 @@ from twext.web2.iweb import IResponse
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.instance import InvalidOverriddenInstanceError, \
     TooManyInstancesError
+import collections
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -1163,7 +1164,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         except InvalidICalendarDataError:
             return None
 
-        by_uid = {}
+        by_uid = collections.OrderedDict()
         by_tzid = {}
         for subcomponent in vcal.subcomponents():
             if subcomponent.name() == "VTIMEZONE":
