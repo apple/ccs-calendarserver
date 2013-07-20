@@ -1314,14 +1314,17 @@ def buildQueriesFromTokens(tokens, mapping):
     if len(tokens) == 0:
         return None
 
-    fields = ["fullName", "emailAddresses"]
+    fields = [
+        ("fullName", dsattributes.eDSContains),
+        ("emailAddresses", dsattributes.eDSStartsWith),
+    ]
 
     results = []
     for token in tokens:
         queries = []
-        for field in fields:
+        for field, comparison in fields:
             ODField = mapping[field]['odField']
-            query = dsquery.match(ODField, token, "contains")
+            query = dsquery.match(ODField, token, comparison)
             queries.append(query)
         results.append(dsquery.expression(dsquery.expression.OR, queries))
     return results

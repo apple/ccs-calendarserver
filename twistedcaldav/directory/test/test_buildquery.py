@@ -111,15 +111,15 @@ class BuildQueryTests(TestCase):
         results = buildQueriesFromTokens(["foo"], OpenDirectoryService._ODFields)
         self.assertEquals(
             results[0].generate(),
-            "(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=*foo*))"
+            "(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*))"
         )
 
         results = buildQueriesFromTokens(["foo", "bar"], OpenDirectoryService._ODFields)
         self.assertEquals(
             results[0].generate(),
-            "(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=*foo*))"
+            "(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*))"
         )
         self.assertEquals(
             results[1].generate(),
-            "(|(dsAttrTypeStandard:RealName=*bar*)(dsAttrTypeStandard:EMailAddress=*bar*))"
+            "(|(dsAttrTypeStandard:RealName=*bar*)(dsAttrTypeStandard:EMailAddress=bar*))"
         )

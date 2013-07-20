@@ -1437,16 +1437,20 @@ def buildFilterFromTokens(mapping, tokens):
     if len(tokens) == 0:
         return None
 
-    attributes = ["fullName", "emailAddresses"]
+    attributes = [
+        ("fullName", "(%s=*%s*)"),
+        ("emailAddresses", "(%s=%s*)"),
+    ]
 
     ldapFields = []
-    for attribute in attributes:
+    for attribute, template in attributes:
         ldapField = mapping.get(attribute, None)
         if ldapField:
             if isinstance(ldapField, str):
-                ldapFields.append(ldapField)
+                ldapFields.append((ldapField, template))
             else:
-                ldapFields.extend(ldapField)
+                for lf in ldapField:
+                    ldapFields.append((lf, template))
 
     if len(ldapFields) == 0:
         return None
@@ -1454,8 +1458,8 @@ def buildFilterFromTokens(mapping, tokens):
     tokenFragments = []
     for token in tokens:
         fragments = []
-        for ldapField in ldapFields:
-            fragments.append("(%s=*%s*)" % (ldapField, token))
+        for ldapField, template in ldapFields:
+            fragments.append(template % (ldapField, token))
         if len(fragments) == 1:
             tokenFragment = fragments[0]
         else:

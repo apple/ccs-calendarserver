@@ -842,6 +842,32 @@ class RecordsMatchingTokensTests(TestCase):
         self.assertEquals(records[0].shortNames[0], "apollo")
 
 
+    def test_recordTypesForSearchContext(self):
+        self.assertEquals(
+            [self.directoryService.recordType_locations],
+            self.directoryService.recordTypesForSearchContext("location")
+        )
+        self.assertEquals(
+            [self.directoryService.recordType_resources],
+            self.directoryService.recordTypesForSearchContext("resource")
+        )
+        self.assertEquals(
+            [self.directoryService.recordType_users],
+            self.directoryService.recordTypesForSearchContext("user")
+        )
+        self.assertEquals(
+            [self.directoryService.recordType_groups],
+            self.directoryService.recordTypesForSearchContext("group")
+        )
+        self.assertEquals(
+            set([
+                self.directoryService.recordType_resources,
+                self.directoryService.recordType_users,
+                self.directoryService.recordType_groups
+            ]),
+            set(self.directoryService.recordTypesForSearchContext("attendee"))
+        )
+
 
 class GUIDTests(TestCase):
 
