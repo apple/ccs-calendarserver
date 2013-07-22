@@ -93,12 +93,13 @@ class SQLUsageSession(CalDAVSession):
 
 class EventSQLUsage(object):
 
-    def __init__(self, server, port, users, pswds, logFilePath):
+    def __init__(self, server, port, users, pswds, logFilePath, compact):
         self.server = server
         self.port = port
         self.users = users
         self.pswds = pswds
         self.logFilePath = logFilePath
+        self.compact = compact
         self.requestLabels = []
         self.results = {}
         self.currentCount = 0
@@ -114,13 +115,13 @@ class EventSQLUsage(object):
 
         # Set of requests to execute
         requests = [
-            MultigetTest("multiget-1", sessions, self.logFilePath, 1),
-            MultigetTest("multiget-50", sessions, self.logFilePath, 50),
-            PropfindTest("propfind-cal", sessions, self.logFilePath, 1),
-            SyncTest("sync-full", sessions, self.logFilePath, True, 0),
-            SyncTest("sync-1", sessions, self.logFilePath, False, 1),
-            QueryTest("query-1", sessions, self.logFilePath, 1),
-            QueryTest("query-10", sessions, self.logFilePath, 10),
+            MultigetTest("mget-1" if self.compact else "multiget-1", sessions, self.logFilePath, 1),
+            MultigetTest("mget-50" if self.compact else "multiget-50", sessions, self.logFilePath, 50),
+            PropfindTest("prop-cal" if self.compact else "propfind-cal", sessions, self.logFilePath, 1),
+            SyncTest("s-full" if self.compact else "sync-full", sessions, self.logFilePath, True, 0),
+            SyncTest("s-1" if self.compact else "sync-1", sessions, self.logFilePath, False, 1),
+            QueryTest("q-1" if self.compact else "query-1", sessions, self.logFilePath, 1),
+            QueryTest("q-10" if self.compact else "query-10", sessions, self.logFilePath, 10),
             PutTest("put", sessions, self.logFilePath),
             InviteTest("invite", sessions, self.logFilePath),
         ]
@@ -187,12 +188,13 @@ class EventSQLUsage(object):
 
 class SharerSQLUsage(object):
 
-    def __init__(self, server, port, users, pswds, logFilePath):
+    def __init__(self, server, port, users, pswds, logFilePath, compact):
         self.server = server
         self.port = port
         self.users = users
         self.pswds = pswds
         self.logFilePath = logFilePath
+        self.compact = compact
         self.requestLabels = []
         self.results = {}
         self.currentCount = 0
@@ -212,13 +214,13 @@ class SharerSQLUsage(object):
 
         # Set of requests to execute
         requests = [
-            MultigetTest("multiget-1", sessions, self.logFilePath, 1),
-            MultigetTest("multiget-50", sessions, self.logFilePath, 50),
+            MultigetTest("mget-1" if self.compact else "multiget-1", sessions, self.logFilePath, 1),
+            MultigetTest("mget-50" if self.compact else "multiget-50", sessions, self.logFilePath, 50),
             PropfindInviteTest("propfind", sessions, self.logFilePath, 1),
-            SyncTest("sync-full", sessions, self.logFilePath, True, 0),
-            SyncTest("sync-1", sessions, self.logFilePath, False, 1),
-            QueryTest("query-1", sessions, self.logFilePath, 1),
-            QueryTest("query-10", sessions, self.logFilePath, 10),
+            SyncTest("s-full" if self.compact else "sync-full", sessions, self.logFilePath, True, 0),
+            SyncTest("s-1" if self.compact else "sync-1", sessions, self.logFilePath, False, 1),
+            QueryTest("q-1" if self.compact else "query-1", sessions, self.logFilePath, 1),
+            QueryTest("q-10" if self.compact else "query-10", sessions, self.logFilePath, 10),
             PutTest("put", sessions, self.logFilePath),
         ]
         self.requestLabels = [request.label for request in requests]
@@ -302,7 +304,11 @@ Options:
     --port         Server port
     --user         User name
     --pswd         Password
-    --event_counts       Comma-separated list of event event_counts to test
+    --event        Do event scaling
+    --share        Do sharee sclaing
+    --event-counts       Comma-separated list of event counts to test
+    --sharee-counts      Comma-separated list of sharee counts to test
+    --compact      Make printed tables as thin as possible
 
 Arguments:
     FILE           File name for sqlstats.log to analyze.
@@ -325,11 +331,22 @@ if __name__ == '__main__':
     file = "sqlstats.logs"
     event_counts = EVENT_COUNTS
     sharee_counts = SHAREE_COUNTS
+    compact = False
+
+    do_all = True
+    do_event = False
+    do_share = False
 
     options, args = getopt.getopt(
         sys.argv[1:],
         "h",
-        ["server=", "port=", "user=", "pswd=", "event-counts=", "sharee-counts=", ]
+        [
+            "server=", "port=",
+            "user=", "pswd=",
+            "compact",
+            "event", "share",
+            "event-counts=", "sharee-counts=",
+        ]
     )
 
     for option, value in options:
@@ -343,6 +360,14 @@ if __name__ == '__main__':
             users = value.split(",")
         elif option == "--pswd":
             pswds = value.split(",")
+        elif option == "--compact":
+            compact = True
+        elif option == "--event":
+            do_all = False
+            do_event = True
+        elif option == "--share":
+            do_all = False
+            do_share = True
         elif option == "--event-counts":
             event_counts = [int(i) for i in value.split(",")]
         elif option == "--sharee-counts":
@@ -356,10 +381,12 @@ if __name__ == '__main__':
     elif len(args) != 0:
         usage("Must zero or one file arguments")
 
-    sql = EventSQLUsage(server, port, users, pswds, file)
-    sql.runLoop(event_counts)
-    sql.report()
+    if do_all or do_event:
+        sql = EventSQLUsage(server, port, users, pswds, file, compact)
+        sql.runLoop(event_counts)
+        sql.report()
 
-    sql = SharerSQLUsage(server, port, users, pswds, file)
-    sql.runLoop(sharee_counts)
-    sql.report()
+    if do_all or do_share:
+        sql = SharerSQLUsage(server, port, users, pswds, file, compact)
+        sql.runLoop(sharee_counts)
+        sql.report()
