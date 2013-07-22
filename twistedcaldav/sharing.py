@@ -29,6 +29,8 @@ from twext.web2.http import HTTPError, Response, XMLResponse
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.util import allDataFromStream, joinURL
+
+from txdav.common.datastore.sql import SharingInvitation
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_STATUS_INVITED, \
     _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, \
@@ -83,14 +85,13 @@ class SharedResourceMixin(object):
                     customxml.UID.fromString(invitation.uid()) if includeUID else None,
                     element.HRef.fromString(userid),
                     customxml.CommonName.fromString(cn),
-                    customxml.InviteAccess(invitationAccessMapToXML[invitation.access()]()),
-                    invitationStatusMapToXML[invitation.state()](),
+                    customxml.InviteAccess(invitationBindModeToXMLMap[invitation.mode()]()),
+                    invitationBindStatusToXMLMap[invitation.status()](),
                 )
 
             # See if this property is on the shared calendar
             if self.isShared():
-                yield self.validateInvites(request)
-                invitations = yield self._allInvitations()
+                invitations = yield self.validateInvites(request)
                 returnValue(customxml.Invite(
                     *[invitePropertyElement(invitation) for invitation in invitations]
                 ))
@@ -98,20 +99,20 @@ class SharedResourceMixin(object):
             # See if it is on the sharee calendar
             if self.isShareeResource():
                 original = (yield request.locateResource(self._share.url()))
-                yield original.validateInvites(request)
-                invitations = yield original._allInvitations()
+                if original is not None:
+                    invitations = yield original.validateInvites(request)
 
-                ownerPrincipal = (yield original.ownerPrincipal(request))
-                owner = ownerPrincipal.principalURL()
-                ownerCN = ownerPrincipal.displayName()
+                    ownerPrincipal = (yield original.ownerPrincipal(request))
+                    owner = ownerPrincipal.principalURL()
+                    ownerCN = ownerPrincipal.displayName()
 
-                returnValue(customxml.Invite(
-                    customxml.Organizer(
-                        element.HRef.fromString(owner),
-                        customxml.CommonName.fromString(ownerCN),
-                    ),
-                    *[invitePropertyElement(invitation, includeUID=False) for invitation in invitations]
-                ))
+                    returnValue(customxml.Invite(
+                        customxml.Organizer(
+                            element.HRef.fromString(owner),
+                            customxml.CommonName.fromString(ownerCN),
+                        ),
+                        *[invitePropertyElement(invitation, includeUID=False) for invitation in invitations]
+                    ))
 
         returnValue(None)
 
@@ -157,8 +158,8 @@ class SharedResourceMixin(object):
             ))
 
         # Only certain states are owner controlled
-        if invitation.state() in ("NEEDS-ACTION", "ACCEPTED", "DECLINED",):
-            yield self._updateInvitation(invitation, state=state, summary=summary)
+        if invitation.status() in (_BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED,):
+            yield self._updateInvitation(invitation, status=state, summary=summary)
 
 
     @inlineCallbacks
@@ -328,7 +329,7 @@ class SharedResourceMixin(object):
         else:
             # Invited shares use access mode from the invite
             # Get the access for self
-            returnValue(Invitation(self._newStoreObject).access())
+            returnValue(invitationAccessFromBindModeMap.get(self._newStoreObject.shareMode()))
 
 
     @inlineCallbacks
@@ -475,11 +476,11 @@ class SharedResourceMixin(object):
         #assert request
         invitations = yield self._allInvitations()
         for invitation in invitations:
-            if invitation.state() != "INVALID":
+            if invitation.status() != _BIND_STATUS_INVALID:
                 if not (yield self.validUserIDForShare("urn:uuid:" + invitation.shareeUID(), request)):
-                    yield self._updateInvitation(invitation, state="INVALID")
+                    yield self._updateInvitation(invitation, status=_BIND_STATUS_INVALID)
 
-        returnValue(len(invitations))
+        returnValue(invitations)
 
 
     def inviteUserToShare(self, userid, cn, ace, summary, request):
@@ -539,7 +540,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def _createInvitation(self, shareeUID, access, summary,):
+    def _createInvitation(self, shareeUID, mode, summary,):
         """
         Create a new homeChild and wrap it in an Invitation
         """
@@ -549,45 +550,41 @@ class SharedResourceMixin(object):
             shareeHome = yield self._newStoreObject._txn.addressbookHomeWithUID(shareeUID, create=True)
 
         shareUID = yield self._newStoreObject.shareWith(shareeHome,
-                                                    mode=invitationAccessToBindModeMap[access],
+                                                    mode=mode,
                                                     status=_BIND_STATUS_INVITED,
                                                     message=summary)
         shareeStoreObject = yield shareeHome.invitedObjectWithShareUID(shareUID)
-        invitation = Invitation(shareeStoreObject)
+        invitation = SharingInvitation.fromCommonHomeChild(shareeStoreObject)
         returnValue(invitation)
 
 
     @inlineCallbacks
-    def _updateInvitation(self, invitation, access=None, state=None, summary=None):
-        mode = None if access is None else invitationAccessToBindModeMap[access]
-        status = None if state is None else invitationStateToBindStatusMap[state]
-        yield self._newStoreObject.updateShare(invitation._shareeStoreObject, mode=mode, status=status, message=summary)
+    def _updateInvitation(self, invitation, mode=None, status=None, summary=None):
+        yield self._newStoreObject.updateShareFromSharingInvitation(invitation, mode=mode, status=status, message=summary)
+        if mode is not None:
+            invitation.setMode(mode)
+        if status is not None:
+            invitation.setStatus(status)
+        if summary is not None:
+            invitation.setSummary(summary)
 
 
     @inlineCallbacks
     def _allInvitations(self):
         """
-        Get list of all invitations to this object
-
-        For legacy reasons, all invitations are all invited + shared (accepted, not direct).
-        Combine these two into a single sorted list so code is similar to that for legacy invite db
+        Get list of all invitations (non-direct) to this object.
         """
         if not self.exists():
             returnValue([])
 
-        #TODO: Cache
-        if True:  # not hasattr(self, "_invitations"):
+        invitations = yield self._newStoreObject.sharingInvites()
 
-            acceptedHomeChildren = yield self._newStoreObject.asShared()
-            # remove direct shares (it might be OK not to remove these, but that would be different from legacy code)
-            indirectAccceptedHomeChildren = [homeChild for homeChild in acceptedHomeChildren
-                                             if homeChild.shareMode() != _BIND_MODE_DIRECT]
-            invitedHomeChildren = (yield self._newStoreObject.asInvited()) + indirectAccceptedHomeChildren
+        # remove direct shares as those are not "real" invitations
+        invitations = filter(lambda x: x.mode() != _BIND_MODE_DIRECT, invitations)
 
-            self._invitations = sorted([Invitation(homeChild) for homeChild in invitedHomeChildren],
-                                 key=lambda invitation: invitation.shareeUID())
+        invitations.sort(key=lambda invitation: invitation.shareeUID())
 
-        returnValue(self._invitations)
+        returnValue(invitations)
 
 
     @inlineCallbacks
@@ -627,11 +624,11 @@ class SharedResourceMixin(object):
         # Look for existing invite and update its fields or create new one
         invitation = yield self._invitationForShareeUID(shareeUID)
         if invitation:
-            yield self._updateInvitation(invitation, access=invitationAccessMapFromXML[type(ace)], summary=summary)
+            yield self._updateInvitation(invitation, mode=invitationBindModeFromXMLMap[type(ace)], summary=summary)
         else:
             invitation = yield self._createInvitation(
                                 shareeUID=shareeUID,
-                                access=invitationAccessMapFromXML[type(ace)],
+                                mode=invitationBindModeFromXMLMap[type(ace)],
                                 summary=summary)
         # Send invite notification
         yield self.sendInviteNotification(invitation, request)
@@ -664,7 +661,7 @@ class SharedResourceMixin(object):
         # Remove any shared calendar or address book
         sharee = self.principalForUID(invitation.shareeUID())
         if sharee:
-            previousInvitationState = invitation.state()
+            previousInvitationStatus = invitation.status()
             if self.isCalendarCollection():
                 shareeHomeResource = yield sharee.calendarHome(request)
                 displayName = yield shareeHomeResource.removeShareByUID(request, invitation.uid())
@@ -674,13 +671,13 @@ class SharedResourceMixin(object):
                 displayName = None
             # If current user state is accepted then we send an invite with the new state, otherwise
             # we cancel any existing invites for the user
-            if previousInvitationState != "ACCEPTED":
+            if previousInvitationStatus != _BIND_STATUS_ACCEPTED:
                 yield self.removeInviteNotification(invitation, request)
             else:
                 yield self.sendInviteNotification(invitation, request, displayName=displayName, notificationState="DELETED")
 
         # Direct shares for  with valid sharee principal will already be deleted
-        yield self._newStoreObject.unshareWith(invitation._shareeStoreObject.viewerHome())
+        yield self._newStoreObject.unshareWithUID(invitation.shareeUID())
 
         returnValue(True)
 
@@ -719,7 +716,7 @@ class SharedResourceMixin(object):
 
         # Generate invite XML
         userid = "urn:uuid:" + invitation.shareeUID()
-        state = notificationState if notificationState else invitation.state()
+        state = notificationState if notificationState else invitation.status()
         summary = invitation.summary() if displayName is None else displayName
 
         typeAttr = {'shared-type': self.sharedResourceType()}
@@ -729,8 +726,8 @@ class SharedResourceMixin(object):
             customxml.InviteNotification(
                 customxml.UID.fromString(invitation.uid()),
                 element.HRef.fromString(userid),
-                invitationStatusMapToXML[state](),
-                customxml.InviteAccess(invitationAccessMapToXML[invitation.access()]()),
+                invitationBindStatusToXMLMap[state](),
+                customxml.InviteAccess(invitationBindModeToXMLMap[invitation.mode()]()),
                 customxml.HostURL(
                     element.HRef.fromString(hosturl),
                 ),
@@ -877,7 +874,8 @@ class SharedResourceMixin(object):
             ok_code = responsecode.FAILED_DEPENDENCY
 
         # Do a final validation of the entire set of invites
-        numRecords = (yield self.validateInvites(request))
+        invites = (yield self.validateInvites(request))
+        numRecords = len(invites)
 
         # Set the sharing state on the collection
         shared = self.isShared()
@@ -974,63 +972,27 @@ class SharedResourceMixin(object):
     }
 
 
-invitationAccessMapToXML = {
-    "read-only"           : customxml.ReadAccess,
-    "read-write"          : customxml.ReadWriteAccess,
+invitationBindStatusToXMLMap = {
+    _BIND_STATUS_INVITED      : customxml.InviteStatusNoResponse,
+    _BIND_STATUS_ACCEPTED     : customxml.InviteStatusAccepted,
+    _BIND_STATUS_DECLINED     : customxml.InviteStatusDeclined,
+    _BIND_STATUS_INVALID      : customxml.InviteStatusInvalid,
+    "DELETED"                 : customxml.InviteStatusDeleted,
 }
-invitationAccessMapFromXML = dict([(v, k) for k, v in invitationAccessMapToXML.iteritems()])
+invitationBindStatusFromXMLMap = dict((v, k) for k, v in invitationBindStatusToXMLMap.iteritems())
 
-invitationStatusMapToXML = {
-    "NEEDS-ACTION" : customxml.InviteStatusNoResponse,
-    "ACCEPTED"     : customxml.InviteStatusAccepted,
-    "DECLINED"     : customxml.InviteStatusDeclined,
-    "DELETED"      : customxml.InviteStatusDeleted,
-    "INVALID"      : customxml.InviteStatusInvalid,
+invitationBindModeToXMLMap = {
+    _BIND_MODE_READ           : customxml.ReadAccess,
+    _BIND_MODE_WRITE          : customxml.ReadWriteAccess,
 }
-invitationStatusMapFromXML = dict([(v, k) for k, v in invitationStatusMapToXML.iteritems()])
+invitationBindModeFromXMLMap = dict((v, k) for k, v in invitationBindModeToXMLMap.iteritems())
 
-invitationStateToBindStatusMap = {
-    "NEEDS-ACTION": _BIND_STATUS_INVITED,
-    "ACCEPTED": _BIND_STATUS_ACCEPTED,
-    "DECLINED": _BIND_STATUS_DECLINED,
-    "INVALID": _BIND_STATUS_INVALID,
-}
-invitationStateFromBindStatusMap = dict((v, k) for k, v in invitationStateToBindStatusMap.iteritems())
 invitationAccessToBindModeMap = {
     "own": _BIND_MODE_OWN,
     "read-only": _BIND_MODE_READ,
     "read-write": _BIND_MODE_WRITE,
     }
 invitationAccessFromBindModeMap = dict((v, k) for k, v in invitationAccessToBindModeMap.iteritems())
-
-
-class Invitation(object):
-    """
-        Invitation is a read-only wrapper for CommonHomeChild, that uses terms similar LegacyInvite sharing.py code base.
-    """
-    def __init__(self, shareeStoreObject):
-        self._shareeStoreObject = shareeStoreObject
-
-
-    def uid(self):
-        return self._shareeStoreObject.shareUID()
-
-
-    def shareeUID(self):
-        return self._shareeStoreObject.viewerHome().uid()
-
-
-    def access(self):
-        return invitationAccessFromBindModeMap.get(self._shareeStoreObject.shareMode())
-
-
-    def state(self):
-        return invitationStateFromBindStatusMap.get(self._shareeStoreObject.shareStatus())
-
-
-    def summary(self):
-        return self._shareeStoreObject.shareMessage()
-
 
 
 class SharedHomeMixin(LinkFollowerMixIn):
@@ -1074,33 +1036,42 @@ class SharedHomeMixin(LinkFollowerMixIn):
         if not storeObject or storeObject.owned():
             returnValue(None)
 
-        # get the shared object's URL
+        # Get the shared object's URL - we may need to fake this if the sharer principal is missing or disabled
+        url = None
         owner = self.principalForUID(storeObject.ownerHome().uid())
+        from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
+        if isinstance(owner, DirectoryCalendarPrincipalResource):
 
-        if not request:
-            # FIXEME:  Fake up a request that can be used to get the owner home resource
-            class _FakeRequest(object):
-                pass
-            fakeRequest = _FakeRequest()
-            setattr(fakeRequest, TRANSACTION_KEY, self._newStoreHome._txn)
-            request = fakeRequest
+            if not request:
+                # FIXEME:  Fake up a request that can be used to get the owner home resource
+                class _FakeRequest(object):
+                    pass
+                fakeRequest = _FakeRequest()
+                setattr(fakeRequest, TRANSACTION_KEY, self._newStoreHome._txn)
+                request = fakeRequest
 
-        if self._newStoreHome._homeType == ECALENDARTYPE:
-            ownerHomeCollection = yield owner.calendarHome(request)
-        elif self._newStoreHome._homeType == EADDRESSBOOKTYPE:
-            ownerHomeCollection = yield owner.addressBookHome(request)
+            if self._newStoreHome._homeType == ECALENDARTYPE:
+                ownerHomeCollection = yield owner.calendarHome(request)
+            elif self._newStoreHome._homeType == EADDRESSBOOKTYPE:
+                ownerHomeCollection = yield owner.addressBookHome(request)
+
+            if ownerHomeCollection is not None:
+                url = ownerHomeCollection.url()
+
+        if url is None:
+            url = "/calendars/__uids__/%s/" % (storeObject.ownerHome().uid(),)
 
         ownerHomeChild = yield storeObject.ownerHome().childWithID(storeObject._resourceID)
         if ownerHomeChild:
             assert ownerHomeChild != storeObject
-            url = joinURL(ownerHomeCollection.url(), ownerHomeChild.name())
+            url = joinURL(url, ownerHomeChild.name())
             share = Share(shareeStoreObject=storeObject, ownerStoreObject=ownerHomeChild, url=url)
         else:
             for ownerHomeChild in (yield storeObject.ownerHome().children()):
                 if ownerHomeChild.owned():
                     sharedGroup = yield ownerHomeChild.objectResourceWithID(storeObject._resourceID)
                     if sharedGroup:
-                        url = joinURL(ownerHomeCollection.url(), ownerHomeChild.name(), sharedGroup.name())
+                        url = joinURL(url, ownerHomeChild.name(), sharedGroup.name())
                         share = Share(shareeStoreObject=storeObject, ownerStoreObject=sharedGroup, url=url)
                         break
 
@@ -1133,8 +1104,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         oldShare = yield self._shareForUID(inviteUID, request)
 
         # Send the invite reply then add the link
-        yield self._changeShare(request, "ACCEPTED", hostUrl, inviteUID,
-                                displayname)
+        yield self._changeShare(request, _BIND_STATUS_ACCEPTED, hostUrl, inviteUID, displayname)
         if oldShare:
             share = oldShare
         else:
@@ -1145,8 +1115,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
                           ownerStoreObject=sharedResource._newStoreObject,
                           url=hostUrl)
 
-        response = yield self._acceptShare(request, not oldShare, share,
-                                           displayname)
+        response = yield self._acceptShare(request, not oldShare, share, displayname)
         returnValue(response)
 
 
@@ -1172,8 +1141,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
                           ownerStoreObject=sharedCollection._newStoreObject,
                           url=hostUrl)
 
-        response = yield self._acceptShare(request, not oldShare, share,
-                                           displayname)
+        response = yield self._acceptShare(request, not oldShare, share, displayname)
         returnValue(response)
 
 
@@ -1309,12 +1277,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # Remove it if it is in the DB
         yield self.removeShareByUID(request, inviteUID)
-        yield self._changeShare(request, "DECLINED", hostUrl, inviteUID)
+        yield self._changeShare(request, _BIND_STATUS_DECLINED, hostUrl, inviteUID, processed=True)
         returnValue(Response(code=responsecode.NO_CONTENT))
 
 
     @inlineCallbacks
-    def _changeShare(self, request, state, hostUrl, replytoUID, displayname=None):
+    def _changeShare(self, request, state, hostUrl, replytoUID, displayname=None, processed=False):
         """
         Accept or decline an invite to a shared collection.
         """
@@ -1323,6 +1291,10 @@ class SharedHomeMixin(LinkFollowerMixIn):
         ownerPrincipalUID = ownerPrincipal.principalUID()
         sharedResource = (yield request.locateResource(hostUrl))
         if sharedResource is None:
+            # FIXME: have to return here rather than raise to allow removal of a share for a sharer
+            # whose principal is no longer valid yet still exists in the store. Really we need to get rid of
+            # locateResource calls and just do everything via store objects.
+            returnValue(None)
             # Original shared collection is gone - nothing we can do except ignore it
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -1331,7 +1303,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
             ))
 
         # Change the record
-        yield sharedResource.changeUserInviteState(request, replytoUID, ownerPrincipalUID, state, displayname)
+        if not processed:
+            yield sharedResource.changeUserInviteState(request, replytoUID, ownerPrincipalUID, state, displayname)
 
         yield self.sendReply(request, ownerPrincipal, sharedResource, state, hostUrl, replytoUID, displayname)
 
@@ -1341,6 +1314,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # Locate notifications collection for owner
         owner = (yield sharedResource.ownerPrincipal(request))
+        if owner is None:
+            # FIXME: have to return here rather than raise to allow removal of a share for a sharer
+            # whose principal is no longer valid yet still exists in the store. Really we need to get rid of
+            # locateResource calls and just do everything via store objects.
+            returnValue(None)
+
         notificationResource = (yield request.locateResource(owner.notificationURL()))
         notifications = notificationResource._newStoreNotifications
 
@@ -1364,7 +1343,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 *(
                     (
                         element.HRef.fromString(cua),
-                        invitationStatusMapToXML[state](),
+                        invitationBindStatusToXMLMap[state](),
                         customxml.HostURL(
                             element.HRef.fromString(hostUrl),
                         ),

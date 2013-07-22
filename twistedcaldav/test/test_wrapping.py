@@ -380,7 +380,7 @@ class WrappingTests(StoreTestCase):
         if not hasattr(self._sqlCalendarStore, "_dropbox_ok"):
             self._sqlCalendarStore._dropbox_ok = False
         self.patch(self._sqlCalendarStore, "_dropbox_ok", True)
-        self.patch(Calendar, "asShared", lambda self: [])
+        self.patch(Calendar, "sharingInvites", lambda self: [])
 
         yield self.populateOneObject("1.ics", test_event_text)
         calendarObject = yield self.getResource(

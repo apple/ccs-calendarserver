@@ -466,7 +466,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         can be retrieved with L{IAddressBookHome.addressbookWithName}.
         """
 
-
     @testUnimplemented
     def test_removeAddressBookWithName_exists(self):
         """

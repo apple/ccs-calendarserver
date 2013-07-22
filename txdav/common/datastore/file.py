@@ -1285,16 +1285,7 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
 
 
     @inlineCallbacks
-    def asInvited(self):
-        """
-        Stub for interface-compliance tests.
-        """
-        yield None
-        returnValue([])
-
-
-    @inlineCallbacks
-    def asShared(self):
+    def sharingInvites(self):
         """
         Stub for interface-compliance tests.
         """

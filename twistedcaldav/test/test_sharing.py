@@ -24,6 +24,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav import customxml
 from twistedcaldav import sharing
 from twistedcaldav.config import config
+from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.sharing import WikiDirectoryService
 from twistedcaldav.test.test_cache import StubResponseCacheResource
@@ -71,7 +72,7 @@ class FakeRecord(object):
 
 
 
-class FakePrincipal(object):
+class FakePrincipal(DirectoryCalendarPrincipalResource):
 
     def __init__(self, cuaddr, test):
         if cuaddr.startswith("mailto:"):

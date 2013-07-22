@@ -269,5 +269,38 @@ class PropertyStoreTest(PropertyStoreTest):
         self.assertEqual(len(store1_user1._cached), 0)
         self.assertFalse("SQL.props:10/user01" in store1_user1._cacher._memcacheProtocol._cache)
 
+
+    @inlineCallbacks
+    def test_cacher_off(self):
+        """
+        Test that properties can still be read and written when the cacher is disabled.
+        """
+
+        self.patch(self.store, "queryCacher", None)
+
+        # Existing store - add a normal property
+        self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
+        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 10)
+        self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
+
+        pname1 = propertyName("dummy1")
+        pvalue1 = propertyValue("*")
+
+        yield store1_user1.__setitem__(pname1, pvalue1)
+        self.assertEqual(store1_user1[pname1], pvalue1)
+
+        self.assertEqual(len(store1_user1._cached), 1)
+        self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
+
+        yield self._txn.commit()
+        self._txn = self.store.newTransaction()
+
+        # Existing store - check a normal property
+        self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
+        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 10)
+        self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
+        self.assertEqual(store1_user1[pname1], pvalue1)
+
+
 if PropertyStore is None:
     PropertyStoreTest.skip = importErrorMessage

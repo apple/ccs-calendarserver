@@ -467,7 +467,7 @@ class FileStorageTests(CommonTests, unittest.TestCase):
     test_shareAgainChangesMode = test_shareWith
     test_unshareWith = test_shareWith
     test_unshareWithInDifferentTransaction = test_shareWith
-    test_asShared = test_shareWith
+    test_sharingInvites = test_shareWith
     test_unshareSharerSide = test_shareWith
     test_unshareShareeSide = test_shareWith
     test_sharedNotifierID = test_shareWith

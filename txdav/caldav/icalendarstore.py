@@ -385,15 +385,12 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         Low-level query to gather names for calendarObjectsSinceToken.
         """
 
-    def asShared(): #@NoSelf
+    def sharingInvites(): #@NoSelf
         """
-        Get a view of this L{ICalendar} as present in everyone's calendar home
-        except for its owner's.
+        Retrieve the list of all L{SharingInvitation} for this L{CommonHomeChild}, irrespective of mode.
 
-        @return: a L{Deferred} which fires with a list of L{ICalendar}s, each
-            L{ICalendar} as seen by its respective sharee.  This means that its
-            C{shareMode} will be something other than L{_BIND_MODE_OWN}, and its
-            L{ICalendar.viewerCalendarHome} will return the home of the sharee.
+        @return: L{SharingInvitation} objects
+        @rtype: a L{Deferred} which fires with a L{list} of L{SharingInvitation}s.
         """
 
     # FIXME: This module should define it's own constants and this

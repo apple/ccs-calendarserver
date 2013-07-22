@@ -293,6 +293,16 @@ class CommonDataStore(Service, object):
         returnValue(self._dropbox_ok)
 
 
+    def queryCachingEnabled(self):
+        """
+        Indicate whether SQL statement query caching is enabled. Also controls whether propstore caching is done.
+
+        @return: C{True} if enabled, else C{False}
+        @rtype: C{bool}
+        """
+        return self.queryCacher is not None
+
+
 
 class TransactionStatsCollector(object):
     """
@@ -2620,6 +2630,125 @@ class _SharedSyncLogic(object):
 
 
 
+class SharingInvitation(object):
+    """
+    SharingInvitation covers all the information needed to expose sharing invites to upper layers. Its primarily used to
+    minimize the need to load full properties/data when only this subset of information is needed.
+    """
+    def __init__(self, uid, owner_uid, owner_rid, sharee_uid, sharee_rid, resource_id, resource_name, mode, status, summary):
+        self._uid = uid
+        self._owner_uid = owner_uid
+        self._owner_rid = owner_rid
+        self._sharee_uid = sharee_uid
+        self._sharee_rid = sharee_rid
+        self._resource_id = resource_id
+        self._resource_name = resource_name
+        self._mode = mode
+        self._status = status
+        self._summary = summary
+
+
+    @classmethod
+    def fromCommonHomeChild(cls, homeChild):
+        return cls(
+            homeChild.shareUID(),
+            homeChild.ownerHome().uid(),
+            homeChild.ownerHome()._resourceID,
+            homeChild.viewerHome().uid(),
+            homeChild.viewerHome()._resourceID,
+            homeChild._resourceID,
+            homeChild.shareeName(),
+            homeChild.shareMode(),
+            homeChild.shareStatus(),
+            homeChild.shareMessage(),
+        )
+
+
+    def uid(self):
+        """
+        This maps to the resource name in the bind table, the "bind name". This is used as the "uid"
+        for invites, and is not necessarily the name of the resource as it appears in the collection.
+        """
+        return self._uid
+
+
+    def ownerUID(self):
+        """
+        The ownerUID of the sharer.
+        """
+        return self._owner_uid
+
+
+    def ownerHomeID(self):
+        """
+        The resourceID of the sharer's L{CommonHome}.
+        """
+        return self._owner_rid
+
+
+    def shareeUID(self):
+        """
+        The ownerUID of the sharee.
+        """
+        return self._sharee_uid
+
+
+    def shareeHomeID(self):
+        """
+        The resourceID of the sharee's L{CommonHome}.
+        """
+        return self._sharee_rid
+
+
+    def resourceID(self):
+        """
+        The resourceID of the shared object.
+        """
+        return self._resource_id
+
+
+    def resourceName(self):
+        """
+        This maps to the name of the shared resource in the collection it is bound into. It is not necessarily the
+        same as the "bind name" which is used as the "uid" for invites.
+        """
+        return self._resource_name
+
+
+    def mode(self):
+        """
+        The sharing mode: one of the _BIND_MODE_XXX values.
+        """
+        return self._mode
+
+
+    def setMode(self, mode):
+        self._mode = mode
+
+
+    def status(self):
+        """
+        The sharing status: one of the _BIND_STATUS_XXX values.
+        """
+        return self._status
+
+
+    def setStatus(self, status):
+        self._status = status
+
+
+    def summary(self):
+        """
+        Message associated with the invitation.
+        """
+        return self._summary
+
+
+    def setSummary(self, summary):
+        self._summary = summary
+
+
+
 class SharingMixIn(object):
     """
     Common class for CommonHomeChild and AddressBookObject
@@ -2682,13 +2811,32 @@ class SharingMixIn(object):
         )
 
 
-    @classproperty
-    def _sharedBindForResourceID(cls): #@NoSelf
+    @classmethod
+    def _bindInviteFor(cls, condition): #@NoSelf
+        home = cls._homeSchema
         bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
-                            .And(bind.BIND_MODE != _BIND_MODE_OWN)
-                            )
+        return Select(
+            [
+                home.OWNER_UID,
+                bind.HOME_RESOURCE_ID,
+                bind.RESOURCE_ID,
+                bind.RESOURCE_NAME,
+                bind.BIND_MODE,
+                bind.BIND_STATUS,
+                bind.MESSAGE,
+            ],
+            From=bind.join(home, on=(bind.HOME_RESOURCE_ID == home.RESOURCE_ID)),
+            Where=condition
+        )
+
+
+    @classproperty
+    def _sharedInvitationBindForResourceID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindInviteFor(
+            (bind.RESOURCE_ID == Parameter("resourceID")).And
+            (bind.BIND_MODE != _BIND_MODE_OWN)
+        )
 
 
     @classproperty
@@ -2696,14 +2844,6 @@ class SharingMixIn(object):
         bind = cls._bindSchema
         return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
                             .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
-
-
-    @classproperty
-    def _unacceptedBindForResourceID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
-                            )
 
 
     @classproperty
@@ -2791,6 +2931,24 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
+    def updateShareFromSharingInvitation(self, invitation, mode=None, status=None, message=None, name=None):
+        """
+        Like L{updateShare} except that the original invitation is provided. That is used
+        to find the actual sharee L{CommonHomeChild} which is then passed to L{updateShare}.
+        """
+
+        # Look up the shared child - might be accepted or not. If accepted use the resource name
+        # to look it up, else use the invitation uid (bind name)
+        shareeHome = yield self._txn.homeWithUID(self._home._homeType, invitation.shareeUID())
+        shareeView = yield shareeHome.childWithName(invitation.resourceName())
+        if shareeView is None:
+            shareeView = yield shareeHome.invitedObjectWithShareUID(invitation.uid())
+
+        result = yield self.updateShare(shareeView, mode, status, message, name)
+        returnValue(result)
+
+
+    @inlineCallbacks
     def updateShare(self, shareeView, mode=None, status=None, message=None, name=None):
         """
         Update share mode, status, and message for a home child shared with
@@ -2870,6 +3028,18 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
+    def unshareWithUID(self, shareeUID):
+        """
+        Like L{unshareWith} except this is passed a sharee UID which is then used to lookup the
+        L{CommonHome} for the sharee to pass to L{unshareWith}.
+        """
+
+        shareeHome = yield self._txn.homeWithUID(self._home._homeType, shareeUID)
+        result = yield self.unshareWith(shareeHome)
+        returnValue(result)
+
+
+    @inlineCallbacks
     def unshareWith(self, shareeHome):
         """
         Remove the shared version of this (owned) L{CommonHomeChild} from the
@@ -2918,8 +3088,10 @@ class SharingMixIn(object):
         """
         if self.owned():
             # This collection may be shared to others
-            for sharedToHome in [x.viewerHome() for x in (yield self.asShared())]:
-                yield self.unshareWith(sharedToHome)
+            invites = yield self.sharingInvites()
+            for invite in invites:
+                shareeHome = (yield self._txn.homeWithResourceID(self._home._homeType, invite.shareeHomeID()))
+                (yield self.unshareWith(shareeHome))
         else:
             # This collection is shared to me
             ownerHomeChild = yield self.ownerHome().childWithID(self._resourceID)
@@ -2927,61 +3099,36 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
-    def asShared(self):
+    def sharingInvites(self):
         """
-        Retrieve all the versions of this L{CommonHomeChild} as it is shared to
-        everyone.
+        Retrieve the list of all L{SharingInvitation}'s for this L{CommonHomeChild}, irrespective of mode.
 
-        @see: L{ICalendarHome.asShared}
-
-        @return: L{CommonHomeChild} objects that represent this
-            L{CommonHomeChild} as a child of different L{CommonHome}s
-        @rtype: a L{Deferred} which fires with a L{list} of L{ICalendar}s.
+        @return: L{SharingInvitation} objects
+        @rtype: a L{Deferred} which fires with a L{list} of L{SharingInvitation}s.
         """
         if not self.owned():
             returnValue([])
 
         # get all accepted binds
-        acceptedRows = yield self._sharedBindForResourceID.on(
-            self._txn, resourceID=self._resourceID,
+        acceptedRows = yield self._sharedInvitationBindForResourceID.on(
+            self._txn, resourceID=self._resourceID, homeID=self._home._resourceID
         )
 
         result = []
-        for row in acceptedRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:self.bindColumnCount] #@UnusedVariable
-            home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
-            new = yield home.objectWithShareUID(bindName)
-            result.append(new)
-
-        returnValue(result)
-
-
-    @inlineCallbacks
-    def asInvited(self):
-        """
-        Retrieve all the versions of this L{CommonHomeChild} as it is invited to
-        everyone.
-
-        @see: L{ICalendarHome.asInvited}
-
-        @return: L{CommonHomeChild} objects that represent this
-            L{CommonHomeChild} as a child of different L{CommonHome}s
-        @rtype: a L{Deferred} which fires with a L{list} of L{ICalendar}s.
-        """
-        if not self.owned():
-            returnValue([])
-
-        rows = yield self._unacceptedBindForResourceID.on(
-            self._txn, resourceID=self._resourceID,
-        )
-
-        result = []
-        for row in rows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:self.bindColumnCount] #@UnusedVariable
-            home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
-            new = yield home.invitedObjectWithShareUID(bindName)
-            result.append(new)
-
+        for homeUID, homeRID, resourceID, resourceName, bindMode, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
+            invite = SharingInvitation(
+                resourceName,
+                self._home.name(),
+                self._home._resourceID,
+                homeUID,
+                homeRID,
+                resourceID,
+                resourceName if self.bindNameIsResourceName() else self.shareeName(),
+                bindMode,
+                bindStatus,
+                bindMessage,
+            )
+            result.append(invite)
         returnValue(result)
 
 
@@ -3048,6 +3195,20 @@ class SharingMixIn(object):
 
         yield self.invalidateQueryCache()
         yield self.notifyPropertyChanged()
+
+
+    def shareeName(self):
+        """
+        The sharee's name for a shared L{CommonHomeChild} is the name of the resource by default.
+        """
+        return self.name()
+
+
+    def bindNameIsResourceName(self):
+        """
+        By default, the shared resource name of an accepted share is the same as the name in the bind table.
+        """
+        return True
 
 
     def shareStatus(self):
