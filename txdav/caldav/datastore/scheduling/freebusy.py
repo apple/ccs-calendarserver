@@ -294,8 +294,10 @@ def generateFreeBusyInfo(
                 # Add extended details
                 if do_event_details:
                     child = (yield calresource.calendarObjectWithName(name))
-                    calendar = (yield child.componentForUser())
-                    _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo)
+                    # Only add fully public events
+                    if not child.accessMode or child.accessMode == Component.ACCESS_PUBLIC:
+                        calendar = (yield child.componentForUser())
+                        _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo)
 
         else:
             child = (yield calresource.calendarObjectWithName(name))
@@ -341,8 +343,10 @@ def generateFreeBusyInfo(
                 # Add extended details
                 if calendar.mainType() == "VEVENT" and do_event_details:
                     child = (yield calresource.calendarObjectWithName(name))
-                    calendar = (yield child.componentForUser())
-                    _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo)
+                    # Only add fully public events
+                    if not child.accessMode or child.accessMode == Component.ACCESS_PUBLIC:
+                        calendar = (yield child.componentForUser())
+                        _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo)
 
     returnValue(matchtotal)
 
