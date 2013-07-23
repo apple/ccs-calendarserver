@@ -3589,6 +3589,13 @@ class Attachment(object):
         Remove the actual file and up to attachment parent directory if empty.
         """
         self._path.remove()
+        self.removeParentPaths()
+
+
+    def removeParentPaths(self):
+        """
+        Remove up to attachment parent directory if empty.
+        """
         parent = self._path.parent()
         toppath = self._attachmentPathRoot().path
         while parent.path != toppath:
@@ -3833,6 +3840,7 @@ class DropBoxAttachment(Attachment):
         oldpath = self._path
         newpath = mattach._path
         oldpath.moveTo(newpath)
+        self.removeParentPaths()
 
         returnValue(mattach)
 
