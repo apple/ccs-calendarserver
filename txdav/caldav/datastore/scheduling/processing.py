@@ -868,7 +868,7 @@ class ImplicitProcessor(object):
             partstat = "MIXED RESPONSE"
 
             # Default state is whichever of free or busy has most instances
-            defaultPartStat = max(partstat_counts.items(), key=lambda x: x[1])[0]
+            defaultPartStat = max(sorted(partstat_counts.items()), key=lambda x: x[1])[0]
 
             # See if there is a master component first
             hadMasterRsvp = False
