@@ -17,6 +17,8 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.caldav.datastore.sql import CalendarStoreFeatures
 
+import os
+
 """
 Upgrader that checks for any dropbox attachments, and upgrades them all to managed attachments.
 
@@ -54,6 +56,18 @@ def doUpgrade(upgrader):
             upgrader.log.warn("No dropbox migration needed")
         if managed is None:
             yield txn.setCalendarserverValue(statusKey, "1")
+
+        # Set attachment directory ownership as upgrade runs as root
+        # but child processes running as something else need to manipulate
+        # the attachment files
+        sqlAttachmentsPath = upgrader.sqlStore.attachmentsPath
+        if (sqlAttachmentsPath and sqlAttachmentsPath.exists() and
+            (upgrader.uid or upgrader.gid)):
+            uid = upgrader.uid or -1
+            gid = upgrader.gid or -1
+            for fp in sqlAttachmentsPath.walk():
+                os.chown(fp.path, uid, gid)
+
     except RuntimeError:
         yield txn.abort()
         raise
