@@ -17,6 +17,18 @@ from twisted.python import util, runtime
 from twext.web2.channel.http import SSLRedirectRequest, HTTPFactory
 from twisted.internet.task import deferLater
 
+
+class RedirectResponseTestCase(unittest.TestCase):
+
+    def testTemporary(self):
+        """
+        Verify the "temporary" parameter sets the appropriate response code
+        """
+        req = http.RedirectResponse("http://example.com/", temporary=False)
+        self.assertEquals(req.code, responsecode.MOVED_PERMANENTLY)
+        req = http.RedirectResponse("http://example.com/", temporary=True)
+        self.assertEquals(req.code, responsecode.TEMPORARY_REDIRECT)
+
 class PreconditionTestCase(unittest.TestCase):
     def checkPreconditions(self, request, response, expectedResult, expectedCode,
                            **kw):

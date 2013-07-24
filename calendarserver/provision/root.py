@@ -310,7 +310,8 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                                 host,
                                 request.path
                             )
-                        )
+                        ),
+                        temporary=True
                     )
                 raise HTTPError(response)
 
