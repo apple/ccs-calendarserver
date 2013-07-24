@@ -234,7 +234,9 @@ class ImplicitProcessor(object):
             # and only if the request does not indicate we should skip attendee refresh
             # (e.g. inbox item processing during migration from non-implicit server)
             if partstatChanged and not self.noAttendeeRefresh:
-                yield self.queueAttendeeUpdate((attendeeReplying, organizer,))
+                # Check limit of attendees
+                if config.Scheduling.Options.AttendeeRefreshCountLimit == 0 or len(self.recipient_calendar.getAllUniqueAttendees()) <= config.Scheduling.Options.AttendeeRefreshCountLimit:
+                    yield self.queueAttendeeUpdate((attendeeReplying, organizer,))
 
             result = (True, False, True, changes,)
 

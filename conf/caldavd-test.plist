@@ -773,6 +773,8 @@
         <false/>
         <key>AttendeeRefreshBatch</key>
         <integer>0</integer>
+        <key>AttendeeRefreshCountLimit</key>
+        <integer>50</integer>
 
 		<key>AutoSchedule</key>
 		<dict>
