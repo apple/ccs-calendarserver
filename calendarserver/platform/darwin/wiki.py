@@ -28,15 +28,15 @@ import json
 log = Logger()
 
 @inlineCallbacks
-def usernameForAuthToken(token, host="localhost", port=80):
+def guidForAuthToken(token, host="localhost", port=80):
     """
     Send a GET request to the web auth service to retrieve the user record
-    name associated with the provided auth token.
+    guid associated with the provided auth token.
 
     @param token: An auth token, usually passed in via cookie when webcal
         makes a request.
     @type token: C{str}
-    @return: deferred returning a record name (C{str}) if successful, or
+    @return: deferred returning a guid (C{str}) if successful, or
         will raise WebAuthError otherwise.
     """
     url = "http://%s:%d/auth/verify?auth_token=%s" % (host, port, token,)
@@ -48,7 +48,7 @@ def usernameForAuthToken(token, host="localhost", port=80):
             (jsonResponse, str(e)))
         raise WebAuthError("Could not look up token: %s" % (token,))
     if response["succeeded"]:
-        returnValue(response["shortName"])
+        returnValue(response["generated_uid"])
     else:
         raise WebAuthError("Could not look up token: %s" % (token,))
 

@@ -41,7 +41,7 @@ from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.resource import CalDAVComplianceMixIn
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
-from calendarserver.platform.darwin.wiki import usernameForAuthToken
+from calendarserver.platform.darwin.wiki import guidForAuthToken
 
 log = Logger()
 
@@ -239,15 +239,23 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 if token is not None and token != "unauthenticated":
                     log.debug("Wiki sessionID cookie value: %s" % (token,))
 
+                    record = None
                     try:
                         if wikiConfig.LionCompatibility:
+                            guid = None
                             proxy = Proxy(wikiConfig["URL"])
                             username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
+                            directory = request.site.resource.getDirectory()
+                            record = directory.recordWithShortName("users", username)
+                            if record is not None:
+                                guid = record.guid
                         else:
-                            username = (yield usernameForAuthToken(token))
+                            guid = (yield guidForAuthToken(token))
+                            if guid == "unauthenticated":
+                                guid = None
 
                     except WebError, w:
-                        username = None
+                        guid = None
                         # FORBIDDEN status means it's an unknown token
                         if int(w.status) == responsecode.NOT_FOUND:
                             log.debug("Unknown wiki token: %s" % (token,))
@@ -257,16 +265,16 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
                     except Exception, e:
                         log.error("Failed to look up wiki token (%s)" % (e,))
-                        username = None
+                        guid = None
 
-                    if username is not None:
-                        log.debug("Wiki lookup returned user: %s" % (username,))
+                    if guid is not None:
+                        log.debug("Wiki lookup returned guid: %s" % (guid,))
                         principal = None
                         directory = request.site.resource.getDirectory()
-                        record = directory.recordWithShortName("users", username)
-                        log.debug("Wiki user record for user %s : %s" % (username, record))
-                        if record:
-                            # Note: record will be None if it's a /Local/Default user
+                        record = directory.recordWithGUID(guid)
+                        if record is not None:
+                            username = record.shortNames[0]
+                            log.debug("Wiki user record for user %s : %s" % (username, record))
                             for collection in self.principalCollections():
                                 principal = collection.principalForRecord(record)
                                 if principal is not None:
