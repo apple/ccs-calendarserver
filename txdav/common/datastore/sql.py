@@ -2981,7 +2981,7 @@ class SharingMixIn(object):
 
         #remove None parameters, and substitute None for empty string
         bind = self._bindSchema
-        columnMap = dict([(k, v if v else None)
+        columnMap = dict([(k, v if v != "" else None)
                           for k, v in {bind.BIND_MODE:mode,
                             bind.BIND_STATUS:status,
                             bind.MESSAGE:message,

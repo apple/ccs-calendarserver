@@ -27,32 +27,35 @@ verbose="";
 serverinfo="${cdt}/scripts/server/serverinfo.xml";
 printres="";
 subdir="";
+random="--random";
 
 usage ()
 {
   program="$(basename "$0")";
   echo "Usage: ${program} [-v] [-s serverinfo]";
   echo "Options:";
-  echo "        -h  Print this help and exit";
-  echo "        -t  Set the CalDAVTester directory";
   echo "        -d  Set the script subdirectory";
-  echo "        -s  Set the serverinfo.xml";
+  echo "        -h  Print this help and exit";
+  echo "        -o  Execute tests in order";
   echo "        -r  Print request and response";
+  echo "        -s  Set the serverinfo.xml";
+  echo "        -t  Set the CalDAVTester directory";
   echo "        -v  Verbose.";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hvrt:s:d:' option; do
+while getopts 'hvrot:s:d:' option; do
   case "$option" in 
     '?') usage; ;;
     'h') usage -; exit 0; ;;
-    't')   cdt="${OPTARG}"; serverinfo="${OPTARG}/scripts/server/serverinfo.xml"; ;;
-    'd')   subdir="--subdir=${OPTARG}"; ;;
-    's')   serverinfo="${OPTARG}"; ;;
-    'r')   printres="--always-print-request --always-print-response"; ;;
-    'v')   verbose="v"; ;;
+    't') cdt="${OPTARG}"; serverinfo="${OPTARG}/scripts/server/serverinfo.xml"; ;;
+    'd') subdir="--subdir=${OPTARG}"; ;;
+    's') serverinfo="${OPTARG}"; ;;
+    'r') printres="--always-print-request --always-print-response"; ;;
+    'v') verbose="v"; ;;
+    'o') random=""; ;;
   esac;
 done;
 
@@ -68,5 +71,5 @@ fi;
 
 source "${wd}/support/shell.sh";
 
-cd "${cdt}" && "${python}" testcaldav.py --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
+cd "${cdt}" && "${python}" testcaldav.py ${random} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
 

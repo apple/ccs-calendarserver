@@ -1,5 +1,5 @@
 # -*- test-case-name: twistedcaldav.test.test_sharing -*-
-##
+# #
 # Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-##
+# #
 
 """
 Sharing behavior
@@ -52,10 +52,10 @@ from pycalendar.datetime import PyCalendarDateTime
 # FIXME: Get rid of these imports
 from twistedcaldav.directory.util import TRANSACTION_KEY
 # circular import
-#from txdav.common.datastore.sql import ECALENDARTYPE, EADDRESSBOOKTYPE
+# from txdav.common.datastore.sql import ECALENDARTYPE, EADDRESSBOOKTYPE
 ECALENDARTYPE = 0
 EADDRESSBOOKTYPE = 1
-#ENOTIFICATIONTYPE = 2
+# ENOTIFICATIONTYPE = 2
 
 
 class SharedResourceMixin(object):
@@ -285,7 +285,7 @@ class SharedResourceMixin(object):
         elif self.isAddressBookCollection():
             return "addressbook"
         elif self.isGroup():
-            #TODO: Add group xml resource type ?
+            # TODO: Add group xml resource type ?
             return "group"
         else:
             return ""
@@ -462,7 +462,7 @@ class SharedResourceMixin(object):
 
         # TODO: we do not support external users right now so this is being hard-coded
         # off in spite of the config option.
-        #elif config.Sharing.AllowExternalUsers:
+        # elif config.Sharing.AllowExternalUsers:
         #    return userid
         else:
             returnValue(None)
@@ -473,7 +473,7 @@ class SharedResourceMixin(object):
         """
         Make sure each userid in an invite is valid - if not re-write status.
         """
-        #assert request
+        # assert request
         invitations = yield self._allInvitations()
         for invitation in invitations:
             if invitation.status() != _BIND_STATUS_INVALID:
@@ -501,7 +501,7 @@ class SharedResourceMixin(object):
         return self._processShareActionList(dl, resultIsList)
 
 
-    def uninviteUserToShare(self, userid, ace, request):
+    def uninviteUserFromShare(self, userid, ace, request):
         """
         Send out in uninvite first, and then remove this user from the share list.
         """
@@ -612,7 +612,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def inviteSingleUserToShare(self, userid, cn, ace, summary, request): #@UnusedVariable
+    def inviteSingleUserToShare(self, userid, cn, ace, summary, request):  # @UnusedVariable
 
         # We currently only handle local users
         sharee = self.principalForCalendarUserAddress(userid)
@@ -637,7 +637,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def uninviteSingleUserFromShare(self, userid, aces, request): #@UnusedVariable
+    def uninviteSingleUserFromShare(self, userid, aces, request):  # @UnusedVariable
         # Cancel invites - we'll just use whatever userid we are given
 
         sharee = self.principalForCalendarUserAddress(userid)
@@ -682,7 +682,7 @@ class SharedResourceMixin(object):
         returnValue(True)
 
 
-    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request): #@UnusedVariable
+    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request):  # @UnusedVariable
 
         # Just update existing
         return self.inviteSingleUserToShare(userid, commonName, aceNEW, summary, request)
@@ -856,7 +856,7 @@ class SharedResourceMixin(object):
                 del removeDict[u]
                 del setDict[u]
             for userid, access in removeDict.iteritems():
-                result = (yield self.uninviteUserToShare(userid, access, request))
+                result = (yield self.uninviteUserFromShare(userid, access, request))
                 # If result is False that means the user being removed was not
                 # actually invited, but let's not return an error in this case.
                 okusers.add(userid)
@@ -1081,24 +1081,26 @@ class SharedHomeMixin(LinkFollowerMixIn):
     @inlineCallbacks
     def _shareForUID(self, shareUID, request):
 
-        shareeStoreObject = yield self._newStoreHome.objectWithShareUID(shareUID)
-        if shareeStoreObject:
-            share = yield self._shareForStoreObject(shareeStoreObject, request)
-            if share:
-                returnValue(share)
+        if shareUID:  # shareUID may be None for not fully shared addressbooks
+            shareeStoreObject = yield self._newStoreHome.objectWithShareUID(shareUID)
+            if shareeStoreObject:
+                share = yield self._shareForStoreObject(shareeStoreObject, request)
+                if share:
+                    returnValue(share)
 
-        # find direct shares
-        children = yield self._newStoreHome.children()
-        for child in children:
-            share = yield self._shareForStoreObject(child, request)
-            if share and share.uid() == shareUID:
-                returnValue(share)
+            # find direct shares
+            children = yield self._newStoreHome.children()
+            for child in children:
+                share = yield self._shareForStoreObject(child, request)
+                if share and share.uid() == shareUID:
+                    returnValue(share)
 
         returnValue(None)
 
 
     @inlineCallbacks
     def acceptInviteShare(self, request, hostUrl, inviteUID, displayname=None):
+
 
         # Check for old share
         oldShare = yield self._shareForUID(inviteUID, request)
@@ -1259,7 +1261,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         Remove a shared collection but do not send a decline back. Return the
         current display name of the shared collection.
         """
-        #FIXME: This is only works for calendar
+        # FIXME: This is only works for calendar
         shareURL = joinURL(self.url(), share.name())
         shared = (yield request.locateResource(shareURL))
         displayname = shared.displayName()

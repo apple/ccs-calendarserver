@@ -59,8 +59,9 @@ from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     InvalidPerUserDataMerge, \
     AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation, \
     ShareeAllowedError
-from txdav.carddav.iaddressbookstore import GroupWithUnsharedAddressNotAllowedError, \
-    GroupForSharedAddressBookDeleteNotAllowedError, SharedGroupDeleteNotAllowedError
+from txdav.carddav.iaddressbookstore import KindChangeNotAllowedError, \
+    GroupWithUnsharedAddressNotAllowedError, GroupForSharedAddressBookDeleteNotAllowedError, \
+    SharedGroupDeleteNotAllowedError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
     _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
 from txdav.common.icommondatastore import NoSuchObjectResourceError, \
@@ -3139,6 +3140,13 @@ class AddressBookObjectResource(_CommonObjectResource):
                 response.headers.setHeader("content-location", self.url())
 
             returnValue(response)
+
+        # Handle the various store errors
+        except KindChangeNotAllowedError:
+            raise HTTPError(StatusResponse(
+                FORBIDDEN,
+                "vCard kind may not be changed",)
+            )
 
         # Handle the various store errors
         except GroupWithUnsharedAddressNotAllowedError:

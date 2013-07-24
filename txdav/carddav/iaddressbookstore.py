@@ -29,6 +29,7 @@ __all__ = [
     "GroupForSharedAddressBookDeleteNotAllowedError",
     "GroupWithUnsharedAddressNotAllowedError",
     "SharedGroupDeleteNotAllowedError",
+    "KindChangeNotAllowedError",
     "IAddressBookTransaction",
     "IAddressBookHome",
     "IAddressBook",
@@ -50,11 +51,17 @@ class GroupWithUnsharedAddressNotAllowedError(CommonStoreError):
 
 
 
+class KindChangeNotAllowedError(CommonStoreError):
+    """
+    Cannot change group kind.
+    """
+
+
+
 class SharedGroupDeleteNotAllowedError(CommonStoreError):
     """
     Sharee cannot delete a shared group.
     """
-
 
 
 class IAddressBookTransaction(ICommonTransaction):
