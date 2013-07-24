@@ -624,7 +624,8 @@ class SharedResourceMixin(object):
         # Look for existing invite and update its fields or create new one
         invitation = yield self._invitationForShareeUID(shareeUID)
         if invitation:
-            yield self._updateInvitation(invitation, mode=invitationBindModeFromXMLMap[type(ace)], summary=summary)
+            status = _BIND_STATUS_INVITED if invitation.status() in (_BIND_STATUS_DECLINED, _BIND_STATUS_INVALID) else None
+            yield self._updateInvitation(invitation, mode=invitationBindModeFromXMLMap[type(ace)], status=status, summary=summary)
         else:
             invitation = yield self._createInvitation(
                                 shareeUID=shareeUID,
@@ -718,6 +719,8 @@ class SharedResourceMixin(object):
         userid = "urn:uuid:" + invitation.shareeUID()
         state = notificationState if notificationState else invitation.status()
         summary = invitation.summary() if displayName is None else displayName
+
+        print("sendInviteNotification:%s userid=%s, state=%s, summary=%s" % (self, userid, state, summary,))
 
         typeAttr = {'shared-type': self.sharedResourceType()}
         xmltype = customxml.InviteNotification(**typeAttr)
