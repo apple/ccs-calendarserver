@@ -612,7 +612,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def inviteSingleUserToShare(self, userid, cn, ace, summary, request):  # @UnusedVariable
+    def inviteSingleUserToShare(self, userid, cn, ace, summary, request):  #@UnusedVariable
 
         # We currently only handle local users
         sharee = self.principalForCalendarUserAddress(userid)
@@ -637,7 +637,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def uninviteSingleUserFromShare(self, userid, aces, request):  # @UnusedVariable
+    def uninviteSingleUserFromShare(self, userid, aces, request):  #@UnusedVariable
         # Cancel invites - we'll just use whatever userid we are given
 
         sharee = self.principalForCalendarUserAddress(userid)
@@ -682,7 +682,7 @@ class SharedResourceMixin(object):
         returnValue(True)
 
 
-    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request):  # @UnusedVariable
+    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request):  #@UnusedVariable
 
         # Just update existing
         return self.inviteSingleUserToShare(userid, commonName, aceNEW, summary, request)

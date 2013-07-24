@@ -1427,7 +1427,7 @@ class DropboxCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
+        return davxml.ResourceType.dropboxhome  #@UndefinedVariable
 
 
     def listChildren(self):
@@ -1479,7 +1479,7 @@ class CalendarObjectDropbox(_GetChildHelper):
 
 
     def resourceType(self):
-        return davxml.ResourceType.dropbox  # @UndefinedVariable
+        return davxml.ResourceType.dropbox  #@UndefinedVariable
 
 
     @inlineCallbacks
@@ -1729,7 +1729,7 @@ class AttachmentsCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
+        return davxml.ResourceType.dropboxhome  #@UndefinedVariable
 
 
     def listChildren(self):
@@ -1832,7 +1832,7 @@ class AttachmentsChildCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropbox  # @UndefinedVariable
+        return davxml.ResourceType.dropbox  #@UndefinedVariable
 
 
     @inlineCallbacks

@@ -1414,7 +1414,7 @@ class Calendar(CommonHomeChild):
 
 
     @classproperty
-    def _moveTimeRangeUpdateQuery(cls):  # @NoSelf
+    def _moveTimeRangeUpdateQuery(cls):  #@NoSelf
         """
         DAL query to update a child to be in a new parent.
         """
@@ -2613,7 +2613,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @classproperty
-    def _recurrenceMinMaxByIDQuery(cls):  # @NoSelf
+    def _recurrenceMinMaxByIDQuery(cls):  #@NoSelf
         """
         DAL query to load RECURRANCE_MIN, RECURRANCE_MAX via an object's resource ID.
         """
@@ -2647,7 +2647,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @classproperty
-    def _instanceQuery(cls):  # @NoSelf
+    def _instanceQuery(cls):  #@NoSelf
         """
         DAL query to load TIME_RANGE data via an object's resource ID.
         """
