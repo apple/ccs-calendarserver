@@ -720,8 +720,6 @@ class SharedResourceMixin(object):
         state = notificationState if notificationState else invitation.status()
         summary = invitation.summary() if displayName is None else displayName
 
-        print("sendInviteNotification:%s userid=%s, state=%s, summary=%s" % (self, userid, state, summary,))
-
         typeAttr = {'shared-type': self.sharedResourceType()}
         xmltype = customxml.InviteNotification(**typeAttr)
         xmldata = customxml.Notification(
