@@ -1,7 +1,7 @@
 Apache-style Access Log Extensions
 ==================================
 
-Calendar Server extends the Apache log file format it uses by:
+If the administrator enables the EnableExtendedAccessLog config option, Calendar Server extends the Apache log file format it uses by:
 
  * Adding a "sub-method" to the HTTP method field.
  * Adding key-value pairs at the end of log lines.
