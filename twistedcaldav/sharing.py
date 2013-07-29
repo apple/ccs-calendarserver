@@ -103,7 +103,11 @@ class SharedResourceMixin(object):
                     invitations = yield original.validateInvites(request)
 
                     ownerPrincipal = (yield original.ownerPrincipal(request))
-                    owner = ownerPrincipal.principalURL()
+                    # FIXME:  use urn:uuid in all cases
+                    if self.isCalendarCollection():
+                        owner = ownerPrincipal.principalURL()
+                    else:
+                        owner = "urn:uuid:" + ownerPrincipal.principalUID()
                     ownerCN = ownerPrincipal.displayName()
 
                     returnValue(customxml.Invite(
@@ -263,7 +267,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def removeShareeCollection(self, request):
+    def removeShareeResource(self, request):
 
         sharee = self.principalForUID(self._share.shareeUID())
 
@@ -693,7 +697,11 @@ class SharedResourceMixin(object):
     def sendInviteNotification(self, invitation, request, notificationState=None, displayName=None):
 
         ownerPrincipal = (yield self.ownerPrincipal(request))
-        owner = ownerPrincipal.principalURL()
+        # FIXME:  use urn:uuid in all cases
+        if self.isCalendarCollection():
+            owner = ownerPrincipal.principalURL()
+        else:
+            owner = "urn:uuid:" + ownerPrincipal.principalUID()
         ownerCN = ownerPrincipal.displayName()
         hosturl = (yield self.canonicalURL(request))
 
@@ -1034,7 +1042,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
         @rtype: L{Share} or L{NoneType}
         """
         # Find a matching share
-        if not storeObject or storeObject.owned():
+        # use "storeObject.shareUID is not None" to prevent partially shared address books form getting a share
+        if storeObject is None or storeObject.owned():
             returnValue(None)
 
         # Get the shared object's URL - we may need to fake this if the sharer principal is missing or disabled
@@ -1082,7 +1091,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
     @inlineCallbacks
     def _shareForUID(self, shareUID, request):
 
-        if shareUID:  # shareUID may be None for not fully shared addressbooks
+        if shareUID is not None:  # shareUID may be None for partially shared addressbooks
             shareeStoreObject = yield self._newStoreHome.objectWithShareUID(shareUID)
             if shareeStoreObject:
                 share = yield self._shareForStoreObject(shareeStoreObject, request)
@@ -1262,7 +1271,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         Remove a shared collection but do not send a decline back. Return the
         current display name of the shared collection.
         """
-        # FIXME: This is only works for calendar
+        # FIXME: only works for calendar
         shareURL = joinURL(self.url(), share.name())
         shared = (yield request.locateResource(shareURL))
         displayname = shared.displayName()
@@ -1330,12 +1339,16 @@ class SharedHomeMixin(LinkFollowerMixIn):
         notificationUID = "%s-reply" % (replytoUID,)
         xmltype = customxml.InviteReply()
 
-        # Prefer mailto:, otherwise use principal URL
-        for cua in shareePrincipal.calendarUserAddresses():
-            if cua.startswith("mailto:"):
-                break
+        # FIXME:  use urn:uuid in all cases
+        if self._newStoreHome and self._newStoreHome._homeType == EADDRESSBOOKTYPE:
+            cua = "urn:uuid:" + shareePrincipal.principalUID()
         else:
-            cua = shareePrincipal.principalURL()
+            # Prefer mailto:, otherwise use principal URL
+            for cua in shareePrincipal.calendarUserAddresses():
+                if cua.startswith("mailto:"):
+                    break
+            else:
+                cua = shareePrincipal.principalURL()
 
         commonName = shareePrincipal.displayName()
         record = shareePrincipal.record

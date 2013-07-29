@@ -466,7 +466,7 @@ class CalDAVResource (
                     customxml.SharedURL.qname(),
                 )
 
-            elif config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
+            elif config.Sharing.AddressBooks.Enabled and (self.isAddressBookCollection() or self.isGroup()) and not self.isDirectoryBackedAddressBookCollection():
                 baseProperties += (
                     customxml.Invite.qname(),
                     customxml.AllowedSharingModes.qname(),
@@ -649,7 +649,7 @@ class CalDAVResource (
         elif qname == customxml.Invite.qname():
             if config.Sharing.Enabled and (
                 config.Sharing.Calendars.Enabled and self.isCalendarCollection() or
-                config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection()
+                config.Sharing.AddressBooks.Enabled and (self.isAddressBookCollection() or self.isGroup()) and not self.isDirectoryBackedAddressBookCollection()
             ):
                 result = (yield self.inviteProperty(request))
                 returnValue(result)
@@ -657,7 +657,7 @@ class CalDAVResource (
         elif qname == customxml.AllowedSharingModes.qname():
             if config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.isCalendarCollection():
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
-            elif config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
+            elif config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and (self.isAddressBookCollection() or self.isGroup()) and not self.isDirectoryBackedAddressBookCollection():
                 returnValue(customxml.AllowedSharingModes(customxml.CanBeShared()))
 
         elif qname == customxml.SharedURL.qname():
