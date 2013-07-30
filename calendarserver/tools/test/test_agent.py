@@ -17,8 +17,10 @@
 from calendarserver.tools.agent import AgentRealm
 from calendarserver.tools.agent import CustomDigestCredentialFactory
 from calendarserver.tools.agent import DirectoryServiceChecker
+from calendarserver.tools.agent import InactivityDetector
 from twistedcaldav.test.util import TestCase
 from twisted.internet.defer import inlineCallbacks
+from twisted.internet.task import Clock
 from twisted.cred.error import UnauthorizedLogin 
 from twisted.web.resource import IResource
 from twisted.web.resource import ForbiddenResource
@@ -110,6 +112,33 @@ class AgentTestCase(TestCase):
         else:
             self.fail("Didn't raise NotImplementedError")
 
+
+
+class InactivityDectectorTestCase(TestCase):
+
+    def test_inactivity(self):
+        clock = Clock()
+
+        self.inactivityReached = False
+        def becameInactive():
+            self.inactivityReached = True
+
+        id = InactivityDetector(clock, 5, becameInactive)
+
+        # After 3 seconds, not inactive
+        clock.advance(3)
+        self.assertFalse(self.inactivityReached)
+
+        # Activity happens, pushing out the inactivity threshold
+        id.activity()
+        clock.advance(3)
+        self.assertFalse(self.inactivityReached)
+
+        # Time passes without activity
+        clock.advance(3)
+        self.assertTrue(self.inactivityReached)
+
+        id.stop()
 
 
 

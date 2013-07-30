@@ -61,7 +61,7 @@ from calendarserver.tap.caldav import (
     CalDAVOptions, CalDAVServiceMaker, CalDAVService, GroupOwnedUNIXServer,
     DelayedStartupProcessMonitor, DelayedStartupLineLogger, TwistdSlaveProcess,
     _CONTROL_SERVICE_NAME, getSystemIDs, PreProcessingService,
-    QuitAfterUpgradeStep
+    QuitAfterUpgradeStep, DataStoreMonitor
 )
 from calendarserver.provision.root import RootResource
 from twext.enterprise.queue import PeerConnectionPool, LocalQueuer
@@ -555,7 +555,9 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
                                       uid=None, gid=None):
                 pool = None
                 logObserver = None
-                svc = createMainService(pool, store, logObserver)
+                storageService = None
+                svc = createMainService(pool, store, logObserver,
+                    storageService)
                 multi = MultiService()
                 svc.setServiceParent(multi)
                 return multi
@@ -1238,12 +1240,19 @@ class ReExecServiceTests(StoreTestCase):
         and stopService to be called again by counting the number of times
         START and STOP appear in the process output.
         """
+        # Inherit the reactor used to run trial
+        reactorArg = ""
+        for arg in sys.argv:
+            if arg.startswith("--reactor"):
+                reactorArg = arg
+                break
+
         tacFilePath = os.path.join(os.path.dirname(__file__), "reexec.tac")
         twistd = which("twistd")[0]
         deferred = Deferred()
         proc = reactor.spawnProcess(
             CapturingProcessProtocol(deferred, None), twistd,
-                [twistd, '-n', '-y', tacFilePath],
+                [twistd, reactorArg, '-n', '-y', tacFilePath],
                 env=os.environ
         )
         reactor.callLater(3, proc.signalProcess, "HUP")
@@ -1381,15 +1390,15 @@ class StepFour(Step):
 
 class PreProcessingServiceTestCase(TestCase):
 
-    def fakeServiceCreator(self, cp, store, lo):
-        self.history.append(("serviceCreator", store))
+    def fakeServiceCreator(self, cp, store, lo, storageService):
+        self.history.append(("serviceCreator", store, storageService))
 
 
     def setUp(self):
         self.history = []
         self.clock = Clock()
         self.pps = PreProcessingService(self.fakeServiceCreator, None, "store",
-            None, reactor=self.clock)
+            None, "storageService", reactor=self.clock)
 
 
     def _record(self, value, failure):
@@ -1409,7 +1418,7 @@ class PreProcessingServiceTestCase(TestCase):
         self.pps.startService()
         self.assertEquals(self.history,
             ['one success', 'two success', 'three success', 'four success',
-            ('serviceCreator', 'store')])
+            ('serviceCreator', 'store', 'storageService')])
 
 
     def test_allFailure(self):
@@ -1425,7 +1434,7 @@ class PreProcessingServiceTestCase(TestCase):
         self.pps.startService()
         self.assertEquals(self.history,
             ['one success', 'two failure', 'three failure', 'four failure',
-            ('serviceCreator', None)])
+            ('serviceCreator', None, 'storageService')])
 
 
     def test_partialFailure(self):
@@ -1441,7 +1450,7 @@ class PreProcessingServiceTestCase(TestCase):
         self.pps.startService()
         self.assertEquals(self.history,
             ['one success', 'two failure', 'three success', 'four failure',
-            ('serviceCreator', 'store')])
+            ('serviceCreator', 'store', 'storageService')])
 
 
     def test_quitAfterUpgradeStep(self):
@@ -1460,5 +1469,47 @@ class PreProcessingServiceTestCase(TestCase):
         self.pps.startService()
         self.assertEquals(self.history,
             ['one success', 'two success', 'four failure',
-            ('serviceCreator', None)])
+            ('serviceCreator', None, 'storageService')])
         self.assertFalse(triggerFile.exists())
+
+
+class StubStorageService(object):
+
+    def __init__(self):
+        self.hardStopCalled = False
+
+    def hardStop(self):
+        self.hardStopCalled = True
+
+
+class StubReactor(object):
+
+    def __init__(self):
+        self.stopCalled = False
+
+    def stop(self):
+        self.stopCalled = True
+
+
+class DataStoreMonitorTestCase(TestCase):
+
+    def test_monitor(self):
+        storageService = StubStorageService()
+        stubReactor = StubReactor()
+        monitor = DataStoreMonitor(stubReactor, storageService)
+
+        monitor.disconnected()
+        self.assertTrue(storageService.hardStopCalled)
+        self.assertTrue(stubReactor.stopCalled)
+
+        storageService.hardStopCalled = False
+        stubReactor.stopCalled = False
+        monitor.deleted()
+        self.assertTrue(storageService.hardStopCalled)
+        self.assertTrue(stubReactor.stopCalled)
+
+        storageService.hardStopCalled = False
+        stubReactor.stopCalled = False
+        monitor.renamed()
+        self.assertTrue(storageService.hardStopCalled)
+        self.assertTrue(stubReactor.stopCalled)

@@ -57,6 +57,7 @@ from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
 from twext.python.filepath import CachingFilePath
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
+from twext.internet.fswatch import DirectoryChangeListener, IDirectoryChangeListenee
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
@@ -588,18 +589,21 @@ class PreProcessingService(Service):
     """
 
     def __init__(self, serviceCreator, connectionPool, store, logObserver,
-        reactor=None):
+        storageService, reactor=None):
         """
         @param serviceCreator: callable which will be passed the connection
             pool, store, and log observer, and should return a Service
         @param connectionPool: connection pool to pass to serviceCreator
         @param store: the store object being processed
         @param logObserver: log observer to pass to serviceCreator
+        @param storageService: the service responsible for starting/stopping
+            the data store
         """
         self.serviceCreator = serviceCreator
         self.connectionPool = connectionPool
         self.store = store
         self.logObserver = logObserver
+        self.storageService = storageService
         self.stepper = Stepper()
 
         if reactor is None:
@@ -613,7 +617,7 @@ class PreProcessingService(Service):
         we create the main service and pass in the store.
         """
         service = self.serviceCreator(self.connectionPool, self.store,
-            self.logObserver)
+            self.logObserver, self.storageService)
         if self.parent is not None:
             self.reactor.callLater(0, service.setServiceParent, self.parent)
         return succeed(None)
@@ -626,7 +630,7 @@ class PreProcessingService(Service):
         """
         try:
             service = self.serviceCreator(self.connectionPool, None,
-                self.logObserver)
+                self.logObserver, self.storageService)
             if self.parent is not None:
                 self.reactor.callLater(0, service.setServiceParent, self.parent)
         except StoreNotAvailable:
@@ -1129,7 +1133,7 @@ class CalDAVServiceMaker (object):
         Create a service to be used in a single-process, stand-alone
         configuration.  Memcached will be spawned automatically.
         """
-        def slaveSvcCreator(pool, store, logObserver):
+        def slaveSvcCreator(pool, store, logObserver, storageService):
 
             if store is None:
                 raise StoreNotAvailable()
@@ -1232,7 +1236,7 @@ class CalDAVServiceMaker (object):
         When created, that service will have access to the storage facilities.
         """
 
-        def toolServiceCreator(pool, store, ignored):
+        def toolServiceCreator(pool, store, ignored, storageService):
             return config.UtilityServiceClass(store)
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
@@ -1255,7 +1259,13 @@ class CalDAVServiceMaker (object):
         # These we need to set in order to open the store
         config.EnableCalDAV = config.EnableCardDAV = True
 
-        def agentServiceCreator(pool, store, ignored):
+        def agentServiceCreator(pool, store, ignored, storageService):
+            if storageService is not None:
+                # Shut down if DataRoot becomes unavailable
+                from twisted.internet import reactor
+                dataStoreWatcher = DirectoryChangeListener(reactor,
+                    config.DataRoot, DataStoreMonitor(reactor, storageService))
+                dataStoreWatcher.startListening()
             return makeAgentService(store)
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
@@ -1294,7 +1304,7 @@ class CalDAVServiceMaker (object):
         """
         def createSubServiceFactory(dialect=POSTGRES_DIALECT,
                                     paramstyle='pyformat'):
-            def subServiceFactory(connectionFactory):
+            def subServiceFactory(connectionFactory, storageService):
                 ms = MultiService()
                 cp = ConnectionPool(connectionFactory, dialect=dialect,
                                     paramstyle=paramstyle,
@@ -1303,7 +1313,7 @@ class CalDAVServiceMaker (object):
                 store = storeFromConfig(config, cp.connection)
 
                 pps = PreProcessingService(createMainService, cp, store,
-                    logObserver)
+                    logObserver, storageService)
 
                 # The following "steps" will run sequentially when the service
                 # hierarchy is started.  If any of the steps raise an exception
@@ -1410,7 +1420,7 @@ class CalDAVServiceMaker (object):
                 raise UsageError("Unknown database type %r" (config.DBType,))
         else:
             store = storeFromConfig(config, None)
-            return createMainService(None, store, logObserver)
+            return createMainService(None, store, logObserver, None)
 
 
     def makeService_Combined(self, options):
@@ -1593,7 +1603,7 @@ class CalDAVServiceMaker (object):
         # to), and second, the service which does an upgrade from the
         # filesystem to the database (if that's necessary, and there is
         # filesystem data in need of upgrading).
-        def spawnerSvcCreator(pool, store, ignored):
+        def spawnerSvcCreator(pool, store, ignored, storageService):
             if store is None:
                 raise StoreNotAvailable()
 
@@ -2375,3 +2385,31 @@ def getSystemIDs(userName, groupName):
         gid = getgid()
 
     return uid, gid
+
+
+class DataStoreMonitor(object):
+    implements(IDirectoryChangeListenee)
+
+    def __init__(self, reactor, storageService):
+        """
+        @param storageService: the service making use of the DataStore
+            directory; we send it a hardStop() to shut it down
+        """
+        self._reactor = reactor
+        self._storageService = storageService
+
+    def disconnected(self):
+        self._storageService.hardStop()
+        self._reactor.stop()
+
+    def deleted(self):
+        self._storageService.hardStop()
+        self._reactor.stop()
+
+    def renamed(self):
+        self._storageService.hardStop()
+        self._reactor.stop()
+
+    def connectionLost(self, reason):
+        pass
+

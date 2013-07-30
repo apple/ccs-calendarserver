@@ -199,7 +199,7 @@ class SQLStoreBuilder(object):
             directoryService = TestStoreDirectoryService()
         if self.sharedService is None:
             ready = Deferred()
-            def getReady(connectionFactory):
+            def getReady(connectionFactory, storageService):
                 self.makeAndCleanStore(
                     testCase, notifierFactory, directoryService, attachmentRoot
                 ).chainDeferred(ready)

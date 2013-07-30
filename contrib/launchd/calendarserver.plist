@@ -31,7 +31,7 @@ limitations under the License.
     <string>/Applications/Server.app/Contents/ServerRoot/usr/sbin/caldavd</string>
     <string>-X</string>
     <string>-R</string>
-    <string>caldav_kqueue</string>
+    <string>kqueue</string>
     <string>-o</string>
     <string>FailIfUpgradeNeeded=False</string>
   </array>

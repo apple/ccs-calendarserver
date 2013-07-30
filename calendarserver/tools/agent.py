@@ -161,23 +161,28 @@ class AgentGatewayResource(Resource):
     """
     isLeaf = True
 
-    def __init__(self, store, davRootResource, directory):
+    def __init__(self, store, davRootResource, directory, inactivityDetector):
         """
         @param store: an already opened store
         @param davRootResource: the root resource, required for principal
             operations
         @param directory: a directory service
+        @param inactivityDetector: the InactivityDetector to tell when requests
+            come in
         """
         Resource.__init__(self)
         self.store = store
         self.davRootResource = davRootResource
         self.directory = directory
+        self.inactivityDetector = inactivityDetector
 
     def render_POST(self, request):
         """
         Take the body of the POST request and feed it to gateway.Runner();
         return the result as the response body.
         """
+
+        self.inactivityDetector.activity()
 
         def onSuccess(result, output):
             txt = output.getvalue()
@@ -234,9 +239,14 @@ def makeAgentService(store):
     davRootResource = getRootResource(config, store)
     directory = davRootResource.getDirectory()
 
+    def becameInactive():
+        log.warn("Agent inactive; shutting down")
+        reactor.stop()
+
+    inactivityDetector = InactivityDetector(reactor, 60 * 10, becameInactive)
     root = Resource()
     root.putChild("gateway", AgentGatewayResource(store,
-        davRootResource, directory))
+        davRootResource, directory, inactivityDetector))
 
     realmName = "/Local/Default"
     portal = Portal(AgentRealm(root, ["com.apple.calendarserver"]),
@@ -248,6 +258,56 @@ def makeAgentService(store):
 
     return StreamServerEndpointService(endpoint, site)
 
+
+
+class InactivityDetector(object):
+    """
+    If no 'activity' takes place for a specified amount of time, a method
+    will get called.  Activity causes the inactivity time threshold to be
+    reset.
+    """
+
+    def __init__(self, reactor, timeoutSeconds, becameInactive):
+        """
+        @param reactor: the reactor
+        @timeoutSeconds: the number of seconds considered to mean inactive
+        @becameInactive: the method to call (with no arguments) when
+            inactivity is reached
+        """
+        self._reactor = reactor
+        self._timeoutSeconds = timeoutSeconds
+        self._becameInactive = becameInactive
+
+        self._delayedCall = self._reactor.callLater(self._timeoutSeconds,
+            self._inactivityThresholdReached)
+
+
+    def _inactivityThresholdReached(self):
+        """
+        The delayed call has fired.  We're inactive.  Call the becameInactive
+            method.
+        """
+        self._becameInactive()
+
+
+    def activity(self):
+        """
+        Call this to let the InactivityMonitor that there has been activity.
+        It will reset the timeout.
+        """
+        if self._delayedCall.active():
+            self._delayedCall.reset(self._timeoutSeconds)
+        else:
+            self._delayedCall = self._reactor.callLater(self._timeoutSeconds,
+                self._inactivityThresholdReached)
+
+
+    def stop(self):
+        """
+        Cancels the delayed call
+        """
+        if self._delayedCall.active():
+            self._delayedCall.cancel()
 
 
 
