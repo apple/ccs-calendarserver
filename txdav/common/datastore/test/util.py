@@ -236,10 +236,12 @@ class SQLStoreBuilder(object):
 
         @return: a L{Deferred} that fires with a L{CommonDataStore}
         """
-        try:
-            attachmentRoot.createDirectory()
-        except OSError:
-            pass
+
+        # Always clean-out old attachments
+        if attachmentRoot.exists():
+            attachmentRoot.remove()
+        attachmentRoot.createDirectory()
+
         currentTestID = testCase.id()
         cp = ConnectionPool(self.sharedService.produceConnection,
                             maxConnections=5)
