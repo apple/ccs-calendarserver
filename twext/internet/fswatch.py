@@ -62,13 +62,16 @@ class IDirectoryChangeListenee(Interface):
 if kqueueSupported and hasattr(reactor, "_doWriteOrRead"):
 
 
-    # Wrap _doWriteOrRead to support KQ_FILTER_VNODE
-    origDoWriteOrRead = reactor._doWriteOrRead
-    def _doWriteOrReadOrVNodeEvent(selectable, fd, event):
-        origDoWriteOrRead(selectable, fd, event)
-        if event.filter == KQ_FILTER_VNODE:
-            selectable.vnodeEventHappened(event)
-    reactor._doWriteOrRead = _doWriteOrReadOrVNodeEvent
+    def patchReactor(reactor):
+        # Wrap _doWriteOrRead to support KQ_FILTER_VNODE
+        origDoWriteOrRead = reactor._doWriteOrRead
+        def _doWriteOrReadOrVNodeEvent(selectable, fd, event):
+            origDoWriteOrRead(selectable, fd, event)
+            if event.filter == KQ_FILTER_VNODE:
+                selectable.vnodeEventHappened(event)
+        reactor._doWriteOrRead = _doWriteOrReadOrVNodeEvent
+
+    patchReactor(reactor)
 
 
 
