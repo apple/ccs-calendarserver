@@ -32,6 +32,11 @@ until_fail="";
 coverage="";
 m_twisted="";
 numjobs="";
+reactor="";
+
+if [ "$(uname -s)" == "Darwin" ]; then
+  reactor="--reactor=kqueue";
+fi;
 
 usage ()
 {
@@ -83,7 +88,7 @@ fi;
 find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
 
 mkdir -p "${wd}/data";
-cd "${wd}" && "${python}" "${trial}" --reactor=kqueue --temp-directory="${wd}/data/trial" --rterrors ${random} ${until_fail} ${no_colour} ${coverage} ${numjobs} ${test_modules};
+cd "${wd}" && "${python}" "${trial}" --temp-directory="${wd}/data/trial" --rterrors ${reactor} ${random} ${until_fail} ${no_colour} ${coverage} ${numjobs} ${test_modules};
 
 if ${flaky}; then
   echo "";
