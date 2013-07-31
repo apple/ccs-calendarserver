@@ -63,6 +63,7 @@ from uuid import uuid4
 
 from zope.interface.declarations import implements
 
+import copy
 
 
 class AddressBookHome(CommonHome):
@@ -800,7 +801,8 @@ END:VCARD
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage, ownerAddressBookID, cachedBindStatus = rows[0]  #@UnusedVariable
+        row = rows[0]
+        bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage, ownerAddressBookID, cachedBindStatus = row[:cls.bindColumnCount + 2]  #@UnusedVariable
 
         # if wrong status, exit here.  Item is in queryCache
         if (cachedBindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
@@ -835,7 +837,8 @@ END:VCARD
         """
         bindRows = yield cls._bindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
         if bindRows and (bindRows[0][4] == _BIND_STATUS_ACCEPTED) == bool(accepted):
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = bindRows[0]  #@UnusedVariable
+            bindRow = bindRows[0]
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = bindRow[:cls.bindColumnCount]  #@UnusedVariable
 
             # alt:
             # returnValue((yield cls.objectWithID(home, resourceID)))
@@ -849,7 +852,8 @@ END:VCARD
             home._txn, name=name, homeID=home._resourceID
         )
         if groupBindRows and (groupBindRows[0][4] == _BIND_STATUS_ACCEPTED) == bool(accepted):
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRows[0]  #@UnusedVariable
+            groupBindRow = groupBindRows[0]
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount]  #@UnusedVariable
 
             ownerAddressBookID = yield AddressBookObject.ownerAddressBookIDFromGroupID(home._txn, resourceID)
             # alt:
@@ -887,7 +891,8 @@ END:VCARD
             home._txn, resourceID=resourceID, homeID=home._resourceID
         )
         if bindRows and (bindRows[0][4] == _BIND_STATUS_ACCEPTED) == bool(accepted):
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = bindRows[0]  #@UnusedVariable
+            bindRow = bindRows[0]
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = bindRow[:cls.bindColumnCount]  #@UnusedVariable
 
             ownerHome = yield home.ownerHomeWithChildID(resourceID)
             if accepted:
@@ -899,7 +904,8 @@ END:VCARD
                     home._txn, homeID=home._resourceID, addressbookID=resourceID
         )
         if groupBindRows and (groupBindRows[0][4] == _BIND_STATUS_ACCEPTED) == bool(accepted):
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRows[0]  #@UnusedVariable
+            groupBindRow = groupBindRows[0]
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount]  #@UnusedVariable
 
             ownerAddressBookID = yield AddressBookObject.ownerAddressBookIDFromGroupID(home._txn, resourceID)
             ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
@@ -1719,7 +1725,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 # update revisions table of shared group's containing address book
                 yield self._changeAddressBookRevision(self.ownerHome().addressbook(), inserting)
 
-        self._component = component
         returnValue(self._componentChanged)
 
 
@@ -1795,7 +1800,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             # get member ids
             memberUIDs = []
             foreignMemberAddrs = []
-            for memberAddr in component.resourceMemberAddresses():
+            for memberAddr in set(component.resourceMemberAddresses()):
                 if len(memberAddr) > len("urn:uuid:") and memberAddr.startswith("urn:uuid:"):
                     memberUIDs.append(memberAddr[len("urn:uuid:"):])
                 else:
@@ -1823,25 +1828,27 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
             # don't store group members in object text
 
-            orginialComponent = str(component)
+            orginialComponentText = str(component)
             # sort addresses in component text
             memberAddresses = component.resourceMemberAddresses()
             component.removeProperties("X-ADDRESSBOOKSERVER-MEMBER")
-            for memberAddress in sorted(memberAddresses):
+            for memberAddress in sorted(list(set(memberAddresses))):
                 component.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
 
             # use sorted test to get size and md5
             componentText = str(component)
             self._md5 = hashlib.md5(componentText).hexdigest()
             self._size = len(componentText)
-            self._componentChanged = componentText != orginialComponent
+            self._componentChanged = orginialComponentText != componentText
 
             # remove members from component get new text
+            self._component = copy.deepcopy(component)
             component.removeProperties("X-ADDRESSBOOKSERVER-MEMBER")
             componentText = str(component)
             self._objectText = componentText
 
         else:
+            self._component = component
             componentText = str(component)
             self._md5 = hashlib.md5(componentText).hexdigest()
             self._size = len(componentText)
