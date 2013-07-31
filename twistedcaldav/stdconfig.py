@@ -578,7 +578,7 @@ DEFAULT_CONFIG = {
             "Enabled"         : True, # Calendar on/off switch
         },
         "AddressBooks" : {
-            "Enabled"         : True, # Address Books on/off switch
+            "Enabled"         : False, # Address Books on/off switch
         }
     },
 
