@@ -56,7 +56,7 @@ from twistedcaldav.directory.cachingdirectory import (CachingDirectoryService,
     CachingDirectoryRecord)
 from twistedcaldav.directory.directory import DirectoryConfigurationError
 from twistedcaldav.directory.augment import AugmentRecord
-from twistedcaldav.directory.util import splitIntoBatches
+from twistedcaldav.directory.util import splitIntoBatches, normalizeUUID
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.internet.threads import deferToThread
 from twext.python.log import Logger
@@ -348,7 +348,7 @@ class LdapDirectoryService(CachingDirectoryService):
             records.append(record)
 
         if numMissingGuids:
-            self.log.info("{num} {recordType] records are missing {attr}",
+            self.log.info("{num} {recordType} records are missing {attr}",
                 num=numMissingGuids, recordType=recordType, attr=guidAttr)
 
         return records
@@ -405,12 +405,15 @@ class LdapDirectoryService(CachingDirectoryService):
             dn = normalizeDNstr(dn)
             guid = self._getUniqueLdapAttribute(attrs, guidAttr)
             if guid:
+                guid = normalizeUUID(guid)
                 readDelegate = self._getUniqueLdapAttribute(attrs, readAttr)
                 if readDelegate:
+                    readDelegate = normalizeUUID(readDelegate)
                     assignments.append(("%s#calendar-proxy-read" % (guid,),
                         [readDelegate]))
                 writeDelegate = self._getUniqueLdapAttribute(attrs, writeAttr)
                 if writeDelegate:
+                    writeDelegate = normalizeUUID(writeDelegate)
                     assignments.append(("%s#calendar-proxy-write" % (guid,),
                         [writeDelegate]))
 
@@ -782,6 +785,7 @@ class LdapDirectoryService(CachingDirectoryService):
             if not guid:
                 self.log.debug("LDAP data for %s is missing guid attribute %s" % (shortNames, guidAttr))
                 raise MissingGuidException()
+            guid = normalizeUUID(guid)
 
         # Find or build email
         # (The emailAddresses mapping is a list of ldap fields)
