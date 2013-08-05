@@ -30,6 +30,7 @@ __all__ = [
 
 import cStringIO as StringIO
 import codecs
+from difflib import unified_diff
 import heapq
 import itertools
 import uuid
@@ -950,10 +951,15 @@ class Component (object):
         Remove a property from this component.
         @param property: the L{Property} to remove from this component.
         """
-        self._pycalendar.removeProperty(property._pycalendar)
-        self._pycalendar.finalise()
-        property._parent = None
-        self._markAsDirty()
+
+        if isinstance(property, str):
+            for property in self.properties(property):
+                self.removeProperty(property)
+        else:
+            self._pycalendar.removeProperty(property._pycalendar)
+            self._pycalendar.finalise()
+            property._parent = None
+            self._markAsDirty()
 
 
     def removeAllPropertiesWithName(self, pname):
@@ -3512,3 +3518,23 @@ def merge(*iterables):
             break
         else:
             heapq.heappop(heap)
+
+
+
+def normalize_iCalStr(icalstr):
+    """
+    Normalize a string representation of ical data for easy test comparison.
+    """
+
+    icalstr = str(icalstr).replace("\r\n ", "")
+    icalstr = icalstr.replace("\n ", "")
+    icalstr = "\r\n".join([line for line in icalstr.splitlines() if not line.startswith("DTSTAMP")])
+    return icalstr
+
+
+
+def diff_iCalStrs(icalstr1, icalstr2):
+
+    icalstr1 = normalize_iCalStr(icalstr1).splitlines()
+    icalstr2 = normalize_iCalStr(icalstr2).splitlines()
+    return "\n".join(unified_diff(icalstr1, icalstr2))

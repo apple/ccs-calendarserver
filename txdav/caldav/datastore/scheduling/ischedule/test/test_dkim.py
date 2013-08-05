@@ -16,6 +16,7 @@
 
 from Crypto.PublicKey import RSA
 
+from twext.web2.dav.util import allDataFromStream
 from twext.web2.http_headers import Headers, MimeType
 from twext.web2.stream import MemoryStream
 
@@ -244,6 +245,13 @@ class TestDKIMVerifier (TestDKIMBase):
             self.stream = MemoryStream(body)
 
 
+    def _makeHeaders(self, headers_pairs):
+        headers = Headers()
+        for name, value in headers_pairs:
+            headers.addRawHeader(name, value)
+        return headers
+
+
     def test_valid_dkim_headers(self):
         """
         L{DKIMVerifier.processDKIMHeader} correctly validates DKIM-Signature headers.
@@ -276,8 +284,7 @@ class TestDKIMVerifier (TestDKIMBase):
         )
 
         for headers, result in data:
-            request = self.StubRequest("POST", "/", headers, "")
-            verifier = DKIMVerifier(request)
+            verifier = DKIMVerifier(self._makeHeaders(headers), "")
             if result:
                 verifier.processDKIMHeader()
             else:
@@ -307,8 +314,7 @@ class TestDKIMVerifier (TestDKIMBase):
         )
 
         for name, value, result in data:
-            request = self.StubRequest("POST", "/", ((name, value,),), "")
-            verifier = DKIMVerifier(request)
+            verifier = DKIMVerifier(self._makeHeaders(((name, value,),)), "")
             if name == "DKIM-Signature":
                 verifier.processDKIMHeader()
             canonicalized = DKIMUtils.canonicalizeHeader(name, value, verifier.dkim_tags if name == "DKIM-Signature" else None)
@@ -374,8 +380,7 @@ dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:htt
 
         for hdrs, result in data:
             headers = [hdr.split(":", 1) for hdr in hdrs.splitlines()]
-            request = self.StubRequest("POST", "/", headers, "")
-            verifier = DKIMVerifier(request)
+            verifier = DKIMVerifier(self._makeHeaders(headers), "")
             verifier.processDKIMHeader()
             extracted = verifier.extractSignedHeaders()
             self.assertEqual(extracted, result.replace("\n", "\r\n"))
@@ -427,9 +432,8 @@ Connection:close
 
         for hdrs, keys, result in data:
             headers = [hdr.split(":", 1) for hdr in hdrs.splitlines()]
-            request = self.StubRequest("POST", "/", headers, "")
             TestPublicKeyLookup.PublicKeyLookup_Testing.keys = keys
-            verifier = DKIMVerifier(request, key_lookup=(TestPublicKeyLookup.PublicKeyLookup_Testing,))
+            verifier = DKIMVerifier(self._makeHeaders(headers), "", key_lookup=(TestPublicKeyLookup.PublicKeyLookup_Testing,))
             verifier.processDKIMHeader()
             pkey = (yield verifier.locatePublicKey())
             if result:
@@ -461,7 +465,8 @@ Connection:close
 
                 # Verify signature
                 TestPublicKeyLookup.PublicKeyLookup_Testing.keys = keys
-                verifier = DKIMVerifier(request, key_lookup=(TestPublicKeyLookup.PublicKeyLookup_Testing,))
+                data = (yield allDataFromStream(request.stream))
+                verifier = DKIMVerifier(request.headers, data, key_lookup=(TestPublicKeyLookup.PublicKeyLookup_Testing,))
                 TestPublicKeyLookup.PublicKeyLookup_Testing({}).flushCache()
                 try:
                     yield verifier.verify()

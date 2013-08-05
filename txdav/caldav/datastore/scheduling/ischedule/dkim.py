@@ -513,12 +513,15 @@ class DKIMVerifier(object):
     Class used to verify an DKIM-signed HTTP request.
     """
 
-    def __init__(self, request, key_lookup=None, protocol_debug=False):
+    def __init__(self, headers, body, key_lookup=None, protocol_debug=False):
         """
-        @param request: The HTTP request to process
-        @type request: L{twext.server.Request}
+        @param headers: The HTTP request headers to process
+        @type headers: L{twext.web2.http_headers.Headers}
+        @param body: The HTTP request body to process
+        @type body: C{str}
         """
-        self.request = request
+        self.headers = headers
+        self.body = body
         self._debug = protocol_debug
         self.dkim_tags = {}
 
@@ -563,17 +566,14 @@ Headers to evaluate:
 
 Public key used:
 %s
-""" % (self.request.headers.getRawHeaders(DKIM_SIGNATURE)[0], headers, pubkey._original_data,)
+""" % (self.headers.getRawHeaders(DKIM_SIGNATURE)[0], headers, pubkey._original_data,)
             log.debug("DKIM: %s:%s" % (msg, _debug_msg,))
             if self._debug:
                 msg = "%s:%s" % (msg, _debug_msg,)
             raise DKIMVerificationError(msg)
 
         # Do body validation
-        data = (yield allDataFromStream(self.request.stream))
-        self.request.stream = MemoryStream(data if data is not None else "")
-        self.request.stream.doStartReading = None
-        body = DKIMUtils.canonicalizeBody(data)
+        body = DKIMUtils.canonicalizeBody(self.body)
         bh = base64.b64encode(self.hash_method(body).digest())
         if bh != self.dkim_tags["_bh"]:
             msg = "Could not verify the DKIM body hash"
@@ -584,7 +584,7 @@ Hash Method: %s
 
 Base64 encoded body:
 %s
-""" % (self.request.headers.getRawHeaders(DKIM_SIGNATURE), self.hash_method.__name__, base64.b64encode(body),)
+""" % (self.headers.getRawHeaders(DKIM_SIGNATURE), self.hash_method.__name__, base64.b64encode(body),)
             log.debug("DKIM: %s:%s" % (msg, _debug_msg,))
             if self._debug:
                 msg = "%s:%s" % (msg, _debug_msg,)
@@ -599,7 +599,7 @@ Base64 encoded body:
         """
 
         # Check presence of header
-        dkim = self.request.headers.getRawHeaders(DKIM_SIGNATURE)
+        dkim = self.headers.getRawHeaders(DKIM_SIGNATURE)
         if dkim is None:
             msg = "No DKIM-Signature header present in the request"
             log.debug("DKIM: " + msg)
@@ -683,12 +683,12 @@ Base64 encoded body:
 
         headers = []
         for header in header_list:
-            actual_headers = self.request.headers.getRawHeaders(header)
+            actual_headers = self.headers.getRawHeaders(header)
             if actual_headers:
                 headers.append((header, ",".join(actual_headers),))
 
         # DKIM-Signature is always included at the end
-        headers.append((DKIM_SIGNATURE, self.request.headers.getRawHeaders(DKIM_SIGNATURE)[0],))
+        headers.append((DKIM_SIGNATURE, self.headers.getRawHeaders(DKIM_SIGNATURE)[0],))
 
         # Now canonicalize the values
         return "".join([DKIMUtils.canonicalizeHeader(name, value, dkim_tags=self.dkim_tags) for name, value in headers])

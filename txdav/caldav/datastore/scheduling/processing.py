@@ -462,6 +462,26 @@ class ImplicitProcessor(object):
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                 raise ImplicitProcessorException("5.3;Organizer change not allowed")
 
+        # Handle splitting of data early so we can preserve per-attendee data
+        if self.message.hasProperty("X-CALENDARSERVER-SPLIT-OLDER-UID"):
+            if config.Scheduling.Options.Splitting.Enabled:
+                # Tell the existing resource to split
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' splitting UID: '%s'" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                split = (yield self.doImplicitAttendeeSplit())
+                if split:
+                    returnValue((True, False, False, None,))
+            else:
+                self.message.removeProperty("X-CALENDARSERVER-SPLIT-OLDER-UID")
+                self.message.removeProperty("X-CALENDARSERVER-SPLIT-RID")
+
+        elif self.message.hasProperty("X-CALENDARSERVER-SPLIT-NEWER-UID"):
+            if config.Scheduling.Options.Splitting.Enabled:
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - split already done" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                returnValue((True, False, False, None,))
+            else:
+                self.message.removeProperty("X-CALENDARSERVER-SPLIT-OLDER-UID")
+                self.message.removeProperty("X-CALENDARSERVER-SPLIT-RID")
+
         # Different based on method
         if self.method == "REQUEST":
             result = (yield self.doImplicitAttendeeRequest())
@@ -475,6 +495,22 @@ class ImplicitProcessor(object):
             result = (True, True, False, None,)
 
         returnValue(result)
+
+
+    @inlineCallbacks
+    def doImplicitAttendeeSplit(self):
+        """
+        Handle splitting of the existing calendar data.
+        """
+        olderUID = self.message.propertyValue("X-CALENDARSERVER-SPLIT-OLDER-UID")
+        split_rid = self.message.propertyValue("X-CALENDARSERVER-SPLIT-RID")
+        if olderUID is None or split_rid is None:
+            returnValue(False)
+
+        # Split the resource
+        yield self.recipient_calendar_resource.splitForAttendee(rid=split_rid, olderUID=olderUID)
+
+        returnValue(True)
 
 
     @inlineCallbacks

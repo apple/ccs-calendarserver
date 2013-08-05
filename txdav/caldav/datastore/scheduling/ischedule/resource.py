@@ -20,6 +20,7 @@ from pycalendar.timezone import PyCalendarTimezone
 from twext.web2 import responsecode
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.noneprops import NonePropertyStore
+from twext.web2.dav.util import allDataFromStream
 from twext.web2.http import Response, HTTPError, StatusResponse, XMLResponse
 from twext.web2.http_headers import MimeType
 
@@ -223,11 +224,11 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
 
         originator = self.loadOriginatorFromRequestHeaders(request)
         recipients = self.loadRecipientsFromRequestHeaders(request)
-        calendar = (yield self.loadCalendarFromRequest(request))
+        body = (yield allDataFromStream(request.stream))
 
         # Do the POST processing treating this as a non-local schedule
         try:
-            result = (yield scheduler.doSchedulingViaPOST(request, originator, recipients, calendar))
+            result = (yield scheduler.doSchedulingViaPOST(request.remoteAddr, request.headers, body, originator, recipients))
         except Exception:
             ex = Failure()
             yield txn.abort()

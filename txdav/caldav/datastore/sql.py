@@ -1047,7 +1047,7 @@ class Calendar(CommonHomeChild):
 
 
     @inlineCallbacks
-    def _createCalendarObjectWithNameInternal(self, name, component, internal_state, options=None):
+    def _createCalendarObjectWithNameInternal(self, name, component, internal_state, options=None, split_details=None):
 
         # Create => a new resource name
         if name in self._objects and self._objects[name]:
@@ -1060,7 +1060,7 @@ class Calendar(CommonHomeChild):
                 raise TooManyObjectResourcesError()
 
         objectResource = (
-            yield self._objectResourceClass._createInternal(self, name, component, internal_state, options)
+            yield self._objectResourceClass._createInternal(self, name, component, internal_state, options, split_details)
         )
         self._objects[objectResource.name()] = objectResource
         self._objects[objectResource.uid()] = objectResource
@@ -1414,7 +1414,7 @@ class Calendar(CommonHomeChild):
 
 
     @classproperty
-    def _moveTimeRangeUpdateQuery(cls):  #@NoSelf
+    def _moveTimeRangeUpdateQuery(cls): #@NoSelf
         """
         DAL query to update a child to be in a new parent.
         """
@@ -1509,7 +1509,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     @classmethod
     @inlineCallbacks
-    def _createInternal(cls, parent, name, component, internal_state, options=None):
+    def _createInternal(cls, parent, name, component, internal_state, options=None, split_details=None):
 
         child = (yield cls.objectWithName(parent, name, None))
         if child:
@@ -1519,7 +1519,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             raise ObjectResourceNameNotAllowedError(name)
 
         objectResource = cls(parent, name, None, None, options=options)
-        yield objectResource._setComponentInternal(component, inserting=True, internal_state=internal_state)
+        yield objectResource._setComponentInternal(component, inserting=True, internal_state=internal_state, split_details=split_details)
         yield objectResource._loadPropertyStore(created=True)
 
         # Note: setComponent triggers a notification, so we don't need to
@@ -1931,17 +1931,28 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def doImplicitScheduling(self, component, inserting, internal_state):
+    def doImplicitScheduling(self, component, inserting, internal_state, split_details=None):
 
         new_component = None
         did_implicit_action = False
         is_scheduling_resource = False
         schedule_state = None
 
-        is_internal = internal_state not in (ComponentUpdateState.NORMAL, ComponentUpdateState.ATTACHMENT_UPDATE,)
+        is_internal = internal_state not in (
+            ComponentUpdateState.NORMAL,
+            ComponentUpdateState.ATTACHMENT_UPDATE,
+            ComponentUpdateState.SPLIT_OWNER,
+        )
 
         # Do scheduling
         if not self.calendar().isInbox():
+            # For splitting we are passed a "raw" component - one with the per-user data pieces in it.
+            # We need to filter that down just to the owner's view to do scheduling, but still ensure the
+            # raw component is written out.
+            if split_details is not None:
+                user_uuid = self._parentCollection.viewerHome().uid()
+                component = PerUserDataFilter(user_uuid).filter(component.duplicate())
+
             scheduler = ImplicitScheduler()
 
             # PUT
@@ -1961,7 +1972,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         "Sharee's cannot schedule",
                     )
 
-                new_calendar = (yield scheduler.doImplicitScheduling(self.schedule_tag_match))
+                new_calendar = (yield scheduler.doImplicitScheduling(self.schedule_tag_match, split_details))
                 if new_calendar:
                     if isinstance(new_calendar, int):
                         returnValue(new_calendar)
@@ -2076,7 +2087,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL, smart_merge=False):
+    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL, smart_merge=False, split_details=None):
         """
         Setting the component internally to the store itself. This will bypass a whole bunch of data consistency checks
         on the assumption that those have been done prior to the component data being provided, provided the flag is set.
@@ -2087,9 +2098,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         self.schedule_tag_match = not self.calendar().isInbox() and internal_state == ComponentUpdateState.NORMAL and smart_merge
         schedule_state = None
 
-        if internal_state == ComponentUpdateState.SPLIT:
+        if internal_state in (ComponentUpdateState.SPLIT_OWNER, ComponentUpdateState.SPLIT_ATTENDEE,):
             # When splitting, some state from the previous resource needs to be properly
-            # preserved in thus new one when storing the component. Since we don't do the "full"
+            # preserved in the new one when storing the component. Since we don't do the "full"
             # store here, we need to add the explicit pieces we need for state preservation.
 
             # Check access
@@ -2100,6 +2111,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self.preservePrivateComments(component, inserting)
 
             managed_copied, managed_removed = (yield self.resourceCheckAttachments(component, inserting))
+
+            # Do scheduling only for owner split
+            if internal_state == ComponentUpdateState.SPLIT_OWNER:
+                yield self.doImplicitScheduling(component, inserting, internal_state, split_details)
 
             self.isScheduleObject = True
             self.processScheduleTags(component, inserting, internal_state)
@@ -2165,7 +2180,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         yield self.updateDatabase(component, inserting=inserting)
 
         # Post process managed attachments
-        if internal_state in (ComponentUpdateState.NORMAL, ComponentUpdateState.SPLIT):
+        if internal_state in (
+            ComponentUpdateState.NORMAL,
+            ComponentUpdateState.SPLIT_OWNER,
+            ComponentUpdateState.SPLIT_ATTENDEE,
+        ):
             if managed_copied:
                 yield self.copyResourceAttachments(managed_copied)
             if managed_removed:
@@ -2179,7 +2198,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         yield self._calendar.notifyChanged()
 
         # Finally check if a split is needed
-        if internal_state != ComponentUpdateState.SPLIT and schedule_state == "organizer":
+        if internal_state not in (ComponentUpdateState.SPLIT_OWNER, ComponentUpdateState.SPLIT_ATTENDEE,) and schedule_state == "organizer":
             yield self.checkSplit()
 
         returnValue(self._componentChanged)
@@ -2613,7 +2632,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @classproperty
-    def _recurrenceMinMaxByIDQuery(cls):  #@NoSelf
+    def _recurrenceMinMaxByIDQuery(cls): #@NoSelf
         """
         DAL query to load RECURRANCE_MIN, RECURRANCE_MAX via an object's resource ID.
         """
@@ -2647,7 +2666,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @classproperty
-    def _instanceQuery(cls):  #@NoSelf
+    def _instanceQuery(cls): #@NoSelf
         """
         DAL query to load TIME_RANGE data via an object's resource ID.
         """
@@ -3282,57 +3301,90 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def split(self):
+    def split(self, onlyThis=False, rid=None, olderUID=None):
         """
         Split this and all matching UID calendar objects as per L{iCalSplitter}.
+
+        We need to handle scheduling with non-hosted users here. Here is what we will do:
+
+        1) Send an iTIP message for the original event (in its now future-truncated state) and
+        include a special X- parameter in the iTIP message to indicate a split was done and
+        what the RECURRENCE-ID was where the split was made. This will allow "smart" clients/servers
+        to spot the split action and apply that locally upon receipt and processing of the iTIP
+        message. That way they get to preserve the existing per-user data for the old instances. Other
+        clients/servers will just apply the change via normal iTIP processing.
+
+        2) Send an iTIP message for the new event (which will be for the old instances). "Smart"
+        clients that already got and processed the message from #1 will simply apply this on top
+        of their split copy - it should be identical, part from per-user data, so it will apply
+        cleanly. We can include an X- headers to indicate the split R-ID so "smart" clients/servers
+        can simply ignore this message.
         """
 
         # First job is to grab a UID lock on this entire series of events
         yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(self._uid).hexdigest(),))
 
         # Find all other calendar objects on this server with the same UID
-        resources = (yield CalendarStoreFeatures(self._txn._store).calendarObjectsWithUID(self._txn, self._uid))
+        if onlyThis:
+            resources = ()
+        else:
+            resources = (yield CalendarStoreFeatures(self._txn._store).calendarObjectsWithUID(self._txn, self._uid))
 
         splitter = iCalSplitter(config.Scheduling.Options.Splitting.Size, config.Scheduling.Options.Splitting.PastDays)
 
         # Determine the recurrence-id of the split and create a new UID for it
         calendar = (yield self.component())
-        rid = splitter.whereSplit(calendar)
-        newUID = str(uuid.uuid4())
+        if rid is None:
+            rid = splitter.whereSplit(calendar)
+        newerUID = calendar.resourceUID()
+        if olderUID is None:
+            olderUID = str(uuid.uuid4())
 
         # Now process this resource, but do implicit scheduling for attendees not hosted on this server.
         # We need to do this before processing attendee copies.
-        calendar_old = splitter.split(calendar, rid=rid, newUID=newUID)
+        calendar_old, calendar_new = splitter.split(calendar, rid=rid, olderUID=olderUID)
+        calendar_new.bumpiTIPInfo(oldcalendar=calendar, doSequence=True)
+        calendar_old.bumpiTIPInfo(oldcalendar=None, doSequence=True)
+
+        # If the split results in nothing either resource, then there is really nothing
+        # to actually split
+        if calendar_new.mainType() is None or calendar_old.mainType() is None:
+            returnValue(None)
 
         # Store changed data
-        if calendar.mainType() is not None:
-            yield self._setComponentInternal(calendar, internal_state=ComponentUpdateState.SPLIT)
-        else:
-            yield self._removeInternal(internal_state=ComponentUpdateState.SPLIT)
-        if calendar_old.mainType() is not None:
-            yield self.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (newUID,), calendar_old, ComponentUpdateState.SPLIT)
+        yield self._setComponentInternal(calendar_new, internal_state=ComponentUpdateState.SPLIT_OWNER, split_details=(rid, olderUID, True,))
+        yield self.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (olderUID,), calendar_old, ComponentUpdateState.SPLIT_OWNER, split_details=(rid, newerUID, False,))
 
         # Split each one - but not this resource
         for resource in resources:
             if resource._resourceID == self._resourceID:
                 continue
-            ical = (yield resource.component())
-            ical_old = splitter.split(ical, rid=rid, newUID=newUID)
+            yield resource.splitForAttendee(rid, olderUID)
 
-            # Store changed data
-            if ical.mainType() is not None:
-                yield resource._setComponentInternal(ical, internal_state=ComponentUpdateState.SPLIT)
-            else:
-                # The split removed all components from this object - remove it
-                yield resource._removeInternal(internal_state=ComponentUpdateState.SPLIT)
+        returnValue(olderUID)
 
-            # Create a new resource and store its data (but not if the parent is "inbox", or if it is empty)
-            if not resource.calendar().isInbox() and ical_old.mainType() is not None:
-                yield resource.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (newUID,), ical_old, ComponentUpdateState.SPLIT)
 
-        # TODO: scheduling currently turned off until we figure out how to properly do that
+    @inlineCallbacks
+    def splitForAttendee(self, rid=None, olderUID=None):
+        """
+        Split this attendee resource as per L{split}.
+        """
+        splitter = iCalSplitter(config.Scheduling.Options.Splitting.Size, config.Scheduling.Options.Splitting.PastDays)
+        ical = (yield self.component())
+        ical_old, ical_new = splitter.split(ical, rid=rid, olderUID=olderUID)
+        ical_new.bumpiTIPInfo(oldcalendar=ical, doSequence=True)
+        ical_old.bumpiTIPInfo(oldcalendar=None, doSequence=True)
 
-        returnValue(newUID)
+        # Store changed data
+        if ical_new.mainType() is not None:
+            yield self._setComponentInternal(ical_new, internal_state=ComponentUpdateState.SPLIT_ATTENDEE)
+        else:
+            # The split removed all components from this object - remove it
+            yield self._removeInternal(internal_state=ComponentRemoveState.INTERNAL)
+
+        # Create a new resource and store its data (but not if the parent is "inbox", or if it is empty)
+        if not self.calendar().isInbox() and ical_old.mainType() is not None:
+            yield self.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (olderUID,), ical_old, ComponentUpdateState.SPLIT_ATTENDEE)
 
 
     class CalendarObjectSplitterWork(WorkItem, fromTable(schema.CALENDAR_OBJECT_SPLITTER_WORK)):
