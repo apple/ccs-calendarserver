@@ -18,11 +18,11 @@
 Tests for L{twext.internet.fswatch}.
 """
 
-from twext.internet.fswatch import (DirectoryChangeListener, patchReactor,
-    IDirectoryChangeListenee)
-from twisted.trial.unittest import TestCase
+from twext.internet.fswatch import DirectoryChangeListener, patchReactor, \
+    IDirectoryChangeListenee
 from twisted.internet.kqreactor import KQueueReactor
 from twisted.python.filepath import FilePath
+from twisted.trial.unittest import TestCase
 from zope.interface import implements
 
 
@@ -165,4 +165,3 @@ class DirectoryChangeListenerTestCase(TestCase):
         resource.runReactor()
         self.assertTrue(storageService.stopCalled)
         self.assertEquals(delegate.methodCalled, "renamed")
-
