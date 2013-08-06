@@ -1071,7 +1071,7 @@ class LdapDirectoryService(CachingDirectoryService):
                         % (recordTypes, indexType, indexKey))
 
 
-    def recordsMatchingTokens(self, tokens, context=None, limitResults=50, timeoutSeconds=30):
+    def recordsMatchingTokens(self, tokens, context=None, limitResults=50, timeoutSeconds=10):
         """
         # TODO: hook up limitResults to the client limit in the query
 
@@ -1097,7 +1097,6 @@ class LdapDirectoryService(CachingDirectoryService):
         records = []
         recordTypes = self.recordTypesForSearchContext(context)
         recordTypes = [r for r in recordTypes if r in self.recordTypes()]
-        guidAttr = self.rdnSchema["guidAttr"]
 
         typeCounts = {}
         for recordType in recordTypes:
@@ -1108,7 +1107,7 @@ class LdapDirectoryService(CachingDirectoryService):
             base = self.typeDNs[recordType]
             scope = ldap.SCOPE_SUBTREE
             filterstr = buildFilterFromTokens(recordType, self.rdnSchema[recordType]["mapping"],
-                tokens, ("(%s=*)" % (guidAttr,)))
+                tokens)
 
             if filterstr is not None:
                 # Query the LDAP server
@@ -1429,7 +1428,7 @@ def buildFilter(recordType, mapping, fields, operand="or", optimizeMultiName=Fal
     return filterstr
 
 
-def buildFilterFromTokens(recordType, mapping, tokens, extras=()):
+def buildFilterFromTokens(recordType, mapping, tokens):
     """
     Create an LDAP filter string from a list of query tokens.  Each token is
     searched for in each LDAP attribute corresponding to "fullName" and
@@ -1445,7 +1444,7 @@ def buildFilterFromTokens(recordType, mapping, tokens, extras=()):
     """
 
     filterStr = None
-    tokens = [ldapEsc(t) for t in tokens]
+    tokens = [ldapEsc(t) for t in tokens if len(t) > 2]
     if len(tokens) == 0:
         return None
 
@@ -1468,7 +1467,6 @@ def buildFilterFromTokens(recordType, mapping, tokens, extras=()):
         return None
 
     tokenFragments = []
-    tokenFragments.extend(extras)
 
     for token in tokens:
         fragments = []
@@ -1486,7 +1484,6 @@ def buildFilterFromTokens(recordType, mapping, tokens, extras=()):
         filterStr = "(&%s)" % ("".join(tokenFragments),)
 
     return filterStr
-
 
 
 class LdapDirectoryRecord(CachingDirectoryRecord):
