@@ -124,7 +124,7 @@ class iCalDiff(object):
 
                 # Determine whether the instance is still valid in the new calendar
                 new_component = self.newcalendar.deriveInstance(rid)
-                if new_component:
+                if new_component is not None:
                     # Derive a new instance from the new calendar and transfer attendee status
                     self.newcalendar.addComponent(new_component)
                     self._tryComponentMerge(old_component, new_component, ignore_attendee, is_organizer)
@@ -153,7 +153,7 @@ class iCalDiff(object):
 
                 # Try to derive a new instance in the client and transfer attendee status
                 old_component = self.oldcalendar.deriveInstance(rid)
-                if old_component:
+                if old_component is not None:
                     self.oldcalendar.addComponent(old_component)
                     self._tryComponentMerge(old_component, new_component, ignore_attendee, is_organizer)
                 else:
@@ -424,7 +424,7 @@ class iCalDiff(object):
             overridden = returnCalendar.overriddenComponent(decline)
             if not overridden:
                 overridden = returnCalendar.deriveInstance(decline)
-                if overridden:
+                if overridden is not None:
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
                         changedRids.append(decline.getText() if decline else "")

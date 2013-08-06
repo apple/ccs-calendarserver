@@ -572,7 +572,8 @@ class ImplicitScheduler(object):
                         comp = self.calendar.overriddenComponent(rid)
                         if comp is None:
                             comp = self.calendar.deriveInstance(rid)
-                            self.calendar.addComponent(comp)
+                            if comp is not None:
+                                self.calendar.addComponent(comp)
 
                         for attendee in comp.getAllAttendeeProperties():
                             if attendee.hasParameter("PARTSTAT"):
@@ -856,6 +857,8 @@ class ImplicitScheduler(object):
             # Compare the old one to a derived instance, and if there is a change
             # add the derived instance to the new data
             newcomp = self.calendar.deriveInstance(rid)
+            if newcomp is None:
+                continue
             changed = self.compareAttendeePartstats(
                 self.oldcalendar.overriddenComponent(rid),
                 newcomp,

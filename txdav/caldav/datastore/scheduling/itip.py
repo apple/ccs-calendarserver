@@ -179,7 +179,7 @@ class iTipProcessing(object):
                         allowCancelled = component.propertyValue("STATUS") == "CANCELLED"
                         hidden = component.hasProperty(Component.HIDDEN_INSTANCE_PROPERTY)
                         new_component = new_calendar.deriveInstance(rid, allowCancelled=allowCancelled and not hidden)
-                        if new_component:
+                        if new_component is not None:
                             new_calendar.addComponent(new_component)
                             iTipProcessing.transferItems(calendar, new_component, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, recipient)
                             if hidden:
@@ -298,7 +298,7 @@ class iTipProcessing(object):
                 else:
                     # Derive a new component and cancel it.
                     overridden = calendar.deriveInstance(rid)
-                    if overridden:
+                    if overridden is not None:
                         overridden.replaceProperty(Property("STATUS", "CANCELLED"))
                         calendar.addComponent(overridden)
                         newseq = component.propertyValue("SEQUENCE")
@@ -376,7 +376,7 @@ class iTipProcessing(object):
                 # Attendee is overriding an instance themselves - we need to create a derived one
                 # for the Organizer
                 match_component = calendar.deriveInstance(rid)
-                if match_component:
+                if match_component is not None:
                     calendar.addComponent(match_component)
                 else:
                     log.error("Ignoring instance: %s in iTIP REPLY for: %s" % (rid, itip_message.resourceUID()))

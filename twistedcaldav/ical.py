@@ -1446,6 +1446,10 @@ class Component (object):
         currently marked as an EXDATE in the existing master, allow an option whereby the override
         is added as STATUS:CANCELLED and the EXDATE removed.
 
+        IMPORTANT: all callers of this method MUST check the return value for None. Never assume that
+        a valid instance will be derived - no matter how much you think you understand iCalendar recurrence.
+        There is always some new thing that will surprise you.
+
         @param rid: recurrence-id value
         @type rid: L{PyCalendarDateTime} or C{str}
         @param allowCancelled: whether to allow a STATUS:CANCELLED override
@@ -1453,7 +1457,7 @@ class Component (object):
         @param allowExcluded: whether to derive an instance for an existing EXDATE
         @type allowExcluded: C{bool}
 
-        @return: L{Component} for newly derived instance, or None if not valid override
+        @return: L{Component} for newly derived instance, or C{None} if not a valid override
         """
 
         if allowCancelled and newcomp is not None:

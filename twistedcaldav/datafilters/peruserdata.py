@@ -312,7 +312,7 @@ class PerUserDataFilter(CalendarFilter):
             if rid is None:
                 continue
             derived = ical.deriveInstance(rid, newcomp=masterDerived)
-            if derived and derived == subcomponent:
+            if derived is not None and derived == subcomponent:
                 ical.removeComponent(subcomponent)
 
 

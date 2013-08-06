@@ -936,7 +936,7 @@ class ImplicitProcessor(object):
                     # Derive a new overridden component and change partstat. We also need to make sure we restore any RSVP
                     # value that may have been overwritten by any change to the master itself.
                     derived = calendar.deriveInstance(instance.rid)
-                    if derived:
+                    if derived is not None:
                         attendee = derived.getAttendeeProperty(cuas)
                         if attendee:
                             if instance.partstat == "NEEDS-ACTION" and instance.active:
