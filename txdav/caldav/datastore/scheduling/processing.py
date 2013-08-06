@@ -1066,7 +1066,7 @@ class ImplicitProcessor(object):
         # We only need to fix data that already exists
         if recipient_resource is not None:
             if originator_calendar.mainType() != None:
-                yield self.writeCalendarResource(recipient_resource, originator_calendar)
+                yield self.writeCalendarResource(None, recipient_resource, originator_calendar)
             else:
                 yield self.deleteCalendarResource(recipient_resource)
 

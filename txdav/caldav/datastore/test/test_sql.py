@@ -20,6 +20,7 @@ from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
 from twext.web2 import responsecode
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
+from twistedcaldav.instance import InvalidOverriddenInstanceError
 
 """
 Tests for txdav.caldav.datastore.postgres, mostly based on
@@ -29,7 +30,8 @@ L{txdav.caldav.datastore.test.common}.
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 
-from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete
+from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
+    Update
 from twext.python.vcomponent import VComponent
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
@@ -1947,6 +1949,189 @@ END:VCALENDAR
         self.assertNotEqual(caldata2, None)
         self.assertNotEqual(caldata3, None)
         self.assertNotEqual(caldata4, None)
+
+
+
+class SchedulingTests(CommonCommonTests, unittest.TestCase):
+    """
+    CalendarObject splitting tests
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(SchedulingTests, self).setUp()
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+
+        # Make sure homes are provisioned
+        txn = self.transactionUnderTest()
+        for ctr in range(1, 5):
+            home_uid = yield txn.homeWithUID(ECALENDARTYPE, "user%02d" % (ctr,), create=True)
+            self.assertNotEqual(home_uid, None)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
+        self.notifierFactory.reset()
+
+
+    def storeUnderTest(self):
+        """
+        Create and return a L{CalendarStore} for testing.
+        """
+        return self._sqlCalendarStore
+
+
+    @inlineCallbacks
+    def test_doImplicitAttendeeEventFix(self):
+        """
+        Test that processing.doImplicitAttendeeEventFix.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20130806T000000Z
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+RRULE:FREQ=DAILY
+SUMMARY:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_broken = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20130806T000000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RRULE:FREQ=DAILY
+SUMMARY:1
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20130807T120000Z
+DTSTART:20130807T000000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+SUMMARY:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_update1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20130806T000000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:1-2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20130807T000000Z
+DTSTART:20130807T000000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+SEQUENCE:1
+SUMMARY:1-3
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_fixed2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20130806T000000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:1-2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20130807T000000Z
+DTSTART:20130807T000000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+SEQUENCE:1
+SUMMARY:1-3
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+"""
+
+        # Create one event
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName("data1.ics", Component.fromString(data))
+        yield self.commit()
+
+        # Write corrupt user02 data directly to trigger fix later
+        cal = yield self.calendarUnderTest(name="calendar", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        cobj = cobjs[0]
+        name02 = cobj.name()
+        co = schema.CALENDAR_OBJECT
+        yield Update(
+            {co.ICALENDAR_TEXT: str(Component.fromString(data_broken))},
+            Where=co.RESOURCE_NAME == name02,
+        ).on(self.transactionUnderTest())
+        yield self.commit()
+
+        # Write user01 data - will trigger fix
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        yield cobj.setComponent(Component.fromString(data_update1))
+        yield self.commit()
+
+        # Verify user02 data is now fixed
+        cobj = yield self.calendarObjectUnderTest(name=name02, calendar_name="calendar", home="user02")
+        ical = yield cobj.component()
+
+        self.assertEqual(normalize_iCalStr(ical), normalize_iCalStr(data_fixed2), "Failed attendee fix:\n%s" % (diff_iCalStrs(ical, data_fixed2),))
+        yield self.commit()
+
+        self.assertEqual(len(self.flushLoggedErrors(InvalidOverriddenInstanceError)), 1)
 
 
 
