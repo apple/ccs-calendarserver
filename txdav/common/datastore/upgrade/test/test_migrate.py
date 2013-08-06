@@ -368,3 +368,31 @@ class HomeMigrationTests(TestCase):
         ):
             object = (yield adbk.addressbookObjectWithName(name))
             self.assertEquals(object.md5(), md5)
+
+
+    def test_fileStoreFromPath(self):
+        """
+        Verify that fileStoreFromPath() will return a CommonDataStore if
+        the given path contains either "calendars" or "addressbooks"
+        sub-directories.  Otherwise it returns None
+        """
+
+        # No child directories
+        docRootPath = CachingFilePath(self.mktemp())
+        docRootPath.createDirectory()
+        step = UpgradeToDatabaseStep.fileStoreFromPath(docRootPath)
+        self.assertEquals(step, None)
+
+        # "calendars" child directory exists
+        childPath = docRootPath.child("calendars")
+        childPath.createDirectory()
+        step = UpgradeToDatabaseStep.fileStoreFromPath(docRootPath)
+        self.assertTrue(isinstance(step, CommonDataStore))
+        childPath.remove()
+
+        # "addressbooks" child directory exists
+        childPath = docRootPath.child("addressbooks")
+        childPath.createDirectory()
+        step = UpgradeToDatabaseStep.fileStoreFromPath(docRootPath)
+        self.assertTrue(isinstance(step, CommonDataStore))
+        childPath.remove()
