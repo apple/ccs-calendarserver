@@ -297,8 +297,8 @@ class UpgradeToDatabaseStep(object):
 
                     appropriateStoreClass = AppleDoubleStore
 
-                    return FileStore(path, None, None, True, True,
-                              propertyStoreClass=appropriateStoreClass)
+                return FileStore(path, None, None, True, True,
+                          propertyStoreClass=appropriateStoreClass)
         return None
 
 
