@@ -121,6 +121,21 @@ class OpenDirectoryService(CachingDirectoryService):
             self.restrictToGUID = True
         self.restrictedTimestamp = 0
 
+        # Set up the /Local/Default node if it's in the search path so we can 
+        # send custom queries to it
+        self.localNode = None
+        try:
+            if self.node == "/Search":
+                result = self.odModule.getNodeAttributes(self.directory, "/Search",
+                    (dsattributes.kDS1AttrSearchPath,))
+                if "/Local/Default" in result[dsattributes.kDS1AttrSearchPath]:
+                    try:
+                        self.localNode = self.odModule.odInit("/Local/Default")
+                    except self.odModule.ODError, e:
+                        self.log.error("Failed to open /Local/Default): %s" % (e,))
+        except AttributeError:
+            pass
+
 
     @property
     def restrictedGUIDs(self):
@@ -567,7 +582,7 @@ class OpenDirectoryService(CachingDirectoryService):
         def collectResults(results):
             self.log.debug("Got back %d records from OD" % (len(results),))
             for key, value in results:
-                self.log.debug("OD result: %s %s" % (key, value))
+                # self.log.debug("OD result: {key} {value}", key=key, value=value)
                 try:
                     recordNodeName = value.get(
                         dsattributes.kDSNAttrMetaNodeLocation)
@@ -664,10 +679,8 @@ class OpenDirectoryService(CachingDirectoryService):
             for compound in queries:
                 compound = compound.generate()
 
-                self.log.debug("Calling OD: Types %s, Query %s" %
-                    (recordTypes, compound))
-
                 try:
+                    startTime = time.time()
                     queryResults = lookupMethod(
                         directory,
                         compound,
@@ -675,6 +688,7 @@ class OpenDirectoryService(CachingDirectoryService):
                         recordTypes,
                         attrs,
                     )
+                    totalTime = time.time() - startTime
 
                     newSet = set()
                     for recordName, data in queryResults:
@@ -683,6 +697,8 @@ class OpenDirectoryService(CachingDirectoryService):
                             byGUID[guid] = (recordName, data)
                             newSet.add(guid)
 
+                    self.log.debug("Attendee OD query: Types %s, Query %s, %.2f sec, %d results" %
+                        (recordTypes, compound, totalTime, len(queryResults)))
                     sets.append(newSet)
 
                 except self.odModule.ODError, e:
@@ -697,7 +713,8 @@ class OpenDirectoryService(CachingDirectoryService):
                     results.append((data[dsattributes.kDSNAttrRecordName], data))
             return results
 
-        queries = buildQueriesFromTokens(tokens, self._ODFields)
+        localQueries = buildLocalQueriesFromTokens(tokens, self._ODFields)
+        nestedQuery = buildNestedQueryFromTokens(tokens, self._ODFields)
 
         # Starting with the record types corresponding to the context...
         recordTypes = self.recordTypesForSearchContext(context)
@@ -707,9 +724,13 @@ class OpenDirectoryService(CachingDirectoryService):
         recordTypes = [self._toODRecordTypes[r] for r in recordTypes]
 
         if recordTypes:
+            # Perform the complex/nested query.  If there was more than one
+            # token, this won't match anything in /Local, therefore we run
+            # the un-nested queries below and AND the results ourselves in
+            # multiQuery.
             results = multiQuery(
                 self.directory,
-                queries,
+                [nestedQuery],
                 recordTypes,
                 [
                     dsattributes.kDS1AttrGeneratedUID,
@@ -725,6 +746,30 @@ class OpenDirectoryService(CachingDirectoryService):
                     dsattributes.kDSNAttrNestedGroups,
                 ]
             )
+            if self.localNode is not None and len(tokens) > 1:
+                # /Local is in our search path and the complex query above
+                # would not have matched anything in /Local.  So now run
+                # the un-nested queries.
+                results.extend(
+                    multiQuery(
+                        self.localNode,
+                        localQueries,
+                        recordTypes,
+                        [
+                            dsattributes.kDS1AttrGeneratedUID,
+                            dsattributes.kDSNAttrRecordName,
+                            dsattributes.kDSNAttrAltSecurityIdentities,
+                            dsattributes.kDSNAttrRecordType,
+                            dsattributes.kDS1AttrDistinguishedName,
+                            dsattributes.kDS1AttrFirstName,
+                            dsattributes.kDS1AttrLastName,
+                            dsattributes.kDSNAttrEMailAddress,
+                            dsattributes.kDSNAttrMetaNodeLocation,
+                            dsattributes.kDSNAttrGroupMembers,
+                            dsattributes.kDSNAttrNestedGroups,
+                        ]
+                    )
+                )
             return succeed(collectResults(results))
         else:
             return succeed([])
@@ -743,7 +788,7 @@ class OpenDirectoryService(CachingDirectoryService):
         def collectResults(results):
             self.log.debug("Got back %d records from OD" % (len(results),))
             for key, value in results:
-                self.log.debug("OD result: %s %s" % (key, value))
+                # self.log.debug("OD result: {key} {value}", key=key, value=value)
                 try:
                     recordNodeName = value.get(
                         dsattributes.kDSNAttrMetaNodeLocation)
@@ -1298,7 +1343,7 @@ def buildQueries(recordTypes, fields, mapping):
 
 
 
-def buildQueriesFromTokens(tokens, mapping):
+def buildLocalQueriesFromTokens(tokens, mapping):
     """
     OD /Local doesn't support nested complex queries, so create a list of
     complex queries that will be ANDed together in recordsMatchingTokens()
@@ -1329,6 +1374,37 @@ def buildQueriesFromTokens(tokens, mapping):
         results.append(dsquery.expression(dsquery.expression.OR, queries))
     return results
 
+
+def buildNestedQueryFromTokens(tokens, mapping):
+    """
+    Build a DS query espression such that all the tokens must appear in either
+    the fullName (anywhere) or emailAddresses (at the beginning).
+    
+    @param tokens: The tokens to search on
+    @type tokens: C{list} of C{str}
+    @param mapping: The mapping of DirectoryRecord attributes to OD attributes
+    @type mapping: C{dict}
+    @return: The nested expression object
+    @type: dsquery.expression
+    """
+
+    if len(tokens) == 0:
+        return None
+
+    fields = [
+        ("fullName", dsattributes.eDSContains),
+        ("emailAddresses", dsattributes.eDSStartsWith),
+    ]
+
+    outer = []
+    for token in tokens:
+        inner = []
+        for field, comparison in fields:
+            ODField = mapping[field]['odField']
+            query = dsquery.match(ODField, token, comparison)
+            inner.append(query)
+        outer.append(dsquery.expression(dsquery.expression.OR, inner))
+    return dsquery.expression(dsquery.expression.AND, outer)
 
 
 class OpenDirectoryRecord(CachingDirectoryRecord):

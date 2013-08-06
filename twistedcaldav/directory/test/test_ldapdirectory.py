@@ -264,7 +264,7 @@ else:
             ]
             for entry in entries:
                 self.assertEquals(
-                    buildFilterFromTokens(entry["mapping"], entry["tokens"]),
+                    buildFilterFromTokens(None, entry["mapping"], entry["tokens"]),
                     entry["expected"]
                 )
 

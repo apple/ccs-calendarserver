@@ -15,7 +15,8 @@
 ##
 
 from twistedcaldav.test.util import TestCase
-from twistedcaldav.directory.appleopendirectory import buildQueries, buildQueriesFromTokens, OpenDirectoryService
+from twistedcaldav.directory.appleopendirectory import (buildQueries,
+    buildLocalQueriesFromTokens, OpenDirectoryService, buildNestedQueryFromTokens)
 from calendarserver.platform.darwin.od import dsattributes
 
 class BuildQueryTests(TestCase):
@@ -104,17 +105,21 @@ class BuildQueryTests(TestCase):
             }
         )
 
-    def test_buildQueryFromTokens(self):
-        results = buildQueriesFromTokens([], OpenDirectoryService._ODFields)
+
+    def test_buildLocalQueryFromTokens(self):
+        """
+        Verify the generating of the simpler queries passed to /Local/Default
+        """
+        results = buildLocalQueriesFromTokens([], OpenDirectoryService._ODFields)
         self.assertEquals(results, None)
 
-        results = buildQueriesFromTokens(["foo"], OpenDirectoryService._ODFields)
+        results = buildLocalQueriesFromTokens(["foo"], OpenDirectoryService._ODFields)
         self.assertEquals(
             results[0].generate(),
             "(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*))"
         )
 
-        results = buildQueriesFromTokens(["foo", "bar"], OpenDirectoryService._ODFields)
+        results = buildLocalQueriesFromTokens(["foo", "bar"], OpenDirectoryService._ODFields)
         self.assertEquals(
             results[0].generate(),
             "(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*))"
@@ -122,4 +127,30 @@ class BuildQueryTests(TestCase):
         self.assertEquals(
             results[1].generate(),
             "(|(dsAttrTypeStandard:RealName=*bar*)(dsAttrTypeStandard:EMailAddress=bar*))"
+        )
+
+
+    def test_buildNestedQueryFromTokens(self):
+        """
+        Verify the generating of the complex nested queries
+        """
+        query = buildNestedQueryFromTokens([], OpenDirectoryService._ODFields)
+        self.assertEquals(query, None)
+
+        query = buildNestedQueryFromTokens(["foo"], OpenDirectoryService._ODFields)
+        self.assertEquals(
+            query.generate(),
+            "(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*))"
+        )
+
+        query = buildNestedQueryFromTokens(["foo", "bar"], OpenDirectoryService._ODFields)
+        self.assertEquals(
+            query.generate(),
+            "(&(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*))(|(dsAttrTypeStandard:RealName=*bar*)(dsAttrTypeStandard:EMailAddress=bar*)))"
+        )
+
+        query = buildNestedQueryFromTokens(["foo", "bar", "baz"], OpenDirectoryService._ODFields)
+        self.assertEquals(
+            query.generate(),
+            "(&(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*))(|(dsAttrTypeStandard:RealName=*bar*)(dsAttrTypeStandard:EMailAddress=bar*))(|(dsAttrTypeStandard:RealName=*baz*)(dsAttrTypeStandard:EMailAddress=baz*)))"
         )
