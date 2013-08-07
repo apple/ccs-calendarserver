@@ -137,8 +137,23 @@ def main():
     writable = WritableConfig(config, writeConfigFileName)
     writable.read()
 
+    processArgs(writable, args)
+
+
+def processArgs(writable, args, restart=True):
+    """
+    Perform the read/write operations requested in the command line args.
+    If there are no args, stdin is read, and plist-formatted commands are
+    processed from there.
+    @param writable: the WritableConfig
+    @param args: a list of utf-8 encoded strings
+    @param restart: whether to restart the calendar server after making a
+        config change.
+    """
     if args:
         for configKey in args:
+            # args come in as utf-8 encoded strings
+            configKey = configKey.decode("utf-8")
 
             if "=" in configKey:
                 # This is an assignment
@@ -153,9 +168,9 @@ def main():
                     if c is None:
                         sys.stderr.write("No such config key: %s\n" % configKey)
                         break
-                sys.stdout.write("%s=%s\n" % (configKey, c))
+                sys.stdout.write("%s=%s\n" % (configKey.encode("utf-8"), c))
 
-        writable.save(restart=True)
+        writable.save(restart=restart)
 
     else:
         # Read plist commands from stdin
