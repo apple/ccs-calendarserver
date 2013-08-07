@@ -268,6 +268,9 @@ class SharedResourceMixin(object):
 
     @inlineCallbacks
     def removeShareeResource(self, request):
+        """
+        Called when the sharee DELETEs a shared collection.
+        """
 
         sharee = self.principalForUID(self._share.shareeUID())
 
@@ -616,7 +619,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def inviteSingleUserToShare(self, userid, cn, ace, summary, request):  #@UnusedVariable
+    def inviteSingleUserToShare(self, userid, cn, ace, summary, request): #@UnusedVariable
 
         # We currently only handle local users
         sharee = self.principalForCalendarUserAddress(userid)
@@ -642,7 +645,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def uninviteSingleUserFromShare(self, userid, aces, request):  #@UnusedVariable
+    def uninviteSingleUserFromShare(self, userid, aces, request): #@UnusedVariable
         # Cancel invites - we'll just use whatever userid we are given
 
         sharee = self.principalForCalendarUserAddress(userid)
@@ -667,19 +670,23 @@ class SharedResourceMixin(object):
         sharee = self.principalForUID(invitation.shareeUID())
         if sharee:
             previousInvitationStatus = invitation.status()
+            displayName = None
             if self.isCalendarCollection():
                 shareeHomeResource = yield sharee.calendarHome(request)
-                displayName = yield shareeHomeResource.removeShareByUID(request, invitation.uid())
+                if shareeHomeResource is not None:
+                    displayName = yield shareeHomeResource.removeShareByUID(request, invitation.uid())
             elif self.isAddressBookCollection() or self.isGroup():
                 shareeHomeResource = yield sharee.addressBookHome(request)
-                yield shareeHomeResource.removeShareByUID(request, invitation.uid())
-                displayName = None
+                if shareeHomeResource is not None:
+                    yield shareeHomeResource.removeShareByUID(request, invitation.uid())
+
             # If current user state is accepted then we send an invite with the new state, otherwise
             # we cancel any existing invites for the user
-            if previousInvitationStatus != _BIND_STATUS_ACCEPTED:
-                yield self.removeInviteNotification(invitation, request)
-            else:
-                yield self.sendInviteNotification(invitation, request, displayName=displayName, notificationState="DELETED")
+            if shareeHomeResource is not None:
+                if previousInvitationStatus != _BIND_STATUS_ACCEPTED:
+                    yield self.removeInviteNotification(invitation, request)
+                else:
+                    yield self.sendInviteNotification(invitation, request, displayName=displayName, notificationState="DELETED")
 
         # Direct shares for  with valid sharee principal will already be deleted
         yield self._newStoreObject.unshareWithUID(invitation.shareeUID())
@@ -687,7 +694,7 @@ class SharedResourceMixin(object):
         returnValue(True)
 
 
-    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request):  #@UnusedVariable
+    def inviteSingleUserUpdateToShare(self, userid, commonName, acesOLD, aceNEW, summary, request): #@UnusedVariable
 
         # Just update existing
         return self.inviteSingleUserToShare(userid, commonName, aceNEW, summary, request)
@@ -1110,7 +1117,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
     @inlineCallbacks
     def acceptInviteShare(self, request, hostUrl, inviteUID, displayname=None):
-
 
         # Check for old share
         oldShare = yield self._shareForUID(inviteUID, request)
