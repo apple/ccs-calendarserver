@@ -17,6 +17,7 @@
 from twext.python.log import Logger
 
 from txdav.caldav.datastore.scheduling.delivery import DeliveryService
+from txdav.caldav.datastore.scheduling.utils import extractEmailDomain
 
 __all__ = [
     "LocalCalendarUser",
@@ -92,8 +93,7 @@ class RemoteCalendarUser(CalendarUser):
 
     def extractDomain(self):
         if self.cuaddr.startswith("mailto:"):
-            splits = self.cuaddr[7:].split("?")
-            self.domain = splits[0].split("@")[1]
+            self.domain = extractEmailDomain(self.cuaddr)
         elif self.cuaddr.startswith("http://") or self.cuaddr.startswith("https://"):
             splits = self.cuaddr.split(":")[1][2:].split("/")
             self.domain = splits[0]

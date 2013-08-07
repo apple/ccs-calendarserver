@@ -51,6 +51,7 @@ from txdav.caldav.datastore.scheduling.ischedule.xml import ScheduleResponse, Re
     RequestStatus, Recipient, ischedule_namespace, CalendarData, \
     ResponseDescription, Error
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
+from txdav.caldav.datastore.scheduling.utils import extractEmailDomain
 from txdav.caldav.datastore.util import normalizationLookup
 
 from urlparse import urlsplit
@@ -85,7 +86,7 @@ class ScheduleViaISchedule(DeliveryService):
 
         # Only handle mailtos:
         if cuaddr.lower().startswith("mailto:"):
-            _ignore_local, domain = cuaddr[7:].split("@", 1)
+            domain = extractEmailDomain(cuaddr)
             server = (yield cls.serverForDomain(domain))
             returnValue(server is not None)
 

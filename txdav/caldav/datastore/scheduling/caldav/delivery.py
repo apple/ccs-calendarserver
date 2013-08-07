@@ -25,18 +25,19 @@ from twext.web2.http import HTTPError
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 
+from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser, \
     PartitionedCalendarUser, OtherServerCalendarUser
 from txdav.caldav.datastore.scheduling.delivery import DeliveryService
+from txdav.caldav.datastore.scheduling.freebusy import processAvailabilityFreeBusy, \
+    generateFreeBusyInfo, buildFreeBusyResult
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor, ImplicitProcessorException
+from txdav.caldav.datastore.scheduling.utils import extractEmailDomain
+from txdav.caldav.icalendarstore import ComponentUpdateState
 
 import hashlib
 import uuid
-from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.icalendarstore import ComponentUpdateState
-from txdav.caldav.datastore.scheduling.freebusy import processAvailabilityFreeBusy, \
-    generateFreeBusyInfo, buildFreeBusyResult
 
 
 """
@@ -71,9 +72,8 @@ class ScheduleViaCalDAV(DeliveryService):
 
         # Check for local address matches first
         if cuaddr.startswith("mailto:") and config.Scheduling[cls.serviceType()]["EmailDomain"]:
-            addr = cuaddr[7:].split("?")[0]
+            addrDomain = extractEmailDomain(cuaddr)
             domain = config.Scheduling[cls.serviceType()]["EmailDomain"]
-            _ignore_account, addrDomain = addr.split("@")
             if addrDomain == domain:
                 return succeed(True)
 

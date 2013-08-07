@@ -39,3 +39,7 @@ class CalDAV (twistedcaldav.test.util.TestCase):
         self.assertFalse(result)
         result = yield ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@xyzexample.com")
         self.assertFalse(result)
+        result = yield ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@xyzexample.com?subject=foobar")
+        self.assertFalse(result)
+        result = yield ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user")
+        self.assertFalse(result)

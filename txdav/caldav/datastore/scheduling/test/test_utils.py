@@ -23,7 +23,8 @@ from pycalendar.datetime import PyCalendarDateTime
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
 
-from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
+from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord, \
+    extractEmailDomain
 from txdav.caldav.datastore.test.util import buildCalendarStore, \
     buildDirectoryRecord
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
@@ -180,3 +181,20 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         resource3 = (yield self.calendarObjectUnderTest(txn, name="3.ics", calendar_name="calendar3", home="user02"))
         self.assertTrue((resource2 is not None) ^ (resource3 is not None))
         yield self.commit()
+
+
+    def test_extractEmailDomain(self):
+        """
+        Test that L{extractEmailDomain} returns the expected results.
+        """
+
+        data = (
+            ("mailto:foo@example.com", "example.com"),
+            ("mailto:foo@example.com?subject=bar", "example.com"),
+            ("mailto:foo", ""),
+            ("mailto:foo@", ""),
+            ("http://foobar.com", ""),
+        )
+
+        for mailto, domain in data:
+            self.assertEqual(extractEmailDomain(mailto), domain)
