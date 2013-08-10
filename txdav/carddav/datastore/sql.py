@@ -1340,34 +1340,28 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                     self._txn, groupIDs=readWriteObjectIDs
                 )
 
-            yield self._changeAddressBookRevision(self.ownerHome().addressbook())
+        aboMembers = schema.ABO_MEMBERS
+        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
 
-            # FIXME: drop though here and actually delete
-        else: # owned or fully shared
-            # delete members table rows for this object,...
-            aboMembers = schema.ABO_MEMBERS
-            aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
+        groupIDRows = yield Delete(
+            aboMembers,
+            Where=aboMembers.MEMBER_ID == self._resourceID,
+            Return=aboMembers.GROUP_ID
+        ).on(self._txn)
 
-            groupIDRows = yield Delete(
-                aboMembers,
-                Where=aboMembers.MEMBER_ID == self._resourceID,
-                Return=aboMembers.GROUP_ID
+        # add to foreign member table row by UID (aboForeignMembers on address books)
+        memberAddress = "urn:uuid:" + self._uid
+        for groupID in set([groupIDRow[0] for groupIDRow in groupIDRows]) - set([self._ownerAddressBookResourceID]):
+            yield Insert(
+                {aboForeignMembers.GROUP_ID: groupID,
+                 aboForeignMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
+                 aboForeignMembers.MEMBER_ADDRESS: memberAddress, }
             ).on(self._txn)
 
-            # add to foreign member table row by UID
-            memberAddress = "urn:uuid:" + self._uid
-            for groupID in [groupIDRow[0] for groupIDRow in groupIDRows]:
-                if groupID != self._ownerAddressBookResourceID:  # no aboForeignMembers on address books
-                    yield Insert(
-                        {aboForeignMembers.GROUP_ID: groupID,
-                         aboForeignMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
-                         aboForeignMembers.MEMBER_ADDRESS: memberAddress, }
-                    ).on(self._txn)
-
-            yield super(AddressBookObject, self).remove()
-            self._kind = None
-            self._ownerAddressBookResourceID = None
-            self._component = None
+        yield super(AddressBookObject, self).remove()
+        self._kind = None
+        self._ownerAddressBookResourceID = None
+        self._component = None
 
 
     @inlineCallbacks
