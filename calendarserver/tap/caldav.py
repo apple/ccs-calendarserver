@@ -107,7 +107,6 @@ from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
-from calendarserver.tools.agent import makeAgentService
 
 try:
     from calendarserver.version import version
@@ -1260,6 +1259,7 @@ class CalDAVServiceMaker (object):
         config.EnableCalDAV = config.EnableCardDAV = True
 
         def agentServiceCreator(pool, store, ignored, storageService):
+            from calendarserver.tools.agent import makeAgentService
             if storageService is not None:
                 # Shut down if DataRoot becomes unavailable
                 from twisted.internet import reactor
@@ -1409,12 +1409,12 @@ class CalDAVServiceMaker (object):
                 return pgserv
             elif config.DBType == 'postgres':
                 # Connect to a postgres database that is already running.
-                return createSubServiceFactory()(pgConnectorFromConfig(config))
+                return createSubServiceFactory()(pgConnectorFromConfig(config), None)
             elif config.DBType == 'oracle':
                 # Connect to an Oracle database that is already running.
                 return createSubServiceFactory(dialect=ORACLE_DIALECT,
                                                paramstyle='numeric')(
-                    oracleConnectorFromConfig(config)
+                    oracleConnectorFromConfig(config), None
                 )
             else:
                 raise UsageError("Unknown database type %r" (config.DBType,))
