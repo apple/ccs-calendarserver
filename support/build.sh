@@ -112,13 +112,13 @@ init_build () {
     md5 () { "$(type -p md5sum)" "$@"; }
   fi;
 
-  if type -ft shasum > /dev/null; then
-    if [ -z "${hash}" ]; then hash="sha1"; fi;
-    sha1 () { "$(type -p shasum)" "$@"; }
-  fi;
   if type -ft sha1sum > /dev/null; then
     if [ -z "${hash}" ]; then hash="sha1sum"; fi;
     sha1 () { "$(type -p sha1sum)" "$@"; }
+  fi;
+  if type -ft shasum > /dev/null; then
+    if [ -z "${hash}" ]; then hash="sha1"; fi;
+    sha1 () { "$(type -p shasum)" "$@"; }
   fi;
 
   if [ "${hash}" == "sha1" ]; then
