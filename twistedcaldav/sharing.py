@@ -496,10 +496,11 @@ class SharedCollectionMixin(object):
         """
         #assert request
         invitations = yield self._allInvitations()
-        for invitation in invitations:
-            if invitation.status() != _BIND_STATUS_INVALID:
-                if not (yield self.validUserIDForShare("urn:uuid:" + invitation.shareeUID(), request)):
-                    yield self._updateInvitation(invitation, status=_BIND_STATUS_INVALID)
+        # FIXME: temporarily disable this to deal with flaky directory
+        #for invitation in invitations:
+        #    if invitation.status() != _BIND_STATUS_INVALID:
+        #        if not (yield self.validUserIDForShare("urn:uuid:" + invitation.shareeUID(), request)):
+        #            yield self._updateInvitation(invitation, status=_BIND_STATUS_INVALID)
 
         returnValue(invitations)
 
