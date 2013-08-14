@@ -589,8 +589,8 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
             self._groupForSharedAddressBookName(),  # obj.RESOURCE_NAME, shared name is UID and thus avoids collisions
             self._groupForSharedAddressBookUID(),  # obj.UID, shared name is uuid
             _ABO_KIND_GROUP,  # obj.KIND,
-            "1",  # obj.MD5, unused
-            "1",  # Len(obj.TEXT), unused
+            "1",  # obj.MD5, non-zero temporary value; set to correct value when known
+            "1",  # Len(obj.TEXT), non-zero temporary value; set to correct value when known
             self._created,  # obj.CREATED,
             self._modified,  # obj.CREATED,
         ]
@@ -611,7 +611,7 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         fn = n
         uid = self._groupForSharedAddressBookUID()
 
-        #  store bridge should substitute principal name and full name
+        #  storebridge should substitute principal name and full name
         #      owner = yield CalDAVResource.principalForUID(self.ownerHome().uid())
         #      n = owner.name()
         #      fn = owner.displayName()

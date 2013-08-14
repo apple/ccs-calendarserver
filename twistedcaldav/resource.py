@@ -1125,9 +1125,7 @@ class CalDAVResource (
             result.append(element.Report(carddavxml.AddressBookMultiGet(),))
         if (
             self.isPseudoCalendarCollection() or
-            (self.isAddressBookCollection()
-                and not self.isShareeResource()) # TEMP:  Disable sync report in shared address books
-                or
+            self.isAddressBookCollection() or
             self.isNotificationCollection()
         ) and config.EnableSyncReport:
             # Only allowed on calendar/inbox/addressbook/notification collections
@@ -2691,22 +2689,6 @@ class AddressBookHomeResource (CommonHomeResource):
         self.http_MKCOL = None
         self.http_MKCALENDAR = None
 
-
-    @inlineCallbacks
-    def report_DAV__sync_collection(self, request, sync_collection):
-        """
-        Generate a sync-collection REPORT.
-        """
-        # not supported on shared addressbooks
-        if len((yield self._newStoreHome.listChildren())) > 1:
-            self.log.error("sync-collection report is not allowed on address book homes containing shared address books: %s" % (self,))
-            raise HTTPError(ErrorResponse(
-                responsecode.FORBIDDEN,
-                element.SupportedReport(),
-                "Report not supported on this resource",
-            ))
-
-        returnValue((yield super(AddressBookHomeResource, self).report_DAV__sync_collection(request, sync_collection)))
 
     @classmethod
     @inlineCallbacks
