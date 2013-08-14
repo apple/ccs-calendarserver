@@ -1106,8 +1106,9 @@ class LdapDirectoryService(CachingDirectoryService):
             typeCounts[recordType] = 0
             base = self.typeDNs[recordType]
             scope = ldap.SCOPE_SUBTREE
+            extraFilter = self.rdnSchema[recordType]["filter"]
             filterstr = buildFilterFromTokens(recordType, self.rdnSchema[recordType]["mapping"],
-                tokens)
+                tokens, extra=extraFilter)
 
             if filterstr is not None:
                 # Query the LDAP server
@@ -1428,7 +1429,7 @@ def buildFilter(recordType, mapping, fields, operand="or", optimizeMultiName=Fal
     return filterstr
 
 
-def buildFilterFromTokens(recordType, mapping, tokens):
+def buildFilterFromTokens(recordType, mapping, tokens, extra=None):
     """
     Create an LDAP filter string from a list of query tokens.  Each token is
     searched for in each LDAP attribute corresponding to "fullName" and
@@ -1439,6 +1440,8 @@ def buildFilterFromTokens(recordType, mapping, tokens):
     @type mapping: C{dict}
     @param tokens: The list of tokens to search for
     @type tokens: C{list}
+    @param extra: Extra filter to "and" into the final filter
+    @type extra: C{str} or None
     @return: An LDAP filterstr
     @rtype: C{str}
     """
@@ -1467,6 +1470,8 @@ def buildFilterFromTokens(recordType, mapping, tokens):
         return None
 
     tokenFragments = []
+    if extra:
+        tokenFragments.append(extra)
 
     for token in tokens:
         fragments = []

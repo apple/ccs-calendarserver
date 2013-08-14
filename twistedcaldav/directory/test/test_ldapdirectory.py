@@ -207,7 +207,8 @@ else:
                         "fullName" : "cn",
                         "emailAddresses" : "mail",
                     },
-                    "expected" : "(|(cn=*foo*)(mail=foo*))",
+                    "expected" : "(&(a=b)(|(cn=*foo*)(mail=foo*)))",
+                    "extra" : "(a=b)",
                 },
                 {
                     "tokens" : ["foo"],
@@ -215,7 +216,8 @@ else:
                         "fullName" : "cn",
                         "emailAddresses" : ["mail", "mailAliases"],
                     },
-                    "expected" : "(|(cn=*foo*)(mail=foo*)(mailAliases=foo*))",
+                    "expected" : "(&(a=b)(|(cn=*foo*)(mail=foo*)(mailAliases=foo*)))",
+                    "extra" : "(a=b)",
                 },
                 {
                     "tokens" : [],
@@ -224,11 +226,13 @@ else:
                         "emailAddresses" : "mail",
                     },
                     "expected" : None,
+                    "extra" : None,
                 },
                 {
                     "tokens" : ["foo", "bar"],
                     "mapping" : { },
                     "expected" : None,
+                    "extra" : None,
                 },
                 {
                     "tokens" : ["foo", "bar"],
@@ -236,6 +240,7 @@ else:
                         "emailAddresses" : "mail",
                     },
                     "expected" : "(&(mail=foo*)(mail=bar*))",
+                    "extra" : None,
                 },
                 {
                     "tokens" : ["foo", "bar"],
@@ -244,6 +249,7 @@ else:
                         "emailAddresses" : "mail",
                     },
                     "expected" : "(&(|(cn=*foo*)(mail=foo*))(|(cn=*bar*)(mail=bar*)))",
+                    "extra" : None,
                 },
                 {
                     "tokens" : ["foo", "bar"],
@@ -252,6 +258,7 @@ else:
                         "emailAddresses" : ["mail", "mailAliases"],
                     },
                     "expected" : "(&(|(cn=*foo*)(mail=foo*)(mailAliases=foo*))(|(cn=*bar*)(mail=bar*)(mailAliases=bar*)))",
+                    "extra" : None,
                 },
                 {
                     "tokens" : ["foo", "bar", "baz("],
@@ -260,11 +267,12 @@ else:
                         "emailAddresses" : "mail",
                     },
                     "expected" : "(&(|(cn=*foo*)(mail=foo*))(|(cn=*bar*)(mail=bar*))(|(cn=*baz\\28*)(mail=baz\\28*)))",
+                    "extra" : None,
                 },
             ]
             for entry in entries:
                 self.assertEquals(
-                    buildFilterFromTokens(None, entry["mapping"], entry["tokens"]),
+                    buildFilterFromTokens(None, entry["mapping"], entry["tokens"], extra=entry["extra"]),
                     entry["expected"]
                 )
 
