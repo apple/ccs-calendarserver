@@ -752,8 +752,6 @@ class _CommonHomeChildCollectionMixin(object):
         crudDeleteInfo = []
         crudUpdateInfo = []
         crudCreateInfo = []
-        checkedBindPrivelege = None
-        checkedUnbindPrivelege = None
         for index, xmlchild in enumerate(xmlroot.children):
 
             # Determine the multiput operation: create, update, delete
@@ -864,7 +862,7 @@ class _CommonHomeChildCollectionMixin(object):
                 if ifmatch and ifmatch != etag.generate():
                     raise HTTPError(PRECONDITION_FAILED)
 
-                yield self.storeResourceData(updateResource, component, componentdata)
+                changedData = yield self.storeResourceData(updateResource, component, componentdata)
 
             except HTTPError, e:
                 # Extract the pre-condition
@@ -877,7 +875,7 @@ class _CommonHomeChildCollectionMixin(object):
                 code = BAD_REQUEST
 
             if code is None:
-                if not return_changed or dataChanged is None:
+                if not return_changed or changedData is None:
                     xmlresponses[index] = davxml.PropertyStatusResponse(
                         davxml.HRef.fromString(href),
                         davxml.PropertyStatus(
