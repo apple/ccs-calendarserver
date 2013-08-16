@@ -728,7 +728,7 @@ class SharingTests(StoreTestCase):
                 davxml.HRef.fromString("urn:uuid:user02"),
                 customxml.CommonName.fromString("user02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
-                customxml.InviteStatusInvalid(),
+                customxml.InviteStatusNoResponse(),
             )
         ))
 
