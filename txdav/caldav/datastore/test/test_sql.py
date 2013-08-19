@@ -444,7 +444,7 @@ END:VCALENDAR
         )
         yield migrateHome(fromHome, toHome, lambda x: x.component())
         toCalendars = yield toHome.calendars()
-        self.assertEquals(set([c.name() for c in toCalendars]),
+        self.assertEquals(set([c.name() for c in toCalendars if c.name() != "inbox"]),
                           set([k for k in self.requirements['home1'].keys()
                                if self.requirements['home1'][k] is not None]))
         fromCalendars = yield fromHome.calendars()
@@ -474,7 +474,7 @@ END:VCALENDAR
             )
 
         supported_components = set()
-        self.assertEqual(len(toCalendars), 3)
+        self.assertEqual(len(toCalendars), 4)
         for calendar in toCalendars:
             if calendar.name() == "inbox":
                 continue
@@ -502,7 +502,7 @@ END:VCALENDAR
             )
 
         supported_components = set()
-        self.assertEqual(len(toCalendars), 2)
+        self.assertEqual(len(toCalendars), 3)
         for calendar in toCalendars:
             if calendar.name() == "inbox":
                 continue
