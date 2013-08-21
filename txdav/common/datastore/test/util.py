@@ -32,7 +32,7 @@ from calendarserver.push.notifier import Notifier
 
 from hashlib import md5
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from random import Random
 
@@ -480,7 +480,7 @@ def updateToCurrentYear(data):
     Update the supplied iCalendar data so that all dates are updated to the current year.
     """
 
-    nowYear = PyCalendarDateTime.getToday().getYear()
+    nowYear = DateTime.getToday().getYear()
     return data % {"now": nowYear}
 
 

@@ -89,10 +89,10 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
     InvalidResourceMove, InvalidComponentForStoreError
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
-from pycalendar.timezone import PyCalendarTimezone
-from pycalendar.value import PyCalendarValue
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
+from pycalendar.timezone import Timezone
+from pycalendar.value import Value
 
 from zope.interface.declarations import implements
 
@@ -2243,7 +2243,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 # When there is no master we have a set of overridden components -
                 #   index them all.
                 # When there is one instance - index it.
-                expand = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+                expand = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
                 doInstanceIndexing = True
             else:
 
@@ -2255,8 +2255,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 # by default.  This is a caching parameter which affects the size of the index;
                 # it does not affect search results beyond this period, but it may affect
                 # performance of such a search.
-                expand = (PyCalendarDateTime.getToday() +
-                          PyCalendarDuration(days=config.FreeBusyIndexExpandAheadDays))
+                expand = (DateTime.getToday() +
+                          Duration(days=config.FreeBusyIndexExpandAheadDays))
 
                 if expand_until and expand_until > expand:
                     expand = expand_until
@@ -2273,12 +2273,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 # occurrences into some obscenely far-in-the-future date, so we cap the caching
                 # period.  Searches beyond this period will always be relatively expensive for
                 # resources with occurrences beyond this period.
-                if expand > (PyCalendarDateTime.getToday() +
-                             PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)):
+                if expand > (DateTime.getToday() +
+                             Duration(days=config.FreeBusyIndexExpandMaxDays)):
                     raise IndexedSearchException
 
             if config.FreeBusyIndexLowerLimitDays:
-                truncateLowerLimit = PyCalendarDateTime.getToday()
+                truncateLowerLimit = DateTime.getToday()
                 truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
             else:
                 truncateLowerLimit = None
@@ -2305,7 +2305,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if not doInstanceIndexing:
                 instances = None
                 recurrenceLowerLimit = None
-                recurrenceLimit = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+                recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
 
         co = schema.CALENDAR_OBJECT
         tr = schema.TIME_RANGE
@@ -2424,7 +2424,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         @param instances: the set of instances to add
         @type instances: L{InstanceList}
         @param truncateLowerLimit: the lower limit for instances
-        @type truncateLowerLimit: L{PyCalendarDateTime}
+        @type truncateLowerLimit: L{DateTime}
         @param isInboxItem: indicates if an inbox item
         @type isInboxItem: C{bool}
         @param txn: transaction to use
@@ -2453,8 +2453,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # For truncated items we insert a tomb stone lower bound so that a time-range
         # query with just an end bound will match
         if lowerLimitApplied or instances.lowerLimit and len(instances.instances) == 0:
-            start = PyCalendarDateTime(1901, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-            end = PyCalendarDateTime(1901, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            start = DateTime(1901, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+            end = DateTime(1901, 1, 1, 1, 0, 0, tzid=Timezone(utc=True))
             yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", isInboxItem, txn)
 
         # Special - for unbounded recurrence we insert a value for "infinity"
@@ -2462,8 +2462,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # We also need to add the "infinity" value if the event was bounded but
         # starts after the future expansion cut-off limit.
         if component.isRecurringUnbounded() or instances.limit and len(instances.instances) == 0:
-            start = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-            end = PyCalendarDateTime(2100, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            start = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+            end = DateTime(2100, 1, 1, 1, 0, 0, tzid=Timezone(utc=True))
             yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", isInboxItem, txn)
 
 
@@ -2650,7 +2650,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         Get the RECURRANCE_MIN, RECURRANCE_MAX value from the database. Occasionally we might need to do an
         update to time-range data via a separate transaction, so we allow that to be passed in.
 
-        @return: L{PyCalendarDateTime} result
+        @return: L{DateTime} result
         """
         # Setup appropriate txn
         txn = txn if txn is not None else self._txn
@@ -4272,7 +4272,7 @@ class ManagedAttachment(Attachment):
         """
         Return an iCalendar ATTACH property for this attachment.
         """
-        attach = Property("ATTACH", "", valuetype=PyCalendarValue.VALUETYPE_URI)
+        attach = Property("ATTACH", "", valuetype=Value.VALUETYPE_URI)
         location = (yield self.updateProperty(attach))
         returnValue((attach, location,))
 

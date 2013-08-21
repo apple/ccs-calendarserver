@@ -1004,6 +1004,7 @@ def extractCalendarServerPrincipalSearchData(doc):
     return tokens, context, applyTo, clientLimit, propElement
 
 
+
 def validateTokens(tokens):
     """
     Make sure there is at least one token longer than one character

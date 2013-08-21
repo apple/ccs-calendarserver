@@ -43,8 +43,8 @@ from twext.enterprise.dal.syntax import Parameter, Select
 from twext.python.clsprop import classproperty
 from twext.python.log import Logger
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
 
 log = Logger()
 
@@ -566,7 +566,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
             )
             if qualifiers is not None:
 
-                today = PyCalendarDateTime.getToday()
+                today = DateTime.getToday()
 
                 # Determine how far we need to extend the current expansion of
                 # events. If we have an open-ended time-range we will expand
@@ -578,11 +578,11 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                     maxDate = maxDate.duplicate()
                     maxDate.offsetDay(1)
                     maxDate.setDateOnly(True)
-                    upperLimit = today + PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)
+                    upperLimit = today + Duration(days=config.FreeBusyIndexExpandMaxDays)
                     if maxDate > upperLimit:
                         raise TimeRangeUpperLimit(upperLimit)
                     if isStartDate:
-                        maxDate += PyCalendarDuration(days=365)
+                        maxDate += Duration(days=365)
 
                 # Determine if the start date is too early for the restricted range we
                 # are applying. If it is today or later we don't need to worry about truncation
@@ -591,7 +591,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                 if minDate >= today:
                     minDate = None
                 if minDate is not None and config.FreeBusyIndexLowerLimitDays:
-                    truncateLowerLimit = today - PyCalendarDuration(days=config.FreeBusyIndexLowerLimitDays)
+                    truncateLowerLimit = today - Duration(days=config.FreeBusyIndexLowerLimitDays)
                     if minDate < truncateLowerLimit:
                         raise TimeRangeLowerLimit(truncateLowerLimit)
 

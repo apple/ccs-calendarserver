@@ -54,11 +54,13 @@ class DirectoryTestCase (TestCase):
     # For aggregator subclasses
     recordTypePrefixes = ("",)
 
+
     def test_realm(self):
         """
         IDirectoryService.realm
         """
         self.failUnless(self.service().realmName)
+
 
     def test_recordTypes(self):
         """
@@ -69,15 +71,16 @@ class DirectoryTestCase (TestCase):
 
         self.assertEquals(set(self.service().recordTypes()), self.recordTypes)
 
+
     def test_recordWithShortName(self):
         """
         IDirectoryService.recordWithShortName()
         """
         for recordType, data in (
-            ( DirectoryService.recordType_users    , self.users     ),
-            ( DirectoryService.recordType_groups   , self.groups    ),
-            ( DirectoryService.recordType_locations, self.locations ),
-            ( DirectoryService.recordType_resources, self.resources ),
+            (DirectoryService.recordType_users    , self.users),
+            (DirectoryService.recordType_groups   , self.groups),
+            (DirectoryService.recordType_locations, self.locations),
+            (DirectoryService.recordType_resources, self.resources),
         ):
             if not data:
                 raise SkipTest("No %s" % (recordType,))
@@ -95,6 +98,7 @@ class DirectoryTestCase (TestCase):
                     continue
                 self.assertEquals(record, None)
 
+
     def test_recordWithUID(self):
         service = self.service()
         record = None
@@ -108,6 +112,7 @@ class DirectoryTestCase (TestCase):
         if record is None:
             raise SkipTest("No GUIDs provided to test")
 
+
     def test_recordWithCalendarUserAddress(self):
         service = self.service()
         record = None
@@ -119,6 +124,7 @@ class DirectoryTestCase (TestCase):
 
         if record is None:
             raise SkipTest("No calendar user addresses provided to test")
+
 
     def test_groupMembers(self):
         """
@@ -138,6 +144,7 @@ class DirectoryTestCase (TestCase):
                 "Wrong membership for group %r: %s != %s" % (group, result, expected)
             )
 
+
     def test_groupMemberships(self):
         """
         IDirectoryRecord.groups()
@@ -148,8 +155,8 @@ class DirectoryTestCase (TestCase):
             raise SkipTest("No groups")
 
         for recordType, data in (
-            ( DirectoryService.recordType_users , self.users  ),
-            ( DirectoryService.recordType_groups, self.groups ),
+            (DirectoryService.recordType_users , self.users),
+            (DirectoryService.recordType_groups, self.groups),
         ):
             service = self.service()
             for shortName, info in data.iteritems():
@@ -161,6 +168,7 @@ class DirectoryTestCase (TestCase):
                     result, expected,
                     "Wrong groups for %s %r: %s != %s" % (record.recordType, shortName, result, expected)
                 )
+
 
     def recordNames(self, recordType):
         service = self.service()
@@ -176,15 +184,17 @@ class DirectoryTestCase (TestCase):
 
         return names
 
+
     def allEntries(self):
         for data, _ignore_recordType in (
-            (self.users,     DirectoryService.recordType_users    ),
-            (self.groups,    DirectoryService.recordType_groups   ),
+            (self.users, DirectoryService.recordType_users),
+            (self.groups, DirectoryService.recordType_groups),
             (self.locations, DirectoryService.recordType_locations),
             (self.resources, DirectoryService.recordType_resources),
         ):
             for item in data.iteritems():
                 yield item
+
 
     def compare(self, record, shortName, data):
         def value(key):
@@ -217,12 +227,15 @@ class DirectoryTestCase (TestCase):
         if value("name"):
             self.assertEquals(record.fullName, value("name"))
 
+
     def servicePrefix(self):
         service = self.service()
         if hasattr(service, "recordTypePrefix"):
             return service.recordTypePrefix
         else:
             return ""
+
+
 
 class NonCachingTestCase (DirectoryTestCase):
 
@@ -235,6 +248,7 @@ class NonCachingTestCase (DirectoryTestCase):
 
         self.assertEquals(self.recordNames(DirectoryService.recordType_users), set(self.users.keys()))
 
+
     def test_listRecords_group(self):
         """
         IDirectoryService.listRecords(DirectoryService.recordType_groups)
@@ -243,6 +257,7 @@ class NonCachingTestCase (DirectoryTestCase):
             raise SkipTest("No groups")
 
         self.assertEquals(self.recordNames(DirectoryService.recordType_groups), set(self.groups.keys()))
+
 
     def test_listRecords_locations(self):
         """
@@ -253,6 +268,7 @@ class NonCachingTestCase (DirectoryTestCase):
 
         self.assertEquals(self.recordNames(DirectoryService.recordType_locations), set(self.locations.keys()))
 
+
     def test_listRecords_resources(self):
         """
         IDirectoryService.listRecords("resources")
@@ -261,6 +277,7 @@ class NonCachingTestCase (DirectoryTestCase):
             raise SkipTest("No resources")
 
         self.assertEquals(self.recordNames(DirectoryService.recordType_resources), set(self.resources.keys()))
+
 
 
 class BasicTestCase (DirectoryTestCase):
@@ -278,6 +295,8 @@ class BasicTestCase (DirectoryTestCase):
         for user in self.users:
             userRecord = service.recordWithShortName(DirectoryService.recordType_users, user)
             self.failUnless(userRecord.verifyCredentials(UsernamePassword(user, self.users[user]["password"])))
+
+
 
 # authRequest = {
 #    username="username",
@@ -350,6 +369,8 @@ class DigestTestCase (DirectoryTestCase):
                     self.failUnless(userRecord.verifyCredentials(credentials))
                 else:
                     self.failIf(userRecord.verifyCredentials(credentials))
+
+
 
 def maybeCommit(req):
     class JustForCleanup(object):

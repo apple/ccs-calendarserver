@@ -31,9 +31,9 @@ from twext.python.log import Logger
 from twext.web2.stream import IStream
 from twext.web2.dav.util import allDataFromStream
 
-from pycalendar.attribute import PyCalendarAttribute
-from pycalendar.componentbase import PyCalendarComponentBase
-from pycalendar.exceptions import PyCalendarError
+from pycalendar.parameter import Parameter
+from pycalendar.componentbase import ComponentBase
+from pycalendar.exceptions import ErrorBase
 from pycalendar.vcard.card import Card
 from pycalendar.vcard.property import Property as pyProperty
 
@@ -43,6 +43,8 @@ vCardProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
 
 class InvalidVCardDataError(ValueError):
     pass
+
+
 
 class Property (object):
     """
@@ -73,30 +75,54 @@ class Property (object):
             for attrname, attrvalue in params.items():
                 if isinstance(attrvalue, unicode):
                     attrvalue = attrvalue.encode("utf-8")
-                self._pycard.addAttribute(PyCalendarAttribute(attrname, attrvalue))
+                self._pycard.addParameter(Parameter(attrname, attrvalue))
 
-    def __str__ (self): return str(self._pycard)
-    def __repr__(self): return "<%s: %r: %r>" % (self.__class__.__name__, self.name(), self.value())
 
-    def __hash__(self): return hash(str(self))
+    def __str__(self):
+        return str(self._pycard)
 
-    def __ne__(self, other): return not self.__eq__(other)
+
+    def __repr__(self):
+        return "<%s: %r: %r>" % (self.__class__.__name__, self.name(), self.value())
+
+
+    def __hash__(self):
+        return hash(str(self))
+
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
     def __eq__(self, other):
-        if not isinstance(other, Property): return False
+        if not isinstance(other, Property):
+            return False
         return self._pycard == other._pycard
 
-    def __gt__(self, other): return not (self.__eq__(other) or self.__lt__(other))
+
+    def __gt__(self, other):
+        return not (self.__eq__(other) or self.__lt__(other))
+
+
     def __lt__(self, other):
         my_name = self.name()
         other_name = other.name()
 
-        if my_name < other_name: return True
-        if my_name > other_name: return False
+        if my_name < other_name:
+            return True
+        if my_name > other_name:
+            return False
 
         return self.value() < other.value()
 
-    def __ge__(self, other): return self.__eq__(other) or self.__gt__(other)
-    def __le__(self, other): return self.__eq__(other) or self.__lt__(other)
+
+    def __ge__(self, other):
+        return self.__eq__(other) or self.__gt__(other)
+
+
+    def __le__(self, other):
+        return self.__eq__(other) or self.__lt__(other)
+
 
     def duplicate(self):
         """
@@ -105,24 +131,33 @@ class Property (object):
         """
         return Property(None, None, params=None, pycard=self._pycard.duplicate())
 
-    def name  (self): return self._pycard.getName()
 
-    def value (self): return self._pycard.getValue().getValue()
+    def name(self):
+        return self._pycard.getName()
 
-    def strvalue (self): return str(self._pycard.getValue())
+
+    def value(self):
+        return self._pycard.getValue().getValue()
+
+
+    def strvalue(self):
+        return str(self._pycard.getValue())
+
 
     def setValue(self, value):
         self._pycard.setValue(value)
+
 
     def parameterNames(self):
         """
         Returns a set containing parameter names for this property.
         """
         result = set()
-        for pyattrlist in self._pycard.getAttributes().values():
+        for pyattrlist in self._pycard.getParameters().values():
             for pyattr in pyattrlist:
                 result.add(pyattr.getName())
         return result
+
 
     def parameterValue(self, name, default=None):
         """
@@ -130,9 +165,10 @@ class Property (object):
         InvalidICalendarDataError if the parameter has more than one value.
         """
         try:
-            return self._pycard.getAttributeValue(name)
+            return self._pycard.getParameterValue(name)
         except KeyError:
             return default
+
 
     def parameterValues(self, name):
         """
@@ -141,7 +177,7 @@ class Property (object):
         """
         results = []
         try:
-            attrs = self._pycard.getAttributes()[name.upper()]
+            attrs = self._pycard.getParameters()[name.upper()]
         except KeyError:
             return []
 
@@ -149,28 +185,33 @@ class Property (object):
             results.extend(attr.getValues())
         return results
 
+
     def hasParameter(self, paramname):
-        return self._pycard.hasAttribute(paramname)
+        return self._pycard.hasParameter(paramname)
+
 
     def setParameter(self, paramname, paramvalue):
-        self._pycard.replaceAttribute(PyCalendarAttribute(paramname, paramvalue))
+        self._pycard.replaceParameter(Parameter(paramname, paramvalue))
+
 
     def removeParameter(self, paramname):
-        self._pycard.removeAttributes(paramname)
+        self._pycard.removeParameters(paramname)
+
 
     def removeAllParameters(self):
-        self._pycard.setAttributes({})
+        self._pycard.setParameters({})
+
 
     def removeParameterValue(self, paramname, paramvalue):
 
         paramname = paramname.upper()
         for attrName in self.parameterNames():
             if attrName.upper() == paramname:
-                for attr in tuple(self._pycard.getAttributes()[attrName]):
+                for attr in tuple(self._pycard.getParameters()[attrName]):
                     for value in attr.getValues():
                         if value == paramvalue:
                             if not attr.removeValue(value):
-                                self._pycard.removeAttributes(paramname)
+                                self._pycard.removeParameters(paramname)
 
 
 
@@ -195,6 +236,7 @@ class Component (object):
 
         return clazz.allFromStream(StringIO.StringIO(string))
 
+
     @classmethod
     def allFromStream(clazz, stream):
         """
@@ -202,12 +244,13 @@ class Component (object):
         """
         try:
             results = Card.parseMultiple(stream)
-        except PyCalendarError:
+        except ErrorBase:
             results = None
         if not results:
             stream.seek(0)
             raise InvalidVCardDataError("%s" % (stream.read(),))
         return [clazz(None, pycard=result) for result in results]
+
 
     @classmethod
     def fromString(clazz, string):
@@ -229,6 +272,7 @@ class Component (object):
 
         return clazz.fromStream(StringIO.StringIO(string))
 
+
     @classmethod
     def fromStream(clazz, stream):
         """
@@ -240,12 +284,13 @@ class Component (object):
         cal = Card()
         try:
             result = cal.parse(stream)
-        except PyCalendarError:
+        except ErrorBase:
             result = None
         if not result:
             stream.seek(0)
             raise InvalidVCardDataError("%s" % (stream.read(),))
         return clazz(None, pycard=cal)
+
 
     @classmethod
     def fromIStream(clazz, stream):
@@ -261,8 +306,10 @@ class Component (object):
         #   A better solution would parse directly and incrementally from the
         #   request stream.
         #
-        def parse(data): return clazz.fromString(data)
+        def parse(data):
+            return clazz.fromString(data)
         return allDataFromStream(IStream(stream), parse)
+
 
     def __init__(self, name, **kwargs):
         """
@@ -277,8 +324,8 @@ class Component (object):
                 pyobj = kwargs["pycard"]
 
                 if pyobj is not None:
-                    if not isinstance(pyobj, PyCalendarComponentBase):
-                        raise TypeError("Not a PyCalendarComponentBase: %r" % (pyobj,))
+                    if not isinstance(pyobj, ComponentBase):
+                        raise TypeError("Not a ComponentBase: %r" % (pyobj,))
 
                 self._pycard = pyobj
             else:
@@ -302,27 +349,40 @@ class Component (object):
         else:
             raise ValueError("VCards have no child components")
 
-    def __str__ (self): return str(self._pycard)
-    def __repr__(self): return "<%s: %r>" % (self.__class__.__name__, str(self._pycard))
+
+    def __str__(self):
+        return str(self._pycard)
+
+
+    def __repr__(self):
+        return "<%s: %r>" % (self.__class__.__name__, str(self._pycard))
+
 
     def __hash__(self):
         return hash(str(self))
 
-    def __ne__(self, other): return not self.__eq__(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
     def __eq__(self, other):
         if not isinstance(other, Component):
             return False
         return self._pycard == other._pycard
 
+
     # FIXME: Should this not be in __eq__?
     def same(self, other):
         return self._pycard == other._pycard
+
 
     def name(self):
         """
         @return: the name of the iCalendar type of this component.
         """
         return self._pycard.getType()
+
 
     def duplicate(self):
         """
@@ -331,12 +391,14 @@ class Component (object):
         """
         return Component(None, pycard=self._pycard.duplicate())
 
+
     def hasProperty(self, name):
         """
         @param name: the name of the property whose existence is being tested.
         @return: True if the named property exists, False otherwise.
         """
         return self._pycard.hasProperty(name)
+
 
     def getProperty(self, name):
         """
@@ -346,9 +408,12 @@ class Component (object):
         @raise: L{ValueError} if there is more than one property of the given name.
         """
         properties = tuple(self.properties(name))
-        if len(properties) == 1: return properties[0]
-        if len(properties) > 1: raise InvalidVCardDataError("More than one %s property in component %r" % (name, self))
+        if len(properties) == 1:
+            return properties[0]
+        if len(properties) > 1:
+            raise InvalidVCardDataError("More than one %s property in component %r" % (name, self))
         return None
+
 
     def properties(self, name=None):
         """
@@ -368,6 +433,7 @@ class Component (object):
             for p in properties
         )
 
+
     def propertyValue(self, name):
         properties = tuple(self.properties(name))
         if len(properties) == 1:
@@ -385,6 +451,7 @@ class Component (object):
         self._pycard.addProperty(property._pycard)
         self._pycard.finalise()
 
+
     def removeProperty(self, property):
         """
         Remove a property from this component.
@@ -393,12 +460,14 @@ class Component (object):
         self._pycard.removeProperty(property._pycard)
         self._pycard.finalise()
 
+
     def removeProperties(self, name):
         """
         remove all properties with name
         @param name: the name of the properties to remove.
         """
         self._pycard.removeProperties(name)
+
 
     def replaceProperty(self, property):
         """
@@ -409,6 +478,7 @@ class Component (object):
         # Remove all existing ones first
         self._pycard.removeProperties(property.name())
         self.addProperty(property)
+
 
     def resourceUID(self):
         """
@@ -421,6 +491,7 @@ class Component (object):
 
         return self._resource_uid
 
+
     def resourceKind(self):
         """
         @return: the kind of the subcomponents in this component.
@@ -432,6 +503,7 @@ class Component (object):
 
         return self._resource_kind
 
+
     def resourceMemberAddresses(self):
         """
         @return: an iterable of X-ADDRESSBOOKSERVER-MEMBER property values
@@ -439,6 +511,7 @@ class Component (object):
         assert self.name() == "VCARD", "Not a vcard: %r" % (self,)
 
         return [prop.value() for prop in list(self.properties("X-ADDRESSBOOKSERVER-MEMBER"))]
+
 
     def validVCardData(self, doFix=True, doRaise=True):
         """
@@ -460,11 +533,13 @@ class Component (object):
 
         return fixed, unfixed
 
+
     def validForCardDAV(self):
         """
         @raise ValueError: if the given vcard data is not valid.
         """
-        if self.name() != "VCARD": raise InvalidVCardDataError("Not a vcard")
+        if self.name() != "VCARD":
+            raise InvalidVCardDataError("Not a vcard")
 
         version = self.propertyValue("VERSION")
         if version != "3.0":

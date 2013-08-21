@@ -47,16 +47,17 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource):
     case of a missing underlying resource (broken link) as indicated by self._linkedResource being None.
     """
     log = Logger()
-    
+
     def __init__(self, parent, link_url):
         self.parent = parent
         self.linkURL = link_url
         self.loopDetect = set()
         super(LinkResource, self).__init__(self.parent.principalCollections())
 
+
     @inlineCallbacks
     def linkedResource(self, request):
-        
+
         if not hasattr(self, "_linkedResource"):
             if self.linkURL in self.loopDetect:
                 raise HTTPError(StatusResponse(responsecode.LOOP_DETECTED, "Recursive link target: %s" % (self.linkURL,)))
@@ -67,17 +68,20 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource):
 
         if self._linkedResource is None:
             raise HTTPError(StatusResponse(responsecode.NOT_FOUND, "Missing link target: %s" % (self.linkURL,)))
-            
+
         returnValue(self._linkedResource)
+
 
     def isCollection(self):
         return True if hasattr(self, "_linkedResource") else False
 
+
     def resourceType(self):
         return self._linkedResource.resourceType() if hasattr(self, "_linkedResource") else davxml.ResourceType.link
-        
+
+
     def locateChild(self, request, segments):
-        
+
         def _defer(result):
             if result is None:
                 return (self, server.StopTraversal)
@@ -87,6 +91,7 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource):
         d.addCallback(_defer)
         return d
 
+
     @inlineCallbacks
     def renderHTTP(self, request):
         linked_to = (yield self.linkedResource(request))
@@ -95,8 +100,10 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource):
         else:
             returnValue(http.StatusResponse(responsecode.OK, "Link resource with missing target: %s" % (self.linkURL,)))
 
+
     def getChild(self, name):
         return self._linkedResource.getChild(name) if hasattr(self, "_linkedResource") else None
+
 
     @inlineCallbacks
     def hasProperty(self, property, request):
@@ -104,17 +111,21 @@ class LinkResource(CalDAVComplianceMixIn, WrapperResource):
         result = (yield hosted.hasProperty(property, request)) if hosted else False
         returnValue(result)
 
+
     @inlineCallbacks
     def readProperty(self, property, request):
         hosted = (yield self.linkedResource(request))
         result = (yield hosted.readProperty(property, request)) if hosted else None
         returnValue(result)
 
+
     @inlineCallbacks
     def writeProperty(self, property, request):
         hosted = (yield self.linkedResource(request))
         result = (yield hosted.writeProperty(property, request)) if hosted else None
         returnValue(result)
+
+
 
 class LinkFollowerMixIn(object):
 
@@ -128,6 +139,5 @@ class LinkFollowerMixIn(object):
             if linked_to is None:
                 break
             resource = linked_to
-        
+
         returnValue((resource, path))
-        

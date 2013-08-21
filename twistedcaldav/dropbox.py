@@ -44,11 +44,14 @@ class DropBoxHomeResource (DAVResource):
     def resourceType(self):
         return davxml.ResourceType.dropboxhome #@UndefinedVariable
 
+
     def isCollection(self):
         return True
 
+
     def http_PUT(self, request):
         return responsecode.FORBIDDEN
+
 
     @inlineCallbacks
     def accessControlList(self, request, *args, **kwargs):
@@ -57,7 +60,7 @@ class DropBoxHomeResource (DAVResource):
         """
 
         acl = (yield super(DropBoxHomeResource, self).accessControlList(request, *args, **kwargs))
-        
+
         if config.EnableProxyPrincipals:
             owner = (yield self.ownerPrincipal(request))
 
@@ -75,9 +78,11 @@ class DropBoxHomeResource (DAVResource):
             )
 
             returnValue(davxml.ACL(*newaces))
-        
+
         else:
             returnValue(acl)
+
+
 
 class DropBoxCollectionResource (DAVResource):
     """
@@ -99,7 +104,7 @@ class DropBoxCollectionResource (DAVResource):
         calendar collection have the same privileges unless explicitly overridden. The same applies
         to drop box collections as we want all resources (attachments) to have the same privileges as
         the drop box collection.
-        
+
         @param newaces: C{list} of L{ACE} for ACL being set.
         """
         # Add inheritable option to each ACE in the list

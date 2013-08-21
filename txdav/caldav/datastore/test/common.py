@@ -1338,7 +1338,7 @@ END:VCALENDAR
     @inlineCallbacks
     def test_iCalendarText(self):
         """
-        L{ICalendarObject.iCalendarText} returns a C{str} describing the same
+        L{ICalendarObject._text} returns a C{str} describing the same
         data provided by L{ICalendarObject.component}.
         """
         text = yield (yield self.calendarObjectUnderTest())._text()

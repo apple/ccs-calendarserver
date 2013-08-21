@@ -27,7 +27,7 @@ __all__ = [
 
 from cStringIO import StringIO
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twext.enterprise.dal.syntax import \
     Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction, \
@@ -1077,7 +1077,7 @@ class CommonStoreTransaction(object):
     def eventsOlderThan(self, cutoff, batchSize=None):
         """
         Return up to the oldest batchSize events which exist completely earlier
-        than "cutoff" (PyCalendarDateTime)
+        than "cutoff" (DateTime)
 
         Returns a deferred to a list of (uid, calendarName, eventName, maxDate)
         tuples.
@@ -1085,7 +1085,7 @@ class CommonStoreTransaction(object):
 
         # Make sure cut off is after any lower limit truncation in the DB
         if config.FreeBusyIndexLowerLimitDays:
-            truncateLowerLimit = PyCalendarDateTime.getToday()
+            truncateLowerLimit = DateTime.getToday()
             truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
             if cutoff < truncateLowerLimit:
                 raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))
@@ -1103,7 +1103,7 @@ class CommonStoreTransaction(object):
 
         # Make sure cut off is after any lower limit truncation in the DB
         if config.FreeBusyIndexLowerLimitDays:
-            truncateLowerLimit = PyCalendarDateTime.getToday()
+            truncateLowerLimit = DateTime.getToday()
             truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
             if cutoff < truncateLowerLimit:
                 raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))

@@ -18,7 +18,7 @@ from caldavclientlibrary.protocol.url import URL
 from caldavclientlibrary.protocol.webdav.definitions import davxml, statuscodes
 from contrib.performance.sqlusage.requests.httpTests import HTTPTestBase
 from twext.web2.dav.util import joinURL
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 from caldavclientlibrary.protocol.caldav.query import QueryVEVENTTimeRange
 from caldavclientlibrary.protocol.http.data.string import ResponseDataString
 
@@ -70,7 +70,7 @@ class QueryTest(HTTPTestBase):
         Do some setup prior to the real request.
         """
         # Add resources to create required number of changes
-        self.start = PyCalendarDateTime.getNowUTC()
+        self.start = DateTime.getNowUTC()
         self.start.setHHMMSS(12, 0, 0)
         self.end = self.start.duplicate()
         self.end.offsetHours(1)

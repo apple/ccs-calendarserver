@@ -14,8 +14,8 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 from twext.web2 import responsecode
 from twext.web2.dav.http import ErrorResponse
@@ -157,10 +157,10 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         """
 
         # Determine min/max date-time for iSchedule
-        now = PyCalendarDateTime.getNowUTC()
-        minDateTime = PyCalendarDateTime(now.getYear(), 1, 1, 0, 0, 0, PyCalendarTimezone(utc=True))
+        now = DateTime.getNowUTC()
+        minDateTime = DateTime(now.getYear(), 1, 1, 0, 0, 0, Timezone(utc=True))
         minDateTime.offsetYear(-1)
-        maxDateTime = PyCalendarDateTime(now.getYear(), 1, 1, 0, 0, 0, PyCalendarTimezone(utc=True))
+        maxDateTime = DateTime(now.getYear(), 1, 1, 0, 0, 0, Timezone(utc=True))
         maxDateTime.offsetYear(10)
 
         result = ischedulexml.QueryResult(

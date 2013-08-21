@@ -16,8 +16,8 @@
 
 from difflib import unified_diff
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.period import PyCalendarPeriod
+from pycalendar.datetime import DateTime
+from pycalendar.period import Period
 
 from twext.python.log import Logger
 
@@ -484,7 +484,7 @@ class iCalDiff(object):
 
             # If PARTSTAT was changed by the attendee, add a timestamp if needed
             if config.Scheduling.Options.TimestampAttendeePartStatChanges:
-                serverAttendee.setParameter("X-CALENDARSERVER-DTSTAMP", PyCalendarDateTime.getNowUTC().getText())
+                serverAttendee.setParameter("X-CALENDARSERVER-DTSTAMP", DateTime.getNowUTC().getText())
 
             replyNeeded = True
 
@@ -590,7 +590,7 @@ class iCalDiff(object):
             dtend = component.getProperty("DTEND")
             duration = component.getProperty("DURATION")
 
-            timeRange = PyCalendarPeriod(
+            timeRange = Period(
                 start=dtstart.value()  if dtstart  is not None else None,
                 end=dtend.value()    if dtend    is not None else None,
                 duration=duration.value() if duration is not None else None,
@@ -602,12 +602,12 @@ class iCalDiff(object):
             duration = component.getProperty("DURATION")
 
             if dtstart or duration:
-                timeRange = PyCalendarPeriod(
+                timeRange = Period(
                     start=dtstart.value()  if dtstart  is not None else None,
                     duration=duration.value() if duration is not None else None,
                 )
             else:
-                timeRange = PyCalendarPeriod()
+                timeRange = Period()
 
             newdue = component.getProperty("DUE")
             if newdue is not None:
@@ -627,7 +627,7 @@ class iCalDiff(object):
         rdates = component.properties("RDATE")
         for rdate in rdates:
             for value in rdate.value():
-                if isinstance(value, PyCalendarDateTime):
+                if isinstance(value, DateTime):
                     value = value.duplicate().adjustToUTC()
                 newrdates.add(value)
 

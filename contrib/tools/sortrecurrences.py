@@ -20,7 +20,7 @@ import getopt
 import os
 import sys
 import traceback
-from pycalendar.calendar import PyCalendar
+from pycalendar.icalendar.calendar import Calendar
 
 def usage(error_msg=None):
     if error_msg:
@@ -72,7 +72,7 @@ if __name__ == "__main__":
                 print("Path does not exist: '%s'. Ignoring." % (arg,))
                 continue
 
-            cal = PyCalendar()
+            cal = Calendar()
             cal.parse(open(arg))
             print(str(cal.serialize()))
 

@@ -46,7 +46,7 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.linkresource import LinkFollowerMixIn
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 
 # FIXME: Get rid of these imports
@@ -740,7 +740,7 @@ class SharedResourceMixin(object):
         typeAttr = {'shared-type': self.sharedResourceType()}
         xmltype = customxml.InviteNotification(**typeAttr)
         xmldata = customxml.Notification(
-            customxml.DTStamp.fromString(PyCalendarDateTime.getNowUTC().getText()),
+            customxml.DTStamp.fromString(DateTime.getNowUTC().getText()),
             customxml.InviteNotification(
                 customxml.UID.fromString(invitation.uid()),
                 element.HRef.fromString(userid),
@@ -1362,7 +1362,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         record = shareePrincipal.record
 
         xmldata = customxml.Notification(
-            customxml.DTStamp.fromString(PyCalendarDateTime.getNowUTC().getText()),
+            customxml.DTStamp.fromString(DateTime.getNowUTC().getText()),
             customxml.InviteReply(
                 *(
                     (

@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twext.python.clsprop import classproperty
 
@@ -45,7 +45,7 @@ class SchedulerFreeBusyRequest(CommonCommonTests, TestCase):
         self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
-        self.now = PyCalendarDateTime.getNowUTC()
+        self.now = DateTime.getNowUTC()
         self.now.setHHMMSS(0, 0, 0)
 
         self.now_12H = self.now.duplicate()

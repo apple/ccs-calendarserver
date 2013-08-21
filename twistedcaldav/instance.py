@@ -21,10 +21,10 @@ iCalendar Recurrence Expansion Utilities
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, differenceDateTime
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
-from pycalendar.period import PyCalendarPeriod
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
+from pycalendar.period import Period
+from pycalendar.timezone import Timezone
 
 class TooManyInstancesError(Exception):
 
@@ -80,7 +80,7 @@ class Instance(object):
             (trigger, related, repeat, duration) = alarm.getTriggerDetails()
 
             # Handle relative vs absolute triggers
-            if isinstance(trigger, PyCalendarDateTime):
+            if isinstance(trigger, DateTime):
                 # Absolute trigger
                 start = trigger
             else:
@@ -135,7 +135,7 @@ class InstanceList(object):
         @param componentSet: the set of components that are to make up the
                 recurrence set. These MUST all be components with the same UID
                 and type, forming a proper recurring set.
-        @param limit: L{PyCalendarDateTime} value representing the end of the expansion.
+        @param limit: L{DateTime} value representing the end of the expansion.
         """
 
         # Look at each component type
@@ -232,10 +232,10 @@ class InstanceList(object):
         if end is None:
             if not start.isDateOnly():
                 # Timed event with zero duration
-                duration = PyCalendarDuration(days=0)
+                duration = Duration(days=0)
             else:
                 # All day event default duration is one day
-                duration = PyCalendarDuration(days=1)
+                duration = Duration(days=1)
             end = start + duration
         else:
             duration = differenceDateTime(start, end)
@@ -248,7 +248,7 @@ class InstanceList(object):
         Add the specified master VEVENT Component to the instance list, expanding it
         within the supplied time range.
         @param component: the Component to expand
-        @param limit: the end L{PyCalendarDateTime} for expansion
+        @param limit: the end L{DateTime} for expansion
         """
 
         details = self._getMasterEventDetails(component)
@@ -330,7 +330,7 @@ class InstanceList(object):
         Add the specified master VTODO Component to the instance list, expanding it
         within the supplied time range.
         @param component: the Component to expand
-        @param limit: the end L{PyCalendarDateTime} for expansion
+        @param limit: the end L{DateTime} for expansion
         """
         details = self._getMasterToDoDetails(component)
         if details is None:
@@ -370,7 +370,7 @@ class InstanceList(object):
             # than the master DTSTART, and if we exclude those, the associated
             # overridden instances will cause an InvalidOverriddenInstance.
             limited = rrules.expand(rulestart,
-                PyCalendarPeriod(PyCalendarDateTime(1900, 1, 1), upperlimit), expanded)
+                Period(DateTime(1900, 1, 1), upperlimit), expanded)
             for startDate in expanded:
                 startDate = self.normalizeFunction(startDate)
                 endDate = startDate + duration
@@ -478,7 +478,7 @@ class InstanceList(object):
         Add the specified master VFREEBUSY Component to the instance list, expanding it
         within the supplied time range.
         @param component: the Component to expand
-        @param limit: the end L{PyCalendarDateTime} for expansion
+        @param limit: the end L{DateTime} for expansion
         """
 
         start = component.getStartDateUTC()
@@ -519,7 +519,7 @@ class InstanceList(object):
         depending on the presence of the properties. If unbounded at one or both ends, we will
         set the time to 1/1/1900 in the past and 1/1/3000 in the future.
         @param component: the Component to expand
-        @param limit: the end L{PyCalendarDateTime} for expansion
+        @param limit: the end L{DateTime} for expansion
         """
 
         start = component.getStartDateUTC()
@@ -531,7 +531,7 @@ class InstanceList(object):
             # If the availability is beyond the end of the range we want, ignore it
             return
         if start is None:
-            start = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            start = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         start = self.normalizeFunction(start)
 
         end = component.getEndDateUTC()
@@ -539,7 +539,7 @@ class InstanceList(object):
             # If the availability is before the start of the range we want, ignore it
             return
         if end is None:
-            end = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            end = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         end = self.normalizeFunction(end)
 
         self.addInstance(Instance(component, start, end))

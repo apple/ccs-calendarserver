@@ -14,8 +14,8 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.period import PyCalendarPeriod
+from pycalendar.datetime import DateTime
+from pycalendar.period import Period
 
 from twext.python.clsprop import classproperty
 
@@ -94,7 +94,7 @@ END:VCALENDAR
             (
                 "#1.3 With single busy time",
                 [
-                    [PyCalendarPeriod.parseText("20080601T120000Z/20080601T130000Z"), ],
+                    [Period.parseText("20080601T120000Z/20080601T130000Z"), ],
                     [],
                     [],
                 ],
@@ -120,8 +120,8 @@ END:VCALENDAR
                 "#1.4 With multiple busy time",
                 [
                     [
-                        PyCalendarPeriod.parseText("20080601T120000Z/20080601T130000Z"),
-                        PyCalendarPeriod.parseText("20080601T140000Z/20080601T150000Z"),
+                        Period.parseText("20080601T120000Z/20080601T130000Z"),
+                        Period.parseText("20080601T140000Z/20080601T150000Z"),
                     ],
                     [],
                     [],
@@ -148,10 +148,10 @@ END:VCALENDAR
                 "#1.5 With multiple busy time, some overlap",
                 [
                     [
-                        PyCalendarPeriod.parseText("20080601T120000Z/20080601T130000Z"),
-                        PyCalendarPeriod.parseText("20080601T123000Z/20080601T133000Z"),
-                        PyCalendarPeriod.parseText("20080601T140000Z/20080601T150000Z"),
-                        PyCalendarPeriod.parseText("20080601T150000Z/20080601T160000Z"),
+                        Period.parseText("20080601T120000Z/20080601T130000Z"),
+                        Period.parseText("20080601T123000Z/20080601T133000Z"),
+                        Period.parseText("20080601T140000Z/20080601T150000Z"),
+                        Period.parseText("20080601T150000Z/20080601T160000Z"),
                     ],
                     [],
                     [],
@@ -178,14 +178,14 @@ END:VCALENDAR
                 "#1.6 With all busy time types",
                 [
                     [
-                        PyCalendarPeriod.parseText("20080601T120000Z/20080601T130000Z"),
-                        PyCalendarPeriod.parseText("20080601T140000Z/20080601T150000Z"),
+                        Period.parseText("20080601T120000Z/20080601T130000Z"),
+                        Period.parseText("20080601T140000Z/20080601T150000Z"),
                     ],
                     [
-                        PyCalendarPeriod.parseText("20080601T140000Z/20080601T150000Z"),
+                        Period.parseText("20080601T140000Z/20080601T150000Z"),
                     ],
                     [
-                        PyCalendarPeriod.parseText("20080601T160000Z/20080601T170000Z"),
+                        Period.parseText("20080601T160000Z/20080601T170000Z"),
                     ],
                 ],
                 "20080601T000000Z",
@@ -211,7 +211,7 @@ END:VCALENDAR
             (
                 "#1.7 With single busy time and event details",
                 [
-                    [PyCalendarPeriod.parseText("20080601T120000Z/20080601T130000Z"), ],
+                    [Period.parseText("20080601T120000Z/20080601T130000Z"), ],
                     [],
                     [],
                 ],
@@ -269,7 +269,7 @@ class GenerateFreeBusyInfo(CommonCommonTests, TestCase):
         self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
-        self.now = PyCalendarDateTime.getNowUTC()
+        self.now = DateTime.getNowUTC()
         self.now.setHHMMSS(0, 0, 0)
 
         self.now_12H = self.now.duplicate()
@@ -368,7 +368,7 @@ END:VCALENDAR
         timerange = caldavxml.TimeRange(start=self.now.getText(), end=self.now_1D.getText())
         result = (yield generateFreeBusyInfo(calendar, fbinfo, timerange, matchtotal))
         self.assertEqual(result, 1)
-        self.assertEqual(fbinfo[0], [PyCalendarPeriod.parseText("%s/%s" % (self.now_12H.getText(), self.now_13H.getText(),)), ])
+        self.assertEqual(fbinfo[0], [Period.parseText("%s/%s" % (self.now_12H.getText(), self.now_13H.getText(),)), ])
         self.assertEqual(len(fbinfo[1]), 0)
         self.assertEqual(len(fbinfo[2]), 0)
 
@@ -406,7 +406,7 @@ END:VCALENDAR
             event_details=event_details
         ))
         self.assertEqual(result, 1)
-        self.assertEqual(fbinfo[0], [PyCalendarPeriod.parseText("%s/%s" % (self.now_12H.getText(), self.now_13H.getText(),)), ])
+        self.assertEqual(fbinfo[0], [Period.parseText("%s/%s" % (self.now_12H.getText(), self.now_13H.getText(),)), ])
         self.assertEqual(len(fbinfo[1]), 0)
         self.assertEqual(len(fbinfo[2]), 0)
         self.assertEqual(len(event_details), 1)

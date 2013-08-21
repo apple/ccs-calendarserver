@@ -25,8 +25,8 @@ change.
 See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 from txdav.xml.element import registerElement, dav_namespace
 from txdav.xml.element import WebDAVElement, PCDATAElement
@@ -106,8 +106,8 @@ class CalDAVTimeRangeElement (CalDAVEmptyElement):
         if "start" not in attributes and "end" not in attributes:
             raise ValueError("One of 'start' or 'end' must be present in CALDAV:time-range")
 
-        self.start = PyCalendarDateTime.parseText(attributes["start"]) if "start" in attributes else None
-        self.end = PyCalendarDateTime.parseText(attributes["end"]) if "end" in attributes else None
+        self.start = DateTime.parseText(attributes["start"]) if "start" in attributes else None
+        self.end = DateTime.parseText(attributes["end"]) if "end" in attributes else None
 
 
     def valid(self, level=0):
@@ -151,7 +151,7 @@ class CalDAVTimeZoneElement (CalDAVTextElement):
         """
         Get the timezone to use. If none, return UTC timezone.
 
-        @return: the L{PyCalendarTimezone} derived from the VTIMEZONE or utc.
+        @return: the L{Timezone} derived from the VTIMEZONE or utc.
         """
         calendar = self.calendar()
         if calendar is not None:
@@ -160,7 +160,7 @@ class CalDAVTimeZoneElement (CalDAVTextElement):
                 return tz
 
         # Default to using utc tzinfo
-        return PyCalendarTimezone(utc=True)
+        return Timezone(utc=True)
 
 
     def valid(self):

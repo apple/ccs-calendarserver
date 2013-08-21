@@ -19,8 +19,8 @@ from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 from twistedcaldav.timezones import TimezoneCache, TimezoneException
 from twistedcaldav.timezones import readTZ, listTZs
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 import os
 import threading
@@ -49,7 +49,7 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
         if calendar.name() != "VCALENDAR":
             self.fail("Calendar is not a VCALENDAR")
 
-        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
+        instances = calendar.expandTimeRanges(DateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
@@ -69,8 +69,8 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
 
         self.doTest(
             "TruncatedApr01.ics",
-            PyCalendarDateTime(2007, 04, 01, 16, 0, 0, PyCalendarTimezone(utc=True)),
-            PyCalendarDateTime(2007, 04, 01, 17, 0, 0, PyCalendarTimezone(utc=True))
+            DateTime(2007, 04, 01, 16, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 04, 01, 17, 0, 0, Timezone(utc=True))
         )
 
 
@@ -84,8 +84,8 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
 
         self.doTest(
             "TruncatedDec10.ics",
-            PyCalendarDateTime(2007, 12, 10, 17, 0, 0, PyCalendarTimezone(utc=True)),
-            PyCalendarDateTime(2007, 12, 10, 18, 0, 0, PyCalendarTimezone(utc=True))
+            DateTime(2007, 12, 10, 17, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 12, 10, 18, 0, 0, Timezone(utc=True))
         )
 
 
@@ -99,13 +99,13 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
 
         self.doTest(
             "TruncatedApr01.ics",
-            PyCalendarDateTime(2007, 04, 01, 16, 0, 0, PyCalendarTimezone(utc=True)),
-            PyCalendarDateTime(2007, 04, 01, 17, 0, 0, PyCalendarTimezone(utc=True)),
+            DateTime(2007, 04, 01, 16, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 04, 01, 17, 0, 0, Timezone(utc=True)),
         )
         self.doTest(
             "TruncatedDec10.ics",
-            PyCalendarDateTime(2007, 12, 10, 17, 0, 0, PyCalendarTimezone(utc=True)),
-            PyCalendarDateTime(2007, 12, 10, 18, 0, 0, PyCalendarTimezone(utc=True)),
+            DateTime(2007, 12, 10, 17, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 12, 10, 18, 0, 0, Timezone(utc=True)),
             testEqual=False
         )
 
@@ -119,13 +119,13 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
 
         self.doTest(
             "TruncatedApr01.ics",
-            PyCalendarDateTime(2007, 04, 01, 16, 0, 0, PyCalendarTimezone(utc=True)),
-            PyCalendarDateTime(2007, 04, 01, 17, 0, 0, PyCalendarTimezone(utc=True)),
+            DateTime(2007, 04, 01, 16, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 04, 01, 17, 0, 0, Timezone(utc=True)),
         )
         self.doTest(
             "TruncatedDec10.ics",
-            PyCalendarDateTime(2007, 12, 10, 17, 0, 0, PyCalendarTimezone(utc=True)),
-            PyCalendarDateTime(2007, 12, 10, 18, 0, 0, PyCalendarTimezone(utc=True)),
+            DateTime(2007, 12, 10, 17, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 12, 10, 18, 0, 0, Timezone(utc=True)),
         )
 
 
@@ -139,13 +139,13 @@ class TimezoneProblemTest (twistedcaldav.test.util.TestCase):
 
         self.doTest(
             "TruncatedDec10.ics",
-            PyCalendarDateTime(2007, 12, 10, 17, 0, 0, PyCalendarTimezone(utc=True)),
-            PyCalendarDateTime(2007, 12, 10, 18, 0, 0, PyCalendarTimezone(utc=True))
+            DateTime(2007, 12, 10, 17, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 12, 10, 18, 0, 0, Timezone(utc=True))
         )
         self.doTest(
             "TruncatedApr01.ics",
-            PyCalendarDateTime(2007, 04, 01, 16, 0, 0, PyCalendarTimezone(utc=True)),
-            PyCalendarDateTime(2007, 04, 01, 17, 0, 0, PyCalendarTimezone(utc=True))
+            DateTime(2007, 04, 01, 16, 0, 0, Timezone(utc=True)),
+            DateTime(2007, 04, 01, 17, 0, 0, Timezone(utc=True))
         )
 
 
@@ -201,13 +201,13 @@ END:VCALENDAR
         calendar = Component.fromString(data)
         if calendar.name() != "VCALENDAR":
             self.fail("Calendar is not a VCALENDAR")
-        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
+        instances = calendar.expandTimeRanges(DateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
-            self.assertEqual(start, PyCalendarDateTime(2007, 12, 25, 05, 0, 0, PyCalendarTimezone(utc=True)))
-            self.assertEqual(end, PyCalendarDateTime(2007, 12, 25, 06, 0, 0, PyCalendarTimezone(utc=True)))
+            self.assertEqual(start, DateTime(2007, 12, 25, 05, 0, 0, Timezone(utc=True)))
+            self.assertEqual(end, DateTime(2007, 12, 25, 06, 0, 0, Timezone(utc=True)))
             break
 
 

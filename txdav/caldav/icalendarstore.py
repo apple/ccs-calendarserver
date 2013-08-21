@@ -363,9 +363,9 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         instances that occur within the time range that begins at
         C{start} and ends at C{end}.
 
-        @param start: a L{PyCalendarDateTime}.
-        @param end: a L{PyCalendarDateTime}.
-        @param timeZone: a L{PyCalendarTimezone}.
+        @param start: a L{DateTime}.
+        @param end: a L{DateTime}.
+        @param timeZone: a L{Timezone}.
         @return: an iterable of L{ICalendarObject}s.
         """
 

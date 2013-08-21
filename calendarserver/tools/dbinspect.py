@@ -26,7 +26,7 @@ from caldavclientlibrary.admin.xmlaccounts.recordtypes import recordType_users, 
     recordType_locations, recordType_resources, recordType_groups
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete, \
     Constant
 from twisted.application.service import Service
@@ -716,12 +716,12 @@ class EventsInTimerange(Cmd):
             end += "T000000Z"
 
         try:
-            start = PyCalendarDateTime.parseText(start)
+            start = DateTime.parseText(start)
         except ValueError:
             print("Invalid start value")
             returnValue(None)
         try:
-            end = PyCalendarDateTime.parseText(end)
+            end = DateTime.parseText(end)
         except ValueError:
             print("Invalid end value")
             returnValue(None)

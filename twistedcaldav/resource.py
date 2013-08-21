@@ -1436,11 +1436,6 @@ class CalDAVResource (
         returnValue(caldata)
 
 
-    def iCalendarText(self):
-        # storebridge handles this method
-        raise NotImplementedError()
-
-
     def iCalendar(self):
         # storebridge handles this method
         raise NotImplementedError()

@@ -24,17 +24,21 @@ try:
 except ImportError:
     from xml.parsers.expat import ExpatError as XMLParseError
 
+
+
 # Utilities for working with ElementTree
 
 def readXMLString(xmldata, expectedRootTag=None):
     io = StringIO.StringIO(xmldata)
     return readXML(io, expectedRootTag)
 
+
+
 def readXML(xmlfile, expectedRootTag=None):
     """
     Read in XML data from a file and parse into ElementTree. Optionally verify
     the root node is what we expect.
-    
+
     @param xmlfile: file to read from
     @type xmlfile: C{File}
     @param expectedRootTag: root tag (qname) to test or C{None}
@@ -52,14 +56,18 @@ def readXML(xmlfile, expectedRootTag=None):
         root = etree.getroot()
         if root.tag != expectedRootTag:
             raise ValueError("Ignoring file '%s' because it is not a %s file" % (xmlfile, expectedRootTag,))
-    
+
     return etree, etree.getroot()
+
+
 
 def elementToXML(element):
     return XML.tostring(element, "utf-8")
 
+
+
 def writeXML(xmlfile, root):
-    
+
     data = """<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE %s SYSTEM "%s.dtd">
 
@@ -69,7 +77,7 @@ def writeXML(xmlfile, root):
 
     # Generate indentation
     def _indentNode(node, level=0):
-        
+
         if node.text is not None and node.text.strip():
             return
         elif len(node):
@@ -87,12 +95,16 @@ def writeXML(xmlfile, root):
     with open(xmlfile, "w") as f:
         f.write(data)
 
+
+
 def newElementTreeWithRoot(roottag):
 
     root = createElement(roottag)
     etree = XML.ElementTree(root)
-    
+
     return etree, root
+
+
 
 def createElement(tag, text=None, **attrs):
 
@@ -100,14 +112,18 @@ def createElement(tag, text=None, **attrs):
     child.text = text
     return child
 
+
+
 def addSubElement(parent, tag, text=None):
 
     child = XML.SubElement(parent, tag)
     child.text = text
     return child
 
+
+
 def changeSubElementText(parent, tag, text):
-    
+
     child = parent.find(tag)
     if child is not None:
         child.text = text

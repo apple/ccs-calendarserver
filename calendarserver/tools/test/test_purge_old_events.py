@@ -21,8 +21,8 @@ Tests for calendarserver.tools.purge
 from calendarserver.tools.purge import PurgeOldEventsService, PurgeAttachmentsService, \
     PurgePrincipalService
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 from twext.enterprise.dal.syntax import Update, Delete
 from twext.web2.http_headers import MimeType
@@ -39,7 +39,7 @@ from txdav.common.datastore.test.util import populateCalendarsFrom
 import os
 
 
-now = PyCalendarDateTime.getToday().getYear()
+now = DateTime.getToday().getYear()
 
 OLD_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -443,7 +443,7 @@ class PurgeOldEventsTests(StoreTestCase):
 
     @inlineCallbacks
     def test_eventsOlderThan(self):
-        cutoff = PyCalendarDateTime(now, 4, 1, 0, 0, 0)
+        cutoff = DateTime(now, 4, 1, 0, 0, 0)
         txn = self._sqlCalendarStore.newTransaction()
 
         # Query for all old events
@@ -475,7 +475,7 @@ class PurgeOldEventsTests(StoreTestCase):
 
     @inlineCallbacks
     def test_removeOldEvents(self):
-        cutoff = PyCalendarDateTime(now, 4, 1, 0, 0, 0)
+        cutoff = DateTime(now, 4, 1, 0, 0, 0)
         txn = self._sqlCalendarStore.newTransaction()
 
         # Remove oldest event - except we don't know what that is because of the dummy timestamps
@@ -598,7 +598,7 @@ class PurgeOldEventsTests(StoreTestCase):
         self.assertTrue(os.path.exists(mattachmentPath2))
 
         # Delete all old events (including the event containing the attachment)
-        cutoff = PyCalendarDateTime(now, 4, 1, 0, 0, 0)
+        cutoff = DateTime(now, 4, 1, 0, 0, 0)
         count = (yield self.transactionUnderTest().removeOldEvents(cutoff))
 
         # See which events have gone and which exist
@@ -633,7 +633,7 @@ class PurgeOldEventsTests(StoreTestCase):
         # Dry run
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
-            PyCalendarDateTime(now, 4, 1, 0, 0, 0),
+            DateTime(now, 4, 1, 0, 0, 0),
             2,
             dryrun=True,
             verbose=False
@@ -643,7 +643,7 @@ class PurgeOldEventsTests(StoreTestCase):
         # Actually remove
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
-            PyCalendarDateTime(now, 4, 1, 0, 0, 0),
+            DateTime(now, 4, 1, 0, 0, 0),
             2,
             verbose=False
         ))
@@ -652,7 +652,7 @@ class PurgeOldEventsTests(StoreTestCase):
         # There should be no more left
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
-            PyCalendarDateTime(now, 4, 1, 0, 0, 0),
+            DateTime(now, 4, 1, 0, 0, 0),
             2,
             verbose=False
         ))
@@ -681,7 +681,7 @@ class PurgeOldEventsTests(StoreTestCase):
         # Purge home1
         total, ignored = (yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
             self.rootResource, ("home1",), verbose=False, proxies=False,
-            when=PyCalendarDateTime(now, 4, 1, 12, 0, 0, 0, PyCalendarTimezone(utc=True))))
+            when=DateTime(now, 4, 1, 12, 0, 0, 0, Timezone(utc=True))))
 
         # 4 items deleted: 3 events and 1 vcard
         self.assertEquals(total, 4)
@@ -768,7 +768,7 @@ class PurgeOldEventsTests(StoreTestCase):
         # Remove old events first
         total = (yield PurgeOldEventsService.purgeOldEvents(
             self._sqlCalendarStore,
-            PyCalendarDateTime(now, 4, 1, 0, 0, 0),
+            DateTime(now, 4, 1, 0, 0, 0),
             2,
             verbose=False
         ))

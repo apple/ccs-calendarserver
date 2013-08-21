@@ -38,6 +38,7 @@ class TestDirectoryService (CachingDirectoryService):
             DirectoryService.recordType_resources,
         )
 
+
     def queryDirectory(self, recordTypes, indexType, indexKey):
 
         self.queried = True
@@ -58,41 +59,46 @@ class TestDirectoryService (CachingDirectoryService):
 
                 if cacheIt:
                     cacheRecord = CachingDirectoryRecord(
-                        service               = self,
-                        recordType            = recordType,
-                        guid                  = record.get("guid"),
-                        shortNames            = record.get("shortname"),
-                        authIDs               = record.get("authid"),
-                        fullName              = record.get("fullName"),
-                        firstName             = "",
-                        lastName              = "",
-                        emailAddresses        = record.get("email"),
-                    ) 
-                    
-                    augmentRecord = AugmentRecord(
-                        uid = cacheRecord.guid,
-                        enabled=True,
-                        enabledForCalendaring = True,
+                        service=self,
+                        recordType=recordType,
+                        guid=record.get("guid"),
+                        shortNames=record.get("shortname"),
+                        authIDs=record.get("authid"),
+                        fullName=record.get("fullName"),
+                        firstName="",
+                        lastName="",
+                        emailAddresses=record.get("email"),
                     )
-                    
+
+                    augmentRecord = AugmentRecord(
+                        uid=cacheRecord.guid,
+                        enabled=True,
+                        enabledForCalendaring=True,
+                    )
+
                     cacheRecord.addAugmentInformation(augmentRecord)
 
                     self.recordCacheForType(recordType).addRecord(cacheRecord,
                         indexType, indexKey)
 
+
+
 class CachingDirectoryTest(TestCase):
-    
+
     baseGUID = str(uuid4())
+
 
     def setUp(self):
         super(CachingDirectoryTest, self).setUp()
         self.service = TestDirectoryService()
         self.service.queried = False
 
+
     def loadRecords(self, records):
         self.service._initCaches()
         self.service.fakerecords = records
         self.service.queried = False
+
 
     def fakeRecord(
         self,
@@ -109,15 +115,15 @@ class CachingDirectoryTest(TestCase):
             shortNames = (self.shortNameForFullName(fullName),)
             if multinames:
                 shortNames += (fullName,)
-    
+
         if guid is None:
             guid = self.guidForShortName(shortNames[0], recordType=recordType)
         else:
             guid = guid.lower()
-    
+
         if emails is None:
             emails = ("%s@example.com" % (shortNames[0],),)
-    
+
         attrs = {
             "fullName": fullName,
             "guid": guid,
@@ -126,35 +132,38 @@ class CachingDirectoryTest(TestCase):
             "cua": tuple(["mailto:%s" % email for email in emails]),
             "authid": tuple(["Kerberos:%s" % email for email in emails])
         }
-        
+
         if members:
             attrs["members"] = members
-    
+
         if resourceInfo:
             attrs["resourceInfo"] = resourceInfo
-    
+
         return attrs
-    
+
+
     def shortNameForFullName(self, fullName):
         return fullName.lower().replace(" ", "")
-    
+
+
     def guidForShortName(self, shortName, recordType=""):
         return uuidFromName(self.baseGUID, "%s%s" % (recordType, shortName))
+
 
     def dummyRecords(self):
         SIZE = 10
         records = {
             DirectoryService.recordType_users: [
-                self.fakeRecord("User %02d" % x, DirectoryService.recordType_users, multinames=(x>5)) for x in range(1,SIZE+1)
+                self.fakeRecord("User %02d" % x, DirectoryService.recordType_users, multinames=(x > 5)) for x in range(1, SIZE + 1)
             ],
             DirectoryService.recordType_groups: [
-                self.fakeRecord("Group %02d" % x, DirectoryService.recordType_groups) for x in range(1,SIZE+1)
+                self.fakeRecord("Group %02d" % x, DirectoryService.recordType_groups) for x in range(1, SIZE + 1)
             ],
             DirectoryService.recordType_resources: [
-                self.fakeRecord("Resource %02d" % x, DirectoryService.recordType_resources) for x in range(1,SIZE+1)
+                self.fakeRecord("Resource %02d" % x, DirectoryService.recordType_resources) for x in range(1, SIZE + 1)
             ],
             DirectoryService.recordType_locations: [
-                self.fakeRecord("Location %02d" % x, DirectoryService.recordType_locations) for x in range(1,SIZE+1)
+                self.fakeRecord("Location %02d" % x, DirectoryService.recordType_locations) for x in range(1, SIZE + 1)
             ],
         }
         # Add duplicate shortnames
@@ -165,14 +174,17 @@ class CachingDirectoryTest(TestCase):
 
         self.loadRecords(records)
 
+
     def verifyRecords(self, recordType, expectedGUIDs):
-        
+
         records = self.service.listRecords(recordType)
         recordGUIDs = set([record.guid for record in records])
         self.assertEqual(recordGUIDs, expectedGUIDs)
 
+
+
 class GUIDLookups(CachingDirectoryTest):
-    
+
     def test_emptylist(self):
         self.dummyRecords()
 
@@ -180,7 +192,8 @@ class GUIDLookups(CachingDirectoryTest):
         self.verifyRecords(DirectoryService.recordType_groups, set())
         self.verifyRecords(DirectoryService.recordType_resources, set())
         self.verifyRecords(DirectoryService.recordType_locations, set())
-    
+
+
     def test_cacheoneguid(self):
         self.dummyRecords()
 
@@ -200,7 +213,8 @@ class GUIDLookups(CachingDirectoryTest):
 
         # Make sure guid is case-insensitive
         self.assertTrue(self.service.recordWithGUID(self.guidForShortName("user01", recordType=DirectoryService.recordType_users).lower()) is not None)
-        
+
+
     def test_cacheoneshortname(self):
         self.dummyRecords()
 
@@ -224,6 +238,7 @@ class GUIDLookups(CachingDirectoryTest):
         ) is not None)
         self.assertFalse(self.service.queried)
 
+
     def test_cacheoneemail(self):
         self.dummyRecords()
 
@@ -244,6 +259,7 @@ class GUIDLookups(CachingDirectoryTest):
             "mailto:user03@example.com"
         ) is not None)
         self.assertFalse(self.service.queried)
+
 
     def test_cacheonePrincipalsURLWithUIDS(self):
         self.dummyRecords()
@@ -267,6 +283,7 @@ class GUIDLookups(CachingDirectoryTest):
         ) is not None)
         self.assertFalse(self.service.queried)
 
+
     def test_cacheonePrincipalsURLWithUsers(self):
         self.dummyRecords()
 
@@ -287,6 +304,7 @@ class GUIDLookups(CachingDirectoryTest):
             "/principals/users/user03"
         ) is not None)
         self.assertFalse(self.service.queried)
+
 
     def test_cacheoneauthid(self):
         self.dummyRecords()
@@ -309,6 +327,7 @@ class GUIDLookups(CachingDirectoryTest):
         ) is not None)
         self.assertFalse(self.service.queried)
 
+
     def test_negativeCaching(self):
         self.dummyRecords()
 
@@ -323,7 +342,6 @@ class GUIDLookups(CachingDirectoryTest):
         self.service.queried = False
         self.assertEquals(self.service.recordWithGUID(self.guidForShortName("missing")), None)
         self.assertTrue(self.service.queried)
-
 
         # However, if negativeCaching is on, a miss is recorded as such,
         # preventing a similar queryDirectory( ) until cacheTimeout passes
@@ -344,6 +362,7 @@ class GUIDLookups(CachingDirectoryTest):
         self.service.queried = False
         self.assertEquals(self.service.recordWithGUID(self.guidForShortName("missing")), None)
         self.assertTrue(self.service.queried)
+
 
     def test_duplicateShortNames(self):
         """
@@ -369,6 +388,7 @@ class GUIDLookups(CachingDirectoryTest):
         record = self.service.recordWithShortName(DirectoryService.recordType_locations,
             "Duplicate")
         self.assertEquals(record.recordType, DirectoryService.recordType_locations)
+
 
     def test_generateMemcacheKey(self):
         """

@@ -47,6 +47,7 @@ class ModificationTestCase(TestCase):
         augmentsFile = os.path.join(testRoot, "augments.xml")
         config.AugmentService.params.xmlFiles = (augmentsFile,)
 
+
     def test_createRecord(self):
         directory = getDirectory()
 
@@ -75,6 +76,7 @@ class ModificationTestCase(TestCase):
         record = directory.recordWithUID("location01")
         self.assertNotEquals(record, None)
 
+
     def test_destroyRecord(self):
         directory = getDirectory()
 
@@ -94,6 +96,7 @@ class ModificationTestCase(TestCase):
         # Make sure old records are still there:
         record = directory.recordWithUID("location01")
         self.assertNotEquals(record, None)
+
 
     def test_updateRecord(self):
         directory = getDirectory()
@@ -124,11 +127,13 @@ class ModificationTestCase(TestCase):
         record = directory.recordWithUID("location01")
         self.assertNotEquals(record, None)
 
+
     def test_createDuplicateRecord(self):
         directory = getDirectory()
 
         directory.createRecord("resources", guid="resource01", shortNames=("resource01",), uid="resource01")
         self.assertRaises(DirectoryError, directory.createRecord, "resources", guid="resource01", shortNames=("resource01",), uid="resource01")
+
 
     def test_missingShortNames(self):
         directory = getDirectory()
@@ -144,6 +149,7 @@ class ModificationTestCase(TestCase):
         record = directory.recordWithUID("resource01")
         self.assertEquals(record.shortNames[0], "resource01")
         self.assertEquals(record.fullName, "Resource #1")
+
 
     def test_missingGUID(self):
         directory = getDirectory()

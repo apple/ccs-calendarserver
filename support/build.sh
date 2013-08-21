@@ -800,8 +800,8 @@ dependencies () {
 
   # XXX actually PyCalendar should be imported in-place.
   py_dependency -fe -i "src" -r 11458 \
-    "PyCalendar" "pycalendar" "pycalendar" \
-    "${svn_uri_base}/PyCalendar/trunk";
+    "PyCalendar" "pycalendar" "pycalendar-json2" \
+    "${svn_uri_base}/PyCalendar/branches/json-2";
 
   #
   # Tool dependencies.  The code itself doesn't depend on these, but

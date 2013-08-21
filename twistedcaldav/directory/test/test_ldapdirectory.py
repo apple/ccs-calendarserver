@@ -276,6 +276,7 @@ else:
                     entry["expected"]
                 )
 
+
     class StubList(object):
         def __init__(self, wrapper):
             self.ldap = wrapper
@@ -293,6 +294,7 @@ else:
             self.allResults = self.ldap.search_s(self.base, self.scope,
                 self.filterstr, attrlist=self.attrList)
 
+
     class StubAsync(object):
         def List(self, wrapper):
             return StubList(wrapper)
@@ -303,7 +305,6 @@ else:
         A test stub which replaces search_s( ) with a version that will return
         whatever you have previously called addTestResults( ) with.
         """
-
 
         def __init__(self, actual, records):
             self.actual = actual
@@ -1471,7 +1472,6 @@ else:
             self.assertFalse(record.autoSchedule)
             self.assertEquals(record.autoAcceptGroup, "")
 
-
             # Now switch off the resourceInfoAttr and switch to individual
             # attributes...
             self.service.resourceSchema = {
@@ -1625,7 +1625,6 @@ else:
                 self.assertFalse(self.service.isAllowedByRestrictToGroup(dn, attrs))
 
 
-
         @inlineCallbacks
         def test_groupMembershipAliases(self):
             """
@@ -1678,7 +1677,6 @@ else:
                         ['6423F94A-6B76-4A3A-815B-D52CFD77935D'])
                 ]
             )
-
 
 
         def test_splitIntoBatches(self):

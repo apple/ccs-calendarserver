@@ -33,7 +33,7 @@ from twistedcaldav.config import config
 from twistedcaldav.ical import Property, iCalendarProductID, Component, \
     ignoredComponents
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 log = Logger()
 
@@ -476,7 +476,7 @@ class iTipProcessing(object):
 
                 # Add default parameters
                 private_comment.setParameter("X-CALENDARSERVER-ATTENDEE-REF", attendee.value())
-                private_comment.setParameter("X-CALENDARSERVER-DTSTAMP", PyCalendarDateTime.getNowUTC().getText())
+                private_comment.setParameter("X-CALENDARSERVER-DTSTAMP", DateTime.getNowUTC().getText())
 
                 # Set value empty
                 private_comment.setValue("")
@@ -491,7 +491,7 @@ class iTipProcessing(object):
                     attendee_comment.value(),
                     params={
                         "X-CALENDARSERVER-ATTENDEE-REF": attendee.value(),
-                        "X-CALENDARSERVER-DTSTAMP": PyCalendarDateTime.getNowUTC().getText(),
+                        "X-CALENDARSERVER-DTSTAMP": DateTime.getNowUTC().getText(),
                     }
                 )
                 to_component.addProperty(private_comment)
@@ -506,7 +506,7 @@ class iTipProcessing(object):
 
                     # Add default parameters
                     private_comment.setParameter("X-CALENDARSERVER-ATTENDEE-REF", attendee.value())
-                    private_comment.setParameter("X-CALENDARSERVER-DTSTAMP", PyCalendarDateTime.getNowUTC().getText())
+                    private_comment.setParameter("X-CALENDARSERVER-DTSTAMP", DateTime.getNowUTC().getText())
 
                     # Set new value
                     private_comment.setValue(attendee_comment.value())
@@ -854,7 +854,7 @@ class iTipGenerator(object):
         itip.filterComponents(changedRids)
 
         # Force update to DTSTAMP everywhere so reply sequencing will work
-        itip.replacePropertyInAllComponents(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+        itip.replacePropertyInAllComponents(Property("DTSTAMP", DateTime.getNowUTC()))
 
         # Remove all attendees except the one we want
         itip.removeAllButOneAttendee(attendee)

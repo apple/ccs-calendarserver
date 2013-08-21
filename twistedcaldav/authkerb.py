@@ -22,7 +22,7 @@ This implements two authentication modes:
 
     1. An alternative to password based BASIC authentication in which the BASIC credentials are
         verified against Kerberos.
-   
+
     2. The NEGOTIATE mechanism (as defined in http://www.ietf.org/rfc/rfc4559.txt)
         that implements full GSSAPI authentication.
 """
@@ -58,7 +58,7 @@ class KerberosCredentialFactoryBase(object):
 
     def __init__(self, principal=None, type=None, hostname=None):
         """
-        
+
         @param principal:  full Kerberos principal (e.g., 'HTTP/server.example.com@EXAMPLE.COM'). If C{None}
             then the type and hostname arguments are used instead.
         @type service:     str
@@ -82,6 +82,7 @@ class KerberosCredentialFactoryBase(object):
 
         self.service, self.realm = self._splitPrincipal(principal)
 
+
     def _splitPrincipal(self, principal):
 
         try:
@@ -93,12 +94,14 @@ class KerberosCredentialFactoryBase(object):
         except IndexError:
             self.log.error("Invalid Kerberos principal: %s" % (principal,))
             raise ValueError('Authentication System Failure: Invalid Kerberos principal: %s' % (principal,))
-                
+
         service = "%s@%s" % (servicetype, service,)
         realm = realm
-        
+
         return (service, realm,)
-        
+
+
+
 class BasicKerberosCredentials(credentials.UsernamePassword):
     """
     A set of user/password credentials that checks itself against Kerberos.
@@ -106,7 +109,7 @@ class BasicKerberosCredentials(credentials.UsernamePassword):
 
     def __init__(self, username, password, service, realm):
         """
-        
+
         @param username:   user name of user to authenticate
         @type username:    str
         @param password:   password for user being authenticated
@@ -117,11 +120,13 @@ class BasicKerberosCredentials(credentials.UsernamePassword):
         @type hostname:    str
         """
         credentials.UsernamePassword.__init__(self, username, password)
-        
+
         # Convert Kerberos principal spec into service and realm
         self.service = service
         self.default_realm = realm
-        
+
+
+
 class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
     """
     Authorizer for insecure Basic (base64-encoded plaintext) authentication.
@@ -134,7 +139,7 @@ class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
 
     def __init__(self, principal=None, type=None, hostname=None):
         """
-        
+
         @param principal:  full Kerberos principal (e.g., 'HTTP/server.example.com@EXAMPLE.COM'). If C{None}
             then the type and hostname arguments are used instead.
         @type service:     str
@@ -146,8 +151,10 @@ class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
 
         super(BasicKerberosCredentialFactory, self).__init__(principal, type, hostname)
 
+
     def getChallenge(self, _ignore_peer):
         return succeed({'realm': self.realm})
+
 
     def decode(self, response, request): #@UnusedVariable
         try:
@@ -160,6 +167,8 @@ class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
             c = BasicKerberosCredentials(creds[0], creds[1], self.service, self.realm)
             return succeed(c)
         raise error.LoginFailed('Invalid credentials')
+
+
 
 class BasicKerberosCredentialsChecker(object):
     log = Logger()
@@ -187,8 +196,10 @@ class BasicKerberosCredentialsChecker(object):
                     pcreds.authnPrincipal,
                     pcreds.authzPrincipal,
                 ))
-        
+
         raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
+
+
 
 class NegotiateCredentials(object):
     """
@@ -198,10 +209,12 @@ class NegotiateCredentials(object):
     implements(credentials.ICredentials)
 
     def __init__(self, principal, username):
-        
+
         self.principal = principal
         self.username = username
-        
+
+
+
 class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
     """
     Authorizer for Negotiate authentication (http://www.ietf.org/rfc/rfc4559.txt).
@@ -211,7 +224,7 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
 
     def __init__(self, principal=None, type=None, hostname=None):
         """
-        
+
         @param principal:  full Kerberos principal (e.g., 'HTTP/server.example.com@EXAMPLE.COM'). If C{None}
             then the type and hostname arguments are used instead.
         @type service:     str
@@ -223,22 +236,24 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
 
         super(NegotiateCredentialFactory, self).__init__(principal, type, hostname)
 
+
     def getChallenge(self, _ignore_peer):
         return succeed({})
 
+
     def decode(self, base64data, request):
-        
+
         # Init GSSAPI first - we won't specify the service now as we need to accept a target
         # name that is case-insenstive as some clients will use "http" instead of "HTTP"
         try:
-            _ignore_result, context = kerberos.authGSSServerInit("");
+            _ignore_result, context = kerberos.authGSSServerInit("")
         except kerberos.GSSError, ex:
             self.log.error("authGSSServerInit: %s(%s)" % (ex[0][0], ex[1][0],))
             raise error.LoginFailed('Authentication System Failure: %s(%s)' % (ex[0][0], ex[1][0],))
 
         # Do the GSSAPI step and get response and username
         try:
-            kerberos.authGSSServerStep(context, base64data);
+            kerberos.authGSSServerStep(context, base64data)
         except kerberos.GSSError, ex:
             self.log.error("authGSSServerStep: %s(%s)" % (ex[0][0], ex[1][0],))
             kerberos.authGSSServerClean(context)
@@ -264,13 +279,13 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
         principal = kerberos.authGSSServerUserName(context)
         username = principal
         realmname = ""
-        
+
         # Username may include realm suffix which we want to strip
         if username.find("@") != -1:
             splits = username.split("@", 1)
             username = splits[0]
             realmname = splits[1]
-        
+
         # We currently do not support cross-realm authentication, so we
         # must verify that the realm we got exactly matches the one we expect.
         if realmname != self.realm:
@@ -278,11 +293,11 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
 
         # Close the context
         try:
-            kerberos.authGSSServerClean(context);
+            kerberos.authGSSServerClean(context)
         except kerberos.GSSError, ex:
             self.log.error("authGSSServerClean: %s" % (ex[0][0], ex[1][0],))
             raise error.LoginFailed('Authentication System Failure %s(%s)' % (ex[0][0], ex[1][0],))
-        
+
         # If we successfully decoded and verified the Kerberos credentials we need to add the Kerberos
         # response data to the outgoing request
 
@@ -298,6 +313,8 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
         request.addResponseFilter(responseFilterAddWWWAuthenticate)
 
         return succeed(NegotiateCredentials(principal, username))
+
+
 
 class NegotiateCredentialsChecker(object):
 
@@ -320,6 +337,5 @@ class NegotiateCredentialsChecker(object):
                 pcreds.authnPrincipal,
                 pcreds.authzPrincipal,
             ))
-        
-        raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))
 
+        raise error.UnauthorizedLogin("Bad credentials for: %s" % (pcreds.authnURI,))

@@ -15,7 +15,7 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
@@ -2506,12 +2506,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         self._initializeWithObject(newObject, newParent)
         returnValue(txn)
 
-
-    @inlineCallbacks
-    def iCalendarText(self):
-        data = yield self.iCalendar()
-        returnValue(str(data))
-
     iCalendar = _CommonObjectResource.component
 
 
@@ -2762,7 +2756,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             if rids is not None:
                 rids = rids[0].split(",")
                 try:
-                    rids = [PyCalendarDateTime.parseText(rid) if rid != "M" else None for rid in rids]
+                    rids = [DateTime.parseText(rid) if rid != "M" else None for rid in rids]
                 except ValueError:
                     raise HTTPError(ErrorResponse(
                         FORBIDDEN,

@@ -27,8 +27,8 @@ Tests for txdav.caldav.datastore.postgres, mostly based on
 L{txdav.caldav.datastore.test.common}.
 """
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
@@ -78,7 +78,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
-        self.nowYear = {"now": PyCalendarDateTime.getToday().getYear()}
+        self.nowYear = {"now": DateTime.getToday().getYear()}
 
 
     @inlineCallbacks
@@ -1377,38 +1377,38 @@ END:VCALENDAR
         self.assertEqual(rmax.getYear(), nowYear + 1)
 
         # Fully within range
-        testMin = PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-        testMax = PyCalendarDateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Upper bound exceeded
-        testMin = PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-        testMax = PyCalendarDateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower bound exceeded
-        testMin = PyCalendarDateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-        testMax = PyCalendarDateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower and upper bounds exceeded
-        testMin = PyCalendarDateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-        testMax = PyCalendarDateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower none within range
         testMin = None
-        testMax = PyCalendarDateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Lower none and upper bounds exceeded
         testMin = None
-        testMax = PyCalendarDateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
@@ -2154,7 +2154,7 @@ class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
 
         self.subs = {}
 
-        self.now = PyCalendarDateTime.getNowUTC()
+        self.now = DateTime.getNowUTC()
         self.now.setHHMMSS(0, 0, 0)
 
         self.subs["now"] = self.now
