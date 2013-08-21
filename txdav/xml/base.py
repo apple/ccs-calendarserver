@@ -693,7 +693,7 @@ class DateTimeHeaderElement (WebDAVDateTimeElement):
             return date.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
         if type(date) is int:
-            date = format(datetime.datetime.fromtimestamp(date))
+            date = format(datetime.datetime.utcfromtimestamp(date))
         elif type(date) is str:
             pass
         elif type(date) is unicode:

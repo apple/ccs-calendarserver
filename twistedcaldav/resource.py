@@ -324,7 +324,7 @@ class CalDAVResource (
         @param transaction: optional transaction to use instead of associated transaction
         @type transaction: L{txdav.caldav.idav.ITransaction}
         """
-        result = yield super(CalDAVResource, self).renderHTTP(request)
+        response = yield super(CalDAVResource, self).renderHTTP(request)
         if transaction is None:
             transaction = self._associatedTransaction
         if transaction is not None:
@@ -332,7 +332,11 @@ class CalDAVResource (
                 yield transaction.abort()
             else:
                 yield transaction.commit()
-        returnValue(result)
+
+                # May need to reset the last-modified header in the response as txn.commit() can change it due to pre-commit hooks
+                if response.headers.hasHeader("last-modified"):
+                    response.headers.setHeader("last-modified", self.lastModified())
+        returnValue(response)
 
 
     # Begin transitional new-store resource interface:
