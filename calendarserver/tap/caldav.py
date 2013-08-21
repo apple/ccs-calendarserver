@@ -225,14 +225,31 @@ class ErrorLoggingMultiService(MultiService, object):
     """ Registers a rotating file logger for error logging, if
         config.ErrorLogEnabled is True. """
 
+    def __init__(self, logEnabled, logPath, logRotateLength, logMaxFiles):
+        """
+        @param logEnabled: Whether to write to a log file
+        @type logEnabled: C{boolean}
+        @param logPath: the full path to the log file
+        @type logPath: C{str}
+        @param logRotateLength: rotate when files exceed this many bytes
+        @type logRotateLength: C{int}
+        @param logMaxFiles: keep at most this many files
+        @type logMaxFiles: C{int}
+        """
+        MultiService.__init__(self)
+        self.logEnabled = logEnabled
+        self.logPath = logPath
+        self.logRotateLength = logRotateLength
+        self.logMaxFiles = logMaxFiles
+
     def setServiceParent(self, app):
         MultiService.setServiceParent(self, app)
 
-        if config.ErrorLogEnabled:
+        if self.logEnabled:
             errorLogFile = LogFile.fromFullPath(
-                config.ErrorLogFile,
-                rotateLength=config.ErrorLogRotateMB * 1024 * 1024,
-                maxRotatedFiles=config.ErrorLogMaxRotatedFiles
+                self.logPath,
+                rotateLength = self.logRotateLength,
+                maxRotatedFiles = self.logMaxFiles
             )
             errorLogObserver = FileLogObserver(errorLogFile).emit
 
@@ -251,7 +268,9 @@ class CalDAVService (ErrorLoggingMultiService):
 
     def __init__(self, logObserver):
         self.logObserver = logObserver # accesslog observer
-        MultiService.__init__(self)
+        ErrorLoggingMultiService.__init__(self, config.ErrorLogEnabled,
+            config.ErrorLogFile, config.ErrorLogRotateMB * 1024 * 1024,
+            config.ErrorLogMaxRotatedFiles)
 
 
     def privilegedStartService(self):
@@ -1269,7 +1288,15 @@ class CalDAVServiceMaker (object):
             return makeAgentService(store)
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
-        return self.storageService(agentServiceCreator, None, uid=uid, gid=gid)
+        svc = self.storageService(agentServiceCreator, None, uid=uid, gid=gid)
+        agentLoggingService = ErrorLoggingMultiService(
+            config.ErrorLogEnabled,
+            config.AgentLogFile,
+            config.ErrorLogRotateMB * 1024 * 1024,
+            config.ErrorLogMaxRotatedFiles
+            )
+        svc.setServiceParent(agentLoggingService)
+        return agentLoggingService
 
 
     def storageService(self, createMainService, logObserver, uid=None, gid=None):
@@ -1428,7 +1455,12 @@ class CalDAVServiceMaker (object):
         Create a master service to coordinate a multi-process configuration,
         spawning subprocesses that use L{makeService_Slave} to perform work.
         """
-        s = ErrorLoggingMultiService()
+        s = ErrorLoggingMultiService(
+            config.ErrorLogEnabled,
+            config.ErrorLogFile,
+            config.ErrorLogRotateMB * 1024 * 1024,
+            config.ErrorLogMaxRotatedFiles
+        )
 
         # Add a service to re-exec the master when it receives SIGHUP
         ReExecService(config.PIDFile).setServiceParent(s)

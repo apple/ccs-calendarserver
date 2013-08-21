@@ -449,6 +449,7 @@ DEFAULT_CONFIG = {
     #
     "AccessLogFile"  : "access.log", # Apache-style access log
     "ErrorLogFile"   : "error.log", # Server activity log
+    "AgentLogFile"   : "agent.log", # Agent activity log
     "ErrorLogEnabled"   : True, # True = use log file, False = stdout
     "ErrorLogRotateMB"  : 10, # Rotate error log after so many megabytes
     "ErrorLogMaxRotatedFiles"  : 5, # Retain this many error log files
@@ -1080,6 +1081,7 @@ RELATIVE_PATHS = [
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateExchanges",)),
     ("LogRoot", "AccessLogFile"),
     ("LogRoot", "ErrorLogFile"),
+    ("LogRoot", "AgentLogFile"),
     ("LogRoot", ("Postgres", "LogFile",)),
     ("LogRoot", ("LogDatabase", "StatisticsLogFile",)),
     ("LogRoot", "AccountingLogRoot"),
