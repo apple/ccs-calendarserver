@@ -472,7 +472,7 @@ def printMultiAgentCounts(stats, index):
         for ua in stat[index]["user-agent"]:
             uas[ua] += stat[index]["user-agent"][ua]
 
-    printUserCounts({"user-agent": uas})
+    printAgentCounts({"user-agent": uas})
 
 
 

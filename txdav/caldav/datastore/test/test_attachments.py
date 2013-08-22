@@ -1404,6 +1404,8 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory, directoryFromConfig(config))
         yield self.populate()
 
+        self.paths = {}
+
 
     @inlineCallbacks
     def populate(self):
@@ -1445,6 +1447,8 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         t.write("%s/%s/%s/%s" % (home, calendar, event, name,))
         t.write(" attachment")
         yield t.loseConnection()
+
+        self.paths[name] = attachment._path
 
         cal = (yield event.componentForUser())
         cal.mainComponent().addProperty(Property(
@@ -1834,3 +1838,9 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield self._verifyConversion("home2", "calendar2", "2-2.3.ics", ("attach_1_3.txt",))
         yield self._verifyConversion("home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
         yield self._verifyConversion("home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
+
+        # Paths do not exist
+        for path in self.paths.values():
+            for _ignore in range(4):
+                self.assertFalse(path.exists(), msg="Still exists: %s" % (path,))
+                path = path.parent()

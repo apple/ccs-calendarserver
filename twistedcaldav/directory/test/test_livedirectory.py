@@ -20,9 +20,11 @@ runODTests = False
 
 try:
     import ldap
+    import socket
 
     testServer = "localhost"
-    base = "dc=example,dc=com"
+    base = ",".join(["dc=%s" % (p,) for p in socket.gethostname().split(".")])
+    print("Using base: %s" % (base,))
 
     try:
         cxn = ldap.open(testServer)
@@ -162,12 +164,28 @@ if runLDAPTests or runODTests:
                             "attr": "uid", # used only to synthesize email address
                             "emailSuffix": None, # used only to synthesize email address
                             "filter": None, # additional filter for this type
+                            "loginEnabledAttr" : "", # attribute controlling login
+                            "loginEnabledValue" : "yes", # "True" value of above attribute
+                            "mapping" : { # maps internal record names to LDAP
+                                "recordName": "uid",
+                                "fullName" : "cn",
+                                "emailAddresses" : ["mail"], # multiple LDAP fields supported
+                                "firstName" : "givenName",
+                                "lastName" : "sn",
+                            },
                         },
                         "groups": {
                             "rdn": "cn=groups",
                             "attr": "cn", # used only to synthesize email address
                             "emailSuffix": None, # used only to synthesize email address
                             "filter": None, # additional filter for this type
+                            "mapping" : { # maps internal record names to LDAP
+                                "recordName": "cn",
+                                "fullName" : "cn",
+                                "emailAddresses" : ["mail"], # multiple LDAP fields supported
+                                "firstName" : "givenName",
+                                "lastName" : "sn",
+                            },
                         },
                     },
                     "groupSchema": {

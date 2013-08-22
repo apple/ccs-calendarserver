@@ -354,18 +354,17 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         }, self.storeUnderTest())
         txn = self.transactionUnderTest()
         emptyHome = yield txn.calendarHomeWithUID("empty_home")
-        self.assertIdentical((yield emptyHome.calendarWithName("calendar")),
-                             None)
+        self.assertIdentical((yield emptyHome.calendarWithName("calendar")), None)
         nonEmpty = yield txn.calendarHomeWithUID("non_empty_home")
         yield migrateHome(emptyHome, nonEmpty)
         yield self.commit()
         txn = self.transactionUnderTest()
         emptyHome = yield txn.calendarHomeWithUID("empty_home")
         nonEmpty = yield txn.calendarHomeWithUID("non_empty_home")
-        self.assertIdentical((yield nonEmpty.calendarWithName("inbox")),
-                             None)
-        self.assertIdentical((yield nonEmpty.calendarWithName("calendar")),
-                             None)
+
+        self.assertIdentical((yield nonEmpty.calendarWithName("calendar")), None)
+        self.assertNotIdentical((yield nonEmpty.calendarWithName("inbox")), None)
+        self.assertNotIdentical((yield nonEmpty.calendarWithName("other-default-calendar")), None)
 
 
     @staticmethod

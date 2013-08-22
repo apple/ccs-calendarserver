@@ -139,6 +139,23 @@ class LogLevel(Names):
             raise InvalidLogLevelError(name)
 
 
+    @classmethod
+    def _priorityForLevel(cls, constant):
+        """
+        We want log levels to have defined ordering - the order of definition -
+        but they aren't value constants (the only value is the name).  This is
+        arguably a bug in Twisted, so this is just a workaround for U{until
+        this is fixed in some way
+        <https://twistedmatrix.com/trac/ticket/6523>}.
+        """
+        return cls._levelPriorities[constant]
+
+LogLevel._levelPriorities = dict((constant, idx)
+                                 for (idx, constant) in
+                                     (enumerate(LogLevel.iterconstants())))
+
+
+
 #
 # Mappings to Python's logging module
 #
@@ -193,6 +210,7 @@ def formatEvent(event):
             return formatUnformattableEvent(event, e)
         except:
             return u"MESSAGE LOST"
+
 
 
 def formatUnformattableEvent(event, error):
@@ -686,7 +704,8 @@ class LogLevelFilterPredicate(object):
         level     = event["log_level"]
         namespace = event["log_namespace"]
 
-        if level < self.logLevelForNamespace(namespace):
+        if (LogLevel._priorityForLevel(level) <
+            LogLevel._priorityForLevel(self.logLevelForNamespace(namespace))):
             return PredicateResult.no
 
         return PredicateResult.maybe

@@ -88,6 +88,9 @@ class DirectoryService(object):
     recordType_resources = "resources"
 
     searchContext_location = "location"
+    searchContext_resource = "resource"
+    searchContext_user     = "user"
+    searchContext_group    = "group"
     searchContext_attendee = "attendee"
 
     aggregateService = None
@@ -272,13 +275,19 @@ class DirectoryService(object):
         """
         Map calendarserver-principal-search REPORT context value to applicable record types
 
-        @param context: The context value to map (either "location" or "attendee")
+        @param context: The context value to map
         @type context: C{str}
         @returns: The list of record types the context maps to
         @rtype: C{list} of C{str}
         """
         if context == self.searchContext_location:
             recordTypes = [self.recordType_locations]
+        elif context == self.searchContext_resource:
+            recordTypes = [self.recordType_resources]
+        elif context == self.searchContext_user:
+            recordTypes = [self.recordType_users]
+        elif context == self.searchContext_group:
+            recordTypes = [self.recordType_groups]
         elif context == self.searchContext_attendee:
             recordTypes = [self.recordType_users, self.recordType_groups,
                 self.recordType_resources]
@@ -606,14 +615,14 @@ class GroupMembershipCache(Memcacher):
     log = Logger()
 
     def __init__(self, namespace, pickle=True, no_invalidation=False,
-        key_normalization=True, expireSeconds=0):
+        key_normalization=True, expireSeconds=0, lockSeconds=60):
 
         super(GroupMembershipCache, self).__init__(namespace, pickle=pickle,
             no_invalidation=no_invalidation,
             key_normalization=key_normalization)
 
         self.expireSeconds = expireSeconds
-
+        self.lockSeconds = lockSeconds
 
     def setGroupsFor(self, guid, memberships):
         self.log.debug("set groups-for %s : %s" % (guid, memberships))
@@ -651,6 +660,35 @@ class GroupMembershipCache(Memcacher):
         returnValue(value is not None)
 
 
+    def acquireLock(self):
+        """
+        Acquire a memcached lock named group-cacher-lock
+
+        return: Deferred firing True if successful, False if someone already has
+            the lock
+        """
+        self.log.debug("add group-cacher-lock")
+        return self.add("group-cacher-lock", "1", expireTime=self.lockSeconds)
+
+
+
+    def extendLock(self):
+        """
+        Update the expiration time of the memcached lock
+        Return: Deferred firing True if successful, False otherwise
+        """
+        self.log.debug("extend group-cacher-lock")
+        return self.set("group-cacher-lock", "1", expireTime=self.lockSeconds)
+
+
+    def releaseLock(self):
+        """
+        Release the memcached lock
+        Return: Deferred firing True if successful, False otherwise
+        """
+        self.log.debug("delete group-cacher-lock")
+        return self.delete("group-cacher-lock")
+
 
 class GroupMembershipCacheUpdater(object):
     """
@@ -661,7 +699,7 @@ class GroupMembershipCacheUpdater(object):
     log = Logger()
 
     def __init__(self, proxyDB, directory, updateSeconds, expireSeconds,
-        cache=None, namespace=None, useExternalProxies=False,
+        lockSeconds, cache=None, namespace=None, useExternalProxies=False,
         externalProxiesSource=None):
         self.proxyDB = proxyDB
         self.directory = directory
@@ -673,7 +711,8 @@ class GroupMembershipCacheUpdater(object):
 
         if cache is None:
             assert namespace is not None, "namespace must be specified if GroupMembershipCache is not provided"
-            cache = GroupMembershipCache(namespace, expireSeconds=expireSeconds)
+            cache = GroupMembershipCache(namespace, expireSeconds=expireSeconds,
+                lockSeconds=lockSeconds)
         self.cache = cache
 
 
@@ -761,6 +800,8 @@ class GroupMembershipCacheUpdater(object):
 
         # TODO: add memcached eviction protection
 
+        useLock = True
+
         # See if anyone has completely populated the group membership cache
         isPopulated = (yield self.cache.isPopulated())
 
@@ -770,6 +811,9 @@ class GroupMembershipCacheUpdater(object):
             if isPopulated:
                 self.log.info("Group membership cache is already populated")
                 returnValue((fast, 0))
+
+            # We don't care what others are doing right now, we need to update
+            useLock = False
 
         self.log.info("Updating group membership cache")
 
@@ -788,6 +832,14 @@ class GroupMembershipCacheUpdater(object):
             previousMembers = pickle.loads(membershipsCacheFile.getContent())
             callGroupsChanged = True
 
+        if useLock:
+            self.log.info("Attempting to acquire group membership cache lock")
+            acquiredLock = (yield self.cache.acquireLock())
+            if not acquiredLock:
+                self.log.info("Group membership cache lock held by another process")
+                returnValue((fast, 0))
+            self.log.info("Acquired lock")
+
         if not fast and self.useExternalProxies:
 
             # Load in cached copy of external proxies so we can diff against them
@@ -797,10 +849,16 @@ class GroupMembershipCacheUpdater(object):
                     (extProxyCacheFile.path,))
                 previousAssignments = pickle.loads(extProxyCacheFile.getContent())
 
+            if useLock:
+                yield self.cache.extendLock()
+
             self.log.info("Retrieving proxy assignments from directory")
             assignments = self.externalProxiesSource()
             self.log.info("%d proxy assignments retrieved from directory" %
                 (len(assignments),))
+
+            if useLock:
+                yield self.cache.extendLock()
 
             changed, removed = diffAssignments(previousAssignments, assignments)
             # changed is the list of proxy assignments (either new or updates).
@@ -957,6 +1015,10 @@ class GroupMembershipCacheUpdater(object):
 
         yield self.cache.setPopulatedMarker()
 
+        if useLock:
+            self.log.info("Releasing lock")
+            yield self.cache.releaseLock()
+
         self.log.info("Group memberships cache updated")
 
         returnValue((fast, len(members), len(changedMembers)))
@@ -975,16 +1037,19 @@ class GroupCacherPollingWork(WorkItem, fromTable(schema.GROUP_CACHER_POLLING_WOR
 
         groupCacher = getattr(self.transaction, "_groupCacher", None)
         if groupCacher is not None:
+
+            # Schedule next update
+            notBefore = (datetime.datetime.utcnow() +
+                datetime.timedelta(seconds=groupCacher.updateSeconds))
+            log.debug("Scheduling next group cacher update: %s" % (notBefore,))
+            yield self.transaction.enqueue(GroupCacherPollingWork,
+                notBefore=notBefore)
+
             try:
-                yield groupCacher.updateCache()
+                groupCacher.updateCache()
             except Exception, e:
                 log.error("Failed to update group membership cache (%s)" % (e,))
-            finally:
-                notBefore = (datetime.datetime.utcnow() +
-                    datetime.timedelta(seconds=groupCacher.updateSeconds))
-                log.debug("Scheduling next group cacher update: %s" % (notBefore,))
-                yield self.transaction.enqueue(GroupCacherPollingWork,
-                    notBefore=notBefore)
+
         else:
             notBefore = (datetime.datetime.utcnow() +
                 datetime.timedelta(seconds=10))

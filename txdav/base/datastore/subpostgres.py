@@ -21,6 +21,8 @@ Run and manage PostgreSQL as a subprocess.
 
 import os
 import pwd
+import re
+import signal
 
 from hashlib import md5
 
@@ -250,6 +252,7 @@ class PostgresService(MultiService):
         self._pgCtl = pgCtl
         self._initdb = initDB
         self._reactor = reactor
+        self._postgresPid = None
 
 
     @property
@@ -363,7 +366,7 @@ class PostgresService(MultiService):
 
         if self.shutdownDeferred is None:
             # Only continue startup if we've not begun shutdown
-            self.subServiceFactory(self.produceConnection).setServiceParent(self)
+            self.subServiceFactory(self.produceConnection, self).setServiceParent(self)
 
 
     def pauseMonitor(self):
@@ -402,22 +405,6 @@ class PostgresService(MultiService):
             createDatabaseCursor.execute("commit")
             return createDatabaseConn, createDatabaseCursor
 
-        # TODO: always go through pg_ctl start
-        try:
-            createDatabaseConn, createDatabaseCursor = createConnection()
-        except pgdb.DatabaseError:
-            # We could not connect the database, so attempt to start it
-            pass
-        except Exception, e:
-            # Some other unexpected error is preventing us from connecting
-            # to the database
-            log.warn("Failed to connect to Postgres: {e}", e=e)
-        else:
-            # Database is running, so just use our connection
-            self.ready(createDatabaseConn, createDatabaseCursor)
-            self.deactivateDelayedShutdown()
-            return
-
         monitor = _PostgresMonitor(self)
         pgCtl = self.pgCtl()
         # check consistency of initdb and postgres?
@@ -452,15 +439,37 @@ class PostgresService(MultiService):
             uid=self.uid, gid=self.gid,
         )
         self.monitor = monitor
+
+        def gotStatus(result):
+            """
+            Grab the postgres pid from the pgCtl status call in case we need
+            to kill it directly later on in hardStop().  Useful in conjunction
+            with the DataStoreMonitor so we can shut down if DataRoot has been
+            removed/renamed/unmounted.
+            """
+            reResult = re.search("PID: (\d+)\D", result)
+            if reResult != None:
+                self._postgresPid = int(reResult.group(1))
+            self.ready(*createConnection())
+            self.deactivateDelayedShutdown()
+
         def gotReady(result):
             log.warn("{cmd} exited", cmd=pgCtl)
             self.shouldStopDatabase = True
-            self.ready(*createConnection())
-            self.deactivateDelayedShutdown()
+            d = Deferred()
+            statusMonitor = CapturingProcessProtocol(d, None)
+            self.reactor.spawnProcess(
+                statusMonitor, pgCtl, [pgCtl, "status"],
+                env=self.env, path=self.workingDir.path,
+                uid=self.uid, gid=self.gid,
+            )
+            d.addCallback(gotStatus)
+
         def reportit(f):
             log.failure("starting postgres", f)
             self.deactivateDelayedShutdown()
             self.reactor.stop()
+            
         self.monitor.completionDeferred.addCallback(
             gotReady).addErrback(reportit)
 
@@ -539,3 +548,13 @@ class PostgresService(MultiService):
 #            return result
 #        d.addCallback(maybeStopSubprocess)
 #        return d
+
+    def hardStop(self):
+        """
+        Stop postgres quickly by sending it SIGQUIT
+        """
+        if self._postgresPid is not None:
+            try:
+                os.kill(self._postgresPid, signal.SIGQUIT)
+            except OSError: 
+                pass

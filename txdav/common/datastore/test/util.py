@@ -199,7 +199,7 @@ class SQLStoreBuilder(object):
             directoryService = TestStoreDirectoryService()
         if self.sharedService is None:
             ready = Deferred()
-            def getReady(connectionFactory):
+            def getReady(connectionFactory, storageService):
                 self.makeAndCleanStore(
                     testCase, notifierFactory, directoryService, attachmentRoot
                 ).chainDeferred(ready)
@@ -236,10 +236,12 @@ class SQLStoreBuilder(object):
 
         @return: a L{Deferred} that fires with a L{CommonDataStore}
         """
-        try:
-            attachmentRoot.createDirectory()
-        except OSError:
-            pass
+
+        # Always clean-out old attachments
+        if attachmentRoot.exists():
+            attachmentRoot.remove()
+        attachmentRoot.createDirectory()
+
         currentTestID = testCase.id()
         cp = ConnectionPool(self.sharedService.produceConnection,
                             maxConnections=5)

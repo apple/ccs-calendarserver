@@ -485,6 +485,7 @@ DEFAULT_CONFIG = {
     #
     "AccessLogFile"  : "access.log", # Apache-style access log
     "ErrorLogFile"   : "error.log", # Server activity log
+    "AgentLogFile"   : "agent.log", # Agent activity log
     "ErrorLogEnabled"   : True, # True = use log file, False = stdout
     "ErrorLogRotateMB"  : 10, # Rotate error log after so many megabytes
     "ErrorLogMaxRotatedFiles"  : 5, # Retain this many error log files
@@ -614,7 +615,7 @@ DEFAULT_CONFIG = {
             "Enabled"         : True, # Calendar on/off switch
         },
         "AddressBooks" : {
-            "Enabled"         : True, # Address Books on/off switch
+            "Enabled"         : False, # Address Books on/off switch
         }
     },
 
@@ -747,6 +748,7 @@ DEFAULT_CONFIG = {
             "AttendeeRefreshBatch"                : 5, # Number of attendees to do batched refreshes: 0 - no batching
             "AttendeeRefreshBatchDelaySeconds"    : 5, # Time after an iTIP REPLY for first batched attendee refresh
             "AttendeeRefreshBatchIntervalSeconds" : 5, # Time between attendee batch refreshes
+            "AttendeeRefreshCountLimit"           : 50, # Number of attendees above which attendee refreshes are suppressed: 0 - no limit
             "UIDLockTimeoutSeconds"               : 60, # Time for implicit UID lock timeout
             "UIDLockExpirySeconds"                : 300, # Expiration time for UID lock,
             "PrincipalHostAliases"                : [], # Host names matched in http(s) CUAs
@@ -922,7 +924,7 @@ DEFAULT_CONFIG = {
                 "ClientEnabled": True,
                 "ServerEnabled": True,
                 "BindAddress": "127.0.0.1",
-                "Port": 11211,
+                "Port": 11311,
                 "HandleCacheTypes": [
                     "Default",
 #                   "OpenDirectoryBacker",
@@ -988,7 +990,8 @@ DEFAULT_CONFIG = {
         "Enabled": True,
         "MemcachedPool" : "Default",
         "UpdateSeconds" : 300,
-        "ExpireSeconds" : 3600,
+        "ExpireSeconds" : 86400,
+        "LockSeconds"   : 600,
         "EnableUpdater" : True,
         "UseExternalProxies" : False,
     },
@@ -1114,6 +1117,7 @@ RELATIVE_PATHS = [
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateExchanges",)),
     ("LogRoot", "AccessLogFile"),
     ("LogRoot", "ErrorLogFile"),
+    ("LogRoot", "AgentLogFile"),
     ("LogRoot", ("Postgres", "LogFile",)),
     ("LogRoot", ("LogDatabase", "StatisticsLogFile",)),
     ("LogRoot", "AccountingLogRoot"),

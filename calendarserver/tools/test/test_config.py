@@ -16,7 +16,8 @@
 
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import ConfigDict
-from calendarserver.tools.config import WritableConfig, setKeyPath, getKeyPath, flattenDictionary
+from calendarserver.tools.config import (WritableConfig, setKeyPath, getKeyPath,
+    flattenDictionary, processArgs)
 from calendarserver.tools.test.test_gateway import RunCommandTestCase
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.filepath import FilePath
@@ -88,6 +89,25 @@ class WritableConfigTestCase(TestCase):
         self.assertEquals("xyzzy", WritableConfig.convertToValue("xyzzy"))
         self.assertEquals("xy.zzy", WritableConfig.convertToValue("xy.zzy"))
 
+
+    def test_processArgs(self):
+        """
+        Ensure utf-8 encoded command line args are handled properly
+        """
+        content = """<plist version="1.0">
+    <dict>
+        <key>key1</key>
+        <string>before</string>
+    </dict>
+</plist>"""
+        self.fp.setContent(PREAMBLE + content)
+        config = ConfigDict()
+        writable = WritableConfig(config, self.configFile)
+        writable.read()
+        processArgs(writable, ["key1=\xf0\x9f\x92\xa3"], restart=False)
+        writable2 = WritableConfig(config, self.configFile)
+        writable2.read()
+        self.assertEquals(writable2.currentConfigSubset, {'key1': u'\U0001f4a3'})
 
 
 class ConfigTestCase(RunCommandTestCase):

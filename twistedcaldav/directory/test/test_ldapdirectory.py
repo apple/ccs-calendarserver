@@ -207,7 +207,8 @@ else:
                         "fullName" : "cn",
                         "emailAddresses" : "mail",
                     },
-                    "expected" : "(|(cn=*foo*)(mail=*foo*))",
+                    "expected" : "(&(a=b)(|(cn=*foo*)(mail=foo*)))",
+                    "extra" : "(a=b)",
                 },
                 {
                     "tokens" : ["foo"],
@@ -215,7 +216,8 @@ else:
                         "fullName" : "cn",
                         "emailAddresses" : ["mail", "mailAliases"],
                     },
-                    "expected" : "(|(cn=*foo*)(mail=*foo*)(mailAliases=*foo*))",
+                    "expected" : "(&(a=b)(|(cn=*foo*)(mail=foo*)(mailAliases=foo*)))",
+                    "extra" : "(a=b)",
                 },
                 {
                     "tokens" : [],
@@ -224,18 +226,21 @@ else:
                         "emailAddresses" : "mail",
                     },
                     "expected" : None,
+                    "extra" : None,
                 },
                 {
                     "tokens" : ["foo", "bar"],
                     "mapping" : { },
                     "expected" : None,
+                    "extra" : None,
                 },
                 {
                     "tokens" : ["foo", "bar"],
                     "mapping" : {
                         "emailAddresses" : "mail",
                     },
-                    "expected" : "(&(mail=*foo*)(mail=*bar*))",
+                    "expected" : "(&(mail=foo*)(mail=bar*))",
+                    "extra" : None,
                 },
                 {
                     "tokens" : ["foo", "bar"],
@@ -243,7 +248,8 @@ else:
                         "fullName" : "cn",
                         "emailAddresses" : "mail",
                     },
-                    "expected" : "(&(|(cn=*foo*)(mail=*foo*))(|(cn=*bar*)(mail=*bar*)))",
+                    "expected" : "(&(|(cn=*foo*)(mail=foo*))(|(cn=*bar*)(mail=bar*)))",
+                    "extra" : None,
                 },
                 {
                     "tokens" : ["foo", "bar"],
@@ -251,7 +257,8 @@ else:
                         "fullName" : "cn",
                         "emailAddresses" : ["mail", "mailAliases"],
                     },
-                    "expected" : "(&(|(cn=*foo*)(mail=*foo*)(mailAliases=*foo*))(|(cn=*bar*)(mail=*bar*)(mailAliases=*bar*)))",
+                    "expected" : "(&(|(cn=*foo*)(mail=foo*)(mailAliases=foo*))(|(cn=*bar*)(mail=bar*)(mailAliases=bar*)))",
+                    "extra" : None,
                 },
                 {
                     "tokens" : ["foo", "bar", "baz("],
@@ -259,12 +266,13 @@ else:
                         "fullName" : "cn",
                         "emailAddresses" : "mail",
                     },
-                    "expected" : "(&(|(cn=*foo*)(mail=*foo*))(|(cn=*bar*)(mail=*bar*))(|(cn=*baz\\28*)(mail=*baz\\28*)))",
+                    "expected" : "(&(|(cn=*foo*)(mail=foo*))(|(cn=*bar*)(mail=bar*))(|(cn=*baz\\28*)(mail=baz\\28*)))",
+                    "extra" : None,
                 },
             ]
             for entry in entries:
                 self.assertEquals(
-                    buildFilterFromTokens(entry["mapping"], entry["tokens"]),
+                    buildFilterFromTokens(None, entry["mapping"], entry["tokens"], extra=entry["extra"]),
                     entry["expected"]
                 )
 
@@ -330,6 +338,10 @@ else:
                             key, value = fragment.split("=")
                             if value in attrs.get(key, []):
                                 results.append(("ignored", (dn, attrs)))
+                                break
+                            elif value == "*" and key in attrs:
+                                results.append(("ignored", (dn, attrs)))
+                                break
 
             return results
 
@@ -401,7 +413,8 @@ else:
                     "uid=odtestamanda,cn=users,dc=example,dc=com",
                     {
                         'uid': ['odtestamanda'],
-                        'apple-generateduid': ['9DC04A70-E6DD-11DF-9492-0800200C9A66'],
+                        # purposely throw in an un-normalized GUID
+                        'apple-generateduid': ['9dc04a70-e6dd-11df-9492-0800200c9a66'],
                         'sn': ['Test'],
                         'mail': ['odtestamanda@example.com', 'alternate@example.com'],
                         'givenName': ['Amanda'],
@@ -450,6 +463,30 @@ else:
                         'mail': ['wsanchez@example.com'],
                         'givenName': ['Wilfredo'],
                         'cn': ['Wilfredo Sanchez']
+                    }
+                ),
+                (
+                    "uid=testresource  ,  cn=resources  , dc=example,dc=com",
+                    {
+                        'uid': ['testresource'],
+                        'apple-generateduid': ['D91B21B9-B856-495A-8E36-0E5AD54EFB3A'],
+                        'sn': ['Resource'],
+                        'givenName': ['Test'],
+                        'cn': ['Test Resource'],
+                        # purposely throw in an un-normalized GUID
+                        'read-write-proxy' : ['6423f94a-6b76-4a3a-815b-d52cfd77935d'],
+                        'read-only-proxy' : ['5A985493-EE2C-4665-94CF-4DFEA3A89500'],
+                    }
+                ),
+                (
+                    "uid=testresource2  ,  cn=resources  , dc=example,dc=com",
+                    {
+                        'uid': ['testresource2'],
+                        'apple-generateduid': ['753E5A60-AFFD-45E4-BF2C-31DAB459353F'],
+                        'sn': ['Resource2'],
+                        'givenName': ['Test'],
+                        'cn': ['Test Resource2'],
+                        'read-write-proxy' : ['6423F94A-6B76-4A3A-815B-D52CFD77935D'],
                     }
                 ),
             ),
@@ -546,8 +583,8 @@ else:
                 "resourceSchema": {
                     "resourceInfoAttr": "apple-resource-info", # contains location/resource info
                     "autoScheduleAttr": None,
-                    "proxyAttr": None,
-                    "readOnlyProxyAttr": None,
+                    "proxyAttr": "read-write-proxy",
+                    "readOnlyProxyAttr": "read-only-proxy",
                     "autoAcceptGroupAttr": None,
                 },
                 "partitionSchema": {
@@ -1227,6 +1264,7 @@ else:
             self.assertEquals(
                 len(self.service.ldap.search_s("cn=groups,dc=example,dc=com", 0, "(|(apple-generateduid=right_coast)(apple-generateduid=left_coast))", [])), 2)
 
+
         def test_ldapRecordCreation(self):
             """
             Exercise _ldapResultToRecord(), which converts a dictionary
@@ -1468,6 +1506,21 @@ else:
             self.assertEquals(record.autoAcceptGroup,
                 '77A8EB52-AA2A-42ED-8843-B2BEE863AC70')
 
+            # Record with lowercase guid
+            dn = "uid=odtestamanda,cn=users,dc=example,dc=com"
+            guid = '9dc04a70-e6dd-11df-9492-0800200c9a66'
+            attrs = {
+                'uid': ['odtestamanda'],
+                'apple-generateduid': [guid],
+                'sn': ['Test'],
+                'mail': ['odtestamanda@example.com', 'alternate@example.com'],
+                'givenName': ['Amanda'],
+                'cn': ['Amanda Test']
+            }
+            record = self.service._ldapResultToRecord(dn, attrs,
+                self.service.recordType_users)
+            self.assertEquals(record.guid, guid.upper())
+
         def test_listRecords(self):
             """
             listRecords makes an LDAP query (with fake results in this test)
@@ -1576,7 +1629,7 @@ else:
         @inlineCallbacks
         def test_groupMembershipAliases(self):
             """
-            Exercise a directory enviornment where group membership does not refer
+            Exercise a directory environment where group membership does not refer
             to guids but instead uses LDAP DNs.  This example uses the LDAP attribute
             "uniqueMember" to specify members of a group.  The value of this attribute
             is each members' DN.  Even though the proxy database deals strictly in
@@ -1593,7 +1646,7 @@ else:
             cache = GroupMembershipCache("ProxyDB", expireSeconds=60)
             self.service.groupMembershipCache = cache
             updater = GroupMembershipCacheUpdater(calendaruserproxy.ProxyDBService,
-                self.service, 30, 15, cache=cache, useExternalProxies=False)
+                self.service, 30, 15, 30, cache=cache, useExternalProxies=False)
 
             self.assertEquals((False, 8, 8), (yield updater.updateCache()))
 
@@ -1606,6 +1659,26 @@ else:
 
                 record = self.service.recordWithShortName(users, shortName)
                 self.assertEquals(groups, (yield record.cachedGroups()))
+
+
+        def test_getExternalProxyAssignments(self):
+            """
+            Verify getExternalProxyAssignments can extract assignments from the
+            directory, and that guids are normalized.
+            """
+            self.setupService(self.nestedUsingDifferentAttributeUsingDN)
+            self.assertEquals(
+                self.service.getExternalProxyAssignments(),
+                [
+                    ('D91B21B9-B856-495A-8E36-0E5AD54EFB3A#calendar-proxy-read',
+                        ['5A985493-EE2C-4665-94CF-4DFEA3A89500']),
+                    ('D91B21B9-B856-495A-8E36-0E5AD54EFB3A#calendar-proxy-write',
+                        ['6423F94A-6B76-4A3A-815B-D52CFD77935D']),
+                    ('753E5A60-AFFD-45E4-BF2C-31DAB459353F#calendar-proxy-write',
+                        ['6423F94A-6B76-4A3A-815B-D52CFD77935D'])
+                ]
+            )
+
 
 
         def test_splitIntoBatches(self):

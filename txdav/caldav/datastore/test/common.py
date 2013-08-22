@@ -988,9 +988,9 @@ class CommonTests(CommonCommonTests):
         self.assertEqual(newName, self.sharedName)
         self.assertNotIdentical(otherCal, None)
 
-        invitedCals = yield cal.asShared()
+        invitedCals = yield cal.sharingInvites()
         self.assertEqual(len(invitedCals), 1)
-        self.assertEqual(invitedCals[0].shareMode(), _BIND_MODE_READ)
+        self.assertEqual(invitedCals[0].mode(), _BIND_MODE_READ)
 
 
     @inlineCallbacks
@@ -1007,7 +1007,7 @@ class CommonTests(CommonCommonTests):
         newName = yield cal.unshareWith(other)
         otherCal = yield other.childWithName(newName)
         self.assertIdentical(otherCal, None)
-        invitedCals = yield cal.asShared()
+        invitedCals = yield cal.sharingInvites()
         self.assertEqual(len(invitedCals), 0)
 
 
@@ -1027,7 +1027,7 @@ class CommonTests(CommonCommonTests):
         yield cal.unshare()
         otherCal = yield other.childWithName(self.sharedName)
         self.assertEqual(otherCal, None)
-        invitedCals = yield cal.asShared()
+        invitedCals = yield cal.sharingInvites()
         self.assertEqual(len(invitedCals), 0)
 
 
@@ -1047,7 +1047,7 @@ class CommonTests(CommonCommonTests):
         yield otherCal.unshare()
         otherCal = yield other.childWithName(self.sharedName)
         self.assertEqual(otherCal, None)
-        invitedCals = yield cal.asShared()
+        invitedCals = yield cal.sharingInvites()
         self.assertEqual(len(invitedCals), 0)
 
 
@@ -1062,24 +1062,23 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_asShared(self):
+    def test_sharingInvites(self):
         """
-        L{ICalendar.asShared} returns an iterable of all versions of a shared
+        L{ICalendar.sharingInvites} returns an iterable of all versions of a shared
         calendar.
         """
         cal = yield self.calendarUnderTest()
-        sharedBefore = yield cal.asShared()
-        # It's not shared yet; make sure asShared doesn't include owner version.
+        sharedBefore = yield cal.sharingInvites()
+        # It's not shared yet; make sure sharingInvites doesn't include owner version.
         self.assertEqual(len(sharedBefore), 0)
         yield self.test_shareWith()
         # FIXME: don't know why this separate transaction is needed; remove it.
         yield self.commit()
         cal = yield self.calendarUnderTest()
-        sharedAfter = yield cal.asShared()
+        sharedAfter = yield cal.sharingInvites()
         self.assertEqual(len(sharedAfter), 1)
-        self.assertEqual(sharedAfter[0].shareMode(), _BIND_MODE_WRITE)
-        self.assertEqual(sharedAfter[0].viewerCalendarHome().uid(),
-                         OTHER_HOME_UID)
+        self.assertEqual(sharedAfter[0].mode(), _BIND_MODE_WRITE)
+        self.assertEqual(sharedAfter[0].shareeUID(), OTHER_HOME_UID)
 
 
     @inlineCallbacks

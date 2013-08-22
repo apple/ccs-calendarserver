@@ -847,7 +847,7 @@ class TextMatch (CalDAVTextElement):
     name = "text-match"
 
 
-    def fromString(clazz, string, caseless=False): # @NoSelf
+    def fromString(clazz, string, caseless=False): #@NoSelf
         if caseless:
             caseless = "yes"
         else:

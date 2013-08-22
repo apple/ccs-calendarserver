@@ -213,12 +213,14 @@ class RedirectResponse (StatusResponse):
     """
     A L{Response} object that contains a redirect to another network location.
     """
-    def __init__(self, location):
+    def __init__(self, location, temporary=False):
         """
         @param location: the URI to redirect to.
+        @param temporary: whether it's a temporary redirect or permanent
         """
+        code = responsecode.TEMPORARY_REDIRECT if temporary else responsecode.MOVED_PERMANENTLY
         super(RedirectResponse, self).__init__(
-            responsecode.MOVED_PERMANENTLY,
+            code,
             "Document moved to %s." % (location,)
         )
 

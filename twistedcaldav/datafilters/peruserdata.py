@@ -176,6 +176,8 @@ class PerUserDataFilter(CalendarFilter):
         if ical.masterComponent() is not None:
             for rid in peruser_only_set:
                 ical_component = ical.deriveInstance(rid)
+                if ical_component is None:
+                    continue
                 peruser_component = peruser_recurrence_map[rid]
                 self._mergeBackComponent(ical_component, peruser_component)
                 ical.addComponent(ical_component)
@@ -310,7 +312,7 @@ class PerUserDataFilter(CalendarFilter):
             if rid is None:
                 continue
             derived = ical.deriveInstance(rid, newcomp=masterDerived)
-            if derived and derived == subcomponent:
+            if derived is not None and derived == subcomponent:
                 ical.removeComponent(subcomponent)
 
 

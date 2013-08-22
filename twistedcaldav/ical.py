@@ -30,6 +30,7 @@ __all__ = [
 
 import cStringIO as StringIO
 import codecs
+from difflib import unified_diff
 import heapq
 import itertools
 import uuid
@@ -950,10 +951,15 @@ class Component (object):
         Remove a property from this component.
         @param property: the L{Property} to remove from this component.
         """
-        self._pycalendar.removeProperty(property._pycalendar)
-        self._pycalendar.finalise()
-        property._parent = None
-        self._markAsDirty()
+
+        if isinstance(property, str):
+            for property in self.properties(property):
+                self.removeProperty(property)
+        else:
+            self._pycalendar.removeProperty(property._pycalendar)
+            self._pycalendar.finalise()
+            property._parent = None
+            self._markAsDirty()
 
 
     def removeAllPropertiesWithName(self, pname):
@@ -1440,6 +1446,10 @@ class Component (object):
         currently marked as an EXDATE in the existing master, allow an option whereby the override
         is added as STATUS:CANCELLED and the EXDATE removed.
 
+        IMPORTANT: all callers of this method MUST check the return value for None. Never assume that
+        a valid instance will be derived - no matter how much you think you understand iCalendar recurrence.
+        There is always some new thing that will surprise you.
+
         @param rid: recurrence-id value
         @type rid: L{PyCalendarDateTime} or C{str}
         @param allowCancelled: whether to allow a STATUS:CANCELLED override
@@ -1447,7 +1457,7 @@ class Component (object):
         @param allowExcluded: whether to derive an instance for an existing EXDATE
         @type allowExcluded: C{bool}
 
-        @return: L{Component} for newly derived instance, or None if not valid override
+        @return: L{Component} for newly derived instance, or C{None} if not a valid override
         """
 
         if allowCancelled and newcomp is not None:
@@ -3512,3 +3522,23 @@ def merge(*iterables):
             break
         else:
             heapq.heappop(heap)
+
+
+
+def normalize_iCalStr(icalstr):
+    """
+    Normalize a string representation of ical data for easy test comparison.
+    """
+
+    icalstr = str(icalstr).replace("\r\n ", "")
+    icalstr = icalstr.replace("\n ", "")
+    icalstr = "\r\n".join([line for line in icalstr.splitlines() if not line.startswith("DTSTAMP")])
+    return icalstr
+
+
+
+def diff_iCalStrs(icalstr1, icalstr2):
+
+    icalstr1 = normalize_iCalStr(icalstr1).splitlines()
+    icalstr2 = normalize_iCalStr(icalstr2).splitlines()
+    return "\n".join(unified_diff(icalstr1, icalstr2))

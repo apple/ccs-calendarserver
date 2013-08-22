@@ -38,7 +38,6 @@ from twext.web2.dav.fileop import rmdir
 
 from twistedcaldav import caldavxml
 from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
@@ -62,11 +61,9 @@ from txdav.caldav.datastore.index_file import db_basename
 from twisted.protocols.amp import AMP, Command, String, Boolean
 
 from calendarserver.tap.util import getRootResource, FakeRequest, directoryFromConfig
-from calendarserver.tools.resources import migrateResources
 from calendarserver.tools.util import getDirectory
 
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
-
 
 deadPropertyXattrPrefix = namedAny(
     "txdav.base.propertystore.xattr.PropertyStore.deadPropertyXattrPrefix"
@@ -912,6 +909,12 @@ def migrateFromOD(config, directory):
     #
     # Migrates locations and resources from OD
     #
+    try:
+        from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+        from calendarserver.tools.resources import migrateResources
+    except ImportError:
+        return succeed(None)
+
     log.warn("Migrating locations and resources")
 
     userService = directory.serviceForRecordType("users")
@@ -1044,6 +1047,7 @@ class PostDBImportStep(object):
                     directory,
                     self.config.GroupCaching.UpdateSeconds,
                     self.config.GroupCaching.ExpireSeconds,
+                    self.config.GroupCaching.LockSeconds,
                     namespace=self.config.GroupCaching.MemcachedPool,
                     useExternalProxies=self.config.GroupCaching.UseExternalProxies)
                 yield updater.updateCache(fast=True)

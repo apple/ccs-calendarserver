@@ -111,11 +111,18 @@
             <string>-c log_lock_waits=TRUE</string>
             <string>-c deadlock_timeout=10</string>
             <string>-c log_line_prefix='%m [%p] '</string>
+            <string>-c logging_collector=on</string>
+            <string>-c log_truncate_on_rotation=on</string>
+            <string>-c log_directory=/var/log/caldavd/postgresql</string>
+            <string>-c log_filename=postgresql_%w.log</string>
+            <string>-c log_rotation_age=1440</string>
         </array>
         <key>ExtraConnections</key>
         <integer>20</integer>
         <key>ClusterName</key>
         <string>cluster.pg</string>
+        <key>LogFile</key>
+        <string>xpg_ctl.log</string>
     </dict>
 
     <!-- Data root -->

@@ -26,20 +26,13 @@ from txdav.idav import IDataStoreObject
 
 __all__ = [
     # Classes
-    "GroupForSharedAddressBookDeleteNotAllowedError",
     "GroupWithUnsharedAddressNotAllowedError",
-    "SharedGroupDeleteNotAllowedError",
+    "KindChangeNotAllowedError",
     "IAddressBookTransaction",
     "IAddressBookHome",
     "IAddressBook",
     "IAddressBookObject",
 ]
-
-
-class GroupForSharedAddressBookDeleteNotAllowedError(CommonStoreError):
-    """
-    Sharee cannot delete the group for a shared address book.
-    """
 
 
 
@@ -50,9 +43,9 @@ class GroupWithUnsharedAddressNotAllowedError(CommonStoreError):
 
 
 
-class SharedGroupDeleteNotAllowedError(CommonStoreError):
+class KindChangeNotAllowedError(CommonStoreError):
     """
-    Sharee cannot delete a shared group.
+    Cannot change group kind.
     """
 
 

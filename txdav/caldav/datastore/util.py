@@ -356,8 +356,7 @@ class _AttachmentMigrationProto(Protocol, object):
 
 
 @inlineCallbacks
-def migrateHome(inHome, outHome, getComponent=lambda x: x.component(),
-                merge=False):
+def migrateHome(inHome, outHome, getComponent=lambda x: x.component(), merge=False):
     """
     Copy all calendars and properties in the given input calendar home to the
     given output calendar home.
@@ -373,7 +372,7 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(),
         a calendar in outHome).
 
     @param merge: a boolean indicating whether to raise an exception when
-        encounting a conflicting element of data (calendar or event), or to
+        encountering a conflicting element of data (calendar or event), or to
         attempt to merge them together.
 
     @return: a L{Deferred} that fires with C{None} when the migration is
@@ -398,8 +397,7 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(),
         yield d
         outCalendar = yield outHome.calendarWithName(name)
         try:
-            yield _migrateCalendar(calendar, outCalendar, getComponent,
-                                   merge=merge)
+            yield _migrateCalendar(calendar, outCalendar, getComponent, merge=merge)
         except InternalDataStoreError:
             log.error(
                 "  Failed to migrate calendar: %s/%s" % (inHome.name(), name,)
@@ -407,6 +405,11 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(),
 
     # No migration for notifications, since they weren't present in earlier
     # released versions of CalendarServer.
+
+    # May need to create inbox if it was not present in the original file store for some reason
+    inboxCalendar = yield outHome.calendarWithName("inbox")
+    if inboxCalendar is None:
+        yield outHome.createCalendarWithName("inbox")
 
     # May need to split calendars by component type
     if config.RestrictCalendarsToOneComponentType:

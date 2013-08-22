@@ -385,15 +385,12 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         Low-level query to gather names for calendarObjectsSinceToken.
         """
 
-    def asShared(): #@NoSelf
+    def sharingInvites(): #@NoSelf
         """
-        Get a view of this L{ICalendar} as present in everyone's calendar home
-        except for its owner's.
+        Retrieve the list of all L{SharingInvitation} for this L{CommonHomeChild}, irrespective of mode.
 
-        @return: a L{Deferred} which fires with a list of L{ICalendar}s, each
-            L{ICalendar} as seen by its respective sharee.  This means that its
-            C{shareMode} will be something other than L{_BIND_MODE_OWN}, and its
-            L{ICalendar.viewerCalendarHome} will return the home of the sharee.
+        @return: L{SharingInvitation} objects
+        @rtype: a L{Deferred} which fires with a L{list} of L{SharingInvitation}s.
         """
 
     # FIXME: This module should define it's own constants and this
@@ -863,8 +860,10 @@ class ComponentUpdateState(Names):
 
     ATTACHMENT_UPDATE     - change to a managed attachment that is re-writing calendar data.
 
-    SPLIT                 - calendar data is being split. Some validation and implicit scheduling is not done.
-                            Schedule-Tag is changed.
+    SPLIT_OWNER           - owner calendar data is being split. Implicit is done with non-hosted attendees.
+
+    SPLIT_ATTENDEE        - attendee calendar data is being split. No implicit done, but some extra processing
+                            is done (more than RAW).
 
     RAW                   - store the supplied data as-is without any processing or validation. This is used
                             for unit testing purposes only.
@@ -875,7 +874,8 @@ class ComponentUpdateState(Names):
     ORGANIZER_ITIP_UPDATE = NamedConstant()
     ATTENDEE_ITIP_UPDATE = NamedConstant()
     ATTACHMENT_UPDATE = NamedConstant()
-    SPLIT = NamedConstant()
+    SPLIT_OWNER = NamedConstant()
+    SPLIT_ATTENDEE = NamedConstant()
     RAW = NamedConstant()
 
     NORMAL.description = "normal"
@@ -883,7 +883,8 @@ class ComponentUpdateState(Names):
     ORGANIZER_ITIP_UPDATE.description = "organizer-update"
     ATTENDEE_ITIP_UPDATE.description = "attendee-update"
     ATTACHMENT_UPDATE.description = "attachment-update"
-    SPLIT.description = "split"
+    SPLIT_OWNER.description = "split-owner"
+    SPLIT_ATTENDEE.description = "split-attendee"
     RAW.description = "raw"
 
 

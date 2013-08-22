@@ -59,10 +59,10 @@ from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     InvalidPerUserDataMerge, \
     AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation, \
     ShareeAllowedError
-from txdav.carddav.iaddressbookstore import GroupWithUnsharedAddressNotAllowedError, \
-    GroupForSharedAddressBookDeleteNotAllowedError, SharedGroupDeleteNotAllowedError
+from txdav.carddav.iaddressbookstore import KindChangeNotAllowedError, \
+    GroupWithUnsharedAddressNotAllowedError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
-    _BIND_MODE_DIRECT
+    _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
 from txdav.common.icommondatastore import NoSuchObjectResourceError, \
     TooManyObjectResourcesError, ObjectResourceTooBigError, \
     InvalidObjectResourceError, ObjectResourceNameNotAllowedError, \
@@ -82,6 +82,7 @@ from twext.web2.iweb import IResponse
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.instance import InvalidOverriddenInstanceError, \
     TooManyInstancesError
+import collections
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -457,7 +458,7 @@ class _CommonHomeChildCollectionMixin(object):
         # Check sharee collection first
         if self.isShareeResource():
             log.debug("Removing shared collection %s" % (self,))
-            yield self.removeShareeCollection(request)
+            yield self.removeShareeResource(request)
             returnValue(NO_CONTENT)
 
         log.debug("Deleting collection %s" % (self,))
@@ -630,71 +631,9 @@ class _CommonHomeChildCollectionMixin(object):
             raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body"))
 
         # Build response
-        xmlresponses = []
-        for ctr, component in enumerate(components):
-
-            code = None
-            error = None
-            dataChanged = None
-            try:
-                # Create a new name if one was not provided
-                name = md5(str(ctr) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
-
-                # Get a resource for the new item
-                newchildURL = joinURL(request.path, name)
-                newchild = (yield request.locateResource(newchildURL))
-                dataChanged = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
-
-            except HTTPError, e:
-                # Extract the pre-condition
-                code = e.response.code
-                if isinstance(e.response, ErrorResponse):
-                    error = e.response.error
-                    error = (error.namespace, error.name,)
-            except Exception:
-                code = BAD_REQUEST
-
-            if code is None:
-
-                etag = (yield newchild.etag())
-                if not return_changed or dataChanged is None:
-                    xmlresponses.append(
-                        davxml.PropertyStatusResponse(
-                            davxml.HRef.fromString(newchildURL),
-                            davxml.PropertyStatus(
-                                davxml.PropertyContainer(
-                                    davxml.GETETag.fromString(etag.generate()),
-                                    customxml.UID.fromString(component.resourceUID()),
-                                ),
-                                davxml.Status.fromResponseCode(OK),
-                            )
-                        )
-                    )
-                else:
-                    xmlresponses.append(
-                        davxml.PropertyStatusResponse(
-                            davxml.HRef.fromString(newchildURL),
-                            davxml.PropertyStatus(
-                                davxml.PropertyContainer(
-                                    davxml.GETETag.fromString(etag.generate()),
-                                    self.xmlDataElementType().fromTextData(dataChanged),
-                                ),
-                                davxml.Status.fromResponseCode(OK),
-                            )
-                        )
-                    )
-
-            else:
-                xmlresponses.append(
-                    davxml.StatusResponse(
-                        davxml.HRef.fromString(""),
-                        davxml.Status.fromResponseCode(code),
-                    davxml.Error(
-                        WebDAVUnknownElement.withName(*error),
-                        customxml.UID.fromString(component.resourceUID()),
-                    ) if error else None,
-                    )
-                )
+        xmlresponses = [None] * len(components)
+        indexedComponents = [idxComponent for idxComponent in enumerate(components)]
+        yield self.bulkCreate(indexedComponents, request, return_changed, xmlresponses)
 
         result = MultiStatusResponse(xmlresponses)
 
@@ -711,140 +650,81 @@ class _CommonHomeChildCollectionMixin(object):
 
 
     @inlineCallbacks
-    def crudBatchPOST(self, request, xmlroot):
+    def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses):
+        """
+        Do create from simpleBatchPOST or crudCreate()
+        Subclasses may override
+        """
+        for index, component in indexedComponents:
 
-        # Need to force some kind of overall authentication on the request
-        yield self.authorize(request, (davxml.Read(), davxml.Write(),))
+            try:
+                # Create a new name if one was not provided
+                name = md5(str(index) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
 
-        # If CTag precondition
-        yield self.checkCTagPrecondition(request)
+                # Get a resource for the new item
+                newchildURL = joinURL(request.path, name)
+                newchild = (yield request.locateResource(newchildURL))
+                changedData = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
 
-        # Look for return changed data option
-        return_changed = self.checkReturnChanged(request)
+            except HTTPError, e:
+                # Extract the pre-condition
+                code = e.response.code
+                if isinstance(e.response, ErrorResponse):
+                    error = e.response.error
+                    error = (error.namespace, error.name,)
 
-        # Build response
-        xmlresponses = []
-        checkedBindPrivelege = None
-        checkedUnbindPrivelege = None
-        createCount = 0
-        updateCount = 0
-        deleteCount = 0
-        for xmlchild in xmlroot.children:
+                xmlresponses[index] = (
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code, error)
+                )
 
-            # Determine the multiput operation: create, update, delete
-            href = xmlchild.childOfType(davxml.HRef.qname())
-            set_items = xmlchild.childOfType(davxml.Set.qname())
-            prop = set_items.childOfType(davxml.PropertyContainer.qname()) if set_items is not None else None
-            xmldata_root = prop if prop else set_items
-            xmldata = xmldata_root.childOfType(self.xmlDataElementType().qname()) if xmldata_root is not None else None
-            if href is None:
+            except Exception:
+                xmlresponses[index] = (
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code=BAD_REQUEST, error=None)
+                )
 
-                if xmldata is None:
-                    raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body without a DAV:Href present"))
-
-                # Do privilege check on collection once
-                if checkedBindPrivelege is None:
-                    try:
-                        yield self.authorize(request, (davxml.Bind(),))
-                        checkedBindPrivelege = True
-                    except HTTPError, e:
-                        checkedBindPrivelege = e
-
-                # Create operations
-                yield self.crudCreate(request, xmldata, xmlresponses, return_changed, checkedBindPrivelege)
-                createCount += 1
             else:
-                delete = xmlchild.childOfType(customxml.Delete.qname())
-                ifmatch = xmlchild.childOfType(customxml.IfMatch.qname())
-                if ifmatch:
-                    ifmatch = str(ifmatch.children[0]) if len(ifmatch.children) == 1 else None
-                if delete is None:
-                    if set_items is None:
-                        raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body - no set_items of delete operation"))
-                    if xmldata is None:
-                        raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body for set_items operation"))
-                    yield self.crudUpdate(request, str(href), xmldata, ifmatch, return_changed, xmlresponses)
-                    updateCount += 1
-                else:
-                    # Do privilege check on collection once
-                    if checkedUnbindPrivelege is None:
-                        try:
-                            yield self.authorize(request, (davxml.Unbind(),))
-                            checkedUnbindPrivelege = True
-                        except HTTPError, e:
-                            checkedUnbindPrivelege = e
-
-                    yield self.crudDelete(request, str(href), ifmatch, xmlresponses, checkedUnbindPrivelege)
-                    deleteCount += 1
-
-        result = MultiStatusResponse(xmlresponses)
-
-        newctag = (yield self.getInternalSyncToken())
-        result.headers.setRawHeaders("CTag", (newctag,))
-
-        # Setup some useful logging
-        request.submethod = "CRUD batch"
-        if not hasattr(request, "extendedLogItems"):
-            request.extendedLogItems = {}
-        request.extendedLogItems["rcount"] = len(xmlresponses)
-        if createCount:
-            request.extendedLogItems["create"] = createCount
-        if updateCount:
-            request.extendedLogItems["update"] = updateCount
-        if deleteCount:
-            request.extendedLogItems["delete"] = deleteCount
-
-        returnValue(result)
+                if not return_changed:
+                    changedData = None
+                xmlresponses[index] = (
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData, code=None, error=None)
+                )
 
 
     @inlineCallbacks
-    def crudCreate(self, request, xmldata, xmlresponses, return_changed, hasPrivilege):
-
-        code = None
-        error = None
-        try:
-            if isinstance(hasPrivilege, HTTPError):
-                raise hasPrivilege
-
-            componentdata = xmldata.textData()
-            component = xmldata.generateComponent()
-
-            # Create a new name if one was not provided
-            name = md5(str(componentdata) + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
-
-            # Get a resource for the new item
-            newchildURL = joinURL(request.path, name)
-            newchild = (yield request.locateResource(newchildURL))
-            yield self.storeResourceData(newchild, component, componentdata)
-
-            # FIXME: figure out return_changed behavior
-
-        except HTTPError, e:
-            # Extract the pre-condition
-            code = e.response.code
-            if isinstance(e.response, ErrorResponse):
-                error = e.response.error
-                error = (error.namespace, error.name,)
-
-        except Exception:
-            code = BAD_REQUEST
-
+    def bulkCreateResponse(self, component, newchildURL, newchild, changedData, code, error):
+        """
+        generate one xmlresponse for bulk create
+        """
         if code is None:
             etag = (yield newchild.etag())
-            xmlresponses.append(
-                davxml.PropertyStatusResponse(
-                    davxml.HRef.fromString(newchildURL),
-                    davxml.PropertyStatus(
-                        davxml.PropertyContainer(
-                            davxml.GETETag.fromString(etag.generate()),
-                            customxml.UID.fromString(component.resourceUID()),
-                        ),
-                        davxml.Status.fromResponseCode(OK),
+            if changedData is None:
+                returnValue(
+                    davxml.PropertyStatusResponse(
+                        davxml.HRef.fromString(newchildURL),
+                        davxml.PropertyStatus(
+                            davxml.PropertyContainer(
+                                davxml.GETETag.fromString(etag.generate()),
+                                customxml.UID.fromString(component.resourceUID()),
+                            ),
+                            davxml.Status.fromResponseCode(OK),
+                        )
                     )
                 )
-            )
+            else:
+                returnValue(
+                    davxml.PropertyStatusResponse(
+                        davxml.HRef.fromString(newchildURL),
+                        davxml.PropertyStatus(
+                            davxml.PropertyContainer(
+                                davxml.GETETag.fromString(etag.generate()),
+                                self.xmlDataElementType().fromTextData(changedData),
+                            ),
+                            davxml.Status.fromResponseCode(OK),
+                        )
+                    )
+                )
         else:
-            xmlresponses.append(
+            returnValue(
                 davxml.StatusResponse(
                     davxml.HRef.fromString(""),
                     davxml.Status.fromResponseCode(code),
@@ -857,109 +737,228 @@ class _CommonHomeChildCollectionMixin(object):
 
 
     @inlineCallbacks
-    def crudUpdate(self, request, href, xmldata, ifmatch, return_changed, xmlresponses):
-        code = None
-        error = None
-        try:
-            componentdata = xmldata.textData()
-            component = xmldata.generateComponent()
+    def crudBatchPOST(self, request, xmlroot):
 
-            updateResource = (yield request.locateResource(href))
-            if not updateResource.exists():
-                raise HTTPError(NOT_FOUND)
+        # Need to force some kind of overall authentication on the request
+        yield self.authorize(request, (davxml.Read(), davxml.Write(),))
 
-            # Check privilege
-            yield updateResource.authorize(request, (davxml.Write(),))
+        # If CTag precondition
+        yield self.checkCTagPrecondition(request)
 
-            # Check if match
-            etag = (yield updateResource.etag())
-            if ifmatch and ifmatch != etag.generate():
-                raise HTTPError(PRECONDITION_FAILED)
+        # Look for return changed data option
+        return_changed = self.checkReturnChanged(request)
 
-            yield self.storeResourceData(updateResource, component, componentdata)
+        # setup for create, update, and delete
+        crudDeleteInfo = []
+        crudUpdateInfo = []
+        crudCreateInfo = []
+        for index, xmlchild in enumerate(xmlroot.children):
 
-            # FIXME: figure out return_changed behavior
+            # Determine the multiput operation: create, update, delete
+            href = xmlchild.childOfType(davxml.HRef.qname())
+            set_items = xmlchild.childOfType(davxml.Set.qname())
+            prop = set_items.childOfType(davxml.PropertyContainer.qname()) if set_items is not None else None
+            xmldata_root = prop if prop else set_items
+            xmldata = xmldata_root.childOfType(self.xmlDataElementType().qname()) if xmldata_root is not None else None
+            if href is None:
 
-        except HTTPError, e:
-            # Extract the pre-condition
-            code = e.response.code
-            if isinstance(e.response, ErrorResponse):
-                error = e.response.error
-                error = (error.namespace, error.name,)
+                if xmldata is None:
+                    raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body without a DAV:Href present"))
 
-        except Exception:
-            code = BAD_REQUEST
+                crudCreateInfo.append((index, xmldata))
+            else:
+                delete = xmlchild.childOfType(customxml.Delete.qname())
+                ifmatch = xmlchild.childOfType(customxml.IfMatch.qname())
+                if ifmatch:
+                    ifmatch = str(ifmatch.children[0]) if len(ifmatch.children) == 1 else None
+                if delete is None:
+                    if set_items is None:
+                        raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body - no set_items of delete operation"))
+                    if xmldata is None:
+                        raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body for set_items operation"))
+                    crudUpdateInfo.append((index, str(href), xmldata, ifmatch))
+                else:
+                    crudDeleteInfo.append((index, str(href), ifmatch))
 
-        if code is None:
-            xmlresponses.append(
-                davxml.PropertyStatusResponse(
-                    davxml.HRef.fromString(href),
-                    davxml.PropertyStatus(
-                        davxml.PropertyContainer(
-                            davxml.GETETag.fromString(etag.generate()),
-                        ),
-                        davxml.Status.fromResponseCode(OK),
-                    )
-                )
-            )
-        else:
-            xmlresponses.append(
-                davxml.StatusResponse(
-                    davxml.HRef.fromString(href),
-                    davxml.Status.fromResponseCode(code),
-                    davxml.Error(
-                        WebDAVUnknownElement.withName(*error),
-                    ) if error else None,
-                )
-            )
+        # now do the work
+        xmlresponses = [None] * len(xmlroot.children)
+        yield self.crudDelete(crudDeleteInfo, request, xmlresponses)
+        yield self.crudCreate(crudCreateInfo, request, xmlresponses, return_changed)
+        yield self.crudUpdate(crudUpdateInfo, request, xmlresponses, return_changed)
+
+        result = MultiStatusResponse(xmlresponses) #@UndefinedVariable
+
+        newctag = (yield self.getInternalSyncToken())
+        result.headers.setRawHeaders("CTag", (newctag,))
+
+        # Setup some useful logging
+        request.submethod = "CRUD batch"
+        if not hasattr(request, "extendedLogItems"):
+            request.extendedLogItems = {}
+        request.extendedLogItems["rcount"] = len(xmlresponses)
+        if crudCreateInfo:
+            request.extendedLogItems["create"] = len(crudCreateInfo)
+        if crudUpdateInfo:
+            request.extendedLogItems["update"] = len(crudUpdateInfo)
+        if crudDeleteInfo:
+            request.extendedLogItems["delete"] = len(crudDeleteInfo)
+
+        returnValue(result)
 
 
     @inlineCallbacks
-    def crudDelete(self, request, href, ifmatch, xmlresponses, hasPrivilege):
-        code = None
-        error = None
-        try:
-            if isinstance(hasPrivilege, HTTPError):
-                raise hasPrivilege
+    def crudCreate(self, crudCreateInfo, request, xmlresponses, return_changed):
 
-            deleteResource = (yield request.locateResource(href))
-            if not deleteResource.exists():
-                raise HTTPError(NOT_FOUND)
+        if crudCreateInfo:
+            # Do privilege check on collection once
+            try:
+                yield self.authorize(request, (davxml.Bind(),))
+                hasPrivilege = True
+            except HTTPError, e:
+                hasPrivilege = e
 
-            # Check if match
-            etag = (yield deleteResource.etag())
-            if ifmatch and ifmatch != etag.generate():
-                raise HTTPError(PRECONDITION_FAILED)
+            #get components
+            indexedComponents = []
+            for index, xmldata in crudCreateInfo:
 
-            yield deleteResource.storeRemove(request)
+                component = xmldata.generateComponent()
 
-        except HTTPError, e:
-            # Extract the pre-condition
-            code = e.response.code
-            if isinstance(e.response, ErrorResponse):
-                error = e.response.error
-                error = (error.namespace, error.name,)
+                if hasPrivilege is not True:
+                    e = hasPrivilege # use same code pattern as exception
+                    code = e.response.code
+                    if isinstance(e.response, ErrorResponse):
+                        error = e.response.error
+                        error = (error.namespace, error.name,)
 
-        except Exception:
-            code = BAD_REQUEST
+                    xmlresponse = yield self.bulkCreateResponse(component, None, None, None, code, error)
+                    xmlresponses[index] = xmlresponse
 
-        if code is None:
-            xmlresponses.append(
-                davxml.StatusResponse(
-                    davxml.HRef.fromString(href),
-                    davxml.Status.fromResponseCode(OK),
-                )
-            )
-        else:
-            xmlresponses.append(
-                davxml.StatusResponse(
-                    davxml.HRef.fromString(href),
-                    davxml.Status.fromResponseCode(code),
-                    davxml.Error(
-                        WebDAVUnknownElement.withName(*error),
-                    ) if error else None,
-                )
-            )
+                else:
+                    indexedComponents.append((index, component,))
+
+            yield self.bulkCreate(indexedComponents, request, return_changed, xmlresponses)
+
+
+    @inlineCallbacks
+    def crudUpdate(self, crudUpdateInfo, request, xmlresponses, return_changed):
+
+        for index, href, xmldata, ifmatch in crudUpdateInfo:
+
+            code = None
+            error = None
+            try:
+                componentdata = xmldata.textData()
+                component = xmldata.generateComponent()
+
+                updateResource = (yield request.locateResource(href))
+                if not updateResource.exists():
+                    raise HTTPError(NOT_FOUND)
+
+                # Check privilege
+                yield updateResource.authorize(request, (davxml.Write(),))
+
+                # Check if match
+                etag = (yield updateResource.etag())
+                if ifmatch and ifmatch != etag.generate():
+                    raise HTTPError(PRECONDITION_FAILED)
+
+                changedData = yield self.storeResourceData(updateResource, component, componentdata)
+
+            except HTTPError, e:
+                # Extract the pre-condition
+                code = e.response.code
+                if isinstance(e.response, ErrorResponse):
+                    error = e.response.error
+                    error = (error.namespace, error.name,)
+
+            except Exception:
+                code = BAD_REQUEST
+
+            if code is None:
+                if not return_changed or changedData is None:
+                    xmlresponses[index] = davxml.PropertyStatusResponse(
+                        davxml.HRef.fromString(href),
+                        davxml.PropertyStatus(
+                            davxml.PropertyContainer(
+                                davxml.GETETag.fromString(etag.generate()),
+                            ),
+                            davxml.Status.fromResponseCode(OK),
+                        )
+                    )
+                else:
+                    xmlresponses[index] = davxml.PropertyStatusResponse(
+                        davxml.HRef.fromString(href),
+                        davxml.PropertyStatus(
+                            davxml.PropertyContainer(
+                                davxml.GETETag.fromString(etag.generate()),
+                                self.xmlDataElementType().fromTextData(changedData),
+                            ),
+                            davxml.Status.fromResponseCode(OK),
+                        )
+                    )
+            else:
+                xmlresponses[index] = davxml.StatusResponse(
+                        davxml.HRef.fromString(href),
+                        davxml.Status.fromResponseCode(code),
+                        davxml.Error(
+                            WebDAVUnknownElement.withName(*error),
+                        ) if error else None,
+                    )
+
+
+    @inlineCallbacks
+    def crudDelete(self, crudDeleteInfo, request, xmlresponses):
+
+        if crudDeleteInfo:
+
+            # Do privilege check on collection once
+            try:
+                yield self.authorize(request, (davxml.Unbind(),))
+                hasPrivilege = True
+            except HTTPError, e:
+                hasPrivilege = e
+
+            for index, href, ifmatch in crudDeleteInfo:
+                code = None
+                error = None
+                try:
+                    if hasPrivilege is not True:
+                        raise hasPrivilege
+
+                    deleteResource = (yield request.locateResource(href))
+                    if not deleteResource.exists():
+                        raise HTTPError(NOT_FOUND)
+
+                    # Check if match
+                    etag = (yield deleteResource.etag())
+                    if ifmatch and ifmatch != etag.generate():
+                        raise HTTPError(PRECONDITION_FAILED)
+
+                    yield deleteResource.storeRemove(request)
+
+                except HTTPError, e:
+                    # Extract the pre-condition
+                    code = e.response.code
+                    if isinstance(e.response, ErrorResponse):
+                        error = e.response.error
+                        error = (error.namespace, error.name,)
+
+                except Exception:
+                    code = BAD_REQUEST
+
+                if code is None:
+                    xmlresponses[index] = davxml.StatusResponse(
+                        davxml.HRef.fromString(href),
+                        davxml.Status.fromResponseCode(OK),
+                    )
+                else:
+                    xmlresponses[index] = davxml.StatusResponse(
+                        davxml.HRef.fromString(href),
+                        davxml.Status.fromResponseCode(code),
+                        davxml.Error(
+                            WebDAVUnknownElement.withName(*error),
+                        ) if error else None,
+                    )
 
 
     def notifierID(self):
@@ -1163,7 +1162,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         except InvalidICalendarDataError:
             return None
 
-        by_uid = {}
+        by_uid = collections.OrderedDict()
         by_tzid = {}
         for subcomponent in vcal.subcomponents():
             if subcomponent.name() == "VTIMEZONE":
@@ -1425,7 +1424,7 @@ class DropboxCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
+        return davxml.ResourceType.dropboxhome #@UndefinedVariable
 
 
     def listChildren(self):
@@ -1477,7 +1476,7 @@ class CalendarObjectDropbox(_GetChildHelper):
 
 
     def resourceType(self):
-        return davxml.ResourceType.dropbox  # @UndefinedVariable
+        return davxml.ResourceType.dropbox #@UndefinedVariable
 
 
     @inlineCallbacks
@@ -1627,23 +1626,28 @@ class CalendarObjectDropbox(_GetChildHelper):
     def sharedDropboxACEs(self):
 
         aces = ()
-        calendars = yield self._newStoreCalendarObject._parentCollection.asShared()
-        for calendar in calendars:
+
+        invites = yield self._newStoreCalendarObject._parentCollection.sharingInvites()
+        for invite in invites:
+
+            # Only want accepted invites
+            if invite.status() != _BIND_STATUS_ACCEPTED:
+                continue
 
             userprivs = [
             ]
-            if calendar.shareMode() in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
+            if invite.mode() in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Read()))
                 userprivs.append(davxml.Privilege(davxml.ReadACL()))
                 userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
-            if calendar.shareMode() in (_BIND_MODE_READ,):
+            if invite.mode() in (_BIND_MODE_READ,):
                 userprivs.append(davxml.Privilege(davxml.WriteProperties()))
-            if calendar.shareMode() in (_BIND_MODE_WRITE,):
+            if invite.mode() in (_BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Write()))
             proxyprivs = list(userprivs)
             proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
 
-            principal = self.principalForUID(calendar._home.uid())
+            principal = self.principalForUID(invite.shareeUID())
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -1722,7 +1726,7 @@ class AttachmentsCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
+        return davxml.ResourceType.dropboxhome #@UndefinedVariable
 
 
     def listChildren(self):
@@ -1825,7 +1829,7 @@ class AttachmentsChildCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropbox  # @UndefinedVariable
+        return davxml.ResourceType.dropbox #@UndefinedVariable
 
 
     @inlineCallbacks
@@ -1922,7 +1926,7 @@ class AttachmentsChildCollection(_GetChildHelper):
 
 
     @inlineCallbacks
-    def _sharedAccessControl(self, calendar, shareMode):
+    def _sharedAccessControl(self, invite):
         """
         Check the shared access mode of this resource, potentially consulting
         an external access method if necessary.
@@ -1938,10 +1942,10 @@ class AttachmentsChildCollection(_GetChildHelper):
             access control mechanism has dictate the home should no longer have
             any access at all.
         """
-        if shareMode in (_BIND_MODE_DIRECT,):
-            ownerUID = calendar.ownerHome().uid()
+        if invite.mode() in (_BIND_MODE_DIRECT,):
+            ownerUID = invite.ownerUID()
             owner = self.principalForUID(ownerUID)
-            shareeUID = calendar.viewerHome().uid()
+            shareeUID = invite.shareeUID()
             if owner.record.recordType == WikiDirectoryService.recordType_wikis:
                 # Access level comes from what the wiki has granted to the
                 # sharee
@@ -1957,9 +1961,9 @@ class AttachmentsChildCollection(_GetChildHelper):
                     returnValue(None)
             else:
                 returnValue("original")
-        elif shareMode in (_BIND_MODE_READ,):
+        elif invite.mode() in (_BIND_MODE_READ,):
             returnValue("read-only")
-        elif shareMode in (_BIND_MODE_WRITE,):
+        elif invite.mode() in (_BIND_MODE_WRITE,):
             returnValue("read-write")
         returnValue("original")
 
@@ -1968,19 +1972,23 @@ class AttachmentsChildCollection(_GetChildHelper):
     def sharedDropboxACEs(self):
 
         aces = ()
-        calendars = yield self._newStoreCalendarObject._parentCollection.asShared()
-        for calendar in calendars:
+        invites = yield self._newStoreCalendarObject._parentCollection.sharingInvites()
+        for invite in invites:
+
+            # Only want accepted invites
+            if invite.status() != _BIND_STATUS_ACCEPTED:
+                continue
 
             privileges = [
                 davxml.Privilege(davxml.Read()),
                 davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
             ]
             userprivs = []
-            access = (yield self._sharedAccessControl(calendar, calendar.shareMode()))
+            access = (yield self._sharedAccessControl(invite))
             if access in ("read-only", "read-write",):
                 userprivs.extend(privileges)
 
-            principal = self.principalForUID(calendar._home.uid())
+            principal = self.principalForUID(invite.shareeUID())
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -2896,8 +2904,8 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         self._name = addressbook.name() if addressbook else name
 
         if config.EnableBatchUpload:
-            self._postHandlers[("text", "vcard")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
-            self.xmlDocHandlers[customxml.Multiput] = _CommonHomeChildCollectionMixin.crudBatchPOST
+            self._postHandlers[("text", "vcard")] = AddressBookCollectionResource.simpleBatchPOST
+            self.xmlDocHandlers[customxml.Multiput] = AddressBookCollectionResource.crudBatchPOST
 
 
     def __repr__(self):
@@ -2961,6 +2969,185 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         Addressbooks may not be renamed.
         """
         return FORBIDDEN
+
+
+    @inlineCallbacks
+    def makeChild(self, name):
+        """
+        call super and provision group share
+        """
+        abObjectResource = yield super(AddressBookCollectionResource, self).makeChild(name)
+        if abObjectResource.exists() and abObjectResource._newStoreObject.shareUID() is not None:
+            abObjectResource = yield self.parentResource().provisionShare(abObjectResource)
+        returnValue(abObjectResource)
+
+
+    @inlineCallbacks
+    def storeRemove(self, request):
+        """
+        handle remove of partially shared addressbook, else call super
+        """
+        if self.isShareeResource() and self._newStoreObject.shareUID() is None:
+            log.debug("Removing shared collection %s" % (self,))
+            for childname in (yield self.listChildren()):
+                child = (yield request.locateChildResource(self, childname))
+                if child.isShareeResource():
+                    yield child.storeRemove(request)
+
+            returnValue(NO_CONTENT)
+
+        returnValue((yield super(AddressBookCollectionResource, self).storeRemove(request)))
+
+
+    @inlineCallbacks
+    def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses):
+        """
+        bulk create allowing groups to contain member UIDs added during the same bulk create
+        """
+        groupRetries = []
+        coaddedUIDs = set()
+        for index, component in indexedComponents:
+
+            try:
+                # Create a new name if one was not provided
+                name = md5(str(index) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
+
+                # Get a resource for the new item
+                newchildURL = joinURL(request.path, name)
+                newchild = (yield request.locateResource(newchildURL))
+                changedData = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
+
+            except GroupWithUnsharedAddressNotAllowedError, e:
+                # save off info and try again below
+                missingUIDs = set(e.message)
+                groupRetries.append((index, component, newchildURL, newchild, missingUIDs,))
+
+            except HTTPError, e:
+                # Extract the pre-condition
+                code = e.response.code
+                if isinstance(e.response, ErrorResponse):
+                    error = e.response.error
+                    error = (error.namespace, error.name,)
+
+                xmlresponses[index] = (
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code, error)
+                )
+
+            except Exception:
+                xmlresponses[index] = (
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code=BAD_REQUEST, error=None)
+                )
+
+            else:
+                if not return_changed:
+                    changedData = None
+                coaddedUIDs |= set([component.resourceUID()])
+                xmlresponses[index] = (
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData, code=None, error=None)
+                )
+
+        if groupRetries:
+            # get set of UIDs added
+            coaddedUIDs |= set([groupRetry[1].resourceUID() for groupRetry in groupRetries])
+
+            # check each group add to see if it will succeed if coaddedUIDs are allowed
+            while(True):
+                for groupRetry in groupRetries:
+                    if bool(groupRetry[4] - coaddedUIDs):
+                        break
+                else:
+                    break
+
+                # give FORBIDDEN response
+                index, component, newchildURL, newchild, missingUIDs = groupRetry
+                xmlresponses[index] = (
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData=None, code=FORBIDDEN, error=None)
+                )
+                coaddedUIDs -= set([component.resourceUID()]) # group uid not added
+                groupRetries.remove(groupRetry) # remove this retry
+
+            for index, component, newchildURL, newchild, missingUIDs in groupRetries:
+                # newchild._metadata -> newchild._options during store
+                newchild._metadata["coaddedUIDs"] = coaddedUIDs
+
+                # don't catch errors, abort the whole transaction
+                changedData = yield self.storeResourceData(newchild, component, returnChangedData=return_changed)
+                if not return_changed:
+                    changedData = None
+                xmlresponses[index] = (
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData, code=None, error=None)
+                )
+
+
+    @inlineCallbacks
+    def crudDelete(self, crudDeleteInfo, request, xmlresponses):
+        """
+        Change handling of privileges
+        """
+        if crudDeleteInfo:
+            # Do privilege check on collection once
+            try:
+                yield self.authorize(request, (davxml.Unbind(),))
+                hasPrivilege = True
+            except HTTPError, e:
+                hasPrivilege = e
+
+            for index, href, ifmatch in crudDeleteInfo:
+                code = None
+                error = None
+                try:
+                    deleteResource = (yield request.locateResource(href))
+                    if not deleteResource.exists():
+                        raise HTTPError(NOT_FOUND)
+
+                    # Check if match
+                    etag = (yield deleteResource.etag())
+                    if ifmatch and ifmatch != etag.generate():
+                        raise HTTPError(PRECONDITION_FAILED)
+
+                    #===========================================================
+                    # # If unshared is allowed deletes fails but crud adds works work!
+                    # if (hasPrivilege is not True and not (
+                    #             deleteResource.isShareeResource() or
+                    #             deleteResource._newStoreObject.isGroupForSharedAddressBook()
+                    #         )
+                    #     ):
+                    #     raise hasPrivilege
+                    #===========================================================
+
+                    # don't allow shared group deletion -> unshare
+                    if (deleteResource.isShareeResource() or
+                        deleteResource._newStoreObject.isGroupForSharedAddressBook()):
+                        raise HTTPError(FORBIDDEN)
+
+                    if hasPrivilege is not True:
+                        raise hasPrivilege
+
+                    yield deleteResource.storeRemove(request)
+
+                except HTTPError, e:
+                    # Extract the pre-condition
+                    code = e.response.code
+                    if isinstance(e.response, ErrorResponse):
+                        error = e.response.error
+                        error = (error.namespace, error.name,)
+
+                except Exception:
+                    code = BAD_REQUEST
+
+                if code is None:
+                    xmlresponses[index] = davxml.StatusResponse(
+                        davxml.HRef.fromString(href),
+                        davxml.Status.fromResponseCode(OK),
+                    )
+                else:
+                    xmlresponses[index] = davxml.StatusResponse(
+                        davxml.HRef.fromString(href),
+                        davxml.Status.fromResponseCode(code),
+                        davxml.Error(
+                            WebDAVUnknownElement.withName(*error),
+                        ) if error else None,
+                    )
 
 
 
@@ -3030,8 +3217,17 @@ class AddressBookObjectResource(_CommonObjectResource):
         """
         Remove this address book object
         """
+
         # Handle sharing
-        if self.isShared():
+        if self.isShareeResource():
+            log.debug("Removing shared resource %s" % (self,))
+            yield self.removeShareeResource(request)
+            returnValue(NO_CONTENT)
+        elif self._newStoreObject.isGroupForSharedAddressBook():
+            abCollectionResource = (yield request.locateResource(parentForURL(request.uri)))
+            returnValue((yield abCollectionResource.storeRemove(request)))
+
+        elif self.isShared():
             yield self.downgradeFromShare(request)
 
         response = (
@@ -3131,6 +3327,13 @@ class AddressBookObjectResource(_CommonObjectResource):
             returnValue(response)
 
         # Handle the various store errors
+        except KindChangeNotAllowedError:
+            raise HTTPError(StatusResponse(
+                FORBIDDEN,
+                "vCard kind may not be changed",)
+            )
+
+        # Handle the various store errors
         except GroupWithUnsharedAddressNotAllowedError:
             raise HTTPError(StatusResponse(
                 FORBIDDEN,
@@ -3148,21 +3351,14 @@ class AddressBookObjectResource(_CommonObjectResource):
 
     @inlineCallbacks
     def http_DELETE(self, request):
+        """
+        Override http_DELETE handle shared group deletion without fromParent=[davxml.Unbind()]
+        """
+        if (self.isShareeResource() or
+            self.exists() and self._newStoreObject.isGroupForSharedAddressBook()):
+            returnValue((yield self.storeRemove(request)))
 
-        try:
-            returnValue((yield super(AddressBookObjectResource, self).http_DELETE(request)))
-
-        except GroupForSharedAddressBookDeleteNotAllowedError:
-            raise HTTPError(StatusResponse(
-                FORBIDDEN,
-                "Sharee cannot delete the group for a shared address book",)
-            )
-
-        except SharedGroupDeleteNotAllowedError:
-            raise HTTPError(StatusResponse(
-                FORBIDDEN,
-                "Sharee cannot delete a shared group",)
-            )
+        returnValue((yield super(AddressBookObjectResource, self).http_DELETE(request)))
 
 
     @inlineCallbacks
@@ -3193,7 +3389,7 @@ class AddressBookObjectResource(_CommonObjectResource):
             log.debug("Resource not found: %s" % (self,))
             raise HTTPError(NOT_FOUND)
 
-        if self._newStoreObject.addressbook().owned():
+        if not self._parentResource.isShareeResource():
             returnValue((yield super(AddressBookObjectResource, self).accessControlList(request, *a, **kw)))
 
         # Direct shares use underlying privileges of shared collection

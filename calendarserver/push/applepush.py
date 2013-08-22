@@ -365,8 +365,8 @@ class APNProviderProtocol(protocol.Protocol):
             }
         )
         payloadLength = len(payload)
-        self.log.debug("Sending APNS notification to %s: id=%d payload=%s" %
-            (token, identifier, payload))
+        self.log.debug("Sending APNS notification to {token}: id={id} payload={payload}",
+            token=token, id=identifier, payload=payload)
 
         self.transport.write(
             struct.pack("!BIIH32sH%ds" % (payloadLength,),

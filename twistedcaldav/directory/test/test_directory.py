@@ -173,7 +173,7 @@ class GroupMembershipTests (TestCase):
         self.directoryService.groupMembershipCache = cache
 
         updater = GroupMembershipCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30, 30,
             cache=cache, useExternalProxies=False)
 
         # Exercise getGroups()
@@ -239,6 +239,18 @@ class GroupMembershipTests (TestCase):
                  'right_coast']
             )
         )
+
+        # Prevent an update by locking the cache
+        acquiredLock = (yield cache.acquireLock())
+        self.assertTrue(acquiredLock)
+        self.assertEquals((False, 0), (yield updater.updateCache()))
+
+        # You can't lock when already locked:
+        acquiredLockAgain = (yield cache.acquireLock())
+        self.assertFalse(acquiredLockAgain)
+
+        # Allow an update by unlocking the cache
+        yield cache.releaseLock()
 
         self.assertEquals((False, 9, 9), (yield updater.updateCache()))
 
@@ -372,7 +384,7 @@ class GroupMembershipTests (TestCase):
             ]
 
         updater = GroupMembershipCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30, 30,
             cache=cache, useExternalProxies=True,
             externalProxiesSource=fakeExternalProxies)
 
@@ -456,7 +468,7 @@ class GroupMembershipTests (TestCase):
             ]
 
         updater = GroupMembershipCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30, 30,
             cache=cache, useExternalProxies=True,
             externalProxiesSource=fakeExternalProxiesRemoved)
 
@@ -623,7 +635,7 @@ class GroupMembershipTests (TestCase):
         self.directoryService.groupMembershipCache = cache
 
         updater = GroupMembershipCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30, 30,
             cache=cache)
 
         dataRoot = FilePath(config.DataRoot)
@@ -636,6 +648,10 @@ class GroupMembershipTests (TestCase):
         # time), but since the snapshot doesn't exist we fault in from the
         # directory (fast now is False), and snapshot will get created
 
+        # Note that because fast=True and isPopulated() is False, locking is
+        # ignored:
+        yield cache.acquireLock()
+
         self.assertFalse((yield cache.isPopulated()))
         fast, numMembers, numChanged = (yield updater.updateCache(fast=True))
         self.assertEquals(fast, False)
@@ -643,6 +659,8 @@ class GroupMembershipTests (TestCase):
         self.assertEquals(numChanged, 9)
         self.assertTrue(snapshotFile.exists())
         self.assertTrue((yield cache.isPopulated()))
+
+        yield cache.releaseLock()
 
         # Try another fast update where the snapshot already exists (as in a
         # server-restart scenario), which will only read from the snapshot
@@ -823,6 +841,32 @@ class RecordsMatchingTokensTests(TestCase):
         self.assertEquals(len(records), 1)
         self.assertEquals(records[0].shortNames[0], "apollo")
 
+
+    def test_recordTypesForSearchContext(self):
+        self.assertEquals(
+            [self.directoryService.recordType_locations],
+            self.directoryService.recordTypesForSearchContext("location")
+        )
+        self.assertEquals(
+            [self.directoryService.recordType_resources],
+            self.directoryService.recordTypesForSearchContext("resource")
+        )
+        self.assertEquals(
+            [self.directoryService.recordType_users],
+            self.directoryService.recordTypesForSearchContext("user")
+        )
+        self.assertEquals(
+            [self.directoryService.recordType_groups],
+            self.directoryService.recordTypesForSearchContext("group")
+        )
+        self.assertEquals(
+            set([
+                self.directoryService.recordType_resources,
+                self.directoryService.recordType_users,
+                self.directoryService.recordType_groups
+            ]),
+            set(self.directoryService.recordTypesForSearchContext("attendee"))
+        )
 
 
 class GUIDTests(TestCase):
