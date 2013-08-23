@@ -49,11 +49,11 @@ log = Logger()
 # specifically, "Unhandled unsolicited response" nonsense.
 #
 class IMAPLogger(LegacyLogger):
-    def emit(self, level, message=None, **kwargs):
-        if message is not None and message.startswith("Unhandled unsolicited response:"):
+    def msg(self, *message, **kwargs):
+        if message and message[0].startswith("Unhandled unsolicited response:"):
             return
 
-        super(IMAPLogger, self).emit(self, level, message, **kwargs)
+        super(IMAPLogger, self).msg(self, *message, **kwargs)
 
 imap4.log = IMAPLogger()
 
