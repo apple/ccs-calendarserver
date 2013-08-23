@@ -112,6 +112,11 @@ class MailRetriever(service.Service):
             from twisted.internet import reactor
         self.reactor = reactor
 
+        # If we're using our dedicated account on our local server, we're free
+        # to delete all messages that arrive in the inbox so as to not let
+        # cruft build up
+        self.deleteAllMail = shouldDeleteAllMail(config.ServerHostName,
+            settings.Server, settings.Username)
         self.mailReceiver = MailReceiver(store, directory)
         mailType = settings['Type']
         if mailType.lower().startswith('pop'):
@@ -127,7 +132,8 @@ class MailRetriever(service.Service):
 
 
     def fetchMail(self):
-        return self.point.connect(self.factory(self.settings, self.mailReceiver))
+        return self.point.connect(self.factory(self.settings, self.mailReceiver,
+            self.deleteAllMail))
 
 
     @inlineCallbacks
@@ -136,6 +142,27 @@ class MailRetriever(service.Service):
             seconds = self.settings["PollingSeconds"]
         yield scheduleNextMailPoll(self.store, seconds)
 
+
+def shouldDeleteAllMail(serverHostName, inboundServer, username):
+    """
+    Given the hostname of the calendar server, the hostname of the pop/imap
+    server, and the username we're using to access inbound mail, determine
+    whether we should delete all messages in the inbox or whether to leave
+    all unprocessed messages.
+
+    @param serverHostName: the calendar server hostname (config.ServerHostName)
+    @type serverHostName: C{str}
+    @param inboundServer: the pop/imap server hostname
+    @type inboundServer: C{str}
+    @param username: the name of the account we're using to retrieve mail
+    @type username: C{str}
+    @return: True if we should delete all messages from the inbox, False otherwise
+    @rtype: C{boolean}
+    """
+    return (
+        inboundServer in (serverHostName, "localhost") and
+        username == "com.apple.calendarserver"
+    )
 
 
 @inlineCallbacks
@@ -156,8 +183,9 @@ class MailReceiver(object):
     NO_ORGANIZER_ADDRESS = 3
     REPLY_FORWARDED_TO_ORGANIZER = 4
     INJECTION_SUBMITTED = 5
+    INCOMPLETE_DSN = 6
+    UNKNOWN_FAILURE = 7
 
-    # What about purge( ) and lowercase( )
     def __init__(self, store, directory):
         self.store = store
         self.directory = directory
@@ -363,7 +391,23 @@ class MailReceiver(object):
 
     # returns a deferred
     def inbound(self, message):
+        """
+        Given the text of an incoming message, parse and process it.
+        The possible return values are:
 
+        NO_TOKEN - there was no token in the To address
+        UNKNOWN_TOKEN - there was an unknown token in the To address
+        MALFORMED_TO_ADDRESS - we could not parse the To address at all
+        NO_ORGANIZER_ADDRESS - no ics attachment and no email to forward to
+        REPLY_FORWARDED_TO_ORGANIZER - no ics attachment, but reply forwarded
+        INJECTION_SUBMITTED - looks ok, was submitted as a work item
+        INCOMPLETE_DSN - not enough in the DSN to go on
+        UNKNOWN_FAILURE - any error we aren't specifically catching
+
+        @param message: The body of the email
+        @type message: C{str}
+        @return: Deferred firing with one of the above action codes
+        """
         try:
             msg = email.message_from_string(message)
 
@@ -376,7 +420,7 @@ class MailReceiver(object):
                     # It's a DSN without enough to go on
                     log.error("Mail gateway can't process DSN %s"
                                    % (msg['Message-ID'],))
-                    return succeed(None)
+                    return succeed(self.INCOMPLETE_DSN)
 
             log.info("Mail gateway received message %s from %s to %s" %
                 (msg['Message-ID'], msg['From'], msg['To']))
@@ -386,7 +430,7 @@ class MailReceiver(object):
         except Exception, e:
             # Don't let a failure of any kind stop us
             log.error("Failed to process message: %s" % (e,))
-        return succeed(None)
+        return succeed(self.UNKNOWN_FAILURE)
 
 
 
@@ -442,11 +486,20 @@ class POP3DownloadProtocol(pop3client.POP3Client):
         return defer.DeferredList(downloads).addCallback(self.cbFinished)
 
 
+    @inlineCallbacks
     def cbDownloaded(self, lines, id):
         self.log.debug("POP downloaded message %d" % (id,))
-        self.factory.handleMessage("\r\n".join(lines))
-        self.log.debug("POP deleting message %d" % (id,))
-        self.delete(id)
+        actionTaken = (yield self.factory.handleMessage("\r\n".join(lines)))
+
+        if self.factory.deleteAllMail:
+            # Delete all mail we see
+            self.log.debug("POP deleting message %d" % (id,))
+            self.delete(id)
+        else:
+            # Delete only mail we've processed
+            if actionTaken == MailReceiver.INJECTION_SUBMITTED:
+                self.log.debug("POP deleting message %d" % (id,))
+                self.delete(id)
 
 
     def cbFinished(self, results):
@@ -460,8 +513,10 @@ class POP3DownloadFactory(protocol.ClientFactory):
 
     protocol = POP3DownloadProtocol
 
-    def __init__(self, settings, mailReceiver):
+    def __init__(self, settings, mailReceiver, deleteAllMail):
+        self.settings = settings
         self.mailReceiver = mailReceiver
+        self.deleteAllMail = deleteAllMail
         self.noisy = False
 
 
@@ -477,7 +532,7 @@ class POP3DownloadFactory(protocol.ClientFactory):
 
     def handleMessage(self, message):
         self.log.debug("POP factory handle message")
-        self.log.debug(message)
+        # self.log.debug(message)
         return self.mailReceiver.inbound(message)
 
 
@@ -498,12 +553,12 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
 
 
     def ebLogError(self, error):
-        self.log.error("IMAP Error: %s" % (error,))
+        self.log.error("IMAP Error: {err}", err=error)
 
 
     def ebAuthenticateFailed(self, reason):
-        self.log.debug("IMAP authenticate failed for %s, trying login" %
-            (self.factory.settings["Username"],))
+        self.log.debug("IMAP authenticate failed for {name}, trying login",
+            name=self.factory.settings["Username"])
         return self.login(self.factory.settings["Username"],
             self.factory.settings["Password"]
             ).addCallback(self.cbLoggedIn
@@ -511,27 +566,34 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
 
 
     def ebLoginFailed(self, reason):
-        self.log.error("IMAP login failed for %s" %
-            (self.factory.settings["Username"],))
+        self.log.error("IMAP login failed for {name}", name=self.factory.settings["Username"])
         self.transport.loseConnection()
 
 
     def cbLoggedIn(self, result):
-        self.log.debug("IMAP logged in [%s]" % (self.state,))
+        self.log.debug("IMAP logged in")
         self.select("Inbox").addCallback(self.cbInboxSelected)
 
 
     def cbInboxSelected(self, result):
-        self.log.debug("IMAP Inbox selected [%s]" % (self.state,))
-        allMessages = imap4.MessageSet(1, None)
-        self.fetchUID(allMessages, True).addCallback(self.cbGotUIDs)
+        self.log.debug("IMAP Inbox selected")
+        self.search(imap4.Query(unseen=True)).addCallback(self.cbGotSearch)
+
+
+    def cbGotSearch(self, results):
+        if results:
+            ms = imap4.MessageSet()
+            for n in results:
+                ms.add(n)
+            self.fetchUID(ms).addCallback(self.cbGotUIDs)
+        else:
+            self.cbClosed(None)
 
 
     def cbGotUIDs(self, results):
-        self.log.debug("IMAP got uids [%s]" % (self.state,))
         self.messageUIDs = [result['UID'] for result in results.values()]
         self.messageCount = len(self.messageUIDs)
-        self.log.debug("IMAP Inbox has %d messages" % (self.messageCount,))
+        self.log.debug("IMAP Inbox has {count} unseen messages", count=self.messageCount)
         if self.messageCount:
             self.fetchNextMessage()
         else:
@@ -540,7 +602,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
 
 
     def fetchNextMessage(self):
-        self.log.debug("IMAP in fetchnextmessage [%s]" % (self.state,))
+        # self.log.debug("IMAP in fetchnextmessage")
         if self.messageUIDs:
             nextUID = self.messageUIDs.pop(0)
             messageListToFetch = imap4.MessageSet(nextUID)
@@ -556,8 +618,9 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
             self.expunge().addCallback(self.cbInboxSelected)
 
 
+    @inlineCallbacks
     def cbGotMessage(self, results, messageList):
-        self.log.debug("IMAP in cbGotMessage [%s]" % (self.state,))
+        self.log.debug("IMAP in cbGotMessage")
         try:
             messageData = results.values()[0]['RFC822']
         except IndexError:
@@ -567,44 +630,46 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
             self.fetchNextMessage()
             return
 
-        d = self.factory.handleMessage(messageData)
-        if isinstance(d, defer.Deferred):
-            d.addCallback(self.cbFlagDeleted, messageList)
+        actionTaken = (yield self.factory.handleMessage(messageData))
+        if self.factory.deleteAllMail:
+            # Delete all mail we see
+            yield self.cbFlagDeleted(messageList)
         else:
-            # No deferred returned, so no need for addCallback( )
-            self.cbFlagDeleted(None, messageList)
+            # Delete only mail we've processed; the rest are left flagged Seen
+            if actionTaken == MailReceiver.INJECTION_SUBMITTED:
+                yield self.cbFlagDeleted(messageList)
+            else:
+                self.fetchNextMessage()
 
 
-    def cbFlagDeleted(self, results, messageList):
+    def cbFlagDeleted(self, messageList):
         self.addFlags(messageList, ("\\Deleted",),
             uid=True).addCallback(self.cbMessageDeleted, messageList)
 
 
     def cbMessageDeleted(self, results, messageList):
-        self.log.debug("IMAP in cbMessageDeleted [%s]" % (self.state,))
         self.log.debug("Deleted message")
         self.fetchNextMessage()
 
 
     def cbClosed(self, results):
-        self.log.debug("IMAP in cbClosed [%s]" % (self.state,))
         self.log.debug("Mailbox closed")
         self.logout().addCallback(
             lambda _: self.transport.loseConnection())
 
 
     def rawDataReceived(self, data):
-        self.log.debug("RAW RECEIVED: %s" % (data,))
+        # self.log.debug("RAW RECEIVED: {data}", data=data)
         imap4.IMAP4Client.rawDataReceived(self, data)
 
 
     def lineReceived(self, line):
-        self.log.debug("RECEIVED: %s" % (line,))
+        # self.log.debug("RECEIVED: {line}", line=line)
         imap4.IMAP4Client.lineReceived(self, line)
 
 
     def sendLine(self, line):
-        self.log.debug("SENDING: %s" % (line,))
+        # self.log.debug("SENDING: {line}", line=line)
         imap4.IMAP4Client.sendLine(self, line)
 
 
@@ -614,11 +679,12 @@ class IMAP4DownloadFactory(protocol.ClientFactory):
 
     protocol = IMAP4DownloadProtocol
 
-    def __init__(self, settings, mailReceiver):
+    def __init__(self, settings, mailReceiver, deleteAllMail):
         self.log.debug("Setting up IMAPFactory")
 
         self.settings = settings
         self.mailReceiver = mailReceiver
+        self.deleteAllMail = deleteAllMail
         self.noisy = False
 
 
@@ -633,7 +699,7 @@ class IMAP4DownloadFactory(protocol.ClientFactory):
 
     def handleMessage(self, message):
         self.log.debug("IMAP factory handle message")
-        self.log.debug(message)
+        # self.log.debug(message)
         return self.mailReceiver.inbound(message)
 
 
