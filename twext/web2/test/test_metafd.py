@@ -180,6 +180,18 @@ class ConnectionLimiterTests(TestCase):
         self.assertEquals(builder.port.reading, True)
 
 
+    def test_processStopsReadingEvenWhenConnectionsAreNotAcknowledged(self):
+        """
+        L{ConnectionLimiter.statusesChanged} determines whether the current
+        number of outstanding requests is above the limit.
+        """
+        builder = LimiterBuilder(self)
+        builder.fillUp(acknowledged=False)
+        self.assertEquals(builder.port.reading, False)
+        builder.processRestart()
+        self.assertEquals(builder.port.reading, True)
+
+
 
 class LimiterBuilder(object):
     """
@@ -220,15 +232,20 @@ class LimiterBuilder(object):
         return serverServiceMaker
 
 
-    def fillUp(self):
+    def fillUp(self, acknowledged=True):
         """
         Fill up all the slots on the connection limiter.
+
+        @param acknowledged: Should the virtual connections created by this
+            method send a message back to the dispatcher indicating that the
+            subprocess has acknowledged receipt of the file descriptor?
         """
         for x in range(self.limiter.maxRequests):
             self.dispatcher.sendFileDescriptor(None, "SSL")
-            self.dispatcher.statusMessage(
-                self.dispatcher._subprocessSockets[0], "+"
-            )
+            if acknowledged:
+                self.dispatcher.statusMessage(
+                    self.dispatcher._subprocessSockets[0], "+"
+                )
 
 
     def processRestart(self):
