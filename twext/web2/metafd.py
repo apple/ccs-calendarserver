@@ -30,6 +30,7 @@ from twext.python.log import Logger
 from twext.web2.channel.http import HTTPFactory
 from twisted.application.service import MultiService, Service
 from twisted.internet import reactor
+from twisted.python.util import FancyStrMixin
 from twisted.internet.tcp import Server
 
 log = Logger()
@@ -161,12 +162,15 @@ class ReportingHTTPFactory(HTTPFactory):
 
 
 @total_ordering
-class WorkerStatus(object):
+class WorkerStatus(FancyStrMixin, object):
     """
     The status of a worker process.
     """
 
-    def __init__(self, acknowledged=0, unacknowledged=0, started=0):
+    showAttributes = "acknowledged unacknowledged started abandoned".split()
+
+    def __init__(self, acknowledged=0, unacknowledged=0, started=0,
+                 abandoned=0):
         """
         Create a L{ConnectionStatus} with a number of sent connections and a
         number of un-acknowledged connections.
@@ -179,11 +183,23 @@ class WorkerStatus(object):
             the subprocess which have never received a status response (a
             "C{+}" status message).
 
+        @param abandoned: The number of connections which have been sent to
+            this worker, but were not acknowledged at the moment that the
+            worker restarted.
+
         @param started: The number of times this worker has been started.
         """
         self.acknowledged = acknowledged
         self.unacknowledged = unacknowledged
         self.started = started
+        self.abandoned = abandoned
+
+
+    def effective(self):
+        """
+        The current effective load.
+        """
+        return self.acknowledged + self.unacknowledged
 
 
     def restarted(self):
@@ -191,11 +207,12 @@ class WorkerStatus(object):
         The L{WorkerStatus} derived from the current status of a process and
         the fact that it just restarted.
         """
-        return self.__class__(0, self.unacknowledged, self.started + 1)
+        return self.__class__(0, 0, self.started + 1, self.unacknowledged)
 
 
     def _tuplify(self):
-        return (self.acknowledged, self.unacknowledged, self.started)
+        return (self.acknowledged, self.unacknowledged, self.started,
+                self.abandoned)
 
 
     def __lt__(self, other):
@@ -215,7 +232,8 @@ class WorkerStatus(object):
             return NotImplemented
         return self.__class__(self.acknowledged + other.acknowledged,
                               self.unacknowledged + other.unacknowledged,
-                              self.started + other.started)
+                              self.started + other.started,
+                              self.abandoned + other.abandoned)
 
 
     def __sub__(self, other):
@@ -223,7 +241,8 @@ class WorkerStatus(object):
             return NotImplemented
         return self + self.__class__(-other.acknowledged,
                                      -other.unacknowledged,
-                                     -other.started)
+                                     -other.started,
+                                     -other.abandoned)
 
 
 
@@ -320,7 +339,7 @@ class ConnectionLimiter(MultiService, object):
         C{self.dispatcher.statuses} attribute, which is what
         C{self.outstandingRequests} uses to compute it.)
         """
-        current = sum(status.acknowledged
+        current = sum(status.effective()
                       for status in self.dispatcher.statuses)
         self._outstandingRequests = current # preserve for or= field in log
         maximum = self.maxRequests
