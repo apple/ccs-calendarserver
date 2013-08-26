@@ -297,7 +297,7 @@ END:VCALENDAR
         yield txn.commit()
         self.assertEquals(
             "1.2;Scheduling message has been delivered",
-            result.responses[0].children[1].toString()
+            result.responses[0].reqstatus.toString()
         )
 
 
@@ -330,7 +330,7 @@ END:VCALENDAR
         yield txn.commit()
         self.assertEquals(
             "3.7;Invalid Calendar User",
-            result.responses[0].children[1].toString()
+            result.responses[0].reqstatus.toString()
         )
 
 

@@ -20,6 +20,7 @@ from twistedcaldav.localization import translationTo, getLanguage, _
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import ConfigDict
+from twistedcaldav.timezones import TimezoneCache
 from pycalendar.datetime import DateTime
 
 import os
@@ -51,6 +52,11 @@ data = (
 localeDir = os.path.join(os.path.dirname(__file__), "data", "locales")
 
 class LocalizationTests(TestCase):
+
+    def setUp(self):
+        super(LocalizationTests, self).setUp()
+        TimezoneCache.create()
+
 
     def test_BasicStringLocalization(self):
 

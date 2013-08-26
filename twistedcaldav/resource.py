@@ -257,10 +257,11 @@ class CalDAVResource (
                 # Redirect to include trailing '/' in URI
                 return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/') + '/'))
 
-            def _defer(data):
+            def _defer(result):
+                data, accepted_type = result
                 response = Response()
-                response.stream = MemoryStream(str(data))
-                response.headers.setHeader("content-type", MimeType.fromString("text/calendar"))
+                response.stream = MemoryStream(data.getText(accepted_type))
+                response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (accepted_type,)))
                 return response
 
             d = self.iCalendarRolledup(request)
@@ -365,7 +366,7 @@ class CalDAVResource (
                                   (self,))
 
 
-    def storeStream(self, stream):
+    def storeStream(self, stream, format):
         """
         Store the content of the stream in this resource, as it would via a PUT.
 
@@ -375,8 +376,7 @@ class CalDAVResource (
         @return: a L{Deferred} which fires with an HTTP response.
         @rtype: L{Deferred}
         """
-        raise NotImplementedError("%s does not implement storeStream" %
-                                  (self,))
+        raise NotImplementedError("%s does not implement storeStream" % (self,))
 
     # End transitional new-store interface
 
@@ -595,12 +595,21 @@ class CalDAVResource (
             returnValue(self.getSupportedComponentSet())
 
         elif qname == caldavxml.SupportedCalendarData.qname() and self.isPseudoCalendarCollection():
-            returnValue(caldavxml.SupportedCalendarData(
+            dataTypes = []
+            dataTypes.append(
                 caldavxml.CalendarData(**{
                     "content-type": "text/calendar",
                     "version"     : "2.0",
                 }),
-            ))
+            )
+            if config.EnableJSONData:
+                dataTypes.append(
+                    caldavxml.CalendarData(**{
+                        "content-type": "application/calendar+json",
+                        "version"     : "2.0",
+                    }),
+                )
+            returnValue(caldavxml.SupportedCalendarData(*dataTypes))
 
         elif qname == caldavxml.MaxResourceSize.qname() and self.isPseudoCalendarCollection():
             if config.MaxResourceSize:
@@ -632,12 +641,21 @@ class CalDAVResource (
 
         elif qname == carddavxml.SupportedAddressData.qname() and self.isAddressBookCollection():
             # CardDAV, section 6.2.2
-            returnValue(carddavxml.SupportedAddressData(
+            dataTypes = []
+            dataTypes.append(
                 carddavxml.AddressDataType(**{
                     "content-type": "text/vcard",
                     "version"     : "3.0",
                 }),
-            ))
+            )
+            if config.EnableJSONData:
+                dataTypes.append(
+                    carddavxml.AddressDataType(**{
+                        "content-type": "application/vcard+json",
+                        "version"     : "3.0",
+                    }),
+                )
+            returnValue(carddavxml.SupportedAddressData(*dataTypes))
 
         elif qname == carddavxml.MaxResourceSize.qname() and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
             # CardDAV, section 6.2.3

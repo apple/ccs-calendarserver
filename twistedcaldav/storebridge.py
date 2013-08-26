@@ -82,6 +82,7 @@ from twext.web2.iweb import IResponse
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.instance import InvalidOverriddenInstanceError, \
     TooManyInstancesError
+from twistedcaldav.util import bestAcceptType
 import collections
 
 """
@@ -626,14 +627,17 @@ class _CommonHomeChildCollectionMixin(object):
         # Read in all data
         data = (yield allDataFromStream(request.stream))
 
-        components = self.componentsFromData(data)
+        format = request.headers.getHeader("content-type")
+        if format:
+            format = "%s/%s" % (format.mediaType, format.mediaSubtype,)
+        components = self.componentsFromData(data, format)
         if components is None:
             raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body"))
 
         # Build response
         xmlresponses = [None] * len(components)
         indexedComponents = [idxComponent for idxComponent in enumerate(components)]
-        yield self.bulkCreate(indexedComponents, request, return_changed, xmlresponses)
+        yield self.bulkCreate(indexedComponents, request, return_changed, xmlresponses, format)
 
         result = MultiStatusResponse(xmlresponses)
 
@@ -650,7 +654,7 @@ class _CommonHomeChildCollectionMixin(object):
 
 
     @inlineCallbacks
-    def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses):
+    def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses, format):
         """
         Do create from simpleBatchPOST or crudCreate()
         Subclasses may override
@@ -664,7 +668,7 @@ class _CommonHomeChildCollectionMixin(object):
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)
                 newchild = (yield request.locateResource(newchildURL))
-                changedData = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
+                changedComponent = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
 
             except HTTPError, e:
                 # Extract the pre-condition
@@ -674,30 +678,30 @@ class _CommonHomeChildCollectionMixin(object):
                     error = (error.namespace, error.name,)
 
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code, error)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code, error, format)
                 )
 
             except Exception:
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code=BAD_REQUEST, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, BAD_REQUEST, None, format)
                 )
 
             else:
                 if not return_changed:
-                    changedData = None
+                    changedComponent = None
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData, code=None, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedComponent, None, None, format)
                 )
 
 
     @inlineCallbacks
-    def bulkCreateResponse(self, component, newchildURL, newchild, changedData, code, error):
+    def bulkCreateResponse(self, component, newchildURL, newchild, changedComponent, code, error, format):
         """
         generate one xmlresponse for bulk create
         """
         if code is None:
             etag = (yield newchild.etag())
-            if changedData is None:
+            if changedComponent is None:
                 returnValue(
                     davxml.PropertyStatusResponse(
                         davxml.HRef.fromString(newchildURL),
@@ -717,7 +721,7 @@ class _CommonHomeChildCollectionMixin(object):
                         davxml.PropertyStatus(
                             davxml.PropertyContainer(
                                 davxml.GETETag.fromString(etag.generate()),
-                                self.xmlDataElementType().fromTextData(changedData),
+                                self.xmlDataElementType().fromComponent(changedComponent, format),
                             ),
                             davxml.Status.fromResponseCode(OK),
                         )
@@ -822,6 +826,7 @@ class _CommonHomeChildCollectionMixin(object):
             for index, xmldata in crudCreateInfo:
 
                 component = xmldata.generateComponent()
+                format = xmldata.content_type
 
                 if hasPrivilege is not True:
                     e = hasPrivilege # use same code pattern as exception
@@ -830,13 +835,13 @@ class _CommonHomeChildCollectionMixin(object):
                         error = e.response.error
                         error = (error.namespace, error.name,)
 
-                    xmlresponse = yield self.bulkCreateResponse(component, None, None, None, code, error)
+                    xmlresponse = yield self.bulkCreateResponse(component, None, None, None, code, error, format)
                     xmlresponses[index] = xmlresponse
 
                 else:
                     indexedComponents.append((index, component,))
 
-            yield self.bulkCreate(indexedComponents, request, return_changed, xmlresponses)
+            yield self.bulkCreate(indexedComponents, request, return_changed, xmlresponses, format)
 
 
     @inlineCallbacks
@@ -847,8 +852,8 @@ class _CommonHomeChildCollectionMixin(object):
             code = None
             error = None
             try:
-                componentdata = xmldata.textData()
                 component = xmldata.generateComponent()
+                format = xmldata.content_type
 
                 updateResource = (yield request.locateResource(href))
                 if not updateResource.exists():
@@ -862,7 +867,7 @@ class _CommonHomeChildCollectionMixin(object):
                 if ifmatch and ifmatch != etag.generate():
                     raise HTTPError(PRECONDITION_FAILED)
 
-                changedData = yield self.storeResourceData(updateResource, component, componentdata)
+                changedComponent = yield self.storeResourceData(updateResource, component, returnChangedData=return_changed)
 
             except HTTPError, e:
                 # Extract the pre-condition
@@ -875,7 +880,7 @@ class _CommonHomeChildCollectionMixin(object):
                 code = BAD_REQUEST
 
             if code is None:
-                if not return_changed or changedData is None:
+                if changedComponent is None:
                     xmlresponses[index] = davxml.PropertyStatusResponse(
                         davxml.HRef.fromString(href),
                         davxml.PropertyStatus(
@@ -891,7 +896,7 @@ class _CommonHomeChildCollectionMixin(object):
                         davxml.PropertyStatus(
                             davxml.PropertyContainer(
                                 davxml.GETETag.fromString(etag.generate()),
-                                self.xmlDataElementType().fromTextData(changedData),
+                                self.xmlDataElementType().fromComponentData(changedComponent, format),
                             ),
                             davxml.Status.fromResponseCode(OK),
                         )
@@ -1053,6 +1058,8 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         if config.EnableBatchUpload:
             self._postHandlers[("text", "calendar")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
+            if config.EnableJSONData:
+                self._postHandlers[("application", "calendar+json")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
             self.xmlDocHandlers[customxml.Multiput] = _CommonHomeChildCollectionMixin.crudBatchPOST
 
 
@@ -1087,6 +1094,11 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
     @inlineCallbacks
     def iCalendarRolledup(self, request):
         # FIXME: uncached: implement cache in the storage layer
+
+        # Accept header handling
+        accepted_type = bestAcceptType(request.headers.getHeader("accept"), Component.allowedTypes())
+        if accepted_type is None:
+            raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
 
         # Generate a monolithic calendar
         calendar = VCalendar("VCALENDAR")
@@ -1138,17 +1150,13 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
                     calendar.addComponent(component)
 
-        # Cache the data
-        data = str(calendar)
-        data = (yield self.getInternalSyncToken()) + "\r\n" + data
-
-        returnValue(calendar)
+        returnValue((calendar, accepted_type,))
 
     createCalendarCollection = _CommonHomeChildCollectionMixin.createCollection
 
 
     @classmethod
-    def componentsFromData(cls, data):
+    def componentsFromData(cls, data, format):
         """
         Need to split a single VCALENDAR into separate ones based on UID with the
         appropriate VTIEMZONES included.
@@ -1158,7 +1166,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         # Split into components by UID and TZID
         try:
-            vcal = VCalendar.fromString(data)
+            vcal = VCalendar.fromString(data, format)
         except InvalidICalendarDataError:
             return None
 
@@ -1242,7 +1250,8 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         elif qname == caldavxml.CalendarTimeZone.qname():
             timezone = self._newStoreObject.getTimezone()
-            returnValue(caldavxml.CalendarTimeZone.fromString(str(timezone)) if timezone else None)
+            format = property.content_type if isinstance(property, caldavxml.CalendarTimeZone) else None
+            returnValue(caldavxml.CalendarTimeZone.fromCalendar(timezone, format=format) if timezone else None)
 
         result = (yield super(CalendarCollectionResource, self).readProperty(property, request))
         returnValue(result)
@@ -1288,7 +1297,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         yield newchild.storeComponent(component)
         if returnChangedData and newchild._newStoreObject._componentChanged:
             result = (yield newchild.componentForUser())
-            returnValue(str(result))
+            returnValue(result)
         else:
             returnValue(None)
 
@@ -2210,16 +2219,38 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         return self._newStoreObject.component()
 
 
+    def allowedTypes(self):
+        """
+        Return a dict of allowed MIME types for storing, mapped to equivalent PyCalendar types.
+        """
+        raise NotImplementedError
+
+
+    def determineType(self, content_type):
+        """
+        Determine if the supplied content-type is valid for storing and return the matching PyCalendar type.
+        """
+        format = None
+        if content_type is not None:
+            format = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
+        return format if format in self.allowedTypes() else None
+
+
     @inlineCallbacks
     def render(self, request):
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
             raise HTTPError(NOT_FOUND)
 
+        # Accept header handling
+        accepted_type = bestAcceptType(request.headers.getHeader("accept"), self.allowedTypes())
+        if accepted_type is None:
+            raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
+
         output = yield self.component()
 
-        response = Response(OK, {}, str(output))
-        response.headers.setHeader("content-type", self.contentType())
+        response = Response(OK, {}, output.getText(accepted_type))
+        response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (accepted_type,)))
         returnValue(response)
 
     # The following are used to map store exceptions into HTTP error responses
@@ -2344,10 +2375,10 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
 
     @inlineCallbacks
-    def storeStream(self, stream):
+    def storeStream(self, stream, format):
 
         # FIXME: direct tests
-        component = self._componentFromStream((yield allDataFromStream(stream)))
+        component = self._componentFromStream((yield allDataFromStream(stream)), format)
         result = (yield self.storeComponent(component))
         returnValue(result)
 
@@ -2479,6 +2510,13 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
     _componentFromStream = VCalendar.fromString
 
+    def allowedTypes(self):
+        """
+        Return a tuple of allowed MIME types for storing.
+        """
+        return Component.allowedTypes()
+
+
     @inlineCallbacks
     def inNewTransaction(self, request, label=""):
         """
@@ -2600,7 +2638,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
         # Content-type check
         content_type = request.headers.getHeader("content-type")
-        if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "calendar"):
+        format = self.determineType(content_type)
+        if format is None:
             log.error("MIME type %s not allowed in calendar collection" % (content_type,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -2628,7 +2667,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 ))
 
             try:
-                component = Component.fromString(calendardata)
+                component = Component.fromString(calendardata, format)
             except ValueError, e:
                 log.error(str(e))
                 raise HTTPError(ErrorResponse(
@@ -2899,6 +2938,8 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
         if config.EnableBatchUpload:
             self._postHandlers[("text", "vcard")] = AddressBookCollectionResource.simpleBatchPOST
+            if config.EnableJSONData:
+                self._postHandlers[("application", "vcard+json")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
             self.xmlDocHandlers[customxml.Multiput] = AddressBookCollectionResource.crudBatchPOST
 
 
@@ -2930,9 +2971,9 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     @classmethod
-    def componentsFromData(cls, data):
+    def componentsFromData(cls, data, format):
         try:
-            return VCard.allFromString(data)
+            return VCard.allFromString(data, format)
         except InvalidVCardDataError:
             return None
 
@@ -2953,7 +2994,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         yield newchild.storeComponent(component)
         if returnChangedData and newchild._newStoreObject._componentChanged:
             result = (yield newchild.component())
-            returnValue(str(result))
+            returnValue(result)
         else:
             returnValue(None)
 
@@ -2994,7 +3035,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     @inlineCallbacks
-    def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses):
+    def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses, format):
         """
         bulk create allowing groups to contain member UIDs added during the same bulk create
         """
@@ -3009,7 +3050,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)
                 newchild = (yield request.locateResource(newchildURL))
-                changedData = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
+                changedComponent = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
 
             except GroupWithUnsharedAddressNotAllowedError, e:
                 # save off info and try again below
@@ -3024,20 +3065,20 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                     error = (error.namespace, error.name,)
 
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code, error)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code, error, format)
                 )
 
             except Exception:
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code=BAD_REQUEST, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, BAD_REQUEST, None, format)
                 )
 
             else:
                 if not return_changed:
-                    changedData = None
+                    changedComponent = None
                 coaddedUIDs |= set([component.resourceUID()])
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData, code=None, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedComponent, None, None, format)
                 )
 
         if groupRetries:
@@ -3055,7 +3096,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                 # give FORBIDDEN response
                 index, component, newchildURL, newchild, missingUIDs = groupRetry
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData=None, code=FORBIDDEN, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, FORBIDDEN, None, format)
                 )
                 coaddedUIDs -= set([component.resourceUID()]) # group uid not added
                 groupRetries.remove(groupRetry) # remove this retry
@@ -3065,11 +3106,11 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                 newchild._metadata["coaddedUIDs"] = coaddedUIDs
 
                 # don't catch errors, abort the whole transaction
-                changedData = yield self.storeResourceData(newchild, component, returnChangedData=return_changed)
+                changedComponent = yield self.storeResourceData(newchild, component, returnChangedData=return_changed)
                 if not return_changed:
-                    changedData = None
+                    changedComponent = None
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData, code=None, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedComponent, None, None, format)
                 )
 
 
@@ -3164,6 +3205,13 @@ class AddressBookObjectResource(_CommonObjectResource):
 
     _componentFromStream = VCard.fromString
 
+    def allowedTypes(self):
+        """
+        Return a tuple of allowed MIME types for storing.
+        """
+        return VCard.allowedTypes()
+
+
     @inlineCallbacks
     def vCardText(self):
         data = yield self.vCard()
@@ -3238,7 +3286,8 @@ class AddressBookObjectResource(_CommonObjectResource):
 
         # Content-type check
         content_type = request.headers.getHeader("content-type")
-        if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "vcard"):
+        format = self.determineType(content_type)
+        if format is None:
             log.error("MIME type %s not allowed in vcard collection" % (content_type,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -3263,7 +3312,7 @@ class AddressBookObjectResource(_CommonObjectResource):
                 ))
 
             try:
-                component = VCard.fromString(vcarddata)
+                component = VCard.fromString(vcarddata, format)
             except ValueError, e:
                 log.error(str(e))
                 raise HTTPError(ErrorResponse(

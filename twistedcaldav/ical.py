@@ -28,7 +28,6 @@ __all__ = [
     "tzexpand",
 ]
 
-import cStringIO as StringIO
 import codecs
 from difflib import unified_diff
 import heapq
@@ -376,66 +375,95 @@ class Component (object):
     # Hidden instance.
     HIDDEN_INSTANCE_PROPERTY = "X-CALENDARSERVER-HIDDEN-INSTANCE"
 
+    allowedTypesList = None
+
+
     @classmethod
-    def allFromString(clazz, string):
+    def allowedTypes(cls):
+        if cls.allowedTypesList is None:
+            cls.allowedTypesList = ["text/calendar"]
+            if config.EnableJSONData:
+                cls.allowedTypesList.append("application/calendar+json")
+        return cls.allowedTypesList
+
+
+    @classmethod
+    def allFromString(clazz, string, format=None):
         """
         Just default to reading a single VCALENDAR
         """
-        return clazz.fromString(string)
+        return clazz.fromString(string, format)
 
 
     @classmethod
-    def allFromStream(clazz, stream):
+    def allFromStream(clazz, stream, format=None):
         """
         Just default to reading a single VCALENDAR
         """
-        return clazz.fromStream(stream)
+        return clazz.fromStream(stream, format)
 
 
     @classmethod
-    def fromString(clazz, string):
+    def fromString(clazz, string, format=None):
         """
         Construct a L{Component} from a string.
         @param string: a string containing iCalendar data.
         @return: a L{Component} representing the first component described by
             C{string}.
         """
-        if type(string) is unicode:
-            string = string.encode("utf-8")
-        else:
-            # Valid utf-8 please
-            string.decode("utf-8")
-
-        # No BOMs please
-        if string[:3] == codecs.BOM_UTF8:
-            string = string[3:]
-
-        return clazz.fromStream(StringIO.StringIO(string))
+        return clazz._fromData(string, False, format)
 
 
     @classmethod
-    def fromStream(clazz, stream):
+    def fromStream(clazz, stream, format=None):
         """
         Construct a L{Component} from a stream.
         @param stream: a C{read()}able stream containing iCalendar data.
         @return: a L{Component} representing the first component described by
             C{stream}.
         """
-        cal = Calendar()
+        return clazz._fromData(stream, True, format)
+
+
+    @classmethod
+    def _fromData(clazz, data, isstream, format=None):
+        """
+        Construct a L{Component} from a stream.
+        @param stream: a C{read()}able stream containing iCalendar data.
+        @param format: a C{str} indicating whether the data is iCalendar or jCal
+        @return: a L{Component} representing the first component described by
+            C{stream}.
+        """
+
+        if isstream:
+            pass
+        else:
+            if type(data) is unicode:
+                data = data.encode("utf-8")
+            else:
+                # Valid utf-8 please
+                data.decode("utf-8")
+
+            # No BOMs please
+            if data[:3] == codecs.BOM_UTF8:
+                data = data[3:]
+
         errmsg = "Unknown"
         try:
-            result = cal.parse(stream)
+            result = Calendar.parseData(data, format)
         except ErrorBase, e:
             errmsg = "%s: %s" % (e.mReason, e.mData,)
             result = None
         if not result:
-            stream.seek(0)
-            raise InvalidICalendarDataError("%s\n%s" % (errmsg, stream.read(),))
-        return clazz(None, pycalendar=cal)
+            if isstream:
+                data.seek(0)
+                data = data.read()
+            raise InvalidICalendarDataError("%s\n%s" % (errmsg, data,))
+        return clazz(None, pycalendar=result)
 
 
     @classmethod
-    def fromIStream(clazz, stream):
+    def fromIStream(clazz, stream, format=None):
         """
         Construct a L{Component} from a stream.
         @param stream: an L{IStream} containing iCalendar data.
@@ -449,7 +477,7 @@ class Component (object):
         #   request stream.
         #
         def parse(data):
-            return clazz.fromString(data)
+            return clazz.fromString(data, format)
         return allDataFromStream(IStream(stream), parse)
 
 
@@ -543,13 +571,20 @@ class Component (object):
         return self._pycalendar == other._pycalendar
 
 
-    def getTextWithTimezones(self, includeTimezones):
+    def getText(self, format=None):
+        return self.getTextWithTimezones(False, format)
+
+
+    def getTextWithTimezones(self, includeTimezones, format=None):
         """
-        Return text representation and include timezones if the option is on
+        Return text representation and include timezones if the option is on.
         """
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
 
-        return self._pycalendar.getText(includeTimezones=includeTimezones)
+        result = self._pycalendar.getText(includeTimezones=includeTimezones, format=format)
+        if result is None:
+            raise ValueError("Unknown format requested for calendar data.")
+        return result
 
 
     # FIXME: Should this not be in __eq__?

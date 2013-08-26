@@ -89,6 +89,12 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         else:
             raise ValueError("Invalid TimezoneService mode: %s" % (config.TimezoneService.Mode,))
 
+        self.formats = []
+        self.formats.append("text/calendar")
+        self.formats.append("text/plain")
+        if config.EnableJSONData:
+            self.formats.append("application/calendar+json")
+
 
     def _initPrimaryService(self):
         tzpath = TimezoneCache.getDBPath()
@@ -268,7 +274,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 {
                     "name": "get",
                     "parameters": [
-                        {"name": "format", "required": False, "multi": False, "values": ["text/calendar", "text/plain", ], },
+                        {"name": "format", "required": False, "multi": False, "values": self.formats, },
                         {"name": "tzid", "required": True, "multi": False, },
                     ],
                 },
@@ -348,7 +354,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             ))
 
         format = request.args.get("format", ("text/calendar",))
-        if len(format) != 1 or format[0] not in ("text/calendar", "text/plain",):
+        if len(format) != 1 or format[0] not in self.formats:
             raise HTTPError(JSONResponse(
                 responsecode.BAD_REQUEST,
                 {
@@ -368,7 +374,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 }
             ))
 
-        tzdata = calendar.getText()
+        tzdata = calendar.getText(format=format if format != "text/plain" else None)
 
         response = Response()
         response.stream = MemoryStream(tzdata)

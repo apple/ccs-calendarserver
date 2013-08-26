@@ -31,6 +31,8 @@ from twext.python.log import Logger
 from twext.web2.stream import IStream
 from twext.web2.dav.util import allDataFromStream
 
+from twistedcaldav.config import config
+
 from pycalendar.parameter import Parameter
 from pycalendar.componentbase import ComponentBase
 from pycalendar.exceptions import ErrorBase
@@ -219,8 +221,20 @@ class Component (object):
     """
     X{vCard} component.
     """
+    allowedTypesList = None
+
+
     @classmethod
-    def allFromString(clazz, string):
+    def allowedTypes(cls):
+        if cls.allowedTypesList is None:
+            cls.allowedTypesList = ["text/vcard"]
+            if config.EnableJSONData:
+                cls.allowedTypesList.append("application/vcard+json")
+        return cls.allowedTypesList
+
+
+    @classmethod
+    def allFromString(clazz, string, format=None):
         """
         FIXME: Just default to reading a single VCARD - actually need more
         """
@@ -234,16 +248,16 @@ class Component (object):
         if string[:3] == codecs.BOM_UTF8:
             string = string[3:]
 
-        return clazz.allFromStream(StringIO.StringIO(string))
+        return clazz.allFromStream(StringIO.StringIO(string), format)
 
 
     @classmethod
-    def allFromStream(clazz, stream):
+    def allFromStream(clazz, stream, format=None):
         """
         FIXME: Just default to reading a single VCARD - actually need more
         """
         try:
-            results = Card.parseMultiple(stream)
+            results = Card.parseMultipleData(stream, format)
         except ErrorBase:
             results = None
         if not results:
@@ -253,47 +267,66 @@ class Component (object):
 
 
     @classmethod
-    def fromString(clazz, string):
+    def fromString(clazz, string, format=None):
         """
         Construct a L{Component} from a string.
         @param string: a string containing vCard data.
         @return: a L{Component} representing the first component described by
             C{string}.
         """
-        if type(string) is unicode:
-            string = string.encode("utf-8")
-        else:
-            # Valid utf-8 please
-            string.decode("utf-8")
-
-        # No BOMs please
-        if string[:3] == codecs.BOM_UTF8:
-            string = string[3:]
-
-        return clazz.fromStream(StringIO.StringIO(string))
+        return clazz._fromData(string, False, format)
 
 
     @classmethod
-    def fromStream(clazz, stream):
+    def fromStream(clazz, stream, format=None):
         """
         Construct a L{Component} from a stream.
         @param stream: a C{read()}able stream containing vCard data.
         @return: a L{Component} representing the first component described by
             C{stream}.
         """
-        cal = Card()
-        try:
-            result = cal.parse(stream)
-        except ErrorBase:
-            result = None
-        if not result:
-            stream.seek(0)
-            raise InvalidVCardDataError("%s" % (stream.read(),))
-        return clazz(None, pycard=cal)
+        return clazz._fromData(stream, True, format)
 
 
     @classmethod
-    def fromIStream(clazz, stream):
+    def _fromData(clazz, data, isstream, format=None):
+        """
+        Construct a L{Component} from a stream.
+        @param stream: a C{read()}able stream containing vCard data.
+        @param format: a C{str} indicating whether the data is vCard or jCard
+        @return: a L{Component} representing the first component described by
+            C{stream}.
+        """
+
+        if isstream:
+            pass
+        else:
+            if type(data) is unicode:
+                data = data.encode("utf-8")
+            else:
+                # Valid utf-8 please
+                data.decode("utf-8")
+
+            # No BOMs please
+            if data[:3] == codecs.BOM_UTF8:
+                data = data[3:]
+
+        errmsg = "Unknown"
+        try:
+            result = Card.parseData(data, format)
+        except ErrorBase, e:
+            errmsg = "%s: %s" % (e.mReason, e.mData,)
+            result = None
+        if not result:
+            if isstream:
+                data.seek(0)
+                data = data.read()
+            raise InvalidVCardDataError("%s\n%s" % (errmsg, data,))
+        return clazz(None, pycard=result)
+
+
+    @classmethod
+    def fromIStream(clazz, stream, format=None):
         """
         Construct a L{Component} from a stream.
         @param stream: an L{IStream} containing vCard data.
@@ -307,7 +340,7 @@ class Component (object):
         #   request stream.
         #
         def parse(data):
-            return clazz.fromString(data)
+            return clazz.fromString(data, format)
         return allDataFromStream(IStream(stream), parse)
 
 
@@ -372,6 +405,18 @@ class Component (object):
         return self._pycard == other._pycard
 
 
+    def getText(self, format=None):
+        """
+        Return text representation
+        """
+        assert self.name() == "VCARD", "Must be a VCARD: %r" % (self,)
+
+        result = self._pycard.getText(format)
+        if result is None:
+            raise ValueError("Unknown format requested for address data.")
+        return result
+
+
     # FIXME: Should this not be in __eq__?
     def same(self, other):
         return self._pycard == other._pycard
@@ -379,7 +424,7 @@ class Component (object):
 
     def name(self):
         """
-        @return: the name of the iCalendar type of this component.
+        @return: the name of the vCard type of this component.
         """
         return self._pycard.getType()
 
@@ -527,7 +572,7 @@ class Component (object):
         if unfixed:
             log.debug("vCard data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
             if doRaise:
-                raise InvalidVCardDataError("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
+                raise InvalidVCardDataError("Address data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
         if fixed:
             log.debug("vCard data had fixable problems:\n  %s" % ("\n  ".join(fixed),))
 

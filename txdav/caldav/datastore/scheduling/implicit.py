@@ -21,7 +21,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError
 
-from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property
@@ -1047,9 +1046,8 @@ class ImplicitScheduler(object):
         # Map each recipient in the response to a status code
         responses = {}
         for item in response.responses:
-            assert isinstance(item, caldavxml.Response), "Wrong element in response"
-            recipient = str(item.children[0].children[0])
-            status = str(item.children[1])
+            recipient = str(item.recipient.children[0])
+            status = str(item.reqstatus)
             responses[recipient] = status
 
             # Now apply to each ATTENDEE/ORGANIZER in the original data

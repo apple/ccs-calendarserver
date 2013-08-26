@@ -30,6 +30,7 @@ from txdav.xml.element import WebDAVElement, PCDATAElement
 from txdav.xml.element import WebDAVEmptyElement, WebDAVTextElement
 from txdav.xml.element import ResourceType, Collection
 
+from twistedcaldav.config import config
 from twistedcaldav.vcard import Component
 
 ##
@@ -64,6 +65,92 @@ class CardDAVTextElement (WebDAVTextElement):
     CardDAV element containing PCDATA.
     """
     namespace = carddav_namespace
+
+
+
+class CardDAVDataMixin(object):
+    """
+    A mixin to support accept/returning data in various formats.
+    """
+
+    def __init__(self, *children, **attributes):
+
+        if "content-type" in attributes:
+            self.content_type = attributes["content-type"]
+        else:
+            self.content_type = "text/vcard"
+
+        if "version" in attributes:
+            self.version = attributes["version"]
+        else:
+            self.version = "3.0"
+
+        super(CardDAVDataMixin, self).__init__(*children, **attributes)
+
+
+    def verifyTypeVersion(self):
+        """
+        Make sure any content-type and version matches at least one supported set.
+
+        @return: C{True} if there is at least one match, C{False} otherwise.
+        """
+        allowedTypes = set()
+        allowedTypes.add(("text/vcard", "3.0",))
+        if config.EnableJSONData:
+            allowedTypes.add(("application/vcard+json", "3.0",))
+        for format, version in allowedTypes:
+            if (format == self.content_type) and (version == self.version):
+                return True
+
+        return False
+
+
+    @classmethod
+    def fromAddress(clazz, address, format=None):
+        attrs = {}
+        if format is not None and format != "text/vcard":
+            attrs["content-type"] = format
+
+        if isinstance(address, str):
+            if not address:
+                raise ValueError("Missing address data")
+            return clazz(PCDATAElement(address), **attrs)
+        elif isinstance(address, Component):
+            assert address.name() == "VCARD", "Not a vCard: %r" % (address,)
+            return clazz(PCDATAElement(address.getText(format)), **attrs)
+        else:
+            raise ValueError("Not an address: %s" % (address,))
+
+    fromTextData = fromAddress
+    fromComponent = fromAddress
+
+    def address(self):
+        """
+        Returns an address component derived from this element.
+        """
+        data = self.addressData()
+        if data:
+            return Component.fromString(data, format=self.content_type)
+        else:
+            return None
+
+    generateComponent = address
+
+
+    def addressData(self):
+        """
+        Returns the address data derived from this element.
+        """
+        for data in self.children:
+            if not isinstance(data, PCDATAElement):
+                return None
+            else:
+                # We guaranteed in __init__() that there is only one child...
+                break
+
+        return str(data)
+
+    textData = addressData
 
 
 
@@ -201,7 +288,7 @@ class AddressDataType (CardDAVEmptyElement):
 
 
 @registerElement
-class AddressData (CardDAVElement):
+class AddressData (CardDAVDataMixin, CardDAVElement):
     """
     Defines which parts of a address component object should be returned by a
     report.
@@ -218,23 +305,6 @@ class AddressData (CardDAVElement):
         "content-type": False,
         "version"     : False,
     }
-
-    @classmethod
-    def fromAddress(clazz, address):
-        assert address.name() == "VCARD", "Not a vCard: %r" % (address,)
-        return clazz(PCDATAElement(str(address)))
-
-
-    @classmethod
-    def fromAddressData(clazz, addressdata):
-        """
-        Return a AddressData element comprised of the supplied address data.
-        @param addressdata: a string of valid address data.
-        @return: a L{Addressata} element.
-        """
-        return clazz(PCDATAElement(addressdata))
-
-    fromTextData = fromAddressData
 
     def __init__(self, *children, **attributes):
         super(AddressData, self).__init__(*children, **attributes)
@@ -283,58 +353,6 @@ class AddressData (CardDAVElement):
                 # Since we've already combined PCDATA elements, we'd may as well
                 # optimize them originals away
                 self.children = (data,)
-
-        if "content-type" in attributes:
-            self.content_type = attributes["content-type"]
-        else:
-            self.content_type = "text/vcard"
-
-        if "version" in attributes:
-            self.version = attributes["version"]
-        else:
-            self.version = "3.0"
-
-
-    def verifyTypeVersion(self, types_and_versions):
-        """
-        Make sure any content-type and version matches at least one of the supplied set.
-
-        @param types_and_versions: a list of (content-type, version) tuples to test against.
-        @return:                   True if there is at least one match, False otherwise.
-        """
-        for item in types_and_versions:
-            if (item[0] == self.content_type) and (item[1] == self.version):
-                return True
-
-        return False
-
-
-    def address(self):
-        """
-        Returns an address component derived from this element.
-        """
-        data = self.addressData()
-        if data:
-            return Component.fromString(data)
-        else:
-            return None
-
-    generateComponent = address
-
-    def addressData(self):
-        """
-        Returns an address component derived from this element.
-        """
-        for data in self.children:
-            if not isinstance(data, PCDATAElement):
-                return None
-            else:
-                # We guaranteed in __init__() that there is only one child...
-                break
-
-        return str(data)
-
-    textData = addressData
 
 
 

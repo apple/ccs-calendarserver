@@ -32,7 +32,8 @@ from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import caldavxml
-from twistedcaldav.caldavxml import caldav_namespace, MaxInstances
+from twistedcaldav.caldavxml import caldav_namespace, MaxInstances, \
+    CalendarTimeZone
 from twistedcaldav.config import config
 from txdav.common.icommondatastore import IndexedSearchException, \
     ConcurrentModification
@@ -171,10 +172,10 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         if calresource.isPseudoCalendarCollection():
             # Get the timezone property from the collection if one was not set in the query,
             # and store in the query filter for later use
-            has_prop = (yield calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
+            has_prop = (yield calresource.hasProperty(CalendarTimeZone(), request))
             timezone = query_timezone
             if query_tz is None and has_prop:
-                tz = (yield calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
+                tz = (yield calresource.readProperty(CalendarTimeZone(), request))
                 filter.settimezone(tz)
                 timezone = tuple(tz.calendar().subcomponents())[0]
 
@@ -233,9 +234,9 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 parent = (yield calresource.locateParent(request, uri))
                 assert parent is not None and parent.isPseudoCalendarCollection()
 
-                has_prop = (yield parent.hasProperty((caldav_namespace, "calendar-timezone"), request))
+                has_prop = (yield parent.hasProperty(CalendarTimeZone(), request))
                 if has_prop:
-                    tz = (yield parent.readProperty((caldav_namespace, "calendar-timezone"), request))
+                    tz = (yield parent.readProperty(CalendarTimeZone(), request))
                     filter.settimezone(tz)
                     timezone = tuple(tz.calendar().subcomponents())[0]
 

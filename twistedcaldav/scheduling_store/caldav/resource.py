@@ -407,7 +407,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # Check authentication and access controls
         yield self.authorize(request, (caldavxml.ScheduleSend(),))
 
-        calendar = (yield self.loadCalendarFromRequest(request))
+        calendar, format = (yield self.loadCalendarFromRequest(request))
         originator = (yield self.loadOriginatorFromRequestDetails(request))
         recipients = self.loadRecipientsFromCalendarData(calendar)
 
@@ -427,14 +427,25 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
         # Do the POST processing treating
         result = (yield scheduler.doSchedulingViaPOST(originator, recipients, calendar))
-        returnValue(result.response())
+        returnValue(result.response(format=format))
+
+
+    def determineType(self, content_type):
+        """
+        Determine if the supplied content-type is valid for storing and return the matching PyCalendar type.
+        """
+        format = None
+        if content_type is not None:
+            format = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
+        return format if format in Component.allowedTypes() else None
 
 
     @inlineCallbacks
     def loadCalendarFromRequest(self, request):
         # Must be content-type text/calendar
         contentType = request.headers.getHeader("content-type")
-        if contentType is not None and (contentType.mediaType, contentType.mediaSubtype) != ("text", "calendar"):
+        format = self.determineType(contentType)
+        if format is None:
             self.log.error("MIME type %s not allowed in calendar collection" % (contentType,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -444,7 +455,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
         # Parse the calendar object from the HTTP request stream
         try:
-            calendar = (yield Component.fromIStream(request.stream))
+            calendar = (yield Component.fromIStream(request.stream, format=format))
         except:
             # FIXME: Bare except
             self.log.error("Error while handling POST: %s" % (Failure(),))
@@ -454,7 +465,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 description="Can't parse calendar data"
             ))
 
-        returnValue(calendar)
+        returnValue((calendar, format,))
 
 
     @inlineCallbacks

@@ -52,7 +52,7 @@ from twext.python.log import Logger
 
 from twistedcaldav import caldavxml
 from twistedcaldav import carddavxml
-from twistedcaldav.caldavxml import caldav_namespace, CalendarData, TimeRange
+from twistedcaldav.caldavxml import CalendarData, CalendarTimeZone, TimeRange
 from twistedcaldav.carddavxml import AddressData
 from twistedcaldav.config import config
 from twistedcaldav.datafilters.calendardata import CalendarDataFilter
@@ -299,7 +299,7 @@ def validPropertyListCalendarDataTypeVersion(prop):
     generate_calendar_data = False
     for property in prop.children:
         if isinstance(property, caldavxml.CalendarData):
-            if not property.verifyTypeVersion([("text/calendar", "2.0")]):
+            if not property.verifyTypeVersion():
                 result = False
                 message = "Calendar-data element type/version not supported: content-type: %s, version: %s" % (property.content_type, property.version)
             generate_calendar_data = True
@@ -324,7 +324,7 @@ def validPropertyListAddressDataTypeVersion(prop):
     generate_address_data = False
     for property in prop.children:
         if isinstance(property, carddavxml.AddressData):
-            if not property.verifyTypeVersion([("text/vcard", "3.0")]):
+            if not property.verifyTypeVersion():
                 result = False
                 message = "Address-data element type/version not supported: content-type: %s, version: %s" % (property.content_type, property.version)
             generate_address_data = True
@@ -371,7 +371,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
             filtered = HiddenInstanceFilter().filter(calendar)
             filtered = PrivateEventFilter(resource.accessMode, isowner).filter(filtered)
             filtered = CalendarDataFilter(property, timezone).filter(filtered)
-            propvalue = CalendarData().fromCalendar(filtered)
+            propvalue = CalendarData.fromCalendar(filtered, format=property.content_type)
             properties_by_status[responsecode.OK].append(propvalue)
             continue
 
@@ -379,7 +379,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
             if vcard is None:
                 vcard = (yield resource.vCard())
             filtered = AddressDataFilter(property).filter(vcard)
-            propvalue = AddressData().fromAddress(filtered)
+            propvalue = AddressData.fromAddress(filtered, format=property.content_type)
             properties_by_status[responsecode.OK].append(propvalue)
             continue
 
@@ -392,7 +392,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
 
         if has:
             try:
-                prop = (yield resource.readProperty(qname, request))
+                prop = (yield resource.readProperty(property, request))
                 if prop is not None:
                     properties_by_status[responsecode.OK].append(prop)
                 elif not returnMinimal:
@@ -515,9 +515,9 @@ def generateFreeBusyInfo(
         useruid = ""
 
     # Get the timezone property from the collection.
-    has_prop = (yield calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
+    has_prop = (yield calresource.hasProperty(CalendarTimeZone(), request))
     if has_prop:
-        tz = (yield calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
+        tz = (yield calresource.readProperty(CalendarTimeZone(), request))
     else:
         tz = None
 

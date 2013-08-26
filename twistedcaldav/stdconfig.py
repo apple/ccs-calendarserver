@@ -539,6 +539,11 @@ DEFAULT_CONFIG = {
     "EnableManagedAttachments"    : False, # Support Managed Attachments
 
     #
+    # Generic CalDAV/CardDAV extensions
+    #
+    "EnableJSONData"          : True, # Allow clients to send/receive JSON jCal and jCard format data
+
+    #
     # Non-standard CalDAV extensions
     #
     "EnableDropBox"           : False, # Calendar Drop Box
