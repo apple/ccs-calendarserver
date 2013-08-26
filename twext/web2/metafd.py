@@ -30,6 +30,7 @@ from twext.python.log import Logger
 from twext.web2.channel.http import HTTPFactory
 from twisted.application.service import MultiService, Service
 from twisted.internet import reactor
+from twisted.python.util import FancyStrMixin
 from twisted.internet.tcp import Server
 
 log = Logger()
@@ -161,10 +162,12 @@ class ReportingHTTPFactory(HTTPFactory):
 
 
 @total_ordering
-class WorkerStatus(object):
+class WorkerStatus(FancyStrMixin, object):
     """
     The status of a worker process.
     """
+
+    showAttributes = "acknowledged unacknowledged started abandoned".split()
 
     def __init__(self, acknowledged=0, unacknowledged=0, started=0,
                  abandoned=0):

@@ -30,6 +30,7 @@ from twisted.internet.tcp import Server
 from twisted.application.service import Service
 
 from twext.internet.test.test_sendfdport import ReaderAdder
+from twext.web2.metafd import WorkerStatus
 from twisted.trial.unittest import TestCase
 
 
@@ -190,6 +191,16 @@ class ConnectionLimiterTests(TestCase):
         self.assertEquals(builder.port.reading, False)
         builder.processRestart()
         self.assertEquals(builder.port.reading, True)
+
+
+    def test_workerStatusRepr(self):
+        """
+        L{WorkerStatus.__repr__} will show all the values associated with the
+        status of the worker.
+        """
+        self.assertEquals(repr(WorkerStatus(1, 2, 3, 4)),
+                          "<WorkerStatus acknowledged=1 unacknowledged=2 "
+                          "started=3 abandoned=4>")
 
 
 
