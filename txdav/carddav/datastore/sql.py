@@ -493,18 +493,32 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
 
 
     @inlineCallbacks
+    def removedObjectResource(self, child):
+        """
+            just like CommonHomeChild.removedObjectResource() but does not call self._deleteRevision(child.name())
+        """
+        self._objects.pop(child.name(), None)
+        self._objects.pop(child.uid(), None)
+        if self._objectNames and child.name() in self._objectNames:
+            self._objectNames.remove(child.name())
+        #yield self._deleteRevision(child.name())
+        yield self.notifyChanged()
+
+
+    @inlineCallbacks
     def remove(self):
 
         if self._resourceID == self._home._resourceID:
+
+            # Note that revision table is NOT queried for removes
+            yield self._updateRevision(self.name())
+
             # Allow remove, as a way to reset the address book to an empty state
             for abo in (yield self.objectResources()):
                 yield abo.remove()
                 yield self.removedObjectResource(abo)
 
             yield self.unshare()  # storebridge should already have done this
-
-            # Note that revision table is NOT queried for removes
-            yield self._updateRevision(self.name())
 
             yield self.properties()._removeResource()
             yield self._loadPropertyStore()
@@ -966,7 +980,8 @@ END:VCARD
         """
         aboMembers = schema.ABO_MEMBERS
         return Select([aboMembers.MEMBER_ID], From=aboMembers,
-                      Where=aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs))),
+                      Where=aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs)))
+                            .And(aboMembers.REMOVED == False),
                       )
 
 
@@ -1302,15 +1317,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         return self._resourceID == self.addressbook()._resourceID
 
 
-    @classmethod
-    def _deleteMembersWithMemberIDAndGroupIDsQuery(cls, memberID, groupIDs):
-        aboMembers = schema.ABO_MEMBERS
-        return Delete(
-            aboMembers,
-            Where=(aboMembers.MEMBER_ID == memberID).And(
-                    aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs)))))
-
-
     @inlineCallbacks
     def remove(self):
 
@@ -1327,29 +1333,61 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             if readWriteGroupIDs:
                 readWriteObjectIDs = yield self.addressbook().expandGroupIDs(self._txn, readWriteGroupIDs)
 
-            # can't delete item in shared group, even if user has addressbook unbind
+            # can't delete item in read-only shared group, even if user has addressbook unbind
             if self._resourceID not in readWriteObjectIDs:
                 raise HTTPError(FORBIDDEN)
 
-            # convert delete in sharee shared group address book to remove of memberships
-            # that make this object visible to the sharee
-            if readWriteObjectIDs:
-                yield self._deleteMembersWithMemberIDAndGroupIDsQuery(self._resourceID, readWriteObjectIDs).on(
-                    self._txn, groupIDs=readWriteObjectIDs
-                )
+            # get sync token for delete now
+            yield self.addressbook()._deleteRevision(self.name())
+
+            # remove group memberships that make this UID visible
+            abo = schema.ADDRESSBOOK_OBJECT
+            groupIDRows = (
+                yield Select([abo.RESOURCE_ID],
+                    From=abo,
+                    Where=(abo.KIND == _ABO_KIND_GROUP)
+                        .And(abo.RESOURCE_ID.In(Parameter("readWriteObjectIDs", len(readWriteObjectIDs)))),
+                ).on(self._txn, readWriteObjectIDs=readWriteObjectIDs)
+            )
+            groupIDs = [groupIDRow[0] for groupIDRow in groupIDRows]
+            for groupID in groupIDs:
+                yield self._updateMember.on(self._txn,
+                    groupID=groupID,
+                    addressbookID=self._ownerAddressBookResourceID,
+                    memberID=self._resourceID,
+                    resourceName=self.name(),
+                    revision=self.addressbook()._syncTokenRevision,
+                    removed=True
+               )
+        else:
+            # get sync token for delete now
+            yield self.addressbook()._deleteRevision(self.name())
 
         aboMembers = schema.ABO_MEMBERS
-        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
-
-        groupIDRows = yield Delete(
-            aboMembers,
-            Where=aboMembers.MEMBER_ID == self._resourceID,
-            Return=aboMembers.GROUP_ID
+        groupIDRows = yield Select(
+            [aboMembers.GROUP_ID],
+            From=aboMembers,
+            Where=(aboMembers.MEMBER_ID == self._resourceID)
+                .And(aboMembers.REMOVED == False),
         ).on(self._txn)
+        groupIDs = [groupIDRow[0] for groupIDRow in groupIDRows]
+
+        if self.owned() or self.addressbook().fullyShared():
+            # remove memberships
+            for groupID in groupIDs:
+                yield self._updateMember.on(self._txn,
+                    groupID=groupID,
+                    addressbookID=self._ownerAddressBookResourceID,
+                    memberID=self._resourceID,
+                    resourceName=self.name(),
+                    revision=self.addressbook()._syncTokenRevision,
+                    removed=True
+                )
 
         # add to foreign member table row by UID (aboForeignMembers on address books)
         memberAddress = "urn:uuid:" + self._uid
-        for groupID in set([groupIDRow[0] for groupIDRow in groupIDRows]) - set([self._ownerAddressBookResourceID]):
+        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
+        for groupID in set(groupIDs) - set([self._ownerAddressBookResourceID]):
             yield Insert(
                 {aboForeignMembers.GROUP_ID: groupID,
                  aboForeignMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
@@ -1588,16 +1626,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         returnValue(rows)
 
 
-    @inlineCallbacks
-    def _changeAddressBookRevision(self, addressbook, inserting=False):
-        if inserting:
-            yield addressbook._insertRevision(self._name)
-        else:
-            yield addressbook._updateRevision(self._name)
-
-        yield addressbook.notifyChanged()
-
-
     # Stuff from put_addressbook_common
     def fullValidation(self, component, inserting):
         """
@@ -1608,7 +1636,14 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
         # Valid data sizes
         if config.MaxResourceSize:
-            vcardsize = len(str(component))
+            if self._componentResourceKindToKind(component) == _ABO_KIND_GROUP:
+                thinGroup = deepcopy(component)
+                thinGroup.removeProperties("X-ADDRESSBOOKSERVER-MEMBER")
+                thinGroup.removeProperties("X-ADDRESSBOOKSERVER-KIND")
+                thinGroup.removeProperties("UID")
+                vcardsize = len(str(thinGroup))
+            else:
+                vcardsize = len(str(component))
             if vcardsize > config.MaxResourceSize:
                 raise ObjectResourceTooBigError()
 
@@ -1687,29 +1722,21 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
         self._componentChanged = False
 
-        # Handle all validation operations here.
-        self.fullValidation(component, inserting)
+        if self._options.get("coaddedUIDs") is None:
+            # Handle all validation operations here.
+            self.fullValidation(component, inserting)
 
-        # UID lock - this will remain active until the end of the current txn
-        if not inserting or self._options.get("coaddedUIDs") is None:
+            # UID lock - this will remain active until the end of the current txn
             yield self._lockUID(component, inserting)
 
-        yield self.updateDatabase(component, inserting=inserting)
-        yield self._changeAddressBookRevision(self._addressbook, inserting)
+            if inserting:
+                yield self.addressbook()._insertRevision(self._name)
+            else:
+                yield self.addressbook()._updateRevision(self._name)
 
-        if self.owned():
-            # update revision table of the sharee group address book
-            if self._kind == _ABO_KIND_GROUP:  # optimization
-                invites = yield self.sharingInvites()
-                for invite in invites:
-                    shareeHome = (yield self._txn.homeWithResourceID(self.addressbook()._home._homeType, invite.shareeHomeID()))
-                    yield self._changeAddressBookRevision(shareeHome.addressbook(), inserting)
-                    # one is enough because all have the same resourceID
-                    break
-        else:
-            if self.addressbook()._resourceID != self._ownerAddressBookResourceID:
-                # update revisions table of shared group's containing address book
-                yield self._changeAddressBookRevision(self.ownerHome().addressbook(), inserting)
+            yield self.addressbook().notifyChanged()
+
+        yield self.updateDatabase(component, inserting=inserting)
 
         returnValue(self._componentChanged)
 
@@ -1723,15 +1750,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                               ).And(
                                     abo.VCARD_UID.In(Parameter("uids", len(uids))))),
                       )
-
-
-    @classmethod
-    def _deleteMembersWithGroupIDAndMemberIDsQuery(cls, groupID, memberIDs):
-        aboMembers = schema.ABO_MEMBERS
-        return Delete(
-            aboMembers,
-            Where=(aboMembers.GROUP_ID == groupID).And(
-                    aboMembers.MEMBER_ID.In(Parameter("memberIDs", len(memberIDs)))))
 
 
     @classmethod
@@ -1761,6 +1779,38 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             Return=(abo.RESOURCE_ID,
                     abo.CREATED,
                     abo.MODIFIED))
+
+
+    @classproperty
+    def _insertMember(cls): #@NoSelf
+        """
+        DAL statement insert a group member
+        """
+        aboMembers = schema.ABO_MEMBERS
+        return Insert(
+            {aboMembers.GROUP_ID: Parameter("groupID"),
+             aboMembers.ADDRESSBOOK_ID: Parameter("addressbookID"),
+             aboMembers.MEMBER_ID: Parameter("memberID"),
+             aboMembers.RESOURCE_NAME: Parameter("resourceName"),
+             aboMembers.REVISION: Parameter("revision"),
+             aboMembers.REMOVED: Parameter("removed"), }
+        )
+
+
+    @classproperty
+    def _updateMember(cls): #@NoSelf
+        """
+        DAL statement update a group member
+        """
+        aboMembers = schema.ABO_MEMBERS
+        return Update(
+            {aboMembers.RESOURCE_NAME: Parameter("resourceName"),
+             aboMembers.REVISION: Parameter("revision"),
+             aboMembers.REMOVED: Parameter("removed"), },
+            Where=(aboMembers.GROUP_ID == Parameter("groupID"))
+              .And(aboMembers.ADDRESSBOOK_ID == Parameter("addressbookID"))
+              .And(aboMembers.MEMBER_ID == Parameter("memberID")),
+       )
 
 
     @inlineCallbacks
@@ -1829,11 +1879,11 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             componentText = str(component)
 
             # remove unneeded fields to get stored _objectText
-            thinComponent = deepcopy(component)
-            thinComponent.removeProperties("X-ADDRESSBOOKSERVER-MEMBER")
-            thinComponent.removeProperties("X-ADDRESSBOOKSERVER-KIND")
-            thinComponent.removeProperties("UID")
-            self._objectText = str(thinComponent)
+            thinGroup = deepcopy(component)
+            thinGroup.removeProperties("X-ADDRESSBOOKSERVER-MEMBER")
+            thinGroup.removeProperties("X-ADDRESSBOOKSERVER-KIND")
+            thinGroup.removeProperties("UID")
+            self._objectText = str(thinGroup)
         else:
             componentText = str(component)
             self._objectText = componentText
@@ -1867,12 +1917,12 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             # delete foreign members table row for this object
             groupIDRows = yield Delete(
                 aboForeignMembers,
-                # should this be scoped to the owner address book?
                 Where=aboForeignMembers.MEMBER_ADDRESS == "urn:uuid:" + self._uid,
                 Return=aboForeignMembers.GROUP_ID
             ).on(self._txn)
             groupIDs = set([groupIDRow[0] for groupIDRow in groupIDRows])
 
+            # add vCard to writable groups
             if not self.owned() and not self.addressbook().fullyShared():
                 readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
                 assert readWriteGroupIDs, "no access"
@@ -1880,12 +1930,27 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
             # add to member table rows
             for groupID in groupIDs:
-                yield Insert(
-                    {aboMembers.GROUP_ID: groupID,
-                     aboMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
-                     aboMembers.MEMBER_ID: self._resourceID, }
-                ).on(self._txn)
-
+                @inlineCallbacks
+                def doInsert(subt):
+                    yield self._insertMember.on(subt,
+                        groupID=groupID,
+                        addressbookID=self._ownerAddressBookResourceID,
+                        memberID=self._resourceID,
+                        resourceName="",
+                        revision=self.addressbook()._syncTokenRevision,
+                        removed=False
+                    )
+                try:
+                    yield self._txn.subtransaction(doInsert)
+                except AllRetriesFailed:
+                    yield self._updateMember.on(self._txn,
+                        groupID=groupID,
+                        addressbookID=self._ownerAddressBookResourceID,
+                        memberID=self._resourceID,
+                        resourceName="",
+                        revision=self.addressbook()._syncTokenRevision,
+                        removed=False
+                   )
         else:
             self._modified = (yield Update(
                 {abo.VCARD_TEXT: self._objectText,
@@ -1901,25 +1966,54 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 memberIDs.append(self._resourceID)
 
             # get current members
-            currentMemberRows = yield Select([aboMembers.MEMBER_ID],
+            currentMemberRows = yield Select([aboMembers.MEMBER_ID, aboMembers.REMOVED],
                  From=aboMembers,
                  Where=aboMembers.GROUP_ID == self._resourceID,).on(self._txn)
-            currentMemberIDs = [currentMemberRow[0] for currentMemberRow in currentMemberRows]
+            currentMemberIDs = [currentMemberRow[0] for currentMemberRow in currentMemberRows if not currentMemberRow[1]]
+            removedMemberIDs = [currentMemberRow[0] for currentMemberRow in currentMemberRows if currentMemberRow[1]]
 
-            memberIDsToDelete = set(currentMemberIDs) - set(memberIDs)
-            memberIDsToAdd = set(memberIDs) - set(currentMemberIDs)
-
-            if memberIDsToDelete:
-                yield self._deleteMembersWithGroupIDAndMemberIDsQuery(self._resourceID, memberIDsToDelete).on(
-                    self._txn, memberIDs=memberIDsToDelete
-                )
+            memberIDsToRemove = set(currentMemberIDs) - set(memberIDs)
+            memberIDsToAdd = set(memberIDs) - set(currentMemberIDs) - set(removedMemberIDs)
+            memberIDsToReadd = set(memberIDs) & set(removedMemberIDs)
 
             for memberIDToAdd in memberIDsToAdd:
-                yield Insert(
-                    {aboMembers.GROUP_ID: self._resourceID,
-                     aboMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
-                     aboMembers.MEMBER_ID: memberIDToAdd, }
-                ).on(self._txn)
+                yield self._insertMember.on(self._txn,
+                    groupID=self._resourceID,
+                    addressbookID=self._ownerAddressBookResourceID,
+                    memberID=memberIDToAdd,
+                    resourceName="",
+                    revision=self.addressbook()._syncTokenRevision,
+                    removed=False
+               )
+
+            for memberIDToUpdate in memberIDsToReadd:
+                yield self._updateMember.on(self._txn,
+                    groupID=self._resourceID,
+                    addressbookID=self._ownerAddressBookResourceID,
+                    memberID=memberIDToUpdate,
+                    resourceName="",
+                    revision=self.addressbook()._syncTokenRevision,
+                    removed=False
+               )
+
+            # get member names
+            abo = schema.ADDRESSBOOK_OBJECT
+            memberIDNameRows = (
+                yield self._columnsWithResourceIDsQuery(
+                    [abo.RESOURCE_ID, abo.RESOURCE_NAME],
+                    memberIDsToRemove
+                ).on(self._txn, resourceIDs=memberIDsToRemove)
+            ) if memberIDsToRemove else []
+
+            for memberIDToRemove, memberNameToRemove in memberIDNameRows:
+                yield self._updateMember.on(self._txn,
+                    groupID=self._resourceID,
+                    addressbookID=self._ownerAddressBookResourceID,
+                    memberID=memberIDToRemove,
+                    resourceName=memberNameToRemove,
+                    revision=self.addressbook()._syncTokenRevision,
+                    removed=True
+               )
 
             # don't bother with aboForeignMembers on address books
             if self._resourceID != self._ownerAddressBookResourceID:
@@ -1990,7 +2084,8 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                     memberRows = yield Select(
                         [aboMembers.MEMBER_ID],
                          From=aboMembers,
-                         Where=aboMembers.GROUP_ID == self._resourceID,
+                         Where=(aboMembers.GROUP_ID == self._resourceID)
+                            .And(aboMembers.REMOVED == False),
                     ).on(self._txn)
                     memberIDs = [memberRow[0] for memberRow in memberRows]
 

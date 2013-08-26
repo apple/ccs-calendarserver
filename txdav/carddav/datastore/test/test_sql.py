@@ -576,7 +576,7 @@ END:VCARD
 
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         aboMembers = schema.ABO_MEMBERS
-        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers, Where=aboMembers.REMOVED == False).on(txn)
         self.assertEqual(memberRows, [])
 
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
@@ -597,7 +597,7 @@ END:VCARD
             )
         subgroupObject = yield adbk.createAddressBookObjectWithName("sg.vcf", subgroup)
 
-        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers, Where=aboMembers.REMOVED == False).on(txn)
         self.assertEqual(sorted(memberRows), sorted([
                                                      [groupObject._resourceID, subgroupObject._resourceID],
                                                      [subgroupObject._resourceID, personObject._resourceID],
@@ -607,7 +607,7 @@ END:VCARD
         self.assertEqual(foreignMemberRows, [])
 
         yield subgroupObject.remove()
-        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers, Where=aboMembers.REMOVED == False).on(txn)
         self.assertEqual(memberRows, [])
 
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers,

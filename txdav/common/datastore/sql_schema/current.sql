@@ -448,6 +448,12 @@ insert into ADDRESSBOOK_OBJECT_KIND values (2, 'resource');
 insert into ADDRESSBOOK_OBJECT_KIND values (3, 'location');
 
 
+---------------
+-- Revisions --
+---------------
+
+create sequence REVISION_SEQ;
+
 ---------------------------------
 -- Address Book Object Members --
 ---------------------------------
@@ -455,7 +461,10 @@ insert into ADDRESSBOOK_OBJECT_KIND values (3, 'location');
 create table ABO_MEMBERS (
     GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
  	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
-    MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
+    MEMBER_ID             integer      not null, --references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
+  	RESOURCE_NAME         varchar(255),
+  	REVISION              integer      default nextval('REVISION_SEQ') not null,
+  	REMOVED               boolean      default false not null,
 
     primary key (GROUP_ID, MEMBER_ID) -- implicit index
 );
@@ -506,8 +515,6 @@ create index SHARED_GROUP_BIND_RESOURCE_ID on
 ---------------
 -- Revisions --
 ---------------
-
-create sequence REVISION_SEQ;
 
 
 -------------------------------
