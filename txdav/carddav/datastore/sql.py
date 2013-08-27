@@ -1505,10 +1505,8 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                         resourceIDs=allowedObjectIDs,
                     ))
             elif self._resourceID:
-                if self._resourceID not in allowedObjectIDs:
-                    # allow invited groups
-                    allowedObjectIDs = yield self.addressbook().unacceptedGroupIDs()
-                if self._resourceID in allowedObjectIDs:
+                if (self._resourceID in allowedObjectIDs or
+                        self._resourceID in (yield self.addressbook().unacceptedGroupIDs())): # allow invited groups
                     rows = (yield self._allColumnsWithResourceID.on(
                         self._txn, resourceID=self._resourceID,
                     ))
