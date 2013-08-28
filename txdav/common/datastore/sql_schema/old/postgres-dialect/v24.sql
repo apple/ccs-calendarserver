@@ -448,23 +448,14 @@ insert into ADDRESSBOOK_OBJECT_KIND values (2, 'resource');
 insert into ADDRESSBOOK_OBJECT_KIND values (3, 'location');
 
 
-----------------------------------
--- Revisions, forward reference --
-----------------------------------
-
-create sequence REVISION_SEQ;
-
 ---------------------------------
 -- Address Book Object Members --
 ---------------------------------
 
 create table ABO_MEMBERS (
-    GROUP_ID              integer      not null, -- references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
+    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
  	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
-    MEMBER_ID             integer      not null, -- references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
-  	RESOURCE_NAME         varchar(255),
-  	REVISION              integer      default nextval('REVISION_SEQ') not null,
-  	REMOVED               boolean      default false not null,
+    MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
 
     primary key (GROUP_ID, MEMBER_ID) -- implicit index
 );
@@ -516,7 +507,7 @@ create index SHARED_GROUP_BIND_RESOURCE_ID on
 -- Revisions --
 ---------------
 
--- create sequence REVISION_SEQ;
+create sequence REVISION_SEQ;
 
 
 -------------------------------
@@ -704,6 +695,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '25');
+insert into CALENDARSERVER values ('VERSION', '24');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');

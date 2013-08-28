@@ -574,11 +574,11 @@ END:VCARD
             )
         groupObject = yield adbk.createAddressBookObjectWithName("g.vcf", group)
 
-        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         aboMembers = schema.ABO_MEMBERS
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers, Where=aboMembers.REMOVED == False).on(txn)
         self.assertEqual(memberRows, [])
 
+        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
         self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
 

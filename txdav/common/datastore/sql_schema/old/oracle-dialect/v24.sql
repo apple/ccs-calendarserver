@@ -252,12 +252,9 @@ insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('group', 1);
 insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('resource', 2);
 insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('location', 3);
 create table ABO_MEMBERS (
-    "GROUP_ID" integer not null,
+    "GROUP_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
     "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
-    "MEMBER_ID" integer not null,
-    "RESOURCE_NAME" nvarchar2(255),
-    "REVISION" integer not null,
-    "REMOVED" integer default 0 not null, 
+    "MEMBER_ID" integer not null references ADDRESSBOOK_OBJECT, 
     primary key("GROUP_ID", "MEMBER_ID")
 );
 
@@ -368,7 +365,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '25');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '24');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
