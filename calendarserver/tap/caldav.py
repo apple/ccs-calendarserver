@@ -63,8 +63,9 @@ from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool
-from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
+from twext.enterprise.queue import NonPerformingQueuer
 from twext.enterprise.queue import PeerConnectionPool
+from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
 
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
@@ -1266,8 +1267,9 @@ class CalDAVServiceMaker (object):
         Create an agent service which listens for configuration requests
         """
 
-        # Don't use memcached -- calendar server might take it away at any
-        # moment
+        # Don't use memcached initially -- calendar server might take it away at
+        # any moment.  However, when we run a command through the gateway, it
+        # will conditionally set ClientEnabled at that time.
         def agentPostUpdateHook(configDict, reloading=False):
             configDict.Memcached.Pools.Default.ClientEnabled = False
 
@@ -1285,6 +1287,8 @@ class CalDAVServiceMaker (object):
                 dataStoreWatcher = DirectoryChangeListener(reactor,
                     config.DataRoot, DataStoreMonitor(reactor, storageService))
                 dataStoreWatcher.startListening()
+            if store is not None:
+                store.queuer = NonPerformingQueuer()
             return makeAgentService(store)
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
