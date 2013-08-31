@@ -2931,7 +2931,7 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
-    def updateShareFromSharingInvitation(self, invitation, mode=None, status=None, message=None, name=None):
+    def updateShareFromSharingInvitation(self, invitation, mode=None, status=None, message=None):
         """
         Like L{updateShare} except that the original invitation is provided. That is used
         to find the actual sharee L{CommonHomeChild} which is then passed to L{updateShare}.
@@ -2944,12 +2944,12 @@ class SharingMixIn(object):
         if shareeView is None:
             shareeView = yield shareeHome.invitedObjectWithShareUID(invitation.uid())
 
-        result = yield self.updateShare(shareeView, mode, status, message, name)
+        result = yield self.updateShare(shareeView, mode, status, message)
         returnValue(result)
 
 
     @inlineCallbacks
-    def updateShare(self, shareeView, mode=None, status=None, message=None, name=None):
+    def updateShare(self, shareeView, mode=None, status=None, message=None):
         """
         Update share mode, status, and message for a home child shared with
         this (owned) L{CommonHomeChild}.
@@ -2970,9 +2970,6 @@ class SharingMixIn(object):
             will be used as the default display name, or None to not update
         @type message: L{str}
 
-        @param name: The bind resource name or None to not update
-        @type message: L{str}
-
         @return: the name of the shared item in the sharee's home.
         @rtype: a L{Deferred} which fires with a L{str}
         """
@@ -2984,8 +2981,7 @@ class SharingMixIn(object):
         columnMap = dict([(k, v if v != "" else None)
                           for k, v in {bind.BIND_MODE:mode,
                             bind.BIND_STATUS:status,
-                            bind.MESSAGE:message,
-                            bind.RESOURCE_NAME:name}.iteritems() if v is not None])
+                            bind.MESSAGE:message}.iteritems() if v is not None])
 
         if len(columnMap):
 

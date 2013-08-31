@@ -140,17 +140,17 @@ class BuildQueryTests(TestCase):
         query = buildNestedQueryFromTokens(["foo"], OpenDirectoryService._ODFields)
         self.assertEquals(
             query.generate(),
-            "(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*))"
+            "(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*)(dsAttrTypeStandard:RecordName=foo*))"
         )
 
         query = buildNestedQueryFromTokens(["foo", "bar"], OpenDirectoryService._ODFields)
         self.assertEquals(
             query.generate(),
-            "(&(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*))(|(dsAttrTypeStandard:RealName=*bar*)(dsAttrTypeStandard:EMailAddress=bar*)))"
+            "(&(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*)(dsAttrTypeStandard:RecordName=foo*))(|(dsAttrTypeStandard:RealName=*bar*)(dsAttrTypeStandard:EMailAddress=bar*)(dsAttrTypeStandard:RecordName=bar*)))"
         )
 
         query = buildNestedQueryFromTokens(["foo", "bar", "baz"], OpenDirectoryService._ODFields)
         self.assertEquals(
             query.generate(),
-            "(&(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*))(|(dsAttrTypeStandard:RealName=*bar*)(dsAttrTypeStandard:EMailAddress=bar*))(|(dsAttrTypeStandard:RealName=*baz*)(dsAttrTypeStandard:EMailAddress=baz*)))"
+            "(&(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=foo*)(dsAttrTypeStandard:RecordName=foo*))(|(dsAttrTypeStandard:RealName=*bar*)(dsAttrTypeStandard:EMailAddress=bar*)(dsAttrTypeStandard:RecordName=bar*))(|(dsAttrTypeStandard:RealName=*baz*)(dsAttrTypeStandard:EMailAddress=baz*)(dsAttrTypeStandard:RecordName=baz*)))"
         )
