@@ -451,6 +451,99 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
 
 
     @inlineCallbacks
+    def sharedChildResourceNamesSinceRevision(self, revision, depth):
+        """
+        Determine the list of child resources that have changed since the specified sync revision.
+        We do the same SQL query for both depth "1" and "infinity", but filter the results for
+        "1" to only account for a collection change.
+
+        We need to handle shared collection a little differently from owned ones. When a shared collection
+        is bound into a home we record a revision for it using the sharee home id and sharee collection name.
+        That revision is the "starting point" for changes: so if sync occurs with a revision earlier than
+        that, we return the list of all resources in the shared collection since they are all "new" as far
+        as the client is concerned since the shared collection has just appeared. For a later revision, we
+        just report the changes since that one. When a shared collection is removed from a home, we again
+        record a revision for the sharee home and sharee collection name with the "deleted" flag set. That way
+        the shared collection can be reported as removed.
+
+        @param revision: the sync revision to compare to
+        @type revision: C{str}
+        @param depth: depth for determine what changed
+        @type depth: C{str}
+        """
+        assert not self.owned()
+
+        if self.fullyShared():
+            returnValue((yield super(AddressBook, self).sharedChildResourceNamesSinceRevision(revision, depth)))
+
+        changed = set()
+        deleted = set()
+        rev = self._revisionsSchema
+        sharerevision = 0 if revision < self._bindRevision else revision
+        results = [
+            (
+                name if name else "",
+                wasdeleted,
+                changeRevision
+            )
+            for name, wasdeleted, changeRevision in
+            (yield Select([rev.RESOURCE_NAME, rev.RESOURCE_ID, rev.DELETED, rev.REVISION],
+                             From=rev,
+                            Where=(rev.REVISION > sharerevision).And(
+                            rev.RESOURCE_ID == self._resourceID)).on(self._txn))
+            if name
+        ]
+
+        aboMembers = schema.ABO_MEMBERS
+        memberResults = yield Select(
+            [aboMembers.RESOURCE_NAME, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION],
+            From=rev,
+            Where=(rev.REVISION > sharerevision).And(
+            aboMembers.ADDRESSBOOK_ID == self._resourceID)
+        ).on(self._txn)
+
+        ''' 
+        Started work here to get missing member names, but that is not needed right now, AFAI can tell
+
+        # member names are not saved until resource is deleted, so get missing names from db
+        idsForMissingNames = list(set([memberID for name, memberID, removed, revision in memberResults in memberResults if not name]))
+
+        abo = schema.ADDRESSBOOK_OBJECT
+        memberIDNameRows = (
+            yield self._columnsWithResourceIDsQuery(
+                [abo.RESOURCE_ID, abo.RESOURCE_NAME],
+                idsForMissingNames
+            ).on(self._txn, resourceIDs=idsForMissingNames)
+        ) if idsForMissingNames else []
+        idToNameMap = dict(memberIDNameRows)
+
+        for i, (name, memberID, removed, revision) in enumerate(copy(memberResults)):
+            memberResults[i] = (name if name else idToNameMap[memberID], memberID, removed, revision)
+        '''
+
+        #TODO: Finish
+
+        path = self.name()
+        for name, wasdeleted, revision in results:
+            if wasdeleted:
+                if sharerevision:
+                    if depth == "1":
+                        changed.add("%s/" % (path,))
+                    else:
+                        deleted.add("%s/%s" % (path, name,))
+
+        for name, wasdeleted in results:
+            # Always report collection as changed
+            changed.add("%s/" % (path,))
+            if name:
+                # Resource changed - for depth "infinity" report resource as changed
+                if depth != "1":
+                    changed.add("%s/%s" % (path, name,))
+
+        returnValue((changed, deleted))
+
+
+    @inlineCallbacks
     def _loadPropertyStore(self, props=None):
         if props is None:
             props = yield PropertyStore.load(
@@ -960,7 +1053,7 @@ END:VCARD
         for row in rows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount] #@UnusedVariable
             ownerHome = yield home._txn.homeWithResourceID(home._homeType, resourceID, create=True)
-            names |= set([ownerHome.shareeAddressBookName()])
+            names.add(ownerHome.shareeAddressBookName())
 
         groupRows = yield AddressBookObject._acceptedBindForHomeID.on(
             home._txn, homeID=home._resourceID
@@ -969,7 +1062,7 @@ END:VCARD
             bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
             ownerAddressBookID = yield AddressBookObject.ownerAddressBookIDFromGroupID(home._txn, resourceID)
             ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerAddressBookID, create=True)
-            names |= set([ownerHome.shareeAddressBookName()])
+            names.add(ownerHome.shareeAddressBookName())
         returnValue(tuple(names))
 
 
@@ -1075,7 +1168,7 @@ END:VCARD
             rows = yield self._allColumnsWithParent(self)
             ids = set([row[1] for row in rows])
             if self.fullyShared():
-                ids |= set([self._resourceID, ])
+                ids.add(self._resourceID)
             if self.owned() or self._bindMode == _BIND_MODE_WRITE:
                 returnValue(tuple(readOnlyIDs), tuple(readWriteIDs))
             readOnlyIDs = set(ids)
@@ -1351,7 +1444,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             )
             groupIDs = [groupIDRow[0] for groupIDRow in groupIDRows]
             if groupIDs:
-                yield self._removeGroupIDsQuery(groupIDs).on(self._txn,
+                yield self._removeMemberIDFromGroupIDsQuery(groupIDs).on(self._txn,
                     groupIDs=groupIDs,
                     addressbookID=self._ownerAddressBookResourceID,
                     memberID=self._resourceID,
@@ -1373,7 +1466,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         if self.owned() or self.addressbook().fullyShared():
             # remove memberships
             if groupIDs:
-                yield self._removeGroupIDsQuery(groupIDs).on(self._txn,
+                yield self._removeMemberIDFromGroupIDsQuery(groupIDs).on(self._txn,
                     groupIDs=groupIDs,
                     addressbookID=self._ownerAddressBookResourceID,
                     memberID=self._resourceID,
@@ -1400,7 +1493,13 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             ).on(self._txn)
             memberIDsToRemove = [memberIDRow[0] for memberIDRow in memberIDRows]
 
-            yield self._markMemberIDsDeleted(memberIDsToRemove)
+            yield self._removeMemberIDsFromGroupIDQuery(memberIDsToRemove).on(
+                self._txn,
+                groupID=self._resourceID,
+                addressbookID=self._ownerAddressBookResourceID,
+                memberIDs=memberIDsToRemove,
+                revision=self.addressbook()._syncTokenRevision,
+           )
 
         yield super(AddressBookObject, self).remove()
         self._kind = None
@@ -1790,7 +1889,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     @classproperty
     def _insertMemberIDQuery(cls): #@NoSelf
         """
-        DAL statement insert a group member
+        DAL statement to add a member table row
         """
         aboMembers = schema.ABO_MEMBERS
         return Insert(
@@ -1804,31 +1903,14 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         )
 
 
-    @classproperty
-    def _addRemovedMemberIDQuery(cls): #@NoSelf
-        """
-        DAL statement update a group member
-        """
-        aboMembers = schema.ABO_MEMBERS
-        return Update(
-            {#aboMembers.RESOURCE_NAME: Parameter("resourceName"),
-             aboMembers.REVISION: Parameter("revision"),
-             aboMembers.REMOVED: False, },
-            Where=(aboMembers.GROUP_ID == Parameter("groupID"))
-              .And(aboMembers.ADDRESSBOOK_ID == Parameter("addressbookID"))
-              .And(aboMembers.MEMBER_ID == Parameter("memberID")),
-       )
-
-
     @classmethod
-    def _addRemovedMemberIDsQuery(cls, memberIDs): #@NoSelf
+    def _addRemovedMemberIDsToGroupIDQuery(cls, memberIDs): #@NoSelf
         """
-        DAL statement update a group member
+        DAL statement to mark a member table rows as not removed
         """
         aboMembers = schema.ABO_MEMBERS
         return Update(
-            {#aboMembers.RESOURCE_NAME: Parameter("resourceName"),
-             aboMembers.REVISION: Parameter("revision"),
+            {aboMembers.REVISION: Parameter("revision"),
              aboMembers.REMOVED: False, },
             Where=(aboMembers.GROUP_ID == Parameter("groupID"))
               .And(aboMembers.ADDRESSBOOK_ID == Parameter("addressbookID"))
@@ -1837,9 +1919,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
 
     @classmethod
-    def _removeMemberIDsQuery(cls, memberIDs): #@NoSelf
+    def _removeMemberIDsFromGroupIDQuery(cls, memberIDs): #@NoSelf
         """
-        DAL statement update a group member
+        DAL statement to mark a member table row to as removed
         """
         aboMembers = schema.ABO_MEMBERS
         return Update(
@@ -1852,7 +1934,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
 
     @classmethod
-    def _removeGroupIDsQuery(cls, groupIDs): #@NoSelf
+    def _removeMemberIDFromGroupIDsQuery(cls, groupIDs): #@NoSelf
         """
         DAL statement update a group member
         """
@@ -1864,42 +1946,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
               .And(aboMembers.ADDRESSBOOK_ID == Parameter("addressbookID"))
               .And(aboMembers.MEMBER_ID == Parameter("memberID")),
        )
-
-
-    @classproperty
-    def _removeMemberIDQuery(cls): #@NoSelf
-        """
-        DAL statement update a group member
-        """
-        aboMembers = schema.ABO_MEMBERS
-        return Update(
-            {aboMembers.RESOURCE_NAME: Parameter("resourceName"),
-             aboMembers.REVISION: Parameter("revision"),
-             aboMembers.REMOVED: True, },
-            Where=(aboMembers.GROUP_ID == Parameter("groupID"))
-              .And(aboMembers.ADDRESSBOOK_ID == Parameter("addressbookID"))
-              .And(aboMembers.MEMBER_ID == Parameter("memberID")),
-       )
-
-
-    @inlineCallbacks
-    def _markMemberIDsDeleted(self, memberIDsToRemove): #@NoSelf
-        abo = schema.ADDRESSBOOK_OBJECT
-        memberIDNameRows = (
-            yield self._columnsWithResourceIDsQuery(
-                [abo.RESOURCE_ID, abo.RESOURCE_NAME],
-                memberIDsToRemove
-            ).on(self._txn, resourceIDs=memberIDsToRemove)
-        ) if memberIDsToRemove else []
-
-        for memberIDToRemove, memberNameToRemove in memberIDNameRows:
-            yield self._removeMemberIDQuery.on(self._txn,
-                groupID=self._resourceID,
-                addressbookID=self._ownerAddressBookResourceID,
-                memberID=memberIDToRemove,
-                resourceName=memberNameToRemove,
-                revision=self.addressbook()._syncTokenRevision,
-           )
 
 
     @inlineCallbacks
@@ -1963,7 +2009,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
             # sort unique members
             component.removeProperties("X-ADDRESSBOOKSERVER-MEMBER")
-            for memberAddress in sorted(list(memberAddresses)): # sort unique
+            for memberAddress in sorted(memberAddresses):
                 component.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
             componentText = str(component)
 
@@ -2060,7 +2106,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                )
 
             if memberIDsToReadd:
-                yield self._addRemovedMemberIDsQuery(memberIDsToReadd).on(self._txn,
+                yield self._addRemovedMemberIDsToGroupIDQuery(memberIDsToReadd).on(self._txn,
                     groupID=self._resourceID,
                     addressbookID=self._ownerAddressBookResourceID,
                     memberIDs=memberIDsToReadd,
@@ -2068,7 +2114,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                )
 
             if memberIDsToRemove:
-                yield self._removeMemberIDsQuery(memberIDsToRemove).on(
+                yield self._removeMemberIDsFromGroupIDQuery(memberIDsToRemove).on(
                     self._txn,
                     groupID=self._resourceID,
                     addressbookID=self._ownerAddressBookResourceID,
