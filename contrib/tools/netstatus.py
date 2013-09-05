@@ -52,7 +52,7 @@ if __name__ == '__main__':
             splits = line.split()
             if splits[0] not in ("tcp4", "tcp6", "tcp"):
                 continue
-            if not splits[3].endswith(":8443") and not splits[3].endswith(":8008"):
+            if not splits[3].endswith("8443") and not splits[3].endswith("8008"):
                 continue
             for ctr, items in enumerate(stateNames):
 
