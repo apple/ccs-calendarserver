@@ -813,7 +813,7 @@ class GroupMembershipCacheUpdater(object):
             # populated the membership cache, and if so, return immediately
             if isPopulated:
                 self.log.info("Group membership cache is already populated")
-                returnValue((fast, 0))
+                returnValue((fast, 0, 0))
 
             # We don't care what others are doing right now, we need to update
             useLock = False
@@ -832,15 +832,21 @@ class GroupMembershipCacheUpdater(object):
         else:
             self.log.info("Group membership snapshot file exists: %s" %
                 (membershipsCacheFile.path,))
-            previousMembers = pickle.loads(membershipsCacheFile.getContent())
             callGroupsChanged = True
+            try:
+                previousMembers = pickle.loads(membershipsCacheFile.getContent())
+            except:
+                self.log.warn("Could not parse snapshot; will regenerate cache")
+                fast = False
+                previousMembers = {}
+                callGroupsChanged = False
 
         if useLock:
             self.log.info("Attempting to acquire group membership cache lock")
             acquiredLock = (yield self.cache.acquireLock())
             if not acquiredLock:
                 self.log.info("Group membership cache lock held by another process")
-                returnValue((fast, 0))
+                returnValue((fast, 0, 0))
             self.log.info("Acquired lock")
 
         if not fast and self.useExternalProxies:
@@ -850,7 +856,11 @@ class GroupMembershipCacheUpdater(object):
             if extProxyCacheFile.exists():
                 self.log.info("External proxies snapshot file exists: %s" %
                     (extProxyCacheFile.path,))
-                previousAssignments = pickle.loads(extProxyCacheFile.getContent())
+                try:
+                    previousAssignments = pickle.loads(extProxyCacheFile.getContent())
+                except:
+                    self.log.warn("Could not parse external proxies snapshot")
+                    previousAssignments = []
 
             if useLock:
                 yield self.cache.extendLock()
