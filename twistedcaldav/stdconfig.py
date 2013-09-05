@@ -825,7 +825,12 @@ DEFAULT_CONFIG = {
                                    # connections used per worker process.
 
     "ListenBacklog": 2024,
-    "IdleConnectionTimeOut": 15,
+
+    "IncomingDataTimeOut": 60,          # Max. time between request lines
+    "PipelineIdleTimeOut": 15,          # Max. time between pipelined requests
+    "IdleConnectionTimeOut": 60 * 6,    # Max. time for response processing
+    "CloseConnectionTimeOut": 15,       # Max. time for client close
+
     "UIDReservationTimeOut": 30 * 60,
 
     "MaxMultigetWithDataHrefs": 5000,

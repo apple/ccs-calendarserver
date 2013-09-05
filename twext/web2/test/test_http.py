@@ -319,6 +319,10 @@ class LoopbackRelay(loopback.LoopbackRelay):
         self.loseConnection()
 
 
+    def abortConnection(self):
+        self.aborted = True
+
+
     def getHost(self):
         """
         Synthesize a slightly more realistic 'host' thing.
@@ -850,6 +854,42 @@ class CoreHTTPTestCase(HTTPTests):
         self.compareResult(cxn, cmds, data)
         return deferLater(reactor, 0.5, self.assertDone, cxn) # Wait for timeout
 
+    def testTimeout_idleRequest(self):
+        cxn = self.connect(idleTimeOut=0.3)
+        cmds = [[]]
+        data = ""
+
+        cxn.client.write("GET / HTTP/1.1\r\n\r\n")
+        cmds[0] += [('init', 'GET', '/', (1, 1), 0, ()),
+                    ('contentComplete',)]
+        self.compareResult(cxn, cmds, data)
+
+        return deferLater(reactor, 0.5, self.assertDone, cxn) # Wait for timeout
+
+    def testTimeout_abortRequest(self):
+        cxn = self.connect(allowPersistentConnections=False, closeTimeOut=0.3)
+        cxn.client.transport.loseConnection = lambda : None
+        cmds = [[]]
+        data = ""
+
+        cxn.client.write("GET / HTTP/1.1\r\n\r\n")
+        cmds[0] += [('init', 'GET', '/', (1, 1), 0, ()),
+                    ('contentComplete',)]
+        self.compareResult(cxn, cmds, data)
+
+        response = TestResponse()
+        response.headers.setRawHeaders("Content-Length", ("0",))
+        cxn.requests[0].writeResponse(response)
+        response.finish()
+
+        data += "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+
+        self.compareResult(cxn, cmds, data)
+        def _check(cxn):
+            self.assertDone(cxn)
+            self.assertTrue(cxn.serverToClient.aborted)
+        return deferLater(reactor, 0.5, self.assertDone, cxn) # Wait for timeout
+
     def testConnectionCloseRequested(self):
         cxn = self.connect()
         cmds = [[]]
@@ -876,6 +916,26 @@ class CoreHTTPTestCase(HTTPTests):
         response = TestResponse()
         response.headers.setRawHeaders("Content-Length", ("0",))
         cxn.requests[1].writeResponse(response)
+        response.finish()
+
+        data += "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+
+        self.compareResult(cxn, cmds, data)
+        self.assertDone(cxn)
+
+    def testConnectionKeepAliveOff(self):
+        cxn = self.connect(allowPersistentConnections=False)
+        cmds = [[]]
+        data = ""
+
+        cxn.client.write("GET / HTTP/1.1\r\n\r\n")
+        cmds[0] += [('init', 'GET', '/', (1, 1), 0, ()),
+                    ('contentComplete',)]
+        self.compareResult(cxn, cmds, data)
+
+        response = TestResponse()
+        response.headers.setRawHeaders("Content-Length", ("0",))
+        cxn.requests[0].writeResponse(response)
         response.finish()
 
         data += "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"

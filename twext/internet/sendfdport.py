@@ -153,6 +153,10 @@ class _SubprocessSocket(FileDescriptor, object):
                     self.outgoingSocketQueue.insert(0, (skt, desc))
                     return
                 raise
+
+            # Always close the socket on this end
+            skt.close()
+
         if not self.outgoingSocketQueue:
             self.stopWriting()
 
@@ -185,7 +189,7 @@ class IStatusWatcher(Interface):
         than the somewhat more abstract language that would be accurate.
     """
 
-    def initialStatus():
+    def initialStatus(): #@NoSelf
         """
         A new socket was created and added to the dispatcher.  Compute an
         initial value for its status.
@@ -193,8 +197,7 @@ class IStatusWatcher(Interface):
         @return: the new status.
         """
 
-
-    def newConnectionStatus(previousStatus):
+    def newConnectionStatus(previousStatus): #@NoSelf
         """
         A new connection was sent to a given socket.  Compute its status based
         on the previous status of that socket.
@@ -205,8 +208,7 @@ class IStatusWatcher(Interface):
         @return: the socket's status after incrementing its outstanding work.
         """
 
-
-    def statusFromMessage(previousStatus, message):
+    def statusFromMessage(previousStatus, message): #@NoSelf
         """
         A status message was received by a worker.  Convert the previous status
         value (returned from L{newConnectionStatus}, L{initialStatus}, or
@@ -412,4 +414,3 @@ class InheritedPort(FileDescriptor, object):
         """
         self.statusQueue.append(statusMessage)
         self.startWriting()
-
