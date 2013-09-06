@@ -21,10 +21,12 @@ from twext.python.clsprop import classproperty
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError
 
+from twisted.internet import reactor
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.task import deferLater
 from twisted.trial.unittest import TestCase
-from twistedcaldav.config import config
 
+from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
@@ -1412,3 +1414,91 @@ END:VCALENDAR
 
         calendar3 = (yield self._getCalendarData("user03"))
         self.assertTrue("PARTSTAT=ACCEPTED" in calendar3)
+
+
+    @inlineCallbacks
+    def test_doImplicitScheduling_refreshAllAttendeesExceptSome_Batched(self):
+        """
+        Test that doImplicitScheduling delivers scheduling messages to attendees who can then reply.
+        Verify that batched refreshing is working.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        # Need refreshes to occur immediately, not via reactor.callLater
+        self.patch(config.Scheduling.Options, "AttendeeRefreshBatch", 5)
+        self.patch(config.Scheduling.Options, "AttendeeRefreshBatchDelaySeconds", 1)
+
+        yield self._createCalendarObject(data1, "user01", "test.ics")
+
+        list1 = (yield self._listCalendarObjects("user01", "inbox"))
+        self.assertEqual(len(list1), 0)
+
+        calendar1 = (yield self._getCalendarData("user01", "test.ics"))
+        self.assertTrue("SCHEDULE-STATUS=1.2" in calendar1)
+
+        list2 = (yield self._listCalendarObjects("user02", "inbox"))
+        self.assertEqual(len(list2), 1)
+
+        calendar2 = (yield self._getCalendarData("user02"))
+        self.assertTrue("PARTSTAT=ACCEPTED" not in calendar2)
+
+        list3 = (yield self._listCalendarObjects("user03", "inbox"))
+        self.assertEqual(len(list3), 1)
+
+        calendar3 = (yield self._getCalendarData("user03"))
+        self.assertTrue("PARTSTAT=ACCEPTED" not in calendar3)
+
+        yield self._setCalendarData(data2, "user02")
+
+        list1 = (yield self._listCalendarObjects("user01", "inbox"))
+        self.assertEqual(len(list1), 1)
+
+        calendar1 = (yield self._getCalendarData("user01", "test.ics"))
+        self.assertTrue("SCHEDULE-STATUS=2.0" in calendar1)
+        self.assertTrue("PARTSTAT=ACCEPTED" in calendar1)
+
+        list2 = (yield self._listCalendarObjects("user02", "inbox"))
+        self.assertEqual(len(list2), 1)
+
+        calendar2 = (yield self._getCalendarData("user02"))
+        self.assertTrue("PARTSTAT=ACCEPTED" in calendar2)
+
+        @inlineCallbacks
+        def _test_user03_refresh():
+            list3 = (yield self._listCalendarObjects("user03", "inbox"))
+            self.assertEqual(len(list3), 1)
+
+            calendar3 = (yield self._getCalendarData("user03"))
+            self.assertTrue("PARTSTAT=ACCEPTED" in calendar3)
+
+        yield deferLater(reactor, 2.0, _test_user03_refresh)
