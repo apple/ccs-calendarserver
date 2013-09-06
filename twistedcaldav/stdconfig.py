@@ -1001,6 +1001,10 @@ DEFAULT_CONFIG = {
     # America/Los_Angeles.
     "DefaultTimezone" : "",
 
+    # After this many seconds of no admin requests, shutdown the agent.  Zero
+    # means no automatic shutdown.
+    "AgentInactivityTimeoutSeconds"  : 4 * 60 * 60,
+
     # These two aren't relative to ConfigRoot:
     "Includes": [], # Other plists to parse after this one
     "WritableConfigFile" : "", # which config file calendarserver_config should

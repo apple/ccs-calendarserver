@@ -243,7 +243,8 @@ def makeAgentService(store):
         log.warn("Agent inactive; shutting down")
         reactor.stop()
 
-    inactivityDetector = InactivityDetector(reactor, 60 * 10, becameInactive)
+    inactivityDetector = InactivityDetector(reactor,
+        config.AgentInactivityTimeoutSeconds, becameInactive)
     root = Resource()
     root.putChild("gateway", AgentGatewayResource(store,
         davRootResource, directory, inactivityDetector))
@@ -278,8 +279,9 @@ class InactivityDetector(object):
         self._timeoutSeconds = timeoutSeconds
         self._becameInactive = becameInactive
 
-        self._delayedCall = self._reactor.callLater(self._timeoutSeconds,
-            self._inactivityThresholdReached)
+        if self._timeoutSeconds > 0:
+            self._delayedCall = self._reactor.callLater(self._timeoutSeconds,
+                self._inactivityThresholdReached)
 
 
     def _inactivityThresholdReached(self):
@@ -295,19 +297,21 @@ class InactivityDetector(object):
         Call this to let the InactivityMonitor that there has been activity.
         It will reset the timeout.
         """
-        if self._delayedCall.active():
-            self._delayedCall.reset(self._timeoutSeconds)
-        else:
-            self._delayedCall = self._reactor.callLater(self._timeoutSeconds,
-                self._inactivityThresholdReached)
+        if self._timeoutSeconds > 0:
+            if self._delayedCall.active():
+                self._delayedCall.reset(self._timeoutSeconds)
+            else:
+                self._delayedCall = self._reactor.callLater(self._timeoutSeconds,
+                    self._inactivityThresholdReached)
 
 
     def stop(self):
         """
         Cancels the delayed call
         """
-        if self._delayedCall.active():
-            self._delayedCall.cancel()
+        if self._timeoutSeconds > 0:
+            if self._delayedCall.active():
+                self._delayedCall.cancel()
 
 
 
