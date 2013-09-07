@@ -14,8 +14,11 @@ from twisted.internet import defer
 from twisted.internet.defer import waitForDeferred, deferredGenerator
 from twisted.protocols import loopback
 from twisted.python import util, runtime
-from twext.web2.channel.http import SSLRedirectRequest, HTTPFactory
+from twext.web2.channel.http import SSLRedirectRequest, HTTPFactory, HTTPChannel
 from twisted.internet.task import deferLater
+
+# We always need this set to True - previous tests may have changed it
+HTTPChannel.allowPersistentConnections = True
 
 
 class RedirectResponseTestCase(unittest.TestCase):
