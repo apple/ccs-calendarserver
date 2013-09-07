@@ -17,9 +17,6 @@ from twisted.python import util, runtime
 from twext.web2.channel.http import SSLRedirectRequest, HTTPFactory, HTTPChannel
 from twisted.internet.task import deferLater
 
-# We always need this set to True - previous tests may have changed it
-HTTPChannel.allowPersistentConnections = True
-
 
 class RedirectResponseTestCase(unittest.TestCase):
 
@@ -415,6 +412,13 @@ class TestConnection:
 class HTTPTests(unittest.TestCase):
 
     requestClass = TestRequest
+
+    def setUp(self):
+        super(HTTPTests, self).setUp()
+
+        # We always need this set to True - previous tests may have changed it
+        HTTPChannel.allowPersistentConnections = True
+
 
     def connect(self, logFile=None, **protocol_kwargs):
         cxn = TestConnection()
