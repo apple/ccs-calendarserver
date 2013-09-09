@@ -27,8 +27,6 @@ alter table ABO_MEMBERS
 alter table ABO_MEMBERS
 	drop ("abo_members_group_id_fkey");
 alter table ABO_MEMBERS
-	add ("RESOURCE_NAME" varchar(255));
-alter table ABO_MEMBERS
 	add ("REVISION" integer default nextval('REVISION_SEQ') not null);
 alter table ABO_MEMBERS
 	add ("REMOVED" boolean default false not null);

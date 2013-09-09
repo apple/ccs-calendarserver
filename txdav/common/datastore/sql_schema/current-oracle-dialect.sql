@@ -255,7 +255,6 @@ create table ABO_MEMBERS (
     "GROUP_ID" integer not null,
     "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
     "MEMBER_ID" integer not null,
-    "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
     "REMOVED" integer default 0 not null, 
     primary key("GROUP_ID", "MEMBER_ID")

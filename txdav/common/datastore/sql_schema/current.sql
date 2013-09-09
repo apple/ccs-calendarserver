@@ -462,7 +462,6 @@ create table ABO_MEMBERS (
     GROUP_ID              integer      not null, -- references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
  	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
     MEMBER_ID             integer      not null, -- references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
-  	RESOURCE_NAME         varchar(255),
   	REVISION              integer      default nextval('REVISION_SEQ') not null,
   	REMOVED               boolean      default false not null,
 
@@ -482,6 +481,7 @@ create table ABO_FOREIGN_MEMBERS (
     GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
  	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
     MEMBER_ADDRESS  	  varchar(255) not null, 													-- member AddressBook Object's 'calendar' address
+  	REVISION              integer      default nextval('REVISION_SEQ') not null,
 
     primary key (GROUP_ID, MEMBER_ADDRESS) -- implicit index
 );

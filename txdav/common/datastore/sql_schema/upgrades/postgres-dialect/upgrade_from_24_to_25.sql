@@ -25,7 +25,6 @@
 alter table ABO_MEMBERS
 	drop constraint	abo_members_member_id_fkey,
 	drop constraint	abo_members_group_id_fkey,
-	add column	RESOURCE_NAME	varchar(255),
 	add column	REVISION		integer      default nextval('REVISION_SEQ') not null,
 	add column	REMOVED         boolean      default false not null;
 		

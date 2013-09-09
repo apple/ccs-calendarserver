@@ -1905,6 +1905,7 @@ class CommonHome(object):
         @type depth: C{str}
         """
 
+        print("CommonHome: resourceNamesSinceRevision:%s revision:%s, depth:%s" % (self, revision, depth))
         results = [
             (
                 path if path else (collection if collection else ""),
@@ -1933,7 +1934,6 @@ class CommonHome(object):
                         deleted.add("%s/" % (path,))
                         deleted_collections.add(path)
 
-        for path, name, wasdeleted in results:
             if path not in deleted_collections:
                 # Always report collection as changed
                 changed.add("%s/" % (path,))
@@ -2321,6 +2321,7 @@ class _SharedSyncLogic(object):
         @type revision: C{int}
         """
 
+        print("_SharedSyncLogic: resourceNamesSinceRevision:%s revision:%s" % (self, revision,))
         results = [
             (name if name else "", deleted)
             for name, deleted in
@@ -4108,6 +4109,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @type revision: C{int}
         """
 
+        print("CommonHomeChild: resourceNamesSinceRevision:%s revision:%s" % (self, revision,))
         if revision < self._bindRevision:
             revision = 0
         return super(CommonHomeChild, self).resourceNamesSinceRevision(revision)
@@ -4162,13 +4164,12 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                     else:
                         deleted.add("%s/%s" % (path, name,))
 
-        for path, name, wasdeleted in results:
             # Always report collection as changed
             changed.add("%s/" % (path,))
-            if name:
-                # Resource changed - for depth "infinity" report resource as changed
-                if depth != "1":
-                    changed.add("%s/%s" % (path, name,))
+
+            # Resource changed - for depth "infinity" report resource as changed
+            if depth != "1":
+                changed.add("%s/%s" % (path, name,))
 
         returnValue((changed, deleted))
 
