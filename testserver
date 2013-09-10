@@ -48,7 +48,7 @@ usage ()
   exit 64;
 }
 
-while getopts 'hvrot:s:d:' option; do
+while getopts 'hvrot:s:d:x:' option; do
   case "$option" in 
     '?') usage; ;;
     'h') usage -; exit 0; ;;
