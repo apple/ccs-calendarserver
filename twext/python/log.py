@@ -150,9 +150,12 @@ class LogLevel(Names):
         """
         return cls._levelPriorities[constant]
 
-LogLevel._levelPriorities = dict((constant, idx)
-                                 for (idx, constant) in
-                                     (enumerate(LogLevel.iterconstants())))
+
+LogLevel._levelPriorities = dict(
+    (constant, idx)
+    for (idx, constant) in
+    (enumerate(LogLevel.iterconstants()))
+)
 
 
 
@@ -166,6 +169,7 @@ pythonLogLevelMapping = {
     LogLevel.error   : logging.ERROR,
    #LogLevel.critical: logging.CRITICAL,
 }
+
 
 
 ##
