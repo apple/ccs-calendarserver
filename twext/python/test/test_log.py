@@ -359,6 +359,7 @@ class LoggerTests(SetUpTearDown, unittest.TestCase):
             self.assertEquals(log.emitted["kwargs"]["junk"], message)
 
             if level >= logLevelForNamespace(log.namespace):
+                self.assertTrue(hasattr(log, "event"), "No event observed.")
                 self.assertEquals(log.event["log_format"], format)
                 self.assertEquals(log.event["log_level"], level)
                 self.assertEquals(log.event["log_namespace"], __name__)
