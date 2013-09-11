@@ -463,7 +463,7 @@ class PostgresService(MultiService):
                 env=self.env, path=self.workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
-            d.addCallback(gotStatus)
+            return d.addCallback(gotStatus)
 
         def reportit(f):
             log.failure("starting postgres", f)
