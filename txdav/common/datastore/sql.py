@@ -1905,7 +1905,6 @@ class CommonHome(object):
         @type depth: C{str}
         """
 
-        print("CommonHome: resourceNamesSinceRevision:%s revision:%s, depth:%s" % (self, revision, depth))
         results = [
             (
                 path if path else (collection if collection else ""),
@@ -2321,7 +2320,6 @@ class _SharedSyncLogic(object):
         @type revision: C{int}
         """
 
-        print("_SharedSyncLogic: resourceNamesSinceRevision:%s revision:%s" % (self, revision,))
         results = [
             (name if name else "", deleted)
             for name, deleted in
@@ -2909,9 +2907,10 @@ class SharingMixIn(object):
         # Look up the shared child - might be accepted or not. If accepted use the resource name
         # to look it up, else use the invitation uid (bind name)
         shareeHome = yield self._txn.homeWithUID(self._home._homeType, invitation.shareeUID())
-        shareeView = yield shareeHome.childWithName(invitation.resourceName())
+        shareeView = yield shareeHome.objectWithShareUID(invitation.uid())
         if shareeView is None:
             shareeView = yield shareeHome.invitedObjectWithShareUID(invitation.uid())
+            assert shareeView
 
         result = yield self.updateShare(shareeView, mode, status, message)
         returnValue(result)
@@ -2947,12 +2946,15 @@ class SharingMixIn(object):
 
         #remove None parameters, and substitute None for empty string
         bind = self._bindSchema
-        columnMap = dict([(k, v if v != "" else None)
-                          for k, v in {bind.BIND_MODE:mode,
-                            bind.BIND_STATUS:status,
-                            bind.MESSAGE:message}.iteritems() if v is not None])
+        columnMap = {}
+        if mode != None and mode != shareeView._bindMode:
+            columnMap[bind.BIND_MODE] = mode
+        if status != None and status != shareeView._bindStatus:
+            columnMap[bind.BIND_STATUS] = status
+        if message != None and message != shareeView._bindMessage:
+            columnMap[bind.MESSAGE] = message
 
-        if len(columnMap):
+        if columnMap:
 
             sharedname = yield self._updateBindColumnsQuery(columnMap).on(
                             self._txn,
@@ -2960,10 +2962,10 @@ class SharingMixIn(object):
                         )
 
             #update affected attributes
-            if mode is not None:
+            if bind.BIND_MODE in columnMap:
                 shareeView._bindMode = columnMap[bind.BIND_MODE]
 
-            if status is not None:
+            if bind.BIND_STATUS in columnMap:
                 shareeView._bindStatus = columnMap[bind.BIND_STATUS]
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
                     yield shareeView._initSyncToken()
@@ -2975,7 +2977,7 @@ class SharingMixIn(object):
                     shareeView._home._children.pop(shareeView._name, None)
                     shareeView._home._children.pop(shareeView._resourceID, None)
 
-            if message is not None:
+            if bind.MESSAGE in columnMap:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
 
             queryCacher = self._txn._queryCacher
@@ -3099,6 +3101,7 @@ class SharingMixIn(object):
 
     @inlineCallbacks
     def _initBindRevision(self):
+        yield self.syncToken()
         self._bindRevision = self._syncTokenRevision
 
         bind = self._bindSchema
@@ -4109,7 +4112,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @type revision: C{int}
         """
 
-        print("CommonHomeChild: resourceNamesSinceRevision:%s revision:%s" % (self, revision,))
         if revision < self._bindRevision:
             revision = 0
         return super(CommonHomeChild, self).resourceNamesSinceRevision(revision)
