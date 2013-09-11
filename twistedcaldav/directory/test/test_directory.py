@@ -243,7 +243,7 @@ class GroupMembershipTests (TestCase):
         # Prevent an update by locking the cache
         acquiredLock = (yield cache.acquireLock())
         self.assertTrue(acquiredLock)
-        self.assertEquals((False, 0), (yield updater.updateCache()))
+        self.assertEquals((False, 0, 0), (yield updater.updateCache()))
 
         # You can't lock when already locked:
         acquiredLockAgain = (yield cache.acquireLock())
@@ -667,7 +667,7 @@ class GroupMembershipTests (TestCase):
         # as indicated by the return value for "fast".  Note that the cache
         # is already populated so updateCache( ) in fast mode will not do
         # anything, and numMembers will be 0.
-        fast, numMembers = (yield updater.updateCache(fast=True))
+        fast, numMembers, numChanged = (yield updater.updateCache(fast=True))
         self.assertEquals(fast, True)
         self.assertEquals(numMembers, 0)
 
@@ -678,60 +678,69 @@ class GroupMembershipTests (TestCase):
         self.assertEquals(numChanged, 0)
 
         # Verify the snapshot contains the pickled dictionary we expect
+        expected = {
+            "46D9D716-CBEE-490F-907A-66FA6C3767FF":
+                set([
+                    u"00599DAF-3E75-42DD-9DB7-52617E79943F",
+                ]),
+            "5A985493-EE2C-4665-94CF-4DFEA3A89500":
+                set([
+                    u"non_calendar_group",
+                    u"recursive1_coasts",
+                    u"recursive2_coasts",
+                    u"both_coasts"
+                ]),
+            "6423F94A-6B76-4A3A-815B-D52CFD77935D":
+                set([
+                    u"left_coast",
+                    u"recursive1_coasts",
+                    u"recursive2_coasts",
+                    u"both_coasts"
+                ]),
+            "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1":
+                set([
+                    u"left_coast",
+                    u"both_coasts"
+                ]),
+            "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0":
+                set([
+                    u"non_calendar_group",
+                    u"left_coast",
+                    u"both_coasts"
+                ]),
+            "left_coast":
+                 set([
+                     u"both_coasts"
+                 ]),
+            "recursive1_coasts":
+                 set([
+                     u"recursive1_coasts",
+                     u"recursive2_coasts"
+                 ]),
+            "recursive2_coasts":
+                set([
+                    u"recursive1_coasts",
+                    u"recursive2_coasts"
+                ]),
+            "right_coast":
+                set([
+                    u"both_coasts"
+                ])
+        }
         members = pickle.loads(snapshotFile.getContent())
-        self.assertEquals(
-            members,
-            {
-                "46D9D716-CBEE-490F-907A-66FA6C3767FF":
-                    set([
-                        u"00599DAF-3E75-42DD-9DB7-52617E79943F",
-                    ]),
-                "5A985493-EE2C-4665-94CF-4DFEA3A89500":
-                    set([
-                        u"non_calendar_group",
-                        u"recursive1_coasts",
-                        u"recursive2_coasts",
-                        u"both_coasts"
-                    ]),
-                "6423F94A-6B76-4A3A-815B-D52CFD77935D":
-                    set([
-                        u"left_coast",
-                        u"recursive1_coasts",
-                        u"recursive2_coasts",
-                        u"both_coasts"
-                    ]),
-                "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1":
-                    set([
-                        u"left_coast",
-                        u"both_coasts"
-                    ]),
-                "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0":
-                    set([
-                        u"non_calendar_group",
-                        u"left_coast",
-                        u"both_coasts"
-                    ]),
-                "left_coast":
-                     set([
-                         u"both_coasts"
-                     ]),
-                "recursive1_coasts":
-                     set([
-                         u"recursive1_coasts",
-                         u"recursive2_coasts"
-                     ]),
-                "recursive2_coasts":
-                    set([
-                        u"recursive1_coasts",
-                        u"recursive2_coasts"
-                    ]),
-                "right_coast":
-                    set([
-                        u"both_coasts"
-                    ])
-            }
-        )
-
+        self.assertEquals(members, expected)
+        
+        # "Corrupt" the snapshot and verify it is regenerated properly
+        snapshotFile.setContent("xyzzy")
+        cache.delete("group-cacher-populated")
+        fast, numMembers, numChanged = (yield updater.updateCache(fast=True))
+        self.assertEquals(fast, False)
+        self.assertEquals(numMembers, 9)
+        self.assertEquals(numChanged, 9)
+        self.assertTrue(snapshotFile.exists())
+        members = pickle.loads(snapshotFile.getContent())
+        self.assertEquals(members, expected)
+        
 
     def test_autoAcceptMembers(self):
         """

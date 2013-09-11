@@ -235,20 +235,18 @@ def booleanArgument(arg):
 
 def autoDisableMemcached(config):
     """
-    If memcached is not running, set config.Memcached.ClientEnabled to False
+    Set ClientEnabled to False for each pool whose memcached is not running
     """
 
-    if not config.Memcached.Pools.Default.ClientEnabled:
-        return
+    for pool in config.Memcached.Pools.itervalues():
+        if pool.ClientEnabled:
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.connect((pool.BindAddress, pool.Port))
+                s.close()
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    try:
-        s.connect((config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port))
-        s.close()
-
-    except socket.error:
-        config.Memcached.Pools.Default.ClientEnabled = False
+            except socket.error:
+                pool.ClientEnabled = False
 
 
 

@@ -550,14 +550,6 @@ class CommonStoreTransaction(object):
         ).on(self)
 
 
-    def calendarHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(ECALENDARTYPE, uid, create=create)
-
-
-    def addressbookHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
-
-
     def _determineMemo(self, storeType, uid, create=False): #@UnusedVariable
         """
         Determine the memo dictionary to use for homeWithUID.
@@ -589,6 +581,14 @@ class CommonStoreTransaction(object):
             raise RuntimeError("Unknown home type.")
 
         return self._homeClass[storeType].homeWithUID(self, uid, create)
+
+
+    def calendarHomeWithUID(self, uid, create=False):
+        return self.homeWithUID(ECALENDARTYPE, uid, create=create)
+
+
+    def addressbookHomeWithUID(self, uid, create=False):
+        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
 
     @inlineCallbacks

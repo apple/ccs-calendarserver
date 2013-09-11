@@ -145,6 +145,9 @@ if RUN_TESTS:
 
             id.stop()
 
+            # Verify a timeout of 0 does not ever fire
+            id = InactivityDetector(clock, 0, becameInactive)
+            self.assertEquals(clock.getDelayedCalls(), [])
 
 
     class FakeRequest(object):

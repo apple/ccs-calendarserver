@@ -22,8 +22,6 @@ This tool allows data in the database to be directly inspected using a set
 of simple commands.
 """
 
-from caldavclientlibrary.admin.xmlaccounts.recordtypes import recordType_users, \
-    recordType_locations, recordType_resources, recordType_groups
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain
 from pycalendar.datetime import PyCalendarDateTime
@@ -38,6 +36,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.directory import calendaruserproxy
+from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
@@ -104,13 +103,13 @@ def UIDFromInput(txn, value):
     except (ValueError, TypeError):
         pass
 
-    record = txn.directoryService().recordWithShortName(recordType_users, value)
+    record = txn.directoryService().recordWithShortName(DirectoryService.recordType_users, value)
     if record is None:
-        record = txn.directoryService().recordWithShortName(recordType_locations, value)
+        record = txn.directoryService().recordWithShortName(DirectoryService.recordType_locations, value)
     if record is None:
-        record = txn.directoryService().recordWithShortName(recordType_resources, value)
+        record = txn.directoryService().recordWithShortName(DirectoryService.recordType_resources, value)
     if record is None:
-        record = txn.directoryService().recordWithShortName(recordType_groups, value)
+        record = txn.directoryService().recordWithShortName(DirectoryService.recordType_groups, value)
     return record.guid if record else None
 
 

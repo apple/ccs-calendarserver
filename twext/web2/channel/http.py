@@ -726,6 +726,10 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
     betweenRequestsTimeOut = 15
     # Timeout between lines or bytes while reading a request
     inputTimeOut = 60 * 4
+    # Timeout between end of request read and end of response write
+    idleTimeOut = 60 * 5
+    # Timeout when closing non-persistent connection
+    closeTimeOut = 20
 
     # maximum length of headers (10KiB)
     maxHeaderLength = 10240
@@ -744,7 +748,7 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
     _readLost = False
     _writeLost = False
     
-    _lingerTimer = None
+    _abortTimer = None
     chanRequest = None
 
     def _callLater(self, secs, fun):
@@ -823,10 +827,10 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
         self.chanRequest = None
         self.setLineMode()
         
-        # Disable the idle timeout, in case this request takes a long
+        # Set an idle timeout, in case this request takes a long
         # time to finish generating output.
         if len(self.requests) > 0:
-            self.setTimeout(None)
+            self.setTimeout(self.idleTimeOut)
         
     def _startNextRequest(self):
         # notify next request, if present, it can start writing
@@ -881,57 +885,29 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
             # incoming requests.
             self._callLater(0, self._startNextRequest)
         else:
-            self.lingeringClose()
+            # Set an abort timer in case an orderly close hangs
+            self.setTimeout(None)
+            self._abortTimer = reactor.callLater(self.closeTimeOut, self._abortTimeout)
+            #reactor.callLater(0.1, self.transport.loseConnection)
+            self.transport.loseConnection()
 
     def timeoutConnection(self):
         #log.info("Timing out client: %s" % str(self.transport.getPeer()))
+        # Set an abort timer in case an orderly close hangs
+        self._abortTimer = reactor.callLater(self.closeTimeOut, self._abortTimeout)
         policies.TimeoutMixin.timeoutConnection(self)
 
-    def lingeringClose(self):
-        """
-        This is a bit complicated. This process is necessary to ensure proper
-        workingness when HTTP pipelining is in use.
+    def _abortTimeout(self):
+        log.error("Connection aborted - took too long to close: {c}", c=str(self.transport.getPeer()))
+        self._abortTimer = None
+        self.transport.abortConnection()
 
-        Here is what it wants to do:
-
-            1.  Finish writing any buffered data, then close our write side.
-                While doing so, read and discard any incoming data.
-
-            2.  When that happens (writeConnectionLost called), wait up to 20
-                seconds for the remote end to close their write side (our read
-                side).
-
-            3.
-                - If they do (readConnectionLost called), close the socket,
-                  and cancel the timeout.
-
-                - If that doesn't happen, the timer fires, and makes the
-                  socket close anyways.
-        """
-        
-        # Close write half
-        self.transport.loseWriteConnection()
-        
-        # Throw out any incoming data
-        self.dataReceived = self.lineReceived = lambda *args: None
-        self.transport.resumeProducing()
-
-    def writeConnectionLost(self):
-        # Okay, all data has been written
-        # In 20 seconds, actually close the socket
-        self._lingerTimer = reactor.callLater(20, self._lingerClose)
-        self._writeLost = True
-        
-    def _lingerClose(self):
-        self._lingerTimer = None
-        self.transport.loseConnection()
-        
     def readConnectionLost(self):
         """Read connection lost"""
         # If in the lingering-close state, lose the socket.
-        if self._lingerTimer:
-            self._lingerTimer.cancel()
-            self._lingerTimer = None
+        if self._abortTimer:
+            self._abortTimer.cancel()
+            self._abortTimer = None
             self.transport.loseConnection()
             return
         

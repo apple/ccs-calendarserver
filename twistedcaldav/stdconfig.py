@@ -825,7 +825,12 @@ DEFAULT_CONFIG = {
                                    # connections used per worker process.
 
     "ListenBacklog": 2024,
-    "IdleConnectionTimeOut": 15,
+
+    "IncomingDataTimeOut": 60,          # Max. time between request lines
+    "PipelineIdleTimeOut": 15,          # Max. time between pipelined requests
+    "IdleConnectionTimeOut": 60 * 6,    # Max. time for response processing
+    "CloseConnectionTimeOut": 15,       # Max. time for client close
+
     "UIDReservationTimeOut": 30 * 60,
 
     "MaxMultigetWithDataHrefs": 5000,
@@ -995,6 +1000,10 @@ DEFAULT_CONFIG = {
     # system's timezone will be used.  If empty and not on OS X it will default to
     # America/Los_Angeles.
     "DefaultTimezone" : "",
+
+    # After this many seconds of no admin requests, shutdown the agent.  Zero
+    # means no automatic shutdown.
+    "AgentInactivityTimeoutSeconds"  : 4 * 60 * 60,
 
     # These two aren't relative to ConfigRoot:
     "Includes": [], # Other plists to parse after this one

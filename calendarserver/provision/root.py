@@ -94,14 +94,6 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             from twext.web2.filter import gzip
             self.contentFilters.append((gzip.gzipfilter, True))
 
-        if not config.EnableKeepAlive:
-            def addConnectionClose(request, response):
-                response.headers.setHeader("connection", ("close",))
-                if request.chanRequest is not None:
-                    request.chanRequest.channel.setReadPersistent(False)
-                return response
-            self.contentFilters.append((addConnectionClose, True))
-
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
