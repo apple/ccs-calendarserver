@@ -557,16 +557,19 @@ class LogPublisherTests(SetUpTearDown, unittest.TestCase):
 
 
     def test_observerRaises(self):
+        nonTestEvents = []
+        Logger.publisher.addObserver(lambda e: nonTestEvents.append(e))
+
         event = dict(foo=1, bar=2)
         exception = RuntimeError("ARGH! EVIL DEATH!")
 
         events = []
 
-        def o(event):
+        def observer(event):
             events.append(event)
             raise exception
 
-        publisher = LogPublisher(o)
+        publisher = LogPublisher(observer)
         publisher(event)
 
         # Verify that the observer saw my event
@@ -576,6 +579,37 @@ class LogPublisherTests(SetUpTearDown, unittest.TestCase):
         errors = self.flushLoggedErrors(exception.__class__)
         self.assertEquals(len(errors), 1)
         self.assertIdentical(errors[0].value, exception)
+
+        # Verify that the exception was logged
+        for event in nonTestEvents:
+            if (
+                event.get("log_format", None) == "Temporarily removing observer {observer} due to exception: {e}" and
+                getattr(event.get("failure", None), "value") is exception
+            ):
+                break
+        else:
+            self.fail("Observer raised an exception and the exception was not logged.")
+
+
+    def test_observerRaiseAndLoggerHatesMe(self):
+        nonTestEvents = []
+        Logger.publisher.addObserver(lambda e: nonTestEvents.append(e))
+
+        event = dict(foo=1, bar=2)
+        exception = RuntimeError("ARGH! EVIL DEATH!")
+
+        def observer(event):
+            raise RuntimeError("Sad panda")
+
+        class GurkLogger(Logger):
+            def failure(self, *args, **kwargs):
+                raise exception
+
+        publisher = LogPublisher(observer)
+        publisher.log = GurkLogger()
+        publisher(event)
+
+        # Here, the lack of an exception thus far is a success, of sorts
 
 
 
