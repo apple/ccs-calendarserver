@@ -39,7 +39,7 @@ from twext.python.vcomponent import VComponent
 
 from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
-from twistedcaldav.ical import PERUSER_UID
+from twistedcaldav.ical import PERUSER_UID, allowedStoreComponents
 
 from txdav.common.icommondatastore import (
     InvalidObjectResourceError, NoSuchObjectResourceError,
@@ -380,9 +380,11 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(), merge=Fal
     """
     from twistedcaldav.config import config
     if not merge:
-        yield outHome.removeCalendarWithName("calendar")
         if config.RestrictCalendarsToOneComponentType:
-            yield outHome.removeCalendarWithName("tasks")
+            for name in allowedStoreComponents:
+                yield outHome.removeCalendarWithName(outHome._componentCalendarName[name])
+        else:
+            yield outHome.removeCalendarWithName("calendar")
         yield outHome.removeCalendarWithName("inbox")
 
     outHome.properties().update(inHome.properties())

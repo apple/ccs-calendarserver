@@ -71,7 +71,7 @@ from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.directory.internal import InternalDirectoryRecord
 from twistedcaldav.extensions import DAVResource, DAVPrincipalResource, \
     DAVResourceWithChildrenMixin
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, allowedStoreComponents
 
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
@@ -2453,18 +2453,13 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
 
         if qname == caldavxml.SupportedCalendarComponentSets.qname():
             if config.RestrictCalendarsToOneComponentType:
-                prop = caldavxml.SupportedCalendarComponentSets(
+                prop = caldavxml.SupportedCalendarComponentSets(*[
                     caldavxml.SupportedCalendarComponentSet(
                         caldavxml.CalendarComponent(
-                            name="VEVENT",
+                            name=name,
                         ),
-                    ),
-                    caldavxml.SupportedCalendarComponentSet(
-                        caldavxml.CalendarComponent(
-                            name="VTODO",
-                        ),
-                    ),
-                )
+                    ) for name in allowedStoreComponents
+                ])
             else:
                 prop = caldavxml.SupportedCalendarComponentSets()
             returnValue(prop)

@@ -1404,7 +1404,7 @@ END:VCALENDAR
 
         home = (yield self.homeUnderTest(name=self.uuid3))
         calendar = (yield self.calendarUnderTest(name="calendar2", home=self.uuid3))
-        yield home.setDefaultCalendar(calendar)
+        yield home.setDefaultCalendar(calendar, "VEVENT")
         yield self.commit()
 
 

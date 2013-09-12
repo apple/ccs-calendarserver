@@ -42,9 +42,9 @@ from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.http_headers import generateContentType, MimeType
 
 from twistedcaldav import caldavxml, customxml
-from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
+from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque, Transparent
 from twistedcaldav.config import config
-from twistedcaldav.ical import InvalidICalendarDataError
+from twistedcaldav.ical import InvalidICalendarDataError, allowedStoreComponents
 
 from txdav.caldav.icalendarstore import IAttachment
 from txdav.caldav.icalendarstore import ICalendar, ICalendarObject
@@ -83,6 +83,14 @@ class CalendarHome(CommonHome):
 
     _topPath = "calendars"
     _notifierPrefix = "CalDAV"
+
+    _componentCalendarName = {
+        "VEVENT": "calendar",
+        "VTODO": "tasks",
+        "VJOURNAL": "journals",
+        "VAVAILABILITY": "available",
+        "VPOLL": "polls",
+    }
 
     def __init__(self, uid, path, calendarStore, transaction):
         super(CalendarHome, self).__init__(uid, path, calendarStore, transaction)
@@ -182,19 +190,18 @@ class CalendarHome(CommonHome):
 
     def createdHome(self):
 
-        # Default calendar
-        defaultCal = self.createCalendarWithName("calendar")
-        props = defaultCal.properties()
-        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
-
         # Check whether components type must be separate
         if config.RestrictCalendarsToOneComponentType:
-            defaultCal.setSupportedComponents("VEVENT")
-
-            # Default tasks
-            defaultTasks = self.createCalendarWithName("tasks")
-            props = defaultTasks.properties()
-            defaultTasks.setSupportedComponents("VTODO")
+            for name in allowedStoreComponents:
+                cal = self.createCalendarWithName(self._componentCalendarName[name])
+                cal.setSupportedComponents(name)
+                props = cal.properties()
+                if name not in ("VEVENT", "VAVAILABILITY",):
+                    props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Transparent())
+                else:
+                    props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
+        else:
+            cal = self.createCalendarWithName("calendar")
 
         self.createCalendarWithName("inbox")
 

@@ -594,6 +594,12 @@ DEFAULT_CONFIG = {
                                                    # If on, it will also cause new accounts to provision with separate
                                                    # calendars for events and tasks.
 
+    "SupportedComponents" : [                      # Set of supported iCalendar components
+        "VEVENT",
+        "VTODO",
+        "VPOLL",
+    ],
+
     "ParallelUpgrades" : False, # Perform upgrades - currently only the
                                    # database -> filesystem migration - but in
                                    # the future, hopefully all relevant

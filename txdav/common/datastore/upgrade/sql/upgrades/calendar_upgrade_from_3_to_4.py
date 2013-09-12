@@ -109,9 +109,11 @@ def _processDefaultCalendarProperty(sqlStore, propname, colname):
 
                                 calendar = (yield calendarHome.calendarWithName(calendarName))
                                 if calendar is not None:
-                                    yield calendarHome.setDefaultCalendar(
-                                        calendar, tasks=(propname == customxml.ScheduleDefaultTasksURL)
-                                    )
+                                    if propname == caldavxml.ScheduleDefaultCalendarURL:
+                                        ctype = "VEVENT"
+                                    elif propname == customxml.ScheduleDefaultTasksURL:
+                                        ctype = "VTODO"
+                                    yield calendarHome.setDefaultCalendar(calendar, ctype)
 
             # Always delete the rows so that batch processing works correctly
             yield Delete(

@@ -62,14 +62,13 @@ log = Logger()
 
 iCalendarProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
 
-allowedComponents = (
+allowedStoreComponents = (
     "VEVENT",
     "VTODO",
-    "VTIMEZONE",
-    # "VJOURNAL",
-    "VFREEBUSY",
-    # "VAVAILABILITY",
+    "VPOLL",
 )
+allowedSchedulingComponents = allowedStoreComponents + ("VFREEBUSY",)
+allowedComponents = allowedSchedulingComponents + ("VTIMEZONE",)
 
 # Additional per-user data components - see datafilters.peruserdata.py for details
 PERUSER_COMPONENT = "X-CALENDARSERVER-PERUSER"

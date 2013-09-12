@@ -43,7 +43,8 @@ from twistedcaldav.carddavxml import carddav_namespace, NoUIDConflict as NovCard
 from twistedcaldav.config import config
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
-    InvalidICalendarDataError, iCalendarProductID, allowedComponents, Component
+    InvalidICalendarDataError, iCalendarProductID, Component, \
+    allowedStoreComponents
 from twistedcaldav.memcachelock import MemcacheLockTimeoutError
 from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
@@ -994,7 +995,7 @@ class _CalendarCollectionBehaviorMixin():
         if comps:
             comps = comps.split(",")
         else:
-            comps = allowedComponents
+            comps = allowedStoreComponents
         return caldavxml.SupportedCalendarComponentSet(
             *[caldavxml.CalendarComponent(name=item) for item in comps]
         )
@@ -1021,7 +1022,7 @@ class _CalendarCollectionBehaviorMixin():
         if comps:
             comps = comps.split(",")
         else:
-            comps = allowedComponents
+            comps = allowedStoreComponents
         return comps
 
 

@@ -51,6 +51,7 @@ from twisted.internet.task import deferLater
 from twisted.trial.unittest import TestCase
 
 from twistedcaldav.config import config
+from twistedcaldav.ical import allowedStoreComponents
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 from twistedcaldav.vcard import Component as ABComponent
 
@@ -447,12 +448,11 @@ def populateCalendarsFrom(requirements, store, migrating=False):
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
             try:
-                yield home.removeCalendarWithName("calendar")
-                # FIXME: this should be an argument to the function, not a
-                # global configuration variable.  Related: this needs
-                # independent tests.
                 if config.RestrictCalendarsToOneComponentType:
-                    yield home.removeCalendarWithName("tasks")
+                    for name in allowedStoreComponents:
+                        yield home.removeCalendarWithName(home._componentCalendarName[name])
+                else:
+                    yield home.removeCalendarWithName("calendar")
                 yield home.removeCalendarWithName("inbox")
             except NoSuchHomeChildError:
                 pass

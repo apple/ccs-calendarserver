@@ -474,14 +474,14 @@ END:VCALENDAR
             )
 
         supported_components = set()
-        self.assertEqual(len(toCalendars), 4)
+        self.assertEqual(len(toCalendars), 5)
         for calendar in toCalendars:
             if calendar.name() == "inbox":
                 continue
             result = yield calendar.getSupportedComponents()
             supported_components.add(result)
 
-        self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
+        self.assertEqual(supported_components, set(("VEVENT", "VTODO", "VPOLL",)))
 
 
     @inlineCallbacks
@@ -502,14 +502,14 @@ END:VCALENDAR
             )
 
         supported_components = set()
-        self.assertEqual(len(toCalendars), 3)
+        self.assertEqual(len(toCalendars), 4)
         for calendar in toCalendars:
             if calendar.name() == "inbox":
                 continue
             result = yield calendar.getSupportedComponents()
             supported_components.add(result)
 
-        self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
+        self.assertEqual(supported_components, set(("VEVENT", "VTODO", "VPOLL",)))
 
 
     def test_calendarHomeVersion(self):
@@ -1124,7 +1124,7 @@ END:VCALENDAR
             result = yield calendar.getSupportedComponents()
             supported_components.add(result)
 
-        self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
+        self.assertEqual(supported_components, set(("VEVENT", "VTODO", "VPOLL",)))
 
 
     @inlineCallbacks
@@ -1190,7 +1190,7 @@ END:VCALENDAR
         self.assertEqual(home._default_events, None)
         self.assertEqual(home._default_tasks, None)
         calendar1 = yield home.calendarWithName("calendar_1")
-        yield home.setDefaultCalendar(calendar1, False)
+        yield home.setDefaultCalendar(calendar1, "VEVENT")
         self.assertEqual(home._default_events, calendar1._resourceID)
         self.assertEqual(home._default_tasks, None)
         yield self.commit()
@@ -1198,7 +1198,7 @@ END:VCALENDAR
         home = yield self.homeUnderTest(name="home_defaults")
         calendar1 = yield home.calendarWithName("calendar_1")
         calendar2 = yield home.calendarWithName("calendar_1-vtodo")
-        yield self.failUnlessFailure(home.setDefaultCalendar(calendar2, False), InvalidDefaultCalendar)
+        yield self.failUnlessFailure(home.setDefaultCalendar(calendar2, "VEVENT"), InvalidDefaultCalendar)
         self.assertEqual(home._default_events, calendar1._resourceID)
         self.assertEqual(home._default_tasks, None)
         yield self.commit()
@@ -1206,20 +1206,20 @@ END:VCALENDAR
         home = yield self.homeUnderTest(name="home_defaults")
         calendar1 = yield home.calendarWithName("calendar_1")
         calendar2 = yield home.calendarWithName("calendar_1-vtodo")
-        yield home.setDefaultCalendar(calendar2, True)
+        yield home.setDefaultCalendar(calendar2, "VTODO")
         self.assertEqual(home._default_events, calendar1._resourceID)
         self.assertEqual(home._default_tasks, calendar2._resourceID)
         yield self.commit()
 
         home = yield self.homeUnderTest(name="home_defaults")
         calendar1 = yield home.calendarWithName("inbox")
-        yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, False), InvalidDefaultCalendar)
+        yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, "VEVENT"), InvalidDefaultCalendar)
         yield self.commit()
 
         home = yield self.homeUnderTest(name="home_defaults")
         home_other = yield self.homeUnderTest(name="home_splits")
         calendar1 = yield home_other.calendarWithName("calendar_1")
-        yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, False), InvalidDefaultCalendar)
+        yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, "VEVENT"), InvalidDefaultCalendar)
         yield self.commit()
 
 

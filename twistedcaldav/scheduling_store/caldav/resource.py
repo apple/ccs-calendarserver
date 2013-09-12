@@ -45,7 +45,7 @@ from twisted.python.failure import Failure
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import caldav_namespace, CalendarFreeBusySet
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.ical import allowedComponents, Component
+from twistedcaldav.ical import Component, allowedSchedulingComponents
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.resource import isCalendarCollectionResource
 
@@ -300,8 +300,14 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         """
         Write either the default VEVENT or VTODO calendar property, validating and canonicalizing the value
         """
-        tasks = property.qname() == customxml.ScheduleDefaultTasksURL
-        error_element = (calendarserver_namespace, "valid-schedule-default-tasks-URL") if tasks else (caldav_namespace, "valid-schedule-default-calendar-URL")
+        if property.qname() == caldavxml.ScheduleDefaultCalendarURL.qname():
+            ctype = "VEVENT"
+            error_element = (caldav_namespace, "valid-schedule-default-calendar-URL")
+        elif property.qname() == customxml.ScheduleDefaultTasksURL.qname():
+            ctype = "VTODO"
+            error_element = (calendarserver_namespace, "valid-schedule-default-tasks-URL")
+        else:
+            returnValue(None)
 
         # Verify that the calendar added in the PROPPATCH is valid.
         property.children = [davxml.HRef(normalizeURL(str(href))) for href in property.children]
@@ -325,7 +331,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
         try:
             # Now set it on the new store object
-            yield self.parent._newStoreHome.setDefaultCalendar(cal._newStoreObject, tasks)
+            yield self.parent._newStoreHome.setDefaultCalendar(cal._newStoreObject, ctype)
         except InvalidDefaultCalendar as e:
             raise HTTPError(ErrorResponse(
                 responsecode.CONFLICT,
@@ -390,7 +396,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
     def getSupportedComponentSet(self):
         return caldavxml.SupportedCalendarComponentSet(
-            *[caldavxml.CalendarComponent(name=item) for item in allowedComponents]
+            *[caldavxml.CalendarComponent(name=item) for item in allowedSchedulingComponents]
         )
 
 

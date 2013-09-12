@@ -74,7 +74,6 @@ create table CALENDAR_HOME_METADATA (
   QUOTA_USED_BYTES         integer     default 0 not null,
   DEFAULT_EVENTS           integer     default null references CALENDAR on delete set null,
   DEFAULT_TASKS            integer     default null references CALENDAR on delete set null,
-  DEFAULT_POLLS            integer     default null references CALENDAR on delete set null,
   ALARM_VEVENT_TIMED       text        default null,
   ALARM_VEVENT_ALLDAY      text        default null,
   ALARM_VTODO_TIMED        text        default null,
@@ -88,8 +87,6 @@ create index CALENDAR_HOME_METADATA_DEFAULT_EVENTS on
 	CALENDAR_HOME_METADATA(DEFAULT_EVENTS);
 create index CALENDAR_HOME_METADATA_DEFAULT_TASKS on
 	CALENDAR_HOME_METADATA(DEFAULT_TASKS);
-create index CALENDAR_HOME_METADATA_DEFAULT_POLLS on
-	CALENDAR_HOME_METADATA(DEFAULT_POLLS);
 
 -----------------------
 -- Calendar Metadata --
@@ -698,6 +695,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '25');
+insert into CALENDARSERVER values ('VERSION', '24');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
