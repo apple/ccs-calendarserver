@@ -25,7 +25,7 @@ from twext.python.log import (
     pythonLogLevelMapping,
     formatEvent, formatUnformattableEvent, formatWithCall,
     Logger, LegacyLogger,
-    ILogObserver, LogPublisher,
+    ILogObserver, LogPublisher, DefaultLogPublisher,
     FilteringLogObserver, PredicateResult,
     LogLevelFilterPredicate,
 )
@@ -610,6 +610,49 @@ class LogPublisherTests(SetUpTearDown, unittest.TestCase):
         publisher(event)
 
         # Here, the lack of an exception thus far is a success, of sorts
+
+
+
+class DefaultLogPublisherTests(SetUpTearDown, unittest.TestCase):
+    def test_filteredObserver(self):
+        namespace = __name__
+
+        event_debug = dict(log_namespace=namespace, log_level=LogLevel.debug, log_format="")
+        event_error = dict(log_namespace=namespace, log_level=LogLevel.error, log_format="")
+        events = []
+
+        observer = lambda e: events.append(e)
+
+        publisher = DefaultLogPublisher()
+
+        publisher.addObserver(observer, filtered=True)
+        publisher(event_debug)
+        publisher(event_error)
+        self.assertNotIn(event_debug, events)
+        self.assertIn(event_error, events)
+
+
+    def test_filteredObserverNoFilteringKeys(self):
+        event_debug = dict(log_level=LogLevel.debug)
+        event_error = dict(log_level=LogLevel.error)
+        event_none  = dict()
+        events = []
+
+        observer = lambda e: events.append(e)
+
+        publisher = DefaultLogPublisher()
+        publisher.addObserver(observer, filtered=True)
+        publisher(event_debug)
+        publisher(event_error)
+        publisher(event_none)
+        self.assertNotIn(event_debug, events)
+        self.assertNotIn(event_error, events)
+        self.assertNotIn(event_none, events)
+
+
+
+#    def test_addObserver_unfiltered(self):
+#        pass
 
 
 

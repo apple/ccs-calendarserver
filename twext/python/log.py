@@ -646,6 +646,8 @@ class LogLevelFilterPredicate(object):
     """
     L{ILogFilterPredicate} that filters out events with a log level
     lower than the log level for the event's namespace.
+
+    Events that not not have a log level or namespace are also dropped.
     """
 
     def __init__(self):
@@ -708,11 +710,15 @@ class LogLevelFilterPredicate(object):
 
 
     def __call__(self, event):
-        level     = event["log_level"]
-        namespace = event["log_namespace"]
+        level     = event.get("log_level", None)
+        namespace = event.get("log_namespace", None)
 
-        if (LogLevel._priorityForLevel(level) <
-            LogLevel._priorityForLevel(self.logLevelForNamespace(namespace))):
+        if (
+            level is None or
+            namespace is None or
+            LogLevel._priorityForLevel(level) <
+            LogLevel._priorityForLevel(self.logLevelForNamespace(namespace))
+        ):
             return PredicateResult.no
 
         return PredicateResult.maybe
