@@ -521,6 +521,20 @@ class LogPublisherTests(SetUpTearDown, unittest.TestCase):
         self.assertEquals(set((o1, o3)), set(publisher.observers))
 
 
+    def test_removeObserverNotRegistered(self):
+        """
+        L{LogPublisher.removeObserver} removes an observer that is not
+        registered.
+        """
+        o1 = lambda e: None
+        o2 = lambda e: None
+        o3 = lambda e: None
+
+        publisher = LogPublisher(o1, o2)
+        publisher.removeObserver(o3)
+        self.assertEquals(set((o1, o2)), set(publisher.observers))
+
+
     def test_fanOut(self):
         """
         L{LogPublisher} calls its observers.
