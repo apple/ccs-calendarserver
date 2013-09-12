@@ -245,12 +245,12 @@ def formatUnformattableEvent(event, error):
             for key, value in event.items():
                 try:
                     keyFormatted = u"{key!r}".format(key=key)
-                except:
+                except BaseException:
                     keyFormatted = u"<UNFORMATTABLE KEY>"
 
                 try:
                     valueFormatted = u"{value!r}".format(value=value)
-                except:
+                except BaseException:
                     valueFormatted = u"<UNFORMATTABLE VALUE>"
 
                 items.append(" = ".join((keyFormatted, valueFormatted)))
@@ -556,7 +556,7 @@ class LogPublisher(object):
         for observer in self.observers:
             try:
                 observer(event)
-            except:
+            except BaseException as e:
                 #
                 # We have to remove the offending observer because
                 # we're going to badmouth it to all of its friends
@@ -565,8 +565,8 @@ class LogPublisher(object):
                 #
                 self.removeObserver(observer)
                 try:
-                    self.log.failure("Observer {observer} raised an exception; removing.", observer=observer)
-                except:
+                    self.log.failure("Temporarily removing observer {observer} due to exception: {e}", observer=observer, e=e)
+                except BaseException:
                     pass
                 finally:
                     self.addObserver(observer)

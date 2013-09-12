@@ -200,7 +200,7 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         self.assertEquals(
             formatWithCall(
                 u"Hello, {repr()!r}.",
-                dict(repr=lambda: 'repr')
+                dict(repr=lambda: "repr")
             ),
             "Hello, 'repr'."
         )
@@ -539,17 +539,43 @@ class LogPublisherTests(SetUpTearDown, unittest.TestCase):
         """
         L{LogPublisher} calls its observers.
         """
-        e1 = []
-        e2 = []
-        e3 = []
+        event = dict(foo=1, bar=2)
 
-        o1 = lambda e: e1.append(e)
-        o2 = lambda e: e2.append(e)
-        o3 = lambda e: e3.append(e)
+        events1 = []
+        events2 = []
+        events3 = []
+
+        o1 = lambda e: events1.append(e)
+        o2 = lambda e: events2.append(e)
+        o3 = lambda e: events3.append(e)
 
         publisher = LogPublisher(o1, o2, o3)
-        publisher.removeObserver(o2)
-        self.assertEquals(set((o1, o3)), set(publisher.observers))
+        publisher(event)
+        self.assertIn(event, events1)
+        self.assertIn(event, events2)
+        self.assertIn(event, events3)
+
+
+    def test_observerRaises(self):
+        event = dict(foo=1, bar=2)
+        exception = RuntimeError("ARGH! EVIL DEATH!")
+
+        events = []
+
+        def o(event):
+            events.append(event)
+            raise exception
+
+        publisher = LogPublisher(o)
+        publisher(event)
+
+        # Verify that the observer saw my event
+        self.assertIn(event, events)
+
+        # Verify that the observer raised my exception
+        errors = self.flushLoggedErrors(exception.__class__)
+        self.assertEquals(len(errors), 1)
+        self.assertIdentical(errors[0].value, exception)
 
 
 
