@@ -265,7 +265,7 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         self.assertIn(repr(event), result)
 
 
-    def test_formatEventYouSoNasty(self):
+    def test_formatUnformattableEvent(self):
         """
         Formatting an event that's just plain out to get us.
         """
@@ -276,10 +276,31 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         self.assertIn(repr(event), result)
 
 
-    def test_formatEventYouSoNastyUnformattableValue(self):
+    def test_formatUnformattableEventWithUnformattableKey(self):
          """
-         Formatting an event that's just plain out to get us and is
-         really determined.
+         Formatting an unformattable event that has an unformattable key.
+         """
+         class Gurk(object):
+             # Class that raises in C{__repr__()}.
+             def __repr__(self):
+                 return str(1/0)
+
+         event = {
+             "log_format": "{evil()}",
+             "evil": lambda: 1/0,
+             Gurk(): "gurk",
+         }
+         result = formatEvent(event)
+
+         self.assertIn("MESSAGE LOST: unformattable object logged.", result)
+         self.assertIn("Recoverable data:", result)
+         self.assertIn("Exception during formatting:", result)
+         #self.assertIn(repr(event), result)
+
+
+    def test_formatUnformattableEventWithUnformattableValue(self):
+         """
+         Formatting an unformattable event that has an unformattable value.
          """
          class Gurk(object):
              # Class that raises in C{__repr__()}.
