@@ -61,6 +61,7 @@ class FakeSocket(object):
         return ("4.3.2.1", 4321)
 
 
+
 class InheritedPortForTesting(sendfdport.InheritedPort):
     """
     L{sendfdport.InheritedPort} subclass that prevents certain I/O operations
@@ -92,14 +93,18 @@ class ServerTransportForTesting(Server):
     def startReading(self):
         "Do nothing."
 
+
     def stopReading(self):
         "Do nothing."
+
 
     def startWriting(self):
         "Do nothing."
 
+
     def stopWriting(self):
         "Do nothing."
+
 
     def __init__(self, *a, **kw):
         super(ServerTransportForTesting, self).__init__(*a, **kw)
@@ -198,9 +203,9 @@ class ConnectionLimiterTests(TestCase):
         L{WorkerStatus.__repr__} will show all the values associated with the
         status of the worker.
         """
-        self.assertEquals(repr(WorkerStatus(1, 2, 3, 4)),
+        self.assertEquals(repr(WorkerStatus(1, 2, 3, 4, 5)),
                           "<WorkerStatus acknowledged=1 unacknowledged=2 "
-                          "started=3 abandoned=4>")
+                          "started=3 abandoned=4 unclosed=5>")
 
 
 
@@ -237,7 +242,8 @@ class LimiterBuilder(object):
         def serverServiceMaker(port, factory, *a, **k):
             s.factory = factory
             s.myPort = NotAPort()
-            s.myPort.startReading() # TODO: technically, should wait for startService
+            # TODO: technically, the following should wait for startService
+            s.myPort.startReading()
             factory.myServer = s
             return s
         return serverServiceMaker
