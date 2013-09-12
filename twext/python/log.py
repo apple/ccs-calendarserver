@@ -152,8 +152,7 @@ class LogLevel(Names):
 
 
 LogLevel._levelPriorities = dict(
-    (constant, idx)
-    for (idx, constant) in
+    (constant, idx) for (idx, constant) in
     (enumerate(LogLevel.iterconstants()))
 )
 
@@ -210,11 +209,7 @@ def formatEvent(event):
         return formatWithCall(format, event)
 
     except BaseException as e:
-        try:
-            return formatUnformattableEvent(event, e)
-        except:
-            # This should never happen...
-            return u"MESSAGE LOST COMPLETELY"
+        return formatUnformattableEvent(event, e)
 
 
 
@@ -242,8 +237,9 @@ def formatUnformattableEvent(event, error):
         # hopefully at least the namespace is sane, which will
         # help you find the offending logger.
         #
-        failure = Failure()
         try:
+            failure = Failure()
+
             items = []
 
             for key, value in event.items():
@@ -260,15 +256,16 @@ def formatUnformattableEvent(event, error):
                 items.append(" = ".join((keyFormatted, valueFormatted)))
 
             text = ", ".join(items)
-        except BaseException as e:
-            text = "UNABLE TO RECOVER ANY DATA FROM MESSAGE: {e}".format(e=e)
 
-        return (
-            u"MESSAGE LOST: unformattable object logged.\n"
-            u"Recoverable data: {text}\n"
-            u"Exception during formatting:\n{failure}"
-            .format(error=error, failure=failure, text=text)
-        )
+            return (
+                u"MESSAGE LOST: unformattable object logged: {error}\n"
+                u"Recoverable data: {text}\n"
+                u"Exception during formatting:\n{failure}"
+                .format(error=error, failure=failure, text=text)
+            )
+        except BaseException as e:
+            # This should never happen...
+            return u"MESSAGE LOST: unable to recover any data from message: {e}".format(e=e)
 
 
 
@@ -420,10 +417,10 @@ class LegacyLogger(object):
     """
 
     def __init__(self, logger=None):
-        if logger is not None:
-            self.newStyleLogger = logger
-        else:
+        if logger is None:
             self.newStyleLogger = Logger(Logger._namespaceFromCallingContext())
+        else:
+            self.newStyleLogger = logger
 
 
     def __getattribute__(self, name):

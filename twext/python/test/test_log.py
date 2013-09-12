@@ -23,7 +23,7 @@ from twisted.trial import unittest
 from twext.python.log import (
     LogLevel, InvalidLogLevelError,
     pythonLogLevelMapping,
-    formatEvent, formatWithCall,
+    formatEvent, formatUnformattableEvent, formatWithCall,
     Logger, LegacyLogger,
     ILogObserver, LogPublisher,
     FilteringLogObserver, PredicateResult,
@@ -67,8 +67,8 @@ class TestLogger(Logger):
 
 
 class TestLegacyLogger(LegacyLogger):
-    def __init__(self):
-        LegacyLogger.__init__(self, logger=TestLogger())
+    def __init__(self, logger=TestLogger()):
+        LegacyLogger.__init__(self, logger=logger)
 
 
 
@@ -280,11 +280,6 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
          """
          Formatting an unformattable event that has an unformattable key.
          """
-         class Gurk(object):
-             # Class that raises in C{__repr__()}.
-             def __repr__(self):
-                 return str(1/0)
-
          event = {
              "log_format": "{evil()}",
              "evil": lambda: 1/0,
@@ -292,21 +287,15 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
          }
          result = formatEvent(event)
 
-         self.assertIn("MESSAGE LOST: unformattable object logged.", result)
+         self.assertIn("MESSAGE LOST: unformattable object logged:", result)
          self.assertIn("Recoverable data:", result)
          self.assertIn("Exception during formatting:", result)
-         #self.assertIn(repr(event), result)
 
 
     def test_formatUnformattableEventWithUnformattableValue(self):
          """
          Formatting an unformattable event that has an unformattable value.
          """
-         class Gurk(object):
-             # Class that raises in C{__repr__()}.
-             def __repr__(self):
-                 return str(1/0)
-
          event = dict(
              log_format="{evil()}",
              evil=lambda: 1/0,
@@ -314,10 +303,24 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
          )
          result = formatEvent(event)
 
-         self.assertIn("MESSAGE LOST: unformattable object logged.", result)
+         self.assertIn("MESSAGE LOST: unformattable object logged:", result)
          self.assertIn("Recoverable data:", result)
          self.assertIn("Exception during formatting:", result)
-         #self.assertIn(repr(event), result)
+
+
+    def test_formatUnformattableEventWithUnformattableErrorOMGWillItStop(self):
+         """
+         Formatting an unformattable event that has an unformattable value.
+         """
+         event = dict(
+             log_format="{evil()}",
+             evil=lambda: 1/0,
+         )
+
+         # Call formatUnformattableEvent() directly with a bogus exception.
+         result = formatUnformattableEvent(event, Gurk())
+
+         self.assertIn("MESSAGE LOST: unable to recover any data from message:", result)
 
 
 
@@ -628,6 +631,14 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
     Tests for L{LegacyLogger}.
     """
 
+    def test_namespace_default(self):
+        """
+        Default namespace is module name.
+        """
+        log = TestLegacyLogger(logger=None)
+        self.assertEquals(log.newStyleLogger.namespace, __name__)
+
+
     def test_passThroughAttributes(self):
         """
         C{__getattribute__} on L{LegacyLogger} is passing through to Twisted's
@@ -763,3 +774,10 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
 
         for key, value in kwargs.items():
             self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key], value)
+
+
+
+class Gurk(object):
+    # Class that raises in C{__repr__()}.
+    def __repr__(self):
+        return str(1/0)
