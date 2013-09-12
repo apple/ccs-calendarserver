@@ -660,6 +660,10 @@ class FilteringLogObserverTests(SetUpTearDown, unittest.TestCase):
             def no(event):
                 return PredicateResult.no
 
+            @staticmethod
+            def bogus(event):
+                return None
+
         predicates = (getattr(Filters, f) for f in filters)
         eventsSeen = []
         trackingObserver = lambda e: eventsSeen.append(e)
@@ -683,6 +687,9 @@ class FilteringLogObserverTests(SetUpTearDown, unittest.TestCase):
 
     def test_shouldLogEvent_yesYesNoFilter(self):
         self.assertEquals(self.filterWith("twoPlus", "twoMinus", "no"), [0, 1, 2, 3])
+
+    def test_shouldLogEvent_badPredicateResult(self):
+        self.assertRaises(TypeError, self.filterWith, "bogus")
 
 
     def test_call(self):
