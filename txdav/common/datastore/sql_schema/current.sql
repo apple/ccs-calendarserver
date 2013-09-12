@@ -465,7 +465,7 @@ create table ABO_MEMBERS (
   	REVISION              integer      default nextval('REVISION_SEQ') not null,
   	REMOVED               boolean      default false not null,
 
-    primary key (GROUP_ID, MEMBER_ID) -- implicit index
+    primary key (GROUP_ID, MEMBER_ID, REVISION) -- implicit index
 );
 
 create index ABO_MEMBERS_ADDRESSBOOK_ID on
@@ -481,7 +481,6 @@ create table ABO_FOREIGN_MEMBERS (
     GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
  	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
     MEMBER_ADDRESS  	  varchar(255) not null, 													-- member AddressBook Object's 'calendar' address
-  	REVISION              integer      default nextval('REVISION_SEQ') not null,
 
     primary key (GROUP_ID, MEMBER_ADDRESS) -- implicit index
 );
@@ -550,9 +549,11 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_HOME_RESOURCE_ID 			integer			not null references ADDRESSBOOK_HOME,
   OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer     	references ADDRESSBOOK_HOME,
   ADDRESSBOOK_NAME             			varchar(255) 	default null,
+  OBJECT_RESOURCE_ID					integer			default 0,
   RESOURCE_NAME                			varchar(255),
   REVISION                     			integer     	default nextval('REVISION_SEQ') not null,
-  DELETED                      			boolean      	not null
+  DELETED                      			boolean      	not null,
+  UNSHARED                      		boolean      	not null default false
 );
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_ADDRESSBOOK_HOME_RESOURCE_ID

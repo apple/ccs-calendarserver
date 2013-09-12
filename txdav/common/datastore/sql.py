@@ -3101,7 +3101,6 @@ class SharingMixIn(object):
 
     @inlineCallbacks
     def _initBindRevision(self):
-        yield self.syncToken()
         self._bindRevision = self._syncTokenRevision
 
         bind = self._bindSchema
