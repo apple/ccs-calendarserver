@@ -213,7 +213,8 @@ def formatEvent(event):
         try:
             return formatUnformattableEvent(event, e)
         except:
-            return u"MESSAGE LOST"
+            # This should never happen...
+            return u"MESSAGE LOST COMPLETELY"
 
 
 
@@ -233,7 +234,7 @@ def formatUnformattableEvent(event, error):
             u"Unable to format event {event!r}: {error}"
             .format(event=event, error=error)
         )
-    except BaseException as error:
+    except BaseException:
         #
         # Yikes, something really nasty happened.
         #
@@ -241,27 +242,32 @@ def formatUnformattableEvent(event, error):
         # hopefully at least the namespace is sane, which will
         # help you find the offending logger.
         #
+        failure = Failure()
         try:
             items = []
 
             for key, value in event.items():
                 try:
-                    items.append(u"{key!r} = ".format(key=key))
+                    keyFormatted = u"{key!r}".format(key=key)
                 except:
-                    items.append(u"<UNFORMATTABLE KEY> = ")
+                    keyFormatted = u"<UNFORMATTABLE KEY>"
+
                 try:
-                    items.append(u"{value!r}".format(value=value))
+                    valueFormatted = u"{value!r}".format(value=value)
                 except:
-                    items.append(u"<UNFORMATTABLE VALUE>")
+                    valueFormatted = u"<UNFORMATTABLE VALUE>"
+
+                items.append(" = ".join((keyFormatted, valueFormatted)))
 
             text = ", ".join(items)
-        except:
-            text = ""
+        except BaseException as e:
+            text = "UNABLE TO RECOVER ANY DATA FROM MESSAGE: {e}".format(e=e)
 
         return (
-            u"MESSAGE LOST: Unformattable object logged: {error}\n"
-            u"Recoverable data: {text}"
-            .format(text=text)
+            u"MESSAGE LOST: unformattable object logged.\n"
+            u"Recoverable data: {text}\n"
+            u"Exception during formatting:\n{failure}"
+            .format(error=error, failure=failure, text=text)
         )
 
 

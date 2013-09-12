@@ -164,7 +164,7 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         """
         Clearing log levels.
         """
-        setLogLevelForNamespace("twext.web2", LogLevel.debug)
+        setLogLevelForNamespace("twext.web2"    , LogLevel.debug)
         setLogLevelForNamespace("twext.web2.dav", LogLevel.error)
 
         clearLogLevels()
@@ -191,14 +191,17 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         mean that the format key ought to be I{called} rather than stringified.
         """
         self.assertEquals(
-            formatWithCall(u"Hello, {world}. {callme()}.",
-                           dict(world="earth",
-                                callme=lambda: "maybe")),
+            formatWithCall(
+                u"Hello, {world}. {callme()}.",
+                dict(world="earth", callme=lambda: "maybe")
+            ),
             "Hello, earth. maybe."
         )
         self.assertEquals(
-            formatWithCall(u"Hello, {repr()!r}.",
-                           dict(repr=lambda: 'repr')),
+            formatWithCall(
+                u"Hello, {repr()!r}.",
+                dict(repr=lambda: 'repr')
+            ),
             "Hello, 'repr'."
         )
 
@@ -273,21 +276,27 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         self.assertIn(repr(event), result)
 
 
-#     def test_formatEventYouSoNastyOMGMakeItStop(self):
-#         """
-#         Formatting an event that's just plain out to get us and is
-#         really determined.
-#         """
-#         badRepr = 
+    def test_formatEventYouSoNastyUnformattableValue(self):
+         """
+         Formatting an event that's just plain out to get us and is
+         really determined.
+         """
+         class Gurk(object):
+             # Class that raises in C{__repr__()}.
+             def __repr__(self):
+                 return str(1/0)
 
-#         event = dict(
-#             log_format="{evil()}",
-#             evil=lambda: 1/0,
-#         )
-#         result = formatEvent(event)
+         event = dict(
+             log_format="{evil()}",
+             evil=lambda: 1/0,
+             gurk=Gurk(),
+         )
+         result = formatEvent(event)
 
-#         self.assertIn("Unable to format event", result)
-#         self.assertIn(repr(event), result)
+         self.assertIn("MESSAGE LOST: unformattable object logged.", result)
+         self.assertIn("Recoverable data:", result)
+         self.assertIn("Exception during formatting:", result)
+         #self.assertIn(repr(event), result)
 
 
 
