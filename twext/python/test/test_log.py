@@ -591,7 +591,7 @@ class LogPublisherTests(SetUpTearDown, unittest.TestCase):
             self.fail("Observer raised an exception and the exception was not logged.")
 
 
-    def test_observerRaiseAndLoggerHatesMe(self):
+    def test_observerRaisesAndLoggerHatesMe(self):
         nonTestEvents = []
         Logger.publisher.addObserver(lambda e: nonTestEvents.append(e))
 
@@ -650,9 +650,22 @@ class DefaultLogPublisherTests(SetUpTearDown, unittest.TestCase):
         self.assertNotIn(event_none, events)
 
 
+    def test_unfilteredObserver(self):
+        namespace = __name__
 
-#    def test_addObserver_unfiltered(self):
-#        pass
+        event_debug = dict(log_namespace=namespace, log_level=LogLevel.debug, log_format="")
+        event_error = dict(log_namespace=namespace, log_level=LogLevel.error, log_format="")
+        events = []
+
+        observer = lambda e: events.append(e)
+
+        publisher = DefaultLogPublisher()
+
+        publisher.addObserver(observer, filtered=False)
+        publisher(event_debug)
+        publisher(event_error)
+        self.assertIn(event_debug, events)
+        self.assertIn(event_error, events)
 
 
 
