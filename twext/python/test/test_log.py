@@ -614,6 +614,55 @@ class LogPublisherTests(SetUpTearDown, unittest.TestCase):
 
 
 class DefaultLogPublisherTests(SetUpTearDown, unittest.TestCase):
+    def test_addObserver(self):
+        o1 = lambda e: None
+        o2 = lambda e: None
+        o3 = lambda e: None
+
+        publisher = DefaultLogPublisher()
+        publisher.addObserver(o1)
+        publisher.addObserver(o2, filtered=True)
+        publisher.addObserver(o3, filtered=False)
+
+        self.assertEquals(
+            set((o1, o2, publisher.legacyLogObserver)),
+            set(publisher.filteredPublisher.observers),
+            "Filtered observers do not match expected set"
+        )
+        self.assertEquals(
+            set((o3, publisher.filters)),
+            set(publisher.rootPublisher.observers),
+            "Root observers do not match expected set"
+        )
+
+
+    def test_addObserverAgain(self):
+        o1 = lambda e: None
+        o2 = lambda e: None
+        o3 = lambda e: None
+
+        publisher = DefaultLogPublisher()
+        publisher.addObserver(o1)
+        publisher.addObserver(o2, filtered=True)
+        publisher.addObserver(o3, filtered=False)
+
+        # Swap filtered-ness of o2 and o3
+        publisher.addObserver(o1)
+        publisher.addObserver(o2, filtered=False)
+        publisher.addObserver(o3, filtered=True)
+
+        self.assertEquals(
+            set((o1, o3, publisher.legacyLogObserver)),
+            set(publisher.filteredPublisher.observers),
+            "Filtered observers do not match expected set"
+        )
+        self.assertEquals(
+            set((o2, publisher.filters)),
+            set(publisher.rootPublisher.observers),
+            "Root observers do not match expected set"
+        )
+
+
     def test_filteredObserver(self):
         namespace = __name__
 
