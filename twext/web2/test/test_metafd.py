@@ -188,6 +188,25 @@ class ConnectionLimiterTests(TestCase):
         self.assertEquals(builder.port.reading, True)
 
 
+    def test_unevenLoadDistribution(self):
+        """
+        Subprocess sockets should be selected for subsequent socket sends by
+        ascending status.  Status should sum sent and successfully subsumed
+        sockets.
+        """
+        builder = LimiterBuilder(self)
+        # Give one simulated worker a higher acknowledged load than the other.
+        builder.fillUp(True, 1)
+        # There should still be plenty of spare capacity.
+        self.assertEquals(builder.port.reading, True)
+        # Then slam it with a bunch of incoming requests.
+        builder.fillUp(False, builder.limiter.maxRequests - 1)
+        # Now capacity is full.
+        self.assertEquals(builder.port.reading, False)
+        # And everyone should have an even amount of work.
+        self.assertEquals(builder.highestLoad(), builder.requestsPerSocket)
+
+
     def test_processStopsReadingEvenWhenConnectionsAreNotAcknowledged(self):
         """
         L{ConnectionLimiter.statusesChanged} determines whether the current
@@ -266,15 +285,18 @@ class LimiterBuilder(object):
         return serverServiceMaker
 
 
-    def fillUp(self, acknowledged=True):
+    def fillUp(self, acknowledged=True, count=0):
         """
         Fill up all the slots on the connection limiter.
 
         @param acknowledged: Should the virtual connections created by this
             method send a message back to the dispatcher indicating that the
             subprocess has acknowledged receipt of the file descriptor?
+
+        @param count: Amount of load to add; default to the maximum that the
+            limiter.
         """
-        for x in range(self.limiter.maxRequests):
+        for x in range(count or self.limiter.maxRequests):
             self.dispatcher.sendFileDescriptor(None, "SSL")
             if acknowledged:
                 self.dispatcher.statusMessage(

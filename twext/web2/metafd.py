@@ -225,7 +225,7 @@ class WorkerStatus(FancyStrMixin, object):
     def __lt__(self, other):
         if not isinstance(other, WorkerStatus):
             return NotImplemented
-        return self._tuplify() < other._tuplify()
+        return self.effective() < other.effective()
 
 
     def __eq__(self, other):
