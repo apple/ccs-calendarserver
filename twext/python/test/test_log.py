@@ -663,6 +663,30 @@ class DefaultLogPublisherTests(SetUpTearDown, unittest.TestCase):
         )
 
 
+    def test_removeObserver(self):
+        o1 = lambda e: None
+        o2 = lambda e: None
+        o3 = lambda e: None
+
+        publisher = DefaultLogPublisher()
+        publisher.addObserver(o1)
+        publisher.addObserver(o2, filtered=True)
+        publisher.addObserver(o3, filtered=False)
+        publisher.removeObserver(o2)
+        publisher.removeObserver(o3)
+
+        self.assertEquals(
+            set((o1, publisher.legacyLogObserver)),
+            set(publisher.filteredPublisher.observers),
+            "Filtered observers do not match expected set"
+        )
+        self.assertEquals(
+            set((publisher.filters,)),
+            set(publisher.rootPublisher.observers),
+            "Root observers do not match expected set"
+        )
+
+
     def test_filteredObserver(self):
         namespace = __name__
 
