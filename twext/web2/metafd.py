@@ -360,12 +360,11 @@ class ConnectionLimiter(MultiService, object):
         self._outstandingRequests = current # preserve for or= field in log
         maximum = self.maxRequests
         overloaded = (current >= maximum)
-        if overloaded:
-            for f in self.factories:
-                f.myServer.myPort.stopReading()
-        else:
-            for f in self.factories:
-                f.myServer.myPort.startReading()
+        for f in self.factories:
+            if overloaded:
+                f.loadAboveMaximum()
+            else:
+                f.loadNominal()
 
 
     @property # make read-only
@@ -399,6 +398,20 @@ class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
         self.limiter = limiter
         self.maxAccepts = limiter.maxAccepts
         self.maxRequests = limiter.maxRequests
+
+
+    def loadAboveMaximum(self):
+        """
+        The current server load has exceeded the maximum allowable.
+        """
+        self.myServer.myPort.stopReading()
+
+
+    def loadNominal(self):
+        """
+        The current server load is nominal; proceed with reading requests.
+        """
+        self.myServer.myPort.startReading()
 
 
     @property
