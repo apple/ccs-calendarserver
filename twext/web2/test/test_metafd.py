@@ -169,6 +169,7 @@ class ConnectionLimiterTests(TestCase):
         builder = LimiterBuilder(self)
         builder.fillUp()
         self.assertEquals(builder.port.reading, False) # sanity check
+        self.assertEquals(builder.highestLoad(), builder.requestsPerSocket)
         builder.loadDown()
         self.assertEquals(builder.port.reading, True)
 
@@ -182,6 +183,7 @@ class ConnectionLimiterTests(TestCase):
         builder = LimiterBuilder(self)
         builder.fillUp()
         self.assertEquals(builder.port.reading, False)
+        self.assertEquals(builder.highestLoad(), builder.requestsPerSocket)
         builder.processRestart()
         self.assertEquals(builder.port.reading, True)
 
@@ -193,6 +195,7 @@ class ConnectionLimiterTests(TestCase):
         """
         builder = LimiterBuilder(self)
         builder.fillUp(acknowledged=False)
+        self.assertEquals(builder.highestLoad(), builder.requestsPerSocket)
         self.assertEquals(builder.port.reading, False)
         builder.processRestart()
         self.assertEquals(builder.port.reading, True)
@@ -215,17 +218,31 @@ class LimiterBuilder(object):
     for a given unit test.
     """
 
-    def __init__(self, test, maxReq=3):
-        self.limiter = ConnectionLimiter(2, maxRequests=maxReq)
+    def __init__(self, test, requestsPerSocket=3, socketCount=2):
+        # Similar to MaxRequests in the configuration.
+        self.requestsPerSocket = requestsPerSocket
+        # Similar to ProcessCount in the configuration.
+        self.socketCount = socketCount
+        self.limiter = ConnectionLimiter(
+            2, maxRequests=requestsPerSocket * socketCount
+        )
         self.dispatcher = self.limiter.dispatcher
         self.dispatcher.reactor = ReaderAdder()
         self.service = Service()
         self.limiter.addPortService("TCP", 4321, "127.0.0.1", 5,
                                     self.serverServiceMakerMaker(self.service))
-        self.dispatcher.addSocket()
+        for ignored in xrange(socketCount):
+            self.dispatcher.addSocket()
         # Has to be running in order to add stuff.
         self.limiter.startService()
         self.port = self.service.myPort
+
+
+    def highestLoad(self):
+        return max(
+            skt.status.effective()
+            for skt in self.limiter.dispatcher._subprocessSockets
+        )
 
 
     def serverServiceMakerMaker(self, s):
