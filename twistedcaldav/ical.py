@@ -3198,7 +3198,8 @@ END:VCALENDAR
                 continue
             for prop in itertools.chain(
                 component.properties("ORGANIZER"),
-                component.properties("ATTENDEE")
+                component.properties("ATTENDEE"),
+                component.properties("VOTER")
             ):
 
                 # Check that we can lookup this calendar user address - if not
@@ -3295,6 +3296,10 @@ END:VCALENDAR
                         prop.setParameter("EMAIL", email)
                     else:
                         prop.removeParameter("EMAIL")
+
+            # For VPOLL also do immediate children
+            if component.name() == "VPOLL":
+                component.normalizeCalendarUserAddresses(lookupFunction, principalFunction, toUUID)
 
 
     def allPerUserUIDs(self):
