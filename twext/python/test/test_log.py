@@ -131,7 +131,8 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         """
         self.failUnless(logLevelForNamespace(None), defaultLogLevel)
         self.failUnless(logLevelForNamespace(""), defaultLogLevel)
-        self.failUnless(logLevelForNamespace("rocker.cool.namespace"), defaultLogLevel)
+        self.failUnless(logLevelForNamespace("rocker.cool.namespace"),
+                        defaultLogLevel)
 
 
     def test_setLogLevel(self):
