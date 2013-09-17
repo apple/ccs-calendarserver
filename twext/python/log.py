@@ -944,16 +944,20 @@ def replaceTwistedLoggers():
             continue
 
         for name, obj in module.__dict__.iteritems():
-            legacyLogger = LegacyLogger(logger=Logger(namespace=module.__name__))
+            newLogger = Logger(namespace=module.__name__)
+            legacyLogger = LegacyLogger(logger=newLogger)
 
             if obj is twisted.python.log:
-                log.info("Replacing Twisted log module object {0} in {1}".format(name, module.__name__))
+                log.info("Replacing Twisted log module object {0} in {1}"
+                         .format(name, module.__name__))
                 setattr(module, name, legacyLogger)
             elif obj is twisted.python.log.msg:
-                log.info("Replacing Twisted log.msg object {0} in {1}".format(name, module.__name__))
+                log.info("Replacing Twisted log.msg object {0} in {1}"
+                         .format(name, module.__name__))
                 setattr(module, name, legacyLogger.msg)
             elif obj is twisted.python.log.err:
-                log.info("Replacing Twisted log.err object {0} in {1}".format(name, module.__name__))
+                log.info("Replacing Twisted log.err object {0} in {1}"
+                         .format(name, module.__name__))
                 setattr(module, name, legacyLogger.err)
 
 
