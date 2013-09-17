@@ -143,38 +143,49 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         setLogLevelForNamespace("twext.web2", LogLevel.debug)
         setLogLevelForNamespace("twext.web2.dav", LogLevel.warn)
 
-        self.assertEquals(logLevelForNamespace(None                        ), LogLevel.error)
-        self.assertEquals(logLevelForNamespace("twisted"                   ), LogLevel.error)
-        self.assertEquals(logLevelForNamespace("twext.web2"                ), LogLevel.debug)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), LogLevel.warn)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), LogLevel.warn)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), LogLevel.warn)
+        self.assertEquals(logLevelForNamespace(None),
+                          LogLevel.error)
+        self.assertEquals(logLevelForNamespace("twisted"),
+                          LogLevel.error)
+        self.assertEquals(logLevelForNamespace("twext.web2"),
+                          LogLevel.debug)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav"),
+                          LogLevel.warn)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"),
+                          LogLevel.warn)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"),
+                          LogLevel.warn)
 
 
     def test_setInvalidLogLevel(self):
         """
         Can't pass invalid log levels to setLogLevelForNamespace().
         """
-        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace, "twext.web2", object())
+        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace,
+                          "twext.web2", object())
 
         # Level must be a constant, not the name of a constant
-        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace, "twext.web2", "debug")
+        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace,
+                          "twext.web2", "debug")
 
 
     def test_clearLogLevels(self):
         """
         Clearing log levels.
         """
-        setLogLevelForNamespace("twext.web2"    , LogLevel.debug)
+        setLogLevelForNamespace("twext.web2", LogLevel.debug)
         setLogLevelForNamespace("twext.web2.dav", LogLevel.error)
 
         clearLogLevels()
 
-        self.assertEquals(logLevelForNamespace("twisted"                   ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2"                ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twisted"), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2"), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav"),
+                          defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"),
+                          defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"),
+                          defaultLogLevel)
 
 
     def test_namespace_default(self):
