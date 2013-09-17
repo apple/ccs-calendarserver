@@ -389,8 +389,9 @@ class Logger(object):
 
         or::
 
-            d = deferred_frob(knob)
-            d.addErrback(lambda f: log.failure, "While frobbing {knob}", f, knob=knob)
+            d = deferredFrob(knob)
+            d.addErrback(lambda f: log.failure, "While frobbing {knob}",
+                         f, knob=knob)
 
         @param format: a message format using new-style (PEP 3101)
             formatting.  The logging event (which is a L{dict}) is
