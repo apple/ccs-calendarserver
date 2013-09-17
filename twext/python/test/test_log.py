@@ -27,7 +27,7 @@ from twext.python.log import (
     Logger, LegacyLogger,
     ILogObserver, LogPublisher, DefaultLogPublisher,
     FilteringLogObserver, PredicateResult,
-    LogLevelFilterPredicate,
+    LogLevelFilterPredicate, OBSERVER_REMOVED
 )
 
 
@@ -59,7 +59,7 @@ class TestLogger(Logger):
             twistedLogging.removeObserver(observer)
 
         self.emitted = {
-            "level" : level,
+            "level":  level,
             "format": format,
             "kwargs": kwargs,
         }
@@ -131,7 +131,8 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         """
         self.failUnless(logLevelForNamespace(None), defaultLogLevel)
         self.failUnless(logLevelForNamespace(""), defaultLogLevel)
-        self.failUnless(logLevelForNamespace("rocker.cool.namespace"), defaultLogLevel)
+        self.failUnless(logLevelForNamespace("rocker.cool.namespace"),
+                        defaultLogLevel)
 
 
     def test_setLogLevel(self):
@@ -142,38 +143,49 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         setLogLevelForNamespace("twext.web2", LogLevel.debug)
         setLogLevelForNamespace("twext.web2.dav", LogLevel.warn)
 
-        self.assertEquals(logLevelForNamespace(None                        ), LogLevel.error)
-        self.assertEquals(logLevelForNamespace("twisted"                   ), LogLevel.error)
-        self.assertEquals(logLevelForNamespace("twext.web2"                ), LogLevel.debug)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), LogLevel.warn)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), LogLevel.warn)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), LogLevel.warn)
+        self.assertEquals(logLevelForNamespace(None),
+                          LogLevel.error)
+        self.assertEquals(logLevelForNamespace("twisted"),
+                          LogLevel.error)
+        self.assertEquals(logLevelForNamespace("twext.web2"),
+                          LogLevel.debug)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav"),
+                          LogLevel.warn)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"),
+                          LogLevel.warn)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"),
+                          LogLevel.warn)
 
 
     def test_setInvalidLogLevel(self):
         """
         Can't pass invalid log levels to setLogLevelForNamespace().
         """
-        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace, "twext.web2", object())
+        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace,
+                          "twext.web2", object())
 
         # Level must be a constant, not the name of a constant
-        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace, "twext.web2", "debug")
+        self.assertRaises(InvalidLogLevelError, setLogLevelForNamespace,
+                          "twext.web2", "debug")
 
 
     def test_clearLogLevels(self):
         """
         Clearing log levels.
         """
-        setLogLevelForNamespace("twext.web2"    , LogLevel.debug)
+        setLogLevelForNamespace("twext.web2", LogLevel.debug)
         setLogLevelForNamespace("twext.web2.dav", LogLevel.error)
 
         clearLogLevels()
 
-        self.assertEquals(logLevelForNamespace("twisted"                   ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2"                ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav"            ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"       ), defaultLogLevel)
-        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twisted"), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2"), defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav"),
+                          defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test"),
+                          defaultLogLevel)
+        self.assertEquals(logLevelForNamespace("twext.web2.dav.test1.test2"),
+                          defaultLogLevel)
 
 
     def test_namespace_default(self):
@@ -277,50 +289,48 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
 
 
     def test_formatUnformattableEventWithUnformattableKey(self):
-         """
-         Formatting an unformattable event that has an unformattable key.
-         """
-         event = {
-             "log_format": "{evil()}",
-             "evil": lambda: 1/0,
-             Gurk(): "gurk",
-         }
-         result = formatEvent(event)
-
-         self.assertIn("MESSAGE LOST: unformattable object logged:", result)
-         self.assertIn("Recoverable data:", result)
-         self.assertIn("Exception during formatting:", result)
+        """
+        Formatting an unformattable event that has an unformattable key.
+        """
+        event = {
+            "log_format": "{evil()}",
+            "evil": lambda: 1/0,
+            Unformattable(): "gurk",
+        }
+        result = formatEvent(event)
+        self.assertIn("MESSAGE LOST: unformattable object logged:", result)
+        self.assertIn("Recoverable data:", result)
+        self.assertIn("Exception during formatting:", result)
 
 
     def test_formatUnformattableEventWithUnformattableValue(self):
-         """
-         Formatting an unformattable event that has an unformattable value.
-         """
-         event = dict(
-             log_format="{evil()}",
-             evil=lambda: 1/0,
-             gurk=Gurk(),
-         )
-         result = formatEvent(event)
-
-         self.assertIn("MESSAGE LOST: unformattable object logged:", result)
-         self.assertIn("Recoverable data:", result)
-         self.assertIn("Exception during formatting:", result)
+        """
+        Formatting an unformattable event that has an unformattable value.
+        """
+        event = dict(
+            log_format="{evil()}",
+            evil=lambda: 1/0,
+            gurk=Unformattable(),
+        )
+        result = formatEvent(event)
+        self.assertIn("MESSAGE LOST: unformattable object logged:", result)
+        self.assertIn("Recoverable data:", result)
+        self.assertIn("Exception during formatting:", result)
 
 
     def test_formatUnformattableEventWithUnformattableErrorOMGWillItStop(self):
-         """
-         Formatting an unformattable event that has an unformattable value.
-         """
-         event = dict(
-             log_format="{evil()}",
-             evil=lambda: 1/0,
-         )
-
-         # Call formatUnformattableEvent() directly with a bogus exception.
-         result = formatUnformattableEvent(event, Gurk())
-
-         self.assertIn("MESSAGE LOST: unable to recover any data from message:", result)
+        """
+        Formatting an unformattable event that has an unformattable value.
+        """
+        event = dict(
+            log_format="{evil()}",
+            evil=lambda: 1/0,
+            recoverable="okay",
+        )
+        # Call formatUnformattableEvent() directly with a bogus exception.
+        result = formatUnformattableEvent(event, Unformattable())
+        self.assertIn("MESSAGE LOST: unformattable object logged:", result)
+        self.assertIn(repr("recoverable") + " = " + repr("okay"), result)
 
 
 
@@ -355,8 +365,8 @@ class LoggerTests(SetUpTearDown, unittest.TestCase):
 
     def test_sourceAvailableForFormatting(self):
         """
-        On instances that have a L{Logger} class attribute, the C{log_source} key
-        is available to format strings.
+        On instances that have a L{Logger} class attribute, the C{log_source}
+        key is available to format strings.
         """
         obj = LogComposedObject("hello")
         log = obj.log
@@ -398,11 +408,13 @@ class LoggerTests(SetUpTearDown, unittest.TestCase):
                 self.assertEquals(log.event["log_namespace"], __name__)
                 self.assertEquals(log.event["log_source"], None)
 
-                self.assertEquals(log.event["logLevel"], pythonLogLevelMapping[level])
+                self.assertEquals(log.event["logLevel"],
+                                  pythonLogLevelMapping[level])
 
                 self.assertEquals(log.event["junk"], message)
 
-                # FIXME: this checks the end of message because we do formatting in emit()
+                # FIXME: this checks the end of message because we do
+                # formatting in emit()
                 self.assertEquals(
                     formatEvent(log.event),
                     message
@@ -441,10 +453,10 @@ class LoggerTests(SetUpTearDown, unittest.TestCase):
 
         log.warn(
             "*",
-            log_format = "#",
-            log_level = LogLevel.error,
-            log_namespace = "*namespace*",
-            log_source = "*source*",
+            log_format="#",
+            log_level=LogLevel.error,
+            log_namespace="*namespace*",
+            log_source="*source*",
         )
 
         # FIXME: Should conflicts log errors?
@@ -583,12 +595,13 @@ class LogPublisherTests(SetUpTearDown, unittest.TestCase):
         # Verify that the exception was logged
         for event in nonTestEvents:
             if (
-                event.get("log_format", None) == "Temporarily removing observer {observer} due to exception: {e}" and
+                event.get("log_format", None) == OBSERVER_REMOVED and
                 getattr(event.get("failure", None), "value") is exception
             ):
                 break
         else:
-            self.fail("Observer raised an exception and the exception was not logged.")
+            self.fail("Observer raised an exception "
+                      "and the exception was not logged.")
 
 
     def test_observerRaisesAndLoggerHatesMe(self):
@@ -690,8 +703,10 @@ class DefaultLogPublisherTests(SetUpTearDown, unittest.TestCase):
     def test_filteredObserver(self):
         namespace = __name__
 
-        event_debug = dict(log_namespace=namespace, log_level=LogLevel.debug, log_format="")
-        event_error = dict(log_namespace=namespace, log_level=LogLevel.error, log_format="")
+        event_debug = dict(log_namespace=namespace,
+                           log_level=LogLevel.debug, log_format="")
+        event_error = dict(log_namespace=namespace,
+                           log_level=LogLevel.error, log_format="")
         events = []
 
         observer = lambda e: events.append(e)
@@ -726,8 +741,10 @@ class DefaultLogPublisherTests(SetUpTearDown, unittest.TestCase):
     def test_unfilteredObserver(self):
         namespace = __name__
 
-        event_debug = dict(log_namespace=namespace, log_level=LogLevel.debug, log_format="")
-        event_error = dict(log_namespace=namespace, log_level=LogLevel.error, log_format="")
+        event_debug = dict(log_namespace=namespace, log_level=LogLevel.debug,
+                           log_format="")
+        event_error = dict(log_namespace=namespace, log_level=LogLevel.error,
+                           log_format="")
         events = []
 
         observer = lambda e: events.append(e)
@@ -797,7 +814,8 @@ class FilteringLogObserverTests(SetUpTearDown, unittest.TestCase):
         eventsSeen = []
         trackingObserver = lambda e: eventsSeen.append(e)
         filteringObserver = FilteringLogObserver(trackingObserver, predicates)
-        for e in events: filteringObserver(e)
+        for e in events:
+            filteringObserver(e)
 
         return [e["count"] for e in eventsSeen]
 
@@ -805,17 +823,23 @@ class FilteringLogObserverTests(SetUpTearDown, unittest.TestCase):
     def test_shouldLogEvent_noFilters(self):
         self.assertEquals(self.filterWith(), [0, 1, 2, 3])
 
+
     def test_shouldLogEvent_noFilter(self):
         self.assertEquals(self.filterWith("notTwo"), [0, 1, 3])
+
 
     def test_shouldLogEvent_yesFilter(self):
         self.assertEquals(self.filterWith("twoPlus"), [0, 1, 2, 3])
 
+
     def test_shouldLogEvent_yesNoFilter(self):
         self.assertEquals(self.filterWith("twoPlus", "no"), [2, 3])
 
+
     def test_shouldLogEvent_yesYesNoFilter(self):
-        self.assertEquals(self.filterWith("twoPlus", "twoMinus", "no"), [0, 1, 2, 3])
+        self.assertEquals(self.filterWith("twoPlus", "twoMinus", "no"),
+                          [0, 1, 2, 3])
+
 
     def test_shouldLogEvent_badPredicateResult(self):
         self.assertRaises(TypeError, self.filterWith, "bogus")
@@ -826,7 +850,8 @@ class FilteringLogObserverTests(SetUpTearDown, unittest.TestCase):
 
         def callWithPredicateResult(result):
             seen = []
-            observer = FilteringLogObserver(lambda e: seen.append(e), (lambda e: result,))
+            observer = FilteringLogObserver(lambda e: seen.append(e),
+                                            (lambda e: result,))
             observer(e)
             return seen
 
@@ -871,19 +896,22 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         log = TestLegacyLogger()
 
         message = "Hi, there."
-        kwargs = { "foo": "bar", "obj": object() }
+        kwargs = {"foo": "bar", "obj": object()}
 
         log.msg(message, **kwargs)
 
-        self.assertIdentical(log.newStyleLogger.emitted["level"], LogLevel.info)
+        self.assertIdentical(log.newStyleLogger.emitted["level"],
+                             LogLevel.info)
         self.assertEquals(log.newStyleLogger.emitted["format"], message)
 
         for key, value in kwargs.items():
-            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key], value)
+            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key],
+                                 value)
 
         log.msg(foo="")
 
-        self.assertIdentical(log.newStyleLogger.emitted["level"], LogLevel.info)
+        self.assertIdentical(log.newStyleLogger.emitted["level"],
+                             LogLevel.info)
         self.assertIdentical(log.newStyleLogger.emitted["format"], None)
 
 
@@ -894,7 +922,7 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         log = TestLegacyLogger()
 
         exception = RuntimeError("Oh me, oh my.")
-        kwargs = { "foo": "bar", "obj": object() }
+        kwargs = {"foo": "bar", "obj": object()}
 
         try:
             raise exception
@@ -911,7 +939,7 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         log = TestLegacyLogger()
 
         exception = RuntimeError("Oh me, oh my.")
-        kwargs = { "foo": "bar", "obj": object() }
+        kwargs = {"foo": "bar", "obj": object()}
         why = "Because I said so."
 
         try:
@@ -929,7 +957,7 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         log = TestLegacyLogger()
 
         exception = RuntimeError("Oh me, oh my.")
-        kwargs = { "foo": "bar", "obj": object() }
+        kwargs = {"foo": "bar", "obj": object()}
         why = "Because I said so."
 
         try:
@@ -947,7 +975,7 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         log = TestLegacyLogger()
 
         exception = RuntimeError("Oh me, oh my.")
-        kwargs = { "foo": "bar", "obj": object() }
+        kwargs = {"foo": "bar", "obj": object()}
         why = "Because I said so."
         bogus = object()
 
@@ -959,12 +987,14 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         errors = self.flushLoggedErrors(exception.__class__)
         self.assertEquals(len(errors), 0)
 
-        self.assertIdentical(log.newStyleLogger.emitted["level"], LogLevel.error)
+        self.assertIdentical(log.newStyleLogger.emitted["level"],
+                             LogLevel.error)
         self.assertEquals(log.newStyleLogger.emitted["format"], repr(bogus))
         self.assertIdentical(log.newStyleLogger.emitted["kwargs"]["why"], why)
 
         for key, value in kwargs.items():
-            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key], value)
+            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key],
+                                 value)
 
 
     def legacy_err(self, log, kwargs, why, exception):
@@ -976,18 +1006,24 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         errors = self.flushLoggedErrors(exception.__class__)
         self.assertEquals(len(errors), 1)
 
-        self.assertIdentical(log.newStyleLogger.emitted["level"], LogLevel.error)
+        self.assertIdentical(log.newStyleLogger.emitted["level"],
+                             LogLevel.error)
         self.assertEquals(log.newStyleLogger.emitted["format"], None)
-        self.assertIdentical(log.newStyleLogger.emitted["kwargs"]["failure"].__class__, Failure)
-        self.assertIdentical(log.newStyleLogger.emitted["kwargs"]["failure"].value, exception)
-        self.assertIdentical(log.newStyleLogger.emitted["kwargs"]["why"], why)
+        emittedKwargs = log.newStyleLogger.emitted["kwargs"]
+        self.assertIdentical(emittedKwargs["failure"].__class__, Failure)
+        self.assertIdentical(emittedKwargs["failure"].value, exception)
+        self.assertIdentical(emittedKwargs["why"], why)
 
         for key, value in kwargs.items():
-            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key], value)
+            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key],
+                                 value)
 
 
 
-class Gurk(object):
-    # Class that raises in C{__repr__()}.
+class Unformattable(object):
+    """
+    An object that raises an exception from C{__repr__}.
+    """
+
     def __repr__(self):
         return str(1/0)

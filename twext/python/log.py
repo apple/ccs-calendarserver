@@ -34,7 +34,8 @@ Or in a class::
         log = Logger()
 
         def oops(self, data):
-            self.log.error("Oops! Invalid data from server: {data!r}", data=data)
+            self.log.error("Oops! Invalid data from server: {data!r}",
+                           data=data)
 
 C{Logger}s have namespaces, for which logging can be configured independently.
 Namespaces may be specified by passing in a C{namespace} argument to L{Logger}
@@ -76,13 +77,15 @@ import time
 from zope.interface import Interface, implementer
 from twisted.python.constants import NamedConstant, Names
 from twisted.python.failure import Failure
-from twisted.python.reflect import safe_str
+from twisted.python.reflect import safe_str, safe_repr
 import twisted.python.log
 from twisted.python.log import msg as twistedLogMessage
 from twisted.python.log import addObserver, removeObserver
 from twisted.python.log import ILogObserver as ILegacyLogObserver
 
-
+OBSERVER_REMOVED = (
+    "Temporarily removing observer {observer} due to exception: {e}"
+)
 
 #
 # Log level definitions
@@ -162,11 +165,11 @@ LogLevel._levelPriorities = dict(
 # Mappings to Python's logging module
 #
 pythonLogLevelMapping = {
-    LogLevel.debug   : logging.DEBUG,
-    LogLevel.info    : logging.INFO,
-    LogLevel.warn    : logging.WARNING,
-    LogLevel.error   : logging.ERROR,
-   #LogLevel.critical: logging.CRITICAL,
+    LogLevel.debug: logging.DEBUG,
+    LogLevel.info:  logging.INFO,
+    LogLevel.warn:  logging.WARNING,
+    LogLevel.error: logging.ERROR,
+    # LogLevel.critical: logging.CRITICAL,
 }
 
 
@@ -215,12 +218,14 @@ def formatEvent(event):
 
 def formatUnformattableEvent(event, error):
     """
-    Formats an event as a L{unicode} that describes the event
-    generically and a formatting error.
+    Formats an event as a L{unicode} that describes the event generically and a
+    formatting error.
 
     @param event: a logging event
+    @type dict: L{dict}
 
     @param error: the formatting error
+    @type error: L{Exception}
 
     @return: a L{unicode}
     """
@@ -230,42 +235,22 @@ def formatUnformattableEvent(event, error):
             .format(event=event, error=error)
         )
     except BaseException:
-        #
         # Yikes, something really nasty happened.
         #
-        # Try to recover as much formattable data as possible;
-        # hopefully at least the namespace is sane, which will
-        # help you find the offending logger.
-        #
-        try:
-            failure = Failure()
+        # Try to recover as much formattable data as possible; hopefully at
+        # least the namespace is sane, which will help you find the offending
+        # logger.
+        failure = Failure()
 
-            items = []
+        text = ", ".join(" = ".join((safe_repr(key), safe_repr(value)))
+                         for key, value in event.items())
 
-            for key, value in event.items():
-                try:
-                    keyFormatted = u"{key!r}".format(key=key)
-                except BaseException:
-                    keyFormatted = u"<UNFORMATTABLE KEY>"
-
-                try:
-                    valueFormatted = u"{value!r}".format(value=value)
-                except BaseException:
-                    valueFormatted = u"<UNFORMATTABLE VALUE>"
-
-                items.append(" = ".join((keyFormatted, valueFormatted)))
-
-            text = ", ".join(items)
-
-            return (
-                u"MESSAGE LOST: unformattable object logged: {error}\n"
-                u"Recoverable data: {text}\n"
-                u"Exception during formatting:\n{failure}"
-                .format(error=error, failure=failure, text=text)
-            )
-        except BaseException as e:
-            # This should never happen...
-            return u"MESSAGE LOST: unable to recover any data from message: {e}".format(e=e)
+        return (
+            u"MESSAGE LOST: unformattable object logged: {error}\n"
+            u"Recoverable data: {text}\n"
+            u"Exception during formatting:\n{failure}"
+            .format(error=safe_repr(error), failure=failure, text=text)
+        )
 
 
 
@@ -351,28 +336,24 @@ class Logger(object):
         @param kwargs: additional keyword parameters to include with
             the event.
         """
-        if level not in LogLevel.iterconstants(): # FIXME: Updated Twisted supports 'in' on constants container
+        # FIXME: Updated Twisted supports 'in' on constants container
+        if level not in LogLevel.iterconstants():
             self.failure(
                 "Got invalid log level {invalidLevel!r} in {logger}.emit().",
                 Failure(InvalidLogLevelError(level)),
-                invalidLevel = level,
-                logger = self,
+                invalidLevel=level,
+                logger=self,
             )
             #level = LogLevel.error
             # FIXME: continue to emit?
             return
 
-        event = kwargs
-        event.update(
-            log_logger    = self,
-            log_level     = level,
-            log_namespace = self.namespace,
-            log_source    = self.source,
-            log_format    = format,
-            log_time      = time.time(),
+        kwargs.update(
+            log_logger=self, log_level=level, log_namespace=self.namespace,
+            log_source=self.source, log_format=format, log_time=time.time(),
         )
 
-        self.publisher(event)
+        self.publisher(kwargs)
 
 
     def failure(self, format, failure=None, level=LogLevel.error, **kwargs):
@@ -388,8 +369,9 @@ class Logger(object):
 
         or::
 
-            d = deferred_frob(knob)
-            d.addErrback(lambda f: log.failure, "While frobbing {knob}", f, knob=knob)
+            d = deferredFrob(knob)
+            d.addErrback(lambda f: log.failure, "While frobbing {knob}",
+                         f, knob=knob)
 
         @param format: a message format using new-style (PEP 3101)
             formatting.  The logging event (which is a L{dict}) is
@@ -404,7 +386,7 @@ class Logger(object):
             event.
         """
         if failure is None:
-            failure=Failure()
+            failure = Failure()
 
         self.emit(level, format, log_failure=failure, **kwargs)
 
@@ -453,10 +435,12 @@ class LegacyLogger(object):
             _stuff = Failure(_stuff)
 
         if isinstance(_stuff, Failure):
-            self.newStyleLogger.emit(LogLevel.error, failure=_stuff, why=_why, isError=1, **kwargs)
+            self.newStyleLogger.emit(LogLevel.error, failure=_stuff, why=_why,
+                                     isError=1, **kwargs)
         else:
             # We got called with an invalid _stuff.
-            self.newStyleLogger.emit(LogLevel.error, repr(_stuff), why=_why, isError=1, **kwargs)
+            self.newStyleLogger.emit(LogLevel.error, repr(_stuff), why=_why,
+                                     isError=1, **kwargs)
 
 
 
@@ -482,11 +466,13 @@ def bindEmit(level):
 
     setattr(Logger, level.name, log_emit)
 
-for level in LogLevel.iterconstants(): 
-    bindEmit(level)
 
-del level
 
+def _bindLevels():
+    for level in LogLevel.iterconstants():
+        bindEmit(level)
+
+_bindLevels()
 
 
 #
@@ -552,7 +538,7 @@ class LogPublisher(object):
             pass
 
 
-    def __call__(self, event): 
+    def __call__(self, event):
         for observer in self.observers:
             try:
                 observer(event)
@@ -565,7 +551,7 @@ class LogPublisher(object):
                 #
                 self.removeObserver(observer)
                 try:
-                    self.log.failure("Temporarily removing observer {observer} due to exception: {e}", observer=observer, e=e)
+                    self.log.failure(OBSERVER_REMOVED, observer=observer, e=e)
                 except BaseException:
                     pass
                 finally:
@@ -738,8 +724,8 @@ class LegacyLogObserver(object):
         """
         self.legacyObserver = legacyObserver
 
-    
-    def __call__(self, event): 
+
+    def __call__(self, event):
         prefix = "[{log_namespace}#{log_level.name}] ".format(**event)
 
         level = event["log_level"]
@@ -769,7 +755,9 @@ class LegacyLogObserver(object):
         if "log_failure" in event:
             event["failure"] = event["log_failure"]
             event["isError"] = 1
-            event["why"] = "{prefix}{message}".format(prefix=prefix, message=formatEvent(event))
+            event["why"] = "{prefix}{message}".format(
+                prefix=prefix, message=formatEvent(event)
+            )
 
         self.legacyObserver(**event)
 
@@ -827,7 +815,8 @@ class DefaultLogPublisher(object):
         self.legacyLogObserver = LegacyLogObserver(twistedLogMessage)
         self.filteredPublisher = LogPublisher(self.legacyLogObserver)
         self.levels            = LogLevelFilterPredicate()
-        self.filters           = FilteringLogObserver(self.filteredPublisher, (self.levels,))
+        self.filters           = FilteringLogObserver(self.filteredPublisher,
+                                                      (self.levels,))
         self.rootPublisher     = LogPublisher(self.filters)
 
 
@@ -875,6 +864,7 @@ class CallMapping(object):
     def __init__(self, submapping):
         self._submapping = submapping
 
+
     def __getitem__(self, key):
         callit = key.endswith(u"()")
         realKey = key[:-2] if callit else key
@@ -882,6 +872,7 @@ class CallMapping(object):
         if callit:
             value = value()
         return value
+
 
 
 def formatWithCall(formatString, mapping):
@@ -943,16 +934,20 @@ def replaceTwistedLoggers():
             continue
 
         for name, obj in module.__dict__.iteritems():
-            legacyLogger = LegacyLogger(logger=Logger(namespace=module.__name__))
+            newLogger = Logger(namespace=module.__name__)
+            legacyLogger = LegacyLogger(logger=newLogger)
 
             if obj is twisted.python.log:
-                log.info("Replacing Twisted log module object {0} in {1}".format(name, module.__name__))
+                log.info("Replacing Twisted log module object {0} in {1}"
+                         .format(name, module.__name__))
                 setattr(module, name, legacyLogger)
             elif obj is twisted.python.log.msg:
-                log.info("Replacing Twisted log.msg object {0} in {1}".format(name, module.__name__))
+                log.info("Replacing Twisted log.msg object {0} in {1}"
+                         .format(name, module.__name__))
                 setattr(module, name, legacyLogger.msg)
             elif obj is twisted.python.log.err:
-                log.info("Replacing Twisted log.err object {0} in {1}".format(name, module.__name__))
+                log.info("Replacing Twisted log.err object {0} in {1}"
+                         .format(name, module.__name__))
                 setattr(module, name, legacyLogger.err)
 
 
