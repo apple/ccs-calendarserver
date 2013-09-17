@@ -483,11 +483,13 @@ def bindEmit(level):
 
     setattr(Logger, level.name, log_emit)
 
-for level in LogLevel.iterconstants(): 
-    bindEmit(level)
 
-del level
 
+def _bindLevels():
+    for level in LogLevel.iterconstants():
+        bindEmit(level)
+
+_bindLevels()
 
 
 #
