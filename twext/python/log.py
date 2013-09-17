@@ -240,22 +240,8 @@ def formatUnformattableEvent(event, error):
         # logger.
         failure = Failure()
 
-        items = []
-
-        for key, value in event.items():
-            try:
-                keyFormatted = u"{key!r}".format(key=key)
-            except BaseException:
-                keyFormatted = u"<UNFORMATTABLE KEY>"
-
-            try:
-                valueFormatted = u"{value!r}".format(value=value)
-            except BaseException:
-                valueFormatted = u"<UNFORMATTABLE VALUE>"
-
-            items.append(" = ".join((keyFormatted, valueFormatted)))
-
-        text = ", ".join(items)
+        text = ", ".join(" = ".join((safe_repr(key), safe_repr(value)))
+                         for key, value in event.items())
 
         return (
             u"MESSAGE LOST: unformattable object logged: {error}\n"
