@@ -84,6 +84,15 @@ def _forward(thunk):
 
 
 
+def _destructively(aList):
+    """
+    Destructively iterate a list, popping elements from the beginning.
+    """
+    while aList:
+        yield aList.pop(0)
+
+
+
 def _deriveParameters(cursor, args):
     """
     Some DB-API extensions need to call special extension methods on
@@ -439,8 +448,7 @@ class _WaitingTxn(object):
         a Deferred to not interfere with the originally submitted order of
         commands.
         """
-        while self._spool:
-            yield self._spool.pop(0)
+        return _destructively(self._spool)
 
 
     def _unspool(self, other):
@@ -489,7 +497,7 @@ class _HookableOperation(object):
         """
         Callback for C{commit} and C{abort} Deferreds.
         """
-        for operation in self._hooks:
+        for operation in _destructively(self._hooks):
             yield operation()
         returnValue(ignored)
 
@@ -499,6 +507,13 @@ class _HookableOperation(object):
         Implement L{IAsyncTransaction.postCommit}.
         """
         self._hooks.append(operation)
+
+
+    def clear(self):
+        """
+        Remove all hooks from this operation.
+        """
+        del self._hooks[:]
 
 
 
@@ -668,6 +683,8 @@ class _SingleTxn(_CommitAndAbortHooks,
 
     def abort(self):
         self._markComplete()
+        self._commit.clear()
+        self._preCommit.clear()
         result = super(_SingleTxn, self).abort()
         if self in self._pool._waiting:
             self._stopWaiting()
@@ -1595,6 +1612,8 @@ class _NetTransaction(_CommitAndAbortHooks):
 
 
     def abort(self):
+        self._commit.clear()
+        self._preCommit.clear()
         return self._complete(Abort).addCallback(self._abort.runHooks)
 
 

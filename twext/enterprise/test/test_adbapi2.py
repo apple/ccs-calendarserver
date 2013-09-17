@@ -18,6 +18,8 @@
 Tests for L{twext.enterprise.adbapi2}.
 """
 
+import gc
+
 from zope.interface.verify import verifyObject
 
 from twisted.python.failure import Failure
@@ -43,6 +45,35 @@ from twext.enterprise.fixtures import FakeConnectionError
 from twext.enterprise.fixtures import RollbackFail
 from twext.enterprise.fixtures import CommitFail
 from twext.enterprise.adbapi2 import Commit
+
+
+class TrashCollector(object):
+    """
+    Test helper for monitoring gc.garbage.
+    """
+    def __init__(self, testCase):
+        self.testCase = testCase
+        testCase.addCleanup(self.checkTrash)
+        self.start()
+
+
+    def start(self):
+        gc.collect()
+        self.garbageStart = len(gc.garbage)
+
+
+    def checkTrash(self):
+        """
+        Ensure that the test has added no additional garbage.
+        """
+        gc.collect()
+        newGarbage = gc.garbage[self.garbageStart:]
+        if newGarbage:
+            # Don't clean up twice.
+            self.start()
+            self.testCase.fail("New garbage: " + repr(newGarbage))
+
+
 
 class AssertResultHelper(object):
     """
@@ -466,7 +497,6 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         """
         t = self.createTransaction()
         self.resultOf(t.execSQL("echo", []))
-        import gc
         conns = self.factory.connections
         self.assertEquals(len(conns), 1)
         self.assertEquals(conns[0]._rollbackCount, 0)
@@ -476,6 +506,42 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         self.assertEquals(len(conns), 1)
         self.assertEquals(conns[0]._rollbackCount, 1)
         self.assertEquals(conns[0]._commitCount, 0)
+
+
+    def circularReferenceTest(self, finish):
+        """
+        Collecting a completed (committed or aborted) L{IAsyncTransaction}
+        should not leak any circular references.
+        """
+        tc = TrashCollector(self)
+        commitExecuted = []
+        def carefullyManagedScope():
+            t = self.createTransaction()
+            def holdAReference():
+                """
+                This is a hook that holds a reference to 't'.
+                """
+                commitExecuted.append(True)
+                return t.execSQL("teardown", [])
+            t.preCommit(holdAReference)
+            finish(t)
+        self.failIf(commitExecuted, "Commit hook executed.")
+        carefullyManagedScope()
+        tc.checkTrash()
+
+
+    def test_noGarbageOnCommit(self):
+        """
+        Committing a transaction does not cause gc garbage.
+        """
+        self.circularReferenceTest(lambda txn: txn.commit())
+
+
+    def test_noGarbageOnAbort(self):
+        """
+        Aborting a transaction does not cause gc garbage.
+        """
+        self.circularReferenceTest(lambda txn: txn.abort())
 
 
     def test_tooManyConnectionsWhileOthersFinish(self):
