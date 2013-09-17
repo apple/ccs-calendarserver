@@ -59,7 +59,7 @@ class TestLogger(Logger):
             twistedLogging.removeObserver(observer)
 
         self.emitted = {
-            "level" : level,
+            "level":  level,
             "format": format,
             "kwargs": kwargs,
         }
