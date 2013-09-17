@@ -980,12 +980,14 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         errors = self.flushLoggedErrors(exception.__class__)
         self.assertEquals(len(errors), 0)
 
-        self.assertIdentical(log.newStyleLogger.emitted["level"], LogLevel.error)
+        self.assertIdentical(log.newStyleLogger.emitted["level"],
+                             LogLevel.error)
         self.assertEquals(log.newStyleLogger.emitted["format"], repr(bogus))
         self.assertIdentical(log.newStyleLogger.emitted["kwargs"]["why"], why)
 
         for key, value in kwargs.items():
-            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key], value)
+            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key],
+                                 value)
 
 
     def legacy_err(self, log, kwargs, why, exception):
