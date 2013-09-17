@@ -703,8 +703,10 @@ class DefaultLogPublisherTests(SetUpTearDown, unittest.TestCase):
     def test_filteredObserver(self):
         namespace = __name__
 
-        event_debug = dict(log_namespace=namespace, log_level=LogLevel.debug, log_format="")
-        event_error = dict(log_namespace=namespace, log_level=LogLevel.error, log_format="")
+        event_debug = dict(log_namespace=namespace,
+                           log_level=LogLevel.debug, log_format="")
+        event_error = dict(log_namespace=namespace,
+                           log_level=LogLevel.error, log_format="")
         events = []
 
         observer = lambda e: events.append(e)
