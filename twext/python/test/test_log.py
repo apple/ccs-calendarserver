@@ -289,50 +289,47 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
 
 
     def test_formatUnformattableEventWithUnformattableKey(self):
-         """
-         Formatting an unformattable event that has an unformattable key.
-         """
-         event = {
-             "log_format": "{evil()}",
-             "evil": lambda: 1/0,
-             Gurk(): "gurk",
-         }
-         result = formatEvent(event)
-
-         self.assertIn("MESSAGE LOST: unformattable object logged:", result)
-         self.assertIn("Recoverable data:", result)
-         self.assertIn("Exception during formatting:", result)
+        """
+        Formatting an unformattable event that has an unformattable key.
+        """
+        event = {
+            "log_format": "{evil()}",
+            "evil": lambda: 1/0,
+            Gurk(): "gurk",
+        }
+        result = formatEvent(event)
+        self.assertIn("MESSAGE LOST: unformattable object logged:", result)
+        self.assertIn("Recoverable data:", result)
+        self.assertIn("Exception during formatting:", result)
 
 
     def test_formatUnformattableEventWithUnformattableValue(self):
-         """
-         Formatting an unformattable event that has an unformattable value.
-         """
-         event = dict(
-             log_format="{evil()}",
-             evil=lambda: 1/0,
-             gurk=Gurk(),
-         )
-         result = formatEvent(event)
-
-         self.assertIn("MESSAGE LOST: unformattable object logged:", result)
-         self.assertIn("Recoverable data:", result)
-         self.assertIn("Exception during formatting:", result)
+        """
+        Formatting an unformattable event that has an unformattable value.
+        """
+        event = dict(
+            log_format="{evil()}",
+            evil=lambda: 1/0,
+            gurk=Gurk(),
+        )
+        result = formatEvent(event)
+        self.assertIn("MESSAGE LOST: unformattable object logged:", result)
+        self.assertIn("Recoverable data:", result)
+        self.assertIn("Exception during formatting:", result)
 
 
     def test_formatUnformattableEventWithUnformattableErrorOMGWillItStop(self):
-         """
-         Formatting an unformattable event that has an unformattable value.
-         """
-         event = dict(
-             log_format="{evil()}",
-             evil=lambda: 1/0,
-         )
-
-         # Call formatUnformattableEvent() directly with a bogus exception.
-         result = formatUnformattableEvent(event, Gurk())
-
-         self.assertIn("MESSAGE LOST: unable to recover any data from message:", result)
+        """
+        Formatting an unformattable event that has an unformattable value.
+        """
+        event = dict(
+            log_format="{evil()}",
+            evil=lambda: 1/0,
+        )
+        # Call formatUnformattableEvent() directly with a bogus exception.
+        result = formatUnformattableEvent(event, Gurk())
+        self.assertIn("MESSAGE LOST: unable to recover any data from message:",
+                      result)
 
 
 
