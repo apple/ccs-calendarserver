@@ -817,17 +817,22 @@ class FilteringLogObserverTests(SetUpTearDown, unittest.TestCase):
     def test_shouldLogEvent_noFilters(self):
         self.assertEquals(self.filterWith(), [0, 1, 2, 3])
 
+
     def test_shouldLogEvent_noFilter(self):
         self.assertEquals(self.filterWith("notTwo"), [0, 1, 3])
+
 
     def test_shouldLogEvent_yesFilter(self):
         self.assertEquals(self.filterWith("twoPlus"), [0, 1, 2, 3])
 
+
     def test_shouldLogEvent_yesNoFilter(self):
         self.assertEquals(self.filterWith("twoPlus", "no"), [2, 3])
 
+
     def test_shouldLogEvent_yesYesNoFilter(self):
-        self.assertEquals(self.filterWith("twoPlus", "twoMinus", "no"), [0, 1, 2, 3])
+        self.assertEquals(self.filterWith("twoPlus", "twoMinus", "no"),
+                          [0, 1, 2, 3])
 
     def test_shouldLogEvent_badPredicateResult(self):
         self.assertRaises(TypeError, self.filterWith, "bogus")
