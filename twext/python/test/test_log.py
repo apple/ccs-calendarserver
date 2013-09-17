@@ -808,7 +808,8 @@ class FilteringLogObserverTests(SetUpTearDown, unittest.TestCase):
         eventsSeen = []
         trackingObserver = lambda e: eventsSeen.append(e)
         filteringObserver = FilteringLogObserver(trackingObserver, predicates)
-        for e in events: filteringObserver(e)
+        for e in events:
+            filteringObserver(e)
 
         return [e["count"] for e in eventsSeen]
 
