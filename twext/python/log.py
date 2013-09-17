@@ -830,7 +830,8 @@ class DefaultLogPublisher(object):
         self.legacyLogObserver = LegacyLogObserver(twistedLogMessage)
         self.filteredPublisher = LogPublisher(self.legacyLogObserver)
         self.levels            = LogLevelFilterPredicate()
-        self.filters           = FilteringLogObserver(self.filteredPublisher, (self.levels,))
+        self.filters           = FilteringLogObserver(self.filteredPublisher,
+                                                      (self.levels,))
         self.rootPublisher     = LogPublisher(self.filters)
 
 
