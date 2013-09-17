@@ -352,28 +352,24 @@ class Logger(object):
         @param kwargs: additional keyword parameters to include with
             the event.
         """
-        if level not in LogLevel.iterconstants(): # FIXME: Updated Twisted supports 'in' on constants container
+        # FIXME: Updated Twisted supports 'in' on constants container
+        if level not in LogLevel.iterconstants():
             self.failure(
                 "Got invalid log level {invalidLevel!r} in {logger}.emit().",
                 Failure(InvalidLogLevelError(level)),
-                invalidLevel = level,
-                logger = self,
+                invalidLevel=level,
+                logger=self,
             )
             #level = LogLevel.error
             # FIXME: continue to emit?
             return
 
-        event = kwargs
-        event.update(
-            log_logger    = self,
-            log_level     = level,
-            log_namespace = self.namespace,
-            log_source    = self.source,
-            log_format    = format,
-            log_time      = time.time(),
+        kwargs.update(
+            log_logger=self, log_level=level, log_namespace=self.namespace,
+            log_source=self.source, log_format=format, log_time=time.time(),
         )
 
-        self.publisher(event)
+        self.publisher(kwargs)
 
 
     def failure(self, format, failure=None, level=LogLevel.error, **kwargs):
