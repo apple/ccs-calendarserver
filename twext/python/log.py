@@ -405,7 +405,7 @@ class Logger(object):
             event.
         """
         if failure is None:
-            failure=Failure()
+            failure = Failure()
 
         self.emit(level, format, log_failure=failure, **kwargs)
 
