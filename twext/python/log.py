@@ -876,6 +876,7 @@ class CallMapping(object):
     def __init__(self, submapping):
         self._submapping = submapping
 
+
     def __getitem__(self, key):
         callit = key.endswith(u"()")
         realKey = key[:-2] if callit else key
