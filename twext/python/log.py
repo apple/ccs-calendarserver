@@ -568,7 +568,10 @@ class LogPublisher(object):
                 #
                 self.removeObserver(observer)
                 try:
-                    self.log.failure("Temporarily removing observer {observer} due to exception: {e}", observer=observer, e=e)
+                    self.log.failure(
+                        "Temporarily removing observer {observer} "
+                        "due to exception: {e}", observer=observer, e=e
+                    )
                 except BaseException:
                     pass
                 finally:
