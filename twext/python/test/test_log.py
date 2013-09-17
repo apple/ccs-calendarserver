@@ -452,10 +452,10 @@ class LoggerTests(SetUpTearDown, unittest.TestCase):
 
         log.warn(
             "*",
-            log_format = "#",
-            log_level = LogLevel.error,
-            log_namespace = "*namespace*",
-            log_source = "*source*",
+            log_format="#",
+            log_level=LogLevel.error,
+            log_namespace="*namespace*",
+            log_source="*source*",
         )
 
         # FIXME: Should conflicts log errors?
