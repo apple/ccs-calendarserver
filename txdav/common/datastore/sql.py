@@ -2588,6 +2588,7 @@ class _SharedSyncLogic(object):
                         resourceID=self._resourceID, name=name)
                 )[0][0]
         self._maybeNotify()
+        returnValue(self._syncTokenRevision)
 
 
     def _maybeNotify(self):
@@ -3101,6 +3102,7 @@ class SharingMixIn(object):
 
     @inlineCallbacks
     def _initBindRevision(self):
+        yield self.syncToken() # init self._syncTokenRevision if None
         self._bindRevision = self._syncTokenRevision
 
         bind = self._bindSchema

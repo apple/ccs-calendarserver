@@ -552,8 +552,7 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
   OBJECT_RESOURCE_ID					integer			default 0,
   RESOURCE_NAME                			varchar(255),
   REVISION                     			integer     	default nextval('REVISION_SEQ') not null,
-  DELETED                      			boolean      	not null,
-  UNSHARED                      		boolean      	not null default false
+  DELETED                      			boolean      	not null
 );
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_ADDRESSBOOK_HOME_RESOURCE_ID
