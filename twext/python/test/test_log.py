@@ -407,11 +407,13 @@ class LoggerTests(SetUpTearDown, unittest.TestCase):
                 self.assertEquals(log.event["log_namespace"], __name__)
                 self.assertEquals(log.event["log_source"], None)
 
-                self.assertEquals(log.event["logLevel"], pythonLogLevelMapping[level])
+                self.assertEquals(log.event["logLevel"],
+                                  pythonLogLevelMapping[level])
 
                 self.assertEquals(log.event["junk"], message)
 
-                # FIXME: this checks the end of message because we do formatting in emit()
+                # FIXME: this checks the end of message because we do
+                # formatting in emit()
                 self.assertEquals(
                     formatEvent(log.event),
                     message
