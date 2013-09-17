@@ -772,7 +772,9 @@ class LegacyLogObserver(object):
         if "log_failure" in event:
             event["failure"] = event["log_failure"]
             event["isError"] = 1
-            event["why"] = "{prefix}{message}".format(prefix=prefix, message=formatEvent(event))
+            event["why"] = "{prefix}{message}".format(
+                prefix=prefix, message=formatEvent(event)
+            )
 
         self.legacyObserver(**event)
 
