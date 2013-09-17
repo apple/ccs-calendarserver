@@ -216,12 +216,14 @@ def formatEvent(event):
 
 def formatUnformattableEvent(event, error):
     """
-    Formats an event as a L{unicode} that describes the event
-    generically and a formatting error.
+    Formats an event as a L{unicode} that describes the event generically and a
+    formatting error.
 
     @param event: a logging event
+    @type dict: L{dict}
 
     @param error: the formatting error
+    @type error: L{Exception}
 
     @return: a L{unicode}
     """
