@@ -83,7 +83,9 @@ from twisted.python.log import msg as twistedLogMessage
 from twisted.python.log import addObserver, removeObserver
 from twisted.python.log import ILogObserver as ILegacyLogObserver
 
-
+OBSERVER_REMOVED = (
+    "Temporarily removing observer {observer} due to exception: {e}"
+)
 
 #
 # Log level definitions
@@ -549,10 +551,7 @@ class LogPublisher(object):
                 #
                 self.removeObserver(observer)
                 try:
-                    self.log.failure(
-                        "Temporarily removing observer {observer} "
-                        "due to exception: {e}", observer=observer, e=e
-                    )
+                    self.log.failure(OBSERVER_REMOVED, observer=observer, e=e)
                 except BaseException:
                     pass
                 finally:

@@ -27,7 +27,7 @@ from twext.python.log import (
     Logger, LegacyLogger,
     ILogObserver, LogPublisher, DefaultLogPublisher,
     FilteringLogObserver, PredicateResult,
-    LogLevelFilterPredicate,
+    LogLevelFilterPredicate, OBSERVER_REMOVED
 )
 
 
@@ -595,12 +595,13 @@ class LogPublisherTests(SetUpTearDown, unittest.TestCase):
         # Verify that the exception was logged
         for event in nonTestEvents:
             if (
-                event.get("log_format", None) == "Temporarily removing observer {observer} due to exception: {e}" and
+                event.get("log_format", None) == OBSERVER_REMOVED and
                 getattr(event.get("failure", None), "value") is exception
             ):
                 break
         else:
-            self.fail("Observer raised an exception and the exception was not logged.")
+            self.fail("Observer raised an exception "
+                      "and the exception was not logged.")
 
 
     def test_observerRaisesAndLoggerHatesMe(self):
@@ -834,6 +835,7 @@ class FilteringLogObserverTests(SetUpTearDown, unittest.TestCase):
     def test_shouldLogEvent_yesYesNoFilter(self):
         self.assertEquals(self.filterWith("twoPlus", "twoMinus", "no"),
                           [0, 1, 2, 3])
+
 
     def test_shouldLogEvent_badPredicateResult(self):
         self.assertRaises(TypeError, self.filterWith, "bogus")
