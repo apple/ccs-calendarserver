@@ -34,7 +34,8 @@ Or in a class::
         log = Logger()
 
         def oops(self, data):
-            self.log.error("Oops! Invalid data from server: {data!r}", data=data)
+            self.log.error("Oops! Invalid data from server: {data!r}",
+                           data=data)
 
 C{Logger}s have namespaces, for which logging can be configured independently.
 Namespaces may be specified by passing in a C{namespace} argument to L{Logger}
