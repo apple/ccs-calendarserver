@@ -364,8 +364,8 @@ class LoggerTests(SetUpTearDown, unittest.TestCase):
 
     def test_sourceAvailableForFormatting(self):
         """
-        On instances that have a L{Logger} class attribute, the C{log_source} key
-        is available to format strings.
+        On instances that have a L{Logger} class attribute, the C{log_source}
+        key is available to format strings.
         """
         obj = LogComposedObject("hello")
         log = obj.log
