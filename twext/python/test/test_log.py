@@ -838,7 +838,8 @@ class FilteringLogObserverTests(SetUpTearDown, unittest.TestCase):
 
         def callWithPredicateResult(result):
             seen = []
-            observer = FilteringLogObserver(lambda e: seen.append(e), (lambda e: result,))
+            observer = FilteringLogObserver(lambda e: seen.append(e),
+                                            (lambda e: result,))
             observer(e)
             return seen
 
