@@ -741,8 +741,8 @@ class LegacyLogObserver(object):
         """
         self.legacyObserver = legacyObserver
 
-    
-    def __call__(self, event): 
+
+    def __call__(self, event):
         prefix = "[{log_namespace}#{log_level.name}] ".format(**event)
 
         level = event["log_level"]
