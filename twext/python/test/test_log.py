@@ -295,7 +295,7 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         event = {
             "log_format": "{evil()}",
             "evil": lambda: 1/0,
-            Gurk(): "gurk",
+            Unformattable(): "gurk",
         }
         result = formatEvent(event)
         self.assertIn("MESSAGE LOST: unformattable object logged:", result)
@@ -310,7 +310,7 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         event = dict(
             log_format="{evil()}",
             evil=lambda: 1/0,
-            gurk=Gurk(),
+            gurk=Unformattable(),
         )
         result = formatEvent(event)
         self.assertIn("MESSAGE LOST: unformattable object logged:", result)
@@ -325,11 +325,12 @@ class LoggingTests(SetUpTearDown, unittest.TestCase):
         event = dict(
             log_format="{evil()}",
             evil=lambda: 1/0,
+            recoverable="okay",
         )
         # Call formatUnformattableEvent() directly with a bogus exception.
-        result = formatUnformattableEvent(event, Gurk())
-        self.assertIn("MESSAGE LOST: unable to recover any data from message:",
-                      result)
+        result = formatUnformattableEvent(event, Unformattable())
+        self.assertIn("MESSAGE LOST: unformattable object logged:", result)
+        self.assertIn(repr("recoverable") + " = " + repr("okay"), result)
 
 
 
@@ -1013,7 +1014,10 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
 
 
 
-class Gurk(object):
-    # Class that raises in C{__repr__()}.
+class Unformattable(object):
+    """
+    An object that raises an exception from C{__repr__}.
+    """
+
     def __repr__(self):
         return str(1/0)

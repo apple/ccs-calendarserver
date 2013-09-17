@@ -77,7 +77,7 @@ import time
 from zope.interface import Interface, implementer
 from twisted.python.constants import NamedConstant, Names
 from twisted.python.failure import Failure
-from twisted.python.reflect import safe_str
+from twisted.python.reflect import safe_str, safe_repr
 import twisted.python.log
 from twisted.python.log import msg as twistedLogMessage
 from twisted.python.log import addObserver, removeObserver
@@ -233,42 +233,36 @@ def formatUnformattableEvent(event, error):
             .format(event=event, error=error)
         )
     except BaseException:
-        #
         # Yikes, something really nasty happened.
         #
-        # Try to recover as much formattable data as possible;
-        # hopefully at least the namespace is sane, which will
-        # help you find the offending logger.
-        #
-        try:
-            failure = Failure()
+        # Try to recover as much formattable data as possible; hopefully at
+        # least the namespace is sane, which will help you find the offending
+        # logger.
+        failure = Failure()
 
-            items = []
+        items = []
 
-            for key, value in event.items():
-                try:
-                    keyFormatted = u"{key!r}".format(key=key)
-                except BaseException:
-                    keyFormatted = u"<UNFORMATTABLE KEY>"
+        for key, value in event.items():
+            try:
+                keyFormatted = u"{key!r}".format(key=key)
+            except BaseException:
+                keyFormatted = u"<UNFORMATTABLE KEY>"
 
-                try:
-                    valueFormatted = u"{value!r}".format(value=value)
-                except BaseException:
-                    valueFormatted = u"<UNFORMATTABLE VALUE>"
+            try:
+                valueFormatted = u"{value!r}".format(value=value)
+            except BaseException:
+                valueFormatted = u"<UNFORMATTABLE VALUE>"
 
-                items.append(" = ".join((keyFormatted, valueFormatted)))
+            items.append(" = ".join((keyFormatted, valueFormatted)))
 
-            text = ", ".join(items)
+        text = ", ".join(items)
 
-            return (
-                u"MESSAGE LOST: unformattable object logged: {error}\n"
-                u"Recoverable data: {text}\n"
-                u"Exception during formatting:\n{failure}"
-                .format(error=error, failure=failure, text=text)
-            )
-        except BaseException as e:
-            # This should never happen...
-            return u"MESSAGE LOST: unable to recover any data from message: {e}".format(e=e)
+        return (
+            u"MESSAGE LOST: unformattable object logged: {error}\n"
+            u"Recoverable data: {text}\n"
+            u"Exception during formatting:\n{failure}"
+            .format(error=safe_repr(error), failure=failure, text=text)
+        )
 
 
 
