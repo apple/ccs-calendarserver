@@ -163,11 +163,11 @@ LogLevel._levelPriorities = dict(
 # Mappings to Python's logging module
 #
 pythonLogLevelMapping = {
-    LogLevel.debug   : logging.DEBUG,
-    LogLevel.info    : logging.INFO,
-    LogLevel.warn    : logging.WARNING,
-    LogLevel.error   : logging.ERROR,
-   #LogLevel.critical: logging.CRITICAL,
+    LogLevel.debug: logging.DEBUG,
+    LogLevel.info:  logging.INFO,
+    LogLevel.warn:  logging.WARNING,
+    LogLevel.error: logging.ERROR,
+    # LogLevel.critical: logging.CRITICAL,
 }
 
 
