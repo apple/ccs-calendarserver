@@ -932,7 +932,7 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         log = TestLegacyLogger()
 
         exception = RuntimeError("Oh me, oh my.")
-        kwargs = { "foo": "bar", "obj": object() }
+        kwargs = {"foo": "bar", "obj": object()}
         why = "Because I said so."
 
         try:
