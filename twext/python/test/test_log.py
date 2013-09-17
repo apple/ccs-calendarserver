@@ -889,19 +889,22 @@ class LegacyLoggerTests(SetUpTearDown, unittest.TestCase):
         log = TestLegacyLogger()
 
         message = "Hi, there."
-        kwargs = { "foo": "bar", "obj": object() }
+        kwargs = {"foo": "bar", "obj": object()}
 
         log.msg(message, **kwargs)
 
-        self.assertIdentical(log.newStyleLogger.emitted["level"], LogLevel.info)
+        self.assertIdentical(log.newStyleLogger.emitted["level"],
+                             LogLevel.info)
         self.assertEquals(log.newStyleLogger.emitted["format"], message)
 
         for key, value in kwargs.items():
-            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key], value)
+            self.assertIdentical(log.newStyleLogger.emitted["kwargs"][key],
+                                 value)
 
         log.msg(foo="")
 
-        self.assertIdentical(log.newStyleLogger.emitted["level"], LogLevel.info)
+        self.assertIdentical(log.newStyleLogger.emitted["level"],
+                             LogLevel.info)
         self.assertIdentical(log.newStyleLogger.emitted["format"], None)
 
 
