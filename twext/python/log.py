@@ -885,6 +885,7 @@ class CallMapping(object):
         return value
 
 
+
 def formatWithCall(formatString, mapping):
     """
     Format a string like L{unicode.format}, but:
