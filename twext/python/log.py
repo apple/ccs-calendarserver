@@ -555,7 +555,7 @@ class LogPublisher(object):
             pass
 
 
-    def __call__(self, event): 
+    def __call__(self, event):
         for observer in self.observers:
             try:
                 observer(event)
