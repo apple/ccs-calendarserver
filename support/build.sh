@@ -656,10 +656,10 @@ dependencies () {
 
     # Normally we depend on the system Python, but a bundle install should be as
     # self-contained as possible.
-    local pyfn="Python-2.7.1";
-    c_dependency -m "aa27bc25725137ba155910bd8e5ddc4f" \
+    local pyfn="Python-2.7.5";
+    c_dependency -m "6334b666b7ff2038c761d7b27ba699c1" \
         "Python" "${pyfn}" \
-        "http://www.python.org/ftp/python/2.7.1/${pyfn}.tar.bz2" \
+        "http://www.python.org/ftp/python/2.7.5/${pyfn}.tar.bz2" \
         --enable-shared;
     # Be sure to use the Python we just built.
     export PYTHON="$(type -p python)";
