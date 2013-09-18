@@ -536,6 +536,7 @@ class _CommitAndAbortHooks(object):
         """
         pre = self._preCommit.runHooks()
         def ok(ignored):
+            self._abort.clear()
             return doCommit().addCallback(self._commit.runHooks)
         def failed(why):
             return self.abort().addCallback(lambda ignored: why)

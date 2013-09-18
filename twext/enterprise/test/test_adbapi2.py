@@ -508,7 +508,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         self.assertEquals(conns[0]._commitCount, 0)
 
 
-    def circularReferenceTest(self, finish):
+    def circularReferenceTest(self, finish, hook):
         """
         Collecting a completed (committed or aborted) L{IAsyncTransaction}
         should not leak any circular references.
@@ -523,7 +523,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
                 """
                 commitExecuted.append(True)
                 return t.execSQL("teardown", [])
-            t.preCommit(holdAReference)
+            hook(t, holdAReference)
             finish(t)
         self.failIf(commitExecuted, "Commit hook executed.")
         carefullyManagedScope()
@@ -534,14 +534,32 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         """
         Committing a transaction does not cause gc garbage.
         """
-        self.circularReferenceTest(lambda txn: txn.commit())
+        self.circularReferenceTest(lambda txn: txn.commit(),
+                                   lambda txn, hook: txn.preCommit(hook))
+
+
+    def test_noGarbageOnCommitWithAbortHook(self):
+        """
+        Committing a transaction does not cause gc garbage.
+        """
+        self.circularReferenceTest(lambda txn: txn.commit(),
+                                   lambda txn, hook: txn.postAbort(hook))
 
 
     def test_noGarbageOnAbort(self):
         """
         Aborting a transaction does not cause gc garbage.
         """
-        self.circularReferenceTest(lambda txn: txn.abort())
+        self.circularReferenceTest(lambda txn: txn.abort(),
+                                   lambda txn, hook: txn.preCommit(hook))
+
+
+    def test_noGarbageOnAbortWithPostCommitHook(self):
+        """
+        Aborting a transaction does not cause gc garbage.
+        """
+        self.circularReferenceTest(lambda txn: txn.abort(),
+                                   lambda txn, hook: txn.postCommit(hook))
 
 
     def test_tooManyConnectionsWhileOthersFinish(self):
