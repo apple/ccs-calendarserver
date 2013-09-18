@@ -257,7 +257,7 @@ create table ABO_MEMBERS (
     "MEMBER_ID" integer not null,
     "REVISION" integer not null,
     "REMOVED" integer default 0 not null, 
-    primary key("GROUP_ID", "MEMBER_ID")
+    primary key("GROUP_ID", "MEMBER_ID", "REVISION")
 );
 
 create table ABO_FOREIGN_MEMBERS (
@@ -292,6 +292,7 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "OWNER_ADDRESSBOOK_HOME_RESOURCE_ID" integer references ADDRESSBOOK_HOME,
     "ADDRESSBOOK_NAME" nvarchar2(255) default null,
+    "OBJECT_RESOURCE_ID" integer default 0,
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
     "DELETED" integer not null

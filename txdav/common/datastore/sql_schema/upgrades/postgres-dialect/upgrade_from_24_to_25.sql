@@ -26,8 +26,17 @@ alter table ABO_MEMBERS
 	drop constraint	abo_members_member_id_fkey,
 	drop constraint	abo_members_group_id_fkey,
 	add column	REVISION		integer      default nextval('REVISION_SEQ') not null,
-	add column	REMOVED         boolean      default false not null;
-		
+	add column	REMOVED         boolean      default false not null,
+	drop constraint abo_members_pkey,
+	add constraint abo_members_pkey primary key(GROUP_ID, MEMBER_ID, REVISION);
+
+------------------------------------------
+-- Change Address Book Object Revisions --
+------------------------------------------
+	
+alter table ADDRESSBOOK_OBJECT_REVISIONS
+	add column OBJECT_RESOURCE_ID integer default 0;
+	
 --------------------
 -- Update version --
 --------------------

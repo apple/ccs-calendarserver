@@ -30,7 +30,18 @@ alter table ABO_MEMBERS
 	add ("REVISION" integer default nextval('REVISION_SEQ') not null);
 alter table ABO_MEMBERS
 	add ("REMOVED" boolean default false not null);
-		
+alter table ABO_MEMBERS
+	 drop ("abo_members_pkey");
+alter table ABO_MEMBERS
+	 add ("abo_members_pkey" primary key ("GROUP_ID", "MEMBER_ID", "REVISION"));
+
+------------------------------------------
+-- Change Address Book Object Revisions --
+------------------------------------------
+	
+alter table ADDRESSBOOK_OBJECT_REVISIONS
+	add ("OBJECT_RESOURCE_ID" integer default 0);
+
 --------------------
 -- Update version --
 --------------------
