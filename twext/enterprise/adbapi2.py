@@ -499,6 +499,7 @@ class _HookableOperation(object):
         """
         for operation in _destructively(self._hooks):
             yield operation()
+        self.clear()
         returnValue(ignored)
 
 
@@ -506,14 +507,16 @@ class _HookableOperation(object):
         """
         Implement L{IAsyncTransaction.postCommit}.
         """
-        self._hooks.append(operation)
+        if self._hooks is not None:
+            self._hooks.append(operation)
 
 
     def clear(self):
         """
-        Remove all hooks from this operation.
+        Remove all hooks from this operation.  Once this is called, no
+        more hooks can be added ever again.
         """
-        del self._hooks[:]
+        self._hooks = None
 
 
 

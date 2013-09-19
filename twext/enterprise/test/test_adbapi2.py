@@ -26,7 +26,7 @@ from twisted.python.failure import Failure
 
 from twisted.trial.unittest import TestCase
 
-from twisted.internet.defer import Deferred, fail
+from twisted.internet.defer import Deferred, fail, succeed, inlineCallbacks
 
 from twisted.test.proto_helpers import StringTransport
 
@@ -45,6 +45,7 @@ from twext.enterprise.fixtures import FakeConnectionError
 from twext.enterprise.fixtures import RollbackFail
 from twext.enterprise.fixtures import CommitFail
 from twext.enterprise.adbapi2 import Commit
+from twext.enterprise.adbapi2 import _HookableOperation
 
 
 class TrashCollector(object):
@@ -1271,3 +1272,33 @@ class NetworkedConnectionPoolTests(NetworkedPoolHelper, ConnectionPoolTests):
         verifyObject(IAsyncTransaction, txn)
         self.pump.flush()
         self.assertEquals(len(self.factory.connections), 1)
+
+
+class HookableOperationTests(TestCase):
+    """
+    Tests for L{_HookableOperation}.
+    """
+
+    @inlineCallbacks
+    def test_clearPreventsSubsequentAddHook(self):
+        """
+        After clear() or runHooks() are called, subsequent calls to addHook()
+        are NO-OPs.
+        """
+        def hook():
+            return succeed(None)
+
+        hookOp = _HookableOperation()
+        hookOp.addHook(hook)
+        self.assertEquals(len(hookOp._hooks), 1)
+        hookOp.clear()
+        self.assertEquals(hookOp._hooks, None)
+
+        hookOp = _HookableOperation()
+        hookOp.addHook(hook)
+        yield hookOp.runHooks()
+        self.assertEquals(hookOp._hooks, None)
+        hookOp.addHook(hook)
+        self.assertEquals(hookOp._hooks, None)
+
+
