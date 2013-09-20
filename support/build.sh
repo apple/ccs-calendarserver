@@ -764,7 +764,7 @@ dependencies () {
   local v="4.1.1";
   local n="PyGreSQL";
   local p="${n}-${v}";
-  py_dependency -v "${v}" -m "71d0b8c5a382f635572eb52fee47cd08" -o \
+  py_dependency -v "${v}" -m "71d0b8c5a382f635572eb52fee47cd08" \
     "${n}" "pgdb" "${p}" \
     "${pypi}/P/${n}/${p}.tgz";
 
@@ -811,7 +811,7 @@ dependencies () {
   local v="0.1.2";
   local n="sqlparse";
   local p="${n}-${v}";
-  py_dependency -o -v "${v}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
+  py_dependency -v "${v}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
     "SQLParse" "${n}" "${p}" \
     "http://python-sqlparse.googlecode.com/files/${p}.tar.gz";
 
@@ -821,7 +821,7 @@ dependencies () {
     local v="0.6.1";
     local n="pyflakes";
     local p="${n}-${v}";
-    py_dependency -o -v "${v}" -m "00debd2280b962e915dfee552a675915" \
+    py_dependency -v "${v}" -m "00debd2280b962e915dfee552a675915" \
       "Pyflakes" "${n}" "${p}" \
       "${pypi}/p/${n}/${p}.tar.gz";
   fi;
@@ -833,28 +833,28 @@ dependencies () {
   # Can't add "-v 2011g" to args because the version check expects numbers.
   local n="pytz";
   local p="${n}-2011n";
-  py_dependency -o -m "75ffdc113a4bcca8096ab953df746391" \
+  py_dependency -m "75ffdc113a4bcca8096ab953df746391" \
     "${n}" "${n}" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
   local v="2.5";
   local n="pycrypto";
   local p="${n}-${v}";
-  py_dependency -o -v "${v}" -m "783e45d4a1a309e03ab378b00f97b291" \
+  py_dependency -v "${v}" -m "783e45d4a1a309e03ab378b00f97b291" \
     "PyCrypto" "${n}" "${p}" \
     "http://ftp.dlitz.net/pub/dlitz/crypto/${n}/${p}.tar.gz";
 
   local v="0.1.2";
   local n="pyasn1";
   local p="${n}-${v}";
-  py_dependency -o -v "${v}" -m "a7c67f5880a16a347a4d3ce445862a47" \
+  py_dependency -v "${v}" -m "a7c67f5880a16a347a4d3ce445862a47" \
     "${n}" "${n}" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
   local v="1.1.6";
   local n="setproctitle";
   local p="${n}-${v}";
-  py_dependency -o -v "1.0" -m "1e42e43b440214b971f4b33c21eac369" \
+  py_dependency -v "1.0" -m "1e42e43b440214b971f4b33c21eac369" \
     "${n}" "${n}" "${p}" \
     "${pypi}/s/${n}/${p}.tar.gz";
 
