@@ -436,13 +436,13 @@ END:VCALENDAR
         self.assertEquals(self.flagDeletedResult, "xyzzy")
 
 
+
 class StubFactory(object):
 
     def __init__(self, actionTaken, deleteAllMail):
         self.actionTaken = actionTaken
         self.deleteAllMail = deleteAllMail
 
+
     def handleMessage(self, messageData):
         return succeed(self.actionTaken)
-
-

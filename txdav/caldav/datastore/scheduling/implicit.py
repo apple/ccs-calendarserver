@@ -1045,6 +1045,7 @@ class ImplicitScheduler(object):
 
         # Map each recipient in the response to a status code
         responses = {}
+        propname = self.calendar.mainComponent().recipientPropertyName() if is_organizer else "ORGANIZER"
         for item in response.responses:
             recipient = str(item.recipient.children[0])
             status = str(item.reqstatus)
@@ -1054,7 +1055,7 @@ class ImplicitScheduler(object):
             self.calendar.setParameterToValueForPropertyWithValue(
                 "SCHEDULE-STATUS",
                 status.split(";")[0],
-                "ATTENDEE" if is_organizer else "ORGANIZER",
+                propname,
                 recipient)
 
 

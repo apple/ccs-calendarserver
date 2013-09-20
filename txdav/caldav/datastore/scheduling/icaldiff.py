@@ -516,6 +516,10 @@ class iCalDiff(object):
             if comp.name() == "VALARM":
                 serverComponent.addComponent(comp)
 
+        # VPOLL
+        if serverComponent.name() == "VPOLL":
+            replyNeeded = self._transferVPOLLData(serverComponent, clientComponent)
+
         return True, replyNeeded
 
 
@@ -556,6 +560,44 @@ class iCalDiff(object):
             return True
 
 
+    def _transferVPOLLData(self, serverComponent, clientComponent):
+
+        changed = False
+
+        # Get the VOTER properties in sub-components of the VPOLL as set by the attendee
+        poll_items = {}
+        for component in clientComponent.subcomponents():
+            poll_id = component.propertyValue("POLL-ITEM-ID")
+            if poll_id is not None:
+                poll_items[poll_id] = component.getVoterProperty((self.attendee,))
+
+        # Transfer attendee data with the master set
+        for component in serverComponent.subcomponents():
+            poll_id = component.propertyValue("POLL-ITEM-ID")
+            if poll_id is not None:
+                voter = component.getVoterProperty((self.attendee,))
+                attendee_voter = poll_items.get(poll_id)
+                if attendee_voter is None:
+                    if voter is not None:
+                        component.removeProperty(voter)
+                        changed = True
+                elif voter is None:
+                    component.addProperty(attendee_voter)
+                    changed = True
+                else:
+                    for paramname in ("RESPONSE",):
+                        paramvalue = attendee_voter.parameterValue(paramname)
+                        if paramvalue is None:
+                            voter.removeParameter(paramname)
+                            changed = True
+                        else:
+                            if paramvalue != voter.parameterValue(paramname):
+                                voter.setParameter(paramname, paramvalue)
+                                changed = True
+
+        return changed
+
+
     def _checkInvalidChanges(self, serverComponent, clientComponent, declines):
 
         # Properties we care about: DTSTART, DTEND, DURATION, RRULE, RDATE, EXDATE
@@ -585,7 +627,7 @@ class iCalDiff(object):
     def _getNormalizedDateTimeProperties(self, component):
 
         # Basic time properties
-        if component.name() in ("VEVENT", "VJOURNAL",):
+        if component.name() in ("VEVENT", "VJOURNAL", "VPOLL"):
             dtstart = component.getProperty("DTSTART")
             dtend = component.getProperty("DTEND")
             duration = component.getProperty("DURATION")
@@ -612,6 +654,9 @@ class iCalDiff(object):
             newdue = component.getProperty("DUE")
             if newdue is not None:
                 newdue = newdue.value().duplicate().adjustToUTC()
+        else:
+            timeRange = Period()
+            newdue = None
 
         # Recurrence rules - we need to normalize the order of the value parts
         newrrules = set()
@@ -734,6 +779,7 @@ class iCalDiff(object):
         comp.normalizePropertyValueLists("EXDATE")
         comp.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
         comp.removePropertyParameters("ATTENDEE", ("SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
+        comp.removePropertyParameters("VOTER", ("SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
         comp.removeAlarms()
         comp.normalizeAll()
         comp.normalizeAttachments()

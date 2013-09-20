@@ -133,12 +133,21 @@ normalizeProps = {
     "LAST-MODIFIED": (None, {"VALUE": "DATE-TIME"}),
     "SEQUENCE": (0, {"VALUE": "INTEGER"}),
     "REQUEST-STATUS": (None, {"VALUE": "TEXT"}),
+
+    "VOTER": (None, {
+        "VALUE": "CAL-ADDRESS",
+        "CUTYPE": "INDIVIDUAL",
+        "ROLE": "REQ-PARTICIPANT",
+        "RSVP": "FALSE",
+        "SCHEDULE-AGENT": "SERVER",
+    }),
 }
 
 # transformations to apply to property values
 normalizePropsValue = {
     "ATTENDEE": normalizeCUAddr,
     "ORGANIZER": normalizeCUAddr,
+    "VOTER": normalizeCUAddr,
 }
 
 ignoredComponents = ("VTIMEZONE", PERUSER_COMPONENT,)
@@ -2172,6 +2181,10 @@ class Component (object):
         return is_server
 
 
+    def recipientPropertyName(self):
+        return "VOTER" if self.name() == "VPOLL" else "ATTENDEE"
+
+
     def getAttendees(self):
         """
         Get the attendee value. Works on either a VCALENDAR or on a component.
@@ -2187,7 +2200,7 @@ class Component (object):
                     return component.getAttendees()
         else:
             # Find the property values
-            return [p.value() for p in self.properties("ATTENDEE")]
+            return [p.value() for p in self.properties(self.recipientPropertyName())]
 
         return None
 
@@ -2214,7 +2227,7 @@ class Component (object):
             result = ()
             attendees = set()
             rid = self.getRecurrenceIDUTC()
-            for attendee in tuple(self.properties("ATTENDEE")):
+            for attendee in tuple(self.properties(self.recipientPropertyName())):
 
                 if onlyScheduleAgentServer:
                     if attendee.hasParameter("SCHEDULE-AGENT"):
@@ -2228,6 +2241,27 @@ class Component (object):
                     result += ((cuaddr, rid),)
                     attendees.add(cuaddr)
             return result
+
+
+    def getVoterProperty(self, match):
+        """
+        Get the voters matching a value.
+
+        @param match: a C{list} of calendar user address strings to try and match.
+        @return: the matching Voter property, or None
+        """
+
+        # Need to normalize http/https cu addresses
+        test = set()
+        for item in match:
+            test.add(normalizeCUAddr(item))
+
+        # Find the primary subcomponent
+        for voter in self.properties("VOTER"):
+            if normalizeCUAddr(voter.value()) in test:
+                return voter
+
+        return None
 
 
     def getAttendeeProperty(self, match):
@@ -2252,7 +2286,7 @@ class Component (object):
                         return attendee
         else:
             # Find the primary subcomponent
-            for attendee in self.properties("ATTENDEE"):
+            for attendee in self.properties(self.recipientPropertyName()):
                 if normalizeCUAddr(attendee.value()) in test:
                     return attendee
 
@@ -2295,7 +2329,7 @@ class Component (object):
                         yield attendee
         else:
             # Find the primary subcomponent
-            for attendee in self.properties("ATTENDEE"):
+            for attendee in self.properties(self.recipientPropertyName()):
                 yield attendee
 
 
@@ -2676,7 +2710,7 @@ class Component (object):
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
-            [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() != attendee.lower()]
+            [component.removeProperty(p) for p in tuple(component.properties(component.recipientPropertyName())) if p.value().lower() != attendee.lower()]
 
 
     def removeAllButTheseAttendees(self, attendees):
@@ -2691,7 +2725,7 @@ class Component (object):
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
-            [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() not in attendees]
+            [component.removeProperty(p) for p in tuple(component.properties(component.recipientPropertyName())) if p.value().lower() not in attendees]
 
 
     def hasAlarm(self):
