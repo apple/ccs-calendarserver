@@ -2674,7 +2674,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "valid-calendar-data"),
-                    "Can't parse calendar data"
+                    "Can't parse calendar data: %s" % (str(e),)
                 ))
 
             # storeComponent needs to know who the auth'd user is for access control
