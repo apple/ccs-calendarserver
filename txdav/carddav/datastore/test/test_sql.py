@@ -991,7 +991,7 @@ END:VCARD
         otherAB = yield otherHome.objectWithShareUID(newABShareUID)
         self.assertNotEqual(otherAB._bindRevision, 0)
 
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision - 1)
+        changed, deleted = yield otherAB.resourceNamesSinceRevision(0)
         self.assertNotEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
 
@@ -1000,7 +1000,7 @@ END:VCARD
         self.assertEqual(len(deleted), 0)
 
         for depth in ("1", "infinity",):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision - 1, depth)
+            changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
             self.assertNotEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
 
@@ -1029,8 +1029,8 @@ END:VCARD
         otherAB = otherGroup.addressbook()
         self.assertEqual(otherAB._bindRevision, None)
 
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherGroup._bindRevision - 1)
-        print("revision=%s, changed=%s, deleted=%s" % (otherGroup._bindRevision - 1, changed, deleted,))
+        changed, deleted = yield otherAB.resourceNamesSinceRevision(0)
+        print("revision=%s, changed=%s, deleted=%s" % (0, changed, deleted,))
         self.assertEqual(set(changed), set(['1.vcf', '4.vcf', '2.vcf', ]))
         self.assertEqual(len(deleted), 0)
 
@@ -1039,9 +1039,23 @@ END:VCARD
         self.assertEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
 
-        for depth, result in (("1", ['home3/']), ("infinity", ['home3/1.vcf', 'home3/4.vcf', 'home3/2.vcf', 'home3/'])):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherGroup._bindRevision - 1, depth)
-            print("revision=%s, depth=%s, changed=%s, deleted=%s" % (otherGroup._bindRevision - 1, depth, changed, deleted,))
+        for depth, result in (
+            ("1", ['addressbook/',
+                   'home3/', ]
+            ),
+            ("infinity", ['addressbook/',
+                          'addressbook/1.vcf',
+                          'addressbook/2.vcf',
+                          'addressbook/3.vcf',
+                          'addressbook/4.vcf',
+                          'addressbook/5.vcf',
+                          'home3/',
+                          'home3/1.vcf',
+                          'home3/2.vcf',
+                          'home3/4.vcf', ]
+             )):
+            changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
+            print("revision=%s, depth=%s, changed=%s, deleted=%s" % (0, depth, changed, deleted,))
             self.assertEqual(set(changed), set(result))
             self.assertEqual(len(deleted), 0)
 

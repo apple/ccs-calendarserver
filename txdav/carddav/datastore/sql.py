@@ -59,7 +59,8 @@ from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
 from txdav.common.icommondatastore import InternalDataStoreError, \
     InvalidUIDError, UIDExistsError, ObjectResourceTooBigError, \
     InvalidObjectResourceError, InvalidComponentForStoreError, \
-    AllRetriesFailed, ObjectResourceNameAlreadyExistsError
+    AllRetriesFailed, ObjectResourceNameAlreadyExistsError, \
+    SyncTokenValidException
 
 from uuid import uuid4
 
@@ -524,18 +525,16 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         @param revision: the revision to determine changes since
         @type revision: C{int}
         """
-
-        print("AddressBook: resourceNamesSinceRevision:%s revision:%s" % (self, revision,))
-        if self.owned() or self.fullyShared():
+        if self.owned():
             returnValue((yield super(AddressBook, self).resourceNamesSinceRevision(revision)))
 
         # call sharedChildResourceNamesSinceRevision() and filter results
         sharedChildChanged, sharedChildDeleted = yield self.sharedChildResourceNamesSinceRevision(revision, "infinity")
 
-        path = self.name() + '/'
-        lenpath = len(path)
-        changed = [item[lenpath:] for item in sharedChildChanged if item.startswith(path) and item != path]
-        deleted = [item[lenpath:] for item in sharedChildDeleted if item.startswith(path) and item != path]
+        selfPath = self.name() + '/'
+        lenpath = len(selfPath)
+        changed = [item[lenpath:] for item in sharedChildChanged if item.startswith(selfPath) and item != selfPath]
+        deleted = [item[lenpath:] for item in sharedChildDeleted if item.startswith(selfPath) and item != selfPath]
         returnValue((changed, deleted,))
 
 
@@ -566,8 +565,20 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         @type depth: C{str}
         """
 
-        print("sharedChildResourceNamesSinceRevision:%s revision:%s, depth:%s" % (self, revision, depth))
+        print("sharedChildResourceNamesSinceRevision:%s revision:%s, depth:%s self._bindRevision=%s" % (self, revision, depth, self._bindRevision))
         assert not self.owned()
+
+        if self.fullyShared() and revision != 0 and revision < self._bindRevision:
+            print("sharedChildResourceNamesSinceRevision:%s RAISE revision=%s < self._revision=%s" % (self, revision, self._bindRevision))
+            raise SyncTokenValidException
+
+        groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
+                self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
+        )
+        print("sharedChildResourceNamesSinceRevision:%s maxGroupBindRevision:%s" % (self, max([groupBindRow[5] for groupBindRow in groupBindRows]) if groupBindRows else None))
+        if groupBindRows and revision != 0 and revision < max([groupBindRow[5] for groupBindRow in groupBindRows]):
+            print("sharedChildResourceNamesSinceRevision:%s RAISE revision=%s < max([groupBindRow[5] for groupBindRow in groupBindRows]=%s)" % (self, revision, [groupBindRow[5] for groupBindRow in groupBindRows]))
+            raise SyncTokenValidException
 
         if self.fullyShared():
             returnValue((yield super(AddressBook, self).sharedChildResourceNamesSinceRevision(revision, depth)))
@@ -575,30 +586,22 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         path = self.name()
         changed = set()
         deleted = set()
-
-        groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
-                self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
-        )
         acceptedGroupIDs = set([groupBindRow[2] for groupBindRow in groupBindRows])
-        minRevision = min([groupBindRow[5] for groupBindRow in groupBindRows])
-        sharerevision = 0 if revision < minRevision else revision
-        print("sharedChildResourceNamesSinceRevision:%s acceptedGroupIDs:%s, minRevision:%s, sharerevision:%s" % (self, acceptedGroupIDs, minRevision, sharerevision))
+
+        print("sharedChildResourceNamesSinceRevision:%s acceptedGroupIDs:%s" % (self, acceptedGroupIDs))
+
+        allowedObjectIDs = set((yield self.expandGroupIDs(self._txn, acceptedGroupIDs)))
+        oldAllowedObjectIDs = set((yield self.expandGroupIDs(self._txn, acceptedGroupIDs, revision)))
+        addedObjectIds = allowedObjectIDs - oldAllowedObjectIDs
+        removedObjectIds = oldAllowedObjectIDs - allowedObjectIDs
+
+        print("sharedChildResourceNamesSinceRevision:%s oldAllowedObjectIDs=%s," % (self, oldAllowedObjectIDs,))
+        print("sharedChildResourceNamesSinceRevision:%s allowedObjectIDs=%s," % (self, allowedObjectIDs,))
+        print("sharedChildResourceNamesSinceRevision:%s addedObjectIds=%s," % (self, addedObjectIds,))
+        print("sharedChildResourceNamesSinceRevision:%s removedObjectIds=%s," % (self, removedObjectIds,))
 
         # get revision table changes
         rev = self._revisionsSchema
-        results = yield Select([rev.ADDRESSBOOK_HOME_RESOURCE_ID,
-                                rev.OWNER_ADDRESSBOOK_HOME_RESOURCE_ID,
-                                rev.ADDRESSBOOK_NAME,
-                                rev.OBJECT_RESOURCE_ID,
-                                rev.RESOURCE_NAME,
-                                rev.REVISION,
-                                rev.DELETED,
-                                ],
-                             From=rev,
-                            Where=(rev.REVISION > sharerevision).And(
-                            rev.RESOURCE_ID == self._resourceID)).on(self._txn)
-        print("sharedChildResourceNamesSinceRevision:%s all results:%s" % (self, results))
-
         results = [(
                 name,
                 id,
@@ -606,24 +609,16 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
             ) for name, id, wasdeleted in (
                 yield Select([rev.RESOURCE_NAME, rev.OBJECT_RESOURCE_ID, rev.DELETED],
                              From=rev,
-                            Where=(rev.REVISION > sharerevision).And(
+                            Where=(rev.REVISION > revision).And(
                             rev.RESOURCE_ID == self._resourceID)).on(self._txn)
             ) if name
         ]
         print("sharedChildResourceNamesSinceRevision:%s results:%s" % (self, results))
 
-        allowedObjectIDs = set((yield self.expandGroupIDs(self._txn, acceptedGroupIDs)))
-        print("sharedChildResourceNamesSinceRevision:%s allowedObjectIDs=%s," % (self, allowedObjectIDs,))
-
-        oldAllowedObjectIDs = set((yield self.expandGroupIDs(self._txn, acceptedGroupIDs, revision)))
-        print("sharedChildResourceNamesSinceRevision:%s oldAllowedObjectIDs=%s," % (self, oldAllowedObjectIDs,))
-
-        addedObjectIds = allowedObjectIDs - oldAllowedObjectIDs
-        removedObjectIds = oldAllowedObjectIDs - allowedObjectIDs
-        print("sharedChildResourceNamesSinceRevision:%s addedObjectIds=%s," % (self, addedObjectIds,))
-        print("sharedChildResourceNamesSinceRevision:%s removedObjectIds=%s," % (self, removedObjectIds,))
-
+        # id's are added on deletion
         idToNameMap = dict([(name, id) for name, id, wasdeleted in results if id != 0])
+
+        # now get other names of existing objects
         missingNameIds = (allowedObjectIDs | oldAllowedObjectIDs) - set(idToNameMap.keys())
         if missingNameIds:
             abo = schema.ADDRESSBOOK_OBJECT
@@ -639,7 +634,7 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         #nameToIDMap = dict([(v, k) for k, v in idToNameMap.iteritems()])
 
         # for changes, get object names all at once here
-        if sharerevision:
+        if revision:
             if depth == "1":
                 if removedObjectIds:
                     changed.add("%s/" % (path,))
@@ -648,8 +643,8 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
                     deleted.add("%s/%s" % (path, idToNameMap[removedObjectId],))
 
             if depth != "1":
-                for addedObjectID in addedObjectIds:
-                    changed.add("%s/%s" % (path, idToNameMap[addedObjectID],))
+                for addedObjectId in addedObjectIds:
+                    changed.add("%s/%s" % (path, idToNameMap[addedObjectId],))
 
         for name, id, wasdeleted in results:
             if name in idToNameMap.values():
@@ -663,8 +658,6 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
                         changed.add("%s/%s" % (path, name,))
 
         returnValue((changed, deleted))
-
-
 
 
     @inlineCallbacks
