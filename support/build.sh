@@ -598,10 +598,11 @@ c_dependency () {
 
   export              PATH="${dstroot}/bin:${PATH}";
   export    C_INCLUDE_PATH="${dstroot}/include:${C_INCLUDE_PATH:-}";
-  export   LD_LIBRARY_PATH="${dstroot}/lib:${LD_LIBRARY_PATH:-}";
+  export   LD_LIBRARY_PATH="${dstroot}/lib:${dstroot}/lib64:${LD_LIBRARY_PATH:-}";
   export          CPPFLAGS="-I${dstroot}/include ${CPPFLAGS:-} ";
-  export           LDFLAGS="-L${dstroot}/lib ${LDFLAGS:-} ";
-  export DYLD_LIBRARY_PATH="${dstroot}/lib:${DYLD_LIBRARY_PATH:-}";
+  export           LDFLAGS="-L${dstroot}/lib -L${dstroot}/lib64 ${LDFLAGS:-} ";
+  export DYLD_LIBRARY_PATH="${dstroot}/lib:${dstroot}/lib64:${DYLD_LIBRARY_PATH:-}";
+  export PKG_CONFIG_PATH="${dstroot}/lib/pkgconfig:${PKG_CONFIG_PATH:-}";
 
   if "${do_setup}"; then
     if "${force_setup}" || "${do_bundle}" || [ ! -d "${dstroot}" ]; then
@@ -626,10 +627,10 @@ write_environment () {
   cat > "${dstroot}/environment.sh" << __EOF__
 export              PATH="${dstroot}/bin:\${PATH}";
 export    C_INCLUDE_PATH="${dstroot}/include:\${C_INCLUDE_PATH:-}";
-export   LD_LIBRARY_PATH="${dstroot}/lib:\${LD_LIBRARY_PATH:-}:\$ORACLE_HOME";
+export   LD_LIBRARY_PATH="${dstroot}/lib:${dstroot}/lib64:\${LD_LIBRARY_PATH:-}:\$ORACLE_HOME";
 export          CPPFLAGS="-I${dstroot}/include \${CPPFLAGS:-} ";
-export           LDFLAGS="-L${dstroot}/lib \${LDFLAGS:-} ";
-export DYLD_LIBRARY_PATH="${dstroot}/lib:\${DYLD_LIBRARY_PATH:-}:\$ORACLE_HOME";
+export           LDFLAGS="-L${dstroot}/lib -L${dstroot}/lib64 \${LDFLAGS:-} ";
+export DYLD_LIBRARY_PATH="${dstroot}/lib:${dstroot}/lib64:\${DYLD_LIBRARY_PATH:-}:\$ORACLE_HOME";
 __EOF__
 }
 
@@ -705,6 +706,14 @@ dependencies () {
       "OpenLDAP" "openldap-2.4.25" \
       "http://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-2.4.25.tgz" \
       --disable-bdb --disable-hdb;
+  fi;
+
+  if find_header ffi/ffi.h; then
+    using_system "libffi";
+  else
+    c_dependency -m "45f3b6dbc9ee7c7dfbbbc5feba571529" \
+      "libffi" "libffi-3.0.13" \
+      "ftp://sourceware.org/pub/libffi/libffi-3.0.13.tar.gz"
   fi;
 
   #
