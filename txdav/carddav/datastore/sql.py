@@ -568,17 +568,21 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         print("sharedChildResourceNamesSinceRevision:%s revision:%s, depth:%s self._bindRevision=%s" % (self, revision, depth, self._bindRevision))
         assert not self.owned()
 
-        if self.fullyShared() and revision != 0 and revision < self._bindRevision:
-            print("sharedChildResourceNamesSinceRevision:%s RAISE revision=%s < self._revision=%s" % (self, revision, self._bindRevision))
-            raise SyncTokenValidException
+        bindRevisions = [self._bindRevision] if self.fullyShared() else []
 
         groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
                 self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
         )
-        print("sharedChildResourceNamesSinceRevision:%s maxGroupBindRevision:%s" % (self, max([groupBindRow[5] for groupBindRow in groupBindRows]) if groupBindRows else None))
-        if groupBindRows and revision != 0 and revision < max([groupBindRow[5] for groupBindRow in groupBindRows]):
-            print("sharedChildResourceNamesSinceRevision:%s RAISE revision=%s < max([groupBindRow[5] for groupBindRow in groupBindRows]=%s)" % (self, revision, [groupBindRow[5] for groupBindRow in groupBindRows]))
-            raise SyncTokenValidException
+        if groupBindRows:
+            bindRevisions += [groupBindRow[5] for groupBindRow in groupBindRows]
+
+        if revision != 0 and revision < max(bindRevisions):
+            if depth == "1":
+                revision = 0
+            else:
+                print("sharedChildResourceNamesSinceRevision:%s RAISE revision=%s < max([groupBindRow[5] for groupBindRow in groupBindRows]=%s)" % (self, revision, [groupBindRow[5] for groupBindRow in groupBindRows]))
+                # perhaps we could return a multistatus result of 403 instead: TODO: Check RFC
+                raise SyncTokenValidException
 
         if self.fullyShared():
             returnValue((yield super(AddressBook, self).sharedChildResourceNamesSinceRevision(revision, depth)))
