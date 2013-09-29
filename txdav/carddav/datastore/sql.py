@@ -878,6 +878,14 @@ END:VCARD
         returnValue(component)
 
 
+    @inlineCallbacks
+    def bumpModified(self):
+        if self._resourceID == self._home._resourceID:
+            returnValue((yield self._home.bumpModified()))
+        else:
+            returnValue((yield super(AddressBook, self).bumpModified()))
+
+
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, home):
