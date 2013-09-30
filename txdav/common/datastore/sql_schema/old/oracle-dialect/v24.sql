@@ -34,6 +34,7 @@ create table CALENDAR_HOME_METADATA (
     "ALARM_VEVENT_ALLDAY" nclob default null,
     "ALARM_VTODO_TIMED" nclob default null,
     "ALARM_VTODO_ALLDAY" nclob default null,
+    "AVAILABILITY" nclob default null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
@@ -74,7 +75,8 @@ create table CALENDAR_BIND (
     "ALARM_VEVENT_TIMED" nclob default null,
     "ALARM_VEVENT_ALLDAY" nclob default null,
     "ALARM_VTODO_TIMED" nclob default null,
-    "ALARM_VTODO_ALLDAY" nclob default null, 
+    "ALARM_VTODO_ALLDAY" nclob default null,
+    "TIMEZONE" nclob default null, 
     primary key("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
     unique("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
 );
@@ -352,14 +354,28 @@ create table GROUP_CACHER_POLLING_WORK (
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
+create table CALENDAR_OBJECT_SPLITTER_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
+);
+
 create table CALENDARSERVER (
     "NAME" nvarchar2(255) primary key,
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '20');
-insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '4');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '24');
+insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
+create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
+    DEFAULT_EVENTS
+);
+
+create index CALENDAR_HOME_METADAT_d55e5548 on CALENDAR_HOME_METADATA (
+    DEFAULT_TASKS
+);
+
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
     NOTIFICATION_HOME_RESOURCE_ID
 );
@@ -402,8 +418,24 @@ create index ATTACHMENT_CALENDAR_H_0078845c on ATTACHMENT (
     CALENDAR_HOME_RESOURCE_ID
 );
 
+create index ATTACHMENT_CALENDAR_O_81508484 on ATTACHMENT_CALENDAR_OBJECT (
+    CALENDAR_OBJECT_RESOURCE_ID
+);
+
 create index SHARED_ADDRESSBOOK_BI_e9a2e6d4 on SHARED_ADDRESSBOOK_BIND (
     OWNER_HOME_RESOURCE_ID
+);
+
+create index ABO_MEMBERS_ADDRESSBO_4effa879 on ABO_MEMBERS (
+    ADDRESSBOOK_ID
+);
+
+create index ABO_MEMBERS_MEMBER_ID_8d66adcf on ABO_MEMBERS (
+    MEMBER_ID
+);
+
+create index ABO_FOREIGN_MEMBERS_A_1fd2c5e9 on ABO_FOREIGN_MEMBERS (
+    ADDRESSBOOK_ID
 );
 
 create index SHARED_GROUP_BIND_RES_cf52f95d on SHARED_GROUP_BIND (
@@ -425,7 +457,7 @@ create index CALENDAR_OBJECT_REVIS_265c8acf on CALENDAR_OBJECT_REVISIONS (
     REVISION
 );
 
-create index ADDRESSBOOK_OBJECT_RE_40cc2d73 on ADDRESSBOOK_OBJECT_REVISIONS (
+create index ADDRESSBOOK_OBJECT_RE_2bfcf757 on ADDRESSBOOK_OBJECT_REVISIONS (
     ADDRESSBOOK_HOME_RESOURCE_ID,
     OWNER_HOME_RESOURCE_ID
 );
@@ -451,5 +483,9 @@ create index APN_SUBSCRIPTIONS_RES_9610d78e on APN_SUBSCRIPTIONS (
 
 create index IMIP_TOKENS_TOKEN_e94b918f on IMIP_TOKENS (
     TOKEN
+);
+
+create index CALENDAR_OBJECT_SPLIT_af71dcda on CALENDAR_OBJECT_SPLITTER_WORK (
+    RESOURCE_ID
 );
 
