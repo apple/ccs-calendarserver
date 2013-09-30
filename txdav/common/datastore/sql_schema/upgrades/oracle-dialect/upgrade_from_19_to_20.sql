@@ -140,7 +140,7 @@ update ADDRESSBOOK_HOME
 --------------------------------
 
 alter table ADDRESSBOOK_OBJECT
-	add ("KIND"	integer);  -- enum ADDRESSBOOK_OBJECT_KIND
+	add ("KIND"	integer)  -- enum ADDRESSBOOK_OBJECT_KIND
 	add ("ADDRESSBOOK_HOME_RESOURCE_ID"	integer	references ADDRESSBOOK_HOME on delete cascade);
 
 update ADDRESSBOOK_OBJECT
