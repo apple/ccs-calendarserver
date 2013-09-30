@@ -58,6 +58,14 @@ def report_DAV__sync_collection(self, request, sync_collection):
 
     responses = []
 
+    # Do not support limit
+    if sync_collection.sync_limit is not None:
+        raise HTTPError(ErrorResponse(
+            responsecode.INSUFFICIENT_STORAGE_SPACE,
+            element.NumberOfMatchesWithinLimits(),
+            "Report limit not supported",
+        ))
+
     # Process Depth and sync-level for backwards compatibility
     # Use sync-level if present and ignore Depth, else use Depth
     if sync_collection.sync_level:
