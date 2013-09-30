@@ -584,7 +584,6 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         @param depth: depth for determine what changed
         @type depth: C{str}
         """
-
         assert not self.owned()
 
         bindRevisions = [self._bindRevision] if self.fullyShared() else []
@@ -629,8 +628,8 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
             ) if name
         ]
 
-        # id's are added on deletion
-        idToNameMap = dict([(id, name) for name, id, wasdeleted in results if id != 0])
+        # get deleted object names if any
+        idToNameMap = dict([(id, name) for name, id, wasdeleted in results if wasdeleted])
 
         # now get other names of existing objects
         missingNameIds = (allowedObjectIDs | oldAllowedObjectIDs) - set(idToNameMap.keys())
@@ -644,29 +643,34 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
             )
             idToNameMap = dict(dict(idToNameMap), **dict(memberIDNameRows))
 
-        # for changes, get object names all at once here
+        # now do revisions
         if revision:
-            if depth == "1":
-                if removedObjectIds:
-                    changed.add("%s/" % (path,))
-            else:
+            if removedObjectIds or addedObjectIds:
+                changed.add("%s/" % (path,))
+
+            if depth != "1":
                 for removedObjectId in removedObjectIds:
                     deleted.add("%s/%s" % (path, idToNameMap[removedObjectId],))
 
-            if depth != "1":
                 for addedObjectId in addedObjectIds:
                     changed.add("%s/%s" % (path, idToNameMap[addedObjectId],))
 
-        for name, id, wasdeleted in results:
-            if name in idToNameMap.values():
-                # Always report collection as changed
-                changed.add("%s/" % (path,))
+            for name, id, wasdeleted in results:
+                if not wasdeleted and name in idToNameMap.values():
+                    # Always report collection as changed
+                    changed.add("%s/" % (path,))
 
-                # Resource changed - for depth "infinity" report resource as changed
-                if depth != "1":
-                    item = "%s/%s" % (path, name,)
-                    if item not in deleted:
-                        changed.add("%s/%s" % (path, name,))
+                    # Resource changed - for depth "infinity" report resource as changed
+                    if depth != "1":
+                        item = "%s/%s" % (path, name,)
+                        if item not in deleted:
+                            changed.add("%s/%s" % (path, name,))
+
+        else:
+            changed.add("%s/" % (path,))
+            if depth != "1":
+                for addedObjectId in allowedObjectIDs:
+                    changed.add("%s/%s" % (path, idToNameMap[addedObjectId],))
 
         returnValue((changed, deleted))
 
