@@ -184,7 +184,7 @@ alter table ADDRESSBOOK_OBJECT
 
 alter table ADDRESSBOOK_OBJECT
 	add unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "RESOURCE_NAME")
-	    unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "VCARD_UID");
+	add unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "VCARD_UID");
 
 ------------------------------------------
 -- change  ADDRESSBOOK_OBJECT_REVISIONS --
