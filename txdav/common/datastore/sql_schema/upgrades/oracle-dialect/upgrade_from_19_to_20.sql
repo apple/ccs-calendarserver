@@ -176,10 +176,11 @@ delete
   	
 -- add non null constraints after update and delete are complete
 alter table ADDRESSBOOK_OBJECT
-	modify ("KIND" not null,
-            "ADDRESSBOOK_HOME_RESOURCE_ID" not null)
-	drop ("ADDRESSBOOK_RESOURCE_ID");
+        modify ("KIND" not null)
+        modify ("ADDRESSBOOK_HOME_RESOURCE_ID" not null);
 
+alter table ADDRESSBOOK_OBJECT
+        drop column ADDRESSBOOK_RESOURCE_ID cascade constraints;
 
 alter table ADDRESSBOOK_OBJECT
 	add unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "RESOURCE_NAME")
