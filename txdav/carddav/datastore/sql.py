@@ -608,27 +608,11 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         changed = set()
         deleted = set()
         acceptedGroupIDs = set([groupBindRow[2] for groupBindRow in groupBindRows])
-        memberIDToAcceptedGroupIDsMap = {}
-        allowedObjectIDs = set()
-        for acceptedGroupID in acceptedGroupIDs:
-            memberIDs = set((yield self.expandGroupIDs(self._txn, [acceptedGroupID])))
-            allowedObjectIDs |= memberIDs
-            for memberID in memberIDs:
-                current = memberIDToAcceptedGroupIDsMap.get(memberID, set())
-                current.add(acceptedGroupID)
-                memberIDToAcceptedGroupIDsMap[memberID] = current
 
-        oldAllowedObjectIDs = set()
-        for acceptedGroupID in acceptedGroupIDs:
-            memberIDs = set((yield self.expandGroupIDs(self._txn, [acceptedGroupID], revision)))
-            oldAllowedObjectIDs |= memberIDs
-            for memberID in memberIDs:
-                current = memberIDToAcceptedGroupIDsMap.get(memberID, set())
-                current.add(acceptedGroupID)
-                memberIDToAcceptedGroupIDsMap[memberID] = current
-
-        addedObjectIds = allowedObjectIDs - oldAllowedObjectIDs
-        removedObjectIds = oldAllowedObjectIDs - allowedObjectIDs
+        allowedObjectIDs = set((yield self.expandGroupIDs(self._txn, acceptedGroupIDs)))
+        oldAllowedObjectIDs = set((yield self.expandGroupIDs(self._txn, acceptedGroupIDs, revision)))
+        addedObjectIDs = allowedObjectIDs - oldAllowedObjectIDs
+        removedObjectIDs = oldAllowedObjectIDs - allowedObjectIDs
 
         # get revision table changes
         rev = self._revisionsSchema
@@ -648,14 +632,14 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         idToNameMap = dict([(id, name) for name, id, wasdeleted in results if wasdeleted])
 
         # now get other names of existing objects
-        missingNameIds = (allowedObjectIDs | oldAllowedObjectIDs) - set(idToNameMap.keys())
-        if missingNameIds:
+        missingNameIDs = (allowedObjectIDs | oldAllowedObjectIDs) - set(idToNameMap.keys())
+        if missingNameIDs:
             abo = schema.ADDRESSBOOK_OBJECT
             memberIDNameRows = (
                 yield AddressBookObject._columnsWithResourceIDsQuery(
                     [abo.RESOURCE_ID, abo.RESOURCE_NAME],
-                    missingNameIds
-                ).on(self._txn, resourceIDs=missingNameIds)
+                    missingNameIDs
+                ).on(self._txn, resourceIDs=missingNameIDs)
             )
             idToNameMap = dict(dict(idToNameMap), **dict(memberIDNameRows))
 
@@ -663,27 +647,19 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         if revision:
 
             # handled added or removed objects
-            if removedObjectIds or addedObjectIds:
+            if removedObjectIDs or addedObjectIDs:
                 changed.add("%s/" % (path,))
 
             if depth != "1":
-                for removedObjectId in removedObjectIds:
-                    deleted.add("%s/%s" % (path, idToNameMap[removedObjectId],))
+                for removedObjectID in removedObjectIDs:
+                    deleted.add("%s/%s" % (path, idToNameMap[removedObjectID],))
 
-                for addedObjectId in addedObjectIds:
-                    changed.add("%s/%s" % (path, idToNameMap[addedObjectId],))
-
-                # remove shared groups as changed too
-                for memberID in removedObjectIds or addedObjectIds:
-                    for acceptedGroupID in memberIDToAcceptedGroupIDsMap[memberID]:
-                        changed.add("%s/%s" % (path, idToNameMap[acceptedGroupID],))
+                for addedObjectID in addedObjectIDs:
+                    changed.add("%s/%s" % (path, idToNameMap[addedObjectID],))
 
             # use revisions to handle changed objects
-            changedNames = [name for name, id, wasdeleted in results if not wasdeleted and name in idToNameMap.values()]
-            if changedNames:
-                nametoIDMap = dict((v, k) for k, v in idToNameMap.iteritems())
-
-                for name in changedNames:
+            for name, id, wasdeleted in results:
+                if not wasdeleted and name in idToNameMap.values():
                     # Always report collection as changed
                     changed.add("%s/" % (path,))
 
@@ -693,15 +669,11 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
                         if item not in deleted:
                             changed.add("%s/%s" % (path, name,))
 
-                        # remove shared groups as changed too
-                        for acceptedGroupID in memberIDToAcceptedGroupIDsMap[nametoIDMap[name]]:
-                            changed.add("%s/%s" % (path, idToNameMap[acceptedGroupID],))
-
         else:
             changed.add("%s/" % (path,))
             if depth != "1":
-                for addedObjectId in allowedObjectIDs:
-                    changed.add("%s/%s" % (path, idToNameMap[addedObjectId],))
+                for addedObjectID in allowedObjectIDs:
+                    changed.add("%s/%s" % (path, idToNameMap[addedObjectID],))
 
         returnValue((changed, deleted))
 
@@ -1324,44 +1296,44 @@ END:VCARD
 
 
     @inlineCallbacks
-    def accessControlGroupIDs(self):
+    def _objectAccessSets(self):
         if self.owned():
             returnValue(([], []))
         else:
             groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
                     self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
             )
-            readWriteGroupIDs = []
-            readOnlyGroupIDs = []
+            readWriteObjectIDs = []
+            readOnlyObjectIDs = []
             for groupBindRow in groupBindRows:
                 bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
                 if bindMode == _BIND_MODE_WRITE:
-                    readWriteGroupIDs.append(resourceID)
+                    readWriteObjectIDs.append(resourceID)
                 else:
-                    readOnlyGroupIDs.append(resourceID)
+                    readOnlyObjectIDs.append(resourceID)
 
-            if readOnlyGroupIDs and readWriteGroupIDs:
+            if readOnlyObjectIDs and readWriteObjectIDs:
                 # expand read-write groups and remove any subgroups from read-only group list
-                allWriteableIDs = yield self.expandGroupIDs(self._txn, readWriteGroupIDs)
-                adjustedReadOnlyGroupIDs = set(readOnlyGroupIDs) - set(allWriteableIDs)
-                adjustedReadWriteGroupIDs = set(readWriteGroupIDs) | (set(readOnlyGroupIDs) - adjustedReadOnlyGroupIDs)
+                allWriteableIDs = yield self.expandGroupIDs(self._txn, readWriteObjectIDs)
+                adjustedReadOnlyGroupIDs = set(readOnlyObjectIDs) - set(allWriteableIDs)
+                adjustedReadWriteGroupIDs = set(readWriteObjectIDs) | (set(readOnlyObjectIDs) - adjustedReadOnlyGroupIDs)
             else:
-                adjustedReadOnlyGroupIDs = readOnlyGroupIDs
-                adjustedReadWriteGroupIDs = readWriteGroupIDs
+                adjustedReadOnlyGroupIDs = readOnlyObjectIDs
+                adjustedReadWriteGroupIDs = readWriteObjectIDs
             returnValue((tuple(adjustedReadOnlyGroupIDs), tuple(adjustedReadWriteGroupIDs)))
 
 
     # FIXME: Unused
     @inlineCallbacks
-    def readOnlyGroupIDs(self):
-        returnValue((yield self.accessControlGroupIDs())[0])
+    def readOnlyObjectIDs(self):
+        returnValue((yield self._objectAccessSets())[0])
 
 
     @inlineCallbacks
-    def readWriteGroupIDs(self):
-        returnValue((yield self.accessControlGroupIDs())[1])
+    def readWriteObjectIDs(self):
+        returnValue((yield self._objectAccessSets())[1])
 
-
+    '''
     # FIXME: Unused:  Use for caching access
     @inlineCallbacks
     def accessControlObjectIDs(self):
@@ -1379,19 +1351,19 @@ END:VCARD
         groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
                 self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
         )
-        readWriteGroupIDs = []
-        readOnlyGroupIDs = []
+        readWriteObjectIDs = []
+        readOnlyObjectIDs = []
         for groupBindRow in groupBindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
             if bindMode == _BIND_MODE_WRITE:
-                readWriteGroupIDs.append(resourceID)
+                readWriteObjectIDs.append(resourceID)
             else:
-                readOnlyGroupIDs.append(resourceID)
+                readOnlyObjectIDs.append(resourceID)
 
-        if readOnlyGroupIDs:
-            readOnlyIDs |= set((yield self.expandGroupIDs(self._txn, readOnlyGroupIDs)))
-        if readWriteGroupIDs:
-            readWriteIDs |= set((yield self.expandGroupIDs(self._txn, readWriteGroupIDs)))
+        if readOnlyObjectIDs:
+            readOnlyIDs |= set((yield self.expandGroupIDs(self._txn, readOnlyObjectIDs)))
+        if readWriteObjectIDs:
+            readWriteIDs |= set((yield self.expandGroupIDs(self._txn, readWriteObjectIDs)))
         readOnlyIDs -= readWriteIDs
         returnValue(tuple(readOnlyIDs), tuple(readWriteIDs))
 
@@ -1413,7 +1385,7 @@ END:VCARD
     def allObjectIDs(self):
         readOnlyIDs, readWriteIDs = yield self.accessControlObjectIDs()
         returnValue((readOnlyIDs + readWriteIDs))
-
+    '''
 
     @inlineCallbacks
     def updateShare(self, shareeView, mode=None, status=None, message=None):
@@ -1631,18 +1603,29 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 raise HTTPError(FORBIDDEN)
 
         if not self.owned() and not self.addressbook().fullyShared():
-            readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
+            readWriteObjectIDs = yield self.addressbook().readWriteObjectIDs()
             readWriteObjectIDs = (
-                set((yield self.addressbook().expandGroupIDs(self._txn, readWriteGroupIDs)))
-                    if readWriteGroupIDs else set()
+                set((yield self.addressbook().expandGroupIDs(self._txn, readWriteObjectIDs)))
+                    if readWriteObjectIDs else set()
             )
 
             # can't delete item in read-only shared group, even if user has addressbook unbind
             if self._resourceID not in readWriteObjectIDs:
                 raise HTTPError(FORBIDDEN)
 
-        # get sync token for delete now
-        yield self.addressbook()._deleteRevision(self.name(), self._resourceID)
+            # get sync token for delete now
+            yield self.addressbook()._deleteRevision(self.name(), self._resourceID)
+
+            readWriteGroupIDs = set()
+            for readWriteObjectID in readWriteObjectIDs:
+                abObject = yield self.addressbook().objectResourceWithID(readWriteObjectID)
+                if abObject.kind() == _ABO_KIND_GROUP:
+                    readWriteGroupIDs.add(readWriteObjectID)
+                    yield self.addressbook()._updateRevision(abObject.name())
+
+        else:
+            # get sync token for delete now
+            yield self.addressbook()._deleteRevision(self.name(), self._resourceID)
 
         # get groups where this object was once a member and version info
         aboMembers = schema.ABO_MEMBERS
@@ -1665,8 +1648,8 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         ])
 
         if not self.owned() and not self.addressbook().fullyShared():
-            groupIDsToRemoveFrom = readWriteObjectIDs | groupIDs
-            groupIDs -= readWriteObjectIDs
+            groupIDsToRemoveFrom = readWriteGroupIDs | groupIDs
+            groupIDs -= readWriteGroupIDs
         else:
             groupIDsToRemoveFrom = groupIDs
 
@@ -1725,8 +1708,8 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             returnValue(True)
 
         #otherwise, must be in a read-write group
-        readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
-        readWriteIDs = yield self.addressbook().expandGroupIDs(self._txn, readWriteGroupIDs)
+        readWriteObjectIDs = yield self.addressbook().readWriteObjectIDs()
+        readWriteIDs = yield self.addressbook().expandGroupIDs(self._txn, readWriteObjectIDs)
         returnValue(self._resourceID in readWriteIDs)
 
 
@@ -2216,9 +2199,14 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             groupIDs = set([groupIDRow[0] for groupIDRow in groupIDRows])
 
             if not self.owned() and not self.addressbook().fullyShared():
-                readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
-                assert readWriteGroupIDs, "no access"
-                groupIDs |= set(readWriteGroupIDs)
+                readWriteObjectIDs = yield self.addressbook().readWriteObjectIDs()
+                assert readWriteObjectIDs, "no access"
+
+                for readWriteObjectID in readWriteObjectIDs:
+                    abObject = yield self.addressbook().objectResourceWithID(readWriteObjectID)
+                    if abObject.kind() == _ABO_KIND_GROUP:
+                        groupIDs.add(readWriteObjectID)
+                        yield self.addressbook()._updateRevision(abObject.name())
 
             # add to member table rows
             for groupID in groupIDs:
