@@ -577,7 +577,7 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         For shared groups.  Find the items that have be added and removed since revision in the aboMembers
         tables.  Then add in changes from the revision table.
 
-        TODO: Cover the case where the sharing changes. Thinking now that I need a unshared group tombstone.
+        TODO: Cover the case where the sharing changes. Then we can handle revision < bindRevision
 
         @param revision: the sync revision to compare to
         @type revision: C{str}
@@ -601,10 +601,19 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
                 # perhaps we could return a multistatus result of 403 instead: TODO: Check RFC
                 raise SyncTokenValidException
 
-        if self.fullyShared():
-            returnValue((yield super(AddressBook, self).sharedChildResourceNamesSinceRevision(revision, depth)))
-
         path = self.name()
+
+        if self.fullyShared():
+            # add change for addressbook group
+            changed, deleted = yield super(AddressBook, self).sharedChildResourceNamesSinceRevision(revision, depth)
+
+            ''' add the following for have addressbook group in sync report
+            if changed or deleted and depth != "1":
+                changed.add("%s/%s" % (path, self._groupForSharedAddressBookName(),))
+            '''
+
+            returnValue((changed, deleted))
+
         changed = set()
         deleted = set()
         acceptedGroupIDs = set([groupBindRow[2] for groupBindRow in groupBindRows])
