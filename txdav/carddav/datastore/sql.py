@@ -608,9 +608,25 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         changed = set()
         deleted = set()
         acceptedGroupIDs = set([groupBindRow[2] for groupBindRow in groupBindRows])
+        memberIDToAcceptedGroupIDsMap = {}
+        allowedObjectIDs = set()
+        for acceptedGroupID in acceptedGroupIDs:
+            memberIDs = set((yield self.expandGroupIDs(self._txn, [acceptedGroupID])))
+            allowedObjectIDs |= memberIDs
+            for memberID in memberIDs:
+                current = memberIDToAcceptedGroupIDsMap.get(memberID, set())
+                current.add(acceptedGroupID)
+                memberIDToAcceptedGroupIDsMap[memberID] = current
 
-        allowedObjectIDs = set((yield self.expandGroupIDs(self._txn, acceptedGroupIDs)))
-        oldAllowedObjectIDs = set((yield self.expandGroupIDs(self._txn, acceptedGroupIDs, revision)))
+        oldAllowedObjectIDs = set()
+        for acceptedGroupID in acceptedGroupIDs:
+            memberIDs = set((yield self.expandGroupIDs(self._txn, [acceptedGroupID], revision)))
+            oldAllowedObjectIDs |= memberIDs
+            for memberID in memberIDs:
+                current = memberIDToAcceptedGroupIDsMap.get(memberID, set())
+                current.add(acceptedGroupID)
+                memberIDToAcceptedGroupIDsMap[memberID] = current
+
         addedObjectIds = allowedObjectIDs - oldAllowedObjectIDs
         removedObjectIds = oldAllowedObjectIDs - allowedObjectIDs
 
@@ -645,6 +661,8 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
 
         # now do revisions
         if revision:
+
+            # handled added or removed objects
             if removedObjectIds or addedObjectIds:
                 changed.add("%s/" % (path,))
 
@@ -655,8 +673,17 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
                 for addedObjectId in addedObjectIds:
                     changed.add("%s/%s" % (path, idToNameMap[addedObjectId],))
 
-            for name, id, wasdeleted in results:
-                if not wasdeleted and name in idToNameMap.values():
+                # remove shared groups as changed too
+                for memberID in removedObjectIds or addedObjectIds:
+                    for acceptedGroupID in memberIDToAcceptedGroupIDsMap[memberID]:
+                        changed.add("%s/%s" % (path, idToNameMap[acceptedGroupID],))
+
+            # use revisions to handle changed objects
+            changedNames = [name for name, id, wasdeleted in results if not wasdeleted and name in idToNameMap.values()]
+            if changedNames:
+                nametoIDMap = dict((v, k) for k, v in idToNameMap.iteritems())
+
+                for name in changedNames:
                     # Always report collection as changed
                     changed.add("%s/" % (path,))
 
@@ -665,6 +692,10 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
                         item = "%s/%s" % (path, name,)
                         if item not in deleted:
                             changed.add("%s/%s" % (path, name,))
+
+                        # remove shared groups as changed too
+                        for acceptedGroupID in memberIDToAcceptedGroupIDsMap[nametoIDMap[name]]:
+                            changed.add("%s/%s" % (path, idToNameMap[acceptedGroupID],))
 
         else:
             changed.add("%s/" % (path,))
