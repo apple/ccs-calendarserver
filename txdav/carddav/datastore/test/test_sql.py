@@ -599,7 +599,6 @@ END:VCARD
         subgroupObject = yield adbk.createAddressBookObjectWithName("sg.vcf", subgroup)
 
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION], From=aboMembers).on(txn)
-        print("memberRows=%s" % (memberRows,))
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers, Where=aboMembers.REMOVED == False).on(txn)
         self.assertEqual(sorted(memberRows), sorted([
                                                      [groupObject._resourceID, subgroupObject._resourceID],
@@ -610,7 +609,6 @@ END:VCARD
         self.assertEqual(foreignMemberRows, [])
 
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION], From=aboMembers).on(txn)
-        print("memberRows=%s" % (memberRows,))
         yield subgroupObject.remove()
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION], From=aboMembers).on(txn)
 
@@ -1049,12 +1047,10 @@ END:VCARD
         self.assertEqual(otherAB._bindRevision, None)
 
         changed, deleted = yield otherAB.resourceNamesSinceRevision(0)
-        print("revision=%s, changed=%s, deleted=%s" % (0, changed, deleted,))
         self.assertEqual(set(changed), set(['1.vcf', '4.vcf', '2.vcf', ]))
         self.assertEqual(len(deleted), 0)
 
         changed, deleted = yield otherAB.resourceNamesSinceRevision(otherGroup._bindRevision)
-        print("revision=%s, changed=%s, deleted=%s" % (otherGroup._bindRevision, changed, deleted,))
         self.assertEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
 
@@ -1074,12 +1070,10 @@ END:VCARD
                           'home3/4.vcf', ]
              )):
             changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
-            print("revision=%s, depth=%s, changed=%s, deleted=%s" % (0, depth, changed, deleted,))
             self.assertEqual(set(changed), set(result))
             self.assertEqual(len(deleted), 0)
 
             changed, deleted = yield otherHome.resourceNamesSinceRevision(otherGroup._bindRevision, depth)
-            print("revision=%s, depth=%s, changed=%s, deleted=%s" % (otherGroup._bindRevision, depth, changed, deleted,))
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
 

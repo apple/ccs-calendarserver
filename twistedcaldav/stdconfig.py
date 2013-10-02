@@ -54,7 +54,7 @@ DEFAULT_SERVICE_PARAMS = {
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
-        "cacheTimeout": 10, # Minutes
+        "cacheTimeout": 1, # Minutes
         "batchSize": 100, # for splitting up large queries
         "negativeCaching": False,
         "restrictEnabledRecords": False,
@@ -62,7 +62,7 @@ DEFAULT_SERVICE_PARAMS = {
         "recordTypes": ("users", "groups"),
     },
     "twistedcaldav.directory.ldapdirectory.LdapDirectoryService": {
-        "cacheTimeout": 10, # Minutes
+        "cacheTimeout": 1, # Minutes
         "negativeCaching": False,
         "warningThresholdSeconds": 3,
         "batchSize": 500, # for splitting up large queries
@@ -1546,6 +1546,8 @@ def _updateCompliance(configDict, reloading=False):
             compliance += caldavxml.caldav_managed_attachments_compliance
         if configDict.Scheduling.Options.TimestampAttendeePartStatChanges:
             compliance += customxml.calendarserver_partstat_changes_compliance
+        if configDict.EnableTimezonesByReference:
+            compliance += caldavxml.caldav_timezones_by_reference_compliance
     else:
         compliance = ()
 
