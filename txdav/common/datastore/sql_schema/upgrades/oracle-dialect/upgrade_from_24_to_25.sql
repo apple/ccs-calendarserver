@@ -18,32 +18,9 @@
 -- Upgrade database schema from VERSION 24 to 25 --
 ---------------------------------------------------
 
-----------------------------------------
--- Change Address Book Object Members --
-----------------------------------------
+-- This is actually a noop for Oracle as we had some invalid names in the v20 schema that
+-- were corrected in v20 (but not corrected in postgres which is being updated for v25).
 
-alter table ABO_MEMBERS
-	drop ("abo_members_member_id_fkey");
-alter table ABO_MEMBERS
-	drop ("abo_members_group_id_fkey");
-alter table ABO_MEMBERS
-	add ("REVISION" integer default nextval('REVISION_SEQ') not null);
-alter table ABO_MEMBERS
-	add ("REMOVED" boolean default false not null);
-alter table ABO_MEMBERS
-	 drop ("abo_members_pkey");
-alter table ABO_MEMBERS
-	 add ("abo_members_pkey" primary key ("GROUP_ID", "MEMBER_ID", "REVISION"));
-
-------------------------------------------
--- Change Address Book Object Revisions --
-------------------------------------------
-	
-alter table ADDRESSBOOK_OBJECT_REVISIONS
-	add ("OBJECT_RESOURCE_ID" integer default 0);
-
---------------------
--- Update version --
---------------------
-
+-- Now update the version
+-- No data upgrades
 update CALENDARSERVER set VALUE = '25' where NAME = 'VERSION';

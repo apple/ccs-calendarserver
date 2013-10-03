@@ -18,27 +18,18 @@
 -- Upgrade database schema from VERSION 24 to 25 --
 ---------------------------------------------------
 
-----------------------------------------
--- Change Address Book Object Members --
-----------------------------------------
+-- Rename columns and indexes
+alter table SHARED_ADDRESSBOOK_BIND
+	rename column OWNER_ADDRESSBOOK_HOME_RESOURCE_ID to OWNER_HOME_RESOURCE_ID;
 
-alter table ABO_MEMBERS
-	drop constraint	abo_members_member_id_fkey,
-	drop constraint	abo_members_group_id_fkey,
-	add column	REVISION		integer      default nextval('REVISION_SEQ') not null,
-	add column	REMOVED         boolean      default false not null,
-	drop constraint abo_members_pkey,
-	add constraint abo_members_pkey primary key(GROUP_ID, MEMBER_ID, REVISION);
+alter table SHARED_GROUP_BIND
+	rename column GROUP_ADDRESSBOOK_RESOURCE_NAME to GROUP_ADDRESSBOOK_NAME;
 
-------------------------------------------
--- Change Address Book Object Revisions --
-------------------------------------------
-	
 alter table ADDRESSBOOK_OBJECT_REVISIONS
-	add column OBJECT_RESOURCE_ID integer default 0;
-	
---------------------
--- Update version --
---------------------
+	rename column OWNER_ADDRESSBOOK_HOME_RESOURCE_ID to OWNER_HOME_RESOURCE_ID;
 
+alter index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_ADDRESSBOOK_HOME_RESOURCE_ID rename to ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_HOME_RESOURCE_ID;
+
+-- Now update the version
+-- No data upgrades
 update CALENDARSERVER set VALUE = '25' where NAME = 'VERSION';
