@@ -60,3 +60,7 @@ class CalDAV (unittest.TestCase):
         self.assertTrue(result)
         result = yield ScheduleViaISchedule.matchCalendarUserAddress("mailto:user@example.org")
         self.assertFalse(result)
+        result = yield ScheduleViaISchedule.matchCalendarUserAddress("mailto:user@example.org?subject=foobar")
+        self.assertFalse(result)
+        result = yield ScheduleViaISchedule.matchCalendarUserAddress("mailto:user")
+        self.assertFalse(result)

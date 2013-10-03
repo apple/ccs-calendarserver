@@ -193,10 +193,10 @@ class Server(object):
         return ip in self.allowed_from_ips
 
 
-    def checkSharedSecret(self, request):
+    def checkSharedSecret(self, headers):
 
         # Get header from the request
-        request_secret = request.headers.getRawHeaders(SERVER_SECRET_HEADER)
+        request_secret = headers.getRawHeaders(SERVER_SECRET_HEADER)
 
         if request_secret is not None and self.shared_secret is None:
             log.error("iSchedule request included unexpected %s header" % (SERVER_SECRET_HEADER,))

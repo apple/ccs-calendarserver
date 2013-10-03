@@ -38,6 +38,8 @@ from twistedcaldav.accounting import accountingEnabledForCategory, emitAccountin
 from twistedcaldav.client.pool import _configuredClientContextFactory
 from twistedcaldav.config import config
 from twistedcaldav.ical import normalizeCUAddress, Component
+from twistedcaldav.util import utf8String
+
 from txdav.caldav.datastore.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser, \
     OtherServerCalendarUser
 from txdav.caldav.datastore.scheduling.delivery import DeliveryService
@@ -49,7 +51,8 @@ from txdav.caldav.datastore.scheduling.ischedule.xml import ScheduleResponse, Re
     RequestStatus, Recipient, ischedule_namespace, CalendarData, \
     ResponseDescription, Error
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
-from twistedcaldav.util import utf8String, normalizationLookup
+from txdav.caldav.datastore.scheduling.utils import extractEmailDomain
+from txdav.caldav.datastore.util import normalizationLookup
 
 from urlparse import urlsplit
 
@@ -83,7 +86,7 @@ class ScheduleViaISchedule(DeliveryService):
 
         # Only handle mailtos:
         if cuaddr.lower().startswith("mailto:"):
-            _ignore_local, domain = cuaddr[7:].split("@", 1)
+            domain = extractEmailDomain(cuaddr)
             server = (yield cls.serverForDomain(domain))
             returnValue(server is not None)
 
@@ -226,11 +229,10 @@ class IScheduleRequest(object):
 
         # Generate an HTTP client request
         try:
-            if not hasattr(self.scheduler.request, "extendedLogItems"):
-                self.scheduler.request.extendedLogItems = {}
-            if "itip.ischedule" not in self.scheduler.request.extendedLogItems:
-                self.scheduler.request.extendedLogItems["itip.ischedule"] = 0
-            self.scheduler.request.extendedLogItems["itip.ischedule"] += 1
+            if self.scheduler.logItems is not None:
+                if "itip.ischedule" not in self.scheduler.logItems:
+                    self.scheduler.logItems["itip.ischedule"] = 0
+                self.scheduler.logItems["itip.ischedule"] += 1
 
             # Loop over at most 3 redirects
             ssl, host, port, path = self.server.details()
@@ -363,7 +365,7 @@ class IScheduleRequest(object):
 
         # The Originator must be the ORGANIZER (for a request) or ATTENDEE (for a reply)
         originator = self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee
-        originator = normalizeCUAddress(originator, normalizationLookup, self.scheduler.resource.principalForCalendarUserAddress, toUUID=False)
+        originator = normalizeCUAddress(originator, normalizationLookup, self.scheduler.txn.directoryService().recordWithCalendarUserAddress, toUUID=False)
         self.headers.addRawHeader("Originator", utf8String(originator))
         self.sign_headers.append("Originator")
 
@@ -417,7 +419,7 @@ class IScheduleRequest(object):
                 normalizedCalendar = self.scheduler.calendar.duplicate()
                 normalizedCalendar.normalizeCalendarUserAddresses(
                     normalizationLookup,
-                    self.scheduler.resource.principalForCalendarUserAddress,
+                    self.scheduler.txn.directoryService().recordWithCalendarUserAddress,
                     toUUID=False)
             else:
                 normalizedCalendar = self.scheduler.calendar

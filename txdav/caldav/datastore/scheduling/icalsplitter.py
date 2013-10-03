@@ -113,7 +113,7 @@ class iCalSplitter(object):
         return rid
 
 
-    def split(self, ical, rid=None, newUID=None):
+    def split(self, ical, rid=None, olderUID=None):
         """
         Split the specified iCalendar object. This assumes that L{willSplit} has already
         been called and returned C{True}. Splitting is done by carving out old instances
@@ -126,11 +126,11 @@ class iCalSplitter(object):
         @param rid: recurrence-id where the split should occur, or C{None} to determine it here
         @type rid: L{PyCalendarDateTime} or C{None}
 
-        @param newUID: UID to use for the split off component, or C{None} to generate one here
-        @type newUID: C{str} or C{None}
+        @param olderUID: UID to use for the split off component, or C{None} to generate one here
+        @type olderUID: C{str} or C{None}
 
-        @return: iCalendar object for the old "carved out" instances
-        @rtype: L{Component}
+        @return: iCalendar objects for the old and new "carved out" instances
+        @rtype: C{tuple} of two L{Component}'s
         """
 
         # Find the instance RECURRENCE-ID where a split is going to happen
@@ -138,16 +138,17 @@ class iCalSplitter(object):
 
         # Create the old one with a new UID value (or the one passed in)
         icalOld = ical.duplicate()
-        oldUID = icalOld.newUID(newUID=newUID)
+        oldUID = icalOld.newUID(newUID=olderUID)
         icalOld.onlyPastInstances(rid)
 
         # Adjust the current one
-        ical.onlyFutureInstances(rid)
+        icalNew = ical.duplicate()
+        icalNew.onlyFutureInstances(rid)
 
         # Relate them - add RELATED-TO;RELTYPE=RECURRENCE-SET if not already present
         if not icalOld.hasPropertyWithParameterMatch("RELATED-TO", "RELTYPE", "X-CALENDARSERVER-RECURRENCE-SET"):
             property = Property("RELATED-TO", oldUID, params={"RELTYPE": "X-CALENDARSERVER-RECURRENCE-SET"})
             icalOld.addPropertyToAllComponents(property)
-            ical.addPropertyToAllComponents(property)
+            icalNew.addPropertyToAllComponents(property)
 
-        return icalOld
+        return (icalOld, icalNew,)

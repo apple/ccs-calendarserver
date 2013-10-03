@@ -2,10 +2,11 @@ Index: Connection.c
 ===================================================================
 --- Connection.c	2011-03-19 16:05:30.000000000 -0700
 +++ Connection.c	2012-08-01 09:22:17.000000000 -0700
-@@ -713,6 +713,19 @@
+@@ -713,6 +713,21 @@
      if (newPasswordObj)
          return Connection_ChangePassword(self, self->password, newPasswordObj);
  
++#ifdef OCI_ATTR_DEFAULT_LOBPREFETCH_SIZE
 +    /* set lob prefetch attribute to session */
 +    ub4 default_lobprefetch_size = 4096;                  /* Set default size to 4K */
 +    status = OCIAttrSet (self->sessionHandle, (ub4) OCI_HTYPE_SESSION,
@@ -19,6 +20,7 @@ Index: Connection.c
 +        return -1;
 +    }
 +
++#endif
      // begin the session
      Py_BEGIN_ALLOW_THREADS
      status = OCISessionBegin(self->handle, self->environment->errorHandle,

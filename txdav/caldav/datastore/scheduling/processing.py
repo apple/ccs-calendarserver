@@ -234,7 +234,9 @@ class ImplicitProcessor(object):
             # and only if the request does not indicate we should skip attendee refresh
             # (e.g. inbox item processing during migration from non-implicit server)
             if partstatChanged and not self.noAttendeeRefresh:
-                yield self.queueAttendeeUpdate((attendeeReplying, organizer,))
+                # Check limit of attendees
+                if config.Scheduling.Options.AttendeeRefreshCountLimit == 0 or len(self.recipient_calendar.getAllUniqueAttendees()) <= config.Scheduling.Options.AttendeeRefreshCountLimit:
+                    yield self.queueAttendeeUpdate((attendeeReplying, organizer,))
 
             result = (True, False, True, changes,)
 
@@ -460,6 +462,26 @@ class ImplicitProcessor(object):
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                 raise ImplicitProcessorException("5.3;Organizer change not allowed")
 
+        # Handle splitting of data early so we can preserve per-attendee data
+        if self.message.hasProperty("X-CALENDARSERVER-SPLIT-OLDER-UID"):
+            if config.Scheduling.Options.Splitting.Enabled:
+                # Tell the existing resource to split
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' splitting UID: '%s'" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                split = (yield self.doImplicitAttendeeSplit())
+                if split:
+                    returnValue((True, False, False, None,))
+            else:
+                self.message.removeProperty("X-CALENDARSERVER-SPLIT-OLDER-UID")
+                self.message.removeProperty("X-CALENDARSERVER-SPLIT-RID")
+
+        elif self.message.hasProperty("X-CALENDARSERVER-SPLIT-NEWER-UID"):
+            if config.Scheduling.Options.Splitting.Enabled:
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - split already done" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                returnValue((True, False, False, None,))
+            else:
+                self.message.removeProperty("X-CALENDARSERVER-SPLIT-OLDER-UID")
+                self.message.removeProperty("X-CALENDARSERVER-SPLIT-RID")
+
         # Different based on method
         if self.method == "REQUEST":
             result = (yield self.doImplicitAttendeeRequest())
@@ -473,6 +495,22 @@ class ImplicitProcessor(object):
             result = (True, True, False, None,)
 
         returnValue(result)
+
+
+    @inlineCallbacks
+    def doImplicitAttendeeSplit(self):
+        """
+        Handle splitting of the existing calendar data.
+        """
+        olderUID = self.message.propertyValue("X-CALENDARSERVER-SPLIT-OLDER-UID")
+        split_rid = self.message.propertyValue("X-CALENDARSERVER-SPLIT-RID")
+        if olderUID is None or split_rid is None:
+            returnValue(False)
+
+        # Split the resource
+        yield self.recipient_calendar_resource.splitForAttendee(rid=split_rid, olderUID=olderUID)
+
+        returnValue(True)
 
 
     @inlineCallbacks
@@ -868,7 +906,7 @@ class ImplicitProcessor(object):
             partstat = "MIXED RESPONSE"
 
             # Default state is whichever of free or busy has most instances
-            defaultPartStat = max(partstat_counts.items(), key=lambda x: x[1])[0]
+            defaultPartStat = max(sorted(partstat_counts.items()), key=lambda x: x[1])[0]
 
             # See if there is a master component first
             hadMasterRsvp = False
@@ -898,7 +936,7 @@ class ImplicitProcessor(object):
                     # Derive a new overridden component and change partstat. We also need to make sure we restore any RSVP
                     # value that may have been overwritten by any change to the master itself.
                     derived = calendar.deriveInstance(instance.rid)
-                    if derived:
+                    if derived is not None:
                         attendee = derived.getAttendeeProperty(cuas)
                         if attendee:
                             if instance.partstat == "NEEDS-ACTION" and instance.active:
@@ -1028,7 +1066,7 @@ class ImplicitProcessor(object):
         # We only need to fix data that already exists
         if recipient_resource is not None:
             if originator_calendar.mainType() != None:
-                yield self.writeCalendarResource(recipient_resource, originator_calendar)
+                yield self.writeCalendarResource(None, recipient_resource, originator_calendar)
             else:
                 yield self.deleteCalendarResource(recipient_resource)
 

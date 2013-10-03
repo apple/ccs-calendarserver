@@ -167,22 +167,22 @@ class ServerTests(unittest.TestCase):
 
         request = SimpleRequest(None, "POST", "/ischedule")
         request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar")
-        self.assertTrue(servers.getServerById("00001").checkSharedSecret(request))
+        self.assertTrue(servers.getServerById("00001").checkSharedSecret(request.headers))
 
         request = SimpleRequest(None, "POST", "/ischedule")
         request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar1")
-        self.assertFalse(servers.getServerById("00001").checkSharedSecret(request))
+        self.assertFalse(servers.getServerById("00001").checkSharedSecret(request.headers))
 
         request = SimpleRequest(None, "POST", "/ischedule")
-        self.assertFalse(servers.getServerById("00001").checkSharedSecret(request))
+        self.assertFalse(servers.getServerById("00001").checkSharedSecret(request.headers))
 
         request = SimpleRequest(None, "POST", "/ischedule")
         request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar")
-        self.assertFalse(servers.getServerById("00002").checkSharedSecret(request))
+        self.assertFalse(servers.getServerById("00002").checkSharedSecret(request.headers))
 
         request = SimpleRequest(None, "POST", "/ischedule")
         request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar1")
-        self.assertFalse(servers.getServerById("00002").checkSharedSecret(request))
+        self.assertFalse(servers.getServerById("00002").checkSharedSecret(request.headers))
 
         request = SimpleRequest(None, "POST", "/ischedule")
-        self.assertTrue(servers.getServerById("00002").checkSharedSecret(request))
+        self.assertTrue(servers.getServerById("00002").checkSharedSecret(request.headers))

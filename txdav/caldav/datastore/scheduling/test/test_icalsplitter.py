@@ -2009,12 +2009,12 @@ END:VCALENDAR
             splitter = iCalSplitter(1024, 14)
             if title[0] == "1":
                 self.assertTrue(splitter.willSplit(ical), "Failed will split: %s" % (title,))
-            icalOld = splitter.split(ical)
+            icalOld, icalNew = splitter.split(ical)
             relsubs = dict(self.subs)
             relsubs["relID"] = icalOld.resourceUID()
-            self.assertEqual(str(ical).replace("\r\n ", ""), split_future.replace("\n", "\r\n") % relsubs, "Failed future: %s" % (title,))
+            self.assertEqual(str(icalNew).replace("\r\n ", ""), split_future.replace("\n", "\r\n") % relsubs, "Failed future: %s" % (title,))
             self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
 
             # Make sure new items won't split again
-            self.assertFalse(splitter.willSplit(ical), "Failed future will split: %s" % (title,))
+            self.assertFalse(splitter.willSplit(icalNew), "Failed future will split: %s" % (title,))
             self.assertFalse(splitter.willSplit(icalOld), "Failed past will split: %s" % (title,))

@@ -63,6 +63,8 @@ class ImplicitScheduler(object):
         self.allowed_to_schedule = True
         self.suppress_refresh = False
 
+        self.split_details = None
+
     NotAllowedExceptionDetails = collections.namedtuple("NotAllowedExceptionDetails", ("type", "args", "kwargs",))
 
     def setSchedulingNotAllowed(self, ex, *ex_args, **ex_kwargs):
@@ -301,7 +303,7 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
-    def doImplicitScheduling(self, do_smart_merge=False):
+    def doImplicitScheduling(self, do_smart_merge=False, split_details=None):
         """
         Do implicit scheduling operation based on the data already set by call to checkImplicitScheduling.
 
@@ -315,6 +317,7 @@ class ImplicitScheduler(object):
         self.do_smart_merge = do_smart_merge
         self.except_attendees = ()
         self.only_refresh_attendees = None
+        self.split_details = split_details
 
         # Determine what type of scheduling this is: Organizer triggered or Attendee triggered
         if self.state == "organizer":
@@ -561,25 +564,30 @@ class ImplicitScheduler(object):
                     log.debug("Implicit - organizer '%s' is modifying UID: '%s' but change is not significant" % (self.organizer, self.uid))
                     returnValue(None)
             else:
-                log.debug("Implicit - organizer '%s' is modifying UID: '%s'" % (self.organizer, self.uid))
+                # Do not change PARTSTATs for a split operation
+                if self.split_details is None:
+                    log.debug("Implicit - organizer '%s' is modifying UID: '%s'" % (self.organizer, self.uid))
 
-                for rid in self.needs_action_rids:
-                    comp = self.calendar.overriddenComponent(rid)
-                    if comp is None:
-                        comp = self.calendar.deriveInstance(rid)
-                        self.calendar.addComponent(comp)
+                    for rid in self.needs_action_rids:
+                        comp = self.calendar.overriddenComponent(rid)
+                        if comp is None:
+                            comp = self.calendar.deriveInstance(rid)
+                            if comp is not None:
+                                self.calendar.addComponent(comp)
 
-                    for attendee in comp.getAllAttendeeProperties():
-                        if attendee.hasParameter("PARTSTAT"):
-                            cuaddr = attendee.value()
+                        for attendee in comp.getAllAttendeeProperties():
+                            if attendee.hasParameter("PARTSTAT"):
+                                cuaddr = attendee.value()
 
-                            if cuaddr in self.organizerPrincipal.calendarUserAddresses:
-                                # If the attendee is the organizer then do not update
-                                # the PARTSTAT to NEEDS-ACTION.
-                                # The organizer is automatically ACCEPTED to the event.
-                                continue
+                                if cuaddr in self.organizerPrincipal.calendarUserAddresses:
+                                    # If the attendee is the organizer then do not update
+                                    # the PARTSTAT to NEEDS-ACTION.
+                                    # The organizer is automatically ACCEPTED to the event.
+                                    continue
 
-                            attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
+                                attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
+                else:
+                    log.debug("Implicit - organizer '%s' is splitting UID: '%s'" % (self.organizer, self.uid))
 
                 # Check for removed attendees
                 if not recurrence_reschedule:
@@ -592,8 +600,12 @@ class ImplicitScheduler(object):
                 self.needs_sequence_change = self.calendar.needsiTIPSequenceChange(self.oldcalendar)
 
         elif self.action == "create":
-            log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
-            self.coerceAttendeesPartstatOnCreate()
+            if self.split_details is None:
+                log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
+                self.coerceAttendeesPartstatOnCreate()
+            else:
+                log.debug("Implicit - organizer '%s' is creating a split UID: '%s'" % (self.organizer, self.uid))
+                self.needs_sequence_change = False
 
         # Always set RSVP=TRUE for any NEEDS-ACTION
         for attendee in self.calendar.getAllAttendeeProperties():
@@ -845,6 +857,8 @@ class ImplicitScheduler(object):
             # Compare the old one to a derived instance, and if there is a change
             # add the derived instance to the new data
             newcomp = self.calendar.deriveInstance(rid)
+            if newcomp is None:
+                continue
             changed = self.compareAttendeePartstats(
                 self.oldcalendar.overriddenComponent(rid),
                 newcomp,
@@ -932,6 +946,13 @@ class ImplicitScheduler(object):
             if attendee in self.organizerPrincipal.calendarUserAddresses:
                 continue
 
+            # Handle split by not scheduling local attendees
+            if self.split_details is not None:
+                attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
+                attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
+                if type(attendeeAddress) is LocalCalendarUser:
+                    continue
+
             # Generate an iTIP CANCEL message for this attendee, cancelling
             # each instance or the whole
 
@@ -944,6 +965,13 @@ class ImplicitScheduler(object):
 
             # Send scheduling message
             if itipmsg:
+
+                # Add split details if needed
+                if self.split_details is not None:
+                    rid, uid, newer_piece = self.split_details
+                    itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-RID", rid))
+                    itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-OLDER-UID" if newer_piece else "X-CALENDARSERVER-SPLIT-NEWER-UID", uid))
+
                 # This is a local CALDAV scheduling operation.
                 scheduler = self.makeScheduler()
 
@@ -983,10 +1011,24 @@ class ImplicitScheduler(object):
             if self.reinvites and attendee not in self.reinvites:
                 continue
 
+            # Handle split by not scheduling local attendees
+            if self.split_details is not None:
+                attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
+                attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
+                if type(attendeeAddress) is LocalCalendarUser:
+                    continue
+
             itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,), self.changed_rids)
 
             # Send scheduling message
             if itipmsg is not None:
+
+                # Add split details if needed
+                if self.split_details is not None:
+                    rid, uid, newer_piece = self.split_details
+                    itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-RID", rid))
+                    itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-OLDER-UID" if newer_piece else "X-CALENDARSERVER-SPLIT-NEWER-UID", uid))
+
                 # This is a local CALDAV scheduling operation.
                 scheduler = self.makeScheduler()
 

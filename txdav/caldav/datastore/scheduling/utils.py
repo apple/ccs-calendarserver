@@ -46,3 +46,13 @@ def getCalendarObjectForRecord(txn, record, uid, allow_shared=False):
         returnValue(objectResources[0] if len(objectResources) == 1 else None)
     else:
         returnValue(None)
+
+
+
+def extractEmailDomain(mailtoURI):
+    try:
+        addr = mailtoURI[7:].split("?")[0]
+        _ignore_account, addrDomain = addr.split("@")
+    except ValueError:
+        addrDomain = ""
+    return addrDomain

@@ -23,7 +23,7 @@ from twisted.internet.abstract import isIPAddress
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.config import config
-from twistedcaldav.ical import normalizeCUAddress
+from twistedcaldav.ical import normalizeCUAddress, Component
 
 from txdav.caldav.datastore.scheduling import addressmapping
 from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser
@@ -139,15 +139,17 @@ class IScheduleScheduler(RemoteScheduler):
     }
 
     @inlineCallbacks
-    def doSchedulingViaPOST(self, request, originator, recipients, calendar):
+    def doSchedulingViaPOST(self, remoteAddr, headers, body, originator, recipients):
         """
         Carry out iSchedule specific processing.
         """
 
-        self.request = request
+        self.remoteAddr = remoteAddr
+        self.headers = headers
         self.verified = False
+
         if config.Scheduling.iSchedule.DKIM.Enabled:
-            verifier = DKIMVerifier(self.request, protocol_debug=config.Scheduling.iSchedule.DKIM.ProtocolDebug)
+            verifier = DKIMVerifier(self.headers, body, protocol_debug=config.Scheduling.iSchedule.DKIM.ProtocolDebug)
             try:
                 yield verifier.verify()
                 self.verified = True
@@ -170,7 +172,9 @@ class IScheduleScheduler(RemoteScheduler):
                     msg,
                 ))
 
-        if self.request.headers.getRawHeaders('x-calendarserver-itip-refreshonly', ("F"))[0] == "T":
+        calendar = Component.fromString(body)
+
+        if self.headers.getRawHeaders('x-calendarserver-itip-refreshonly', ("F"))[0] == "T":
             self.txn.doing_attendee_refresh = 1
 
         # Normalize recipient addresses
@@ -191,15 +195,6 @@ class IScheduleScheduler(RemoteScheduler):
             # Need to normalize the calendar data and recipient values to keep those in sync,
             # as we might later try to match them
             self.calendar.normalizeCalendarUserAddresses(normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress)
-
-
-    def loadRecipientsFromRequestHeaders(self):
-        """
-        Need to normalize the calendar data and recipient values to keep those in sync,
-        as we might later try to match them
-        """
-        super(IScheduleScheduler, self).loadRecipientsFromRequestHeaders()
-        self.recipients = [normalizeCUAddress(recipient, normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress) for recipient in self.recipients]
 
 
     def checkAuthorization(self):
@@ -259,7 +254,7 @@ class IScheduleScheduler(RemoteScheduler):
             ))
         else:
             # Get the request IP and map to hostname.
-            clientip = self.request.remoteAddr.host
+            clientip = self.remoteAddr.host
 
             # First compare as dotted IP
             matched = False
@@ -312,7 +307,7 @@ class IScheduleScheduler(RemoteScheduler):
         expected_uri = urlparse.urlparse(expected_uri)
 
         # Get the request IP and map to hostname.
-        clientip = self.request.remoteAddr.host
+        clientip = self.remoteAddr.host
 
         # Check against this server (or any of its partitions). We need this because an external iTIP message
         # may be addressed to users on different partitions, and the node receiving the iTIP message will need to
@@ -345,7 +340,7 @@ class IScheduleScheduler(RemoteScheduler):
                 log.debug("iSchedule cannot lookup client ip '%s': %s" % (clientip, str(e),))
 
         # Check possible shared secret
-        if matched and not Servers.getThisServer().checkSharedSecret(self.request):
+        if matched and not Servers.getThisServer().checkSharedSecret(self.headers):
             log.error("Invalid iSchedule shared secret")
             matched = False
 
