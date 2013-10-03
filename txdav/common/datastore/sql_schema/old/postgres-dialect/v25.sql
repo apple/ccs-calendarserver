@@ -448,24 +448,16 @@ insert into ADDRESSBOOK_OBJECT_KIND values (2, 'resource');
 insert into ADDRESSBOOK_OBJECT_KIND values (3, 'location');
 
 
-----------------------------------
--- Revisions, forward reference --
-----------------------------------
-
-create sequence REVISION_SEQ;
-
 ---------------------------------
 -- Address Book Object Members --
 ---------------------------------
 
 create table ABO_MEMBERS (
-    GROUP_ID              integer      not null, -- references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
+    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
  	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
-    MEMBER_ID             integer      not null, -- references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
-  	REVISION              integer      default nextval('REVISION_SEQ') not null,
-  	REMOVED               boolean      default false not null,
+    MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
 
-    primary key (GROUP_ID, MEMBER_ID, REVISION) -- implicit index
+    primary key (GROUP_ID, MEMBER_ID) -- implicit index
 );
 
 create index ABO_MEMBERS_ADDRESSBOOK_ID on
@@ -515,7 +507,7 @@ create index SHARED_GROUP_BIND_RESOURCE_ID on
 -- Revisions --
 ---------------
 
--- create sequence REVISION_SEQ;
+create sequence REVISION_SEQ;
 
 
 -------------------------------
@@ -549,7 +541,6 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_HOME_RESOURCE_ID 			integer			not null references ADDRESSBOOK_HOME,
   OWNER_HOME_RESOURCE_ID    			integer     	references ADDRESSBOOK_HOME,
   ADDRESSBOOK_NAME             			varchar(255) 	default null,
-  OBJECT_RESOURCE_ID					integer			default 0,
   RESOURCE_NAME                			varchar(255),
   REVISION                     			integer     	default nextval('REVISION_SEQ') not null,
   DELETED                      			boolean      	not null
