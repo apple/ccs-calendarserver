@@ -67,7 +67,6 @@ class ISQLExecutor(Interface):
         A copy of the 'paramstyle' attribute from a DB-API 2.0 module.
         """)
 
-
     dialect = Attribute(
         """
         A copy of the 'dialect' attribute from the connection pool.  One of the
@@ -100,8 +99,8 @@ class IAsyncTransaction(ISQLExecutor):
     """
     Asynchronous execution of SQL.
 
-    Note that there is no {begin()} method; if an L{IAsyncTransaction} exists at
-    all, it is assumed to have been started.
+    Note that there is no C{begin()} method; if an L{IAsyncTransaction} exists
+    at all, it is assumed to have been started.
     """
 
     def commit():
@@ -167,17 +166,18 @@ class IAsyncTransaction(ISQLExecutor):
 
         This is useful when using database-specific features such as
         sub-transactions where order of execution is importnat, but where
-        application code may need to perform I/O to determine what SQL, exactly,
-        it wants to execute.  Consider this fairly contrived example for an
-        imaginary database::
+        application code may need to perform I/O to determine what SQL,
+        exactly, it wants to execute.  Consider this fairly contrived example
+        for an imaginary database::
 
             def storeWebPage(url, block):
                 block.execSQL("BEGIN SUB TRANSACTION")
                 got = getPage(url)
                 def gotPage(data):
-                    block.execSQL("INSERT INTO PAGES (TEXT) VALUES (?)", [data])
+                    block.execSQL("INSERT INTO PAGES (TEXT) VALUES (?)",
+                                  [data])
                     block.execSQL("INSERT INTO INDEX (TOKENS) VALUES (?)",
-                                 [tokenize(data)])
+                                  [tokenize(data)])
                     lastStmt = block.execSQL("END SUB TRANSACTION")
                     block.end()
                     return lastStmt
@@ -187,12 +187,12 @@ class IAsyncTransaction(ISQLExecutor):
                             lambda x: txn.commit(), lambda f: txn.abort()
                           )
 
-        This fires off all the C{getPage} requests in parallel, and prepares all
-        the necessary SQL immediately as the results arrive, but executes those
-        statements in order.  In the above example, this makes sure to store the
-        page and its tokens together, another use for this might be to store a
-        computed aggregate (such as a sum) at a particular point in a
-        transaction, without sacrificing parallelism.
+        This fires off all the C{getPage} requests in parallel, and prepares
+        all the necessary SQL immediately as the results arrive, but executes
+        those statements in order.  In the above example, this makes sure to
+        store the page and its tokens together, another use for this might be
+        to store a computed aggregate (such as a sum) at a particular point in
+        a transaction, without sacrificing parallelism.
 
         @rtype: L{ICommandBlock}
         """
@@ -208,21 +208,21 @@ class ICommandBlock(ISQLExecutor):
 
     def end():
         """
-        End this command block, allowing other commands queued on the underlying
-        transaction to end.
+        End this command block, allowing other commands queued on the
+        underlying transaction to end.
 
         @note: This is I{not} the same as either L{IAsyncTransaction.commit} or
             L{IAsyncTransaction.abort}, since it does not denote success or
             failure; merely that the command block has completed and other
             statements may now be executed.  Since sub-transactions are a
             database-specific feature, they must be implemented at a
-            higher-level than this facility provides (although this facility may
-            be useful in their implementation).  Also note that, unlike either
-            of those methods, this does I{not} return a Deferred: if you want to
-            know when the block has completed, simply add a callback to the last
-            L{ICommandBlock.execSQL} call executed on this L{ICommandBlock}.
-            (This may be changed in a future version for the sake of
-            convenience, however.)
+            higher-level than this facility provides (although this facility
+            may be useful in their implementation).  Also note that, unlike
+            either of those methods, this does I{not} return a Deferred: if you
+            want to know when the block has completed, simply add a callback to
+            the last L{ICommandBlock.execSQL} call executed on this
+            L{ICommandBlock}.  (This may be changed in a future version for the
+            sake of convenience, however.)
         """
 
 
@@ -305,6 +305,7 @@ class IQueuer(Interface):
         @param callback: a callable which accepts a single parameter, a
             L{WorkProposal}
         """
+
 
     def transferProposalCallbacks(self, newQueuer):
         """

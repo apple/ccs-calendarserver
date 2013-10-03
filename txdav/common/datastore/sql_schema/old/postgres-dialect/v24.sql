@@ -398,19 +398,19 @@ create table ADDRESSBOOK_HOME_METADATA (
 
 create table SHARED_ADDRESSBOOK_BIND (
   ADDRESSBOOK_HOME_RESOURCE_ID			integer			not null references ADDRESSBOOK_HOME,
-  OWNER_HOME_RESOURCE_ID    			integer      	not null references ADDRESSBOOK_HOME on delete cascade,
+  OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer      	not null references ADDRESSBOOK_HOME on delete cascade,
   ADDRESSBOOK_RESOURCE_NAME    			varchar(255) 	not null,
   BIND_MODE                    			integer      	not null,	-- enum CALENDAR_BIND_MODE
   BIND_STATUS                  			integer      	not null,	-- enum CALENDAR_BIND_STATUS
   BIND_REVISION				   			integer      	default 0 not null,
   MESSAGE                      			text,                  		-- FIXME: xml?
 
-  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID), -- implicit index
+  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_ADDRESSBOOK_HOME_RESOURCE_ID), -- implicit index
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
 create index SHARED_ADDRESSBOOK_BIND_RESOURCE_ID on
-  SHARED_ADDRESSBOOK_BIND(OWNER_HOME_RESOURCE_ID);
+  SHARED_ADDRESSBOOK_BIND(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID);
 
 
 ------------------------
@@ -489,14 +489,14 @@ create index ABO_FOREIGN_MEMBERS_ADDRESSBOOK_ID on
 create table SHARED_GROUP_BIND (	
   ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
   GROUP_RESOURCE_ID      			integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
-  GROUP_ADDRESSBOOK_NAME			varchar(255) not null,
+  GROUP_ADDRESSBOOK_RESOURCE_NAME	varchar(255) not null,
   BIND_MODE                    		integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                  		integer      not null, -- enum CALENDAR_BIND_STATUS
   BIND_REVISION				   		integer      default 0 not null,
   MESSAGE                      		text,                  -- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_RESOURCE_ID), -- implicit index
-  unique (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_ADDRESSBOOK_NAME)     -- implicit index
+  unique (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
 create index SHARED_GROUP_BIND_RESOURCE_ID on
@@ -539,21 +539,21 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_HOME_RESOURCE_ID 			integer			not null references ADDRESSBOOK_HOME,
-  OWNER_HOME_RESOURCE_ID    			integer     	references ADDRESSBOOK_HOME,
+  OWNER_ADDRESSBOOK_HOME_RESOURCE_ID    integer     	references ADDRESSBOOK_HOME,
   ADDRESSBOOK_NAME             			varchar(255) 	default null,
   RESOURCE_NAME                			varchar(255),
   REVISION                     			integer     	default nextval('REVISION_SEQ') not null,
   DELETED                      			boolean      	not null
 );
 
-create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_HOME_RESOURCE_ID
-  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID);
+create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_ADDRESSBOOK_HOME_RESOURCE_ID
+  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_ADDRESSBOOK_HOME_RESOURCE_ID);
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_RESOURCE_NAME
-  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_HOME_RESOURCE_ID, RESOURCE_NAME);
+  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME);
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_REVISION
-  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_HOME_RESOURCE_ID, REVISION);
+  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_ADDRESSBOOK_HOME_RESOURCE_ID, REVISION);
 
 
 -----------------------------------
@@ -695,6 +695,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '25');
+insert into CALENDARSERVER values ('VERSION', '24');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');

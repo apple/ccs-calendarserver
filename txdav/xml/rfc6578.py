@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -51,7 +51,7 @@ class SyncCollection (WebDAVElement):
     allowed_children = {
         (dav_namespace, "sync-token"): (0, 1), # When used in the REPORT this is required
         (dav_namespace, "sync-level"): (0, 1), # When used in the REPORT this is required
-        (dav_namespace, "prop"      ): (0, 1),
+        (dav_namespace, "prop"): (0, 1),
     }
 
     def __init__(self, *children, **attributes):
@@ -60,6 +60,7 @@ class SyncCollection (WebDAVElement):
         self.property = None
         self.sync_token = None
         self.sync_level = None
+        self.sync_limit = None
 
         for child in self.children:
             qname = child.qname()
@@ -70,10 +71,18 @@ class SyncCollection (WebDAVElement):
             elif qname == (dav_namespace, "sync-level"):
                 self.sync_level = str(child)
 
+            elif qname == (dav_namespace, "limit"):
+                if len(child.children) == 1 and child.children[0].qname() == (dav_namespace, "nresults"):
+                    try:
+                        self.sync_limit = int(str(child.children[0]))
+                    except TypeError:
+                        pass
+
             elif qname == (dav_namespace, "prop"):
                 if self.property is not None:
                     raise ValueError("Only one of DAV:prop allowed")
                 self.property = child
+
 
 
 @registerElement
@@ -87,6 +96,7 @@ class SyncToken (WebDAVTextElement):
     protected = True
 
 
+
 @registerElement
 @registerElementClass
 class SyncLevel (WebDAVTextElement):
@@ -94,6 +104,30 @@ class SyncLevel (WebDAVTextElement):
     Synchronization level used in report.
     """
     name = "sync-level"
+
+
+
+@registerElement
+@registerElementClass
+class Limit (WebDAVElement):
+    """
+    Synchronization limit in report.
+    """
+    name = "limit"
+
+    allowed_children = {
+        (dav_namespace, "nresults"): (1, 1), # When used in the REPORT this is required
+    }
+
+
+
+@registerElement
+@registerElementClass
+class NResults (WebDAVTextElement):
+    """
+    Synchronization numerical limit.
+    """
+    name = "nresults"
 
 
 # Extend MultiStatus, to add sync-token

@@ -28,6 +28,8 @@ serverinfo="${cdt}/scripts/server/serverinfo.xml";
 printres="";
 subdir="";
 random="--random";
+seed="";
+ssl="";
 
 usage ()
 {
@@ -40,13 +42,15 @@ usage ()
   echo "        -r  Print request and response";
   echo "        -s  Set the serverinfo.xml";
   echo "        -t  Set the CalDAVTester directory";
+  echo "        -x  Random seed to use.";
   echo "        -v  Verbose.";
+  echo "        -z  Use SSL.";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hvrot:s:d:' option; do
+while getopts 'hvrozt:s:d:x:' option; do
   case "$option" in 
     '?') usage; ;;
     'h') usage -; exit 0; ;;
@@ -56,6 +60,8 @@ while getopts 'hvrot:s:d:' option; do
     'r') printres="--always-print-request --always-print-response"; ;;
     'v') verbose="v"; ;;
     'o') random=""; ;;
+    'x') seed="--random-seed ${OPTARG}"; ;;
+    'z') ssl="--ssl"; ;;
   esac;
 done;
 
@@ -71,5 +77,5 @@ fi;
 
 source "${wd}/support/shell.sh";
 
-cd "${cdt}" && "${python}" testcaldav.py ${random} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
+cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
 

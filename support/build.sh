@@ -598,10 +598,11 @@ c_dependency () {
 
   export              PATH="${dstroot}/bin:${PATH}";
   export    C_INCLUDE_PATH="${dstroot}/include:${C_INCLUDE_PATH:-}";
-  export   LD_LIBRARY_PATH="${dstroot}/lib:${LD_LIBRARY_PATH:-}";
+  export   LD_LIBRARY_PATH="${dstroot}/lib:${dstroot}/lib64:${LD_LIBRARY_PATH:-}";
   export          CPPFLAGS="-I${dstroot}/include ${CPPFLAGS:-} ";
-  export           LDFLAGS="-L${dstroot}/lib ${LDFLAGS:-} ";
-  export DYLD_LIBRARY_PATH="${dstroot}/lib:${DYLD_LIBRARY_PATH:-}";
+  export           LDFLAGS="-L${dstroot}/lib -L${dstroot}/lib64 ${LDFLAGS:-} ";
+  export DYLD_LIBRARY_PATH="${dstroot}/lib:${dstroot}/lib64:${DYLD_LIBRARY_PATH:-}";
+  export PKG_CONFIG_PATH="${dstroot}/lib/pkgconfig:${PKG_CONFIG_PATH:-}";
 
   if "${do_setup}"; then
     if "${force_setup}" || "${do_bundle}" || [ ! -d "${dstroot}" ]; then
@@ -626,10 +627,10 @@ write_environment () {
   cat > "${dstroot}/environment.sh" << __EOF__
 export              PATH="${dstroot}/bin:\${PATH}";
 export    C_INCLUDE_PATH="${dstroot}/include:\${C_INCLUDE_PATH:-}";
-export   LD_LIBRARY_PATH="${dstroot}/lib:\${LD_LIBRARY_PATH:-}:\$ORACLE_HOME";
+export   LD_LIBRARY_PATH="${dstroot}/lib:${dstroot}/lib64:\${LD_LIBRARY_PATH:-}:\$ORACLE_HOME";
 export          CPPFLAGS="-I${dstroot}/include \${CPPFLAGS:-} ";
-export           LDFLAGS="-L${dstroot}/lib \${LDFLAGS:-} ";
-export DYLD_LIBRARY_PATH="${dstroot}/lib:\${DYLD_LIBRARY_PATH:-}:\$ORACLE_HOME";
+export           LDFLAGS="-L${dstroot}/lib -L${dstroot}/lib64 \${LDFLAGS:-} ";
+export DYLD_LIBRARY_PATH="${dstroot}/lib:${dstroot}/lib64:\${DYLD_LIBRARY_PATH:-}:\$ORACLE_HOME";
 __EOF__
 }
 
@@ -656,10 +657,10 @@ dependencies () {
 
     # Normally we depend on the system Python, but a bundle install should be as
     # self-contained as possible.
-    local pyfn="Python-2.7.1";
-    c_dependency -m "aa27bc25725137ba155910bd8e5ddc4f" \
+    local pyfn="Python-2.7.5";
+    c_dependency -m "6334b666b7ff2038c761d7b27ba699c1" \
         "Python" "${pyfn}" \
-        "http://www.python.org/ftp/python/2.7.1/${pyfn}.tar.bz2" \
+        "http://www.python.org/ftp/python/2.7.5/${pyfn}.tar.bz2" \
         --enable-shared;
     # Be sure to use the Python we just built.
     export PYTHON="$(type -p python)";
@@ -705,6 +706,14 @@ dependencies () {
       "OpenLDAP" "openldap-2.4.25" \
       "http://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-2.4.25.tgz" \
       --disable-bdb --disable-hdb;
+  fi;
+
+  if find_header ffi/ffi.h; then
+    using_system "libffi";
+  else
+    c_dependency -m "45f3b6dbc9ee7c7dfbbbc5feba571529" \
+      "libffi" "libffi-3.0.13" \
+      "ftp://sourceware.org/pub/libffi/libffi-3.0.13.tar.gz"
   fi;
 
   #
@@ -764,7 +773,7 @@ dependencies () {
   local v="4.1.1";
   local n="PyGreSQL";
   local p="${n}-${v}";
-  py_dependency -v "${v}" -m "71d0b8c5a382f635572eb52fee47cd08" -o \
+  py_dependency -v "${v}" -m "71d0b8c5a382f635572eb52fee47cd08" \
     "${n}" "pgdb" "${p}" \
     "${pypi}/P/${n}/${p}.tgz";
 
@@ -811,7 +820,7 @@ dependencies () {
   local v="0.1.2";
   local n="sqlparse";
   local p="${n}-${v}";
-  py_dependency -o -v "${v}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
+  py_dependency -v "${v}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
     "SQLParse" "${n}" "${p}" \
     "http://python-sqlparse.googlecode.com/files/${p}.tar.gz";
 
@@ -821,7 +830,7 @@ dependencies () {
     local v="0.6.1";
     local n="pyflakes";
     local p="${n}-${v}";
-    py_dependency -o -v "${v}" -m "00debd2280b962e915dfee552a675915" \
+    py_dependency -v "${v}" -m "00debd2280b962e915dfee552a675915" \
       "Pyflakes" "${n}" "${p}" \
       "${pypi}/p/${n}/${p}.tar.gz";
   fi;
@@ -833,28 +842,28 @@ dependencies () {
   # Can't add "-v 2011g" to args because the version check expects numbers.
   local n="pytz";
   local p="${n}-2011n";
-  py_dependency -o -m "75ffdc113a4bcca8096ab953df746391" \
+  py_dependency -m "75ffdc113a4bcca8096ab953df746391" \
     "${n}" "${n}" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
   local v="2.5";
   local n="pycrypto";
   local p="${n}-${v}";
-  py_dependency -o -v "${v}" -m "783e45d4a1a309e03ab378b00f97b291" \
+  py_dependency -v "${v}" -m "783e45d4a1a309e03ab378b00f97b291" \
     "PyCrypto" "${n}" "${p}" \
     "http://ftp.dlitz.net/pub/dlitz/crypto/${n}/${p}.tar.gz";
 
   local v="0.1.2";
   local n="pyasn1";
   local p="${n}-${v}";
-  py_dependency -o -v "${v}" -m "a7c67f5880a16a347a4d3ce445862a47" \
+  py_dependency -v "${v}" -m "a7c67f5880a16a347a4d3ce445862a47" \
     "${n}" "${n}" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
   local v="1.1.6";
   local n="setproctitle";
   local p="${n}-${v}";
-  py_dependency -o -v "1.0" -m "1e42e43b440214b971f4b33c21eac369" \
+  py_dependency -v "1.0" -m "1e42e43b440214b971f4b33c21eac369" \
     "${n}" "${n}" "${p}" \
     "${pypi}/s/${n}/${p}.tar.gz";
 

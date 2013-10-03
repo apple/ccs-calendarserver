@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -42,6 +42,7 @@ class Utilities(unittest.TestCase):
         self.assertEquals(util.normalizeURL("///../"), "/")
         self.assertEquals(util.normalizeURL("/.."), "/")
 
+
     def test_joinURL(self):
         """
         joinURL()
@@ -67,6 +68,7 @@ class Utilities(unittest.TestCase):
         self.assertEquals(util.joinURL("/foo", "/../"), "/")
         self.assertEquals(util.joinURL("/foo", "/./"), "/foo/")
 
+
     def test_parentForURL(self):
         """
         parentForURL()
@@ -83,6 +85,8 @@ class Utilities(unittest.TestCase):
         self.assertEquals(util.parentForURL("http://server/foo/bar/."), "http://server/foo/")
         self.assertEquals(util.parentForURL("http://server/foo/bar"), "http://server/foo/")
         self.assertEquals(util.parentForURL("http://server/foo/bar/"), "http://server/foo/")
+        self.assertEquals(util.parentForURL("http://server/foo/bar?x=1&y=2"), "http://server/foo/")
+        self.assertEquals(util.parentForURL("http://server/foo/bar/?x=1&y=2"), "http://server/foo/")
         self.assertEquals(util.parentForURL("/"), None)
         self.assertEquals(util.parentForURL("/foo/.."), None)
         self.assertEquals(util.parentForURL("/foo/../"), None)
@@ -94,3 +98,5 @@ class Utilities(unittest.TestCase):
         self.assertEquals(util.parentForURL("/foo/bar/."), "/foo/")
         self.assertEquals(util.parentForURL("/foo/bar"), "/foo/")
         self.assertEquals(util.parentForURL("/foo/bar/"), "/foo/")
+        self.assertEquals(util.parentForURL("/foo/bar?x=1&y=2"), "/foo/")
+        self.assertEquals(util.parentForURL("/foo/bar/?x=1&y=2"), "/foo/")

@@ -1378,7 +1378,8 @@ def buildLocalQueriesFromTokens(tokens, mapping):
 def buildNestedQueryFromTokens(tokens, mapping):
     """
     Build a DS query espression such that all the tokens must appear in either
-    the fullName (anywhere) or emailAddresses (at the beginning).
+    the fullName (anywhere), emailAddresses (at the beginning) or record name
+    (at the beginning).
     
     @param tokens: The tokens to search on
     @type tokens: C{list} of C{str}
@@ -1394,6 +1395,7 @@ def buildNestedQueryFromTokens(tokens, mapping):
     fields = [
         ("fullName", dsattributes.eDSContains),
         ("emailAddresses", dsattributes.eDSStartsWith),
+        ("recordName", dsattributes.eDSStartsWith),
     ]
 
     outer = []

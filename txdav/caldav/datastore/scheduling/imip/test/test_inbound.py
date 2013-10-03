@@ -15,7 +15,7 @@
 ##
 
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.python.modules import getModule
 
 from twistedcaldav.config import ConfigDict
@@ -25,6 +25,8 @@ from txdav.caldav.datastore.scheduling.imip.inbound import IMIPReplyWork
 from txdav.caldav.datastore.scheduling.imip.inbound import MailReceiver
 from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 from txdav.caldav.datastore.scheduling.imip.inbound import injectMessage
+from txdav.caldav.datastore.scheduling.imip.inbound import shouldDeleteAllMail
+from txdav.caldav.datastore.scheduling.imip.inbound import IMAP4DownloadProtocol
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.datastore.test.util import buildCalendarStore
 
@@ -47,6 +49,7 @@ class InboundTests(unittest.TestCase):
                 "UseSSL" : False,
                 "Server" : "example.com",
                 "Port" : 123,
+                "Username" : "xyzzy",
             })
         )
 
@@ -359,3 +362,87 @@ END:VCALENDAR
         ))
         yield txn.commit()
         yield wp.whenExecuted()
+
+
+    def test_shouldDeleteAllMail(self):
+
+        # Delete if the mail server is on the same host and using our
+        # dedicated account:
+        self.assertTrue(shouldDeleteAllMail("calendar.example.com",
+            "calendar.example.com", "com.apple.calendarserver"))
+        self.assertTrue(shouldDeleteAllMail("calendar.example.com",
+            "localhost", "com.apple.calendarserver"))
+
+        # Don't delete all otherwise:
+        self.assertFalse(shouldDeleteAllMail("calendar.example.com",
+            "calendar.example.com", "not_ours"))
+        self.assertFalse(shouldDeleteAllMail("calendar.example.com",
+            "localhost", "not_ours"))
+        self.assertFalse(shouldDeleteAllMail("calendar.example.com",
+            "mail.example.com", "com.apple.calendarserver"))
+
+
+    @inlineCallbacks
+    def test_deletion(self):
+        """
+        Verify the IMAP protocol will delete messages only when the right
+        conditions are met.  Either:
+
+            A) We've been told to delete all mail
+            B) We've not been told to delete all mail, but it was a message
+                we processed
+        """
+
+        def stubFetchNextMessage():
+            pass
+
+        def stubCbFlagDeleted(result):
+            self.flagDeletedResult = result
+            return succeed(None)
+
+        proto = IMAP4DownloadProtocol()
+        self.patch(proto, "fetchNextMessage", stubFetchNextMessage)
+        self.patch(proto, "cbFlagDeleted", stubCbFlagDeleted)
+        results = {
+            "ignored" : (
+                {
+                    "RFC822" : "a message"
+                }
+            )
+        }
+
+        # Delete all mail = False; action taken = submitted; result = deletion
+        proto.factory = StubFactory(MailReceiver.INJECTION_SUBMITTED, False)
+        self.flagDeletedResult = None
+        yield proto.cbGotMessage(results, "xyzzy")
+        self.assertEquals(self.flagDeletedResult, "xyzzy")
+
+        # Delete all mail = False; action taken = not submitted; result = no deletion
+        proto.factory = StubFactory(MailReceiver.NO_TOKEN, False)
+        self.flagDeletedResult = None
+        yield proto.cbGotMessage(results, "xyzzy")
+        self.assertEquals(self.flagDeletedResult, None)
+
+        # Delete all mail = True; action taken = submitted; result = deletion
+        proto.factory = StubFactory(MailReceiver.INJECTION_SUBMITTED, True)
+        self.flagDeletedResult = None
+        yield proto.cbGotMessage(results, "xyzzy")
+        self.assertEquals(self.flagDeletedResult, "xyzzy")
+
+        # Delete all mail = True; action taken = not submitted; result = deletion
+        proto.factory = StubFactory(MailReceiver.NO_TOKEN, True)
+        self.flagDeletedResult = None
+        yield proto.cbGotMessage(results, "xyzzy")
+        self.assertEquals(self.flagDeletedResult, "xyzzy")
+
+
+class StubFactory(object):
+
+    def __init__(self, actionTaken, deleteAllMail):
+        self.actionTaken = actionTaken
+        self.deleteAllMail = deleteAllMail
+
+    def handleMessage(self, messageData):
+        return succeed(self.actionTaken)
+
+

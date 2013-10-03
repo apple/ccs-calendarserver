@@ -95,6 +95,7 @@ class _SubprocessSocket(FileDescriptor, object):
     used to transmit sockets to a subprocess.
 
     @ivar skt: the UNIX socket used as the sendmsg() transport.
+    @type skt: L{socket.socket}
 
     @ivar outgoingSocketQueue: an outgoing queue of sockets to send to the
         subprocess, along with their descriptions (strings describing their
@@ -107,7 +108,11 @@ class _SubprocessSocket(FileDescriptor, object):
         from the subprocess: this is an application-specific indication of how
         ready this subprocess is to receive more connections.  A typical usage
         would be to count the open connections: this is what is passed to
-    @type status: C{str}
+    @type status: See L{IStatusWatcher} for an explanation of which methods
+        determine this type.
+
+    @ivar dispatcher: The socket dispatcher that owns this L{_SubprocessSocket}
+    @type dispatcher: L{InheritedSocketDispatcher}
     """
 
     def __init__(self, dispatcher, skt, status):
@@ -117,6 +122,7 @@ class _SubprocessSocket(FileDescriptor, object):
         self.skt = skt          # XXX needs to be set non-blocking by somebody
         self.fileno = skt.fileno
         self.outgoingSocketQueue = []
+        self.pendingCloseSocketQueue = []
 
 
     def sendSocketToPeer(self, skt, description):
@@ -127,7 +133,7 @@ class _SubprocessSocket(FileDescriptor, object):
         self.startWriting()
 
 
-    def doRead(self):
+    def doRead(self, recvmsg=recvmsg):
         """
         Receive a status / health message and record it.
         """
@@ -137,10 +143,12 @@ class _SubprocessSocket(FileDescriptor, object):
             if se.errno not in (EAGAIN, ENOBUFS):
                 raise
         else:
-            self.dispatcher.statusMessage(self, data)
+            closeCount = self.dispatcher.statusMessage(self, data)
+            for ignored in xrange(closeCount):
+                self.pendingCloseSocketQueue.pop(0).close()
 
 
-    def doWrite(self):
+    def doWrite(self, sendfd=sendfd):
         """
         Transmit as many queued pending file descriptors as we can.
         """
@@ -153,6 +161,10 @@ class _SubprocessSocket(FileDescriptor, object):
                     self.outgoingSocketQueue.insert(0, (skt, desc))
                     return
                 raise
+
+            # Ready to close this socket; wait until it is acknowledged.
+            self.pendingCloseSocketQueue.append(skt)
+
         if not self.outgoingSocketQueue:
             self.stopWriting()
 
@@ -185,7 +197,7 @@ class IStatusWatcher(Interface):
         than the somewhat more abstract language that would be accurate.
     """
 
-    def initialStatus():
+    def initialStatus(): #@NoSelf
         """
         A new socket was created and added to the dispatcher.  Compute an
         initial value for its status.
@@ -194,7 +206,7 @@ class IStatusWatcher(Interface):
         """
 
 
-    def newConnectionStatus(previousStatus):
+    def newConnectionStatus(previousStatus): #@NoSelf
         """
         A new connection was sent to a given socket.  Compute its status based
         on the previous status of that socket.
@@ -206,7 +218,7 @@ class IStatusWatcher(Interface):
         """
 
 
-    def statusFromMessage(previousStatus, message):
+    def statusFromMessage(previousStatus, message): #@NoSelf
         """
         A status message was received by a worker.  Convert the previous status
         value (returned from L{newConnectionStatus}, L{initialStatus}, or
@@ -217,6 +229,17 @@ class IStatusWatcher(Interface):
 
         @return: the socket's status after taking the reported message into
             account.
+        """
+
+
+    def closeCountFromStatus(previousStatus): #@NoSelf
+        """
+        Based on a status previously returned from a method on this
+        L{IStatusWatcher}, determine how many sockets may be closed.
+
+        @return: a 2-tuple of C{number of sockets that may safely be closed},
+            C{new status}.
+        @rtype: 2-tuple of (C{int}, C{<opaque>})
         """
 
 
@@ -260,10 +283,11 @@ class InheritedSocketDispatcher(object):
         The status of a connection has changed; update all registered status
         change listeners.
         """
-        subsocket.status = self.statusWatcher.statusFromMessage(
-            subsocket.status, message
-        )
-        self.statusWatcher.statusesChanged(self.statuses)
+        watcher = self.statusWatcher
+        status = watcher.statusFromMessage(subsocket.status, message)
+        closeCount, subsocket.status = watcher.closeCountFromStatus(status)
+        watcher.statusesChanged(self.statuses)
+        return closeCount
 
 
     def sendFileDescriptor(self, skt, description):
@@ -291,7 +315,7 @@ class InheritedSocketDispatcher(object):
         # XXX Maybe want to send along 'description' or 'skt' or some
         # properties thereof? -glyph
         selectedSocket.status = self.statusWatcher.newConnectionStatus(
-           selectedSocket.status
+            selectedSocket.status
         )
         self.statusWatcher.statusesChanged(self.statuses)
 
@@ -305,7 +329,7 @@ class InheritedSocketDispatcher(object):
             subSocket.startReading()
 
 
-    def addSocket(self):
+    def addSocket(self, socketpair=lambda: socketpair(AF_UNIX, SOCK_DGRAM)):
         """
         Add a C{sendmsg()}-oriented AF_UNIX socket to the pool of sockets being
         used for transmitting file descriptors to child processes.
@@ -314,7 +338,7 @@ class InheritedSocketDispatcher(object):
             C{fileno()} as part of the C{childFDs} argument to
             C{spawnProcess()}, then close it.
         """
-        i, o = socketpair(AF_UNIX, SOCK_DGRAM)
+        i, o = socketpair()
         i.setblocking(False)
         o.setblocking(False)
         a = _SubprocessSocket(self, o, self.statusWatcher.initialStatus())
@@ -412,4 +436,3 @@ class InheritedPort(FileDescriptor, object):
         """
         self.statusQueue.append(statusMessage)
         self.startWriting()
-

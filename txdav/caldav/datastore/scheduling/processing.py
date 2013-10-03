@@ -357,7 +357,7 @@ class ImplicitProcessor(object):
             # refresh them. To prevent a race we need a lock.
             yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5(self.uid).hexdigest(),))
 
-            organizer_home = (yield txn.calendarHomeForUID(self.organizer_uid))
+            organizer_home = (yield txn.calendarHomeWithUID(self.organizer_uid))
             organizer_resource = (yield organizer_home.objectResourceWithID(self.organizer_calendar_resource_id))
             if organizer_resource is not None:
                 yield self._doRefresh(organizer_resource, only_attendees=attendeesToProcess)

@@ -550,14 +550,6 @@ class CommonStoreTransaction(object):
         ).on(self)
 
 
-    def calendarHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(ECALENDARTYPE, uid, create=create)
-
-
-    def addressbookHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
-
-
     def _determineMemo(self, storeType, uid, create=False): #@UnusedVariable
         """
         Determine the memo dictionary to use for homeWithUID.
@@ -589,6 +581,14 @@ class CommonStoreTransaction(object):
             raise RuntimeError("Unknown home type.")
 
         return self._homeClass[storeType].homeWithUID(self, uid, create)
+
+
+    def calendarHomeWithUID(self, uid, create=False):
+        return self.homeWithUID(ECALENDARTYPE, uid, create=create)
+
+
+    def addressbookHomeWithUID(self, uid, create=False):
+        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
 
     @inlineCallbacks
@@ -1029,8 +1029,10 @@ class CommonStoreTransaction(object):
         """
         Commit the transaction and execute any post-commit hooks.
         """
+
+        # Do stats logging as a postCommit because there might be some pending preCommit SQL we want to log
         if self._stats:
-            self._stats.printReport()
+            self.postCommit(self._stats.printReport)
         return self._sqlTxn.commit()
 
 
@@ -2435,14 +2437,14 @@ class _SharedSyncLogic(object):
     @classproperty
     def _bumpSyncTokenQuery(cls): #@NoSelf
         """
-        DAL query to change collection sync token.
+        DAL query to change collection sync token. Note this can impact multiple rows if the
+        collection is shared.
         """
         rev = cls._revisionsSchema
         return Update(
             {rev.REVISION: schema.REVISION_SEQ, },
             Where=(rev.RESOURCE_ID == Parameter("resourceID")).And
-                  (rev.RESOURCE_NAME == None),
-            Return=rev.REVISION
+                  (rev.RESOURCE_NAME == None)
         )
 
 
@@ -2451,8 +2453,11 @@ class _SharedSyncLogic(object):
 
         if not self._txn.isRevisionBumpedAlready(self):
             self._txn.bumpRevisionForObject(self)
-            self._syncTokenRevision = (yield self._bumpSyncTokenQuery.on(
-                self._txn, resourceID=self._resourceID))[0][0]
+            yield self._bumpSyncTokenQuery.on(
+                self._txn,
+                resourceID=self._resourceID,
+            )
+            self._syncTokenRevision = None
 
 
     @classproperty

@@ -30,7 +30,7 @@ from txdav.xml import element as davxml
 
 from calendarserver.tools.util import (
     principalForPrincipalID, proxySubprincipal, addProxy, removeProxy,
-    ProxyError, ProxyWarning
+    ProxyError, ProxyWarning, autoDisableMemcached
 )
 from calendarserver.tools.principals import getProxies, setProxies, updateRecord
 from calendarserver.tools.purge import WorkerService, PurgeOldEventsService, DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS
@@ -188,6 +188,22 @@ class Runner(object):
 
     @inlineCallbacks
     def run(self):
+
+        # This method can be called as the result of an agent request.  We
+        # check to see if memcached is there for each call because the server
+        # could have stopped/started since the last time.
+
+        for pool in config.Memcached.Pools.itervalues():
+            pool.ClientEnabled = True
+        autoDisableMemcached(config)
+
+        from twistedcaldav.directory import calendaruserproxy
+        if calendaruserproxy.ProxyDBService is not None:
+            # Reset the proxy db memcacher because memcached may have come or
+            # gone since the last time through here.
+            # TODO: figure out a better way to do this
+            calendaruserproxy.ProxyDBService._memcacher._memcacheProtocol = None
+
         try:
             for command in self.commands:
                 commandName = command['command']

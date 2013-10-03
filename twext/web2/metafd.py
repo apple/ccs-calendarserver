@@ -23,6 +23,8 @@ from __future__ import print_function
 
 from functools import total_ordering
 
+from zope.interface import implementer
+
 from twext.internet.sendfdport import (
     InheritedPort, InheritedSocketDispatcher, InheritingProtocolFactory)
 from twext.internet.tcp import MaxAcceptTCPServer
@@ -30,7 +32,9 @@ from twext.python.log import Logger
 from twext.web2.channel.http import HTTPFactory
 from twisted.application.service import MultiService, Service
 from twisted.internet import reactor
+from twisted.python.util import FancyStrMixin
 from twisted.internet.tcp import Server
+from twext.internet.sendfdport import IStatusWatcher
 
 log = Logger()
 
@@ -161,12 +165,16 @@ class ReportingHTTPFactory(HTTPFactory):
 
 
 @total_ordering
-class WorkerStatus(object):
+class WorkerStatus(FancyStrMixin, object):
     """
     The status of a worker process.
     """
 
-    def __init__(self, acknowledged=0, unacknowledged=0, started=0):
+    showAttributes = ("acknowledged unacknowledged started abandoned unclosed"
+                      .split())
+
+    def __init__(self, acknowledged=0, unacknowledged=0, started=0,
+                 abandoned=0, unclosed=0):
         """
         Create a L{ConnectionStatus} with a number of sent connections and a
         number of un-acknowledged connections.
@@ -179,11 +187,27 @@ class WorkerStatus(object):
             the subprocess which have never received a status response (a
             "C{+}" status message).
 
+        @param abandoned: The number of connections which have been sent to
+            this worker, but were not acknowledged at the moment that the
+            worker restarted.
+
         @param started: The number of times this worker has been started.
+
+        @param unclosed: The number of sockets which have been sent to the
+            subprocess but not yet closed.
         """
         self.acknowledged = acknowledged
         self.unacknowledged = unacknowledged
         self.started = started
+        self.abandoned = abandoned
+        self.unclosed = unclosed
+
+
+    def effective(self):
+        """
+        The current effective load.
+        """
+        return self.acknowledged + self.unacknowledged
 
 
     def restarted(self):
@@ -191,17 +215,17 @@ class WorkerStatus(object):
         The L{WorkerStatus} derived from the current status of a process and
         the fact that it just restarted.
         """
-        return self.__class__(0, self.unacknowledged, self.started + 1)
+        return self.__class__(0, 0, self.started + 1, self.unacknowledged)
 
 
     def _tuplify(self):
-        return (self.acknowledged, self.unacknowledged, self.started)
+        return tuple(getattr(self, attr) for attr in self.showAttributes)
 
 
     def __lt__(self, other):
         if not isinstance(other, WorkerStatus):
             return NotImplemented
-        return self._tuplify() < other._tuplify()
+        return self.effective() < other.effective()
 
 
     def __eq__(self, other):
@@ -213,26 +237,28 @@ class WorkerStatus(object):
     def __add__(self, other):
         if not isinstance(other, WorkerStatus):
             return NotImplemented
-        return self.__class__(self.acknowledged + other.acknowledged,
-                              self.unacknowledged + other.unacknowledged,
-                              self.started + other.started)
+        a = self._tuplify()
+        b = other._tuplify()
+        c = [a1 + b1 for (a1, b1) in zip(a, b)]
+        return self.__class__(*c)
 
 
     def __sub__(self, other):
         if not isinstance(other, WorkerStatus):
             return NotImplemented
-        return self + self.__class__(-other.acknowledged,
-                                     -other.unacknowledged,
-                                     -other.started)
+        return self + self.__class__(*[-x for x in other._tuplify()])
 
 
 
+@implementer(IStatusWatcher)
 class ConnectionLimiter(MultiService, object):
     """
     Connection limiter for use with L{InheritedSocketDispatcher}.
 
     This depends on statuses being reported by L{ReportingHTTPFactory}
     """
+
+    _outstandingRequests = 0
 
     def __init__(self, maxAccepts, maxRequests):
         """
@@ -300,7 +326,16 @@ class ConnectionLimiter(MultiService, object):
         else:
             # '+' acknowledges that the subprocess has taken on the work.
             return previousStatus + WorkerStatus(acknowledged=1,
-                                                 unacknowledged=-1)
+                                                 unacknowledged=-1,
+                                                 unclosed=1)
+
+
+    def closeCountFromStatus(self, status):
+        """
+        Determine the number of sockets to close from the current status.
+        """
+        toClose = status.unclosed
+        return (toClose, status - WorkerStatus(unclosed=toClose))
 
 
     def newConnectionStatus(self, previousStatus):
@@ -320,20 +355,18 @@ class ConnectionLimiter(MultiService, object):
         C{self.dispatcher.statuses} attribute, which is what
         C{self.outstandingRequests} uses to compute it.)
         """
-        current = sum(status.acknowledged
+        current = sum(status.effective()
                       for status in self.dispatcher.statuses)
         self._outstandingRequests = current # preserve for or= field in log
         maximum = self.maxRequests
         overloaded = (current >= maximum)
-        if overloaded:
-            for f in self.factories:
-                f.myServer.myPort.stopReading()
-        else:
-            for f in self.factories:
-                f.myServer.myPort.startReading()
+        for f in self.factories:
+            if overloaded:
+                f.loadAboveMaximum()
+            else:
+                f.loadNominal()
 
 
-    _outstandingRequests = 0
     @property # make read-only
     def outstandingRequests(self):
         return self._outstandingRequests
@@ -365,6 +398,20 @@ class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
         self.limiter = limiter
         self.maxAccepts = limiter.maxAccepts
         self.maxRequests = limiter.maxRequests
+
+
+    def loadAboveMaximum(self):
+        """
+        The current server load has exceeded the maximum allowable.
+        """
+        self.myServer.myPort.stopReading()
+
+
+    def loadNominal(self):
+        """
+        The current server load is nominal; proceed with reading requests.
+        """
+        self.myServer.myPort.startReading()
 
 
     @property
