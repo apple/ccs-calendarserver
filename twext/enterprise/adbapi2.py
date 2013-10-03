@@ -18,10 +18,10 @@
 """
 Asynchronous multi-process connection pool.
 
-This is similar to L{twisted.enterprise.adbapi}, but can hold a transaction (and
-thereby a thread) open across multiple asynchronous operations, rather than
-forcing the transaction to be completed entirely in a thread and/or entirely in
-a single SQL statement.
+This is similar to L{twisted.enterprise.adbapi}, but can hold a transaction
+(and thereby a thread) open across multiple asynchronous operations, rather
+than forcing the transaction to be completed entirely in a thread and/or
+entirely in a single SQL statement.
 
 Also, this module includes an AMP protocol for multiplexing connections through
 a single choke-point host.  This is not currently in use, however, as AMP needs
@@ -84,6 +84,15 @@ def _forward(thunk):
 
 
 
+def _destructively(aList):
+    """
+    Destructively iterate a list, popping elements from the beginning.
+    """
+    while aList:
+        yield aList.pop(0)
+
+
+
 def _deriveParameters(cursor, args):
     """
     Some DB-API extensions need to call special extension methods on
@@ -118,6 +127,7 @@ def _deriveParameters(cursor, args):
     return derived
 
 
+
 def _deriveQueryEnded(cursor, derived):
     """
     A query which involved some L{IDerivedParameter}s just ended.  Execute any
@@ -141,6 +151,8 @@ class _ConnectedTxn(object):
     current process.
     """
     implements(IAsyncTransaction)
+
+    noisy = False
 
     def __init__(self, pool, threadHolder, connection, cursor):
         self._pool       = pool
@@ -169,33 +181,31 @@ class _ConnectedTxn(object):
         """
         Execute the given SQL on a thread, using a DB-API 2.0 cursor.
 
-        This method is invoked internally on a non-reactor thread, one dedicated
-        to and associated with the current cursor.  It executes the given SQL,
-        re-connecting first if necessary, re-cycling the old connection if
-        necessary, and then, if there are results from the statement (as
-        determined by the DB-API 2.0 'description' attribute) it will fetch all
-        the rows and return them, leaving them to be relayed to
+        This method is invoked internally on a non-reactor thread, one
+        dedicated to and associated with the current cursor.  It executes the
+        given SQL, re-connecting first if necessary, re-cycling the old
+        connection if necessary, and then, if there are results from the
+        statement (as determined by the DB-API 2.0 'description' attribute) it
+        will fetch all the rows and return them, leaving them to be relayed to
         L{_ConnectedTxn.execSQL} via the L{ThreadHolder}.
 
         The rules for possibly reconnecting automatically are: if this is the
         very first statement being executed in this transaction, and an error
         occurs in C{execute}, close the connection and try again.  We will
-        ignore any errors from C{close()} (or C{rollback()}) and log them during
-        this process.  This is OK because adbapi2 always enforces transaction
-        discipline: connections are never in autocommit mode, so if the first
-        statement in a transaction fails, nothing can have happened to the
-        database; as per the ADBAPI spec, a lost connection is a rolled-back
-        transaction.  In the cases where some databases fail to enforce
-        transaction atomicity (i.e. schema manipulations), re-executing the same
-        statement will result, at worst, in a spurious and harmless error (like
-        "table already exists"), not corruption.
+        ignore any errors from C{close()} (or C{rollback()}) and log them
+        during this process.  This is OK because adbapi2 always enforces
+        transaction discipline: connections are never in autocommit mode, so if
+        the first statement in a transaction fails, nothing can have happened
+        to the database; as per the ADBAPI spec, a lost connection is a
+        rolled-back transaction.  In the cases where some databases fail to
+        enforce transaction atomicity (i.e.  schema manipulations),
+        re-executing the same statement will result, at worst, in a spurious
+        and harmless error (like "table already exists"), not corruption.
 
         @param sql: The SQL string to execute.
-
         @type sql: C{str}
 
         @param args: The bind parameters to pass to adbapi, if any.
-
         @type args: C{list} or C{None}
 
         @param raiseOnZeroRowCount: If specified, an exception to raise when no
@@ -203,7 +213,6 @@ class _ConnectedTxn(object):
 
         @return: all the rows that resulted from execution of the given C{sql},
             or C{None}, if the statement is one which does not produce results.
-
         @rtype: C{list} of C{tuple}, or C{NoneType}
 
         @raise Exception: this function may raise any exception raised by the
@@ -234,9 +243,9 @@ class _ConnectedTxn(object):
             # happen in the transaction, then the connection has probably gone
             # bad in the meanwhile, and we should try again.
             if wasFirst:
-                # Report the error before doing anything else, since doing other
-                # things may cause the traceback stack to be eliminated if they
-                # raise exceptions (even internally).
+                # Report the error before doing anything else, since doing
+                # other things may cause the traceback stack to be eliminated
+                # if they raise exceptions (even internally).
                 log.err(
                     Failure(),
                     "Exception from execute() on first statement in "
@@ -292,11 +301,9 @@ class _ConnectedTxn(object):
             return None
 
 
-    noisy = False
-
     def execSQL(self, *args, **kw):
         result = self._holder.submit(
-            lambda : self._reallyExecSQL(*args, **kw)
+            lambda: self._reallyExecSQL(*args, **kw)
         )
         if self.noisy:
             def reportResult(results):
@@ -305,7 +312,7 @@ class _ConnectedTxn(object):
                     "SQL: %r %r" % (args, kw),
                     "Results: %r" % (results,),
                     "",
-                    ]))
+                ]))
                 return results
             result.addBoth(reportResult)
         return result
@@ -328,8 +335,8 @@ class _ConnectedTxn(object):
             self._completed = "ended"
             def reallySomething():
                 """
-                Do the database work and set appropriate flags.  Executed in the
-                cursor thread.
+                Do the database work and set appropriate flags.  Executed in
+                the cursor thread.
                 """
                 if self._cursor is None or self._first:
                     return
@@ -384,8 +391,8 @@ class _ConnectedTxn(object):
 class _NoTxn(object):
     """
     An L{IAsyncTransaction} that indicates a local failure before we could even
-    communicate any statements (or possibly even any connection attempts) to the
-    server.
+    communicate any statements (or possibly even any connection attempts) to
+    the server.
     """
     implements(IAsyncTransaction)
 
@@ -401,7 +408,6 @@ class _NoTxn(object):
         """
         return fail(ConnectionError(self.reason))
 
-
     execSQL = _everything
     commit  = _everything
     abort   = _everything
@@ -411,9 +417,9 @@ class _NoTxn(object):
 class _WaitingTxn(object):
     """
     A L{_WaitingTxn} is an implementation of L{IAsyncTransaction} which cannot
-    yet actually execute anything, so it waits and spools SQL requests for later
-    execution.  When a L{_ConnectedTxn} becomes available later, it can be
-    unspooled onto that.
+    yet actually execute anything, so it waits and spools SQL requests for
+    later execution.  When a L{_ConnectedTxn} becomes available later, it can
+    be unspooled onto that.
     """
 
     implements(IAsyncTransaction)
@@ -442,8 +448,7 @@ class _WaitingTxn(object):
         a Deferred to not interfere with the originally submitted order of
         commands.
         """
-        while self._spool:
-            yield self._spool.pop(0)
+        return _destructively(self._spool)
 
 
     def _unspool(self, other):
@@ -492,8 +497,9 @@ class _HookableOperation(object):
         """
         Callback for C{commit} and C{abort} Deferreds.
         """
-        for operation in self._hooks:
+        for operation in _destructively(self._hooks):
             yield operation()
+        self.clear()
         returnValue(ignored)
 
 
@@ -501,7 +507,16 @@ class _HookableOperation(object):
         """
         Implement L{IAsyncTransaction.postCommit}.
         """
-        self._hooks.append(operation)
+        if self._hooks is not None:
+            self._hooks.append(operation)
+
+
+    def clear(self):
+        """
+        Remove all hooks from this operation.  Once this is called, no
+        more hooks can be added ever again.
+        """
+        self._hooks = None
 
 
 
@@ -524,6 +539,7 @@ class _CommitAndAbortHooks(object):
         """
         pre = self._preCommit.runHooks()
         def ok(ignored):
+            self._abort.clear()
             return doCommit().addCallback(self._commit.runHooks)
         def failed(why):
             return self.abort().addCallback(lambda ignored: why)
@@ -639,9 +655,9 @@ class _SingleTxn(_CommitAndAbortHooks,
             d = self._currentBlock._startExecuting()
             d.addCallback(self._finishExecuting)
         elif self._blockedQueue is not None:
-            # If there aren't any pending blocks any more, and there are spooled
-            # statements that aren't part of a block, unspool all the statements
-            # that have been held up until this point.
+            # If there aren't any pending blocks any more, and there are
+            # spooled statements that aren't part of a block, unspool all the
+            # statements that have been held up until this point.
             bq = self._blockedQueue
             self._blockedQueue = None
             bq._unspool(self)
@@ -649,8 +665,8 @@ class _SingleTxn(_CommitAndAbortHooks,
 
     def _finishExecuting(self, result):
         """
-        The active block just finished executing.  Clear it and see if there are
-        more blocks to execute, or if all the blocks are done and we should
+        The active block just finished executing.  Clear it and see if there
+        are more blocks to execute, or if all the blocks are done and we should
         execute any queued free statements.
         """
         self._currentBlock = None
@@ -659,8 +675,9 @@ class _SingleTxn(_CommitAndAbortHooks,
 
     def commit(self):
         if self._blockedQueue is not None:
-            # We're in the process of executing a block of commands.  Wait until
-            # they're done.  (Commit will be repeated in _checkNextBlock.)
+            # We're in the process of executing a block of commands.  Wait
+            # until they're done.  (Commit will be repeated in
+            # _checkNextBlock.)
             return self._blockedQueue.commit()
         def reallyCommit():
             self._markComplete()
@@ -670,6 +687,8 @@ class _SingleTxn(_CommitAndAbortHooks,
 
     def abort(self):
         self._markComplete()
+        self._commit.clear()
+        self._preCommit.clear()
         result = super(_SingleTxn, self).abort()
         if self in self._pool._waiting:
             self._stopWaiting()
@@ -785,9 +804,9 @@ class CommandBlock(object):
 
         @param raiseOnZeroRowCount: see L{IAsyncTransaction.execSQL}
 
-        @param track: an internal parameter; was this called by application code
-            or as part of unspooling some previously-queued requests?  True if
-            application code, False if unspooling.
+        @param track: an internal parameter; was this called by application
+            code or as part of unspooling some previously-queued requests?
+            True if application code, False if unspooling.
         """
         if track and self._ended:
             raise AlreadyFinishedError()
@@ -970,8 +989,8 @@ class ConnectionPool(Service, object):
         super(ConnectionPool, self).stopService()
         self._stopping = True
 
-        # Phase 1: Cancel any transactions that are waiting so they won't try to
-        # eagerly acquire new connections as they flow into the free-list.
+        # Phase 1: Cancel any transactions that are waiting so they won't try
+        # to eagerly acquire new connections as they flow into the free-list.
         while self._waiting:
             waiting = self._waiting[0]
             waiting._stopWaiting()
@@ -991,10 +1010,10 @@ class ConnectionPool(Service, object):
         # ThreadHolders.
         while self._free:
             # Releasing a L{_ConnectedTxn} doesn't automatically recycle it /
-            # remove it the way aborting a _SingleTxn does, so we need to .pop()
-            # here.  L{_ConnectedTxn.stop} really shouldn't be able to fail, as
-            # it's just stopping the thread, and the holder's stop() is
-            # independently submitted from .abort() / .close().
+            # remove it the way aborting a _SingleTxn does, so we need to
+            # .pop() here.  L{_ConnectedTxn.stop} really shouldn't be able to
+            # fail, as it's just stopping the thread, and the holder's stop()
+            # is independently submitted from .abort() / .close().
             yield self._free.pop()._releaseConnection()
 
         tp = self.reactor.getThreadPool()
@@ -1011,8 +1030,8 @@ class ConnectionPool(Service, object):
     def connection(self, label="<unlabeled>"):
         """
         Find and immediately return an L{IAsyncTransaction} object.  Execution
-        of statements, commit and abort on that transaction may be delayed until
-        a real underlying database connection is available.
+        of statements, commit and abort on that transaction may be delayed
+        until a real underlying database connection is available.
 
         @return: an L{IAsyncTransaction}
         """
@@ -1158,6 +1177,7 @@ class Pickle(BigArgument):
     def toString(self, inObject):
         return dumps(inObject)
 
+
     def fromString(self, inString):
         return loads(inString)
 
@@ -1193,8 +1213,7 @@ def failsafeResponder(command):
                 if f.type in command.errors:
                     returnValue(f)
                 else:
-                    log.err(Failure(),
-                            "shared database connection pool encountered error")
+                    log.err(Failure(), "shared database connection pool error")
                     raise FailsafeException()
             else:
                 returnValue(val)
@@ -1284,6 +1303,7 @@ class _NoRows(Exception):
     """
     Placeholder exception to report zero rows.
     """
+
 
 
 class ConnectionPoolConnection(AMP):
@@ -1402,7 +1422,8 @@ class ConnectionPoolClient(AMP):
     A client which can execute SQL.
     """
 
-    def __init__(self, dialect=POSTGRES_DIALECT, paramstyle=DEFAULT_PARAM_STYLE):
+    def __init__(self, dialect=POSTGRES_DIALECT,
+                 paramstyle=DEFAULT_PARAM_STYLE):
         # See DEFAULT_PARAM_STYLE FIXME above.
         super(ConnectionPoolClient, self).__init__()
         self._nextID    = count().next
@@ -1428,8 +1449,8 @@ class ConnectionPoolClient(AMP):
         """
         Create a new networked provider of L{IAsyncTransaction}.
 
-        (This will ultimately call L{ConnectionPool.connection} on the other end
-        of the wire.)
+        (This will ultimately call L{ConnectionPool.connection} on the other
+        end of the wire.)
 
         @rtype: L{IAsyncTransaction}
         """
@@ -1478,12 +1499,12 @@ class _Query(object):
         @param derived: either C{None} or a C{list} of L{IDerivedParameter}
             providers initially passed into the C{execSQL} that started this
             query.  The values of these object swill mutate the original input
-            parameters to resemble them.  Although L{IDerivedParameter.preQuery}
-            and L{IDerivedParameter.postQuery} are invoked on the other end of
-            the wire, the local objects will be made to appear as though they
-            were called here.
+            parameters to resemble them.  Although
+            L{IDerivedParameter.preQuery} and L{IDerivedParameter.postQuery}
+            are invoked on the other end of the wire, the local objects will be
+            made to appear as though they were called here.
 
-        @param noneResult: should the result of the query be C{None} (i.e. did
+        @param noneResult: should the result of the query be C{None} (i.e.  did
             it not have a C{description} on the cursor).
         """
         if noneResult and not self.results:
@@ -1492,8 +1513,8 @@ class _Query(object):
             results = self.results
         if derived is not None:
             # 1) Bleecchh.
-            # 2) FIXME: add some direct tests in test_adbapi2, the unit test for
-            # this crosses some abstraction boundaries so it's a little
+            # 2) FIXME: add some direct tests in test_adbapi2, the unit test
+            # for this crosses some abstraction boundaries so it's a little
             # integration-y and in the tests for twext.enterprise.dal
             for remote, local in zip(derived, self._deriveDerived()):
                 local.__dict__ = remote.__dict__
@@ -1519,8 +1540,8 @@ class _Query(object):
 class _NetTransaction(_CommitAndAbortHooks):
     """
     A L{_NetTransaction} is an L{AMP}-protocol-based provider of the
-    L{IAsyncTransaction} interface.  It sends SQL statements, query results, and
-    commit/abort commands via an AMP socket to a pooling process.
+    L{IAsyncTransaction} interface.  It sends SQL statements, query results,
+    and commit/abort commands via an AMP socket to a pooling process.
     """
 
     implements(IAsyncTransaction)
@@ -1562,7 +1583,8 @@ class _NetTransaction(_CommitAndAbortHooks):
             args = []
         client = self._client
         queryID = str(client._nextID())
-        query = client._queries[queryID] = _Query(sql, raiseOnZeroRowCount, args)
+        query = client._queries[queryID] = _Query(sql, raiseOnZeroRowCount,
+                                                  args)
         result = (
             client.callRemote(
                 ExecSQL, queryID=queryID, sql=sql, args=args,
@@ -1594,6 +1616,8 @@ class _NetTransaction(_CommitAndAbortHooks):
 
 
     def abort(self):
+        self._commit.clear()
+        self._preCommit.clear()
         return self._complete(Abort).addCallback(self._abort.runHooks)
 
 
@@ -1615,6 +1639,7 @@ class _NetTransaction(_CommitAndAbortHooks):
             def shush(f):
                 f.trap(ConnectionError, AlreadyFinishedError)
             self.abort().addErrback(shush)
+
 
 
 class _NetCommandBlock(object):
@@ -1650,10 +1675,10 @@ class _NetCommandBlock(object):
         """
         Execute some SQL on this command block.
         """
-        if  (self._ended or
-             self._transaction._completed and
-             not self._transaction._committing or
-             self._transaction._committed):
+        if (
+            self._ended or self._transaction._completed and
+            not self._transaction._committing or self._transaction._committed
+        ):
             raise AlreadyFinishedError()
         return self._transaction.execSQL(sql, args, raiseOnZeroRowCount,
                                          self._blockID)
@@ -1670,4 +1695,3 @@ class _NetCommandBlock(object):
             EndBlock, blockID=self._blockID,
             transactionID=self._transaction._transactionID
         )
-

@@ -58,7 +58,8 @@ from twext.python.filepath import CachingFilePath
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.internet.fswatch import DirectoryChangeListener, IDirectoryChangeListenee
-from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
+from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest, \
+    HTTPChannel
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
@@ -243,14 +244,15 @@ class ErrorLoggingMultiService(MultiService, object):
         self.logRotateLength = logRotateLength
         self.logMaxFiles = logMaxFiles
 
+
     def setServiceParent(self, app):
         MultiService.setServiceParent(self, app)
 
         if self.logEnabled:
             errorLogFile = LogFile.fromFullPath(
                 self.logPath,
-                rotateLength = self.logRotateLength,
-                maxRotatedFiles = self.logMaxFiles
+                rotateLength=self.logRotateLength,
+                maxRotatedFiles=self.logMaxFiles
             )
             errorLogObserver = FileLogObserver(errorLogFile).emit
 
@@ -978,6 +980,13 @@ class CalDAVServiceMaker (object):
             def requestFactory(*args, **kw):
                 return SSLRedirectRequest(site=underlyingSite, *args, **kw)
 
+        # Setup HTTP connection behaviors
+        HTTPChannel.allowPersistentConnections = config.EnableKeepAlive
+        HTTPChannel.betweenRequestsTimeOut = config.PipelineIdleTimeOut
+        HTTPChannel.inputTimeOut = config.IncomingDataTimeOut
+        HTTPChannel.idleTimeOut = config.IdleConnectionTimeOut
+        HTTPChannel.closeTimeOut = config.CloseConnectionTimeOut
+
         # Add the Strict-Transport-Security header to all secured requests
         # if enabled.
         if config.StrictTransportSecuritySeconds:
@@ -991,6 +1000,7 @@ class CalDAVServiceMaker (object):
                             "max-age={max_age:d}"
                             .format(max_age=config.StrictTransportSecuritySeconds))
                     return response
+                responseFilter.handleErrors = True
                 request.addResponseFilter(responseFilter)
                 return request
 
@@ -2423,6 +2433,7 @@ def getSystemIDs(userName, groupName):
     return uid, gid
 
 
+
 class DataStoreMonitor(object):
     implements(IDirectoryChangeListenee)
 
@@ -2434,18 +2445,21 @@ class DataStoreMonitor(object):
         self._reactor = reactor
         self._storageService = storageService
 
+
     def disconnected(self):
         self._storageService.hardStop()
         self._reactor.stop()
+
 
     def deleted(self):
         self._storageService.hardStop()
         self._reactor.stop()
 
+
     def renamed(self):
         self._storageService.hardStop()
         self._reactor.stop()
 
+
     def connectionLost(self, reason):
         pass
-

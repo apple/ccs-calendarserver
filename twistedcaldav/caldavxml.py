@@ -65,6 +65,10 @@ caldav_query_extended_compliance = (
     "calendar-query-extended",
 )
 
+caldav_timezones_by_reference_compliance = (
+    "calendar-no-timezone",
+)
+
 
 class CalDAVElement (WebDAVElement):
     """

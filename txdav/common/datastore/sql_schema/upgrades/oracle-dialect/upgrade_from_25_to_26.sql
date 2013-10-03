@@ -15,12 +15,19 @@
 ----
 
 ---------------------------------------------------
--- Upgrade database schema from VERSION 24 to 25 --
+-- Upgrade database schema from VERSION 25 to 26 --
 ---------------------------------------------------
 
--- This is actually a noop for Oracle as we had some invalid names in the v20 schema that
--- were corrected in v20 (but not corrected in postgres which is being updated for v25).
+-- Calendar home related updates
+
+alter table CALENDAR_HOME_METADATA
+ add ("DEFAULT_POLLS" integer default null references CALENDAR on delete set null);
+
+create index CALENDAR_HOME_METADAT_910264ce on CALENDAR_HOME_METADATA (
+    DEFAULT_POLLS
+);
+
 
 -- Now update the version
 -- No data upgrades
-update CALENDARSERVER set VALUE = '25' where NAME = 'VERSION';
+update CALENDARSERVER set VALUE = '26' where NAME = 'VERSION';

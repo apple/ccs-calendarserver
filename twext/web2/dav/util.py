@@ -8,10 +8,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -61,13 +61,16 @@ log = Logger()
 def allDataFromStream(stream, filter=None):
     data = []
     def gotAllData(_):
-        if not data: return None
+        if not data:
+            return None
         result = "".join([str(x) for x in data])
         if filter is None:
             return result
         else:
             return filter(result)
     return readStream(stream, data.append).addCallback(gotAllData)
+
+
 
 def davXMLFromStream(stream):
     # FIXME:
@@ -76,6 +79,7 @@ def davXMLFromStream(stream):
     #   request stream.
     if stream is None:
         return succeed(None)
+
 
     def parse(xml):
         try:
@@ -87,10 +91,15 @@ def davXMLFromStream(stream):
             raise
     return allDataFromStream(stream, parse)
 
+
+
 def noDataFromStream(stream):
     def gotData(data):
-        if data: raise ValueError("Stream contains unexpected data.")
+        if data:
+            raise ValueError("Stream contains unexpected data.")
     return readStream(stream, gotData)
+
+
 
 ##
 # URLs
@@ -111,9 +120,10 @@ def normalizeURL(url):
         if path[0] == "/":
             count = 0
             for char in path:
-                if char != "/": break
+                if char != "/":
+                    break
                 count += 1
-            path = path[count-1:]
+            path = path[count - 1:]
 
         return path
 
@@ -122,6 +132,8 @@ def normalizeURL(url):
     path = cleanup(posixpath.normpath(urllib.unquote(path)))
 
     return urlunsplit((scheme, host, urllib.quote(path), query, fragment))
+
+
 
 def joinURL(*urls):
     """
@@ -142,16 +154,19 @@ def joinURL(*urls):
     else:
         return url + trailing
 
+
+
 def parentForURL(url):
     """
     Extracts the URL of the containing collection resource for the resource
-    corresponding to a given URL.
+    corresponding to a given URL. This removes any query or fragment pieces.
+
     @param url: an absolute (server-relative is OK) URL.
     @return: the normalized URL of the collection resource containing the
         resource corresponding to C{url}.  The returned URL will always contain
         a trailing C{"/"}.
     """
-    (scheme, host, path, query, fragment) = urlsplit(normalizeURL(url))
+    (scheme, host, path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(url))
 
     index = path.rfind("/")
     if index is 0:
@@ -165,7 +180,9 @@ def parentForURL(url):
         else:
             path = path[:index] + "/"
 
-    return urlunsplit((scheme, host, path, query, fragment))
+    return urlunsplit((scheme, host, path, None, None))
+
+
 
 ##
 # Python magic
@@ -179,6 +196,8 @@ def unimplemented(obj):
     import inspect
     caller = inspect.getouterframes(inspect.currentframe())[1][3]
     raise NotImplementedError("Method %s is unimplemented in subclass %s" % (caller, obj.__class__))
+
+
 
 def bindMethods(module, clazz, prefixes=("preconditions_", "http_", "report_")):
     """

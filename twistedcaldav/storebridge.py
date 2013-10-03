@@ -78,7 +78,7 @@ from urlparse import urlsplit
 import hashlib
 import time
 import uuid
-from twext.web2 import responsecode
+from twext.web2 import responsecode, http_headers, http
 from twext.web2.iweb import IResponse
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.instance import InvalidOverriddenInstanceError, \
@@ -2254,6 +2254,41 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (accepted_type,)))
         returnValue(response)
 
+
+    @inlineCallbacks
+    def checkPreconditions(self, request):
+        """
+        We override the base class to trap the failure case and process any Prefer header.
+        """
+
+        try:
+            response = yield super(_CommonObjectResource, self).checkPreconditions(request)
+        except HTTPError as e:
+            if e.response.code == responsecode.PRECONDITION_FAILED:
+                response = yield self._processPrefer(request, e.response)
+                raise HTTPError(response)
+            else:
+                raise
+
+        returnValue(response)
+
+
+    @inlineCallbacks
+    def _processPrefer(self, request, response):
+        # Look for Prefer header
+        prefer = request.headers.getHeader("prefer", {})
+        returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
+
+        if returnRepresentation and (response.code / 100 == 2 or response.code == responsecode.PRECONDITION_FAILED):
+            oldcode = response.code
+            response = (yield self.http_GET(request))
+            if oldcode in (responsecode.CREATED, responsecode.PRECONDITION_FAILED):
+                response.code = oldcode
+            response.headers.removeHeader("content-location")
+            response.headers.setHeader("content-location", self.url())
+
+        returnValue(response)
+
     # The following are used to map store exceptions into HTTP error responses
     StoreExceptionsStatusErrors = set()
     StoreExceptionsErrors = {}
@@ -2634,6 +2669,75 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         AttachmentRemoveFailed: (caldav_namespace, "valid-attachment-remove",),
     }
 
+
+    @inlineCallbacks
+    def _checkPreconditions(self, request):
+        """
+        We override the base class to handle the special implicit scheduling weak ETag behavior
+        for compatibility with old clients using If-Match.
+        """
+
+        if config.Scheduling.CalDAV.ScheduleTagCompatibility:
+
+            if self.exists():
+                etags = self.scheduleEtags
+                if len(etags) > 1:
+                    # This is almost verbatim from twext.web2.static.checkPreconditions
+                    if request.method not in ("GET", "HEAD"):
+
+                        # Always test against the current etag first just in case schedule-etags is out of sync
+                        etag = (yield self.etag())
+                        etags = (etag,) + tuple([http_headers.ETag(schedule_etag) for schedule_etag in etags])
+
+                        # Loop over each tag and succeed if any one matches, else re-raise last exception
+                        exists = self.exists()
+                        last_modified = self.lastModified()
+                        last_exception = None
+                        for etag in etags:
+                            try:
+                                http.checkPreconditions(
+                                    request,
+                                    entityExists=exists,
+                                    etag=etag,
+                                    lastModified=last_modified,
+                                )
+                            except HTTPError, e:
+                                last_exception = e
+                            else:
+                                break
+                        else:
+                            if last_exception:
+                                raise last_exception
+
+                    # Check per-method preconditions
+                    method = getattr(self, "preconditions_" + request.method, None)
+                    if method:
+                        returnValue((yield method(request)))
+                    else:
+                        returnValue(None)
+
+        result = (yield super(CalendarObjectResource, self).checkPreconditions(request))
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def checkPreconditions(self, request):
+        """
+        We override the base class to do special schedule tag processing.
+        """
+
+        try:
+            response = yield self._checkPreconditions(request)
+        except HTTPError as e:
+            if e.response.code == responsecode.PRECONDITION_FAILED:
+                response = yield self._processPrefer(request, e.response)
+                raise HTTPError(response)
+            else:
+                raise
+
+        returnValue(response)
+
+
     @inlineCallbacks
     def http_PUT(self, request):
 
@@ -2649,7 +2753,14 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             ))
 
         # Do schedule tag check
-        schedule_tag_match = self.validIfScheduleMatch(request)
+        try:
+            schedule_tag_match = self.validIfScheduleMatch(request)
+        except HTTPError as e:
+            if e.response.code == responsecode.PRECONDITION_FAILED:
+                response = yield self._processPrefer(request, e.response)
+                raise HTTPError(response)
+            else:
+                raise
 
         # Read the calendar component from the stream
         try:
@@ -2715,17 +2826,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
                 request.addResponseFilter(_removeEtag, atEnd=True)
 
-            # Look for Prefer header
-            prefer = request.headers.getHeader("prefer", {})
-            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
-
-            if returnRepresentation and response.code / 100 == 2:
-                oldcode = response.code
-                response = (yield self.http_GET(request))
-                if oldcode == responsecode.CREATED:
-                    response.code = responsecode.CREATED
-                response.headers.removeHeader("content-location")
-                response.headers.setHeader("content-location", self.url())
+            # Handle Prefer header
+            response = yield self._processPrefer(request, response)
 
             returnValue(response)
 
@@ -2905,18 +3007,12 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 raise
 
         # Look for Prefer header
-        prefer = request.headers.getHeader("prefer", {})
-        returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
-        if returnRepresentation:
-            result = (yield self.render(request))
-            result.code = OK
-            result.headers.removeHeader("content-location")
-            result.headers.setHeader("content-location", request.path)
-        else:
-            result = post_result
+        result = yield self._processPrefer(request, post_result)
+
         if action in ("attachment-add", "attachment-update",):
             result.headers.setHeader("location", location)
             result.headers.addRawHeader("Cal-Managed-ID", attachment.managedID())
+
         returnValue(result)
 
 
@@ -3357,16 +3453,7 @@ class AddressBookObjectResource(_CommonObjectResource):
                 request.addResponseFilter(_removeEtag, atEnd=True)
 
             # Look for Prefer header
-            prefer = request.headers.getHeader("prefer", {})
-            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
-
-            if returnRepresentation and response.code / 100 == 2:
-                oldcode = response.code
-                response = (yield self.http_GET(request))
-                if oldcode == responsecode.CREATED:
-                    response.code = responsecode.CREATED
-                response.headers.removeHeader("content-location")
-                response.headers.setHeader("content-location", self.url())
+            response = yield self._processPrefer(request, response)
 
             returnValue(response)
 

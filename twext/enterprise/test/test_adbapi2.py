@@ -18,13 +18,15 @@
 Tests for L{twext.enterprise.adbapi2}.
 """
 
+import gc
+
 from zope.interface.verify import verifyObject
 
 from twisted.python.failure import Failure
 
 from twisted.trial.unittest import TestCase
 
-from twisted.internet.defer import Deferred, fail
+from twisted.internet.defer import Deferred, fail, succeed, inlineCallbacks
 
 from twisted.test.proto_helpers import StringTransport
 
@@ -43,6 +45,36 @@ from twext.enterprise.fixtures import FakeConnectionError
 from twext.enterprise.fixtures import RollbackFail
 from twext.enterprise.fixtures import CommitFail
 from twext.enterprise.adbapi2 import Commit
+from twext.enterprise.adbapi2 import _HookableOperation
+
+
+class TrashCollector(object):
+    """
+    Test helper for monitoring gc.garbage.
+    """
+    def __init__(self, testCase):
+        self.testCase = testCase
+        testCase.addCleanup(self.checkTrash)
+        self.start()
+
+
+    def start(self):
+        gc.collect()
+        self.garbageStart = len(gc.garbage)
+
+
+    def checkTrash(self):
+        """
+        Ensure that the test has added no additional garbage.
+        """
+        gc.collect()
+        newGarbage = gc.garbage[self.garbageStart:]
+        if newGarbage:
+            # Don't clean up twice.
+            self.start()
+            self.testCase.fail("New garbage: " + repr(newGarbage))
+
+
 
 class AssertResultHelper(object):
     """
@@ -300,8 +332,8 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
     def test_stopServiceWithSpooled(self):
         """
         When L{ConnectionPool.stopService} is called when spooled transactions
-        are outstanding, any pending L{Deferreds} returned by those transactions
-        will be failed with L{ConnectionError}.
+        are outstanding, any pending L{Deferreds} returned by those
+        transactions will be failed with L{ConnectionError}.
         """
         # Use up the free slots so we have to spool.
         hold = []
@@ -450,7 +482,8 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         stopResult = self.resultOf(self.pool.stopService())
         # Sanity check that we haven't actually stopped it yet
         self.assertEquals(abortResult, [])
-        # We haven't fired it yet, so the service had better not have stopped...
+        # We haven't fired it yet, so the service had better not have
+        # stopped...
         self.assertEquals(stopResult, [])
         d.callback(None)
         self.flushHolders()
@@ -465,7 +498,6 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         """
         t = self.createTransaction()
         self.resultOf(t.execSQL("echo", []))
-        import gc
         conns = self.factory.connections
         self.assertEquals(len(conns), 1)
         self.assertEquals(conns[0]._rollbackCount, 0)
@@ -475,6 +507,60 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         self.assertEquals(len(conns), 1)
         self.assertEquals(conns[0]._rollbackCount, 1)
         self.assertEquals(conns[0]._commitCount, 0)
+
+
+    def circularReferenceTest(self, finish, hook):
+        """
+        Collecting a completed (committed or aborted) L{IAsyncTransaction}
+        should not leak any circular references.
+        """
+        tc = TrashCollector(self)
+        commitExecuted = []
+        def carefullyManagedScope():
+            t = self.createTransaction()
+            def holdAReference():
+                """
+                This is a hook that holds a reference to 't'.
+                """
+                commitExecuted.append(True)
+                return t.execSQL("teardown", [])
+            hook(t, holdAReference)
+            finish(t)
+        self.failIf(commitExecuted, "Commit hook executed.")
+        carefullyManagedScope()
+        tc.checkTrash()
+
+
+    def test_noGarbageOnCommit(self):
+        """
+        Committing a transaction does not cause gc garbage.
+        """
+        self.circularReferenceTest(lambda txn: txn.commit(),
+                                   lambda txn, hook: txn.preCommit(hook))
+
+
+    def test_noGarbageOnCommitWithAbortHook(self):
+        """
+        Committing a transaction does not cause gc garbage.
+        """
+        self.circularReferenceTest(lambda txn: txn.commit(),
+                                   lambda txn, hook: txn.postAbort(hook))
+
+
+    def test_noGarbageOnAbort(self):
+        """
+        Aborting a transaction does not cause gc garbage.
+        """
+        self.circularReferenceTest(lambda txn: txn.abort(),
+                                   lambda txn, hook: txn.preCommit(hook))
+
+
+    def test_noGarbageOnAbortWithPostCommitHook(self):
+        """
+        Aborting a transaction does not cause gc garbage.
+        """
+        self.circularReferenceTest(lambda txn: txn.abort(),
+                                   lambda txn, hook: txn.postCommit(hook))
 
 
     def test_tooManyConnectionsWhileOthersFinish(self):
@@ -553,10 +639,11 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
 
     def test_reConnectWhenFirstExecFails(self):
         """
-        Generally speaking, DB-API 2.0 adapters do not provide information about
-        the cause of a failed 'execute' method; they definitely don't provide it
-        in a way which can be identified as related to the syntax of the query,
-        the state of the database itself, the state of the connection, etc.
+        Generally speaking, DB-API 2.0 adapters do not provide information
+        about the cause of a failed 'execute' method; they definitely don't
+        provide it in a way which can be identified as related to the syntax of
+        the query, the state of the database itself, the state of the
+        connection, etc.
 
         Therefore the best general heuristic for whether the connection to the
         database has been lost and needs to be re-established is to catch
@@ -564,8 +651,8 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         transaction.
         """
         # Allow 'connect' to succeed.  This should behave basically the same
-        # whether connect() happened to succeed in some previous transaction and
-        # it's recycling the underlying transaction, or connect() just
+        # whether connect() happened to succeed in some previous transaction
+        # and it's recycling the underlying transaction, or connect() just
         # succeeded.  Either way you just have a _SingleTxn wrapping a
         # _ConnectedTxn.
         txn = self.createTransaction()
@@ -636,8 +723,8 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         """
         class BindingSpecificException(Exception):
             """
-            Exception that's a placeholder for something that a database binding
-            might raise.
+            Exception that's a placeholder for something that a database
+            binding might raise.
             """
         def alsoFailClose(factory):
             factory.childCloseWillFail(BindingSpecificException())
@@ -738,8 +825,8 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         therefore pointless, and can be ignored.  Furthermore, actually
         executing the commit and propagating a possible connection-oriented
         error causes clients to see errors, when, if those clients had actually
-        executed any statements, the connection would have been recycled and the
-        statement transparently re-executed by the logic tested by
+        executed any statements, the connection would have been recycled and
+        the statement transparently re-executed by the logic tested by
         L{test_reConnectWhenFirstExecFails}.
         """
         txn = self.createTransaction()
@@ -758,12 +845,12 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
 
     def test_reConnectWhenSecondExecFailsThenFirstExecFails(self):
         """
-        Other connection-oriented errors might raise exceptions if they occur in
-        the middle of a transaction, but that should cause the error to be
-        caught, the transaction to be aborted, and the (closed) connection to be
-        recycled, where the next transaction that attempts to do anything with
-        it will encounter the error immediately and discover it needs to be
-        recycled.
+        Other connection-oriented errors might raise exceptions if they occur
+        in the middle of a transaction, but that should cause the error to be
+        caught, the transaction to be aborted, and the (closed) connection to
+        be recycled, where the next transaction that attempts to do anything
+        with it will encounter the error immediately and discover it needs to
+        be recycled.
 
         It would be better if this behavior were invisible, but that could only
         be accomplished with more precise database exceptions.  We may come up
@@ -780,9 +867,9 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         self.assertEquals(self.factory.connections[0].executions, 2)
         # Reconnection should work exactly as before.
         self.assertEquals(self.factory.connections[0].closed, False)
-        # Application code has to roll back its transaction at this point, since
-        # it failed (and we don't necessarily know why it failed: not enough
-        # information).
+        # Application code has to roll back its transaction at this point,
+        # since it failed (and we don't necessarily know why it failed: not
+        # enough information).
         self.resultOf(txn.abort())
         self.factory.connections[0].executions = 0 # re-set for next test
         self.assertEquals(len(self.factory.connections), 1)
@@ -888,7 +975,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         self.assertEquals(len(e), 1)
 
 
-    def test_twoCommandBlocks(self, flush=lambda : None):
+    def test_twoCommandBlocks(self, flush=lambda: None):
         """
         When execution of one command block is complete, it will proceed to the
         next queued block, then to regular SQL executed on the transaction.
@@ -932,9 +1019,9 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
     def test_commandBlockDelaysCommit(self):
         """
         Some command blocks need to run asynchronously, without the overall
-        transaction-managing code knowing how far they've progressed.  Therefore
-        when you call {IAsyncTransaction.commit}(), it should not actually take
-        effect if there are any pending command blocks.
+        transaction-managing code knowing how far they've progressed.
+        Therefore when you call {IAsyncTransaction.commit}(), it should not
+        actually take effect if there are any pending command blocks.
         """
         txn = self.createTransaction()
         block = txn.commandBlock()
@@ -1078,8 +1165,8 @@ class IOPump(object):
 
     def pump(self):
         """
-        Deliver all input from the client to the server, then from the server to
-        the client.
+        Deliver all input from the client to the server, then from the server
+        to the client.
         """
         a = self.moveData(self.c2s)
         b = self.moveData(self.s2c)
@@ -1185,5 +1272,33 @@ class NetworkedConnectionPoolTests(NetworkedPoolHelper, ConnectionPoolTests):
         verifyObject(IAsyncTransaction, txn)
         self.pump.flush()
         self.assertEquals(len(self.factory.connections), 1)
+
+
+class HookableOperationTests(TestCase):
+    """
+    Tests for L{_HookableOperation}.
+    """
+
+    @inlineCallbacks
+    def test_clearPreventsSubsequentAddHook(self):
+        """
+        After clear() or runHooks() are called, subsequent calls to addHook()
+        are NO-OPs.
+        """
+        def hook():
+            return succeed(None)
+
+        hookOp = _HookableOperation()
+        hookOp.addHook(hook)
+        self.assertEquals(len(hookOp._hooks), 1)
+        hookOp.clear()
+        self.assertEquals(hookOp._hooks, None)
+
+        hookOp = _HookableOperation()
+        hookOp.addHook(hook)
+        yield hookOp.runHooks()
+        self.assertEquals(hookOp._hooks, None)
+        hookOp.addHook(hook)
+        self.assertEquals(hookOp._hooks, None)
 
 

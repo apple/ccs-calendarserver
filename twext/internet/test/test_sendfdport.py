@@ -23,14 +23,25 @@ Tests for L{twext.internet.sendfdport}.
 import os
 import fcntl
 
+from zope.interface.verify import verifyClass
+from zope.interface import implementer
+
 from twext.internet.sendfdport import InheritedSocketDispatcher
 
 from twext.web2.metafd import ConnectionLimiter
 from twisted.internet.interfaces import IReactorFDSet
 from twisted.trial.unittest import TestCase
-from zope.interface import implementer
 
-@implementer(IReactorFDSet)
+def verifiedImplementer(interface):
+    def _(cls):
+        result = implementer(interface)(cls)
+        verifyClass(interface, result)
+        return result
+    return _
+
+
+
+@verifiedImplementer(IReactorFDSet)
 class ReaderAdder(object):
 
     def __init__(self):
@@ -50,6 +61,22 @@ class ReaderAdder(object):
         self.writers.append(writer)
 
 
+    def removeAll(self):
+        self.__init__()
+
+
+    def getWriters(self):
+        return self.writers[:]
+
+
+    def removeReader(self, reader):
+        self.readers.remove(reader)
+
+
+    def removeWriter(self, writer):
+        self.writers.remove(writer)
+
+
 
 def isNonBlocking(skt):
     """
@@ -66,22 +93,11 @@ def isNonBlocking(skt):
 
 
 
-from zope.interface.verify import verifyClass
-from zope.interface import implementer
-
-def verifiedImplementer(interface):
-    def _(cls):
-        result = implementer(interface)(cls)
-        verifyClass(interface, result)
-        return result
-    return _
-
-
-
 @verifiedImplementer(IStatusWatcher)
 class Watcher(object):
     def __init__(self, q):
         self.q = q
+        self._closeCounter = 1
 
 
     def newConnectionStatus(self, previous):
@@ -100,6 +116,12 @@ class Watcher(object):
         return 0
 
 
+    def closeCountFromStatus(self, status):
+        result = (self._closeCounter, status)
+        self._closeCounter += 1
+        return result
+
+
 
 class InheritedSocketDispatcherTests(TestCase):
     """
@@ -108,6 +130,51 @@ class InheritedSocketDispatcherTests(TestCase):
     def setUp(self):
         self.dispatcher = InheritedSocketDispatcher(ConnectionLimiter(2, 20))
         self.dispatcher.reactor = ReaderAdder()
+
+
+    def test_closeSomeSockets(self):
+        """
+        L{InheritedSocketDispatcher} determines how many sockets to close from
+        L{IStatusWatcher.closeCountFromStatus}.
+        """
+        self.dispatcher.statusWatcher = Watcher([])
+        class SocketForClosing(object):
+            blocking = True
+            closed = False
+            def setblocking(self, b):
+                self.blocking = b
+            def fileno(self):
+                return object()
+            def close(self):
+                self.closed = True
+
+        one = SocketForClosing()
+        two = SocketForClosing()
+        three = SocketForClosing()
+
+        self.dispatcher.addSocket(
+            lambda: (SocketForClosing(), SocketForClosing())
+        )
+
+        self.dispatcher.sendFileDescriptor(one, "one")
+        self.dispatcher.sendFileDescriptor(two, "two")
+        self.dispatcher.sendFileDescriptor(three, "three")
+        def sendfd(unixSocket, tcpSocket, description):
+            pass
+        # Put something into the socket-close queue.
+        self.dispatcher._subprocessSockets[0].doWrite(sendfd)
+        # Nothing closed yet.
+        self.assertEquals(one.closed, False)
+        self.assertEquals(two.closed, False)
+        self.assertEquals(three.closed, False)
+
+        def recvmsg(fileno):
+            return 'data', 0, 0
+        self.dispatcher._subprocessSockets[0].doRead(recvmsg)
+        # One socket closed.
+        self.assertEquals(one.closed, True)
+        self.assertEquals(two.closed, False)
+        self.assertEquals(three.closed, False)
 
 
     def test_nonBlocking(self):
@@ -165,6 +232,7 @@ class InheritedSocketDispatcherTests(TestCase):
         message = "whatever"
         # Need to have a socket that will accept the descriptors.
         dispatcher.addSocket()
-        dispatcher.statusMessage(dispatcher._subprocessSockets[0], message)
-        dispatcher.statusMessage(dispatcher._subprocessSockets[0], message)
+        subskt = dispatcher._subprocessSockets[0]
+        dispatcher.statusMessage(subskt, message)
+        dispatcher.statusMessage(subskt, message)
         self.assertEquals(q, [[-1], [-2]])

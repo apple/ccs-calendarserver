@@ -18,13 +18,17 @@
 -- Upgrade database schema from VERSION 24 to 25 --
 ---------------------------------------------------
 
--- Calendar home related updates
+-- Rename columns and indexes
+alter table SHARED_ADDRESSBOOK_BIND
+	rename column OWNER_ADDRESSBOOK_HOME_RESOURCE_ID to OWNER_HOME_RESOURCE_ID;
 
-alter table CALENDAR_HOME_METADATA
- add column DEFAULT_POLLS integer default null references CALENDAR on delete set null;
+alter table SHARED_GROUP_BIND
+	rename column GROUP_ADDRESSBOOK_RESOURCE_NAME to GROUP_ADDRESSBOOK_NAME;
 
-create index CALENDAR_HOME_METADATA_DEFAULT_POLLS on
-	CALENDAR_HOME_METADATA(DEFAULT_POLLS);
+alter table ADDRESSBOOK_OBJECT_REVISIONS
+	rename column OWNER_ADDRESSBOOK_HOME_RESOURCE_ID to OWNER_HOME_RESOURCE_ID;
+
+alter index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_ADDRESSBOOK_HOME_RESOURCE_ID rename to ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_HOME_RESOURCE_ID;
 
 -- Now update the version
 -- No data upgrades
