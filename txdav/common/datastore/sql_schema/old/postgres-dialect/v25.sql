@@ -686,27 +686,6 @@ create table CALENDAR_OBJECT_SPLITTER_WORK (
 create index CALENDAR_OBJECT_SPLITTER_WORK_RESOURCE_ID on
 	CALENDAR_OBJECT_SPLITTER_WORK(RESOURCE_ID);
 
----------------------------
--- Schedule Refresh Work --
----------------------------
-
-create table SCHEDULE_REFRESH_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
-  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade
-);
-
-create index SCHEDULE_REFRESH_WORK_RESOURCE_ID on
-	SCHEDULE_REFRESH_WORK(RESOURCE_ID);
-
-create table SCHEDULE_REFRESH_ATTENDEES (
-  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
-  ATTENDEE			            varchar(255),
-
-  primary key (RESOURCE_ID, ATTENDEE)
-);
-
 --------------------
 -- Schema Version --
 --------------------
@@ -716,6 +695,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '26');
+insert into CALENDARSERVER values ('VERSION', '25');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');

@@ -360,24 +360,12 @@ create table CALENDAR_OBJECT_SPLITTER_WORK (
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
 );
 
-create table SCHEDULE_REFRESH_WORK (
-    "WORK_ID" integer primary key not null,
-    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
-);
-
-create table SCHEDULE_REFRESH_ATTENDEES (
-    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
-    "ATTENDEE" nvarchar2(255), 
-    primary key("RESOURCE_ID", "ATTENDEE")
-);
-
 create table CALENDARSERVER (
     "NAME" nvarchar2(255) primary key,
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '26');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '25');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
@@ -498,10 +486,6 @@ create index IMIP_TOKENS_TOKEN_e94b918f on IMIP_TOKENS (
 );
 
 create index CALENDAR_OBJECT_SPLIT_af71dcda on CALENDAR_OBJECT_SPLITTER_WORK (
-    RESOURCE_ID
-);
-
-create index SCHEDULE_REFRESH_WORK_989efe54 on SCHEDULE_REFRESH_WORK (
     RESOURCE_ID
 );
 

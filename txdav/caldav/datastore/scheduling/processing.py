@@ -18,6 +18,10 @@ from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.timezone import PyCalendarTimezone
 
+from twext.enterprise.dal.record import fromTable
+from twext.enterprise.dal.syntax import Select, Delete, Insert, Parameter
+from twext.enterprise.locking import NamedLock
+from twext.enterprise.queue import WorkItem
 from twext.python.log import Logger
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twext.web2.http import HTTPError
@@ -33,16 +37,17 @@ from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
-
-import collections
-import hashlib
-import uuid
 from txdav.caldav.icalendarstore import ComponentUpdateState, \
     ComponentRemoveState
-from twext.enterprise.locking import NamedLock
-from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
+from txdav.common.datastore.sql_tables import schema
+
+import collections
+import datetime
+import hashlib
+import uuid
 
 """
 CalDAV implicit processing.
@@ -273,44 +278,51 @@ class ImplicitProcessor(object):
         # Check for batched refreshes
         if config.Scheduling.Options.AttendeeRefreshBatch:
 
-            # Need to lock whilst manipulating the batch list
-            lock = MemcacheLock(
-                "BatchRefreshUIDLock",
-                self.uid,
-                timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
-                expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
+#            # Need to lock whilst manipulating the batch list
+#            lock = MemcacheLock(
+#                "BatchRefreshUIDLock",
+#                self.uid,
+#                timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
+#                expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
+#            )
+#            try:
+#                yield lock.acquire()
+#            except MemcacheLockTimeoutError:
+#                # If we could not lock then just fail the refresh - not sure what else to do
+#                returnValue(None)
+#
+#            try:
+#                # Get all attendees to refresh
+#                allAttendees = sorted(list(self.recipient_calendar.getAllUniqueAttendees()))
+#                allAttendees = filter(lambda x: x not in exclude_attendees, allAttendees)
+#
+#                if allAttendees:
+#                    # See if there is already a pending refresh and merge current attendees into that list,
+#                    # otherwise just mark all attendees as pending
+#                    cache = Memcacher("BatchRefreshAttendees", pickle=True)
+#                    pendingAttendees = yield cache.get(self.uid)
+#                    firstTime = False
+#                    if pendingAttendees:
+#                        for attendee in allAttendees:
+#                            if attendee not in pendingAttendees:
+#                                pendingAttendees.append(attendee)
+#                    else:
+#                        firstTime = True
+#                        pendingAttendees = allAttendees
+#                    yield cache.set(self.uid, pendingAttendees)
+#
+#                    # Now start the first batch off
+#                    if firstTime:
+#                        self._enqueueBatchRefresh()
+#            finally:
+#                yield lock.clean()
+
+            yield self.ScheduleRefreshWork.refreshAttendees(
+                self.txn,
+                self.recipient_calendar_resource,
+                self.recipient_calendar,
+                exclude_attendees,
             )
-            try:
-                yield lock.acquire()
-            except MemcacheLockTimeoutError:
-                # If we could not lock then just fail the refresh - not sure what else to do
-                returnValue(None)
-
-            try:
-                # Get all attendees to refresh
-                allAttendees = sorted(list(self.recipient_calendar.getAllUniqueAttendees()))
-                allAttendees = filter(lambda x: x not in exclude_attendees, allAttendees)
-
-                if allAttendees:
-                    # See if there is already a pending refresh and merge current attendees into that list,
-                    # otherwise just mark all attendees as pending
-                    cache = Memcacher("BatchRefreshAttendees", pickle=True)
-                    pendingAttendees = yield cache.get(self.uid)
-                    firstTime = False
-                    if pendingAttendees:
-                        for attendee in allAttendees:
-                            if attendee not in pendingAttendees:
-                                pendingAttendees.append(attendee)
-                    else:
-                        firstTime = True
-                        pendingAttendees = allAttendees
-                    yield cache.set(self.uid, pendingAttendees)
-
-                    # Now start the first batch off
-                    if firstTime:
-                        self._enqueueBatchRefresh()
-            finally:
-                yield lock.clean()
 
         else:
             yield self._doRefresh(self.organizer_calendar_resource, exclude_attendees)
@@ -1071,3 +1083,134 @@ class ImplicitProcessor(object):
                 yield self.deleteCalendarResource(recipient_resource)
 
         returnValue(True)
+
+
+    class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK)):
+
+        group = property(lambda self: "ScheduleRefreshWork:%s" % (self.resourceID,))
+
+
+        @classmethod
+        @inlineCallbacks
+        def refreshAttendees(cls, txn, organizer_resource, organizer_calendar, exclude_attendees):
+            # Get all attendees to refresh
+            allAttendees = sorted(list(organizer_calendar.getAllUniqueAttendees()))
+            allAttendees = filter(lambda x: x not in exclude_attendees, allAttendees)
+
+            if allAttendees:
+                # See if there is already a pending refresh and merge current attendees into that list,
+                # otherwise just mark all attendees as pending
+                sra = schema.SCHEDULE_REFRESH_ATTENDEES
+                pendingAttendees = (yield Select(
+                    [sra.ATTENDEE, ],
+                    From=sra,
+                    Where=sra.RESOURCE_ID == organizer_resource.id(),
+                ).on(txn))
+                pendingAttendees = [row[0] for row in pendingAttendees]
+                attendeesToRefresh = set(allAttendees) - set(pendingAttendees)
+                for attendee in attendeesToRefresh:
+                    yield Insert(
+                        {
+                            sra.RESOURCE_ID: organizer_resource.id(),
+                            sra.ATTENDEE: attendee,
+                        }
+                    ).on(txn)
+
+                # If there were no previous attendees queued that means we need to kick off new work
+                notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.AttendeeRefreshBatchDelaySeconds)
+                yield txn.enqueue(
+                    cls,
+                    homeResourceID=organizer_resource._home.id(),
+                    resourceID=organizer_resource.id(),
+                    notBefore=notBefore
+                )
+
+
+        @inlineCallbacks
+        def doWork(self):
+
+            log.debug("Schedule refresh for resource-id: {rid}", rid=self.resourceID)
+
+            # Get list of pending attendees and split into batch to process
+            # TODO: do a DELETE ... and rownum <= N returning attendee - but have to fix Oracle to
+            # handle multi-row returning. Would be better than entire select + delete of each one
+            sra = schema.SCHEDULE_REFRESH_ATTENDEES
+            pendingAttendees = (yield Select(
+                [sra.ATTENDEE, ],
+                From=sra,
+                Where=sra.RESOURCE_ID == self.resourceID,
+            ).on(self.transaction))
+            pendingAttendees = [row[0] for row in pendingAttendees]
+
+            attendeesToProcess = pendingAttendees[:config.Scheduling.Options.AttendeeRefreshBatch]
+            pendingAttendees = pendingAttendees[config.Scheduling.Options.AttendeeRefreshBatch:]
+            if pendingAttendees:
+                yield Delete(
+                    From=sra,
+                    Where=(sra.RESOURCE_ID == self.resourceID).And(sra.ATTENDEE.In(Parameter("attendeesToProcess", len(attendeesToProcess))))
+                ).on(self.transaction, attendeesToProcess=attendeesToProcess)
+            else:
+                log.debug("Schedule refresh for resource-id: {rid} missing pending attendees", rid=self.resourceID)
+
+            # If some remain to process, reschedule work item
+            if pendingAttendees:
+                notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.AttendeeRefreshBatchDelaySeconds)
+                yield self.transaction.enqueue(
+                    self.__class__,
+                    homeResourceID=self.homeResourceID,
+                    resourceID=self.resourceID,
+                    notBefore=notBefore
+                )
+
+            # Do refresh
+            yield self._doDelayedRefresh(attendeesToProcess)
+
+
+        @inlineCallbacks
+        def _doDelayedRefresh(self, attendeesToProcess):
+            """
+            Do an attendee refresh that has been delayed until after processing of the request that called it. That
+            requires that we create a new transaction to work with.
+
+            @param attendeesToProcess: list of attendees to refresh.
+            @type attendeesToProcess: C{list}
+            """
+
+            organizer_home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
+            organizer_resource = (yield organizer_home.objectResourceWithID(self.resourceID))
+            if organizer_resource is not None:
+                try:
+                    # We need to get the UID lock for implicit processing whilst we send the auto-reply
+                    # as the Organizer processing will attempt to write out data to other attendees to
+                    # refresh them. To prevent a race we need a lock.
+                    yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(organizer_resource.uid()).hexdigest(),))
+
+                    yield self._doRefresh(organizer_resource, attendeesToProcess)
+                except Exception, e:
+                    log.debug("ImplicitProcessing - refresh exception UID: '{uid}', {exc}", uid=organizer_resource.uid(), exc=str(e))
+                    raise
+                except:
+                    log.debug("ImplicitProcessing - refresh bare exception UID: '{uid}'", uid=organizer_resource.uid())
+                    raise
+            else:
+                log.debug("ImplicitProcessing - skipping refresh of missing ID: '{rid}'", rid=self.resourceID)
+
+
+        @inlineCallbacks
+        def _doRefresh(self, organizer_resource, only_attendees):
+            """
+            Do a refresh of attendees.
+
+            @param organizer_resource: the resource for the organizer's calendar data
+            @type organizer_resource: L{DAVResource}
+            @param only_attendees: list of attendees to refresh (C{None} - refresh all)
+            @type only_attendees: C{tuple}
+            """
+            log.debug("ImplicitProcessing - refreshing UID: '{uid}', Attendees: {att}", uid=organizer_resource.uid(), att=", ".join(only_attendees) if only_attendees else "all")
+            from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
+            scheduler = ImplicitScheduler()
+            yield scheduler.refreshAllAttendeesExceptSome(
+                self.transaction,
+                organizer_resource,
+                only_attendees=only_attendees,
+            )
