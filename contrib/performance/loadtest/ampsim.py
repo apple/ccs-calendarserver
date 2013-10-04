@@ -34,7 +34,7 @@ if __name__ == '__main__':
             from twisted.internet import reactor
             from twisted.internet.stdio import StandardIO
 
-            from contrib.performance.loadtest.ampsim import Worker
+            #from contrib.performance.loadtest.ampsim import Worker
             from contrib.performance.loadtest.sim import LagTrackingReactor
 
             StandardIO(Worker(LagTrackingReactor(reactor)))

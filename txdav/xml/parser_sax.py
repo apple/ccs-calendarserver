@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -34,15 +34,20 @@ from txdav.xml.xmlext import Print as xmlPrint
 
 
 class WebDAVContentHandler (xml.sax.handler.ContentHandler):
-    def setDocumentLocator(self, locator): self.locator = locator
+
+    def setDocumentLocator(self, locator):
+        self.locator = locator
+
     locator = None
 
     def __init__(self):
         xml.sax.handler.ContentHandler.__init__(self)
         self._characterBuffer = None
 
+
     def location(self):
         return "line %d, column %d" % (self.locator.getLineNumber(), self.locator.getColumnNumber())
+
 
     def startDocument(self):
         self.stack = [{
@@ -58,6 +63,7 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
         # multiple times in a document.
         self.unknownElementClasses = {}
 
+
     def endDocument(self):
         top = self.stack[-1]
 
@@ -68,6 +74,7 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
 
         self.dom = WebDAVDocument(top["children"][0])
         del(self.unknownElementClasses)
+
 
     def startElementNS(self, name, qname, attributes):
         if self._characterBuffer is not None:
@@ -91,7 +98,7 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
             def element_class(*args, **kwargs):
                 element = WebDAVUnknownElement(*args, **kwargs)
                 element.namespace = tag_namespace
-                element.name      = tag_name
+                element.name = tag_name
                 return element
             self.unknownElementClasses[name] = element_class
 
@@ -101,6 +108,7 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
             "attributes" : attributes_dict,
             "children"   : [],
         })
+
 
     def endElementNS(self, name, qname):
         if self._characterBuffer is not None:
@@ -124,33 +132,41 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
 
         self.stack[-1]["children"].append(element)
 
+
     def characters(self, content):
         # Stash character data away in a list that we will "".join() when done
         if self._characterBuffer is None:
             self._characterBuffer = []
         self._characterBuffer.append(content)
 
+
     def ignorableWhitespace(self, whitespace):
         self.characters(self, whitespace)
+
 
     def startElement(self, name, attributes):
         raise AssertionError("startElement() should not be called by namespace-aware parser")
 
+
     def endElement(self, name):
         raise AssertionError("endElement() should not be called by namespace-aware parser")
 
+
     def processingInstruction(self, target, data):
         raise AssertionError("processing instructions are not allowed")
+
 
     def skippedEntity(self, name):
         raise AssertionError("skipped entities are not allowed")
 
 
+
 class WebDAVDocument(AbstractWebDAVDocument):
+
     @classmethod
     def fromStream(cls, source):
         handler = WebDAVContentHandler()
-        parser  = xml.sax.make_parser()
+        parser = xml.sax.make_parser()
 
         parser.setContentHandler(handler)
         parser.setFeature(xml.sax.handler.feature_namespaces, True)
@@ -163,7 +179,8 @@ class WebDAVDocument(AbstractWebDAVDocument):
         #handler.dom.root_element.validate()
 
         return handler.dom
-        
+
+
     def writeXML(self, output):
         document = xml.dom.minidom.Document()
         self.root_element.addToDOM(document, None)

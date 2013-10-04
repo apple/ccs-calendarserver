@@ -54,6 +54,7 @@ class MultiStatusTests(WebDAVElementTestsMixin, TestCase):
         )
 
 
+
 class CurrentUserPrincipalTests(WebDAVElementTestsMixin, TestCase):
     """
     Tests for L{CurrentUserPrincipal}.

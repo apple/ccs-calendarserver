@@ -37,7 +37,7 @@ class NameEncodeTests(TestCase):
     """
     def test_decodeXMLName(self):
         # Empty name
-        self.assertRaises(ValueError, decodeXMLName, "") 
+        self.assertRaises(ValueError, decodeXMLName, "")
         self.assertRaises(ValueError, decodeXMLName, "{}")
         self.assertRaises(ValueError, decodeXMLName, "{x}")
 
@@ -47,17 +47,18 @@ class NameEncodeTests(TestCase):
         self.assertRaises(ValueError, decodeXMLName, "{x")
         self.assertRaises(ValueError, decodeXMLName, "}")
         self.assertRaises(ValueError, decodeXMLName, "x}")
-        self.assertRaises(ValueError, decodeXMLName, "}x")  
+        self.assertRaises(ValueError, decodeXMLName, "}x")
         self.assertRaises(ValueError, decodeXMLName, "{{}")
         self.assertRaises(ValueError, decodeXMLName, "{{}}")
         self.assertRaises(ValueError, decodeXMLName, "x{}")
 
         # Empty namespace is OK
-        self.assertEquals(decodeXMLName(  "x"), (None, "x"))
+        self.assertEquals(decodeXMLName("x"), (None, "x"))
         self.assertEquals(decodeXMLName("{}x"), (None, "x"))
 
         # Normal case
         self.assertEquals(decodeXMLName("{namespace}name"), ("namespace", "name"))
+
 
     def test_encodeXMLName(self):
         # No namespace
@@ -66,6 +67,7 @@ class NameEncodeTests(TestCase):
 
         # Normal case
         self.assertEquals(encodeXMLName("namespace", "name"), "{namespace}name")
+
 
 
 class WebDAVElementTestsMixin:
@@ -90,6 +92,7 @@ class WebDAVElementTestsMixin:
         self.assertEquals(
             document,
             WebDAVDocument.fromString(document.toxml()))
+
 
 
 class WebDAVUnknownElementTests(WebDAVElementTestsMixin, TestCase):

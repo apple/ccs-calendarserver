@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -37,6 +37,7 @@ class AbstractWebDAVDocument(object):
     def fromStream(cls, source):
         raise NotImplementedError()
 
+
     @classmethod
     def fromString(cls, source):
         source = StringIO(source)
@@ -44,6 +45,7 @@ class AbstractWebDAVDocument(object):
             return cls.fromStream(source)
         finally:
             source.close()
+
 
     def __init__(self, root_element):
         """
@@ -56,8 +58,10 @@ class AbstractWebDAVDocument(object):
 
         self.root_element = root_element
 
+
     def __str__(self):
         return self.toxml()
+
 
     def __eq__(self, other):
         if isinstance(other, AbstractWebDAVDocument):
@@ -65,8 +69,10 @@ class AbstractWebDAVDocument(object):
         else:
             return NotImplemented
 
+
     def writeXML(self, output):
         raise NotImplementedError()
+
 
     def toxml(self):
         output = StringIO()

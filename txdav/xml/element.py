@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -65,17 +65,18 @@ def registerElement(elementClass):
     assert elementClass.name, "Element has no name: %s" % (elementClass,)
 
     qname = elementClass.namespace, elementClass.name
-    
+
     if qname in _elements_by_qname:
         raise AssertionError(
             "Attempting to register element %s multiple times: (%r, %r)"
             % (elementClass.sname(), _elements_by_qname[qname], elementClass)
         )
-    
+
     if not (qname in _elements_by_qname and issubclass(elementClass, _elements_by_qname[qname])):
         _elements_by_qname[qname] = elementClass
 
     return elementClass
+
 
 
 def registerElementClass(elementClass):
@@ -97,8 +98,23 @@ def registerElementClass(elementClass):
     return elementClass
 
 
+
 def lookupElement(qname):
     """
     Return the element class for the element with the given qname.
     """
     return _elements_by_qname[qname]
+
+# Shhh unused imports
+WebDAVDocument
+dav_namespace
+twisted_dav_namespace
+twisted_private_namespace
+WebDAVElement
+PCDATAElement
+WebDAVOneShotElement
+WebDAVUnknownElement
+WebDAVEmptyElement
+WebDAVTextElement
+WebDAVDateTimeElement
+DateTimeHeaderElement
