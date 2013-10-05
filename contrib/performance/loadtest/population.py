@@ -480,7 +480,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             if result is not None:
                 differences.append(result)
 
-        return mean(differences) if differences else "None"
+        return ("%-8.4f" % mean(differences)) if differences else "None"
 
 
     def qos_value(self, method, value):
@@ -518,7 +518,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             'Start time': self._startTime.strftime('%m/%d %H:%M:%S'),
             'Run time': "%02d:%02d:%02d" % (runHours, runMinutes, runSeconds),
             'CPU Time': "user %-5.2f sys %-5.2f total %02d:%02d:%02d" % (cpuUser, cpuSys, cpuHours, cpuMinutes, cpuSeconds,),
-            'QoS': "%-8.4f" % (self.qos(),),
+            'QoS': self.qos(),
         }
         if self.countClientFailures() > 0:
             items['Failed clients'] = self.countClientFailures()
