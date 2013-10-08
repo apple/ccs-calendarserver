@@ -604,10 +604,11 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
             # add change for addressbook group
             changed, deleted = yield super(AddressBook, self).sharedChildResourceNamesSinceRevision(revision, depth)
 
-            ''' add the following for have addressbook group in sync report
-            if changed or deleted and depth != "1":
-                changed.add("%s/%s" % (path, self._groupForSharedAddressBookName(),))
-            '''
+            #===================================================================
+            # # Add the following for have addressbook group in sync report
+            # if changed or deleted and depth != "1":
+            #     changed.add("%s/%s" % (path, self._groupForSharedAddressBookName(),))
+            #===================================================================
 
             returnValue((changed, deleted))
 
@@ -1465,11 +1466,13 @@ END:VCARD
                         shareeView.viewerHome()._children.pop(self.shareeName(), None)
                         shareeView.viewerHome()._children.pop(shareeView._resourceID, None)
                     else:
-                        #update all bind revisions
+                        #update revision in all remaining bind table rows for this address book
                         yield shareeView.notifyPropertyChanged()
                         for groupBindRow in groupBindRows:
                             groupObject = yield shareeView.objectResourceWithID(groupBindRow[2])
                             yield groupObject._initBindRevision()
+                        shareeView._objects = {}
+                        shareeView._objectNames = None
 
             if bind.MESSAGE in columnMap:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
@@ -1491,7 +1494,7 @@ END:VCARD
     @inlineCallbacks
     def shareWith(self, shareeHome, mode, status=None, message=None):
         """
-            call super and set isShared = True
+            call super and set self.isShared True
         """
 
         # Note: super always calls shareView._initSyncToken():
@@ -1534,10 +1537,12 @@ END:VCARD
                 shareeHome._children.pop(shareeAddressBook._resourceID, None)
             else:
                 yield shareeAddressBook.notifyPropertyChanged()
-                #update all bind revisions
+                #update revision in all remaining bind table rows for this address book
                 for groupBindRow in groupBindRows:
                     groupObject = yield shareeAddressBook.objectResourceWithID(groupBindRow[2])
                     yield groupObject._initBindRevision()
+                shareeAddressBook._objects = {}
+                shareeAddressBook._objectNames = None
 
             # Must send notification to ensure cache invalidation occurs
             yield self.notifyPropertyChanged()
@@ -1640,7 +1645,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         aboMembers = schema.ABO_MEMBERS
         groupRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION],
             From=aboMembers,
-            Where=(aboMembers.MEMBER_ID == self._resourceID)
+            Where=aboMembers.MEMBER_ID == self._resourceID,
         ).on(self._txn)
 
         # combine by groupID
@@ -2521,12 +2526,14 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 shareeHome._children.pop(self.addressbook()._resourceID, None)
             else:
                 shareeAddressBook.notifyPropertyChanged()
-                #update all bind revisions
+                #update revision in all remaining bind table rows for this address book
                 for groupBindRow in groupBindRows:
                     groupObject = yield shareeAddressBook.objectResourceWithID(groupBindRow[2])
                     yield groupObject._initBindRevision()
                 if shareeAddressBook.fullyShared():
                     yield shareeAddressBook._initBindRevision()
+                shareeAddressBook._objects = {}
+                shareeAddressBook._objectNames = None
 
             # Must send notification to ensure cache invalidation occurs
             yield self.addressbook().notifyPropertyChanged()
@@ -2606,13 +2613,13 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         else:
             if status == _BIND_STATUS_ACCEPTED:
                 shareeView = yield shareeHome.objectWithShareUID(bindName)
-                groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
-                        self._txn, homeID=shareeView.viewerHome()._resourceID, addressbookID=shareeView.addressbook()._resourceID
-                )
-                currentAcceptedBindCount = len(groupBindRows)
                 if not shareeView.addressbook().fullyShared():
-                    if currentAcceptedBindCount == 1:
+                    groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
+                            self._txn, homeID=shareeView.viewerHome()._resourceID, addressbookID=shareeView.addressbook()._resourceID
+                    )
+                    if len(groupBindRows) == 1:
                         yield shareeView.addressbook()._initSyncToken()
+                yield shareeView._initBindRevision()
 
         queryCacher = self._txn._queryCacher
         if queryCacher:
@@ -2639,11 +2646,11 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     @inlineCallbacks
     def updateShare(self, shareeView, mode=None, status=None, message=None):
         """
-        Update share mode, status, and message for a home child shared with
-        this (owned) L{CommonHomeChild}.
+        Update share mode, status, and message for a address book group with
+        this (owned) L{AddressBookObject}.
 
-        @param shareeView: The sharee home child that shares this.
-        @type shareeView: L{CommonHomeChild}
+        @param shareeView: The sharee addressbook group that shares this.
+        @type shareeView: L{AddressBookObject}
 
         @param mode: The sharing mode; L{_BIND_MODE_READ} or
             L{_BIND_MODE_WRITE} or None to not update
@@ -2708,7 +2715,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                         shareeView.viewerHome()._children.pop(self.addressbook().shareeName(), None)
                         shareeView.viewerHome()._children.pop(shareeView._resourceID, None)
                     else:
-                        # update all bind revisions
+                        # update revision in all remaining bind table rows for this address book
                         yield shareeView.addressbook().notifyPropertyChanged()
                         for groupBindRow in groupBindRows:
                             if groupBindRow[2] != shareeView._resourceID:
@@ -2716,6 +2723,8 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                                 yield groupObject._initBindRevision()
                         if shareeView.addressbook().fullyShared():
                             yield shareeView.addressbook()._initBindRevision()
+                        shareeView.addressbook()._objects = {}
+                        shareeView.addressbook()._objectNames = None
 
             if bind.MESSAGE in columnMap:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
