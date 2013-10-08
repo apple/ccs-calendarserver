@@ -595,11 +595,8 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
             bindRevisions += [groupBindRow[5] for groupBindRow in groupBindRows]
 
         if revision != 0 and revision < max(bindRevisions):
-            if depth == "1":
-                revision = 0
-            else:
-                # perhaps we could return a multistatus result of 403 instead: TODO: Check RFC
-                raise SyncTokenValidException
+            # perhaps we could return a multistatus result of 403 instead: TODO: Check RFC
+            raise SyncTokenValidException
 
         path = self.name()
 
@@ -1305,42 +1302,42 @@ END:VCARD
 
 
     @inlineCallbacks
-    def _objectAccessSets(self):
+    def _groupIDAccessSets(self):
         if self.owned():
-            returnValue(([], []))
+            returnValue((set(), set()))
         else:
             groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
                     self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
             )
-            readWriteObjectIDs = []
-            readOnlyObjectIDs = []
+            readWriteGroupIDs = set()
+            readOnlyGroupIDs = set()
             for groupBindRow in groupBindRows:
                 bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
                 if bindMode == _BIND_MODE_WRITE:
-                    readWriteObjectIDs.append(resourceID)
+                    readWriteGroupIDs.add(resourceID)
                 else:
-                    readOnlyObjectIDs.append(resourceID)
+                    readOnlyGroupIDs.add(resourceID)
 
-            if readOnlyObjectIDs and readWriteObjectIDs:
+            if readOnlyGroupIDs and readWriteGroupIDs:
                 # expand read-write groups and remove any subgroups from read-only group list
-                allWriteableIDs = yield self.expandGroupIDs(self._txn, readWriteObjectIDs)
-                adjustedReadOnlyGroupIDs = set(readOnlyObjectIDs) - set(allWriteableIDs)
-                adjustedReadWriteGroupIDs = set(readWriteObjectIDs) | (set(readOnlyObjectIDs) - adjustedReadOnlyGroupIDs)
+                allWriteableIDs = yield self.expandGroupIDs(self._txn, readWriteGroupIDs)
+                adjustedReadOnlyGroupIDs = set(readOnlyGroupIDs) - set(allWriteableIDs)
+                adjustedReadWriteGroupIDs = set(readWriteGroupIDs) | (set(readOnlyGroupIDs) - adjustedReadOnlyGroupIDs)
             else:
-                adjustedReadOnlyGroupIDs = readOnlyObjectIDs
-                adjustedReadWriteGroupIDs = readWriteObjectIDs
-            returnValue((tuple(adjustedReadOnlyGroupIDs), tuple(adjustedReadWriteGroupIDs)))
+                adjustedReadOnlyGroupIDs = readOnlyGroupIDs
+                adjustedReadWriteGroupIDs = readWriteGroupIDs
+            returnValue((adjustedReadOnlyGroupIDs, adjustedReadWriteGroupIDs))
 
 
     # FIXME: Unused
     @inlineCallbacks
-    def readOnlyObjectIDs(self):
-        returnValue((yield self._objectAccessSets())[0])
+    def readOnlyGroupIDs(self):
+        returnValue((yield self._groupIDAccessSets())[0])
 
 
     @inlineCallbacks
-    def readWriteObjectIDs(self):
-        returnValue((yield self._objectAccessSets())[1])
+    def readWriteGroupIDs(self):
+        returnValue((yield self._groupIDAccessSets())[1])
 
     '''
     # FIXME: Unused:  Use for caching access
@@ -1360,32 +1357,32 @@ END:VCARD
         groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
                 self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
         )
-        readWriteObjectIDs = []
-        readOnlyObjectIDs = []
+        readWriteGroupIDs = []
+        readOnlyGroupIDs = []
         for groupBindRow in groupBindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
             if bindMode == _BIND_MODE_WRITE:
-                readWriteObjectIDs.append(resourceID)
+                readWriteGroupIDs.append(resourceID)
             else:
-                readOnlyObjectIDs.append(resourceID)
+                readOnlyGroupIDs.append(resourceID)
 
-        if readOnlyObjectIDs:
-            readOnlyIDs |= set((yield self.expandGroupIDs(self._txn, readOnlyObjectIDs)))
-        if readWriteObjectIDs:
-            readWriteIDs |= set((yield self.expandGroupIDs(self._txn, readWriteObjectIDs)))
+        if readOnlyGroupIDs:
+            readOnlyIDs |= set((yield self.expandGroupIDs(self._txn, readOnlyGroupIDs)))
+        if readWriteGroupIDs:
+            readWriteIDs |= set((yield self.expandGroupIDs(self._txn, readWriteGroupIDs)))
         readOnlyIDs -= readWriteIDs
         returnValue(tuple(readOnlyIDs), tuple(readWriteIDs))
 
 
     # FIXME: Unused:  Use for caching access
     @inlineCallbacks
-    def readOnlyObjectIDs(self):
+    def readOnlyGroupIDs(self):
         returnValue((yield self.accessControlObjectIDs())[1])
 
 
     # FIXME: Unused:  Use for caching access
     @inlineCallbacks
-    def readWriteObjectIDs(self):
+    def readWriteGroupIDs(self):
         returnValue((yield self.accessControlObjectIDs())[1])
 
 
@@ -1439,9 +1436,10 @@ END:VCARD
             # count accepted
             if bind.BIND_STATUS in columnMap:
                 previouslyAcceptedBindCount = 1 if shareeView.fullyShared() else 0
-                previouslyAcceptedBindCount += len((yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
+                groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
                         self._txn, homeID=shareeView.viewerHome()._resourceID, addressbookID=shareeView._resourceID
-                )))
+                )
+                previouslyAcceptedBindCount += len(groupBindRows)
 
             bindNameRows = yield self._updateBindColumnsQuery(columnMap).on(
                 self._txn,
@@ -1466,6 +1464,12 @@ END:VCARD
                         yield shareeView._deletedSyncToken(sharedRemoval=True)
                         shareeView.viewerHome()._children.pop(self.shareeName(), None)
                         shareeView.viewerHome()._children.pop(shareeView._resourceID, None)
+                    else:
+                        #update all bind revisions
+                        yield shareeView.notifyPropertyChanged()
+                        for groupBindRow in groupBindRows:
+                            groupObject = yield shareeView.objectResourceWithID(groupBindRow[2])
+                            yield groupObject._initBindRevision()
 
             if bind.MESSAGE in columnMap:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
@@ -1489,6 +1493,9 @@ END:VCARD
         """
             call super and set isShared = True
         """
+
+        # Note: super always calls shareView._initSyncToken():
+        # even when shareView is previously shared via group sharing
         bindName = yield super(AddressBook, self).shareWith(shareeHome, mode, status, message)
 
         queryCacher = self._txn._queryCacher
@@ -1517,16 +1524,20 @@ END:VCARD
         if shareeAddressBook:
 
             acceptedBindCount = 1 if shareeAddressBook.fullyShared() else 0
-            acceptedBindCount += len((yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
+            groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
                     self._txn, homeID=shareeHome._resourceID, addressbookID=shareeAddressBook._resourceID
-            )))
+            )
+            acceptedBindCount += len(groupBindRows)
             if acceptedBindCount == 1:
                 yield shareeAddressBook._deletedSyncToken(sharedRemoval=True)
                 shareeHome._children.pop(self.shareeName(), None)
                 shareeHome._children.pop(shareeAddressBook._resourceID, None)
-            elif not shareeAddressBook.fullyShared():
-                # FIXME: remove objects for this group only using self.removeObjectResource()
-                self._objectNames = None
+            else:
+                yield shareeAddressBook.notifyPropertyChanged()
+                #update all bind revisions
+                for groupBindRow in groupBindRows:
+                    groupObject = yield shareeAddressBook.objectResourceWithID(groupBindRow[2])
+                    yield groupObject._initBindRevision()
 
             # Must send notification to ensure cache invalidation occurs
             yield self.notifyPropertyChanged()
@@ -1611,36 +1622,25 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             if self.isGroupForSharedAddressBook() or self.shareUID():
                 raise HTTPError(FORBIDDEN)
 
-        if not self.owned() and not self.addressbook().fullyShared():
-            readWriteObjectIDs = yield self.addressbook().readWriteObjectIDs()
+        partiallyShared = not self.owned() and not self.addressbook().fullyShared()
+        if partiallyShared:
+            readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
             readWriteObjectIDs = (
-                set((yield self.addressbook().expandGroupIDs(self._txn, readWriteObjectIDs)))
-                    if readWriteObjectIDs else set()
+                set((yield self.addressbook().expandGroupIDs(self._txn, readWriteGroupIDs)))
+                    if readWriteGroupIDs else set()
             )
-
             # can't delete item in read-only shared group, even if user has addressbook unbind
             if self._resourceID not in readWriteObjectIDs:
                 raise HTTPError(FORBIDDEN)
 
-            # get sync token for delete now
-            yield self.addressbook()._deleteRevision(self.name(), self._resourceID)
-
-            readWriteGroupIDs = set()
-            for readWriteObjectID in readWriteObjectIDs:
-                abObject = yield self.addressbook().objectResourceWithID(readWriteObjectID)
-                if abObject.kind() == _ABO_KIND_GROUP:
-                    readWriteGroupIDs.add(readWriteObjectID)
-                    yield self.addressbook()._updateRevision(abObject.name())
-
-        else:
-            # get sync token for delete now
-            yield self.addressbook()._deleteRevision(self.name(), self._resourceID)
+        # get sync token for delete now
+        yield self.addressbook()._deleteRevision(self.name(), self._resourceID)
 
         # get groups where this object was once a member and version info
         aboMembers = schema.ABO_MEMBERS
         groupRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION],
             From=aboMembers,
-            Where=aboMembers.MEMBER_ID == self._resourceID,
+            Where=(aboMembers.MEMBER_ID == self._resourceID)
         ).on(self._txn)
 
         # combine by groupID
@@ -1656,9 +1656,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 if self._resourceID in AddressBook._currentMemberIDsFromMemberIDRemovedRevisionRows(memberRows)
         ])
 
-        if not self.owned() and not self.addressbook().fullyShared():
-            groupIDsToRemoveFrom = readWriteGroupIDs | groupIDs
-            groupIDs -= readWriteGroupIDs
+        if partiallyShared:
+            groupIDsToRemoveFrom = groupIDs & readWriteObjectIDs
+            groupIDs -= readWriteObjectIDs
         else:
             groupIDsToRemoveFrom = groupIDs
 
@@ -1671,6 +1671,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 revision=self._syncTokenRevision,
                 removed=True,
             )
+            if partiallyShared:
+                groupObject = yield self.addressbook().objectResourceWithID(groupIDToRemoveFrom)
+                yield self.addressbook()._updateRevision(groupObject.name())
 
         # add to foreign member table row by UID (aboForeignMembers on address books)
         memberAddress = "urn:uuid:" + self._uid
@@ -1683,10 +1686,8 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             ).on(self._txn)
 
         if self.kind() == _ABO_KIND_GROUP:
-
             # mark members as deleted
             memberIDsToRemove = yield AddressBook.memberIDsWithGroupIDs(self._txn, [self._resourceID])
-
             for memberIDToRemove in memberIDsToRemove:
                 yield self._insertMemberIDQuery.on(
                     self._txn,
@@ -1717,9 +1718,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             returnValue(True)
 
         #otherwise, must be in a read-write group
-        readWriteObjectIDs = yield self.addressbook().readWriteObjectIDs()
-        readWriteIDs = yield self.addressbook().expandGroupIDs(self._txn, readWriteObjectIDs)
-        returnValue(self._resourceID in readWriteIDs)
+        readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
+        readWriteObjectIDs = yield self.addressbook().expandGroupIDs(self._txn, readWriteGroupIDs)
+        returnValue(self._resourceID in readWriteObjectIDs)
 
 
     @classmethod
@@ -2207,15 +2208,15 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             ).on(self._txn)
             groupIDs = set([groupIDRow[0] for groupIDRow in groupIDRows])
 
+            # add this object to shared groups
             if not self.owned() and not self.addressbook().fullyShared():
-                readWriteObjectIDs = yield self.addressbook().readWriteObjectIDs()
-                assert readWriteObjectIDs, "no access"
+                readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
+                assert readWriteGroupIDs, "no access"
+                groupIDs |= readWriteGroupIDs
 
-                for readWriteObjectID in readWriteObjectIDs:
-                    abObject = yield self.addressbook().objectResourceWithID(readWriteObjectID)
-                    if abObject.kind() == _ABO_KIND_GROUP:
-                        groupIDs.add(readWriteObjectID)
-                        yield self.addressbook()._updateRevision(abObject.name())
+                for readWriteGroupID in readWriteGroupIDs:
+                    groupObject = yield self.addressbook().objectResourceWithID(readWriteGroupID)
+                    yield self.addressbook()._updateRevision(groupObject.name())
 
             # add to member table rows
             for groupID in groupIDs:
@@ -2509,16 +2510,23 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         if shareeAddressBook and shareeAddressBook._bindStatus == _BIND_STATUS_ACCEPTED:
 
             acceptedBindCount = 1 if shareeAddressBook.fullyShared() else 0
-            acceptedBindCount += len((
-                yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
-                    self._txn, homeID=shareeHome._resourceID, addressbookID=shareeAddressBook._resourceID
-                )
-            ))
+            groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
+                self._txn, homeID=shareeHome._resourceID, addressbookID=shareeAddressBook._resourceID
+            )
+            acceptedBindCount += len(groupBindRows)
 
             if acceptedBindCount == 1:
                 yield shareeAddressBook._deletedSyncToken(sharedRemoval=True)
                 shareeHome._children.pop(self.addressbook().shareeName(), None)
                 shareeHome._children.pop(self.addressbook()._resourceID, None)
+            else:
+                shareeAddressBook.notifyPropertyChanged()
+                #update all bind revisions
+                for groupBindRow in groupBindRows:
+                    groupObject = yield shareeAddressBook.objectResourceWithID(groupBindRow[2])
+                    yield groupObject._initBindRevision()
+                if shareeAddressBook.fullyShared():
+                    yield shareeAddressBook._initBindRevision()
 
             # Must send notification to ensure cache invalidation occurs
             yield self.addressbook().notifyPropertyChanged()
@@ -2598,16 +2606,13 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         else:
             if status == _BIND_STATUS_ACCEPTED:
                 shareeView = yield shareeHome.objectWithShareUID(bindName)
+                groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
+                        self._txn, homeID=shareeView.viewerHome()._resourceID, addressbookID=shareeView.addressbook()._resourceID
+                )
+                currentAcceptedBindCount = len(groupBindRows)
                 if not shareeView.addressbook().fullyShared():
-                    currentAcceptedBindCount = len((
-                        yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
-                            self._txn, homeID=shareeView.viewerHome()._resourceID, addressbookID=shareeView.addressbook()._resourceID
-                        )
-                    ))
                     if currentAcceptedBindCount == 1:
                         yield shareeView.addressbook()._initSyncToken()
-
-                yield shareeView._initBindRevision()
 
         queryCacher = self._txn._queryCacher
         if queryCacher:
@@ -2673,12 +2678,11 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
             # count accepted
             if bind.BIND_STATUS in columnMap:
-                previouslyAcceptedBindCount = 1 if self.addressbook().fullyShared() else 0
-                previouslyAcceptedBindCount += len((
-                    yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
-                        self._txn, homeID=shareeView.viewerHome()._resourceID, addressbookID=self.addressbook()._resourceID
-                    )
-                ))
+                previouslyAcceptedBindCount = 1 if shareeView.addressbook().fullyShared() else 0
+                groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
+                    self._txn, homeID=shareeView.viewerHome()._resourceID, addressbookID=self.addressbook()._resourceID
+                )
+                previouslyAcceptedBindCount += len(groupBindRows)
 
             bindNameRows = yield self._updateBindColumnsQuery(columnMap).on(
                 self._txn,
@@ -2698,11 +2702,20 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                         shareeView.viewerHome()._children[self.addressbook().shareeName()] = shareeView.addressbook()
                         shareeView.viewerHome()._children[shareeView._resourceID] = shareeView.addressbook()
                     yield shareeView._initBindRevision()
-                elif shareeView._bindStatus != _BIND_STATUS_INVITED:
+                elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
                     if 1 == previouslyAcceptedBindCount:
                         yield shareeView.addressbook()._deletedSyncToken(sharedRemoval=True)
                         shareeView.viewerHome()._children.pop(self.addressbook().shareeName(), None)
                         shareeView.viewerHome()._children.pop(shareeView._resourceID, None)
+                    else:
+                        # update all bind revisions
+                        yield shareeView.addressbook().notifyPropertyChanged()
+                        for groupBindRow in groupBindRows:
+                            if groupBindRow[2] != shareeView._resourceID:
+                                groupObject = yield shareeView.addressbook().objectResourceWithID(groupBindRow[2])
+                                yield groupObject._initBindRevision()
+                        if shareeView.addressbook().fullyShared():
+                            yield shareeView.addressbook()._initBindRevision()
 
             if bind.MESSAGE in columnMap:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
