@@ -50,7 +50,8 @@ class DirectoryService(BaseDirectoryService):
             for recordType in service.recordTypes():
                 if recordType in recordTypes:
                     raise DirectoryConfigurationError(
-                        "Aggregated services may not vend the same record type: %s"
+                        "Aggregated services may not vend "
+                        "the same record type: %s"
                         % (recordType,)
                     )
                 recordTypes.add(recordType)

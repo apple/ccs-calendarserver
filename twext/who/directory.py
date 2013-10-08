@@ -47,7 +47,7 @@ class DirectoryService(object):
     fieldName  = FieldName
 
     normalizedFields = {
-        FieldName.guid:           lambda g: UUID(g).hex,
+        FieldName.guid: lambda g: UUID(g).hex,
         FieldName.emailAddresses: lambda e: e.lower(),
     }
 
@@ -76,7 +76,9 @@ class DirectoryService(object):
             the whole directory should be searched.
         @type records: L{set} or L{frozenset}
         """
-        return fail(QueryNotSupportedError("Unknown expression: %s" % (expression,)))
+        return fail(QueryNotSupportedError(
+            "Unknown expression: %s" % (expression,)
+        ))
 
 
     @inlineCallbacks
@@ -109,7 +111,9 @@ class DirectoryService(object):
             elif operand == Operand.OR:
                 results |= recordsMatchingExpression
             else:
-                raise QueryNotSupportedError("Unknown operand: %s" % (operand,))
+                raise QueryNotSupportedError(
+                    "Unknown operand: %s" % (operand,)
+                )
 
         returnValue(results)
 
@@ -120,12 +124,16 @@ class DirectoryService(object):
 
     @inlineCallbacks
     def recordWithUID(self, uid):
-        returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.uid, uid))))
-               
+        returnValue(uniqueResult(
+            (yield self.recordsWithFieldValue(FieldName.uid, uid))
+        ))
+
 
     @inlineCallbacks
     def recordWithGUID(self, guid):
-        returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.guid, guid))))
+        returnValue(uniqueResult(
+            (yield self.recordsWithFieldValue(FieldName.guid, guid))
+        ))
 
 
     def recordsWithRecordType(self, recordType):
@@ -136,12 +144,15 @@ class DirectoryService(object):
     def recordWithShortName(self, recordType, shortName):
         returnValue(uniqueResult((yield self.recordsFromQuery((
             MatchExpression(FieldName.recordType, recordType),
-            MatchExpression(FieldName.shortNames, shortName ),
+            MatchExpression(FieldName.shortNames, shortName),
         )))))
 
 
     def recordsWithEmailAddress(self, emailAddress):
-        return self.recordsWithFieldValue(FieldName.emailAddresses, emailAddress)
+        return self.recordsWithFieldValue(
+            FieldName.emailAddresses,
+            emailAddress,
+        )
 
 
     def updateRecords(self, records, create=False):
@@ -173,12 +184,19 @@ class DirectoryRecord(object):
             if FieldName.isMultiValue(fieldName):
                 values = fields[fieldName]
                 if len(values) == 0:
-                    raise ValueError("%s field must have at least one value." % (fieldName,))
+                    raise ValueError(
+                        "%s field must have at least one value." % (fieldName,)
+                    )
                 for value in values:
                     if not value:
-                        raise ValueError("%s field must not be empty." % (fieldName,))
+                        raise ValueError(
+                            "%s field must not be empty." % (fieldName,)
+                        )
 
-        if fields[FieldName.recordType] not in service.recordType.iterconstants():
+        if (
+            fields[FieldName.recordType] not in
+            service.recordType.iterconstants()
+        ):
             raise ValueError("Record type must be one of %r, not %r." % (
                 tuple(service.recordType.iterconstants()),
                 fields[FieldName.recordType]
@@ -197,7 +215,7 @@ class DirectoryRecord(object):
                 normalizedFields[name] = tuple((normalize(v) for v in value))
             else:
                 normalizedFields[name] = normalize(value)
-        
+
         self.service = service
         self.fields  = normalizedFields
 

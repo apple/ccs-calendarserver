@@ -67,7 +67,9 @@ def uniqueResult(values):
         if result is None:
             result = value
         else:
-            raise DirectoryServiceError("Multiple values found where one expected.")
+            raise DirectoryServiceError(
+                "Multiple values found where one expected."
+            )
     return result
 
 

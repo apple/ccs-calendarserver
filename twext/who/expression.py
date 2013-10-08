@@ -72,7 +72,11 @@ class MatchExpression(object):
     @ivar flags: L{NamedConstant} specifying additional options
     """
 
-    def __init__(self, fieldName, fieldValue, matchType=MatchType.equals, flags=None):
+    def __init__(
+        self,
+        fieldName, fieldValue,
+        matchType=MatchType.equals, flags=None
+    ):
         self.fieldName  = fieldName
         self.fieldValue = fieldValue
         self.matchType  = matchType
