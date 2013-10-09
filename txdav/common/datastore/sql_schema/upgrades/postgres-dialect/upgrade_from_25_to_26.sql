@@ -22,18 +22,22 @@
 create table SCHEDULE_REFRESH_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade
 );
 
+create index SCHEDULE_REFRESH_WORK_HOME_RESOURCE_ID on
+	SCHEDULE_REFRESH_WORK(HOME_RESOURCE_ID);
 create index SCHEDULE_REFRESH_WORK_RESOURCE_ID on
 	SCHEDULE_REFRESH_WORK(RESOURCE_ID);
 
 create table SCHEDULE_REFRESH_ATTENDEES (
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
-  ATTENDEE			            varchar(255),
-
-  primary key (RESOURCE_ID, ATTENDEE)
+  ATTENDEE			            varchar(255) not null
 );
+
+create index SCHEDULE_REFRESH_ATTENDEES_RESOURCE_ID_ATTENDEE on
+	SCHEDULE_REFRESH_ATTENDEES(RESOURCE_ID, ATTENDEE);
 
 -- Now update the version
 -- No data upgrades

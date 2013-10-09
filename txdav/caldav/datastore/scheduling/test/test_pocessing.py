@@ -34,7 +34,7 @@ class FakeImplicitProcessor(ImplicitProcessor):
         self.batches = 0
 
 
-    def _enqueueBatchRefresh(self):
+    def _enqueueBatchRefresh(self, exclude_attendees):
         self.batches += 1
 
 
@@ -69,7 +69,7 @@ class FakeResource(object):
 
 
     def id(self):
-        return None
+        return 1
 
 
 
@@ -107,6 +107,7 @@ END:VCALENDAR
         processor = FakeImplicitProcessor()
         processor.txn = ""
         processor.uid = "12345-67890"
+        processor.recipient_calendar_resource = FakeResource()
         processor.recipient_calendar = calendar
         yield processor.queueAttendeeUpdate(("urn:uuid:user02", "urn:uuid:user01",))
         self.assertEqual(processor.batches, 0)
@@ -134,6 +135,7 @@ END:VCALENDAR
         processor = FakeImplicitProcessor()
         processor.txn = ""
         processor.uid = "12345-67890"
+        processor.recipient_calendar_resource = FakeResource()
         processor.recipient_calendar = calendar
         yield processor.queueAttendeeUpdate(("urn:uuid:user02", "urn:uuid:user01",))
         self.assertEqual(processor.batches, 1)
@@ -219,7 +221,7 @@ END:VCALENDAR
             processor.txn = ""
             processor.recipient_calendar = calendar.duplicate()
             processor.uid = processor.recipient_calendar.newUID()
-            processor.recipient_calendar_resource = None
+            processor.recipient_calendar_resource = FakeResource()
             processor.message = itip.duplicate()
             processor.message.newUID(processor.uid)
             processor.originator = LocalCalendarUser(None, None)
