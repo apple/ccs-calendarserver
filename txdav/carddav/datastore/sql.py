@@ -595,8 +595,10 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
             bindRevisions += [groupBindRow[5] for groupBindRow in groupBindRows]
 
         if revision != 0 and revision < max(bindRevisions):
-            # perhaps we could return a multistatus result of 403 instead: TODO: Check RFC
-            raise SyncTokenValidException
+            if depth == '1':
+                revision = 0
+            else:
+                raise SyncTokenValidException
 
         path = self.name()
 
