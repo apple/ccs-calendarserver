@@ -227,13 +227,11 @@ directoryAddressBookBackingServiceDefaultParams = {
         "dsLocalCacheTimeout": 30,
         "fakeETag": True,
         "addDSAttrXProperties": False,
-        "appleInternalServer": False,
         "additionalAttributes" : [],
         "allowedAttributes" : [],
         "searchAttributes" : [],
     },
     "twistedcaldav.directory.ldapdirectorybacker.LdapDirectoryBackingService": {
-        "appleInternalServer": False,
         "warningThresholdSeconds": 3,
         "uri": "ldap://localhost/",
         "tls": False,

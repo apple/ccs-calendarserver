@@ -1048,8 +1048,6 @@
        	  <!-- fake the eTag.  If false all directory service attributes are used to calculate the eTag -->
           <key>fakeETag</key>
           <true/>
-          <key>appleInternalServer</key>
-          <false/>
           <key>addDSAttrXProperties</key>
           <false/>
           <!-- add this key to use additional directory service attributes in queries.  Needed for some queries with directory service templates.
