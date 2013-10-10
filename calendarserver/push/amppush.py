@@ -48,7 +48,8 @@ class UnsubscribeFromID(amp.Command):
 # AMP Commands sent to client (and forwarded to Master)
 
 class NotificationForID(amp.Command):
-    arguments = [('id', amp.String()), ('dataChangedTimestamp', amp.Integer())]
+    arguments = [('id', amp.String()),
+                 ('dataChangedTimestamp', amp.Integer(optional=True))]
     response = [('status', amp.String())]
 
 
