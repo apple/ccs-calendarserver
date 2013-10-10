@@ -713,6 +713,7 @@ DEFAULT_CONFIG = {
             "AttendeeRefreshBatchDelaySeconds"    : 5, # Time after an iTIP REPLY for first batched attendee refresh
             "AttendeeRefreshBatchIntervalSeconds" : 5, # Time between attendee batch refreshes
             "AttendeeRefreshCountLimit"           : 50, # Number of attendees above which attendee refreshes are suppressed: 0 - no limit
+            "AutoReplyDelaySeconds"               : 5, # Time delay for sending an auto reply iTIP message
             "UIDLockTimeoutSeconds"               : 60, # Time for implicit UID lock timeout
             "UIDLockExpirySeconds"                : 300, # Expiration time for UID lock,
             "PrincipalHostAliases"                : [], # Host names matched in http(s) CUAs

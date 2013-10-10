@@ -714,13 +714,18 @@ create index SCHEDULE_REFRESH_ATTENDEES_RESOURCE_ID_ATTENDEE on
 -- Schedule Auto Reply Work --
 ------------------------------
 
---create table SCHEDULE_AUTO_REPLY_WORK (
---  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
---  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
---  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
---  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
---  PARTSTAT						varchar(255) not null
---);
+create table SCHEDULE_AUTO_REPLY_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
+  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
+  PARTSTAT						varchar(255) not null
+);
+
+create index SCHEDULE_AUTO_REPLY_WORK_HOME_RESOURCE_ID on
+	SCHEDULE_AUTO_REPLY_WORK(HOME_RESOURCE_ID);
+create index SCHEDULE_AUTO_REPLY_WORK_RESOURCE_ID on
+	SCHEDULE_AUTO_REPLY_WORK(RESOURCE_ID);
 
 --------------------
 -- Schema Version --

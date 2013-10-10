@@ -388,14 +388,14 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
-    def sendAttendeeReply(self, txn, resource, calendar, attendee):
+    def sendAttendeeReply(self, txn, resource):
 
         self.txn = txn
         self.resource = resource
 
         self.calendar_home = self.resource.parentCollection().ownerHome()
 
-        self.calendar = calendar
+        self.calendar = (yield self.resource.componentForUser())
         self.action = "modify"
         self.state = "attendee"
 
@@ -405,8 +405,8 @@ class ImplicitScheduler(object):
         # Get some useful information from the calendar
         yield self.extractCalendarData()
 
-        self.originator = self.attendee = attendee.principal.canonicalCalendarUserAddress()
-        self.attendeePrincipal = attendee.principal
+        self.attendeePrincipal = self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid())
+        self.originator = self.attendee = self.attendeePrincipal.canonicalCalendarUserAddress()
 
         result = (yield self.scheduleWithOrganizer())
 

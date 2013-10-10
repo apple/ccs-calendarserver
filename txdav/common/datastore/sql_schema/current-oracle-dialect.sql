@@ -363,13 +363,21 @@ create table CALENDAR_OBJECT_SPLITTER_WORK (
 create table SCHEDULE_REFRESH_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
 );
 
 create table SCHEDULE_REFRESH_ATTENDEES (
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
-    "ATTENDEE" nvarchar2(255), 
-    primary key("RESOURCE_ID", "ATTENDEE")
+    "ATTENDEE" nvarchar2(255)
+);
+
+create table SCHEDULE_AUTO_REPLY_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
+    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
+    "PARTSTAT" nvarchar2(255)
 );
 
 create table CALENDARSERVER (
@@ -501,7 +509,24 @@ create index CALENDAR_OBJECT_SPLIT_af71dcda on CALENDAR_OBJECT_SPLITTER_WORK (
     RESOURCE_ID
 );
 
+create index SCHEDULE_REFRESH_WORK_26084c7b on SCHEDULE_REFRESH_WORK (
+    HOME_RESOURCE_ID
+);
+
 create index SCHEDULE_REFRESH_WORK_989efe54 on SCHEDULE_REFRESH_WORK (
+    RESOURCE_ID
+);
+
+create index SCHEDULE_REFRESH_ATTE_83053b91 on SCHEDULE_REFRESH_ATTENDEES (
+    RESOURCE_ID,
+    ATTENDEE
+);
+
+create index SCHEDULE_AUTO_REPLY_W_0256478d on SCHEDULE_AUTO_REPLY_WORK (
+    HOME_RESOURCE_ID
+);
+
+create index SCHEDULE_AUTO_REPLY_W_0755e754 on SCHEDULE_AUTO_REPLY_WORK (
     RESOURCE_ID
 );
 
