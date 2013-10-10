@@ -671,7 +671,6 @@ class GroupMembershipCache(Memcacher):
         return self.add("group-cacher-lock", "1", expireTime=self.lockSeconds)
 
 
-
     def extendLock(self):
         """
         Update the expiration time of the memcached lock
@@ -688,6 +687,7 @@ class GroupMembershipCache(Memcacher):
         """
         self.log.debug("delete group-cacher-lock")
         return self.delete("group-cacher-lock")
+
 
 
 class GroupMembershipCacheUpdater(object):

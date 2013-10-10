@@ -40,72 +40,73 @@ class XMLDirectoryBackingService(XMLDirectoryService):
     def __init__(self, params):
         self._actuallyConfigure(**params)
 
+
     def _actuallyConfigure(self, **params):
 
         self.log.debug("_actuallyConfigure: params=%s" % (params,))
         defaults = {
             "recordTypes": (self.recordType_users, self.recordType_groups,),
             "rdnSchema": {
-                self.recordType_users : {
-                    "vcardPropToDirRecordAttrMap" : {
-                        "FN" : (
+                self.recordType_users: {
+                    "vcardPropToDirRecordAttrMap": {
+                        "FN": (
                                 "fullName",
                                 "shortNames",
                                 "firstName",
                                 "lastName",
                                 ),
-                        "N" : (
+                        "N": (
                                 "fullName",
                                 "shortNames",
                                 "firstName",
                                 "lastName",
                                 ),
-                        "EMAIL" : "emailAddresses",
-                        "UID" : "guid",
+                        "EMAIL": "emailAddresses",
+                        "UID": "guid",
                      },
-                     "dirRecordAttrToDSAttrMap" : {
-                        "guid" :            dsattributes.kDS1AttrGeneratedUID,
-                        "fullName" :        dsattributes.kDS1AttrDistinguishedName,
-                        "firstName" :       dsattributes.kDS1AttrFirstName,
-                        "lastName" :        dsattributes.kDS1AttrLastName,
-                        "emailAddresses" :  dsattributes.kDSNAttrEMailAddress,
+                     "dirRecordAttrToDSAttrMap": {
+                        "guid": dsattributes.kDS1AttrGeneratedUID,
+                        "fullName": dsattributes.kDS1AttrDistinguishedName,
+                        "firstName": dsattributes.kDS1AttrFirstName,
+                        "lastName": dsattributes.kDS1AttrLastName,
+                        "emailAddresses": dsattributes.kDSNAttrEMailAddress,
                      },
                 },
-                self.recordType_groups : {
-                    "vcardPropToDirRecordAttrMap" : {
-                        "FN" : (
+                self.recordType_groups: {
+                    "vcardPropToDirRecordAttrMap": {
+                        "FN": (
                                 "fullName",
                                 "shortNames",
                                 "firstName",
                                 "lastName",
                                 ),
-                        "N" : (
+                        "N": (
                                 "fullName",
                                 "shortNames",
                                 "firstName",
                                 "lastName",
                                 ),
-                        "EMAIL" : "emailAddresses",
-                        "UID" : "guid",
-                        "X-ADDRESSBOOKSERVER-MEMBER" : "members",
+                        "EMAIL": "emailAddresses",
+                        "UID": "guid",
+                        "X-ADDRESSBOOKSERVER-MEMBER": "members",
                      },
-                     "dirRecordAttrToDSAttrMap" : {
-                        "guid" :            dsattributes.kDS1AttrGeneratedUID,
-                        "fullName" :        dsattributes.kDS1AttrDistinguishedName,
-                        "firstName" :       dsattributes.kDS1AttrFirstName,
-                        "lastName" :        dsattributes.kDS1AttrLastName,
-                        "emailAddresses" :  dsattributes.kDSNAttrEMailAddress,
-                        "members" :         dsattributes.kDSNAttrGroupMembers,
+                     "dirRecordAttrToDSAttrMap": {
+                        "guid": dsattributes.kDS1AttrGeneratedUID,
+                        "fullName": dsattributes.kDS1AttrDistinguishedName,
+                        "firstName": dsattributes.kDS1AttrFirstName,
+                        "lastName": dsattributes.kDS1AttrLastName,
+                        "emailAddresses": dsattributes.kDSNAttrEMailAddress,
+                        "members": dsattributes.kDSNAttrGroupMembers,
                      },
                 },
             },
-            "maxQueryResults":0,  # max records returned
-            "sortResults":True,  # sort results by UID
-            "implementNot":True,  # implement Not query by listing all records and subtracting
+            "maxQueryResults": 0,  # max records returned
+            "sortResults": True,  # sort results by UID
+            "implementNot": True,  # implement Not query by listing all records and subtracting
        }
 
         #params = self.getParams(params, defaults, ignored)
-        def addDefaults(params, defaults, remove=None):
+        def addDefaults(params, defaults, remove=None): #@UnusedVariable
             for key in defaults:
                 if not key in params:
                     params[key] = defaults[key]
@@ -126,7 +127,6 @@ class XMLDirectoryBackingService(XMLDirectoryService):
         implementNot = params["implementNot"]
         del params["implementNot"]
 
-
         assert directoryBackedAddressBook is not None
         self.directoryBackedAddressBook = directoryBackedAddressBook
 
@@ -134,7 +134,6 @@ class XMLDirectoryBackingService(XMLDirectoryService):
         self.sortResults = sortResults
         self.implementNot = implementNot
         self.rdnSchema = rdnSchema
-
 
         super(XMLDirectoryBackingService, self).__init__(params)
 
@@ -158,16 +157,16 @@ class XMLDirectoryBackingService(XMLDirectoryService):
             vcardPropToDirRecordAttrMap = queryMap["vcardPropToDirRecordAttrMap"]
             dirRecordAttrToDSAttrMap = queryMap["dirRecordAttrToDSAttrMap"]
 
-            kind = {self.recordType_groups:"group",
-                    self.recordType_locations:"location",
-                    self.recordType_resources:"calendarresource",
+            kind = {self.recordType_groups: "group",
+                    self.recordType_locations: "location",
+                    self.recordType_resources: "calendarresource",
                     }.get(recordType, "individual")
 
             constantProperties = ABDirectoryQueryResult.constantProperties.copy()
             constantProperties["KIND"] = kind
             # add KIND as constant so that query can be skipped if addressBookFilter needs a different kind
 
-            filterPropertyNames, dsFilter = dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToDirRecordAttrMap, constantProperties=constantProperties);
+            filterPropertyNames, dsFilter = dsFilterFromAddressBookFilter(addressBookFilter, vcardPropToDirRecordAttrMap, constantProperties=constantProperties)
             self.log.debug("doAddressBookQuery: rdn=%s, query=%s, propertyNames=%s" % (recordType, dsFilter if isinstance(dsFilter, bool) else dsFilter.generate(), filterPropertyNames))
 
             if dsFilter:
@@ -195,9 +194,9 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                         for match in matches:
                             #self.log.debug("recordsForDSFilter: match=%s" % (match.generate(), ))
                             xmlMatchType = {
-                                dsattributes.eDSExact :        "exact",
-                                dsattributes.eDSStartsWith :   "starts-with",
-                                dsattributes.eDSContains :     "contains",
+                                dsattributes.eDSExact: "exact",
+                                dsattributes.eDSStartsWith: "starts-with",
+                                dsattributes.eDSContains: "contains",
                             }.get(match.matchType)
                             if not xmlMatchType:
                                 self.log.debug("recordsForDSFilter: match type=%s match not supported" % (match.generate(),))
@@ -219,7 +218,6 @@ class XMLDirectoryBackingService(XMLDirectoryService):
                                 else:
                                     self.log.debug("recordsForDSFilter: NOT expression not supported" % (match.generate(),))
                                     returnValue(None)
-
 
                         # evaluate subexpressions
                         subexpressions = [subexpression for subexpression in dsFilterSubexpressions if isinstance(subexpression, dsquery.expression)]
@@ -300,8 +298,7 @@ class XMLDirectoryBackingService(XMLDirectoryService):
 
         #sort results so that CalDAVTester can have consistent results when it uses limits
         if self.sortResults:
-            results = sorted(list(results), key=lambda result:result.vCard().propertyValue("UID"))
+            results = sorted(list(results), key=lambda result: result.vCard().propertyValue("UID"))
 
         self.log.info("limited  %s len(results) %s" % (limited, len(results),))
         returnValue((results, limited,))
-
