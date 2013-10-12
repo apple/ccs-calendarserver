@@ -144,9 +144,11 @@ class DirectoryService(BaseDirectoryService):
         else:
             realmName = repr(realmName)
 
-        return "<%s %s>" % (
-            self.__class__.__name__,
-            realmName,
+        return (
+            "<{self.__class__.__name__} {realmName}>".format(
+                self=self,
+                realmName=realmName,
+            )
         )
 
 
@@ -229,7 +231,7 @@ class DirectoryService(BaseDirectoryService):
         directoryNode = etree.getroot()
         if directoryNode.tag != self.element.directory.value:
             raise ParseError(
-                "Incorrect root element: %s" % (directoryNode.tag,)
+                "Incorrect root element: {0}".format(directoryNode.tag)
             )
 
         realmName = directoryNode.get(
@@ -376,7 +378,7 @@ class DirectoryService(BaseDirectoryService):
                         )
                     else:
                         raise AssertionError(
-                            "Unknown record type: %r" % (value,)
+                            "Unknown record type: {0}".format(value)
                         )
 
                 else:
@@ -395,7 +397,7 @@ class DirectoryService(BaseDirectoryService):
 
                     else:
                         raise AssertionError(
-                            "Unknown field name: %r" % (name,)
+                            "Unknown field name: {0!r}".format(name)
                         )
 
         # Walk through the record nodes in the XML tree and apply

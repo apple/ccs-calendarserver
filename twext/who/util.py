@@ -40,7 +40,7 @@ class ConstantsContainer(object):
         myConstants = {}
         for constant in constants:
             if constant.name in myConstants:
-                raise ValueError("Name conflict: %r" % (constant.name,))
+                raise ValueError("Name conflict: {0}".format(constant.name))
             myConstants[constant.name] = constant
 
         self._constants = myConstants

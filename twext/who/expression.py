@@ -89,12 +89,16 @@ class MatchExpression(object):
         if self.flags is None:
             flags = ""
         else:
-            flags = " (%s)" % (describe(self.flags),)
+            flags = " ({0})".format(describe(self.flags))
 
-        return "<%s: %r %s %r%s>" % (
-            self.__class__.__name__,
-            describe(self.fieldName),
-            describe(self.matchType),
-            describe(self.fieldValue),
-            flags
+        return (
+            "<{self.__class__.__name__}: {fieldName!r} "
+            "{matchType} {fieldValue!r}{flags}>"
+            .format(
+                self=self,
+                fieldName=describe(self.fieldName),
+                matchType=describe(self.matchType),
+                fieldValue=describe(self.fieldValue),
+                flags=flags,
+            )
         )

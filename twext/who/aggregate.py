@@ -45,14 +45,16 @@ class DirectoryService(BaseDirectoryService):
 
         for service in services:
             if not IDirectoryService.implementedBy(service.__class__):
-                raise ValueError("Not a directory service: %s" % (service,))
+                raise ValueError(
+                    "Not a directory service: {0}".format(service)
+                )
 
             for recordType in service.recordTypes():
                 if recordType in recordTypes:
                     raise DirectoryConfigurationError(
                         "Aggregated services may not vend "
-                        "the same record type: %s"
-                        % (recordType,)
+                        "the same record type: {0}"
+                        .format(recordType)
                     )
                 recordTypes.add(recordType)
 

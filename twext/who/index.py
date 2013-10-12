@@ -117,7 +117,7 @@ class DirectoryService(BaseDirectoryService):
                     normalize = lambda x: x.lower()
                 else:
                     raise NotImplementedError(
-                        "Unknown query flag: %s" % (describe(flag),)
+                        "Unknown query flag: {0}".format(describe(flag))
                     )
 
         return predicate, normalize
@@ -156,7 +156,7 @@ class DirectoryService(BaseDirectoryService):
                 )
         else:
             raise NotImplementedError(
-                "Unknown match type: %s" % (describe(matchType),)
+                "Unknown match type: {0}".format(describe(matchType))
             )
 
         matchingRecords = set()
@@ -191,7 +191,7 @@ class DirectoryService(BaseDirectoryService):
             match = lambda fieldValue: predicate(fieldValue == matchValue)
         else:
             raise NotImplementedError(
-                "Unknown match type: %s" % (describe(matchType),)
+                "Unknown match type: {0}".format(describe(matchType))
             )
 
         result = set()
