@@ -280,9 +280,9 @@ class DirectoryRecord(object):
 
     def members(self):
         if self.recordType == RecordType.group:
-            raise NotImplementedError()
+            raise NotImplementedError("Subclasses must implement members()")
         return succeed(())
 
 
     def groups(self):
-        raise NotImplementedError()
+        raise NotImplementedError("Subclasses must implement groups()")

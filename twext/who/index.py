@@ -94,7 +94,7 @@ class DirectoryService(BaseDirectoryService):
         """
         Load records.
         """
-        raise NotImplementedError("Subclasses should implement loadRecords().")
+        raise NotImplementedError("Subclasses must implement loadRecords().")
 
 
     def flush(self):
