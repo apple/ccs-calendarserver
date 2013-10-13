@@ -693,6 +693,7 @@ create index CALENDAR_OBJECT_SPLITTER_WORK_RESOURCE_ID on
 create table SCHEDULE_REFRESH_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  ICALENDAR_UID        			varchar(255) not null,
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade
 );
@@ -717,6 +718,7 @@ create index SCHEDULE_REFRESH_ATTENDEES_RESOURCE_ID_ATTENDEE on
 create table SCHEDULE_AUTO_REPLY_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  ICALENDAR_UID        			varchar(255) not null,
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
   PARTSTAT						varchar(255) not null
@@ -726,6 +728,39 @@ create index SCHEDULE_AUTO_REPLY_WORK_HOME_RESOURCE_ID on
 	SCHEDULE_AUTO_REPLY_WORK(HOME_RESOURCE_ID);
 create index SCHEDULE_AUTO_REPLY_WORK_RESOURCE_ID on
 	SCHEDULE_AUTO_REPLY_WORK(RESOURCE_ID);
+
+-------------------------
+-- Schedule Reply Work --
+-------------------------
+
+create table SCHEDULE_REPLY_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  ICALENDAR_UID        			varchar(255) not null,
+  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
+  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
+  CHANGED_RIDS       			text
+);
+
+create index SCHEDULE_REPLY_WORK_HOME_RESOURCE_ID on
+	SCHEDULE_REPLY_WORK(HOME_RESOURCE_ID);
+create index SCHEDULE_REPLY_WORK_RESOURCE_ID on
+	SCHEDULE_REPLY_WORK(RESOURCE_ID);
+
+--------------------------------
+-- Schedule Reply Cancel Work --
+--------------------------------
+
+create table SCHEDULE_REPLY_CANCEL_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  ICALENDAR_UID        			varchar(255) not null,
+  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
+  ICALENDAR_TEXT       			text         not null
+);
+
+create index SCHEDULE_REPLY_CANCEL_WORK_HOME_RESOURCE_ID on
+	SCHEDULE_REPLY_CANCEL_WORK(HOME_RESOURCE_ID);
 
 --------------------
 -- Schema Version --

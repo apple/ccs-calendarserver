@@ -18,10 +18,6 @@ from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.timezone import PyCalendarTimezone
 
-from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Select, Delete, Insert, Parameter
-from twext.enterprise.locking import NamedLock
-from twext.enterprise.queue import WorkItem
 from twext.python.log import Logger
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twext.web2.http import HTTPError
@@ -37,11 +33,11 @@ from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
+from txdav.caldav.datastore.scheduling.work import ScheduleRefreshWork, \
+    ScheduleAutoReplyWork
 from txdav.caldav.icalendarstore import ComponentUpdateState, ComponentRemoveState
-from txdav.common.datastore.sql_tables import schema
 
 import collections
-import datetime
 import hashlib
 import uuid
 
@@ -278,7 +274,7 @@ class ImplicitProcessor(object):
         @param attendees: the list of attendees to refresh
         @type attendees: C{list}
         """
-        return self.ScheduleRefreshWork.refreshAttendees(
+        return ScheduleRefreshWork.refreshAttendees(
             self.txn,
             self.recipient_calendar_resource,
             self.recipient_calendar,
@@ -432,7 +428,7 @@ class ImplicitProcessor(object):
             if send_reply:
                 # Track outstanding auto-reply processing
                 log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued" % (self.recipient.cuaddr, self.uid,))
-                self.ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
+                ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
 
             # Build the schedule-changes XML element
             changes = customxml.ScheduleChanges(
@@ -472,7 +468,7 @@ class ImplicitProcessor(object):
                 if send_reply:
                     # Track outstanding auto-reply processing
                     log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued" % (self.recipient.cuaddr, self.uid,))
-                    self.ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
+                    ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
 
                 # Build the schedule-changes XML element
                 update_details = []
@@ -885,256 +881,3 @@ class ImplicitProcessor(object):
                 yield self.deleteCalendarResource(recipient_resource)
 
         returnValue(True)
-
-
-    class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK)):
-        """
-        The associated work item table is SCHEDULE_REFRESH_WORK.
-
-        This work item is used to trigger an iTIP refresh of attendees. This happens when one attendee
-        replies to an invite, and we want to have the others attendees see that change - eventually. We
-        are going to use the SCHEDULE_REFRESH_ATTENDEES table to track the list of attendees needing
-        a refresh for each calendar object resource (identified by the organizer's resource-id for that
-        calendar object). We want to do refreshes in batches with a configurable time between each batch.
-
-        The tricky part here is handling race conditions, where two or more attendee replies happen at the
-        same time, or happen whilst a previously queued refresh has started batch processing. Here is how
-        we will handle that:
-
-        1) Each time a refresh is needed we will add all attendees to the SCHEDULE_REFRESH_ATTENDEES table.
-        This will happen even if those attendees are currently listed in that table. We ensure the table is
-        not unique wrt to attendees - this means that two simultaneous refreshes can happily insert the
-        same set of attendees without running into unique constraints and thus without having to use
-        savepoints to cope with that. This will mean duplicate attendees listed in the table, but we take
-        care of that when executing the work item, as per the next point.
-
-        2) When a work item is triggered we get the set of unique attendees needing a refresh from the
-        SCHEDULE_REFRESH_ATTENDEES table. We split out a batch of those to actually refresh - with the
-        others being left in the table as-is. We then remove the batch of attendees from the
-        SCHEDULE_REFRESH_ATTENDEES table - this will remove duplicates. The refresh is then done and a
-        new work item scheduled to do the next batch. We only stop rescheduling work items when nothing
-        is found during the initial query. Note that if any refresh is done we will always reschedule work
-        even if we know none remain. That should handle the case where a new refresh occurs whilst
-        processing the last batch from a previous refresh.
-
-        Hopefully the above methodology will deal with concurrency issues, preventing any excessive locking
-        or failed inserts etc.
-        """
-
-        group = property(lambda self: "ScheduleRefreshWork:%s" % (self.resourceID,))
-
-
-        @classmethod
-        @inlineCallbacks
-        def refreshAttendees(cls, txn, organizer_resource, organizer_calendar, attendees):
-            # See if there is already a pending refresh and merge current attendees into that list,
-            # otherwise just mark all attendees as pending
-            sra = schema.SCHEDULE_REFRESH_ATTENDEES
-            pendingAttendees = (yield Select(
-                [sra.ATTENDEE, ],
-                From=sra,
-                Where=sra.RESOURCE_ID == organizer_resource.id(),
-            ).on(txn))
-            pendingAttendees = [row[0] for row in pendingAttendees]
-            attendeesToRefresh = set(attendees) - set(pendingAttendees)
-            for attendee in attendeesToRefresh:
-                yield Insert(
-                    {
-                        sra.RESOURCE_ID: organizer_resource.id(),
-                        sra.ATTENDEE: attendee,
-                    }
-                ).on(txn)
-
-            # Always queue up new work - coalescing happens when work is executed
-            notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.AttendeeRefreshBatchDelaySeconds)
-            yield txn.enqueue(
-                cls,
-                homeResourceID=organizer_resource._home.id(),
-                resourceID=organizer_resource.id(),
-                notBefore=notBefore
-            )
-
-
-        @inlineCallbacks
-        def doWork(self):
-
-            # Look for other work items for this resource and ignore this one if other later ones exist
-            srw = schema.SCHEDULE_REFRESH_WORK
-            rows = (yield Select(
-                (srw.WORK_ID,),
-                From=srw,
-                Where=(srw.HOME_RESOURCE_ID == self.homeResourceID).And(
-                       srw.RESOURCE_ID == self.resourceID),
-            ).on(self.transaction))
-            if rows:
-                log.debug("Schedule refresh for resource-id: {rid} - ignored", rid=self.resourceID)
-                returnValue(None)
-
-            log.debug("Schedule refresh for resource-id: {rid}", rid=self.resourceID)
-
-            # Get the unique list of pending attendees and split into batch to process
-            # TODO: do a DELETE ... and rownum <= N returning attendee - but have to fix Oracle to
-            # handle multi-row returning. Would be better than entire select + delete of each one,
-            # but need to make sure to use UNIQUE as there may be duplicate attendees.
-            sra = schema.SCHEDULE_REFRESH_ATTENDEES
-            pendingAttendees = (yield Select(
-                [sra.ATTENDEE, ],
-                From=sra,
-                Where=sra.RESOURCE_ID == self.resourceID,
-            ).on(self.transaction))
-            pendingAttendees = list(set([row[0] for row in pendingAttendees]))
-
-            # Nothing left so done
-            if len(pendingAttendees) == 0:
-                returnValue(None)
-
-            attendeesToProcess = pendingAttendees[:config.Scheduling.Options.AttendeeRefreshBatch]
-            pendingAttendees = pendingAttendees[config.Scheduling.Options.AttendeeRefreshBatch:]
-
-            yield Delete(
-                From=sra,
-                Where=(sra.RESOURCE_ID == self.resourceID).And(sra.ATTENDEE.In(Parameter("attendeesToProcess", len(attendeesToProcess))))
-            ).on(self.transaction, attendeesToProcess=attendeesToProcess)
-
-            # Reschedule work item if pending attendees remain.
-            if len(pendingAttendees) != 0:
-                notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.AttendeeRefreshBatchIntervalSeconds)
-                yield self.transaction.enqueue(
-                    self.__class__,
-                    homeResourceID=self.homeResourceID,
-                    resourceID=self.resourceID,
-                    notBefore=notBefore
-                )
-
-            # Do refresh
-            yield self._doDelayedRefresh(attendeesToProcess)
-
-
-        @inlineCallbacks
-        def _doDelayedRefresh(self, attendeesToProcess):
-            """
-            Do an attendee refresh that has been delayed until after processing of the request that called it. That
-            requires that we create a new transaction to work with.
-
-            @param attendeesToProcess: list of attendees to refresh.
-            @type attendeesToProcess: C{list}
-            """
-
-            organizer_home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
-            organizer_resource = (yield organizer_home.objectResourceWithID(self.resourceID))
-            if organizer_resource is not None:
-                try:
-                    # We need to get the UID lock for implicit processing whilst we send the auto-reply
-                    # as the Organizer processing will attempt to write out data to other attendees to
-                    # refresh them. To prevent a race we need a lock.
-                    yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(organizer_resource.uid()).hexdigest(),))
-
-                    yield self._doRefresh(organizer_resource, attendeesToProcess)
-                except Exception, e:
-                    log.debug("ImplicitProcessing - refresh exception UID: '{uid}', {exc}", uid=organizer_resource.uid(), exc=str(e))
-                    raise
-                except:
-                    log.debug("ImplicitProcessing - refresh bare exception UID: '{uid}'", uid=organizer_resource.uid())
-                    raise
-            else:
-                log.debug("ImplicitProcessing - skipping refresh of missing ID: '{rid}'", rid=self.resourceID)
-
-
-        @inlineCallbacks
-        def _doRefresh(self, organizer_resource, only_attendees):
-            """
-            Do a refresh of attendees.
-
-            @param organizer_resource: the resource for the organizer's calendar data
-            @type organizer_resource: L{DAVResource}
-            @param only_attendees: list of attendees to refresh (C{None} - refresh all)
-            @type only_attendees: C{tuple}
-            """
-            log.debug("ImplicitProcessing - refreshing UID: '{uid}', Attendees: {att}", uid=organizer_resource.uid(), att=", ".join(only_attendees) if only_attendees else "all")
-            from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
-            scheduler = ImplicitScheduler()
-            yield scheduler.refreshAllAttendeesExceptSome(
-                self.transaction,
-                organizer_resource,
-                only_attendees=only_attendees,
-            )
-
-
-    class ScheduleAutoReplyWork(WorkItem, fromTable(schema.SCHEDULE_AUTO_REPLY_WORK)):
-        """
-        The associated work item table is SCHEDULE_AUTO_REPLY_WORK.
-
-        This work item is used to send auto-reply iTIP messages after the calendar data for the
-        auto-accept user has been written to the user calendar.
-        """
-
-        group = property(lambda self: "ScheduleAutoReplyWork:%s" % (self.resourceID,))
-
-
-        @classmethod
-        @inlineCallbacks
-        def autoReply(cls, txn, resource, partstat):
-            # Always queue up new work - coalescing happens when work is executed
-            notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.AutoReplyDelaySeconds)
-            yield txn.enqueue(
-                cls,
-                homeResourceID=resource._home.id(),
-                resourceID=resource.id(),
-                partstat=partstat,
-                notBefore=notBefore,
-            )
-
-
-        @inlineCallbacks
-        def doWork(self):
-
-            log.debug("Schedule auto-reply for resource-id: {rid}", rid=self.resourceID)
-
-            # Delete all other work items with the same pushID
-            yield Delete(From=self.table,
-                Where=self.table.RESOURCE_ID == self.resourceID
-            ).on(self.transaction)
-
-            # Do reply
-            yield self._sendAttendeeAutoReply()
-
-
-        @inlineCallbacks
-        def _sendAttendeeAutoReply(self):
-            """
-            Auto-process the calendar option to generate automatic accept/decline status and
-            send a reply if needed.
-
-            We used to have logic to suppress attendee refreshes until after all auto-replies have
-            been processed. We can't do that with the work queue (easily) so we are going to ignore
-            that for now. It may not be a big deal given that the refreshes are themselves done in the
-            queue and we only do the refresh when the last queued work item is processed.
-
-            @param resource: calendar resource to process
-            @type resource: L{CalendarObject}
-            @param partstat: new partstat value
-            @type partstat: C{str}
-            """
-
-            home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
-            resource = (yield home.objectResourceWithID(self.resourceID))
-            if resource is not None:
-                try:
-                    # We need to get the UID lock for implicit processing whilst we send the auto-reply
-                    # as the Organizer processing will attempt to write out data to other attendees to
-                    # refresh them. To prevent a race we need a lock.
-                    yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(resource.uid()).hexdigest(),))
-
-                    # Send out a reply
-                    log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (home.uid(), resource.uid(), self.partstat))
-                    from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
-                    scheduler = ImplicitScheduler()
-                    yield scheduler.sendAttendeeReply(self.transaction, resource)
-                except Exception, e:
-                    log.debug("ImplicitProcessing - auto-reply exception UID: '%s', %s" % (resource.uid(), str(e)))
-                    raise
-                except:
-                    log.debug("ImplicitProcessing - auto-reply bare exception UID: '%s'" % (resource.uid(),))
-                    raise
-            else:
-                log.debug("ImplicitProcessing - skipping auto-reply of missing ID: '{rid}'", rid=self.resourceID)

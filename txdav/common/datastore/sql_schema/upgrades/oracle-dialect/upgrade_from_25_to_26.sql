@@ -23,6 +23,7 @@
 create table SCHEDULE_REFRESH_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "ICALENDAR_UID" nvarchar2(255),
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
 );
@@ -48,6 +49,7 @@ create index SCHEDULE_REFRESH_ATTE_83053b91 on SCHEDULE_REFRESH_ATTENDEES (
 create table SCHEDULE_AUTO_REPLY_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "ICALENDAR_UID" nvarchar2(255),
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
     "PARTSTAT" nvarchar2(255)
@@ -60,6 +62,36 @@ create index SCHEDULE_AUTO_REPLY_W_0256478d on SCHEDULE_AUTO_REPLY_WORK (
 create index SCHEDULE_AUTO_REPLY_W_0755e754 on SCHEDULE_AUTO_REPLY_WORK (
     RESOURCE_ID
 );
+
+create table SCHEDULE_REPLY_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "ICALENDAR_UID" nvarchar2(255),
+    "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
+    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
+    "CHANGED_RIDS" nclob
+);
+
+create index SCHEDULE_REPLY_WORK_H_745af8cf on SCHEDULE_REPLY_WORK (
+    HOME_RESOURCE_ID
+);
+
+create index SCHEDULE_REPLY_WORK_R_11bd3fbb on SCHEDULE_REPLY_WORK (
+    RESOURCE_ID
+);
+
+create table SCHEDULE_REPLY_CANCEL_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "ICALENDAR_UID" nvarchar2(255),
+    "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
+    "ICALENDAR_TEXT" nclob
+);
+
+create index SCHEDULE_REPLY_CANCEL_dab513ef on SCHEDULE_REPLY_CANCEL_WORK (
+    HOME_RESOURCE_ID
+);
+
 
 -- Now update the version
 -- No data upgrades

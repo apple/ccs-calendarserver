@@ -29,7 +29,8 @@ from twisted.trial.unittest import TestCase
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 
-from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
+from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler, \
+    ScheduleReplyWork
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
 from txdav.caldav.datastore.test.util import buildCalendarStore, \
     buildDirectoryRecord
@@ -1326,6 +1327,11 @@ END:VCALENDAR
 
         yield self._setCalendarData(data2, "user02")
 
+        while True:
+            work = (yield ScheduleReplyWork.hasWork(self.transactionUnderTest()))
+            if not work:
+                break
+
         list1 = (yield self._listCalendarObjects("user01", "inbox"))
         self.assertEqual(len(list1), 1)
 
@@ -1395,6 +1401,11 @@ END:VCALENDAR
         self.assertTrue("PARTSTAT=ACCEPTED" not in calendar3)
 
         yield self._setCalendarData(data2, "user02")
+
+        while True:
+            work = (yield ScheduleReplyWork.hasWork(self.transactionUnderTest()))
+            if not work:
+                break
 
         list1 = (yield self._listCalendarObjects("user01", "inbox"))
         self.assertEqual(len(list1), 1)
@@ -1479,6 +1490,11 @@ END:VCALENDAR
         self.assertTrue("PARTSTAT=ACCEPTED" not in calendar3)
 
         yield self._setCalendarData(data2, "user02")
+
+        while True:
+            work = (yield ScheduleReplyWork.hasWork(self.transactionUnderTest()))
+            if not work:
+                break
 
         list1 = (yield self._listCalendarObjects("user01", "inbox"))
         self.assertEqual(len(list1), 1)

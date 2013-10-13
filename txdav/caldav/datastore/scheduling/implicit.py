@@ -34,6 +34,8 @@ from txdav.caldav.datastore.scheduling.cuaddress import InvalidCalendarUser, \
 from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
+from txdav.caldav.datastore.scheduling.work import ScheduleReplyWork, \
+    ScheduleReplyCancelWork
 
 import collections
 
@@ -1306,10 +1308,20 @@ class ImplicitScheduler(object):
 
         self.logItems["itip.reply"] = "reply"
 
-        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
+#        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
+#
+#        # Send scheduling message
+#        return self.sendToOrganizer("REPLY", itipmsg)
 
-        # Send scheduling message
-        return self.sendToOrganizer("REPLY", itipmsg)
+        # Always make it look like scheduling succeeded when queuing
+        self.calendar.setParameterToValueForPropertyWithValue(
+            "SCHEDULE-STATUS",
+            iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
+            "ORGANIZER",
+            self.organizer,
+        )
+
+        return ScheduleReplyWork.reply(self.txn, self.calendar_home, self.resource, changedRids, self.attendee)
 
 
     def scheduleCancelWithOrganizer(self):
@@ -1319,12 +1331,15 @@ class ImplicitScheduler(object):
 
         self.logItems["itip.reply"] = "cancel"
 
-        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
+#        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
+#
+#        # Send scheduling message
+#        return self.sendToOrganizer("CANCEL", itipmsg)
 
-        # Send scheduling message
-        return self.sendToOrganizer("CANCEL", itipmsg)
+        return ScheduleReplyCancelWork.replyCancel(self.txn, self.calendar_home, self.calendar, self.attendee)
 
 
+    @inlineCallbacks
     def sendToOrganizer(self, action, itipmsg):
 
         # Send scheduling message
@@ -1333,10 +1348,6 @@ class ImplicitScheduler(object):
         scheduler = self.makeScheduler()
 
         # Do the PUT processing
-        def _gotResponse(response):
-            self.handleSchedulingResponse(response, False)
-
         log.info("Implicit %s - attendee: '%s' to organizer: '%s', UID: '%s'" % (action, self.attendee, self.organizer, self.uid,))
-        d = scheduler.doSchedulingViaPUT(self.originator, (self.organizer,), itipmsg, internal_request=True)
-        d.addCallback(_gotResponse)
-        return d
+        response = (yield scheduler.doSchedulingViaPUT(self.originator, (self.organizer,), itipmsg, internal_request=True))
+        self.handleSchedulingResponse(response, False)
