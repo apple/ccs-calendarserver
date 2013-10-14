@@ -729,7 +729,7 @@ class iTipGenerator(object):
     """
 
     @staticmethod
-    def generateCancel(original, attendees, instances=None, full_cancel=False):
+    def generateCancel(original, attendees, instances=None, full_cancel=False, test_only=False):
         """
         This assumes that SEQUENCE is not already at its new value in the original calendar data. This
         is because the component passed in is the one that originally contained the attendee that is
@@ -748,9 +748,6 @@ class iTipGenerator(object):
         added = False
         for instance_rid in instances:
 
-            # Create a new component matching the type of the original
-            comp = Component(original.mainType())
-
             # Use the master component when the instance is None
             if not instance_rid:
                 instance = original.masterComponent()
@@ -764,6 +761,14 @@ class iTipGenerator(object):
                 # do nothing
                 if instance is None:
                     continue
+
+            # If testing, skip the rest
+            if test_only:
+                added = True
+                continue
+
+            # Create a new component matching the type of the original
+            comp = Component(original.mainType())
 
             # Add some required properties extracted from the original
             comp.addProperty(Property("DTSTAMP", instance.propertyValue("DTSTAMP")))
@@ -802,6 +807,11 @@ class iTipGenerator(object):
             itip.addComponent(comp)
             added = True
 
+        # When testing only need to return whether an itip would have been created or not
+        if test_only:
+            return added
+
+        # Handle actual iTIP message
         if added:
             # Now include any referenced tzids
             for comp in original.subcomponents():
@@ -819,7 +829,7 @@ class iTipGenerator(object):
 
 
     @staticmethod
-    def generateAttendeeRequest(original, attendees, filter_rids):
+    def generateAttendeeRequest(original, attendees, filter_rids, test_only=False):
         """
         This assumes that SEQUENCE is already at its new value in the original calendar data.
         """
@@ -835,7 +845,8 @@ class iTipGenerator(object):
         # Now filter out components except the ones specified
         if itip.filterComponents(filter_rids):
             # Strip out unwanted bits
-            iTipGenerator.prepareSchedulingMessage(itip)
+            if not test_only:
+                iTipGenerator.prepareSchedulingMessage(itip)
             return itip
 
         else:

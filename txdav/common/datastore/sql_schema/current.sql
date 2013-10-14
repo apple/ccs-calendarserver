@@ -729,6 +729,37 @@ create index SCHEDULE_AUTO_REPLY_WORK_HOME_RESOURCE_ID on
 create index SCHEDULE_AUTO_REPLY_WORK_RESOURCE_ID on
 	SCHEDULE_AUTO_REPLY_WORK(RESOURCE_ID);
 
+-----------------------------
+-- Schedule Organizer Work --
+-----------------------------
+
+create table SCHEDULE_ORGANIZER_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  ICALENDAR_UID        			varchar(255) not null,
+  SCHEDULE_ACTION				integer		 not null, -- Enum SCHEDULE_ACTION
+  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
+  RESOURCE_ID                   integer,	 -- this references a possibly non-existent CALENDR_OBJECT
+  ICALENDAR_TEXT				text,
+  SMART_MERGE					boolean
+);
+
+create index SCHEDULE_ORGANIZER_WORK_HOME_RESOURCE_ID on
+	SCHEDULE_ORGANIZER_WORK(HOME_RESOURCE_ID);
+create index SCHEDULE_ORGANIZER_WORK_RESOURCE_ID on
+	SCHEDULE_ORGANIZER_WORK(RESOURCE_ID);
+
+-- Enumeration of schedule actions
+
+create table SCHEDULE_ACTION (
+  ID          integer     primary key,
+  DESCRIPTION varchar(16) not null unique
+);
+
+insert into SCHEDULE_ACTION values (0, 'create');
+insert into SCHEDULE_ACTION values (1, 'modify');
+insert into SCHEDULE_ACTION values (2, 'remove');
+
 -------------------------
 -- Schedule Reply Work --
 -------------------------

@@ -131,6 +131,22 @@ def _schemaConstants(nameColumn, valueColumn):
 
 
 
+def _schemaConstantsMaps(nameColumn, valueColumn):
+    """
+    Generate two dicts that map back and forth between SQL enum values and their
+    programmatic values.
+    """
+
+    toSQL = {}
+    fromSQL = {}
+    for row in nameColumn.model.table.schemaRows:
+        toSQL[row[nameColumn.model]] = row[valueColumn.model]
+        fromSQL[row[valueColumn.model]] = row[nameColumn.model]
+
+    return (toSQL, fromSQL)
+
+
+
 # Various constants
 
 _bindStatus = _schemaConstants(
@@ -184,6 +200,12 @@ _ABO_KIND_PERSON = _addressBookObjectKind('person')
 _ABO_KIND_GROUP = _addressBookObjectKind('group')
 _ABO_KIND_RESOURCE = _addressBookObjectKind('resource')
 _ABO_KIND_LOCATION = _addressBookObjectKind('location')
+
+scheduleActionToSQL, scheduleActionFromSQL = _schemaConstantsMaps(
+    schema.SCHEDULE_ACTION.DESCRIPTION,
+    schema.SCHEDULE_ACTION.ID
+)
+
 
 class SchemaBroken(Exception):
     """

@@ -28,12 +28,14 @@ from twistedcaldav.ical import Component
 
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from txdav.caldav.icalendarstore import ComponentUpdateState
-from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.sql_tables import schema, \
+    scheduleActionToSQL, scheduleActionFromSQL
 
 import datetime
 import hashlib
 
 __all__ = [
+    "ScheduleOrganizerWork",
     "ScheduleReplyWork",
     "ScheduleReplyCancelWork",
     "ScheduleRefreshWork",
@@ -49,6 +51,124 @@ class ScheduleWorkMixin(object):
 
     # Schedule work is grouped based on calendar object UID
     group = property(lambda self: "ScheduleWork:%s" % (self.icalendarUid,))
+
+
+    @inlineCallbacks
+    def handleSchedulingResponse(self, response, calendar, resource, is_organizer):
+        """
+        Update a user's calendar object resource based on the results of a queued scheduling
+        message response. Note we only need to update in the case where there is an error response
+        as we will already have updated the calendar object resource to make it look like scheduling
+        worked prior to the work queue item being enqueued.
+
+        @param response: the scheduling response object
+        @type response: L{caldavxml.ScheduleResponse}
+        @param calendar: original calendar component
+        @type calendar: L{Component}
+        @param resource: calendar object resource to update
+        @type resource: L{CalendarObject}
+        @param is_organizer: whether or not iTIP message was sent by the organizer
+        @type is_organizer: C{bool}
+        """
+
+        # Map each recipient in the response to a status code
+        changed = False
+        for item in response.responses:
+            assert isinstance(item, caldavxml.Response), "Wrong element in response"
+            recipient = str(item.children[0].children[0])
+            status = str(item.children[1])
+            statusCode = status.split(";")[0]
+
+            # Now apply to each ATTENDEE/ORGANIZER in the original data only if not 1.2
+            if statusCode != iTIPRequestStatus.MESSAGE_DELIVERED_CODE:
+                calendar.setParameterToValueForPropertyWithValue(
+                    "SCHEDULE-STATUS",
+                    statusCode,
+                    "ATTENDEE" if is_organizer else "ORGANIZER",
+                    recipient,
+                )
+                changed = True
+
+        if changed:
+            yield resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTENDEE_ITIP_UPDATE)
+
+
+
+class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK), ScheduleWorkMixin):
+    """
+    The associated work item table is SCHEDULE_ORGANIZER_WORK.
+
+    This work item is used to send a iTIP request and cancel messages when an organizer changes
+    their calendar object resource.
+    """
+
+    @classmethod
+    @inlineCallbacks
+    def schedule(cls, txn, uid, action, home, resource, calendar, organizer, smart_merge):
+        """
+        The actual arguments depend on the action:
+
+        1) If action is "create", resource is None, calendar is None
+        2) If action is "modify", resource is existing resource, calendar is the old calendar data
+        3) If action is "remove", resource is the existing resource, calendar is the old calendar data
+
+        Note that for (1), when the work executes the resource will be in existence so we need to load it.
+        Note that for (3), when work executes the resource will have been removed.
+        """
+        # Always queue up new work - coalescing happens when work is executed
+        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.QueuedRequestDelaySeconds)
+        proposal = (yield txn.enqueue(
+            cls,
+            notBefore=notBefore,
+            icalendarUid=uid,
+            scheduleAction=scheduleActionToSQL[action],
+            homeResourceID=home.id(),
+            resourceID=resource.id() if resource else None,
+            icalendarText=calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference) if calendar else None,
+            smartMerge=smart_merge
+        ))
+        yield proposal.whenProposed()
+        log.debug("ScheduleOrganizerWork - enqueued for ID: {id}, UID: {uid}, organizer: {org}", id=proposal.workItem.workID, uid=uid, org=organizer)
+
+
+    @classmethod
+    @inlineCallbacks
+    def hasWork(cls, txn):
+        srw = schema.SCHEDULE_ORGANIZER_WORK
+        rows = (yield Select(
+            (srw.WORK_ID,),
+            From=srw,
+        ).on(txn))
+        returnValue(len(rows) > 0)
+
+
+    @inlineCallbacks
+    def doWork(self):
+
+        try:
+            home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
+            resource = (yield home.objectResourceWithID(self.resourceID))
+            organizerPrincipal = home.directoryService().recordWithUID(home.uid())
+            organizer = organizerPrincipal.canonicalCalendarUserAddress()
+            calendar = Component.fromString(self.icalendarText) if self.icalendarText else None
+
+            log.debug("ScheduleOrganizerWork - running for ID: {id}, UID: {uid}, organizer: {org}", id=self.workID, uid=self.icalendarUid, org=organizer)
+
+            # We need to get the UID lock for implicit processing.
+            yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(self.icalendarUid).hexdigest(),))
+
+            from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
+            scheduler = ImplicitScheduler()
+            yield scheduler.queuedOrganizerProcessing(self.transaction, scheduleActionFromSQL[self.scheduleAction], home, resource, self.icalendarUid, calendar, self.smartMerge)
+
+        except Exception, e:
+            log.debug("ScheduleOrganizerWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=self.icalendarUid, err=str(e))
+            raise
+        except:
+            log.debug("ScheduleOrganizerWork - bare exception ID: {id}, UID: '{uid}'", id=self.workID, uid=self.icalendarUid)
+            raise
+
+        log.debug("ScheduleOrganizerWork - done for ID: {id}, UID: {uid}, organizer: {org}", id=self.workID, uid=self.icalendarUid, org=organizer)
 
 
 
@@ -145,45 +265,7 @@ class ScheduleReplyWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_WORK), Schedul
             log.debug("ScheduleReplyWork - bare exception ID: {id}, UID: '{uid}'", id=self.workID, uid=calendar.resourceUID())
             raise
 
-
-    @inlineCallbacks
-    def handleSchedulingResponse(self, response, calendar, resource, is_organizer):
-        """
-        Update a user's calendar object resource based on the results of a queued scheduling
-        message response. Note we only need to update in the case where there is an error response
-        as we will already have updated the calendar object resource to make it look like scheduling
-        worked prior to the work queue item being enqueued.
-
-        @param response: the scheduling response object
-        @type response: L{caldavxml.ScheduleResponse}
-        @param calendar: original calendar component
-        @type calendar: L{Component}
-        @param resource: calendar object resource to update
-        @type resource: L{CalendarObject}
-        @param is_organizer: whether or not iTIP message was sent by the organizer
-        @type is_organizer: C{bool}
-        """
-
-        # Map each recipient in the response to a status code
-        changed = False
-        for item in response.responses:
-            assert isinstance(item, caldavxml.Response), "Wrong element in response"
-            recipient = str(item.children[0].children[0])
-            status = str(item.children[1])
-            statusCode = status.split(";")[0]
-
-            # Now apply to each ATTENDEE/ORGANIZER in the original data only if not 1.2
-            if statusCode != iTIPRequestStatus.MESSAGE_DELIVERED_CODE:
-                calendar.setParameterToValueForPropertyWithValue(
-                    "SCHEDULE-STATUS",
-                    statusCode,
-                    "ATTENDEE" if is_organizer else "ORGANIZER",
-                    recipient,
-                )
-                changed = True
-
-        if changed:
-            yield resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTENDEE_ITIP_UPDATE)
+        log.debug("ScheduleReplyWork - done for ID: {id}, UID: {uid}, attendee: {att}", id=self.workID, uid=calendar.resourceUID(), att=attendee)
 
 
 
@@ -242,6 +324,8 @@ class ScheduleReplyCancelWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_CANCEL_W
         except:
             log.debug("ScheduleReplyCancelWork - bare exception ID: {id}, UID: '{uid}'", id=self.workID, uid=calendar.resourceUID())
             raise
+
+        log.debug("ScheduleReplyCancelWork - done for ID: {id}, UID: {uid}, attendee: {att}", id=self.workID, uid=calendar.resourceUID(), att=attendee)
 
 
 
@@ -302,13 +386,15 @@ class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), Sch
 
         # Always queue up new work - coalescing happens when work is executed
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.AttendeeRefreshBatchDelaySeconds)
-        yield txn.enqueue(
+        proposal = (yield txn.enqueue(
             cls,
             icalendarUid=organizer_resource.uid(),
             homeResourceID=organizer_resource._home.id(),
             resourceID=organizer_resource.id(),
             notBefore=notBefore
-        )
+        ))
+        yield proposal.whenProposed()
+        log.debug("ScheduleRefreshWork - enqueued for ID: {id}, UID: {uid}, attendees: {att}", id=proposal.workItem.workID, uid=organizer_resource.uid(), att=",".join(attendeesToRefresh))
 
 
     @inlineCallbacks
@@ -326,7 +412,7 @@ class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), Sch
             log.debug("Schedule refresh for resource-id: {rid} - ignored", rid=self.resourceID)
             returnValue(None)
 
-        log.debug("Schedule refresh for resource-id: {rid}", rid=self.resourceID)
+        log.debug("ScheduleRefreshWork - running for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUid)
 
         # Get the unique list of pending attendees and split into batch to process
         # TODO: do a DELETE ... and rownum <= N returning attendee - but have to fix Oracle to
@@ -364,6 +450,8 @@ class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), Sch
 
         # Do refresh
         yield self._doDelayedRefresh(attendeesToProcess)
+
+        log.debug("ScheduleRefreshWork - done for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUid)
 
 
     @inlineCallbacks
@@ -430,20 +518,22 @@ class ScheduleAutoReplyWork(WorkItem, fromTable(schema.SCHEDULE_AUTO_REPLY_WORK)
     def autoReply(cls, txn, resource, partstat):
         # Always queue up new work - coalescing happens when work is executed
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.AutoReplyDelaySeconds)
-        yield txn.enqueue(
+        proposal = (yield txn.enqueue(
             cls,
             icalendarUid=resource.uid(),
             homeResourceID=resource._home.id(),
             resourceID=resource.id(),
             partstat=partstat,
             notBefore=notBefore,
-        )
+        ))
+        yield proposal.whenProposed()
+        log.debug("ScheduleAutoReplyWork - enqueued for ID: {id}, UID: {uid}", id=proposal.workItem.workID, uid=resource.uid())
 
 
     @inlineCallbacks
     def doWork(self):
 
-        log.debug("Schedule auto-reply for resource-id: {rid}", rid=self.resourceID)
+        log.debug("ScheduleAutoReplyWork - running for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUid)
 
         # Delete all other work items with the same pushID
         yield Delete(From=self.table,
@@ -452,6 +542,8 @@ class ScheduleAutoReplyWork(WorkItem, fromTable(schema.SCHEDULE_AUTO_REPLY_WORK)
 
         # Do reply
         yield self._sendAttendeeAutoReply()
+
+        log.debug("ScheduleAutoReplyWork - done for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUid)
 
 
     @inlineCallbacks
