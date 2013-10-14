@@ -598,7 +598,6 @@ END:VCARD
             )
         subgroupObject = yield adbk.createAddressBookObjectWithName("sg.vcf", subgroup)
 
-        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION], From=aboMembers).on(txn)
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers, Where=aboMembers.REMOVED == False).on(txn)
         self.assertEqual(sorted(memberRows), sorted([
                                                      [groupObject._resourceID, subgroupObject._resourceID],
@@ -608,11 +607,10 @@ END:VCARD
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
         self.assertEqual(foreignMemberRows, [])
 
-        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION], From=aboMembers).on(txn)
         yield subgroupObject.remove()
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION], From=aboMembers).on(txn)
 
-                # combine by groupID
+        # combine by groupID
         groupIDToMemberRowMap = {}
         for groupID, id, removed, version in memberRows:
             memberRow = groupIDToMemberRowMap.get(groupID, [])
@@ -621,8 +619,8 @@ END:VCARD
 
         # see if this object is in current version
         groupIDs = set([
-            groupID for groupID, memberRows in groupIDToMemberRowMap.iteritems()
-                if AddressBook._currentMemberIDsFromMemberIDRemovedRevisionRows(memberRows)
+            groupID for groupID, memberIDRemovedRevisionRows in groupIDToMemberRowMap.iteritems()
+                if AddressBook._currentMemberIDsFromMemberIDRemovedRevisionRows(memberIDRemovedRevisionRows)
         ])
 
         self.assertEqual(len(groupIDs), 0)
