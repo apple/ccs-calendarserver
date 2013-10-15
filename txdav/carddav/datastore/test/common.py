@@ -371,10 +371,10 @@ class CommonTests(CommonCommonTests):
         #self.assertIdentical((yield home.addressbookWithName(name)), None)
         yield home.removeAddressBookWithName(name)
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
+        # notify is called prior to commit
+        self.assertTrue("/CardDAV/example.com/home1/" in self.notifierFactory.history)
         yield self.commit()
 
-        # Make sure notification fired after commit
-        self.assertTrue("/CardDAV/example.com/home1/" in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -396,9 +396,7 @@ class CommonTests(CommonCommonTests):
             ab = yield home.addressbookWithName(name)
             self.assertEquals((yield ab.listAddressBookObjects()), [])
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -406,6 +404,9 @@ class CommonTests(CommonCommonTests):
                 "/CardDAV/example.com/home1/addressbook/",
             ])
         )
+
+        yield self.commit()
+
 
 
     @inlineCallbacks
@@ -530,8 +531,6 @@ class CommonTests(CommonCommonTests):
                 (yield addressbook.addressbookObjectWithName(name)), None
             )
 
-        # Make sure notifications are fired after commit
-        yield self.commit()
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -692,9 +691,7 @@ class CommonTests(CommonCommonTests):
         addressbookObject = yield addressbook1.addressbookObjectWithName(name)
         self.assertEquals((yield addressbookObject.component()), component)
 
-        yield self.commit()
-
-        # Make sure notifications fire after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -702,6 +699,8 @@ class CommonTests(CommonCommonTests):
                 "/CardDAV/example.com/home1/addressbook/",
             ])
         )
+
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -808,9 +807,7 @@ class CommonTests(CommonCommonTests):
         addressbookObject = yield addressbook1.addressbookObjectWithName("1.vcf")
         self.assertEquals((yield addressbookObject.component()), component)
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -818,6 +815,8 @@ class CommonTests(CommonCommonTests):
                 "/CardDAV/example.com/home1/addressbook/",
             ])
         )
+
+        yield self.commit()
 
 
     def checkPropertiesMethod(self, thunk):

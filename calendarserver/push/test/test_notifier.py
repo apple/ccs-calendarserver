@@ -169,8 +169,8 @@ class NotifierFactory(StoreTestCase):
 
         home = yield self.homeUnderTest()
         yield home.notifyChanged()
-        yield self.commit()
         self.assertEquals(self.notifierFactory.history, ["/CalDAV/example.com/home1/"])
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -178,11 +178,11 @@ class NotifierFactory(StoreTestCase):
 
         calendar = yield self.calendarUnderTest()
         yield calendar.notifyChanged()
-        yield self.commit()
         self.assertEquals(
             set(self.notifierFactory.history),
             set(["/CalDAV/example.com/home1/", "/CalDAV/example.com/home1/calendar_1/"])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -191,7 +191,6 @@ class NotifierFactory(StoreTestCase):
         calendar = yield self.calendarUnderTest()
         home2 = yield self.homeUnderTest(name="home2")
         yield calendar.shareWith(home2, _BIND_MODE_WRITE)
-        yield self.commit()
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -200,11 +199,11 @@ class NotifierFactory(StoreTestCase):
                 "/CalDAV/example.com/home2/"
             ])
         )
+        yield self.commit()
 
         calendar = yield self.calendarUnderTest()
         home2 = yield self.homeUnderTest(name="home2")
         yield calendar.unshareWith(home2)
-        yield self.commit()
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -213,6 +212,7 @@ class NotifierFactory(StoreTestCase):
                 "/CalDAV/example.com/home2/"
             ])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -226,11 +226,11 @@ class NotifierFactory(StoreTestCase):
 
         shared = yield self.calendarUnderTest(home="home2", name=shareName)
         yield shared.notifyChanged()
-        yield self.commit()
         self.assertEquals(
             set(self.notifierFactory.history),
             set(["/CalDAV/example.com/home1/", "/CalDAV/example.com/home1/calendar_1/"])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -238,8 +238,8 @@ class NotifierFactory(StoreTestCase):
 
         notifications = yield self.transactionUnderTest().notificationsWithUID("home1")
         yield notifications.notifyChanged()
-        yield self.commit()
         self.assertEquals(
             set(self.notifierFactory.history),
             set(["/CalDAV/example.com/home1/", "/CalDAV/example.com/home1/notification/"])
         )
+        yield self.commit()

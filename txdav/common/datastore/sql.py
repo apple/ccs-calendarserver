@@ -2197,6 +2197,7 @@ class CommonHome(object):
         the resource has changed.  We ensure we only do this once per object
         per transaction.
         """
+
         if self._txn.isNotifiedAlready(self):
             returnValue(None)
         self._txn.notificationAddedForObject(self)
@@ -2207,8 +2208,14 @@ class CommonHome(object):
 
         # Send notifications
         if self._notifiers:
-            for notifier in self._notifiers.values():
+            # cache notifiers run in post commit
+            notifier = self._notifiers.get("cache", None)
+            if notifier:
                 self._txn.postCommit(notifier.notify)
+            # push notifiers add their work items immediately
+            notifier = self._notifiers.get("push", None)
+            if notifier:
+                yield notifier.notify(self._txn)
 
 
     @classproperty
@@ -4261,8 +4268,14 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         # Send notifications
         if self._notifiers:
-            for notifier in self._notifiers.values():
+            # cache notifiers run in post commit
+            notifier = self._notifiers.get("cache", None)
+            if notifier:
                 self._txn.postCommit(notifier.notify)
+            # push notifiers add their work items immediately
+            notifier = self._notifiers.get("push", None)
+            if notifier:
+                yield notifier.notify(self._txn)
 
 
     @classproperty
@@ -5082,15 +5095,21 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         the resource has changed.  We ensure we only do this once per object
         per transaction.
         """
-        yield
         if self._txn.isNotifiedAlready(self):
             returnValue(None)
         self._txn.notificationAddedForObject(self)
 
         # Send notifications
         if self._notifiers:
-            for notifier in self._notifiers.values():
+            # cache notifiers run in post commit
+            notifier = self._notifiers.get("cache", None)
+            if notifier:
                 self._txn.postCommit(notifier.notify)
+            # push notifiers add their work items immediately
+            notifier = self._notifiers.get("push", None)
+            if notifier:
+                yield notifier.notify(self._txn)
+
         returnValue(None)
 
 

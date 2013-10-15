@@ -450,9 +450,7 @@ class CommonTests(CommonCommonTests):
         yield notifications.writeNotificationObject("abc", inviteNotification,
             inviteNotification.toxml())
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -460,6 +458,7 @@ class CommonTests(CommonCommonTests):
                 "/CalDAV/example.com/home1/notification/",
             ])
         )
+        yield self.commit()
 
         notifications = yield self.transactionUnderTest().notificationsWithUID(
             "home1"
@@ -469,9 +468,7 @@ class CommonTests(CommonCommonTests):
         abc = yield notifications.notificationObjectWithUID("abc")
         self.assertEquals(abc, None)
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -479,6 +476,7 @@ class CommonTests(CommonCommonTests):
                 "/CalDAV/example.com/home1/notification/",
             ])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -697,10 +695,9 @@ class CommonTests(CommonCommonTests):
         self.assertNotIdentical((yield home.calendarWithName(name)), None)
         calendarProperties = (yield home.calendarWithName(name)).properties()
         self.assertEqual(len(calendarProperties), 0)
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertTrue("/CalDAV/example.com/home1/" in self.notifierFactory.history)
+        yield self.commit()
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -915,8 +912,7 @@ class CommonTests(CommonCommonTests):
                 None
             )
 
-        # Make sure notifications are fired after commit
-        yield self.commit()
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -924,6 +920,7 @@ class CommonTests(CommonCommonTests):
                 "/CalDAV/example.com/home1/calendar_1/",
             ])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -1471,9 +1468,7 @@ END:VCALENDAR
         self.assertEquals((yield calendarObject.componentForUser()), component)
         self.assertEquals((yield calendarObject.getMetadata()), metadata)
 
-        yield self.commit()
-
-        # Make sure notifications fire after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -1481,6 +1476,7 @@ END:VCALENDAR
                 "/CalDAV/example.com/home1/calendar_1/",
             ])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -1591,9 +1587,7 @@ END:VCALENDAR
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
         self.assertEquals((yield calendarObject.componentForUser()), component)
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -1601,6 +1595,7 @@ END:VCALENDAR
                 "/CalDAV/example.com/home1/calendar_1/",
             ])
         )
+        yield self.commit()
 
 
     def checkPropertiesMethod(self, thunk):
