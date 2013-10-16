@@ -89,12 +89,21 @@ class HTTPTestBase(object):
             pos = line.find(": ")
             return float(line[pos + 2:])
 
+        # Need to skip over stats that are unlabeled
         data = open(self.logFilePath).read()
         lines = data.splitlines()
-        count = extractInt(lines[4])
-        rows = extractInt(lines[5])
-        timing = extractFloat(lines[6])
-        self.result = HTTPTestBase.SQLResults(count, rows, timing)
+        offset = 0
+        while True:
+            if lines[offset] == "*** SQL Stats ***":
+                if lines[offset + 2].split()[1] != "unlabeled":
+                    count = extractInt(lines[offset + 4])
+                    rows = extractInt(lines[offset + 5])
+                    timing = extractFloat(lines[offset + 6])
+                    self.result = HTTPTestBase.SQLResults(count, rows, timing)
+                    break
+            offset += 1
+        else:
+            self.result = HTTPTestBase.SQLResults(-1, -1, 0.0)
 
         with open("%s-%d-%s" % (self.logFilePath, event_count, self.label), "w") as f:
             f.write(data)
