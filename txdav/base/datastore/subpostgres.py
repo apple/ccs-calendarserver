@@ -492,7 +492,7 @@ class PostgresService(MultiService):
             log.failure("Can't start or connect to postgres", f)
             self.deactivateDelayedShutdown()
             self.reactor.stop()
-            
+
         self.monitor.completionDeferred.addCallback(
             gotReady).addErrback(couldNotStart)
 
@@ -572,6 +572,7 @@ class PostgresService(MultiService):
 #        d.addCallback(maybeStopSubprocess)
 #        return d
 
+
     def hardStop(self):
         """
         Stop postgres quickly by sending it SIGQUIT
@@ -579,5 +580,5 @@ class PostgresService(MultiService):
         if self._postgresPid is not None:
             try:
                 os.kill(self._postgresPid, signal.SIGQUIT)
-            except OSError: 
+            except OSError:
                 pass
