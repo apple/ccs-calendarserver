@@ -375,7 +375,6 @@ class CommonTests(CommonCommonTests):
         self.assertTrue("/CardDAV/example.com/home1/" in self.notifierFactory.history)
         yield self.commit()
 
-
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
@@ -406,7 +405,6 @@ class CommonTests(CommonCommonTests):
         )
 
         yield self.commit()
-
 
 
     @inlineCallbacks
