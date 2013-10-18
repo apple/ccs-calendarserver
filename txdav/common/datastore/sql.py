@@ -67,7 +67,8 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
-    InvalidIMIPTokenValues, TooManyObjectResourcesError
+    InvalidIMIPTokenValues, TooManyObjectResourcesError, \
+    SyncTokenValidException
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
@@ -1945,8 +1946,7 @@ class CommonHome(object):
 
         # Now deal with shared collections
         # TODO: think about whether this can be done in one query rather than looping over each share
-        shares = yield self.children()
-        for share in shares:
+        for share in (yield self.children()):
             if not share.owned():
                 sharedChanged, sharedDeleted = yield share.sharedChildResourceNamesSinceRevision(revision, depth)
                 changed |= sharedChanged
@@ -4118,8 +4118,9 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @type revision: C{int}
         """
 
-        if revision < self._bindRevision:
-            revision = 0
+        if revision != 0 and revision < self._bindRevision:
+            raise SyncTokenValidException
+
         return super(CommonHomeChild, self).resourceNamesSinceRevision(revision)
 
 
@@ -4146,10 +4147,15 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         assert not self.owned()
 
+        if revision != 0 and revision < self._bindRevision:
+            if depth != '1':
+                raise SyncTokenValidException
+            else:
+                revision = 0
+
         changed = set()
         deleted = set()
         rev = self._revisionsSchema
-        sharerevision = 0 if revision < self._bindRevision else revision
         results = [
             (
                 self.name(),
@@ -4159,14 +4165,14 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             for name, wasdeleted in
             (yield Select([rev.RESOURCE_NAME, rev.DELETED],
                              From=rev,
-                            Where=(rev.REVISION > sharerevision).And(
+                            Where=(rev.REVISION > revision).And(
                             rev.RESOURCE_ID == self._resourceID)).on(self._txn))
             if name
         ]
 
         for path, name, wasdeleted in results:
             if wasdeleted:
-                if sharerevision:
+                if revision:
                     if depth == "1":
                         changed.add("%s/" % (path,))
                     else:

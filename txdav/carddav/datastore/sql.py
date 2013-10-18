@@ -595,10 +595,10 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
             bindRevisions += [groupBindRow[5] for groupBindRow in groupBindRows]
 
         if revision != 0 and revision < max(bindRevisions):
-            if depth == '1':
-                revision = 0
-            else:
+            if depth != '1':
                 raise SyncTokenValidException
+            else:
+                revision = 0
 
         path = self.name()
 
