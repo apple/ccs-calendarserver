@@ -56,10 +56,10 @@ class ImplicitScheduler(object):
     STATUS_ORPHANED_CANCELLED_EVENT = 1
     STATUS_ORPHANED_EVENT = 2
 
-    def __init__(self):
+    def __init__(self, logItems=None):
 
         self.return_status = ImplicitScheduler.STATUS_OK
-        self.logItems = {}
+        self.logItems = logItems
         self.allowed_to_schedule = True
         self.suppress_refresh = False
 
@@ -383,7 +383,7 @@ class ImplicitScheduler(object):
             if self.txn.doing_attendee_refresh == 0:
                 delattr(self.txn, "doing_attendee_refresh")
 
-        if refreshCount:
+        if refreshCount and self.logItems is not None:
             self.logItems["itip.refreshes"] = refreshCount
 
 
@@ -925,7 +925,8 @@ class ImplicitScheduler(object):
         if self.action in ("create", "modify",):
             total += (yield self.processRequests())
 
-        self.logItems["itip.requests"] = total
+        if self.logItems is not None:
+            self.logItems["itip.requests"] = total
 
 
     @inlineCallbacks
@@ -1304,7 +1305,8 @@ class ImplicitScheduler(object):
         # First make sure we are allowed to schedule
         self.testSchedulingAllowed()
 
-        self.logItems["itip.reply"] = "reply"
+        if self.logItems is not None:
+            self.logItems["itip.reply"] = "reply"
 
         itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
 
@@ -1317,7 +1319,8 @@ class ImplicitScheduler(object):
         # First make sure we are allowed to schedule
         self.testSchedulingAllowed()
 
-        self.logItems["itip.reply"] = "cancel"
+        if self.logItems is not None:
+            self.logItems["itip.reply"] = "cancel"
 
         itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
 
