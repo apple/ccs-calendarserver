@@ -1667,23 +1667,26 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         if partiallyShared:
             groupIDsToRemoveFrom = groupIDs & readWriteObjectIDs
             groupIDs -= readWriteObjectIDs
-        else:
-            groupIDsToRemoveFrom = groupIDs
 
-        # add to member table rows marked removed
-        for groupIDToRemoveFrom in groupIDsToRemoveFrom:
-            yield self._insertMemberIDQuery.on(self._txn,
-                groupID=groupIDToRemoveFrom,
-                addressbookID=self._ownerAddressBookResourceID,
-                memberID=self._resourceID,
-                revision=self._syncTokenRevision,
-                removed=True,
-            )
-            if partiallyShared:
+            # add to member table rows marked removed
+            for groupIDToRemoveFrom in groupIDsToRemoveFrom:
+                yield self._insertMemberIDQuery.on(self._txn,
+                    groupID=groupIDToRemoveFrom,
+                    addressbookID=self._ownerAddressBookResourceID,
+                    memberID=self._resourceID,
+                    revision=self._syncTokenRevision,
+                    removed=True,
+                )
                 groupObject = yield self.addressbook().objectResourceWithID(groupIDToRemoveFrom)
                 yield self.addressbook()._updateRevision(groupObject.name())
 
-        # add to foreign member table row by UID (aboForeignMembers on address books)
+        else:
+            yield Delete(
+                aboMembers,
+                Where=aboMembers.MEMBER_ID == self._resourceID,
+            ).on(self._txn)
+
+        # add to foreign member table row by member address (aboForeignMembers on address books)
         memberAddress = "urn:uuid:" + self._uid
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         for groupID in groupIDs:
@@ -1694,17 +1697,23 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             ).on(self._txn)
 
         if self.kind() == _ABO_KIND_GROUP:
-            # mark members as deleted
-            memberIDsToRemove = yield AddressBook.memberIDsWithGroupIDs(self._txn, [self._resourceID])
-            for memberIDToRemove in memberIDsToRemove:
-                yield self._insertMemberIDQuery.on(
-                    self._txn,
-                    groupID=self._resourceID,
-                    addressbookID=self._ownerAddressBookResourceID,
-                    memberID=memberIDToRemove,
-                    revision=self._syncTokenRevision,
-                    removed=True,
-                )
+            if partiallyShared:
+                # mark members as deleted
+                memberIDsToRemove = yield AddressBook.memberIDsWithGroupIDs(self._txn, [self._resourceID])
+                for memberIDToRemove in memberIDsToRemove:
+                    yield self._insertMemberIDQuery.on(
+                        self._txn,
+                        groupID=self._resourceID,
+                        addressbookID=self._ownerAddressBookResourceID,
+                        memberID=memberIDToRemove,
+                        revision=self._syncTokenRevision,
+                        removed=True,
+                    )
+            else:
+                yield Delete(
+                    aboMembers,
+                    Where=aboMembers.GROUP_ID == self._resourceID,
+                ).on(self._txn)
 
         yield super(AddressBookObject, self).remove()
         self._kind = None
@@ -2064,6 +2073,15 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
 
     @classmethod
+    def _deleteMembersWithGroupIDAndMemberIDsQuery(cls, groupID, memberIDs):
+        aboMembers = schema.ABO_MEMBERS
+        return Delete(
+            aboMembers,
+            Where=(aboMembers.GROUP_ID == groupID).And(
+                    aboMembers.MEMBER_ID.In(Parameter("memberIDs", len(memberIDs)))))
+
+
+    @classmethod
     def _deleteForeignMembersWithGroupIDAndMembeAddrsQuery(cls, groupID, memberAddrs):
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         return Delete(
@@ -2105,6 +2123,27 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
              aboMembers.REVISION: Parameter("revision"),
              aboMembers.REMOVED: Parameter("removed"),
              }
+        )
+
+
+    @classmethod
+    def _deleteMembersIDsThruRevisionQuery(cls, groupIDs, memberIDs):
+        """
+        DAL statement deletes rows with groupsIDs and memberIDs < revision
+
+        Note: Used after adding a member row in an owned address book, where only the last revision is needed.
+            Could be used after adding a member row to a partially shared address book if the
+            minimum valid revision is known.
+            "minimum valid revision" is the max of the bind revisions on a home over all
+            shared address books that have group binds.
+        """
+        aboMembers = schema.ABO_MEMBERS
+        return Delete(
+            aboMembers,
+            Where=(aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs)))).And(
+                aboMembers.GROUP_ID.In(Parameter("memberIDs", len(memberIDs)))).And(
+                    aboMembers.REVISION < Parameter("revision")
+                )
         )
 
 
@@ -2194,6 +2233,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
         abo = schema.ADDRESSBOOK_OBJECT
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
+        partiallyShared = not self.owned() and not self.addressbook().fullyShared()
 
         if inserting:
             self._resourceID, self._created, self._modified = (
@@ -2208,7 +2248,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 )
             )[0]
 
-            # delete foreign members table rows for this object, keeping revision
+            # delete foreign members table rows for this object
             groupIDRows = yield Delete(
                 aboForeignMembers,
                 Where=aboForeignMembers.MEMBER_ADDRESS == "urn:uuid:" + self._uid,
@@ -2217,7 +2257,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             groupIDs = set([groupIDRow[0] for groupIDRow in groupIDRows])
 
             # add this object to shared groups
-            if not self.owned() and not self.addressbook().fullyShared():
+            if partiallyShared:
                 readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
                 assert readWriteGroupIDs, "no access"
                 groupIDs |= readWriteGroupIDs
@@ -2235,6 +2275,11 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                     revision=self._syncTokenRevision,
                     removed=False,
                 )
+
+            # clean old revisions
+            if groupIDs and not partiallyShared:
+                yield self._deleteMembersIDsThruRevisionQuery(groupIDs, [self._resourceID]).on(
+                    self._txn, groupIDs=groupIDs, memberIDs=[self._resourceID], revision=self._syncTokenRevision)
 
         else:
             self._modified = (yield Update(
@@ -2255,15 +2300,36 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             memberIDsToRemove = set(currentMemberIDs) - set(memberIDs)
             memberIDsToAdd = set(memberIDs) - set(currentMemberIDs)
 
-            for memberID in memberIDsToAdd | memberIDsToRemove:
+            for memberID in memberIDsToAdd:
                 yield self._insertMemberIDQuery.on(
                     self._txn,
                     groupID=self._resourceID,
                     addressbookID=self._ownerAddressBookResourceID,
                     memberID=memberID,
                     revision=self._syncTokenRevision,
-                    removed=memberID in memberIDsToRemove,
+                    removed=False,
                 )
+
+            if partiallyShared:
+                for memberID in memberIDsToRemove:
+                    yield self._insertMemberIDQuery.on(
+                        self._txn,
+                        groupID=self._resourceID,
+                        addressbookID=self._ownerAddressBookResourceID,
+                        memberID=memberID,
+                        revision=self._syncTokenRevision,
+                        removed=True,
+                    )
+            else:
+                # clean old revisions
+                if memberIDsToAdd:
+                    yield self._deleteMembersIDsThruRevisionQuery([self._resourceID], memberIDsToAdd).on(
+                        self._txn, groupIDs=[self._resourceID], memberIDs=memberIDsToAdd, revision=self._syncTokenRevision)
+
+                if memberIDsToRemove:
+                    yield self._deleteMembersWithGroupIDAndMemberIDsQuery(self._resourceID, memberIDsToRemove).on(
+                        self._txn, memberIDs=memberIDsToRemove
+                    )
 
             # get current foreign members
             currentForeignMemberRows = yield Select(
