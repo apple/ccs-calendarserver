@@ -29,9 +29,10 @@ from cStringIO import StringIO
 
 from pycalendar.datetime import PyCalendarDateTime
 
-from twext.enterprise.dal.syntax import \
-    Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction, \
-    Select, Update, ColumnSyntax, TableSyntax, Upper, Count, ALL_COLUMNS, Sum
+from twext.enterprise.dal.syntax import (
+    Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction,
+    Select, Update, ColumnSyntax, TableSyntax, Upper, Count, ALL_COLUMNS, Sum,
+    DatabaseLock, DatabaseUnlock )
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.queue import LocalQueuer
 from twext.enterprise.util import parseSQLTimestamp
@@ -1375,11 +1376,11 @@ class CommonStoreTransaction(object):
 
 
     def acquireUpgradeLock(self):
-        return self.execSQL("select pg_advisory_lock(1)")
+        return DatabaseLock().on(self)
 
 
     def releaseUpgradeLock(self):
-        return self.execSQL("select pg_advisory_unlock(1)")
+        return DatabaseUnlock().on(self)
 
 
 
