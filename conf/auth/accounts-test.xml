@@ -99,6 +99,26 @@ limitations under the License.
     <last-name>%02d</last-name>
     <email-address>user%02d@example.com</email-address>
   </user>
+  <user>
+    <uid>user100</uid>
+    <uid>User 100</uid>
+    <guid>user100</guid>
+    <password>user100</password>
+    <name>User 100</name>
+    <first-name>User</first-name>
+    <last-name>100</last-name>
+    <email-address>user%100@example.com</email-address>
+  </user>
+  <user>
+    <uid>user101</uid>
+    <uid>User 101</uid>
+    <guid>user101</guid>
+    <password>user101</password>
+    <name>User 101</name>
+    <first-name>User</first-name>
+    <last-name>101</last-name>
+    <email-address>user%101@example.com</email-address>
+  </user>
   <user repeat="10">
     <uid>public%02d</uid>
     <guid>public%02d</guid>
