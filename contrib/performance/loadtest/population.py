@@ -396,6 +396,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self._failed_clients = []
         self._failed_sim = collections.defaultdict(int)
         self._startTime = datetime.now()
+        self._expired_data = None
 
         # Load parameters from config
         if "thresholdsPath" in params:
@@ -421,6 +422,13 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
         if "failCutoff" in params:
             self._fail_cut_off = params["failCutoff"]
+
+
+    def observe(self, event):
+        if event.get('type') == 'sim-expired':
+            self.simExpired(event)
+        else:
+            super(ReportStatistics, self).observe(event)
 
 
     def countUsers(self):
@@ -452,6 +460,10 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
     def simFailure(self, event):
         self._failed_sim[event['reason']] += 1
+
+
+    def simExpired(self, event):
+        self._expired_data = event['reason']
 
 
     def printMiscellaneous(self, output, items):
@@ -527,8 +539,22 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         if self.countSimFailures() > 0:
             for reason, count in self._failed_sim.items():
                 items['Failed operation'] = "%s : %d times" % (reason, count,)
+        output.write("* Client\n")
         self.printMiscellaneous(output, items)
         output.write("\n")
+
+        if self._expired_data is not None:
+            items = {
+                "Req/sec" : "%.1f" % (self._expired_data[0],),
+                "Response": "%.1f (ms)" % (self._expired_data[1],),
+                "Slots": "%.2f" % (self._expired_data[2],),
+                "CPU": "%.1f%%" % (self._expired_data[3],),
+            }
+            output.write("* Server (Last 5 minutes)\n")
+            self.printMiscellaneous(output, items)
+            output.write("\n")
+        output.write("* Details\n")
+
         self.printHeader(output, [
                 (label, width)
                 for (label, width, _ignore_fmt)

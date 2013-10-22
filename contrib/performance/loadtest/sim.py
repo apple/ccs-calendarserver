@@ -23,11 +23,14 @@ from os.path import isdir
 from plistlib import readPlist
 from random import Random
 from sys import argv, stdout
+from urlparse import urlsplit
 from xml.parsers.expat import ExpatError
+import json
+import socket
 
 from twisted.python import context
 from twisted.python.filepath import FilePath
-from twisted.python.log import startLogging, addObserver, removeObserver
+from twisted.python.log import startLogging, addObserver, removeObserver, msg
 from twisted.python.usage import UsageError, Options
 from twisted.python.reflect import namedAny
 
@@ -53,6 +56,11 @@ class _DirectoryRecord(object):
         self.password = password
         self.commonName = commonName
         self.email = email
+
+
+
+def safeDivision(value, total, factor=1):
+    return value * factor / total if total else 0
 
 
 
@@ -121,6 +129,7 @@ class SimOptions(Options):
     """
     config = None
     _defaultConfig = FilePath(__file__).sibling("config.plist")
+    _defaultClients = FilePath(__file__).sibling("clients.plist")
 
     optParameters = [
         ("runtime", "t", None,
@@ -128,6 +137,9 @@ class SimOptions(Options):
          int),
         ("config", None, _defaultConfig,
          "Configuration plist file name from which to read simulation parameters.",
+         FilePath),
+        ("clients", None, _defaultClients,
+         "Configuration plist file name from which to read client parameters.",
          FilePath),
         ]
 
@@ -181,6 +193,22 @@ class SimOptions(Options):
         finally:
             configFile.close()
 
+        try:
+            clientFile = self['clients'].open()
+        except IOError, e:
+            raise UsageError("--clients %s: %s" % (
+                    self['clients'].path, e.strerror))
+        try:
+            try:
+                client_config = readPlist(clientFile)
+                self.config["clients"] = client_config["clients"]
+                if "arrivalInterval" in client_config:
+                    self.config["arrival"]["params"]["interval"] = client_config["arrivalInterval"]
+            except ExpatError, e:
+                raise UsageError("--clients %s: %s" % (self['clients'].path, e))
+        finally:
+            clientFile.close()
+
 
 Arrival = namedtuple('Arrival', 'factory parameters')
 
@@ -200,7 +228,7 @@ class LoadSimulator(object):
         user information about the accounts on the server being put
         under load.
     """
-    def __init__(self, server, principalPathTemplate, webadminPort, serializationPath, arrival, parameters, observers=None,
+    def __init__(self, server, principalPathTemplate, webadminPort, serverStats, serializationPath, arrival, parameters, observers=None,
                  records=None, reactor=None, runtime=None, workers=None,
                  configTemplate=None, workerID=None, workerCount=1):
         if reactor is None:
@@ -208,6 +236,7 @@ class LoadSimulator(object):
         self.server = server
         self.principalPathTemplate = principalPathTemplate
         self.webadminPort = webadminPort
+        self.serverStats = serverStats
         self.serializationPath = serializationPath
         self.arrival = arrival
         self.parameters = parameters
@@ -307,8 +336,13 @@ class LoadSimulator(object):
 
         webadminPort = None
         if 'webadmin' in config:
-            if config['webadmin']['enabled']:
+            if config['webadmin']['Enabled']:
                 webadminPort = config['webadmin']['HTTPPort']
+
+        serverStats = None
+        if 'serverStats' in config:
+            if config['serverStats']['Enabled']:
+                serverStats = config['serverStats']
 
         observers = []
         if 'observers' in config:
@@ -324,11 +358,23 @@ class LoadSimulator(object):
             records.extend(namedAny(loader)(**params))
             output.write("Loaded {0} accounts.\n".format(len(records)))
 
-        return cls(server, principalPathTemplate, webadminPort, serializationPath,
-                   arrival, parameters, observers=observers,
-                   records=records, runtime=runtime, reactor=reactor,
-                   workers=workers, configTemplate=configTemplate,
-                   workerID=workerID, workerCount=workerCount)
+        return cls(
+            server,
+            principalPathTemplate,
+            webadminPort,
+            serverStats,
+            serializationPath,
+            arrival,
+            parameters,
+            observers=observers,
+            records=records,
+            runtime=runtime,
+            reactor=reactor,
+            workers=workers,
+            configTemplate=configTemplate,
+            workerID=workerID,
+            workerCount=workerCount,
+        )
 
 
     @classmethod
@@ -409,7 +455,7 @@ class LoadSimulator(object):
     def run(self, output=stdout):
         self.attachServices(output)
         if self.runtime is not None:
-            self.reactor.callLater(self.runtime, self.reactor.stop)
+            self.reactor.callLater(self.runtime, self.stopAndReport)
         if self.webadminPort:
             self.reactor.listenTCP(self.webadminPort, server.Site(LoadSimAdminResource(self)))
         self.reactor.run()
@@ -417,13 +463,62 @@ class LoadSimulator(object):
 
     def stop(self):
         if self.ms.running:
+            self.updateStats()
             self.ms.stopService()
-            self.reactor.callLater(5, self.reactor.stop)
+            self.reactor.callLater(5, self.stopAndReport)
 
 
     def shutdown(self):
         if self.ms.running:
+            self.updateStats()
             return self.ms.stopService()
+
+
+    def updateStats(self):
+        """
+        Capture server stats and stop.
+        """
+
+        if self.serverStats is not None:
+            _ignore_scheme, hostname, _ignore_path, _ignore_query, _ignore_fragment = urlsplit(self.server)
+            data = self.readStatsSock((hostname.split(":")[0], self.serverStats["Port"],), True)
+            if "Failed" not in data:
+                data = data["5 Minutes"]
+                result = (
+                    safeDivision(float(data["requests"]), 5 * 60),
+                    safeDivision(data["t"], data["requests"]),
+                    safeDivision(float(data["slots"]), data["requests"]),
+                    safeDivision(data["cpu"], data["requests"]),
+                )
+                msg(type="sim-expired", reason=result)
+
+
+    def stopAndReport(self):
+        """
+        Runtime has expired - capture server stats and stop.
+        """
+
+        self.updateStats()
+        self.reactor.stop()
+
+
+    def readStatsSock(self, sockname, useTCP):
+        try:
+            s = socket.socket(socket.AF_INET if useTCP else socket.AF_UNIX, socket.SOCK_STREAM)
+            s.connect(sockname)
+            data = ""
+            while True:
+                d = s.recv(1024)
+                if d:
+                    data += d
+                else:
+                    break
+            s.close()
+            data = json.loads(data)
+        except socket.error:
+            data = {"Failed": "Unable to read statistics from server: %s" % (sockname,)}
+        data["Server"] = sockname
+        return data
 
 
 
@@ -557,7 +652,6 @@ class ProcessProtocolBridge(ProcessProtocol):
 
 
     def errReceived(self, error):
-        from twisted.python.log import msg
         msg("stderr received from " + str(self.transport.pid))
         msg("    " + repr(error))
 
