@@ -26,6 +26,7 @@ from sys import argv, stdout
 from urlparse import urlsplit
 from xml.parsers.expat import ExpatError
 import json
+import shutil
 import socket
 
 from twisted.python import context
@@ -289,15 +290,17 @@ class LoadSimulator(object):
                 principalPathTemplate = config['principalPathTemplate']
 
             if 'clientDataSerialization' in config:
-                if config['clientDataSerialization']['Enabled']:
-                    serializationPath = config['clientDataSerialization']['Path']
-                    if not isdir(serializationPath):
-                        try:
-                            mkdir(serializationPath)
-                        except OSError:
-                            print("Unable to create client data serialization directory: %s" % (serializationPath))
-                            print("Please consult the clientDataSerialization stanza of contrib/performance/loadtest/config.plist")
-                            raise
+                serializationPath = config['clientDataSerialization']['Path']
+                if not config['clientDataSerialization']['UseOldData']:
+                    shutil.rmtree(serializationPath)
+                serializationPath = config['clientDataSerialization']['Path']
+                if not isdir(serializationPath):
+                    try:
+                        mkdir(serializationPath)
+                    except OSError:
+                        print("Unable to create client data serialization directory: %s" % (serializationPath))
+                        print("Please consult the clientDataSerialization stanza of contrib/performance/loadtest/config.plist")
+                        raise
 
             if 'arrival' in config:
                 arrival = Arrival(

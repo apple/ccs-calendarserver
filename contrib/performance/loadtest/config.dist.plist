@@ -59,10 +59,10 @@
 			<integer>8100</integer>
 		</dict>
 
-		<!--  Define whether client data should be saved and re-used. -->
+		<!--  Define whether client data should be re-used. It will always be saved to the specified path.-->
 		<key>clientDataSerialization</key>
 		<dict>
-			<key>Enabled</key>
+			<key>UseOldData</key>
 			<true/>
 			<key>Path</key>
 			<string>/tmp/sim</string>
