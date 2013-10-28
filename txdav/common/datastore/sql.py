@@ -314,6 +314,7 @@ class TransactionStatsCollector(object):
         self.label = label
         self.logFileName = logFileName
         self.statements = []
+        self.startTime = time.time()
 
 
     def startStatement(self, sql, args):
@@ -329,7 +330,7 @@ class TransactionStatsCollector(object):
         """
         args = ["%s" % (arg,) for arg in args]
         args = [((arg[:10] + "...") if len(arg) > 40 else arg) for arg in args]
-        self.statements.append(["%s %s" % (sql, args,), 0, 0])
+        self.statements.append(["%s %s" % (sql, args,), 0, 0, 0])
         return len(self.statements) - 1, time.time()
 
 
@@ -343,8 +344,10 @@ class TransactionStatsCollector(object):
         @type rows: C{int}
         """
         index, tstamp = context
+        t = time.time()
         self.statements[index][1] = len(rows) if rows else 0
-        self.statements[index][2] = time.time() - tstamp
+        self.statements[index][2] = t - tstamp
+        self.statements[index][3] = t
 
 
     def printReport(self):
@@ -364,11 +367,16 @@ class TransactionStatsCollector(object):
         toFile.write("Total statements: %d\n" % (total_statements,))
         toFile.write("Total rows: %d\n" % (total_rows,))
         toFile.write("Total time (ms): %.3f\n" % (total_time,))
-        for sql, rows, t in self.statements:
+        t_last_end = self.startTime
+        for sql, rows, t_taken, t_end in self.statements:
             toFile.write("\n")
             toFile.write("SQL: %s\n" % (sql,))
             toFile.write("Rows: %s\n" % (rows,))
-            toFile.write("Time (ms): %.3f\n" % (t * 1000.0,))
+            toFile.write("Time (ms): %.3f\n" % (t_taken * 1000.0,))
+            toFile.write("Idle (ms): %.3f\n" % ((t_end - t_taken - t_last_end) * 1000.0,))
+            toFile.write("Elapsed (ms): %.3f\n" % ((t_end - self.startTime) * 1000.0,))
+            t_last_end = t_end
+        toFile.write("Commit (ms): %.3f\n" % ((time.time() - t_last_end) * 1000.0,))
         toFile.write("***\n\n")
 
         if self.logFileName:
