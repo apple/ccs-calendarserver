@@ -89,7 +89,7 @@ limitations under the License.
     <first-name>ま</first-name>
     <last-name>だ</last-name>
   </user>
-  <user repeat="99">
+  <user repeat="101">
     <uid>user%02d</uid>
     <uid>User %02d</uid>
     <guid>user%02d</guid>
@@ -98,26 +98,6 @@ limitations under the License.
     <first-name>User</first-name>
     <last-name>%02d</last-name>
     <email-address>user%02d@example.com</email-address>
-  </user>
-  <user>
-    <uid>user100</uid>
-    <uid>User 100</uid>
-    <guid>user100</guid>
-    <password>user100</password>
-    <name>User 100</name>
-    <first-name>User</first-name>
-    <last-name>100</last-name>
-    <email-address>user%100@example.com</email-address>
-  </user>
-  <user>
-    <uid>user101</uid>
-    <uid>User 101</uid>
-    <guid>user101</guid>
-    <password>user101</password>
-    <name>User 101</name>
-    <first-name>User</first-name>
-    <last-name>101</last-name>
-    <email-address>user%101@example.com</email-address>
   </user>
   <user repeat="10">
     <uid>public%02d</uid>
