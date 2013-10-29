@@ -22,6 +22,7 @@ from twisted.internet.defer import inlineCallbacks
 from twistedcaldav import caldavxml, customxml
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import InvalidDefaultCalendar
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.datastore.upgrade.sql.upgrades.util import rowsForProperty, updateCalendarDataVersion, \
     updateAllCalendarHomeDataVersions, removeProperty, cleanPropertyStore
@@ -109,9 +110,13 @@ def _processDefaultCalendarProperty(sqlStore, propname, colname):
 
                                 calendar = (yield calendarHome.calendarWithName(calendarName))
                                 if calendar is not None:
-                                    yield calendarHome.setDefaultCalendar(
-                                        calendar, tasks=(propname == customxml.ScheduleDefaultTasksURL)
-                                    )
+                                    try:
+                                        yield calendarHome.setDefaultCalendar(
+                                            calendar, tasks=(propname == customxml.ScheduleDefaultTasksURL)
+                                        )
+                                    except InvalidDefaultCalendar:
+                                        # Ignore these - the server will recover
+                                        pass
 
             # Always delete the rows so that batch processing works correctly
             yield Delete(

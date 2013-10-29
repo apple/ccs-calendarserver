@@ -74,6 +74,47 @@ class Upgrade_from_3_to_4(CommonStoreTests):
 
 
     @inlineCallbacks
+    def test_invalidDefaultCalendarUpgrade(self):
+
+        # Set dead property on inbox
+        for user in ("user01", "user02",):
+            inbox = (yield self.calendarUnderTest(name="inbox", home=user))
+            inbox.properties()[PropertyName.fromElement(ScheduleDefaultCalendarURL)] = ScheduleDefaultCalendarURL(HRef.fromString("/calendars/__uids__/%s/tasks_1" % (user,)))
+
+            # Force current default to null
+            home = (yield self.homeUnderTest(name=user))
+            chm = home._homeMetaDataSchema
+            yield Update(
+                {chm.DEFAULT_EVENTS: None},
+                Where=chm.RESOURCE_ID == home._resourceID,
+            ).on(self.transactionUnderTest())
+
+            # Create tasks only calendar
+            tasks = (yield home.createCalendarWithName("tasks_1"))
+            yield tasks.setSupportedComponents("VTODO")
+
+        # Force data version to previous
+        ch = home._homeSchema
+        yield Update(
+            {ch.DATAVERSION: 3},
+            Where=ch.RESOURCE_ID == home._resourceID,
+        ).on(self.transactionUnderTest())
+
+        yield self.commit()
+
+        # Trigger upgrade
+        yield moveDefaultCalendarProperties(self._sqlCalendarStore)
+
+        # Test results
+        for user in ("user01", "user02",):
+            home = (yield self.homeUnderTest(name=user))
+            calendar = (yield self.calendarUnderTest(name="tasks_1", home=user))
+            self.assertFalse(home.isDefaultCalendar(calendar))
+            inbox = (yield self.calendarUnderTest(name="inbox", home=user))
+            self.assertTrue(PropertyName.fromElement(ScheduleDefaultCalendarURL) not in inbox.properties())
+
+
+    @inlineCallbacks
     def test_calendarTranspUpgrade(self):
 
         # Set dead property on inbox
