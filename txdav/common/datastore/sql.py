@@ -32,7 +32,7 @@ from pycalendar.datetime import PyCalendarDateTime
 from twext.enterprise.dal.syntax import (
     Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction,
     Select, Update, ColumnSyntax, TableSyntax, Upper, Count, ALL_COLUMNS, Sum,
-    DatabaseLock, DatabaseUnlock )
+    DatabaseLock, DatabaseUnlock)
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.queue import LocalQueuer
 from twext.enterprise.util import parseSQLTimestamp
@@ -315,6 +315,7 @@ class TransactionStatsCollector(object):
         self.label = label
         self.logFileName = logFileName
         self.statements = []
+        self.startTime = time.time()
 
 
     def startStatement(self, sql, args):
@@ -330,7 +331,7 @@ class TransactionStatsCollector(object):
         """
         args = ["%s" % (arg,) for arg in args]
         args = [((arg[:10] + "...") if len(arg) > 40 else arg) for arg in args]
-        self.statements.append(["%s %s" % (sql, args,), 0, 0])
+        self.statements.append(["%s %s" % (sql, args,), 0, 0, 0])
         return len(self.statements) - 1, time.time()
 
 
@@ -344,8 +345,10 @@ class TransactionStatsCollector(object):
         @type rows: C{int}
         """
         index, tstamp = context
+        t = time.time()
         self.statements[index][1] = len(rows) if rows else 0
-        self.statements[index][2] = time.time() - tstamp
+        self.statements[index][2] = t - tstamp
+        self.statements[index][3] = t
 
 
     def printReport(self):
@@ -353,25 +356,36 @@ class TransactionStatsCollector(object):
         Print a report of all the SQL statements executed to date.
         """
 
+        total_statements = len(self.statements)
+        total_rows = sum([statement[1] for statement in self.statements])
+        total_time = sum([statement[2] for statement in self.statements]) * 1000.0
+
         toFile = StringIO()
         toFile.write("*** SQL Stats ***\n")
         toFile.write("\n")
         toFile.write("Label: %s\n" % (self.label,))
         toFile.write("Unique statements: %d\n" % (len(set([statement[0] for statement in self.statements]),),))
-        toFile.write("Total statements: %d\n" % (len(self.statements),))
-        toFile.write("Total rows: %d\n" % (sum([statement[1] for statement in self.statements]),))
-        toFile.write("Total time (ms): %.3f\n" % (sum([statement[2] for statement in self.statements]) * 1000.0,))
-        for sql, rows, t in self.statements:
+        toFile.write("Total statements: %d\n" % (total_statements,))
+        toFile.write("Total rows: %d\n" % (total_rows,))
+        toFile.write("Total time (ms): %.3f\n" % (total_time,))
+        t_last_end = self.startTime
+        for sql, rows, t_taken, t_end in self.statements:
             toFile.write("\n")
             toFile.write("SQL: %s\n" % (sql,))
             toFile.write("Rows: %s\n" % (rows,))
-            toFile.write("Time (ms): %.3f\n" % (t * 1000.0,))
+            toFile.write("Time (ms): %.3f\n" % (t_taken * 1000.0,))
+            toFile.write("Idle (ms): %.3f\n" % ((t_end - t_taken - t_last_end) * 1000.0,))
+            toFile.write("Elapsed (ms): %.3f\n" % ((t_end - self.startTime) * 1000.0,))
+            t_last_end = t_end
+        toFile.write("Commit (ms): %.3f\n" % ((time.time() - t_last_end) * 1000.0,))
         toFile.write("***\n\n")
 
         if self.logFileName:
             open(self.logFileName, "a").write(toFile.getvalue())
         else:
             log.error(toFile.getvalue())
+
+        return (total_statements, total_rows, total_time,)
 
 
 
@@ -483,6 +497,8 @@ class CommonStoreTransaction(object):
         self.statementCount = 0
         self.iudCount = 0
         self.currentStatement = None
+
+        self.logItems = {}
 
 
     def enqueue(self, workItem, **kw):
@@ -1033,7 +1049,7 @@ class CommonStoreTransaction(object):
 
         # Do stats logging as a postCommit because there might be some pending preCommit SQL we want to log
         if self._stats:
-            self.postCommit(self._stats.printReport)
+            self.postCommit(self.statsReport)
         return self._sqlTxn.commit()
 
 
@@ -1042,6 +1058,16 @@ class CommonStoreTransaction(object):
         Abort the transaction.
         """
         return self._sqlTxn.abort()
+
+
+    def statsReport(self):
+        """
+        Print the stats report and record log items
+        """
+        sql_statements, sql_rows, sql_time = self._stats.printReport()
+        self.logItems["sql-s"] = str(sql_statements)
+        self.logItems["sql-r"] = str(sql_rows)
+        self.logItems["sql-t"] = "%.1f" % (sql_time,)
 
 
     def _oldEventsBase(self, limit):
@@ -2330,16 +2356,20 @@ class _SharedSyncLogic(object):
         raise NotImplementedError()
 
 
-    @classproperty
-    def _objectNamesSinceRevisionQuery(cls): #@NoSelf
+    @classmethod
+    def _objectNamesSinceRevisionQuery(cls, deleted=True): #@NoSelf
         """
         DAL query for (resource, deleted-flag)
         """
         rev = cls._revisionsSchema
-        return Select([rev.RESOURCE_NAME, rev.DELETED],
-                      From=rev,
-                      Where=(rev.REVISION > Parameter("revision")).And(
-                          rev.RESOURCE_ID == Parameter("resourceID")))
+        where = (rev.REVISION > Parameter("revision")).And(rev.RESOURCE_ID == Parameter("resourceID"))
+        if not deleted:
+            where = where.And(rev.DELETED == False)
+        return Select(
+            [rev.RESOURCE_NAME, rev.DELETED],
+            From=rev,
+            Where=where,
+        )
 
 
     def resourceNamesSinceToken(self, token):
@@ -2364,10 +2394,10 @@ class _SharedSyncLogic(object):
         """
 
         results = [
-            (name if name else "", deleted)
-            for name, deleted in
-            (yield self._objectNamesSinceRevisionQuery.on(
-                self._txn, revision=revision, resourceID=self._resourceID))
+            (name if name else "", deleted) for name, deleted in
+                (yield self._objectNamesSinceRevisionQuery(deleted=(revision != 0)).on(
+                    self._txn, revision=revision, resourceID=self._resourceID)
+                )
         ]
         results.sort(key=lambda x: x[1])
 
@@ -3025,7 +3055,9 @@ class SharingMixIn(object):
             queryCacher = self._txn._queryCacher
             if queryCacher:
                 cacheKey = queryCacher.keyForObjectWithName(shareeView._home._resourceID, shareeView._name)
-                queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+                yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+                cacheKey = queryCacher.keyForObjectWithResourceID(shareeView._home._resourceID, shareeView._resourceID)
+                yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
             shareeView._name = sharedname[0][0]
 
@@ -3083,7 +3115,9 @@ class SharingMixIn(object):
             queryCacher = self._txn._queryCacher
             if queryCacher:
                 cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, shareeChild._name)
-                queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+                yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+                cacheKey = queryCacher.keyForObjectWithResourceID(shareeHome._resourceID, shareeChild._resourceID)
+                yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
         else:
             deletedBindName = None
 
@@ -3348,10 +3382,9 @@ class SharingMixIn(object):
     def invalidateQueryCache(self):
         queryCacher = self._txn._queryCacher
         if queryCacher is not None:
-            cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
-            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-            cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, self._name)
-            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+            yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForHomeChildMetaData(self._resourceID))
+            yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForObjectWithName(self._home._resourceID, self._name))
+            yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForObjectWithResourceID(self._home._resourceID, self._resourceID))
 
 
 
@@ -3528,6 +3561,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             if rows and queryCacher:
                 # Cache the result
                 queryCacher.setAfterCommit(home._txn, cacheKey, rows)
+                queryCacher.setAfterCommit(home._txn, queryCacher.keyForObjectWithResourceID(home._resourceID, rows[0][2]), rows)
 
         if not rows:
             returnValue(None)
@@ -3568,8 +3602,24 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @return: an L{CommonHomeChild} or C{None} if no such child
             exists.
         """
-        rows = yield cls._bindForResourceIDAndHomeID.on(
-            home._txn, resourceID=resourceID, homeID=home._resourceID)
+
+        rows = None
+        queryCacher = home._txn._queryCacher
+
+        if queryCacher:
+            # Retrieve data from cache
+            cacheKey = queryCacher.keyForObjectWithResourceID(home._resourceID, resourceID)
+            rows = yield queryCacher.get(cacheKey)
+
+        if rows is None:
+            # No cached copy
+            rows = yield cls._bindForResourceIDAndHomeID.on(home._txn, resourceID=resourceID, homeID=home._resourceID)
+
+            if rows and queryCacher:
+                # Cache the result (under both the ID and name values)
+                queryCacher.setAfterCommit(home._txn, cacheKey, rows)
+                queryCacher.setAfterCommit(home._txn, queryCacher.keyForObjectWithName(home._resourceID, rows[0][3]), rows)
+
         if not rows:
             returnValue(None)
 
@@ -3750,6 +3800,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         if queryCacher:
             cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, oldName)
             yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
+            cacheKey = queryCacher.keyForObjectWithResourceID(self._home._resourceID, self._resourceID)
+            yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
 
         yield self._renameQuery.on(self._txn, name=name,
                                    resourceID=self._resourceID,
@@ -3782,6 +3834,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         queryCacher = self._home._txn._queryCacher
         if queryCacher:
             cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, self._name)
+            yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
+            cacheKey = queryCacher.keyForObjectWithResourceID(self._home._resourceID, self._resourceID)
             yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
 
         yield self._deletedSyncToken()
@@ -4499,7 +4553,7 @@ class CommonObjectResource(FancyEqMixin, object):
     @inlineCallbacks
     def create(cls, parent, name, component, options=None):
 
-        child = (yield cls.objectWithName(parent, name, None))
+        child = (yield parent.objectResourceWithName(name))
         if child:
             raise ObjectResourceNameAlreadyExistsError(name)
 
