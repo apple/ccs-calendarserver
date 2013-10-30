@@ -142,11 +142,14 @@ class UpgraderService(Service, object):
         """
         Immediately stop.  The upgrade will have been run before this.
         """
-        # If we get this far the database is OK
-        if self.options["status"]:
-            self.output.write("Database OK.\n")
+        if self.store is None:
+            self.output.write("Upgrade failed.\n")
         else:
-            self.output.write("Upgrade complete, shutting down.\n")
+            # If we get this far the database is OK
+            if self.options["status"]:
+                self.output.write("Database OK.\n")
+            else:
+                self.output.write("Upgrade complete, shutting down.\n")
         UpgraderService.started = True
 
         from twisted.internet import reactor

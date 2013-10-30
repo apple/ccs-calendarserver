@@ -73,11 +73,7 @@ class UpgradeReleaseLockStep(object):
         yield sqlTxn.releaseUpgradeLock()
         yield sqlTxn.commit()
 
-
-    def stepWithFailure(self, failure):
-        return self.stepWithResult(None)
-
-
+        
 
 class UpgradeDatabaseCoreStep(object):
     """
