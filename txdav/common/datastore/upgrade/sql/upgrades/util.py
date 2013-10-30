@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.enterprise.dal.syntax import Select, Delete, Update
+from twext.enterprise.dal.syntax import Select, Delete, Update, Count
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.base.propertystore.base import PropertyName
@@ -40,6 +40,21 @@ def rowsForProperty(txn, propelement, with_uid=False, batch=None):
     ).on(txn)
 
     returnValue(rows)
+
+
+
+@inlineCallbacks
+def countProperty(txn, propelement):
+    pname = PropertyName.fromElement(propelement)
+
+    rp = schema.RESOURCE_PROPERTY
+    count = (yield Select(
+        [Count(rp.RESOURCE_ID), ],
+        From=rp,
+        Where=rp.NAME == pname.toString(),
+    ).on(txn))[0][0]
+
+    returnValue(count)
 
 
 
@@ -114,13 +129,24 @@ def updateAddressBookDataVersion(store, version):
 
 
 @inlineCallbacks
-def doToEachHomeNotAtVersion(store, homeSchema, version, doIt):
+def doToEachHomeNotAtVersion(store, homeSchema, version, doIt, logStr):
     """
     Do something to each home whose version column indicates it is older
     than the specified version. Do this in batches as there may be a lot of work to do.
     """
 
+    txn = store.newTransaction("updateDataVersion")
+    total = (yield Select(
+        [Count(homeSchema.RESOURCE_ID), ],
+        From=homeSchema,
+        Where=homeSchema.DATAVERSION < version,
+    ).on(txn))[0][0]
+    yield txn.commit()
+    count = 0
+
     while True:
+
+        logUpgradeStatus(logStr, count, total)
 
         # Get the next home with an old version
         txn = store.newTransaction("updateDataVersion")
@@ -135,6 +161,7 @@ def doToEachHomeNotAtVersion(store, homeSchema, version, doIt):
 
             if len(rows) == 0:
                 yield txn.commit()
+                logUpgradeStatus("End {}".format(logStr), count, total)
                 returnValue(None)
 
             # Apply to the home
@@ -149,6 +176,26 @@ def doToEachHomeNotAtVersion(store, homeSchema, version, doIt):
             yield txn.commit()
         except RuntimeError, e:
             f = Failure()
-            log.error("Failed to upgrade %s to %s: %s" % (homeSchema, version, e))
+            logUpgradeError(
+                logStr,
+                "Failed to upgrade {} to {}: {}".format(homeSchema, version, e)
+            )
             yield txn.abort()
             f.raiseException()
+
+        count += 1
+
+
+
+def logUpgradeStatus(title, count=None, total=None):
+    if total is None:
+        log.info("Database upgrade {title}", title=title)
+    else:
+        divisor = 1000 if total > 1000 else 100
+        if (divmod(count, divisor)[1] == 0) or (count == total):
+            log.info("Database upgrade {title}: {count} of {total}", title=title, count=count, total=total)
+
+
+
+def logUpgradeError(title, details):
+    log.error("Database upgrade {title} failed: {details}", title=title, details=details)

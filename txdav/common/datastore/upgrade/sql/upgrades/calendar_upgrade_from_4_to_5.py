@@ -25,7 +25,8 @@ from twistedcaldav import caldavxml, customxml
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.datastore.upgrade.sql.upgrades.util import rowsForProperty, updateCalendarDataVersion, \
-    updateAllCalendarHomeDataVersions, removeProperty, cleanPropertyStore
+    updateAllCalendarHomeDataVersions, removeProperty, cleanPropertyStore, \
+    logUpgradeStatus, countProperty, logUpgradeError
 from txdav.xml import element
 from txdav.xml.parser import WebDAVDocument
 from twext.web2.dav.resource import TwistedQuotaUsedProperty, \
@@ -64,14 +65,24 @@ def moveCalendarTimezoneProperties(sqlStore):
     cb = schema.CALENDAR_BIND
     rp = schema.RESOURCE_PROPERTY
 
+    propname = caldavxml.CalendarTimeZone
+    logUpgradeStatus("Starting Process {}".format(propname.qname()))
+
+    sqlTxn = sqlStore.newTransaction()
+    total = (yield countProperty(sqlTxn, propname))
+    yield sqlTxn.commit()
+    count = 0
+
     try:
+        calendar_rid = None
         calendars_for_id = {}
         while True:
             sqlTxn = sqlStore.newTransaction()
-            rows = (yield rowsForProperty(sqlTxn, caldavxml.CalendarTimeZone, with_uid=True, batch=BATCH_SIZE))
+            rows = (yield rowsForProperty(sqlTxn, propname, with_uid=True, batch=BATCH_SIZE))
             if len(rows) == 0:
                 yield sqlTxn.commit()
                 break
+
             delete_ids = []
             for calendar_rid, value, viewer in rows:
                 delete_ids.append(calendar_rid)
@@ -107,11 +118,22 @@ def moveCalendarTimezoneProperties(sqlStore):
             ).on(sqlTxn, ids=delete_ids)
 
             yield sqlTxn.commit()
+            count += len(rows)
+            logUpgradeStatus(
+                "Process {}".format(propname.qname()),
+                count,
+                total,
+            )
 
         yield cleanPropertyStore()
+        logUpgradeStatus("End Process {}".format(propname.qname()))
 
-    except RuntimeError:
+    except RuntimeError as e:
         f = Failure()
+        logUpgradeError(
+            "Process {}".format(propname.qname()),
+            "Rid: {}, error: {}".format(calendar_rid, e),
+        )
         yield sqlTxn.abort()
         f.raiseException()
 
@@ -128,10 +150,19 @@ def moveCalendarAvailabilityProperties(sqlStore):
     cb = schema.CALENDAR_BIND
     rp = schema.RESOURCE_PROPERTY
 
+    propname = customxml.CalendarAvailability
+    logUpgradeStatus("Starting Process {}".format(propname.qname()))
+
+    sqlTxn = sqlStore.newTransaction()
+    total = (yield countProperty(sqlTxn, propname))
+    yield sqlTxn.commit()
+    count = 0
+
     try:
+        calendar_rid = None
         while True:
             sqlTxn = sqlStore.newTransaction()
-            rows = (yield rowsForProperty(sqlTxn, customxml.CalendarAvailability, batch=BATCH_SIZE))
+            rows = (yield rowsForProperty(sqlTxn, propname, batch=BATCH_SIZE))
             if len(rows) == 0:
                 yield sqlTxn.commit()
                 break
@@ -164,10 +195,22 @@ def moveCalendarAvailabilityProperties(sqlStore):
 
             yield sqlTxn.commit()
 
-        yield cleanPropertyStore()
+            count += len(rows)
+            logUpgradeStatus(
+                "Process {}".format(propname.qname()),
+                count,
+                total,
+            )
 
-    except RuntimeError:
+        yield cleanPropertyStore()
+        logUpgradeStatus("End Process {}".format(propname.qname()))
+
+    except RuntimeError as e:
         f = Failure()
+        logUpgradeError(
+            "Process {}".format(propname.qname()),
+            "Rid: {}, error: {}".format(calendar_rid, e),
+        )
         yield sqlTxn.abort()
         f.raiseException()
 
@@ -190,6 +233,8 @@ def removeOtherProperties(sqlStore):
     {http://twistedmatrix.com/xml_namespace/dav/}schedule-auto-respond
 
     """
+    logUpgradeStatus("Starting Calendar Remove Other Properties")
+
     sqlTxn = sqlStore.newTransaction()
 
     yield removeProperty(sqlTxn, PropertyName.fromElement(element.ACL))
@@ -205,3 +250,5 @@ def removeOtherProperties(sqlStore):
 
     yield sqlTxn.commit()
     yield cleanPropertyStore()
+
+    logUpgradeStatus("End Calendar Remove Other Properties")

@@ -25,7 +25,8 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.icalendarstore import InvalidDefaultCalendar
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.datastore.upgrade.sql.upgrades.util import rowsForProperty, updateCalendarDataVersion, \
-    updateAllCalendarHomeDataVersions, removeProperty, cleanPropertyStore
+    updateAllCalendarHomeDataVersions, removeProperty, countProperty, cleanPropertyStore, \
+    logUpgradeStatus, logUpgradeError
 from txdav.xml.parser import WebDAVDocument
 from txdav.xml import element
 from twisted.python.failure import Failure
@@ -78,13 +79,22 @@ def _processDefaultCalendarProperty(sqlStore, propname, colname):
     cb = schema.CALENDAR_BIND
     rp = schema.RESOURCE_PROPERTY
 
+    logUpgradeStatus("Starting Process {}".format(propname.qname()))
+
+    sqlTxn = sqlStore.newTransaction()
+    total = (yield countProperty(sqlTxn, propname))
+    yield sqlTxn.commit()
+    count = 0
+
     try:
+        inbox_rid = None
         while True:
             sqlTxn = sqlStore.newTransaction()
             rows = (yield rowsForProperty(sqlTxn, propname, batch=BATCH_SIZE))
             if len(rows) == 0:
                 yield sqlTxn.commit()
                 break
+
             delete_ids = []
             for inbox_rid, value in rows:
                 delete_ids.append(inbox_rid)
@@ -127,10 +137,22 @@ def _processDefaultCalendarProperty(sqlStore, propname, colname):
 
             yield sqlTxn.commit()
 
-        yield cleanPropertyStore()
+            count += len(rows)
+            logUpgradeStatus(
+                "Process {}".format(propname.qname()),
+                count,
+                total
+            )
 
-    except RuntimeError:
+        yield cleanPropertyStore()
+        logUpgradeStatus("End Process {}".format(propname.qname()))
+
+    except RuntimeError as e:
         f = Failure()
+        logUpgradeError(
+            "Process {}".format(propname.qname()),
+            "Inbox: {}, error: {}".format(inbox_rid, e),
+        )
         yield sqlTxn.abort()
         f.raiseException()
 
@@ -147,14 +169,24 @@ def moveCalendarTranspProperties(sqlStore):
     cb = schema.CALENDAR_BIND
     rp = schema.RESOURCE_PROPERTY
 
+    propname = caldavxml.ScheduleCalendarTransp
+    logUpgradeStatus("Starting Process {}".format(propname.qname()))
+
+    sqlTxn = sqlStore.newTransaction()
+    total = (yield countProperty(sqlTxn, propname))
+    yield sqlTxn.commit()
+    count = 0
+
     try:
+        calendar_rid = None
         calendars_for_id = {}
         while True:
             sqlTxn = sqlStore.newTransaction()
-            rows = (yield rowsForProperty(sqlTxn, caldavxml.ScheduleCalendarTransp, with_uid=True, batch=BATCH_SIZE))
+            rows = (yield rowsForProperty(sqlTxn, propname, with_uid=True, batch=BATCH_SIZE))
             if len(rows) == 0:
                 yield sqlTxn.commit()
                 break
+
             delete_ids = []
             for calendar_rid, value, viewer in rows:
                 delete_ids.append(calendar_rid)
@@ -191,13 +223,25 @@ def moveCalendarTranspProperties(sqlStore):
 
             yield sqlTxn.commit()
 
+            count += len(rows)
+            logUpgradeStatus(
+                "Process {}".format(propname.qname()),
+                count,
+                total,
+            )
+
         sqlTxn = sqlStore.newTransaction()
         yield removeProperty(sqlTxn, PropertyName.fromElement(caldavxml.CalendarFreeBusySet))
         yield sqlTxn.commit()
         yield cleanPropertyStore()
+        logUpgradeStatus("End Process {}".format(propname.qname()))
 
-    except RuntimeError:
+    except RuntimeError as e:
         f = Failure()
+        logUpgradeError(
+            "Process {}".format(propname.qname()),
+            "Inbox: {}, error: {}".format(calendar_rid, e),
+        )
         yield sqlTxn.abort()
         f.raiseException()
 
@@ -250,7 +294,15 @@ def _processDefaultAlarmProperty(sqlStore, propname, vevent, timed):
     cb = schema.CALENDAR_BIND
     rp = schema.RESOURCE_PROPERTY
 
+    logUpgradeStatus("Starting Process {} {}".format(propname.qname(), vevent))
+
+    sqlTxn = sqlStore.newTransaction()
+    total = (yield countProperty(sqlTxn, propname))
+    yield sqlTxn.commit()
+    count = 0
+
     try:
+        rid = None
         calendars_for_id = {}
         while True:
             sqlTxn = sqlStore.newTransaction()
@@ -258,6 +310,7 @@ def _processDefaultAlarmProperty(sqlStore, propname, vevent, timed):
             if len(rows) == 0:
                 yield sqlTxn.commit()
                 break
+
             delete_ids = []
             for rid, value, viewer in rows:
                 delete_ids.append(rid)
@@ -311,10 +364,22 @@ def _processDefaultAlarmProperty(sqlStore, propname, vevent, timed):
 
             yield sqlTxn.commit()
 
-        yield cleanPropertyStore()
+            count += len(rows)
+            logUpgradeStatus(
+                "Process {} {}".format(propname.qname(), vevent),
+                count,
+                total,
+            )
 
-    except RuntimeError:
+        yield cleanPropertyStore()
+        logUpgradeStatus("End Process {} {}".format(propname.qname(), vevent))
+
+    except RuntimeError as e:
         f = Failure()
+        logUpgradeError(
+            "Process {} {}".format(propname.qname(), vevent),
+            "Rid: {}, error: {}".format(rid, e),
+        )
         yield sqlTxn.abort()
         f.raiseException()
 
@@ -322,7 +387,11 @@ def _processDefaultAlarmProperty(sqlStore, propname, vevent, timed):
 
 @inlineCallbacks
 def removeResourceType(sqlStore):
+    logUpgradeStatus("Starting Calendar Remove Resource Type")
+
     sqlTxn = sqlStore.newTransaction()
     yield removeProperty(sqlTxn, PropertyName.fromElement(element.ResourceType))
     yield sqlTxn.commit()
     yield cleanPropertyStore()
+
+    logUpgradeStatus("End Calendar Remove Resource Type")

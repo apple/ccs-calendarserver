@@ -16,12 +16,16 @@
 ##
 
 from twext.enterprise.dal.syntax import Update
-from txdav.xml.parser import WebDAVDocument
+
 from twisted.internet.defer import inlineCallbacks
+
 from twistedcaldav import caldavxml
+
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrades.util import rowsForProperty,\
-    removeProperty, updateCalendarDataVersion, doToEachHomeNotAtVersion
+    removeProperty, updateCalendarDataVersion, doToEachHomeNotAtVersion, \
+    logUpgradeStatus, logUpgradeError
+from txdav.xml.parser import WebDAVDocument
 
 """
 Calendar data upgrade from database version 1 to 2
@@ -50,9 +54,14 @@ def moveSupportedComponentSetProperties(sqlStore):
     extracting the new format value from the XML property.
     """
 
+    logUpgradeStatus("Starting Move supported-component-set")
+
     sqlTxn = sqlStore.newTransaction()
     try:
+        calendar_rid = None
         rows = (yield rowsForProperty(sqlTxn, caldavxml.SupportedCalendarComponentSet))
+        total = len(rows)
+        count = 0
         for calendar_rid, value in rows:
             prop = WebDAVDocument.fromString(value).root_element
             supported_components = ",".join(sorted([comp.attributes["name"].upper() for comp in prop.children]))
@@ -63,11 +72,19 @@ def moveSupportedComponentSetProperties(sqlStore):
                 },
                 Where=(meta.RESOURCE_ID == calendar_rid)
             ).on(sqlTxn)
+            count += 1
+            logUpgradeStatus("Move supported-component-set", count, total)
 
         yield removeProperty(sqlTxn, caldavxml.SupportedCalendarComponentSet)
         yield sqlTxn.commit()
+
+        logUpgradeStatus("End Move supported-component-set")
     except RuntimeError:
         yield sqlTxn.abort()
+        logUpgradeError(
+            "Move supported-component-set",
+            "Last calendar: {}".format(calendar_rid)
+        )
         raise
 
 
@@ -86,5 +103,7 @@ def splitCalendars(sqlStore):
         home = yield txn.calendarHomeWithResourceID(homeResourceID)
         yield home.splitCalendars()
 
+    logUpgradeStatus("Starting Split Calendars")
+
     # Do this to each calendar home not already at version 2
-    yield doToEachHomeNotAtVersion(sqlStore, schema.CALENDAR_HOME, UPGRADE_TO_VERSION, doIt)
+    yield doToEachHomeNotAtVersion(sqlStore, schema.CALENDAR_HOME, UPGRADE_TO_VERSION, doIt, "Split Calendars")
