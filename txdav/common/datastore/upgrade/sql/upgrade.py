@@ -73,7 +73,13 @@ class UpgradeReleaseLockStep(object):
         yield sqlTxn.releaseUpgradeLock()
         yield sqlTxn.commit()
 
-        
+
+class NotAllowedToUpgrade(Exception):
+    """
+    Exception indicating an upgrade is needed but we're not configured to
+    perform it.
+    """
+
 
 class UpgradeDatabaseCoreStep(object):
     """
@@ -132,8 +138,7 @@ class UpgradeDatabaseCoreStep(object):
             self.log.error(msg)
             raise RuntimeError(msg)
         elif self.failIfUpgradeNeeded:
-                # TODO: change this exception to be upgrade-specific
-            raise RuntimeError("Database upgrade is needed but not allowed.")
+            raise NotAllowedToUpgrade()
         else:
             self.sqlStore.setUpgrading(True)
             yield self.upgradeVersion(actual_version, required_version, dialect)
