@@ -143,7 +143,10 @@ class UpgraderService(Service, object):
         Immediately stop.  The upgrade will have been run before this.
         """
         if self.store is None:
-            self.output.write("Upgrade failed.\n")
+            if self.options["status"]:
+                self.output.write("Upgrade needed.\n")
+            else:
+                self.output.write("Upgrade failed.\n")
         else:
             # If we get this far the database is OK
             if self.options["status"]:
