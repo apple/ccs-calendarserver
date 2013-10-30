@@ -36,7 +36,7 @@ def version():
             "trunk",
         )
     )
-    
+
     source_root = dirname(dirname(__file__))
 
     for branch in branches:
