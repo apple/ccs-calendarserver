@@ -307,8 +307,14 @@ DEFAULT_CONFIG = {
     "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
                                    # tools from running if the database needs a schema
                                    # upgrade.
-    "StopAfterUpgradeTriggerFile" : "stop_after_upgrade", # if this file exists
-        # in ConfigRoot, stop the service after finishing upgrade phase
+    "StopAfterUpgradeTriggerFile" : "stop_after_upgrade",   # if this file exists in ConfigRoot, stop
+                                                            # the service after finishing upgrade phase
+
+    "UpgradeHomePrefix"    : "",    # When upgrading, only upgrade homes where the owner UID starts with
+                                    # with the specified prefix. The upgrade will only be partial and only
+                                    # apply to upgrade pieces that affect entire homes. The upgrade will
+                                    # need to be run again without this prefix set to complete the overall
+                                    # upgrade.
 
     #
     # Types of service provided

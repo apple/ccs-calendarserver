@@ -82,6 +82,7 @@ class UpgradeOptions(Options):
 
     optParameters = [
         ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
+        ['prefix', 'x', "", "Only upgrade homes with the specified GUID prefix - partial upgrade only."],
     ]
 
     def __init__(self):
@@ -197,8 +198,10 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             data.MergeUpgrades = True
         config.addPostUpdateHooks([setMerge])
 
+
     def makeService(store):
         return UpgraderService(store, options, output, reactor, config)
+
 
     def onlyUpgradeEvents(eventDict):
         text = formatEvent(eventDict)
@@ -209,13 +212,18 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         log.publisher.levels.setLogLevelForNamespace(None, LogLevel.debug)
         addObserver(onlyUpgradeEvents)
 
+
     def customServiceMaker():
         customService = CalDAVServiceMaker()
         customService.doPostImport = options["postprocess"]
         return customService
 
+
     def _patchConfig(config):
         config.FailIfUpgradeNeeded = options["status"]
+        if options["prefix"]:
+            config.UpgradeHomePrefix = options["prefix"]
+
 
     def _onShutdown():
         if not UpgraderService.started:

@@ -1429,7 +1429,9 @@ class CalDAVServiceMaker (object):
 
                 # Conditionally stop after upgrade at this point
                 pps.addStep(
-                    QuitAfterUpgradeStep(config.StopAfterUpgradeTriggerFile)
+                    QuitAfterUpgradeStep(
+                        config.StopAfterUpgradeTriggerFile or config.UpgradeHomePrefix
+                    )
                 )
 
                 pps.addStep(

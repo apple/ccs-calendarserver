@@ -1444,6 +1444,7 @@ class CommonHome(object):
         self._txn = transaction
         self._ownerUID = ownerUID
         self._resourceID = None
+        self._dataVersion = None
         self._childrenLoaded = False
         self._children = {}
         self._notifiers = None
@@ -1687,6 +1688,23 @@ class CommonHome(object):
         if queryCacher is not None:
             cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
             yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+
+
+    @classproperty
+    def _dataVersionQuery(cls): #@NoSelf
+        ch = cls._homeSchema
+        return Select(
+            [ch.DATAVERSION], From=ch,
+            Where=ch.RESOURCE_ID == Parameter("resourceID")
+        )
+
+
+    @inlineCallbacks
+    def dataVersion(self):
+        if self._dataVersion is None:
+            self._dataVersion = (yield self._dataVersionQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
+        returnValue(self._dataVersion)
 
 
     def name(self):
