@@ -391,6 +391,12 @@ class LdapDirectoryService(CachingDirectoryService):
 
         # Build filter
         filterstr = "(|(%s=*)(%s=*))" % (readAttr, writeAttr)
+        # ...taking into account only calendar-enabled records
+        enabledAttr = self.rdnSchema["locations"]["calendarEnabledAttr"]
+        enabledValue = self.rdnSchema["locations"]["calendarEnabledValue"]
+        if enabledAttr and enabledValue:
+            filterstr = "(&(%s=%s)%s)" % (enabledAttr, enabledValue, filterstr)
+
         attrlist = [guidAttr, readAttr, writeAttr]
 
         # Query the LDAP server
@@ -1046,7 +1052,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
                 try:
                     record = self._ldapResultToRecord(dn, attrs, recordType)
-                    self.log.debug("Got LDAP record %s" % (record,))
+                    self.log.debug("Got LDAP record {rec}", rec=record)
 
                     if not unrestricted:
                         self.log.debug("%s is not enabled because it's not a member of group: %s" % (dn, self.restrictToGroup))

@@ -92,6 +92,12 @@ class QueryCacher(Memcacher):
         return "objectWithName:%s:%s" % (homeResourceID, name)
 
 
+    # Home child objects by id
+
+    def keyForObjectWithResourceID(self, homeResourceID, resourceID):
+        return "objectWithName:%s:%s" % (homeResourceID, resourceID)
+
+
     # Home metadata (Created/Modified)
 
     def keyForHomeMetaData(self, homeResourceID):

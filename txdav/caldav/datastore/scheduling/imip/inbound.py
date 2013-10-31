@@ -143,6 +143,7 @@ class MailRetriever(service.Service):
         yield scheduleNextMailPoll(self.store, seconds)
 
 
+
 def shouldDeleteAllMail(serverHostName, inboundServer, username):
     """
     Given the hostname of the calendar server, the hostname of the pop/imap
@@ -163,6 +164,7 @@ def shouldDeleteAllMail(serverHostName, inboundServer, username):
         inboundServer in (serverHostName, "localhost") and
         username == "com.apple.calendarserver"
     )
+
 
 
 @inlineCallbacks

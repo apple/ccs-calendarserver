@@ -25,7 +25,8 @@ from twext.enterprise.dal.syntax import (
     TableMismatch, Parameter, Max, Len, NotEnoughValues,
     Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction,
     Union, Intersect, Except, SetExpression, DALError,
-    ResultAliasSyntax, Count, QueryGenerator, ALL_COLUMNS)
+    ResultAliasSyntax, Count, QueryGenerator, ALL_COLUMNS,
+    DatabaseLock, DatabaseUnlock)
 from twext.enterprise.dal.syntax import FixedPlaceholder, NumericPlaceholder
 from twext.enterprise.dal.syntax import Function
 from twext.enterprise.dal.syntax import SchemaSyntax
@@ -1312,6 +1313,22 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         """
         self.assertEquals(Lock.exclusive(self.schema.FOO).toSQL(),
                           SQLFragment("lock table FOO in exclusive mode"))
+
+
+    def test_databaseLock(self):
+        """
+        L{DatabaseLock} generates a ('pg_advisory_lock') statement
+        """
+        self.assertEquals(DatabaseLock().toSQL(),
+                          SQLFragment("select pg_advisory_lock(1)"))
+
+
+    def test_databaseUnlock(self):
+        """
+        L{DatabaseUnlock} generates a ('pg_advisory_unlock') statement
+        """
+        self.assertEquals(DatabaseUnlock().toSQL(),
+                          SQLFragment("select pg_advisory_unlock(1)"))
 
 
     def test_savepoint(self):

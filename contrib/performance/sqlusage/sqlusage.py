@@ -127,11 +127,17 @@ class EventSQLUsage(object):
         ]
         self.requestLabels = [request.label for request in requests]
 
-        # Warm-up server by doing calendar home and calendar propfinds
-        props = (davxml.resourcetype,)
-        for session in sessions:
-            session.getPropertiesOnHierarchy(URL(path=session.homeHref), props)
-            session.getPropertiesOnHierarchy(URL(path=session.calendarHref), props)
+        def _warmUp():
+            # Warm-up server by doing calendar home and child collection propfinds.
+            # Do this twice because the very first time might provision DB objects and
+            # blow any DB cache - the second time will warm the DB cache.
+            props = (davxml.resourcetype,)
+            for _ignore in range(2):
+                for session in sessions:
+                    session.getPropertiesOnHierarchy(URL(path=session.homeHref), props)
+                    session.getPropertiesOnHierarchy(URL(path=session.calendarHref), props)
+                    session.getPropertiesOnHierarchy(URL(path=session.inboxHref), props)
+                    session.getPropertiesOnHierarchy(URL(path=session.notificationHref), props)
 
         # Now loop over sets of events
         for count in event_counts:
@@ -140,6 +146,7 @@ class EventSQLUsage(object):
             result = {}
             for request in requests:
                 print("  Test = %s" % (request.label,))
+                _warmUp()
                 result[request.label] = request.execute(count)
             self.results[count] = result
 
