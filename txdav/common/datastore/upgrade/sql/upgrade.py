@@ -74,11 +74,13 @@ class UpgradeReleaseLockStep(object):
         yield sqlTxn.commit()
 
 
+
 class NotAllowedToUpgrade(Exception):
     """
     Exception indicating an upgrade is needed but we're not configured to
     perform it.
     """
+
 
 
 class UpgradeDatabaseCoreStep(object):
