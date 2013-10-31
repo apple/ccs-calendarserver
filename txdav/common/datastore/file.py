@@ -926,6 +926,7 @@ class CommonHome(FileMetaDataMixin):
         return (self._notifierPrefix, self.uid(),)
 
 
+    @inlineCallbacks
     def notifyChanged(self):
         """
         Trigger a notification of a change
@@ -933,8 +934,14 @@ class CommonHome(FileMetaDataMixin):
 
         # Only send one set of change notifications per transaction
         if self._notifiers and not self._transaction.isNotifiedAlready(self):
-            for notifier in self._notifiers.values():
+            # cache notifiers run in post commit
+            notifier = self._notifiers.get("cache", None)
+            if notifier:
                 self._transaction.postCommit(notifier.notify)
+            # push notifiers add their work items immediately
+            notifier = self._notifiers.get("push", None)
+            if notifier:
+                yield notifier.notify(self._transaction)
             self._transaction.notificationAddedForObject(self)
 
 
@@ -1272,6 +1279,7 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         return self.ownerHome().notifierID()
 
 
+    @inlineCallbacks
     def notifyChanged(self):
         """
         Trigger a notification of a change
@@ -1279,8 +1287,14 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
 
         # Only send one set of change notifications per transaction
         if self._notifiers and not self._transaction.isNotifiedAlready(self):
-            for notifier in self._notifiers.values():
+            # cache notifiers run in post commit
+            notifier = self._notifiers.get("cache", None)
+            if notifier:
                 self._transaction.postCommit(notifier.notify)
+            # push notifiers add their work items immediately
+            notifier = self._notifiers.get("push", None)
+            if notifier:
+                yield notifier.notify(self._transaction)
             self._transaction.notificationAddedForObject(self)
 
 

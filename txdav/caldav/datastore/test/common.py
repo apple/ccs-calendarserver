@@ -84,73 +84,75 @@ home1_calendarNames = [
 
 OTHER_HOME_UID = "home_splits"
 
-test_event_text = (
-    "BEGIN:VCALENDAR\r\n"
-      "VERSION:2.0\r\n"
-      "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
-      "CALSCALE:GREGORIAN\r\n"
-      "BEGIN:VTIMEZONE\r\n"
-        "TZID:US/Pacific\r\n"
-        "BEGIN:DAYLIGHT\r\n"
-          "TZOFFSETFROM:-0800\r\n"
-          "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\n"
-          "DTSTART:20070311T020000\r\n"
-          "TZNAME:PDT\r\n"
-          "TZOFFSETTO:-0700\r\n"
-        "END:DAYLIGHT\r\n"
-        "BEGIN:STANDARD\r\n"
-          "TZOFFSETFROM:-0700\r\n"
-          "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\n"
-          "DTSTART:20071104T020000\r\n"
-          "TZNAME:PST\r\n"
-          "TZOFFSETTO:-0800\r\n"
-        "END:STANDARD\r\n"
-      "END:VTIMEZONE\r\n"
-      "BEGIN:VEVENT\r\n"
-        "CREATED:20100203T013849Z\r\n"
-        "UID:uid-test\r\n"
-        "DTEND;TZID=US/Pacific:20100207T173000\r\n"
-        "TRANSP:OPAQUE\r\n"
-        "SUMMARY:New Event\r\n"
-        "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
-        "DTSTAMP:20100203T013909Z\r\n"
-        "SEQUENCE:3\r\n"
-        "X-APPLE-DROPBOX:/calendars/users/wsanchez/dropbox/uid-test.dropbox\r\n"
-        "BEGIN:VALARM\r\n"
-          "X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1\r\n"
-          "TRIGGER:-PT20M\r\n"
-          "ATTACH:Basso\r\n"
-          "ACTION:AUDIO\r\n"
-        "END:VALARM\r\n"
-      "END:VEVENT\r\n"
-    "END:VCALENDAR\r\n"
-)
+test_event_text = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid-test
+DTEND;TZID=US/Pacific:20100207T173000
+TRANSP:OPAQUE
+SUMMARY:New Event
+DTSTART;TZID=US/Pacific:20100207T170000
+DTSTAMP:20100203T013909Z
+SEQUENCE:3
+X-APPLE-DROPBOX:/calendars/users/wsanchez/dropbox/uid-test.dropbox
+BEGIN:VALARM
+X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1
+TRIGGER:-PT20M
+ATTACH:Basso
+ACTION:AUDIO
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
 
 
 
-test_event_notCalDAV_text = (
-    "BEGIN:VCALENDAR\r\n"
-      "VERSION:2.0\r\n"
-      "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
-      "CALSCALE:GREGORIAN\r\n"
-      "BEGIN:VEVENT\r\n"
-        "CREATED:20100203T013849Z\r\n"
-        "UID:test\r\n"
-        "DTEND;TZID=US/Pacific:20100207T173000\r\n" # TZID without VTIMEZONE
-        "TRANSP:OPAQUE\r\n"
-        "SUMMARY:New Event\r\n"
-        "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
-        "DTSTAMP:20100203T013909Z\r\n"
-        "SEQUENCE:3\r\n"
-        "BEGIN:VALARM\r\n"
-          "X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1\r\n"
-          "TRIGGER:-PT20M\r\n"
-          "ATTACH:Basso\r\n"
-          "ACTION:AUDIO\r\n"
-        "END:VALARM\r\n"
-      "END:VEVENT\r\n"
-    "END:VCALENDAR\r\n"
-)
+test_event_notCalDAV_text = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:test-bad1
+DTEND:20100207T173000Z
+TRANSP:OPAQUE
+SUMMARY:New Event
+DTSTART:20100207T170000Z
+DTSTAMP:20100203T013909Z
+SEQUENCE:3
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:test-bad2
+DTEND:20100207T173000Z
+TRANSP:OPAQUE
+SUMMARY:New Event
+DTSTART:20100207T170000Z
+DTSTAMP:20100203T013909Z
+SEQUENCE:3
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
 
 
 
@@ -450,9 +452,7 @@ class CommonTests(CommonCommonTests):
         yield notifications.writeNotificationObject("abc", inviteNotification,
             inviteNotification.toxml())
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -460,6 +460,7 @@ class CommonTests(CommonCommonTests):
                 "/CalDAV/example.com/home1/notification/",
             ])
         )
+        yield self.commit()
 
         notifications = yield self.transactionUnderTest().notificationsWithUID(
             "home1"
@@ -469,9 +470,7 @@ class CommonTests(CommonCommonTests):
         abc = yield notifications.notificationObjectWithUID("abc")
         self.assertEquals(abc, None)
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -479,6 +478,7 @@ class CommonTests(CommonCommonTests):
                 "/CalDAV/example.com/home1/notification/",
             ])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -697,10 +697,9 @@ class CommonTests(CommonCommonTests):
         self.assertNotIdentical((yield home.calendarWithName(name)), None)
         calendarProperties = (yield home.calendarWithName(name)).properties()
         self.assertEqual(len(calendarProperties), 0)
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertTrue("/CalDAV/example.com/home1/" in self.notifierFactory.history)
+        yield self.commit()
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -915,8 +914,7 @@ class CommonTests(CommonCommonTests):
                 None
             )
 
-        # Make sure notifications are fired after commit
-        yield self.commit()
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -924,6 +922,7 @@ class CommonTests(CommonCommonTests):
                 "/CalDAV/example.com/home1/calendar_1/",
             ])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -1471,9 +1470,7 @@ END:VCALENDAR
         self.assertEquals((yield calendarObject.componentForUser()), component)
         self.assertEquals((yield calendarObject.getMetadata()), metadata)
 
-        yield self.commit()
-
-        # Make sure notifications fire after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -1481,6 +1478,7 @@ END:VCALENDAR
                 "/CalDAV/example.com/home1/calendar_1/",
             ])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -1591,9 +1589,7 @@ END:VCALENDAR
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
         self.assertEquals((yield calendarObject.componentForUser()), component)
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -1601,6 +1597,7 @@ END:VCALENDAR
                 "/CalDAV/example.com/home1/calendar_1/",
             ])
         )
+        yield self.commit()
 
 
     def checkPropertiesMethod(self, thunk):

@@ -1212,6 +1212,28 @@ class CalDAVServiceMaker (object):
             else:
                 groupCacher = None
 
+            # Optionally enable Manhole access
+            if config.Manhole.Enabled:
+                try:
+                    from twisted.conch.manhole_tap import makeService as manholeMakeService
+                    portString = "tcp:%d:interface=127.0.0.1" % (config.Manhole.StartingPortNumber,)
+                    manholeService = manholeMakeService({
+                        "sshPort" : None,
+                        "telnetPort" : portString,
+                        "namespace" : {
+                            "config" : config,
+                            "service" : result,
+                            "store" : store,
+                            "directory" : directory,
+                            },
+                        "passwd" : config.Manhole.PasswordFilePath,
+                    })
+                    manholeService.setServiceParent(result)
+                    # Using print(because logging isn't ready at this point)
+                    print("Manhole access enabled: %s" % (portString,))
+                except ImportError:
+                    print("Manhole access could not enabled because manhole_tap could not be imported")
+
             def decorateTransaction(txn):
                 txn._pushDistributor = pushDistributor
                 txn._rootResource = result.rootResource
@@ -1407,7 +1429,9 @@ class CalDAVServiceMaker (object):
 
                 # Conditionally stop after upgrade at this point
                 pps.addStep(
-                    QuitAfterUpgradeStep(config.StopAfterUpgradeTriggerFile)
+                    QuitAfterUpgradeStep(
+                        config.StopAfterUpgradeTriggerFile or config.UpgradeHomePrefix
+                    )
                 )
 
                 pps.addStep(

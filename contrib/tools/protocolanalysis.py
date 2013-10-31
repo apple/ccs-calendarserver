@@ -293,6 +293,12 @@ class CalendarServerLogAnalyzer(object):
         self.userCounts = collections.defaultdict(int)
         self.userResponseTimes = collections.defaultdict(float)
 
+        self.newEvents = 0
+        self.newInvites = 0
+        self.updateEvents = 0
+        self.updateInvites = 0
+        self.attendeeInvites = 0
+
         self.otherUserCalendarRequests = {}
 
         self.currentLine = None
@@ -415,6 +421,19 @@ class CalendarServerLogAnalyzer(object):
 
                 self.hourlyByStatus[" TOTAL"][timeBucketIndex] += 1
                 self.hourlyByStatus[self.currentLine.status][timeBucketIndex] += 1
+
+                if self.currentLine.status == 201:
+                    if adjustedMethod == METHOD_PUT_ICS:
+                        self.newEvents += 1
+                    elif adjustedMethod == METHOD_PUT_ORGANIZER:
+                        self.newInvites += 1
+                elif isOK:
+                    if adjustedMethod == METHOD_PUT_ICS:
+                        self.updateEvents += 1
+                    elif adjustedMethod == METHOD_PUT_ORGANIZER:
+                        self.updateInvites += 1
+                    elif adjustedMethod == METHOD_PUT_ATTENDEE:
+                        self.attendeeInvites += 1
 
                 # Cache analysis
                 if adjustedMethod == METHOD_PROPFIND_CALENDAR and self.currentLine.status == 207:
@@ -1029,6 +1048,9 @@ class CalendarServerLogAnalyzer(object):
             #print("User Response times")
             #self.printUserResponseTimes(doTabs)
 
+            print("Sim values")
+            self.printSimStats(doTabs)
+
 
     def printInfo(self, doTabs):
 
@@ -1083,6 +1105,7 @@ class CalendarServerLogAnalyzer(object):
         totalRequests = 0
         totalDepth = 0
         totalTime = 0.0
+        self.timeCounts = 0
         for ctr in xrange(self.timeBucketCount):
             hour = self.getHourFromIndex(ctr)
             if hour is None:
@@ -1101,12 +1124,13 @@ class CalendarServerLogAnalyzer(object):
             totalRequests += countRequests
             totalDepth += countDepth
             totalTime += countTime
+            self.timeCounts += 1
 
         table.addFooter(
             (
                 "Total:",
                 totalRequests,
-                (1.0 * totalRequests) / self.timeBucketCount / self.resolutionMinutes / 60,
+                safePercent(totalRequests, self.timeCounts * self.resolutionMinutes * 60, 1.0),
                 safePercent(totalTime, totalRequests, 1.0),
                 safePercent(float(totalDepth), totalRequests, 1),
             ),
@@ -1541,6 +1565,37 @@ class CalendarServerLogAnalyzer(object):
         for k, v in sorted(summary.iteritems()):
             # Chop off the "(a):" part.
             table.addRow((k[4:], v, safePercent(float(v), total)))
+        table.printTabDelimitedData() if doTabs else table.printTable()
+        print("")
+
+
+    def printSimStats(self, doTabs):
+        users = len(self.userCounts.keys())
+        hours = self.timeCounts / self.resolutionMinutes / 60
+        table = tables.Table()
+        table.setDefaultColumnFormats((
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                ))
+        table.addHeader(("Item", "Value", "Items, per User, per Day", "Interval (sec), per item, per user"))
+        table.addRow(("Unique Users", users, "", ""))
+
+        def _addRow(title, item):
+            table.addRow((title, item, "%.1f" % (safePercent(24 * item, hours * users, 1.0),), "%.1f" % (safePercent(hours * 60 * 60 * users, item, 1.0),),))
+
+        _addRow("New Events", self.newEvents)
+        _addRow("New Invites", self.newInvites)
+        _addRow("Updated Events", self.updateEvents)
+        _addRow("Updated Invites", self.updateInvites)
+        _addRow("Attendee Invites", self.attendeeInvites)
+        table.addRow((
+            "Recipients",
+            "%.1f" % (safePercent(sum(self.averagedHourlyByRecipientCount["iTIP Average"]), self.timeCounts, 1.0),),
+            "",
+            "",
+        ))
         table.printTabDelimitedData() if doTabs else table.printTable()
         print("")
 

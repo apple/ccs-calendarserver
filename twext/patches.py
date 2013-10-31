@@ -26,6 +26,8 @@ from twisted import version
 from twisted.python.versions import Version
 from twisted.python.modules import getModule
 
+
+
 def _hasIPv6ClientSupport():
     """
     Does the loaded version of Twisted have IPv6 client support?
@@ -34,8 +36,9 @@ def _hasIPv6ClientSupport():
     if version > lastVersionWithoutIPv6Clients:
         return True
     elif version == lastVersionWithoutIPv6Clients:
-        # It could be a snapshot of trunk or a branch with this bug fixed. Don't
-        # load the module, though, as that would be a bunch of unnecessary work.
+        # It could be a snapshot of trunk or a branch with this bug fixed.
+        # Don't load the module, though, as that would be a bunch of
+        # unnecessary work.
         return "_resolveIPv6" in (getModule("twisted.internet.tcp")
                                   .filePath.getContent())
     else:
@@ -45,8 +48,8 @@ def _hasIPv6ClientSupport():
 
 def _addBackports():
     """
-    We currently require 2 backported bugfixes from a future release of Twisted,
-    for IPv6 support:
+    We currently require 2 backported bugfixes from a future release of
+    Twisted, for IPv6 support:
 
         - U{IPv6 client support <http://tm.tl/5085>}
 

@@ -82,6 +82,7 @@ class UpgradeOptions(Options):
 
     optParameters = [
         ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
+        ['prefix', 'x', "", "Only upgrade homes with the specified GUID prefix - partial upgrade only."],
     ]
 
     def __init__(self):
@@ -142,11 +143,17 @@ class UpgraderService(Service, object):
         """
         Immediately stop.  The upgrade will have been run before this.
         """
-        # If we get this far the database is OK
-        if self.options["status"]:
-            self.output.write("Database OK.\n")
+        if self.store is None:
+            if self.options["status"]:
+                self.output.write("Upgrade needed.\n")
+            else:
+                self.output.write("Upgrade failed.\n")
         else:
-            self.output.write("Upgrade complete, shutting down.\n")
+            # If we get this far the database is OK
+            if self.options["status"]:
+                self.output.write("Database OK.\n")
+            else:
+                self.output.write("Upgrade complete, shutting down.\n")
         UpgraderService.started = True
 
         from twisted.internet import reactor
@@ -191,8 +198,10 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             data.MergeUpgrades = True
         config.addPostUpdateHooks([setMerge])
 
+
     def makeService(store):
         return UpgraderService(store, options, output, reactor, config)
+
 
     def onlyUpgradeEvents(eventDict):
         text = formatEvent(eventDict)
@@ -203,13 +212,18 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         log.publisher.levels.setLogLevelForNamespace(None, LogLevel.debug)
         addObserver(onlyUpgradeEvents)
 
+
     def customServiceMaker():
         customService = CalDAVServiceMaker()
         customService.doPostImport = options["postprocess"]
         return customService
 
+
     def _patchConfig(config):
         config.FailIfUpgradeNeeded = options["status"]
+        if options["prefix"]:
+            config.UpgradeHomePrefix = options["prefix"]
+
 
     def _onShutdown():
         if not UpgraderService.started:

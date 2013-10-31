@@ -96,6 +96,7 @@ from calendarserver.webcal.resource import WebCalendarResource
 from txdav.common.datastore.sql import CommonDataStore as CommonSQLDataStore
 from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
 from txdav.common.datastore.sql import current_sql_schema
+from txdav.common.datastore.upgrade.sql.upgrade import NotAllowedToUpgrade
 from twext.python.filepath import CachingFilePath
 from urllib import quote
 from twisted.python.usage import UsageError
@@ -1079,7 +1080,8 @@ class Stepper(object):
 
 
     def defaultStepWithFailure(self, failure):
-        log.failure("Step failure", failure=failure)
+        if failure.type != NotAllowedToUpgrade:
+            log.failure("Step failure", failure=failure)
         return failure
 
     # def protectStep(self, callback):

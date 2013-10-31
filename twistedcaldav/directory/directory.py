@@ -530,10 +530,11 @@ class DirectoryService(object):
         )
         for record in resources:
             guid = record.guid
-            assignments.append(("%s#calendar-proxy-write" % (guid,),
-                               record.externalProxies()))
-            assignments.append(("%s#calendar-proxy-read" % (guid,),
-                               record.externalReadOnlyProxies()))
+            if record.enabledForCalendaring:
+                assignments.append(("%s#calendar-proxy-write" % (guid,),
+                                   record.externalProxies()))
+                assignments.append(("%s#calendar-proxy-read" % (guid,),
+                                   record.externalReadOnlyProxies()))
 
         return assignments
 

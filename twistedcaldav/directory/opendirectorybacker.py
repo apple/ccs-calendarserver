@@ -342,7 +342,7 @@ class OpenDirectoryBackingService(DirectoryService):
         resultsDictionary = self._getAllDSLocalResults().copy()
         self.log.debug("Adding %s DSLocal results" % len(resultsDictionary.keys()))
 
-        for (recordShortName, recordAttributes) in records: #@UnusedVariable
+        for recordShortName, recordAttributes in records: #@UnusedVariable
 
             try:
                 # fix ds strangeness

@@ -26,7 +26,7 @@ def version():
     # Compute the version number.
     #
 
-    base_version = "5.1"
+    base_version = "5.2"
 
     branches = tuple(
         branch.format(version=base_version)
@@ -36,7 +36,7 @@ def version():
             "trunk",
         )
     )
-    
+
     source_root = dirname(dirname(__file__))
 
     for branch in branches:

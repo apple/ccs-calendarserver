@@ -25,8 +25,8 @@ from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
 from txdav.common.datastore.sql_dump import dumpSchema
 from txdav.common.datastore.test.util import theStoreBuilder, StubNotifierFactory
-from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaStep, \
-    UpgradeDatabaseAddressBookDataStep, UpgradeDatabaseCalendarDataStep
+from txdav.common.datastore.upgrade.sql.upgrade import (
+    UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep, UpgradeDatabaseCalendarDataStep, NotAllowedToUpgrade)
 import re
 
 class SchemaUpgradeTests(TestCase):
@@ -215,12 +215,12 @@ class SchemaUpgradeTests(TestCase):
         old_version = yield _loadVersion()
         try:
             yield upgrader.databaseUpgrade()
-        except RuntimeError:
+        except NotAllowedToUpgrade:
             pass
         except Exception:
-            self.fail("RuntimeError not raised")
+            self.fail("NotAllowedToUpgrade not raised")
         else:
-            self.fail("RuntimeError not raised")
+            self.fail("NotAllowedToUpgrade not raised")
         new_version = yield _loadVersion()
         yield _unloadOldSchema()
 
