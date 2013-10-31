@@ -672,43 +672,6 @@ create table GROUP_CACHER_POLLING_WORK (
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
-create table GROUP_REFRESH_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  GROUP_GUID                    varchar(255) not null
-);
-
-create table GROUP_ATTENDEE_RECONCILIATION_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  RESOURCE_ID                   integer,
-  GROUP_ID                      integer
-);
-
-create sequence GROUP_ID_SEQ;
-
-create table GROUPS (
-  GROUP_ID                      integer      primary key default nextval('GROUP_ID_SEQ'),    -- implicit index
-  NAME                          varchar(255) not null,
-  GROUP_GUID                    varchar(255) not null,
-  MEMBERSHIP_HASH               varchar(255) not null,
-  EXTANT                        integer default 1,
-  CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP)
-);
-
-create table GROUP_MEMBERSHIP (
-  GROUP_ID                      integer,
-  MEMBER_GUID                   varchar(255) not null
-);
-create index GROUP_MEMBERSHIP_GROUP on GROUP_MEMBERSHIP(GROUP_ID);
-create index GROUP_MEMBERSHIP_MEMBER on GROUP_MEMBERSHIP(MEMBER_GUID);
-
-create table GROUP_ATTENDEE (
-  GROUP_ID                      integer,
-  RESOURCE_ID                   integer,
-  MEMBERSHIP_HASH               varchar(255) not null
-);
 
 --------------------------
 -- Object Splitter Work --
