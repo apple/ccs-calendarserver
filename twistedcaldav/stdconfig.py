@@ -343,8 +343,14 @@ DEFAULT_CONFIG = {
     "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
                                    # tools from running if the database needs a schema
                                    # upgrade.
-    "StopAfterUpgradeTriggerFile" : "stop_after_upgrade", # if this file exists
-        # in ConfigRoot, stop the service after finishing upgrade phase
+    "StopAfterUpgradeTriggerFile" : "stop_after_upgrade",   # if this file exists in ConfigRoot, stop
+                                                            # the service after finishing upgrade phase
+
+    "UpgradeHomePrefix"    : "",    # When upgrading, only upgrade homes where the owner UID starts with
+                                    # with the specified prefix. The upgrade will only be partial and only
+                                    # apply to upgrade pieces that affect entire homes. The upgrade will
+                                    # need to be run again without this prefix set to complete the overall
+                                    # upgrade.
 
     #
     # Types of service provided
@@ -600,8 +606,8 @@ DEFAULT_CONFIG = {
         }
     },
 
-    "EnableTimezonesByReference" : False, # Strip out VTIMEZONES that are known
-    "UsePackageTimezones" : False, # Use timezone data from twistedcaldav.zoneinfo - don't copy to Data directory
+    "EnableTimezonesByReference" : True, # Strip out VTIMEZONES that are known
+    "UsePackageTimezones"        : False, # Use timezone data from twistedcaldav.zoneinfo - don't copy to Data directory
 
     "EnableBatchUpload"       : True, # POST batch uploads
     "MaxResourcesBatchUpload" : 100, # Maximum number of resources in a batch POST

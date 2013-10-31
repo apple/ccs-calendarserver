@@ -189,5 +189,3 @@ class SubprocessStartup(TestCase):
         cursor.execute("select * from import_test_table")
         values = cursor.fetchall()
         self.assertEquals(values, [["value1"], ["value2"]])
-
-

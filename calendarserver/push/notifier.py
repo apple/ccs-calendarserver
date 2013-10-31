@@ -84,10 +84,13 @@ class Notifier(object):
 
 
     @inlineCallbacks
-    def notify(self):
+    def notify(self, txn):
         """
         Send the notification. For a home object we just push using the home id. For a home
         child we push both the owner home id and the owned home child id.
+
+        @param txn: The transaction to create the work item with
+        @type txn: L{CommonStoreTransaction}
         """
         # Push ids from the store objects are a tuple of (prefix, name,) and we need to compose that
         # into a single token.
@@ -100,7 +103,7 @@ class Notifier(object):
         for prefix, id in ids:
             if self._notify:
                 self.log.debug("Notifications are enabled: %s %s/%s" % (self._storeObject, prefix, id,))
-                yield self._notifierFactory.send(prefix, id)
+                yield self._notifierFactory.send(prefix, id, txn)
             else:
                 self.log.debug("Skipping notification for: %s %s/%s" % (self._storeObject, prefix, id,))
 
@@ -147,11 +150,12 @@ class NotifierFactory(object):
 
 
     @inlineCallbacks
-    def send(self, prefix, id):
-        txn = self.store.newTransaction()
+    def send(self, prefix, id, txn):
+        """
+        Enqueue a push notification work item on the provided transaction.
+        """
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.coalesceSeconds)
         yield txn.enqueue(PushNotificationWork, pushID=self.pushKeyForId(prefix, id), notBefore=notBefore)
-        yield txn.commit()
 
 
     def newNotifier(self, storeObject):

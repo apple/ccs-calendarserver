@@ -144,9 +144,11 @@ class DirectoryService(BaseDirectoryService):
         else:
             realmName = repr(realmName)
 
-        return "<%s %s>" % (
-            self.__class__.__name__,
-            realmName,
+        return (
+            "<{self.__class__.__name__} {realmName}>".format(
+                self=self,
+                realmName=realmName,
+            )
         )
 
 
@@ -201,7 +203,10 @@ class DirectoryService(BaseDirectoryService):
         #
         if stat:
             self.filePath.restat()
-            cacheTag = (self.filePath.getModificationTime(), self.filePath.getsize())
+            cacheTag = (
+                self.filePath.getModificationTime(),
+                self.filePath.getsize()
+            )
             if cacheTag == self._cacheTag:
                 return
         else:
@@ -225,9 +230,13 @@ class DirectoryService(BaseDirectoryService):
         #
         directoryNode = etree.getroot()
         if directoryNode.tag != self.element.directory.value:
-            raise ParseError("Incorrect root element: %s" % (directoryNode.tag,))
+            raise ParseError(
+                "Incorrect root element: {0}".format(directoryNode.tag)
+            )
 
-        realmName = directoryNode.get(self.attribute.realm.value, "").encode("utf-8")
+        realmName = directoryNode.get(
+            self.attribute.realm.value, ""
+        ).encode("utf-8")
 
         if not realmName:
             raise ParseError("No realm name.")
@@ -239,7 +248,9 @@ class DirectoryService(BaseDirectoryService):
 
         for recordNode in directoryNode:
             try:
-                records.add(self.parseRecordNode(recordNode, unknownFieldElements))
+                records.add(
+                    self.parseRecordNode(recordNode, unknownFieldElements)
+                )
             except UnknownRecordTypeError as e:
                 unknownRecordTypes.add(e.token)
 
@@ -277,10 +288,14 @@ class DirectoryService(BaseDirectoryService):
 
 
     def parseRecordNode(self, recordNode, unknownFieldElements=None):
-        recordTypeAttribute = recordNode.get(self.attribute.recordType.value, "").encode("utf-8")
+        recordTypeAttribute = recordNode.get(
+            self.attribute.recordType.value, ""
+        ).encode("utf-8")
         if recordTypeAttribute:
             try:
-                recordType = self.value.lookupByValue(recordTypeAttribute).recordType
+                recordType = (
+                    self.value.lookupByValue(recordTypeAttribute).recordType
+                )
             except (ValueError, AttributeError):
                 raise UnknownRecordTypeError(recordTypeAttribute)
         else:
@@ -357,9 +372,14 @@ class DirectoryService(BaseDirectoryService):
             for (name, value) in record.fields.items():
                 if name == self.fieldName.recordType:
                     if value in recordTypes:
-                        recordNode.set(self.attribute.recordType.value, recordTypes[value])
+                        recordNode.set(
+                            self.attribute.recordType.value,
+                            recordTypes[value]
+                        )
                     else:
-                        raise AssertionError("Unknown record type: %r" % (value,))
+                        raise AssertionError(
+                            "Unknown record type: {0}".format(value)
+                        )
 
                 else:
                     if name in fieldNames:
@@ -376,7 +396,9 @@ class DirectoryService(BaseDirectoryService):
                             recordNode.append(subNode)
 
                     else:
-                        raise AssertionError("Unknown field name: %r" % (name,))
+                        raise AssertionError(
+                            "Unknown field name: {0!r}".format(name)
+                        )
 
         # Walk through the record nodes in the XML tree and apply
         # updates.

@@ -89,7 +89,7 @@ limitations under the License.
     <first-name>ま</first-name>
     <last-name>だ</last-name>
   </user>
-  <user repeat="99">
+  <user repeat="101">
     <uid>user%02d</uid>
     <uid>User %02d</uid>
     <guid>user%02d</guid>

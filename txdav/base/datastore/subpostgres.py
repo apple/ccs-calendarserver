@@ -454,6 +454,10 @@ class PostgresService(MultiService):
             self.deactivateDelayedShutdown()
 
         def gotReady(result):
+            """
+            We started postgres; we're responsible for stopping it later.
+            Call pgCtl status to get the pid.
+            """
             log.warn("{cmd} exited", cmd=pgCtl)
             self.shouldStopDatabase = True
             d = Deferred()
@@ -465,13 +469,32 @@ class PostgresService(MultiService):
             )
             return d.addCallback(gotStatus)
 
-        def reportit(f):
-            log.failure("starting postgres", f)
+        def couldNotStart(f):
+            """
+            There was an error trying to start postgres.  Try to connect
+            because it might already be running.  In this case, we won't
+            be the one to stop it.
+            """
+            d = Deferred()
+            statusMonitor = CapturingProcessProtocol(d, None)
+            self.reactor.spawnProcess(
+                statusMonitor, pgCtl, [pgCtl, "status"],
+                env=self.env, path=self.workingDir.path,
+                uid=self.uid, gid=self.gid,
+            )
+            return d.addCallback(gotStatus).addErrback(giveUp)
+
+        def giveUp(f):
+            """
+            We can't start postgres or connect to a running instance.  Shut
+            down.
+            """
+            log.failure("Can't start or connect to postgres", f)
             self.deactivateDelayedShutdown()
             self.reactor.stop()
-            
+
         self.monitor.completionDeferred.addCallback(
-            gotReady).addErrback(reportit)
+            gotReady).addErrback(couldNotStart)
 
     shouldStopDatabase = False
 
@@ -549,6 +572,7 @@ class PostgresService(MultiService):
 #        d.addCallback(maybeStopSubprocess)
 #        return d
 
+
     def hardStop(self):
         """
         Stop postgres quickly by sending it SIGQUIT
@@ -556,5 +580,5 @@ class PostgresService(MultiService):
         if self._postgresPid is not None:
             try:
                 os.kill(self._postgresPid, signal.SIGQUIT)
-            except OSError: 
+            except OSError:
                 pass

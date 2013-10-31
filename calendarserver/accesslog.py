@@ -173,7 +173,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                     formatArgs["t"] = (nowtime - request.timeStamps[0][1]) * 1000
 
                 if hasattr(request, "extendedLogItems"):
-                    for k, v in request.extendedLogItems.iteritems():
+                    for k, v in sorted(request.extendedLogItems.iteritems(), key=lambda x: x[0]):
                         k = str(k).replace('"', "%22")
                         v = str(v).replace('"', "%22")
                         if " " in v:

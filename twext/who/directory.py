@@ -47,7 +47,7 @@ class DirectoryService(object):
     fieldName  = FieldName
 
     normalizedFields = {
-        FieldName.guid:           lambda g: UUID(g).hex,
+        FieldName.guid: lambda g: UUID(g).hex,
         FieldName.emailAddresses: lambda e: e.lower(),
     }
 
@@ -57,9 +57,9 @@ class DirectoryService(object):
 
 
     def __repr__(self):
-        return "<%s %r>" % (
-            self.__class__.__name__,
-            self.realmName,
+        return (
+            "<{self.__class__.__name__} {self.realmName!r}>"
+            .format(self=self)
         )
 
 
@@ -76,7 +76,9 @@ class DirectoryService(object):
             the whole directory should be searched.
         @type records: L{set} or L{frozenset}
         """
-        return fail(QueryNotSupportedError("Unknown expression: %s" % (expression,)))
+        return fail(QueryNotSupportedError(
+            "Unknown expression: {0}".format(expression)
+        ))
 
 
     @inlineCallbacks
@@ -109,7 +111,9 @@ class DirectoryService(object):
             elif operand == Operand.OR:
                 results |= recordsMatchingExpression
             else:
-                raise QueryNotSupportedError("Unknown operand: %s" % (operand,))
+                raise QueryNotSupportedError(
+                    "Unknown operand: {0}".format(operand)
+                )
 
         returnValue(results)
 
@@ -120,12 +124,16 @@ class DirectoryService(object):
 
     @inlineCallbacks
     def recordWithUID(self, uid):
-        returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.uid, uid))))
-               
+        returnValue(uniqueResult(
+            (yield self.recordsWithFieldValue(FieldName.uid, uid))
+        ))
+
 
     @inlineCallbacks
     def recordWithGUID(self, guid):
-        returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.guid, guid))))
+        returnValue(uniqueResult(
+            (yield self.recordsWithFieldValue(FieldName.guid, guid))
+        ))
 
 
     def recordsWithRecordType(self, recordType):
@@ -136,12 +144,15 @@ class DirectoryService(object):
     def recordWithShortName(self, recordType, shortName):
         returnValue(uniqueResult((yield self.recordsFromQuery((
             MatchExpression(FieldName.recordType, recordType),
-            MatchExpression(FieldName.shortNames, shortName ),
+            MatchExpression(FieldName.shortNames, shortName),
         )))))
 
 
     def recordsWithEmailAddress(self, emailAddress):
-        return self.recordsWithFieldValue(FieldName.emailAddresses, emailAddress)
+        return self.recordsWithFieldValue(
+            FieldName.emailAddresses,
+            emailAddress,
+        )
 
 
     def updateRecords(self, records, create=False):
@@ -168,21 +179,31 @@ class DirectoryRecord(object):
     def __init__(self, service, fields):
         for fieldName in self.requiredFields:
             if fieldName not in fields or not fields[fieldName]:
-                raise ValueError("%s field is required." % (fieldName,))
+                raise ValueError("{0} field is required.".format(fieldName))
 
             if FieldName.isMultiValue(fieldName):
                 values = fields[fieldName]
                 if len(values) == 0:
-                    raise ValueError("%s field must have at least one value." % (fieldName,))
+                    raise ValueError(
+                        "{0} field must have at least one value."
+                        .format(fieldName)
+                    )
                 for value in values:
                     if not value:
-                        raise ValueError("%s field must not be empty." % (fieldName,))
+                        raise ValueError(
+                            "{0} field must not be empty.".format(fieldName)
+                        )
 
-        if fields[FieldName.recordType] not in service.recordType.iterconstants():
-            raise ValueError("Record type must be one of %r, not %r." % (
-                tuple(service.recordType.iterconstants()),
-                fields[FieldName.recordType]
-            ))
+        if (
+            fields[FieldName.recordType] not in
+            service.recordType.iterconstants()
+        ):
+            raise ValueError(
+                "Record type must be one of {0!r}, not {1!r}.".format(
+                    tuple(service.recordType.iterconstants()),
+                    fields[FieldName.recordType],
+                )
+            )
 
         # Normalize fields
         normalizedFields = {}
@@ -197,16 +218,18 @@ class DirectoryRecord(object):
                 normalizedFields[name] = tuple((normalize(v) for v in value))
             else:
                 normalizedFields[name] = normalize(value)
-        
+
         self.service = service
         self.fields  = normalizedFields
 
 
     def __repr__(self):
-        return "<%s (%s)%s>" % (
-            self.__class__.__name__,
-            describe(self.recordType),
-            self.shortNames[0],
+        return (
+            "<{self.__class__.__name__} ({recordType}){shortName}>".format(
+                self=self,
+                recordType=describe(self.recordType),
+                shortName=self.shortNames[0],
+            )
         )
 
 
@@ -262,9 +285,9 @@ class DirectoryRecord(object):
 
     def members(self):
         if self.recordType == RecordType.group:
-            raise NotImplementedError()
+            raise NotImplementedError("Subclasses must implement members()")
         return succeed(())
 
 
     def groups(self):
-        raise NotImplementedError()
+        raise NotImplementedError("Subclasses must implement groups()")

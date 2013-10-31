@@ -51,15 +51,21 @@ class DirectoryServiceError(Exception):
     Directory service generic error.
     """
 
+
+
 class DirectoryConfigurationError(DirectoryServiceError):
     """
     Directory configurtion error.
     """
 
+
+
 class DirectoryAvailabilityError(DirectoryServiceError):
     """
     Directory not available.
     """
+
+
 
 class UnknownRecordTypeError(DirectoryServiceError):
     """
@@ -69,15 +75,21 @@ class UnknownRecordTypeError(DirectoryServiceError):
         DirectoryServiceError.__init__(self, token)
         self.token = token
 
+
+
 class QueryNotSupportedError(DirectoryServiceError):
     """
     Query not supported.
     """
 
+
+
 class NoSuchRecordError(DirectoryServiceError):
     """
     Record does not exist.
     """
+
+
 
 class NotAllowedError(DirectoryServiceError):
     """
@@ -123,6 +135,7 @@ class FieldName(Names):
     fullNames.multiValue      = True
     emailAddresses.multiValue = True
 
+
     @staticmethod
     def isMultiValue(name):
         return getattr(name, "multiValue", False)
@@ -157,13 +170,17 @@ class IDirectoryService(Interface):
     A directory service may allow support the editing, removal and
     addition of records.
     """
-    realmName = Attribute("The name of the authentication realm this service represents.")
+    realmName = Attribute(
+        "The name of the authentication realm this service represents."
+    )
+
 
     def recordTypes():
         """
         @return: an iterable of L{NamedConstant}s denoting the record
             types that are kept in this directory.
         """
+
 
     def recordsFromExpression(self, expression):
         """
@@ -174,6 +191,7 @@ class IDirectoryService(Interface):
         @raises: L{QueryNotSupportedError} if the expression is not
             supported by this directory service.
         """
+
 
     def recordsFromQuery(expressions, operand=Operand.AND):
         """
@@ -188,6 +206,7 @@ class IDirectoryService(Interface):
             supported by this directory service.
         """
 
+
     def recordsWithFieldValue(fieldName, value):
         """
         Find records that have the given field name with the given
@@ -199,6 +218,7 @@ class IDirectoryService(Interface):
         @return: a deferred iterable of L{IDirectoryRecord}s.
         """
 
+
     def recordWithUID(uid):
         """
         Find the record that has the given UID.
@@ -207,7 +227,8 @@ class IDirectoryService(Interface):
         @return: a deferred iterable of L{IDirectoryRecord}s, or
             C{None} if there is no such record.
         """
-               
+
+
     def recordWithGUID(guid):
         """
         Find the record that has the given GUID.
@@ -217,6 +238,7 @@ class IDirectoryService(Interface):
             C{None} if there is no such record.
         """
 
+
     def recordsWithRecordType(recordType):
         """
         Find the records that have the given record type.
@@ -224,6 +246,7 @@ class IDirectoryService(Interface):
         @type recordType: L{NamedConstant}
         @return: a deferred iterable of L{IDirectoryRecord}s.
         """
+
 
     def recordWithShortName(recordType, shortName):
         """
@@ -236,6 +259,7 @@ class IDirectoryService(Interface):
             C{None} if there is no such record.
         """
 
+
     def recordsWithEmailAddress(emailAddress):
         """
         Find the records that have the given email address.
@@ -245,6 +269,7 @@ class IDirectoryService(Interface):
             C{None} if there is no such record.
         """
 
+
     def updateRecords(records, create=False):
         """
         Updates existing directory records.
@@ -253,6 +278,7 @@ class IDirectoryService(Interface):
         @param create: if true, create records if necessary
         @type create: boolean
         """
+
 
     def removeRecords(uids):
         """
@@ -294,6 +320,7 @@ class IDirectoryRecord(Interface):
     service = Attribute("The L{IDirectoryService} this record exists in.")
     fields  = Attribute("A mapping with L{NamedConstant} keys.")
 
+
     def members():
         """
         Find the records that are members of this group.  Only direct
@@ -301,6 +328,7 @@ class IDirectoryRecord(Interface):
         @return: a deferred iterable of L{IDirectoryRecord}s which are
             direct members of this group.
         """
+
 
     def groups():
         """
