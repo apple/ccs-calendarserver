@@ -564,8 +564,8 @@ DEFAULT_CONFIG = {
         }
     },
 
-    "EnableTimezonesByReference" : False, # Strip out VTIMEZONES that are known
-    "UsePackageTimezones" : False, # Use timezone data from twistedcaldav.zoneinfo - don't copy to Data directory
+    "EnableTimezonesByReference" : True, # Strip out VTIMEZONES that are known
+    "UsePackageTimezones"        : False, # Use timezone data from twistedcaldav.zoneinfo - don't copy to Data directory
 
     "EnableBatchUpload"       : True, # POST batch uploads
     "MaxResourcesBatchUpload" : 100, # Maximum number of resources in a batch POST

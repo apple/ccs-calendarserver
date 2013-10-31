@@ -1581,10 +1581,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 if calsize > config.MaxResourceSize:
                     raise ObjectResourceTooBigError()
 
-        # Possible timezone stripping
-        if config.EnableTimezonesByReference:
-            component.stripKnownTimezones()
-
         # Do validation on external requests
         if internal_state == ComponentUpdateState.NORMAL:
 
@@ -1601,6 +1597,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Normalize the calendar user addresses once we know we have valid
             # calendar data
             component.normalizeCalendarUserAddresses(normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
+
+        # Possible timezone stripping
+        if config.EnableTimezonesByReference:
+            component.stripKnownTimezones()
 
         # Check location/resource organizer requirement
         self.validLocationResourceOrganizer(component, inserting, internal_state)
