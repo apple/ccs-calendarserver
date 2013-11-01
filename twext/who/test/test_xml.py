@@ -47,7 +47,7 @@ class BaseTest(unittest.TestCase):
 
 
 
-class DirectoryServiceBaseTest(BaseTest, test_directory.DirectoryServiceTest):
+class DirectoryServiceBaseTest(BaseTest, test_directory.BaseDirectoryServiceTest):
     def test_repr(self):
         service = self.service()
 
@@ -659,7 +659,7 @@ class DirectoryServiceMutableTest(BaseTest):
 
 
 
-class DirectoryRecordTest(BaseTest, test_directory.DirectoryRecordTest):
+class DirectoryRecordTest(BaseTest, test_directory.BaseDirectoryRecordTest):
     @inlineCallbacks
     def test_members(self):
         service = self.service()

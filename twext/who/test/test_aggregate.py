@@ -26,7 +26,8 @@ from twext.who.aggregate import DirectoryService
 from twext.who.util import ConstantsContainer
 
 from twext.who.test import test_directory, test_xml
-from twext.who.test.test_xml import QueryMixIn, xmlService, TestService as XMLTestService
+from twext.who.test.test_xml import QueryMixIn, xmlService
+from twext.who.test.test_xml import TestService as XMLTestService
 
 
 
@@ -68,7 +69,7 @@ class DirectoryServiceQueryTest(BaseTest, test_xml.DirectoryServiceQueryTest):
 
 
 
-class DirectoryServiceImmutableTest(BaseTest, test_directory.DirectoryServiceImmutableTest):
+class DirectoryServiceImmutableTest(BaseTest, test_directory.BaseDirectoryServiceImmutableTest):
     pass
 
 
@@ -98,7 +99,7 @@ class DirectoryServiceAggregatedQueryTest(AggregatedBaseTest, test_xml.Directory
 
 
 
-class DirectoryServiceAggregatedImmutableTest(AggregatedBaseTest, test_directory.DirectoryServiceImmutableTest):
+class DirectoryServiceAggregatedImmutableTest(AggregatedBaseTest, test_directory.BaseDirectoryServiceImmutableTest):
     pass
 
 
