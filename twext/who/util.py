@@ -45,20 +45,24 @@ class ConstantsContainer(object):
 
         self._constants = myConstants
 
+
     def __getattr__(self, name):
         try:
             return self._constants[name]
         except KeyError:
             raise AttributeError(name)
 
+
     def iterconstants(self):
         return self._constants.itervalues()
+
 
     def lookupByName(self, name):
         try:
             return self._constants[name]
         except KeyError:
             raise ValueError(name)
+
 
 
 def uniqueResult(values):
@@ -73,6 +77,7 @@ def uniqueResult(values):
     return result
 
 
+
 def describe(constant):
     if isinstance(constant, FlagConstant):
         parts = []
@@ -81,6 +86,7 @@ def describe(constant):
         return "|".join(parts)
     else:
         return getattr(constant, "description", constant.name)
+
 
 
 def iterFlags(flags):

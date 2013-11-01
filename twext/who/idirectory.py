@@ -185,9 +185,12 @@ class IDirectoryService(Interface):
     def recordsFromExpression(self, expression):
         """
         Find records matching an expression.
+
         @param expression: an expression to apply
         @type expression: L{object}
+
         @return: a deferred iterable of matching L{IDirectoryRecord}s.
+
         @raises: L{QueryNotSupportedError} if the expression is not
             supported by this directory service.
         """
@@ -197,11 +200,15 @@ class IDirectoryService(Interface):
         """
         Find records by composing a query consisting of an iterable of
         expressions and an operand.
+
         @param expressions: expressions to query against
         @type expressions: iterable of L{object}s
+
         @param operand: an operand
         @type operand: a L{NamedConstant}
+
         @return: a deferred iterable of matching L{IDirectoryRecord}s.
+
         @raises: L{QueryNotSupportedError} if the query is not
             supported by this directory service.
         """
@@ -211,10 +218,13 @@ class IDirectoryService(Interface):
         """
         Find records that have the given field name with the given
         value.
+
         @param fieldName: a field name
         @type fieldName: L{NamedConstant}
+
         @param value: a value to match
         @type value: L{bytes}
+
         @return: a deferred iterable of L{IDirectoryRecord}s.
         """
 
@@ -222,8 +232,10 @@ class IDirectoryService(Interface):
     def recordWithUID(uid):
         """
         Find the record that has the given UID.
+
         @param uid: a UID
         @type uid: L{bytes}
+
         @return: a deferred iterable of L{IDirectoryRecord}s, or
             C{None} if there is no such record.
         """
@@ -232,8 +244,10 @@ class IDirectoryService(Interface):
     def recordWithGUID(guid):
         """
         Find the record that has the given GUID.
+
         @param guid: a GUID
         @type guid: L{bytes}
+
         @return: a deferred iterable of L{IDirectoryRecord}s, or
             C{None} if there is no such record.
         """
@@ -242,8 +256,10 @@ class IDirectoryService(Interface):
     def recordsWithRecordType(recordType):
         """
         Find the records that have the given record type.
+
         @param recordType: a record type
         @type recordType: L{NamedConstant}
+
         @return: a deferred iterable of L{IDirectoryRecord}s.
         """
 
@@ -251,10 +267,13 @@ class IDirectoryService(Interface):
     def recordWithShortName(recordType, shortName):
         """
         Find the record that has the given record type and short name.
+
         @param recordType: a record type
         @type recordType: L{NamedConstant}
+
         @param shortName: a short name
         @type shortName: L{bytes}
+
         @return: a deferred iterable of L{IDirectoryRecord}s, or
             C{None} if there is no such record.
         """
@@ -263,8 +282,10 @@ class IDirectoryService(Interface):
     def recordsWithEmailAddress(emailAddress):
         """
         Find the records that have the given email address.
+
         @param emailAddress: an email address
         @type emailAddress: L{bytes}
+
         @return: a deferred iterable of L{IDirectoryRecord}s, or
             C{None} if there is no such record.
         """
@@ -273,8 +294,10 @@ class IDirectoryService(Interface):
     def updateRecords(records, create=False):
         """
         Updates existing directory records.
+
         @param records: the records to update
         @type records: iterable of L{IDirectoryRecord}s
+
         @param create: if true, create records if necessary
         @type create: boolean
         """
@@ -283,6 +306,7 @@ class IDirectoryService(Interface):
     def removeRecords(uids):
         """
         Removes the records with the given UIDs.
+
         @param uids: the UIDs of the records to remove
         @type uids: iterable of L{bytes}
         """
