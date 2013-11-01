@@ -237,7 +237,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
     }
 
 
-    def _testRecord(self, fields=None, service=None):
+    def makeRecord(self, fields=None, service=None):
         if fields is None:
             fields = self.fields_wsanchez
         if service is None:
@@ -246,7 +246,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 
     def test_interface(self):
-        record = self._testRecord()
+        record = self.makeRecord()
         try:
             verifyObject(IDirectoryRecord, record)
         except BrokenMethodImplementation as e:
@@ -255,7 +255,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
     def test_init(self):
         service  = self.service()
-        wsanchez = self._testRecord(self.fields_wsanchez, service=service)
+        wsanchez = self.makeRecord(self.fields_wsanchez, service=service)
 
         self.assertEquals(wsanchez.service, service)
         self.assertEquals(wsanchez.fields, self.fields_wsanchez)
@@ -264,49 +264,49 @@ class BaseDirectoryRecordTest(ServiceMixIn):
     def test_initWithNoUID(self):
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.uid]
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
         fields[FieldName.uid] = ""
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
 
     def test_initWithNoRecordType(self):
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.recordType]
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
         fields[FieldName.recordType] = ""
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
 
     def test_initWithNoShortNames(self):
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.shortNames]
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
         fields[FieldName.shortNames] = ()
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
         fields[FieldName.shortNames] = ("",)
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
         fields[FieldName.shortNames] = ("wsanchez", "")
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
 
     def test_initWithBogusRecordType(self):
         fields = self.fields_wsanchez.copy()
         fields[FieldName.recordType] = object()
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
 
     def test_initNormalize(self):
-        sagen = self._testRecord(self.fields_sagen)
+        sagen = self.makeRecord(self.fields_sagen)
 
         self.assertEquals(
             sagen.fields[FieldName.emailAddresses],
@@ -320,10 +320,10 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
         plugh = DirectoryService("plugh")
 
-        wsanchez    = self._testRecord(self.fields_wsanchez)
-        wsanchezmod = self._testRecord(self.fields_wsanchez, plugh)
-        glyph       = self._testRecord(self.fields_glyph)
-        glyphmod    = self._testRecord(fields_glyphmod)
+        wsanchez    = self.makeRecord(self.fields_wsanchez)
+        wsanchezmod = self.makeRecord(self.fields_wsanchez, plugh)
+        glyph       = self.makeRecord(self.fields_glyph)
+        glyphmod    = self.makeRecord(fields_glyphmod)
 
         self.assertEquals(wsanchez, wsanchez)
         self.assertNotEqual(wsanchez, glyph)
@@ -333,7 +333,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 
     def test_attributeAccess(self):
-        wsanchez = self._testRecord(self.fields_wsanchez)
+        wsanchez = self.makeRecord(self.fields_wsanchez)
 
         self.assertEquals(
             wsanchez.recordType,
@@ -355,7 +355,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
     @inlineCallbacks
     def test_members(self):
-        wsanchez = self._testRecord(self.fields_wsanchez)
+        wsanchez = self.makeRecord(self.fields_wsanchez)
         self.assertEquals(
             set((yield wsanchez.members())),
             set()
@@ -371,16 +371,16 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
     def test_members(self):
-        wsanchez = self._testRecord(self.fields_wsanchez)
+        wsanchez = self.makeRecord(self.fields_wsanchez)
         self.assertEquals(
             set((yield wsanchez.members())),
             set()
         )
 
-        staff = self._testRecord(self.fields_staff)
+        staff = self.makeRecord(self.fields_staff)
         self.assertFailure(staff.members(), NotImplementedError)
 
 
     def test_groups(self):
-        wsanchez = self._testRecord(self.fields_wsanchez)
+        wsanchez = self.makeRecord(self.fields_wsanchez)
         self.assertFailure(wsanchez.groups(), NotImplementedError)
