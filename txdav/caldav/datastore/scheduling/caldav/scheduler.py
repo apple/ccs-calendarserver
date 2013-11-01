@@ -101,6 +101,14 @@ class CalDAVScheduler(Scheduler):
                 "No principal for originator",
             ))
         else:
+            if not (originatorPrincipal.calendarsEnabled() and originatorPrincipal.thisServer()):
+                log.err("Originator not enabled or hosted on this server: %s" % (self.originator,))
+                raise HTTPError(self.errorResponse(
+                    responsecode.FORBIDDEN,
+                    self.errorElements["originator-denied"],
+                    "Originator cannot be scheduled",
+                ))
+
             self.originator = LocalCalendarUser(self.originator, originatorPrincipal)
 
 
@@ -127,7 +135,7 @@ class CalDAVScheduler(Scheduler):
             else:
                 # Map recipient to their inbox
                 inbox = None
-                if principal.calendarsEnabled() and principal.thisServer():
+                if principal.calendarsEnabled():
                     if principal.locallyHosted():
                         recipient_home = yield self.txn.calendarHomeWithUID(principal.uid, create=True)
                         if recipient_home:
@@ -138,7 +146,7 @@ class CalDAVScheduler(Scheduler):
                 if inbox:
                     results.append(calendarUserFromPrincipal(recipient, principal, inbox))
                 else:
-                    log.error("No schedule inbox for principal: %s" % (principal,))
+                    log.error("Recipient not enabled for calendaring: %s" % (principal,))
                     results.append(InvalidCalendarUser(recipient))
 
         self.recipients = results

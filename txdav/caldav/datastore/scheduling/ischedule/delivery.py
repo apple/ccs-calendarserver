@@ -72,6 +72,7 @@ log = Logger()
 class ScheduleViaISchedule(DeliveryService):
 
     domainServerMap = {}
+    servermgr = None
 
     @classmethod
     def serviceType(cls):
@@ -82,9 +83,7 @@ class ScheduleViaISchedule(DeliveryService):
     @inlineCallbacks
     def matchCalendarUserAddress(cls, cuaddr):
 
-        # TODO: here is where we would attempt service discovery based on the cuaddr.
-
-        # Only handle mailtos:
+        # Handle mailtos:
         if cuaddr.lower().startswith("mailto:"):
             domain = extractEmailDomain(cuaddr)
             server = (yield cls.serverForDomain(domain))
@@ -100,25 +99,30 @@ class ScheduleViaISchedule(DeliveryService):
     def serverForDomain(cls, domain):
         if domain not in cls.domainServerMap:
 
-            # First check built-in list of remote servers
-            servermgr = IScheduleServers()
-            server = servermgr.mapDomain(domain)
-            if server is not None:
-                cls.domainServerMap[domain] = server
-            else:
-                # Lookup domain
-                result = (yield lookupServerViaSRV(domain))
-                if result is None:
+            if config.Scheduling.iSchedule.Enabled:
+
+                # First check built-in list of remote servers
+                if cls.servermgr is None:
+                    cls.servermgr = IScheduleServers()
+                server = cls.servermgr.mapDomain(domain)
+                if server is not None:
+                    cls.domainServerMap[domain] = server
+                else:
                     # Lookup domain
-                    result = (yield lookupServerViaSRV(domain, service="_ischedule"))
+                    result = (yield lookupServerViaSRV(domain))
                     if result is None:
-                        cls.domainServerMap[domain] = None
+                        # Lookup domain
+                        result = (yield lookupServerViaSRV(domain, service="_ischedule"))
+                        if result is None:
+                            cls.domainServerMap[domain] = None
+                        else:
+                            # Create the iSchedule server record for this server
+                            cls.domainServerMap[domain] = IScheduleServerRecord(uri="http://%s:%s/.well-known/ischedule" % result)
                     else:
                         # Create the iSchedule server record for this server
-                        cls.domainServerMap[domain] = IScheduleServerRecord(uri="http://%s:%s/.well-known/ischedule" % result)
-                else:
-                    # Create the iSchedule server record for this server
-                    cls.domainServerMap[domain] = IScheduleServerRecord(uri="https://%s:%s/.well-known/ischedule" % result)
+                        cls.domainServerMap[domain] = IScheduleServerRecord(uri="https://%s:%s/.well-known/ischedule" % result)
+            else:
+                cls.domainServerMap[domain] = None
 
         returnValue(cls.domainServerMap[domain])
 
@@ -189,9 +193,12 @@ class ScheduleViaISchedule(DeliveryService):
 
         partition = recipient.principal.partitionURI()
         if partition not in self.partitionedServers:
-            self.partitionedServers[partition] = IScheduleServerRecord(uri=joinURL(partition, "/ischedule"))
-            self.partitionedServers[partition].unNormalizeAddresses = False
-            self.partitionedServers[partition].moreHeaders.append(recipient.principal.server().secretHeader())
+            self.partitionedServers[partition] = IScheduleServerRecord(
+                uri=joinURL(partition, config.Servers.InboxName),
+                unNormalizeAddresses=False,
+                moreHeaders=[recipient.principal.server().secretHeader(), ],
+                podding=True,
+            )
 
         return self.partitionedServers[partition]
 
@@ -203,9 +210,12 @@ class ScheduleViaISchedule(DeliveryService):
 
         serverURI = recipient.principal.serverURI()
         if serverURI not in self.otherServers:
-            self.otherServers[serverURI] = IScheduleServerRecord(uri=joinURL(serverURI, "/ischedule"))
-            self.otherServers[serverURI].unNormalizeAddresses = not recipient.principal.server().isImplicit
-            self.otherServers[serverURI].moreHeaders.append(recipient.principal.server().secretHeader())
+            self.otherServers[serverURI] = IScheduleServerRecord(
+                uri=joinURL(serverURI, config.Servers.InboxName),
+                unNormalizeAddresses=not recipient.principal.server().isImplicit,
+                moreHeaders=[recipient.principal.server().secretHeader(), ],
+                podding=True,
+            )
 
         return self.otherServers[serverURI]
 
@@ -222,6 +232,7 @@ class IScheduleRequest(object):
         self.refreshOnly = refreshOnly
         self.headers = None
         self.data = None
+        self.original_organizer = None
 
 
     @inlineCallbacks
@@ -365,7 +376,8 @@ class IScheduleRequest(object):
 
         # The Originator must be the ORGANIZER (for a request) or ATTENDEE (for a reply)
         originator = self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee
-        originator = normalizeCUAddress(originator, normalizationLookup, self.scheduler.txn.directoryService().recordWithCalendarUserAddress, toUUID=False)
+        if self.server.unNormalizeAddresses:
+            originator = normalizeCUAddress(originator, normalizationLookup, self.scheduler.txn.directoryService().recordWithCalendarUserAddress, toUUID=False)
         self.headers.addRawHeader("Originator", utf8String(originator))
         self.sign_headers.append("Originator")
 
@@ -414,15 +426,15 @@ class IScheduleRequest(object):
         """
 
         if self.data is None:
+
             # Need to remap cuaddrs from urn:uuid
-            if self.server.unNormalizeAddresses and self.scheduler.method == "PUT":
-                normalizedCalendar = self.scheduler.calendar.duplicate()
+            normalizedCalendar = self.scheduler.calendar.duplicate()
+            self.original_organizer = normalizedCalendar.getOrganizer()
+            if self.server.unNormalizeAddresses:
                 normalizedCalendar.normalizeCalendarUserAddresses(
                     normalizationLookup,
                     self.scheduler.txn.directoryService().recordWithCalendarUserAddress,
                     toUUID=False)
-            else:
-                normalizedCalendar = self.scheduler.calendar
 
             # For VFREEBUSY we need to strip out ATTENDEEs that do not match the recipient list
             if self.scheduler.isfreebusy:
@@ -445,13 +457,12 @@ class IScheduleRequest(object):
         f = Factory()
         f.protocol = HTTPClientProtocol
         if ssl:
-            ep = GAIEndpoint(reactor, host, port,
-                             _configuredClientContextFactory())
+            ep = GAIEndpoint(reactor, host, port, _configuredClientContextFactory())
         else:
             ep = GAIEndpoint(reactor, host, port)
         proto = (yield ep.connect(f))
 
-        if config.Scheduling.iSchedule.DKIM.Enabled:
+        if not self.server.podding() and config.Scheduling.iSchedule.DKIM.Enabled:
             domain, selector, key_file, algorithm, useDNSKey, useHTTPKey, usePrivateExchangeKey, expire = DKIMUtils.getConfiguration(config)
             request = DKIMRequest(
                 "POST",
@@ -503,6 +514,14 @@ class IScheduleRequest(object):
             calendar_data = response.childOfType(CalendarData)
             if calendar_data:
                 calendar_data = str(calendar_data)
+                if self.server.unNormalizeAddresses and self.original_organizer is not None:
+                    # Need to restore original ORGANIZER value if it got unnormalized
+                    calendar = Component.fromString(calendar_data)
+                    organizers = calendar.getAllPropertiesInAnyComponent("ORGANIZER", depth=1)
+                    for organizer in organizers:
+                        organizer.setValue(self.original_organizer)
+                    calendar_data = str(calendar)
+
             error = response.childOfType(Error)
             if error:
                 error = error.children

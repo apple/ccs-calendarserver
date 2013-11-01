@@ -806,9 +806,10 @@ DEFAULT_CONFIG = {
     # Support multiple hosts within a domain
     #
     "Servers" : {
-        "Enabled": False, # Multiple servers/partitions enabled or not
-        "ConfigFile": "localservers.xml", # File path for server information
-        "MaxClients": 5, # Pool size for connections to each partition
+        "Enabled": False,                   # Multiple servers/partitions enabled or not
+        "ConfigFile": "localservers.xml",   # File path for server information
+        "MaxClients": 5,                    # Pool size for connections to each partition
+        "InboxName": "podding",             # Name for top-level inbox resource
     },
     "ServerPartitionID": "", # Unique ID for this server's partition instance.
 
@@ -1045,9 +1046,10 @@ class PListConfigProvider(ConfigProvider):
         configDict = ConfigDict(configDict)
         # Now check for Includes and parse and add each of those
         if "Includes" in configDict:
+            configRoot = os.path.join(configDict.ServerRoot, configDict.ConfigRoot)
             for include in configDict.Includes:
                 # Includes are not relative to ConfigRoot
-                path = _expandPath(include)
+                path = _expandPath(fullServerPath(configRoot, include))
                 if os.path.exists(path):
                     additionalDict = ConfigDict(self._parseConfigFromFile(path))
                     if additionalDict:

@@ -636,11 +636,23 @@ def getRootResource(config, newStore, resources=None):
             addSystemEventTrigger("after", "startup", timezoneStdService.onStartup)
 
     #
-    # iSchedule service
+    # iSchedule service for podding
+    #
+    if config.Servers.Enabled:
+        log.info("Setting up iSchedule podding inbox resource: {cls}", cls=iScheduleResourceClass)
+
+        ischedule = iScheduleResourceClass(
+            root,
+            newStore,
+            podding=True
+        )
+        root.putChild(config.Servers.InboxName, ischedule)
+
+    #
+    # iSchedule service (not used for podding)
     #
     if config.Scheduling.iSchedule.Enabled:
-        log.info("Setting up iSchedule inbox resource: {cls}",
-                      cls=iScheduleResourceClass)
+        log.info("Setting up iSchedule inbox resource: {cls}", cls=iScheduleResourceClass)
 
         ischedule = iScheduleResourceClass(
             root,
@@ -651,8 +663,7 @@ def getRootResource(config, newStore, resources=None):
         # Do DomainKey resources
         DKIMUtils.validConfiguration(config)
         if config.Scheduling.iSchedule.DKIM.Enabled:
-            log.info("Setting up domainkey resource: {res}",
-                res=DomainKeyResource)
+            log.info("Setting up domainkey resource: {res}", res=DomainKeyResource)
             domain = config.Scheduling.iSchedule.DKIM.Domain if config.Scheduling.iSchedule.DKIM.Domain else config.ServerHostName
             dk = DomainKeyResource(
                 domain,

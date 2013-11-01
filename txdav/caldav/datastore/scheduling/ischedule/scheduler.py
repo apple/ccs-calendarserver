@@ -119,6 +119,9 @@ class IScheduleResponseQueue (ScheduleResponseQueue):
 
 
 class IScheduleScheduler(RemoteScheduler):
+    """
+    Handles iSchedule and podding requests.
+    """
 
     scheduleResponse = IScheduleResponseQueue
 
@@ -138,6 +141,11 @@ class IScheduleScheduler(RemoteScheduler):
         "max-recipients": (ischedule_namespace, "max-recipients"),
     }
 
+    def __init__(self, txn, originator_uid, logItems=None, noAttendeeRefresh=False, podding=False):
+        super(IScheduleScheduler, self).__init__(txn, originator_uid, logItems=logItems, noAttendeeRefresh=noAttendeeRefresh)
+        self._podding = podding
+
+
     @inlineCallbacks
     def doSchedulingViaPOST(self, remoteAddr, headers, body, originator, recipients):
         """
@@ -148,7 +156,7 @@ class IScheduleScheduler(RemoteScheduler):
         self.headers = headers
         self.verified = False
 
-        if config.Scheduling.iSchedule.DKIM.Enabled:
+        if not self._podding and config.Scheduling.iSchedule.DKIM.Enabled:
             verifier = DKIMVerifier(self.headers, body, protocol_debug=config.Scheduling.iSchedule.DKIM.ProtocolDebug)
             try:
                 yield verifier.verify()
@@ -174,11 +182,16 @@ class IScheduleScheduler(RemoteScheduler):
 
         calendar = Component.fromString(body)
 
-        if self.headers.getRawHeaders('x-calendarserver-itip-refreshonly', ("F"))[0] == "T":
+        if self._podding and self.headers.getRawHeaders('x-calendarserver-itip-refreshonly', ("F"))[0] == "T":
             self.txn.doing_attendee_refresh = 1
 
         # Normalize recipient addresses
-        recipients = [normalizeCUAddress(recipient, normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress) for recipient in recipients]
+        results = []
+        for recipient in recipients:
+            normalized = normalizeCUAddress(recipient, normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress)
+            self.recipientsNormalizationMap[normalized] = recipient
+            results.append(normalized)
+        recipients = results
 
         result = (yield super(IScheduleScheduler, self).doSchedulingViaPOST(originator, recipients, calendar))
         returnValue(result)

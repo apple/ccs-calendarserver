@@ -142,6 +142,7 @@ class Scheduler(object):
 
         self.originator = None
         self.recipients = None
+        self.recipientsNormalizationMap = {}
         self.calendar = None
         self.organizer = None
         self.attendee = None
@@ -230,51 +231,6 @@ class Scheduler(object):
         result = (yield self.generateSchedulingResponse())
 
         returnValue(result)
-
-
-    @inlineCallbacks
-    def loadFromRequestData(self):
-        self.loadOriginatorFromRequestDetails()
-        self.loadRecipientsFromCalendarData()
-
-
-    def loadOriginatorFromRequestDetails(self):
-        # Get the originator who is the authenticated user
-        originatorPrincipal = self.txn.directoryService().recordWithUID(self.originator_uid)
-
-        # Pick the canonical CUA:
-        originator = originatorPrincipal.canonicalCalendarUserAddress() if originatorPrincipal else ""
-
-        if not originator:
-            log.error("%s request must have Originator" % (self.method,))
-            raise HTTPError(self.errorResponse(
-                responsecode.FORBIDDEN,
-                self.errorElements["originator-missing"],
-                "Missing originator",
-            ))
-        else:
-            self.originator = originator
-
-
-    def loadRecipientsFromCalendarData(self):
-
-        # Get the ATTENDEEs
-        attendees = list()
-        unique_set = set()
-        for attendee, _ignore in self.calendar.getAttendeesByInstance():
-            if attendee not in unique_set:
-                attendees.append(attendee)
-                unique_set.add(attendee)
-
-        if not attendees:
-            log.error("%s request must have at least one Recipient" % (self.method,))
-            raise HTTPError(self.errorResponse(
-                responsecode.FORBIDDEN,
-                self.errorElements["recipient-missing"],
-                "Must have recipients",
-            ))
-        else:
-            self.recipients = list(attendees)
 
 
     def preProcessCalendarData(self):
@@ -474,7 +430,7 @@ class Scheduler(object):
         freebusy = self.checkForFreeBusy()
 
         # Prepare for multiple responses
-        responses = self.scheduleResponse(self.method, responsecode.OK)
+        responses = self.scheduleResponse(self.method, responsecode.OK, self.mapRecipientAddress)
 
         # Loop over each recipient and aggregate into lists by service types.
         caldav_recipients = []
@@ -575,6 +531,10 @@ class Scheduler(object):
         # Create the scheduler and run it.
         requestor = ScheduleViaIMip(self, recipients, responses, freebusy)
         return requestor.generateSchedulingResponses()
+
+
+    def mapRecipientAddress(self, cuaddr):
+        return self.recipientsNormalizationMap.get(cuaddr, cuaddr)
 
 
 
@@ -703,7 +663,7 @@ class ScheduleResponseQueue (object):
     response_description_element = davxml.ResponseDescription
     calendar_data_element = caldavxml.CalendarData
 
-    def __init__(self, method, success_response):
+    def __init__(self, method, success_response, recipient_mapper=None):
         """
         @param method: the name of the method generating the queue.
         @param success_response: the response to return in lieu of a
@@ -712,6 +672,7 @@ class ScheduleResponseQueue (object):
         self.responses = []
         self.method = method
         self.success_response = success_response
+        self.recipient_mapper = recipient_mapper
         self.location = None
 
 
@@ -744,6 +705,9 @@ class ScheduleResponseQueue (object):
             message = messageForFailure(what)
         else:
             raise AssertionError("Unknown data type: %r" % (what,))
+
+        if self.recipient_mapper is not None:
+            recipient = self.recipient_mapper(recipient)
 
         if not suppressErrorLog and code > 400: # Error codes only
             self.log.error("Error during %s for %s: %s" % (self.method, recipient, message))

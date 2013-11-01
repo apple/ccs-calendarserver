@@ -52,7 +52,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
     Extends L{DAVResource} to provide iSchedule inbox functionality.
     """
 
-    def __init__(self, parent, store):
+    def __init__(self, parent, store, podding=False):
         """
         @param parent: the parent resource of this one.
         """
@@ -62,6 +62,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
 
         self.parent = parent
         self._newStore = store
+        self._podding = podding
 
 
     def deadProperties(self):
@@ -109,12 +110,12 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
     def render(self, request):
         output = """<html>
 <head>
-<title>Server To Server Inbox Resource</title>
+<title>%(rtype)s Inbox Resource</title>
 </head>
 <body>
-<h1>Server To Server Inbox Resource.</h1>
+<h1>%(rtype)s Inbox Resource.</h1>
 </body
-</html>"""
+</html>""" % {"rtype" : "Podding" if self._podding else "iSchedule", }
 
         response = Response(200, {}, output)
         response.headers.setHeader("content-type", MimeType("text", "html"))
@@ -126,7 +127,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         The iSchedule GET method.
         """
 
-        if not request.args:
+        if not request.args or self._podding:
             # Do normal GET behavior
             return self.render(request)
 
@@ -220,7 +221,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         txn = transactionFromRequest(request, self._newStore)
 
         # This is a server-to-server scheduling operation.
-        scheduler = IScheduleScheduler(txn, None)
+        scheduler = IScheduleScheduler(txn, None, podding=self._podding)
 
         originator = self.loadOriginatorFromRequestHeaders(request)
         recipients = self.loadRecipientsFromRequestHeaders(request)
@@ -236,7 +237,8 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         else:
             yield txn.commit()
         response = result.response()
-        response.headers.addRawHeader(ISCHEDULE_CAPABILITIES, str(config.Scheduling.iSchedule.SerialNumber))
+        if not self._podding:
+            response.headers.addRawHeader(ISCHEDULE_CAPABILITIES, str(config.Scheduling.iSchedule.SerialNumber))
         returnValue(response)
 
 
