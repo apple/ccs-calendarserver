@@ -69,6 +69,13 @@ class DirectoryServiceTest(BaseTest):
         )
 
 
+    # @inlineCallbacks
+    # def test_recordsFromExpression(self):
+    #     service = self.service()
+    #     result = yield(service.recordsFromExpression(None))
+    #     self.assertIsInstance(result, QueryNotSupportedError)
+
+
     @inlineCallbacks
     def test_recordsFromQueryNone(self):
         service = self.service()
@@ -79,7 +86,10 @@ class DirectoryServiceTest(BaseTest):
 
     def test_recordsFromQueryBogus(self):
         service = self.service()
-        self.assertFailure(service.recordsFromQuery((object(),)), QueryNotSupportedError)
+        self.assertFailure(
+            service.recordsFromQuery((object(),)),
+            QueryNotSupportedError
+        )
 
 
     def test_recordWithUID(self):
@@ -109,7 +119,7 @@ class DirectoryServiceImmutableTest(BaseTest):
 
         newRecord = DirectoryRecord(
             service,
-            fields = {
+            fields={
                 service.fieldName.uid:        "__plugh__",
                 service.fieldName.recordType: service.recordType.user,
                 service.fieldName.shortNames: ("plugh",),
@@ -140,26 +150,32 @@ class DirectoryServiceImmutableTest(BaseTest):
 
 class DirectoryRecordTest(BaseTest):
     fields_wsanchez = {
-        FieldName.uid:            "UID:wsanchez",
-        FieldName.recordType:     RecordType.user,
-        FieldName.shortNames:     ("wsanchez", "wilfredo_sanchez"),
-        FieldName.fullNames:      ("Wilfredo Sanchez", "Wilfredo Sanchez Vega"),
-        FieldName.emailAddresses: ("wsanchez@calendarserver.org", "wsanchez@example.com")
+        FieldName.uid: "UID:wsanchez",
+        FieldName.recordType: RecordType.user,
+        FieldName.shortNames: ("wsanchez", "wilfredo_sanchez"),
+        FieldName.fullNames: (
+            "Wilfredo Sanchez",
+            "Wilfredo Sanchez Vega",
+        ),
+        FieldName.emailAddresses: (
+            "wsanchez@calendarserver.org",
+            "wsanchez@example.com",
+        )
     }
 
     fields_glyph = {
-        FieldName.uid:            "UID:glyph",
-        FieldName.recordType:     RecordType.user,
-        FieldName.shortNames:     ("glyph",),
-        FieldName.fullNames:      ("Glyph Lefkowitz",),
+        FieldName.uid: "UID:glyph",
+        FieldName.recordType: RecordType.user,
+        FieldName.shortNames: ("glyph",),
+        FieldName.fullNames: ("Glyph Lefkowitz",),
         FieldName.emailAddresses: ("glyph@calendarserver.org",)
     }
 
     fields_sagen = {
-        FieldName.uid:            "UID:sagen",
-        FieldName.recordType:     RecordType.user,
-        FieldName.shortNames:     ("sagen",),
-        FieldName.fullNames:      ("Morgen Sagen",),
+        FieldName.uid: "UID:sagen",
+        FieldName.recordType: RecordType.user,
+        FieldName.shortNames: ("sagen",),
+        FieldName.fullNames: ("Morgen Sagen",),
         FieldName.emailAddresses: ("sagen@CalendarServer.org",)
     }
 
@@ -185,7 +201,7 @@ class DirectoryRecordTest(BaseTest):
         wsanchez = self._testRecord(self.fields_wsanchez, service=service)
 
         self.assertEquals(wsanchez.service, service)
-        self.assertEquals(wsanchez.fields , self.fields_wsanchez)
+        self.assertEquals(wsanchez.fields, self.fields_wsanchez)
 
 
     def test_initWithNoUID(self):
@@ -245,25 +261,39 @@ class DirectoryRecordTest(BaseTest):
         fields_glyphmod = self.fields_glyph.copy()
         del fields_glyphmod[FieldName.emailAddresses]
 
+        plugh = DirectoryService("plugh")
+
         wsanchez    = self._testRecord(self.fields_wsanchez)
-        wsanchezmod = self._testRecord(self.fields_wsanchez, DirectoryService("plugh"))
+        wsanchezmod = self._testRecord(self.fields_wsanchez, plugh)
         glyph       = self._testRecord(self.fields_glyph)
         glyphmod    = self._testRecord(fields_glyphmod)
 
         self.assertEquals(wsanchez, wsanchez)
         self.assertNotEqual(wsanchez, glyph)
-        self.assertNotEqual(glyph, glyphmod) # UID matches, other fields do not
+        self.assertNotEqual(glyph, glyphmod)  # UID matches, other fields don't
         self.assertNotEqual(glyphmod, wsanchez)
-        self.assertNotEqual(wsanchez, wsanchezmod) # Different service
+        self.assertNotEqual(wsanchez, wsanchezmod)  # Different service
 
 
     def test_attributeAccess(self):
         wsanchez = self._testRecord(self.fields_wsanchez)
 
-        self.assertEquals(wsanchez.recordType    , wsanchez.fields[FieldName.recordType    ])
-        self.assertEquals(wsanchez.uid           , wsanchez.fields[FieldName.uid           ])
-        self.assertEquals(wsanchez.shortNames    , wsanchez.fields[FieldName.shortNames    ])
-        self.assertEquals(wsanchez.emailAddresses, wsanchez.fields[FieldName.emailAddresses])
+        self.assertEquals(
+            wsanchez.recordType,
+            wsanchez.fields[FieldName.recordType]
+        )
+        self.assertEquals(
+            wsanchez.uid,
+            wsanchez.fields[FieldName.uid]
+        )
+        self.assertEquals(
+            wsanchez.shortNames,
+            wsanchez.fields[FieldName.shortNames]
+        )
+        self.assertEquals(
+            wsanchez.emailAddresses,
+            wsanchez.fields[FieldName.emailAddresses]
+        )
 
     @inlineCallbacks
     def test_members(self):
