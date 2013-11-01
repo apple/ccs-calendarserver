@@ -161,7 +161,10 @@ END:VCALENDAR
                 self.assertEqual(version, 4)
                 calendar = (yield self.calendarUnderTest(name=calname, home=user))
                 self.assertEqual(calendar.getTimezone(), None)
-                self.assertTrue(PropertyName.fromElement(caldavxml.CalendarTimeZone) in calendar.properties())
+                if tz:
+                    self.assertTrue(PropertyName.fromElement(caldavxml.CalendarTimeZone) in calendar.properties())
+                else:
+                    self.assertTrue(PropertyName.fromElement(caldavxml.CalendarTimeZone) not in calendar.properties())
 
 
     @inlineCallbacks
@@ -272,7 +275,10 @@ END:VCALENDAR
                 self.assertEqual(version, 4)
                 calendar = (yield self.calendarUnderTest(name="inbox", home=user))
                 self.assertEqual(home.getAvailability(), None)
-                self.assertTrue(PropertyName.fromElement(customxml.CalendarAvailability) in calendar.properties())
+                if av:
+                    self.assertTrue(PropertyName.fromElement(customxml.CalendarAvailability) in calendar.properties())
+                else:
+                    self.assertTrue(PropertyName.fromElement(customxml.CalendarAvailability) not in calendar.properties())
 
 
     @inlineCallbacks

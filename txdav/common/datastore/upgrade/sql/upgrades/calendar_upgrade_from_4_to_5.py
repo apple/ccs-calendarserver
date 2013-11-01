@@ -105,7 +105,7 @@ def moveCalendarAvailabilityProperties(home):
     prop = inbox.properties().get(PropertyName.fromElement(customxml.CalendarAvailability))
     if prop is not None:
         yield home.setAvailability(prop.calendar())
-        del inbox.properties()[customxml.CalendarAvailability]
+        del inbox.properties()[PropertyName.fromElement(customxml.CalendarAvailability)]
 
 
 
