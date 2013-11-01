@@ -471,15 +471,8 @@ class iTipProcessing(object):
                 pass
 
             elif attendee_comment is None and private_comment is not None:
-                # Remove all property parameters
-                private_comment.removeAllParameters()
-
-                # Add default parameters
-                private_comment.setParameter("X-CALENDARSERVER-ATTENDEE-REF", attendee.value())
-                private_comment.setParameter("X-CALENDARSERVER-DTSTAMP", PyCalendarDateTime.getNowUTC().getText())
-
-                # Set value empty
-                private_comment.setValue("")
+                # We now remove the private comment on the organizer's side if the attendee removed it
+                to_component.removeProperty(private_comment)
 
                 private_comment_changed = True
 

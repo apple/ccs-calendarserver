@@ -1736,20 +1736,23 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         NB Do this before implicit scheduling as we don't want old clients to trigger scheduling when
         the X- property is missing.
+
+        We now only preserve the "X-CALENDARSERVER-ATTENDEE-COMMENT" property. We will now allow clients
+        to delete the "X-CALENDARSERVER-PRIVATE-COMMENT" and treat that as a removal of the attendee
+        comment (which will trigger scheduling with the organizer to remove the comment on the organizer's
+        side).
         """
         if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
             old_has_private_comments = not inserting and self.hasPrivateComment
             new_has_private_comments = component.hasPropertyInAnyComponent((
-                "X-CALENDARSERVER-PRIVATE-COMMENT",
                 "X-CALENDARSERVER-ATTENDEE-COMMENT",
             ))
 
             if old_has_private_comments and not new_has_private_comments:
                 # Transfer old comments to new calendar
-                log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
+                log.debug("Organizer private comment properties were entirely removed by the client. Restoring existing properties.")
                 old_calendar = (yield self.componentForUser())
                 component.transferProperties(old_calendar, (
-                    "X-CALENDARSERVER-PRIVATE-COMMENT",
                     "X-CALENDARSERVER-ATTENDEE-COMMENT",
                 ))
 
