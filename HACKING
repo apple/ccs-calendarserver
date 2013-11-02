@@ -144,10 +144,6 @@ Key items to follow, and specifics:
 
 PEP-8 items we do not follow:
 
- * Lines need not be limited to 79 spaces, but longer lines are
-   undesirable.  If you can easily do so, try to keep lines under 80
-   columns.
-
  * PEP-8 recommends using a backslash to break long lines up:
 
    ::
@@ -180,14 +176,6 @@ PEP-8 items we do not follow:
          raise ValueError("I don't think so")
 
    Because that's just silly.
-
- * Lining up assignments is OK, within reason:
-
-   ::
-
-     cars       =  4
-     motorbikes =  8
-     bicycles   = 18
 
 Additions:
 
@@ -248,9 +236,8 @@ Additions:
 
      process = subprocess.Popen(...)
 
-   This makes code shorter and removes the runtime indirection (which
-   can be relevant in tight loops). It also makes it easier to replace
-   one implementation with another.
+   This makes code shorter and makes it easier to replace one implementation
+   with another.
 
  * All files should have an ``__all__`` specification.  Put them at the
    top of the file, before imports (PEP-8 puts them at the top, but
@@ -259,8 +246,8 @@ Additions:
 
  * It is more important that symbol names are meaningful than it is
    that they be concise.  ``x`` is rarely an appropriate name for a
-   variable.  ``transmogrifierStatus`` is more useful to the reader
-   than ``trmgStat``; avoid contractions.
+   variable.  Avoid contractions: ``transmogrifierStatus`` is more useful
+   to the reader than ``trmgStat``.
 
  * A deferred that will be immediately returned may be called ``d``:
 
@@ -271,9 +258,7 @@ Additions:
      d.addErrback(onError)
      return d
 
- * We prefer ``inlineCallbacks`` over ``deferredGenerator``.
-   ``inlineCallbacks`` are more readable, and we do not support Python
-   versions old enough that ``deferredGenerator`` would be necessary.
+ * Do not use ``deferredGenerator``.  Use ``inlineCallbacks`` instead.
 
  * That said, avoid using ``inlineCallbacks`` when chaining deferreds
    is straightforward, as they are more expensive.  Use
@@ -306,14 +291,26 @@ Additions:
    Use of underscores is reserved for implied dispatching and the like
    (eg. ``http_FOO()``).  See the Twisted Coding Standard for details.
 
- * Always use a tuple when using ``%``-formatting, even when only one
-   value is being provided:
+ * Do not use ``%``-formatting:
 
    ::
 
      error = "Unexpected value: %s" % (value,)
 
-   Do not use the non-tuple form:
+   Use PEP-3101 formatting instead:
+
+   ::
+
+     error = "Unexpected value: {value}".format(value=value)
+
+ * If you must use ``%``-formatting for some reason, always use a tuple as
+   the format argument, even when only one value is being provided:
+
+   ::
+
+     error = "Unexpected value: %s" % (value,)
+
+   Never use the non-tuple form:
 
    ::
 
@@ -329,8 +326,9 @@ Additions:
      numbers = (1,2,3,) # No
      numbers = (1,2,3)  # Yes
 
-   It's desirable on multiple lines, though, as that makes re-ordering
-   items easy, and avoids a diff on the last line when adding another:
+   The trailing comma is desirable on multiple lines, though, as that makes
+   re-ordering items easy, and avoids a diff on the last line when adding
+   another:
 
    ::
 
@@ -368,11 +366,11 @@ Best Practices
 ==============
 
  * If a callable is going to return a Deferred some of the time, it
-   should probably return a deferred all of the time.  Return
-   ``succeed(value)`` instead of ``value`` if necessary.  This avoids
-   forcing the caller to check as to whether the value is a deferred
-   or not (eg. by using ``maybeDeferred()``), which is both annoying
-   to code and potentially expensive at runtime.
+   should return a deferred all of the time.  Return ``succeed(value)``
+   instead of ``value`` if necessary.  This avoids forcing the caller
+   to check as to whether the value is a deferred or not (eg. by using
+   ``maybeDeferred()``), which is both annoying to code and potentially
+   expensive at runtime.
 
  * Be proactive about closing files and file-like objects.
 
