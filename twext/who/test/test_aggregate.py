@@ -69,7 +69,10 @@ class DirectoryServiceQueryTest(BaseTest, test_xml.DirectoryServiceQueryTest):
 
 
 
-class DirectoryServiceImmutableTest(BaseTest, test_directory.BaseDirectoryServiceImmutableTest):
+class DirectoryServiceImmutableTest(
+    BaseTest,
+    test_directory.BaseDirectoryServiceImmutableTest,
+):
     pass
 
 
@@ -82,24 +85,39 @@ class AggregatedBaseTest(BaseTest):
         class GroupsDirectoryService(XMLTestService):
             recordType = ConstantsContainer((XMLTestService.recordType.group,))
 
-        usersService  = self.xmlService(testXMLConfigUsers, UsersDirectoryService)
-        groupsService = self.xmlService(testXMLConfigGroups, GroupsDirectoryService)
+        usersService = self.xmlService(
+            testXMLConfigUsers,
+            UsersDirectoryService
+        )
+        groupsService = self.xmlService(
+            testXMLConfigGroups,
+            GroupsDirectoryService
+        )
 
         return BaseTest.service(self, (usersService, groupsService))
 
 
 
-class DirectoryServiceAggregatedBaseTest(AggregatedBaseTest, DirectoryServiceBaseTest):
+class DirectoryServiceAggregatedBaseTest(
+    AggregatedBaseTest,
+    DirectoryServiceBaseTest,
+):
     pass
 
 
 
-class DirectoryServiceAggregatedQueryTest(AggregatedBaseTest, test_xml.DirectoryServiceQueryTest):
+class DirectoryServiceAggregatedQueryTest(
+    AggregatedBaseTest,
+    test_xml.DirectoryServiceQueryTest,
+):
     pass
 
 
 
-class DirectoryServiceAggregatedImmutableTest(AggregatedBaseTest, test_directory.BaseDirectoryServiceImmutableTest):
+class DirectoryServiceAggregatedImmutableTest(
+    AggregatedBaseTest,
+    test_directory.BaseDirectoryServiceImmutableTest,
+):
     pass
 
 

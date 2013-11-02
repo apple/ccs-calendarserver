@@ -82,7 +82,11 @@ class ConstantsContainerTest(unittest.TestCase):
         )
 
     def test_lookupByName(self):
-        constants = set((Instruments.hammer, Tools.screwdriver, Instruments.chisel))
+        constants = set((
+            Instruments.hammer,
+            Tools.screwdriver,
+            Instruments.chisel,
+        ))
         container = ConstantsContainer(constants)
 
         self.assertEquals(
@@ -108,7 +112,7 @@ class ConstantsContainerTest(unittest.TestCase):
 class UtilTest(unittest.TestCase):
     def test_uniqueResult(self):
         self.assertEquals(1, uniqueResult((1,)))
-        self.assertRaises(DirectoryServiceError, uniqueResult, (1,2,3))
+        self.assertRaises(DirectoryServiceError, uniqueResult, (1, 2, 3))
 
     def test_describe(self):
         self.assertEquals("nail pounder", describe(Tools.hammer))
@@ -116,5 +120,5 @@ class UtilTest(unittest.TestCase):
 
     def test_describeFlags(self):
         self.assertEquals("blue", describe(Switches.b))
-        self.assertEquals("red|green", describe(Switches.r|Switches.g))
-        self.assertEquals("blue|black", describe(Switches.b|Switches.black))
+        self.assertEquals("red|green", describe(Switches.r | Switches.g))
+        self.assertEquals("blue|black", describe(Switches.b | Switches.black))
