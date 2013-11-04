@@ -55,6 +55,8 @@ from zope.interface.verify import verifyObject
 from twisted.test.proto_helpers import StringTransport, MemoryReactor
 from twext.enterprise.fixtures import SteppablePoolHelper
 from twisted.internet.defer import returnValue
+from twext.enterprise.queue import LocalQueuer
+from twext.enterprise.fixtures import ConnectionPoolHelper
 
 from twext.enterprise.queue import _BaseQueuer, NonPerformingQueuer
 import twext.enterprise.queue
@@ -264,6 +266,30 @@ class WorkerConnectionPoolTests(TestCase):
     controller (master) process, the collection of worker (slave) processes
     that are capable of executing queue work.
     """
+
+
+
+class WorkProposalTests(TestCase):
+    """
+    Tests for L{WorkProposal}.
+    """
+
+    def test_whenProposedSuccess(self):
+        """
+        The L{Deferred} returned by L{WorkProposal.whenProposed} fires when the
+        SQL sent to the database has completed.
+        """
+        cph = ConnectionPoolHelper()
+        cph.setUp(test=self)
+        cph.pauseHolders()
+        lq = LocalQueuer(cph.createTransaction())
+        enqTxn = cph.createTransaction()
+        wp = lq.enqueueWork(enqTxn, DummyWorkItem, a=3, b=4)
+        d = wp.whenProposed()
+        r = cph.resultOf(d)
+        self.assertEquals(r, [])
+        cph.flushHolders()
+        self.assertEquals(len(r), 1)
 
 
 
