@@ -948,7 +948,7 @@ class WorkProposal(object):
         waiting for the transaction where that addition was completed to
         commit, and asking the local node controller process to do the work.
         """
-        @passthru(self.workItemType.create(self.txn, **self.kw).addCallback)
+        created = self.workItemType.create(self.txn, **self.kw)
         def whenCreated(item):
             self._whenProposed.callback(self)
             @self.txn.postCommit
@@ -971,6 +971,9 @@ class WorkProposal(object):
             @self.txn.postAbort
             def whenFailed():
                 self._whenCommitted.errback(TransactionFailed)
+        def whenNotCreated(failure):
+            self._whenProposed.errback(failure)
+        created.addCallbacks(whenCreated, whenNotCreated)
 
 
     def whenExecuted(self):
