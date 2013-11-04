@@ -301,12 +301,16 @@ class WorkProposalTests(TestCase):
         cph = ConnectionPoolHelper()
         cph.setUp(self)
         cph.pauseHolders()
-        cph.factory.willConnect().executeWillFail(
-            lambda: RuntimeError("execute fail")
-        )
-        lq = LocalQueuer(cph.createTransaction)
+        firstConnection = cph.factory.willConnect()
         enqTxn = cph.createTransaction()
+        # Execute some SQL on the connection before enqueueing the work-item so
+        # that we don't get the initial-statement.
+        enqTxn.execSQL("some sql")
+        lq = LocalQueuer(cph.createTransaction)
+        cph.flushHolders()
+        cph.pauseHolders()
         wp = lq.enqueueWork(enqTxn, DummyWorkItem, a=3, b=4)
+        firstConnection.executeWillFail(lambda: RuntimeError("foo"))
         d = wp.whenProposed()
         r = cph.resultOf(d)
         self.assertEquals(r, [])
