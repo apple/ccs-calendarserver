@@ -67,7 +67,7 @@ class Clock(_Clock):
 
     def callLater(self, _seconds, _f, *args, **kw):
         if _seconds < 0:
-            raise ValueError("%s<0: "%(_seconds,))
+            raise ValueError("%s<0: " % (_seconds,))
         return super(Clock, self).callLater(_seconds, _f, *args, **kw)
 
 
@@ -393,7 +393,8 @@ class PeerConnectionPoolUnitTests(TestCase):
             # Next, create one that's actually far enough into the past to run.
             yield DummyWorkItem.create(
                 txn, a=3, b=4, notBefore=(
-                    # Schedule it in the past so that it should have already run.
+                    # Schedule it in the past so that it should have already
+                    # run.
                     fakeNow - datetime.timedelta(
                         seconds=qpool.queueProcessTimeout + 20
                     )
@@ -619,6 +620,7 @@ class Connection(object):
         self.receiver, self.sender = self.sender, self.receiver
         return result
 
+
     def flush(self, turns=10):
         """
         Keep relaying data until there's no more.
@@ -718,7 +720,7 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         def op2(txn):
             return Select([schema.DUMMY_WORK_DONE.WORK_ID,
                            schema.DUMMY_WORK_DONE.A_PLUS_B],
-                           From=schema.DUMMY_WORK_DONE).on(txn)
+                          From=schema.DUMMY_WORK_DONE).on(txn)
         rows = yield inTransaction(self.store.newTransaction, op2)
         self.assertEquals(rows, [[4321, 7]])
 
@@ -729,7 +731,7 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         When a L{WorkItem} is concurrently deleted by another transaction, it
         should I{not} perform its work.
         """
-        # Provide access to a method called 'concurrently' everything using 
+        # Provide access to a method called 'concurrently' everything using
         original = self.store.newTransaction
         def decorate(*a, **k):
             result = original(*a, **k)
@@ -746,13 +748,13 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         # Sanity check on the concurrent deletion.
         def op2(txn):
             return Select([schema.DUMMY_WORK_ITEM.WORK_ID],
-                           From=schema.DUMMY_WORK_ITEM).on(txn)
+                          From=schema.DUMMY_WORK_ITEM).on(txn)
         rows = yield inTransaction(self.store.newTransaction, op2)
         self.assertEquals(rows, [])
         def op3(txn):
             return Select([schema.DUMMY_WORK_DONE.WORK_ID,
                            schema.DUMMY_WORK_DONE.A_PLUS_B],
-                           From=schema.DUMMY_WORK_DONE).on(txn)
+                          From=schema.DUMMY_WORK_DONE).on(txn)
         rows = yield inTransaction(self.store.newTransaction, op3)
         self.assertEquals(rows, [])
 
@@ -763,8 +765,11 @@ class DummyProposal(object):
     def __init__(self, *ignored):
         pass
 
+
     def _start(self):
         pass
+
+
 
 class BaseQueuerTests(TestCase):
 
@@ -772,8 +777,10 @@ class BaseQueuerTests(TestCase):
         self.proposal = None
         self.patch(twext.enterprise.queue, "WorkProposal", DummyProposal)
 
+
     def _proposalCallback(self, proposal):
         self.proposal = proposal
+
 
     def test_proposalCallbacks(self):
         queuer = _BaseQueuer()
@@ -781,6 +788,7 @@ class BaseQueuerTests(TestCase):
         self.assertEqual(self.proposal, None)
         queuer.enqueueWork(None, None)
         self.assertNotEqual(self.proposal, None)
+
 
 
 class NonPerformingQueuerTests(TestCase):
@@ -791,5 +799,3 @@ class NonPerformingQueuerTests(TestCase):
         performer = queuer.choosePerformer()
         result = (yield performer.performWork(None, None))
         self.assertEquals(result, None)
-
-
