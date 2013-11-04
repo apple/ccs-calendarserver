@@ -36,6 +36,7 @@ from twext.enterprise.queue import (
 )
 
 from twisted.trial.unittest import TestCase
+from twisted.python.failure import Failure
 from twisted.internet.defer import (
     Deferred, inlineCallbacks, gatherResults, passthru#, returnValue
 )
@@ -282,7 +283,7 @@ class WorkProposalTests(TestCase):
         cph = ConnectionPoolHelper()
         cph.setUp(test=self)
         cph.pauseHolders()
-        lq = LocalQueuer(cph.createTransaction())
+        lq = LocalQueuer(cph.createTransaction)
         enqTxn = cph.createTransaction()
         wp = lq.enqueueWork(enqTxn, DummyWorkItem, a=3, b=4)
         d = wp.whenProposed()
@@ -290,6 +291,28 @@ class WorkProposalTests(TestCase):
         self.assertEquals(r, [])
         cph.flushHolders()
         self.assertEquals(len(r), 1)
+
+
+    def test_whenProposedFailure(self):
+        """
+        The L{Deferred} returned by L{WorkProposal.whenProposed} fails with an
+        errback when the SQL executed to create the WorkItem row fails.
+        """
+        cph = ConnectionPoolHelper()
+        cph.setUp(self)
+        cph.pauseHolders()
+        cph.factory.willConnect().executeWillFail(
+            lambda: RuntimeError("execute fail")
+        )
+        lq = LocalQueuer(cph.createTransaction)
+        enqTxn = cph.createTransaction()
+        wp = lq.enqueueWork(enqTxn, DummyWorkItem, a=3, b=4)
+        d = wp.whenProposed()
+        r = cph.resultOf(d)
+        self.assertEquals(r, [])
+        cph.flushHolders()
+        self.assertEquals(len(r), 1)
+        self.assertIsInstance(r[0], Failure)
 
 
 
