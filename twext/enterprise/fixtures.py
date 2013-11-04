@@ -76,8 +76,8 @@ def buildConnectionPool(testCase, schemaText="", dialect=SQLITE_DIALECT):
 
 def resultOf(deferred, propagate=False):
     """
-    Add a callback and errback which will capture the result of a L{Deferred} in
-    a list, and return that list.  If 'propagate' is True, pass through the
+    Add a callback and errback which will capture the result of a L{Deferred}
+    in a list, and return that list.  If 'propagate' is True, pass through the
     results.
     """
     results = []
