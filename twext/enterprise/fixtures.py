@@ -546,9 +546,11 @@ class ConnectionFactory(Parent):
         """
         Used by tests to queue a successful result for connect().
         """
+        aConnection = FakeConnection(self)
         def thunk():
-            return FakeConnection(self)
+            return aConnection
         self._connectResultQueue.append(thunk)
+        return aConnection
 
 
     def willFail(self):
