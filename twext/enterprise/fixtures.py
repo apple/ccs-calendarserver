@@ -546,6 +546,19 @@ class ConnectionFactory(Parent):
         """
         Used by tests to queue a successful result for connect().
         """
+        def thunk():
+            return FakeConnection(self)
+        self._connectResultQueue.append(thunk)
+
+
+    def willConnectTo(self):
+        """
+        Queue a successful result for connect() and immediately add it as a
+        child to this L{ConnectionFactory}.
+
+        @return: a connection object
+        @rtype: L{FakeConnection}
+        """
         aConnection = FakeConnection(self)
         def thunk():
             return aConnection

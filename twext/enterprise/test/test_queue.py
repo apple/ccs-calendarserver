@@ -301,7 +301,7 @@ class WorkProposalTests(TestCase):
         cph = ConnectionPoolHelper()
         cph.setUp(self)
         cph.pauseHolders()
-        firstConnection = cph.factory.willConnect()
+        firstConnection = cph.factory.willConnectTo()
         enqTxn = cph.createTransaction()
         # Execute some SQL on the connection before enqueueing the work-item so
         # that we don't get the initial-statement.
