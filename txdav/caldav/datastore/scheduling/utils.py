@@ -29,7 +29,7 @@ def getCalendarObjectForRecord(txn, record, uid):
     one of them to avoid scheduling problems.
     """
 
-    if record and record.locallyHosted():
+    if record and record.thisServer():
         # Get record's calendar-home
         calendar_home = yield txn.calendarHomeWithUID(record.uid)
 

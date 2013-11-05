@@ -136,7 +136,7 @@ class CalDAVScheduler(Scheduler):
                 # Map recipient to their inbox
                 inbox = None
                 if principal.calendarsEnabled():
-                    if principal.locallyHosted():
+                    if principal.thisServer():
                         recipient_home = yield self.txn.calendarHomeWithUID(principal.uid, create=True)
                         if recipient_home:
                             inbox = (yield recipient_home.calendarWithName("inbox"))

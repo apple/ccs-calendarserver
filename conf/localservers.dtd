@@ -16,13 +16,10 @@ limitations under the License.
 
 <!ELEMENT servers (server*) >
 
-	<!ELEMENT server (id, uri, allowed-from*, shared-secret?, partitions?) >
+	<!ELEMENT server (id, uri, allowed-from*, shared-secret?) >
 		<!ATTLIST server implicit (yes|no) "yes">
 
 		<!ELEMENT id  (#PCDATA) >
 		<!ELEMENT uri (#PCDATA) >
 		<!ELEMENT allowed-from (#PCDATA) >
 		<!ELEMENT shared-secret (#PCDATA) >
-
-		<!ELEMENT partitions (partition*) >
-			<!ELEMENT partition (id, uri) >

@@ -42,7 +42,7 @@ class CommonUIDProvisioningResource(object):
     Common ancestor for addressbook/calendar UID provisioning resources.
 
     Must be mixed in to the hierarchy I{before} the appropriate resource type.
-    
+
     @ivar homeResourceTypeName: The name of the home resource type ('calendars'
         or 'addressbooks').
 
@@ -78,13 +78,11 @@ class CommonUIDProvisioningResource(object):
 
         assert len(name) > 4, "Directory record has an invalid GUID: %r" % (
             name,)
-        
-        if record.locallyHosted():
+
+        if record.thisServer():
             child = yield self.homeResourceCreator(record, transaction)
-        elif record.thisServer():
-            child = DirectoryReverseProxyResource(self, record)
         else:
-            child = None # Use a redirect?
+            child = DirectoryReverseProxyResource(self, record)
 
         returnValue(child)
 
@@ -108,6 +106,7 @@ class CommonUIDProvisioningResource(object):
         # Not a listable collection
         raise HTTPError(responsecode.FORBIDDEN)
 
+
     ##
     # ACL
     ##
@@ -115,12 +114,15 @@ class CommonUIDProvisioningResource(object):
     def principalCollections(self):
         return self.parent.principalCollections()
 
+
     def principalForRecord(self, record):
         return self.parent.principalForRecord(record)
+
+
     ##
     # DAV
     ##
-    
+
     def isCollection(self):
         return True
 
@@ -129,8 +131,10 @@ class CommonUIDProvisioningResource(object):
         raise NotImplementedError(self.__class__.__name__ +
                                   ".getChild no longer exists.")
 
+
     def displayName(self):
         return uidsResourceName
+
 
     def url(self):
         return joinURL(self.parent.url(), uidsResourceName)
@@ -153,4 +157,3 @@ class CommonHomeTypeProvisioningResource(object):
 
         child = yield self._parent.homeForDirectoryRecord(record, request)
         returnValue((child, segments[1:]))
-

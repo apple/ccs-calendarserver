@@ -38,7 +38,6 @@ from txdav.caldav.datastore.scheduling.cuaddress import InvalidCalendarUser, \
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
 from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser
 from txdav.caldav.datastore.scheduling.cuaddress import EmailCalendarUser
-from txdav.caldav.datastore.scheduling.cuaddress import PartitionedCalendarUser
 from txdav.caldav.datastore.scheduling.imip.delivery import ScheduleViaIMip
 from txdav.caldav.datastore.scheduling.ischedule.delivery import ScheduleViaISchedule
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
@@ -50,8 +49,8 @@ CalDAV/Server-to-Server scheduling behavior.
 This module handles the delivery of scheduling messages to organizer and attendees. The basic idea is to first
 confirm the integrity of the incoming scheduling message, check authorization. Appropriate L{DeliveryService}s
 are then used to deliver the message to attendees or organizer. Delivery responses are processed and returned.
-This takes into account partitioning and podding of users by detecting the appropriate host for a calendar
-user and then dispatching the delivery accordingly.
+This takes into account podding of users by detecting the appropriate host for a calendar user and then
+dispatching the delivery accordingly.
 
 The L{Scheduler} class defines the basic behavior for processing deliveries. Sub-classes are defined for the
 different ways a deliver can be triggered.
@@ -434,7 +433,6 @@ class Scheduler(object):
 
         # Loop over each recipient and aggregate into lists by service types.
         caldav_recipients = []
-        partitioned_recipients = []
         otherserver_recipients = []
         remote_recipients = []
         imip_recipients = []
@@ -456,9 +454,6 @@ class Scheduler(object):
             elif isinstance(recipient, LocalCalendarUser):
                 caldav_recipients.append(recipient)
 
-            elif isinstance(recipient, PartitionedCalendarUser):
-                partitioned_recipients.append(recipient)
-
             elif isinstance(recipient, OtherServerCalendarUser):
                 otherserver_recipients.append(recipient)
 
@@ -479,10 +474,6 @@ class Scheduler(object):
         # Now process local recipients
         if caldav_recipients:
             yield self.generateLocalSchedulingResponses(caldav_recipients, responses, freebusy)
-
-        # Now process partitioned recipients
-        if partitioned_recipients:
-            yield self.generateRemoteSchedulingResponses(partitioned_recipients, responses, freebusy, getattr(self.txn, 'doing_attendee_refresh', False))
 
         # Now process other server recipients
         if otherserver_recipients:
@@ -572,8 +563,8 @@ class RemoteScheduler(Scheduler):
             else:
                 # Map recipient to their inbox
                 inbox = None
-                if principal.calendarsEnabled() and principal.thisServer():
-                    if principal.locallyHosted():
+                if principal.calendarsEnabled():
+                    if principal.thisServer():
                         recipient_home = yield self.txn.calendarHomeWithUID(principal.uid, create=True)
                         if recipient_home:
                             inbox = (yield recipient_home.calendarWithName("inbox"))

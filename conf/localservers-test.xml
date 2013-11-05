@@ -16,21 +16,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
-<!DOCTYPE servers SYSTEM "servers.dtd">
+<!DOCTYPE servers SYSTEM "localservers.dtd">
 
 <servers>
   <server>
     <id>00001</id>
     <uri>http://localhost:8008</uri>
-    <partitions>
-    	<partition>
-    		<id>00001</id>
-    		<uri>http://localhost:8008</uri>
-    	</partition>
-    	<partition>
-    		<id>00002</id>
-    		<uri>http://localhost:8108</uri>
-    	</partition>
-    </partitions>
   </server>
 </servers>
