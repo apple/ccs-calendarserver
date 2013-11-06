@@ -149,7 +149,8 @@ def makeNodeSchema(inSchema):
     NodeTable.addColumn("PORT", SQLType("integer", None))
     NodeTable.addColumn("TIME", SQLType("timestamp", None)).setDefaultValue(
         # Note: in the real data structure, this is actually a not-cleaned-up
-        # sqlparse internal data structure, but it *should* look closer to this.
+        # sqlparse internal data structure, but it *should* look closer to
+        # this.
         ProcedureCall("timezone", ["UTC", NamedValue('CURRENT_TIMESTAMP')])
     )
     for column in NodeTable.columns:
@@ -677,8 +678,8 @@ class ConnectionFromWorker(SchemaAMP):
     """
 
     def __init__(self, peerPool, boxReceiver=None, locator=None):
-        super(ConnectionFromWorker, self).__init__(peerPool.schema, boxReceiver,
-                                                   locator)
+        super(ConnectionFromWorker, self).__init__(peerPool.schema,
+                                                   boxReceiver, locator)
         self.peerPool = peerPool
         self._load = 0
 
@@ -830,9 +831,9 @@ def ultimatelyPerform(txnFactory, table, workID):
             workItem = yield workItemClass.load(txn, workID)
             if workItem.group is not None:
                 yield NamedLock.acquire(txn, workItem.group)
-            # TODO: what if we fail?  error-handling should be recorded someplace,
-            # the row should probably be marked, re-tries should be triggerable
-            # administratively.
+            # TODO: what if we fail?  error-handling should be recorded
+            # someplace, the row should probably be marked, re-tries should be
+            # triggerable administratively.
             yield workItem.delete()
             # TODO: verify that workID is the primary key someplace.
             yield workItem.doWork()
@@ -862,9 +863,6 @@ class LocalPerformer(object):
         Perform the given work right now.
         """
         return ultimatelyPerform(self.txnFactory, table, workID)
-
-
-
 
 
 
@@ -950,7 +948,7 @@ class WorkProposal(object):
         waiting for the transaction where that addition was completed to
         commit, and asking the local node controller process to do the work.
         """
-        @passthru(self.workItemType.create(self.txn, **self.kw).addCallback)
+        created = self.workItemType.create(self.txn, **self.kw)
         def whenCreated(item):
             self._whenProposed.callback(self)
             @self.txn.postCommit
@@ -967,12 +965,15 @@ class WorkProposal(object):
                         self._whenExecuted.errback(why)
                 reactor = self._chooser.reactor
                 when = max(0, astimestamp(item.notBefore) - reactor.seconds())
-                # TODO: Track the returned DelayedCall so it can be stopped when
-                # the service stops.
+                # TODO: Track the returned DelayedCall so it can be stopped
+                # when the service stops.
                 self._chooser.reactor.callLater(when, maybeLater)
             @self.txn.postAbort
             def whenFailed():
                 self._whenCommitted.errback(TransactionFailed)
+        def whenNotCreated(failure):
+            self._whenProposed.errback(failure)
+        created.addCallbacks(whenCreated, whenNotCreated)
 
 
     def whenExecuted(self):
@@ -1023,6 +1024,8 @@ class WorkProposal(object):
         """
         return _cloneDeferred(self._whenCommitted)
 
+
+
 class _BaseQueuer(object):
     implements(IQueuer)
 
@@ -1030,12 +1033,15 @@ class _BaseQueuer(object):
         super(_BaseQueuer, self).__init__()
         self.proposalCallbacks = set()
 
+
     def callWithNewProposals(self, callback):
-        self.proposalCallbacks.add(callback);
+        self.proposalCallbacks.add(callback)
+
 
     def transferProposalCallbacks(self, newQueuer):
         newQueuer.proposalCallbacks = self.proposalCallbacks
         return newQueuer
+
 
     def enqueueWork(self, txn, workItemType, **kw):
         """
@@ -1059,6 +1065,7 @@ class _BaseQueuer(object):
         for callback in self.proposalCallbacks:
             callback(wp)
         return wp
+
 
 
 class PeerConnectionPool(_BaseQueuer, MultiService, object):
@@ -1140,7 +1147,7 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
         self.mappedPeers = {}
         self.schema = schema
         self._startingUp = None
-        self._listeningPortObject = None
+        self._listeningPort = None
         self._lastSeenTotalNodes = 1
         self._lastSeenNodeIndex = 1
 
@@ -1197,7 +1204,8 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
         A peer has requested us to perform some work; choose a work performer
         local to this node, and then execute it.
         """
-        return self.choosePerformer(onlyLocally=True).performWork(table, workID)
+        performer = self.choosePerformer(onlyLocally=True)
+        return performer.performWork(table, workID)
 
 
     def allWorkItemTypes(self):
@@ -1225,8 +1233,8 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
 
         @return: the maximum number of other L{PeerConnectionPool} instances
             that may be connected to the database described by
-            C{self.transactionFactory}.  Note that this is not the current count
-            by connectivity, but the count according to the database.
+            C{self.transactionFactory}.  Note that this is not the current
+            count by connectivity, but the count according to the database.
         @rtype: L{int}
         """
         # TODO
@@ -1277,7 +1285,6 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
                                            overdueItem.workID)
         return inTransaction(self.transactionFactory, workCheck)
 
-
     _currentWorkDeferred = None
     _lostWorkCheckCall = None
 
@@ -1315,10 +1322,10 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
         @inlineCallbacks
         def startup(txn):
             endpoint = TCP4ServerEndpoint(self.reactor, self.ampPort)
-            # If this fails, the failure mode is going to be ugly, just like all
-            # conflicted-port failures.  But, at least it won't proceed.
-            self._listeningPortObject = yield endpoint.listen(self.peerFactory())
-            self.ampPort = self._listeningPortObject.getHost().port
+            # If this fails, the failure mode is going to be ugly, just like
+            # all conflicted-port failures.  But, at least it won't proceed.
+            self._listeningPort = yield endpoint.listen(self.peerFactory())
+            self.ampPort = self._listeningPort.getHost().port
             yield Lock.exclusive(NodeInfo.table).on(txn)
             nodes = yield self.activeNodes(txn)
             selves = [node for node in nodes
@@ -1354,8 +1361,8 @@ class PeerConnectionPool(_BaseQueuer, MultiService, object):
         yield super(PeerConnectionPool, self).stopService()
         if self._startingUp is not None:
             yield self._startingUp
-        if self._listeningPortObject is not None:
-            yield self._listeningPortObject.stopListening()
+        if self._listeningPort is not None:
+            yield self._listeningPort.stopListening()
         if self._lostWorkCheckCall is not None:
             self._lostWorkCheckCall.cancel()
         if self._currentWorkDeferred is not None:
@@ -1430,8 +1437,6 @@ class _PeerPoolFactory(Factory, object):
 
 
 
-
-
 class LocalQueuer(_BaseQueuer):
     """
     When work is enqueued with this queuer, it is just executed locally.
@@ -1458,7 +1463,8 @@ class NonPerformer(object):
     """
     Implementor of C{performWork} that doesn't actual perform any work.  This
     is used in the case where you want to be able to enqueue work for someone
-    else to do, but not take on any work yourself (such as a command line tool).
+    else to do, but not take on any work yourself (such as a command line
+    tool).
     """
     implements(_IWorkPerformer)
 
@@ -1467,6 +1473,7 @@ class NonPerformer(object):
         Don't perform work.
         """
         return succeed(None)
+
 
 
 class NonPerformingQueuer(_BaseQueuer):

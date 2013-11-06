@@ -76,8 +76,8 @@ def buildConnectionPool(testCase, schemaText="", dialect=SQLITE_DIALECT):
 
 def resultOf(deferred, propagate=False):
     """
-    Add a callback and errback which will capture the result of a L{Deferred} in
-    a list, and return that list.  If 'propagate' is True, pass through the
+    Add a callback and errback which will capture the result of a L{Deferred}
+    in a list, and return that list.  If 'propagate' is True, pass through the
     results.
     """
     results = []
@@ -549,6 +549,21 @@ class ConnectionFactory(Parent):
         def thunk():
             return FakeConnection(self)
         self._connectResultQueue.append(thunk)
+
+
+    def willConnectTo(self):
+        """
+        Queue a successful result for connect() and immediately add it as a
+        child to this L{ConnectionFactory}.
+
+        @return: a connection object
+        @rtype: L{FakeConnection}
+        """
+        aConnection = FakeConnection(self)
+        def thunk():
+            return aConnection
+        self._connectResultQueue.append(thunk)
+        return aConnection
 
 
     def willFail(self):
