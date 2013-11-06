@@ -14,6 +14,16 @@ from twisted.internet.task import Clock
 from twisted.internet.defer import Deferred, gatherResults, TimeoutError
 
 
+def onConnectionLossFire(protocol, deferred):
+    """
+    When the given L{MemCacheProtocol} is disconnected, fire the given
+    L{Deferred} with L{None}.
+    """
+    def cl(reason):
+        deferred.callback(None)
+    protocol.connectionLost = cl
+
+
 
 class MemCacheTestCase(TestCase):
     """
@@ -244,7 +254,7 @@ class MemCacheTestCase(TestCase):
         d1 = self.proto.get("foo")
         d2 = self.proto.get("bar")
         d3 = Deferred()
-        self.proto.connectionLost = d3.callback
+        onConnectionLossFire(self.proto, d3)
 
         self.clock.advance(self.proto.persistentTimeOut)
         self.assertFailure(d1, TimeoutError)
@@ -280,7 +290,7 @@ class MemCacheTestCase(TestCase):
         """
         d1 = self.proto.get("foo")
         d2 = Deferred()
-        self.proto.connectionLost = d2.callback
+        onConnectionLossFire(self.proto, d2)
 
         self.proto.dataReceived("VALUE foo 0 10\r\n12345")
         self.clock.advance(self.proto.persistentTimeOut)
@@ -295,7 +305,7 @@ class MemCacheTestCase(TestCase):
         """
         d1 = self.proto.stats()
         d2 = Deferred()
-        self.proto.connectionLost = d2.callback
+        onConnectionLossFire(self.proto, d2)
 
         self.proto.dataReceived("STAT foo bar\r\n")
         self.clock.advance(self.proto.persistentTimeOut)
@@ -311,7 +321,7 @@ class MemCacheTestCase(TestCase):
         d1 = self.proto.get("foo")
         d2 = self.proto.get("bar")
         d3 = Deferred()
-        self.proto.connectionLost = d3.callback
+        onConnectionLossFire(self.proto, d3)
 
         self.clock.advance(self.proto.persistentTimeOut - 1)
         self.proto.dataReceived("VALUE foo 0 3\r\nbar\r\nEND\r\n")
@@ -338,7 +348,7 @@ class MemCacheTestCase(TestCase):
         """
         d1 = self.proto.get("foo")
         d3 = Deferred()
-        self.proto.connectionLost = d3.callback
+        onConnectionLossFire(self.proto, d3)
 
         self.clock.advance(self.proto.persistentTimeOut - 1)
         d2 = self.proto.get("bar")
