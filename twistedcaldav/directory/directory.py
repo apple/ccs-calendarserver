@@ -31,9 +31,6 @@ __all__ = [
 
 from plistlib import readPlistFromString
 
-from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete
-from twext.enterprise.queue import WorkItem, PeerConnectionPool
 from twext.python.log import Logger
 from twext.web2.dav.auth import IPrincipalCredentials
 from twext.web2.dav.util import joinURL
@@ -52,7 +49,6 @@ from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
 
 from txdav.caldav.icalendardirectoryservice import ICalendarStoreDirectoryService, \
     ICalendarStoreDirectoryRecord
-from txdav.common.datastore.sql_tables import schema
 
 from xml.parsers.expat import ExpatError
 
@@ -1036,62 +1032,6 @@ class GroupMembershipCacheUpdater(object):
         self.log.info("Group memberships cache updated")
 
         returnValue((fast, len(members), len(changedMembers)))
-
-
-
-class GroupCacherPollingWork(WorkItem, fromTable(schema.GROUP_CACHER_POLLING_WORK)):
-
-    group = "group_cacher_polling"
-
-    @inlineCallbacks
-    def doWork(self):
-
-        # Delete all other work items
-        yield Delete(From=self.table, Where=None).on(self.transaction)
-
-        groupCacher = getattr(self.transaction, "_groupCacher", None)
-        if groupCacher is not None:
-
-            # Schedule next update
-            notBefore = (datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=groupCacher.updateSeconds))
-            log.debug("Scheduling next group cacher update: %s" % (notBefore,))
-            yield self.transaction.enqueue(GroupCacherPollingWork,
-                notBefore=notBefore)
-
-            try:
-                groupCacher.updateCache()
-            except Exception, e:
-                log.error("Failed to update group membership cache (%s)" % (e,))
-
-        else:
-            notBefore = (datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=10))
-            log.debug("Rescheduling group cacher update: %s" % (notBefore,))
-            yield self.transaction.enqueue(GroupCacherPollingWork,
-                notBefore=notBefore)
-
-
-
-@inlineCallbacks
-def scheduleNextGroupCachingUpdate(store, seconds):
-    txn = store.newTransaction()
-    notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-    log.debug("Scheduling next group cacher update: %s" % (notBefore,))
-    wp = (yield txn.enqueue(GroupCacherPollingWork, notBefore=notBefore))
-    yield txn.commit()
-    returnValue(wp)
-
-
-
-def schedulePolledGroupCachingUpdate(store):
-    """
-    Schedules a group caching update work item in "the past" so PeerConnectionPool's
-    overdue-item logic picks it up quickly.
-    """
-    seconds = -PeerConnectionPool.queueProcessTimeout
-    return scheduleNextGroupCachingUpdate(store, seconds)
-
 
 
 def diffAssignments(old, new):

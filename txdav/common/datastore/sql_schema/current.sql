@@ -685,10 +685,9 @@ create table GROUP_ATTENDEE_RECONCILIATION_WORK (
   GROUP_ID                      integer
 );
 
-create sequence GROUP_ID_SEQ;
 
 create table GROUPS (
-  GROUP_ID                      integer      primary key default nextval('GROUP_ID_SEQ'),    -- implicit index
+  GROUP_ID                      integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
   NAME                          varchar(255) not null,
   GROUP_GUID                    varchar(255) not null,
   MEMBERSHIP_HASH               varchar(255) not null,
@@ -696,6 +695,7 @@ create table GROUPS (
   CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
+create index GROUPS_GROUP_GUID on GROUPS(GROUP_GUID);
 
 create table GROUP_MEMBERSHIP (
   GROUP_ID                      integer,
@@ -708,6 +708,22 @@ create table GROUP_ATTENDEE (
   GROUP_ID                      integer,
   RESOURCE_ID                   integer,
   MEMBERSHIP_HASH               varchar(255) not null
+);
+
+---------------
+-- Delegates --
+---------------
+
+create table DELEGATES (
+  DELEGATOR                     varchar(255) not null,
+  DELEGATE                      varchar(255) not null,
+  READ_WRITE                    integer      not null -- 1 = ReadWrite, 0 = ReadOnly
+);
+
+create table DELEGATE_GROUPS (
+  DELEGATOR                     varchar(255) not null,
+  GROUP_ID                      integer      not null,
+  READ_WRITE                    integer      not null -- 1 = ReadWrite, 0 = ReadOnly
 );
 
 --------------------------

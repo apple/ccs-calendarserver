@@ -1816,15 +1816,21 @@ class SQLFragment(object):
         params = []
         for parameter in self.parameters:
             if isinstance(parameter, Parameter):
+                if parameter.name not in kw:
+                    # TODO UNIT TEST
+                    raise DALError("Missing parameter: {p!r} fragment={f!r}, kw={kw!r}".format(p=parameter.name,
+                        f=self.text, kw=kw))
+                parameterValue = kw[parameter.name]
+
                 if parameter.count is not None:
-                    if parameter.count != len(kw[parameter.name]):
+                    if parameter.count != len(parameterValue):
                         raise DALError("Number of place holders does not match number of items to bind")
-                    for item in kw[parameter.name]:
+                    for item in parameterValue:
                         params.append(item)
                 else:
-                    params.append(kw[parameter.name])
+                    params.append(parameterValue)
             else:
-                params.append(parameter)
+                params.append(parameterValue)
         return SQLFragment(self.text, params)
 
 

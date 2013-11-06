@@ -80,6 +80,7 @@ from zope.interface import implements, directlyProvides
 
 import sys
 import time
+import datetime
 
 current_sql_schema = getModule(__name__).filePath.sibling("sql_schema").child("current.sql").getContent()
 
@@ -867,6 +868,281 @@ class CommonStoreTransaction(object):
             olderThan=olderThan)
 
     # End of IMIP
+
+    # Groups
+
+    @classproperty
+    def _addGroupQuery(cls): #@NoSelf
+        gr = schema.GROUPS
+        return Insert({gr.NAME: Parameter("name"),
+                       gr.GROUP_GUID: Parameter("groupGUID"),
+                       gr.MEMBERSHIP_HASH: Parameter("membershipHash")})
+
+
+    @classproperty
+    def _updateGroupQuery(cls): #@NoSelf
+        gr = schema.GROUPS
+        return Update({gr.MEMBERSHIP_HASH: Parameter("membershipHash"),
+            gr.NAME: Parameter("name"), gr.MODIFIED: Parameter("timestamp")},
+            Where=(gr.GROUP_GUID == Parameter("groupGUID")))
+
+
+    @classproperty
+    def _groupByGUID(cls): #@NoSelf
+        gr = schema.GROUPS
+        return Select([gr.GROUP_ID, gr.NAME, gr.MEMBERSHIP_HASH], From=gr,
+                Where=(
+                    gr.GROUP_GUID == Parameter("groupGUID")
+                )
+            )
+
+
+    @classproperty
+    def _groupByID(cls): #@NoSelf
+        gr = schema.GROUPS
+        return Select([gr.GROUP_GUID, gr.NAME, gr.MEMBERSHIP_HASH], From=gr,
+                Where=(
+                    gr.GROUP_ID == Parameter("groupID")
+                )
+            )
+
+
+    @classproperty
+    def _deleteGroup(cls): #@NoSelf
+        gr = schema.GROUPS
+        return Delete(From=gr,
+              Where=(gr.GROUP_ID == Parameter("groupID")))
+
+
+    def addGroup(self, groupGUID, name, membershipHash):
+        return self._addGroupQuery.on(self, name=name,
+            groupGUID=groupGUID, membershipHash=membershipHash)
+
+
+    def updateGroup(self, groupGUID, name, membershipHash):
+        timestamp = datetime.datetime.utcnow()
+        return self._updateGroupQuery.on(self, name=name,
+            groupGUID=groupGUID, timestamp=timestamp,
+            membershipHash=membershipHash)
+
+
+    def groupByGUID(self, groupGUID):
+        return self._groupByGUID.on(self, groupGUID=groupGUID)
+
+
+    def groupByID(self, groupID):
+        return self._groupByID.on(self, groupID=groupID)
+
+
+    def deleteGroup(self, groupID):
+        return self._deleteGroup.on(self, groupID=groupID)
+
+    # End of Groups
+
+
+    # Group Members
+
+    @classproperty
+    def _addMemberToGroupQuery(cls): #@NoSelf
+        gm = schema.GROUP_MEMBERSHIP
+        return Insert({gm.GROUP_ID: Parameter("groupID"),
+                       gm.MEMBER_GUID: Parameter("memberGUID")})
+    @classproperty
+    def _removeMemberFromGroupQuery(cls): #@NoSelf
+        gm = schema.GROUP_MEMBERSHIP
+        return Delete(From=gm,
+            Where=(gm.GROUP_ID == Parameter("groupID")).And(
+                   gm.MEMBER_GUID == Parameter("memberGUID")))
+
+    @classproperty
+    def _selectGroupMembersQuery(cls): #@NoSelf
+        gm = schema.GROUP_MEMBERSHIP
+        return Select([gm.MEMBER_GUID], From=gm,
+                Where=(
+                    gm.GROUP_ID == Parameter("groupID")
+                )
+            )
+
+    def addMemberToGroup(self, memberGUID, groupID):
+        return self._addMemberToGroupQuery.on(self,
+            groupID=groupID, memberGUID=memberGUID)
+
+    def removeMemberFromGroup(self, memberGUID, groupID):
+        return self._removeMemberFromGroupQuery.on(self,
+            groupID=groupID, memberGUID=memberGUID)
+
+    def membersOfGroup(self, groupID):
+        return self._selectGroupMembersQuery.on(self, groupID=groupID)
+
+    # End of Group Members
+
+    # Delegates
+
+    @classproperty
+    def _addDelegateQuery(cls): #@NoSelf
+        de = schema.DELEGATES
+        return Insert({de.DELEGATOR: Parameter("delegator"),
+                       de.DELEGATE: Parameter("delegate"),
+                       de.READ_WRITE: Parameter("readWrite"),
+                       })
+
+    @classproperty
+    def _addDelegateGroupQuery(cls): #@NoSelf
+        ds = schema.DELEGATE_GROUPS
+        return Insert({ds.DELEGATOR: Parameter("delegator"),
+                       ds.GROUP_ID: Parameter("groupID"),
+                       ds.READ_WRITE: Parameter("readWrite"),
+                       })
+
+    @classproperty
+    def _removeDelegateQuery(cls): #@NoSelf
+        de = schema.DELEGATES
+        return Delete(From=de,
+            Where=(de.DELEGATOR == Parameter("delegator")).And(
+                   de.DELEGATE == Parameter("delegate")).And(
+                   de.READ_WRITE == Parameter("readWrite"))
+            )
+
+    @classproperty
+    def _removeDelegateGroupQuery(cls): #@NoSelf
+        ds = schema.DELEGATE_GROUPS
+        return Delete(From=ds,
+            Where=(ds.DELEGATOR == Parameter("delegator")).And(
+                   ds.GROUP_ID == Parameter("groupID")).And(
+                   ds.READ_WRITE == Parameter("readWrite"))
+            )
+
+    @classproperty
+    def _selectDelegatesQuery(cls): #@NoSelf
+        de = schema.DELEGATES
+        return Select([de.DELEGATE], From=de,
+                Where=(de.DELEGATOR == Parameter("delegator")).And(
+                    de.READ_WRITE == Parameter("readWrite"))
+                )
+
+    @classproperty
+    def _selectDelegateGroupsQuery(cls): #@NoSelf
+        ds = schema.DELEGATE_GROUPS
+        return Select([ds.GROUP_ID], From=ds,
+                Where=(
+                    ds.DELEGATOR == Parameter("delegator")).And(
+                    ds.READ_WRITE == Parameter("readWrite"))
+                )
+
+    @classproperty
+    def _selectDirectDelegatorsQuery(cls): #@NoSelf
+        de = schema.DELEGATES
+        return Select([de.DELEGATOR], From=de,
+                Where=(
+                    de.DELEGATE == Parameter("delegate")).And(
+                    de.READ_WRITE == Parameter("readWrite"))
+                )
+
+    """
+    @classproperty
+    def _selectDelegatorsGroupsQuery(cls): #@NoSelf
+        ds = schema.DELEGATE_GROUPS
+        return Select([ds.DELEGATOR], From=ds,
+                Where=(
+                    ds.GROUP_ID == Parameter("groupID").And(
+                    ds.READ_WRITE == Parameter("readWrite"))
+                )
+            )
+    """
+
+    @classproperty
+    def _selectIndirectDelegatorsQuery(cls): #@NoSelf
+        dg = schema.DELEGATE_GROUPS
+        gm = schema.GROUP_MEMBERSHIP
+
+        return Select(
+            [dg.DELEGATOR],
+            From=dg,
+            Where=(
+                dg.GROUP_ID.In(
+                    Select(
+                        [gm.GROUP_ID],
+                        From=gm,
+                        Where=(gm.MEMBER_GUID == Parameter("delegate"))
+                    )
+                ).And(
+                    dg.READ_WRITE == Parameter("readWrite")
+                )
+            )
+        )
+
+    @classproperty
+    def _selectIndirectDelegatesQuery(cls): #@NoSelf
+        dg = schema.DELEGATE_GROUPS
+        gm = schema.GROUP_MEMBERSHIP
+
+        return Select(
+            [gm.MEMBER_GUID],
+            From=gm,
+            Where=(
+                gm.GROUP_ID.In(
+                    Select(
+                        [dg.GROUP_ID],
+                        From=dg,
+                        Where=(dg.DELEGATOR == Parameter("delegator")).And(
+                            dg.READ_WRITE == Parameter("readWrite"))
+                    )
+                )
+            )
+        )
+
+    def addDelegate(self, delegator, delegate, readWrite, isGroup):
+        if isGroup:
+            return self._addDelegateGroupQuery.on(self, delegator=delegator,
+                groupID=delegate, readWrite=readWrite)
+        else:
+            return self._addDelegateQuery.on(self, delegator=delegator,
+                delegate=delegate, readWrite=readWrite)
+
+    def removeDelegate(self, delegator, delegate, readWrite, isGroup):
+        if isGroup:
+            return self._removeDelegateGroupQuery.on(self, delegator=delegator,
+                groupID=delegate, readWrite=readWrite)
+        else:
+            return self._removeDelegateQuery.on(self, delegator=delegator,
+                delegate=delegate, readWrite=readWrite)
+
+    def directDelegates(self, delegator, readWrite):
+        return self._selectDelegatesQuery.on(self, delegator=delegator,
+            readWrite=readWrite)
+
+    def groupDelegates(self, delegator, readWrite):
+        return self._selectDelegateGroupssQuery.on(self, delegator=delegator,
+            readWrite=readWrite)
+
+    @inlineCallbacks
+    def delegates(self, delegator, readWrite):
+
+        # First get the direct delegates
+        results = (yield self._selectDelegatesQuery.on(self,
+            delegator=delegator, readWrite=readWrite))
+
+        # Finally get those who are in groups which have been delegated to
+        results.extend((yield self._selectIndirectDelegatesQuery.on(self,
+            delegator=delegator, readWrite=readWrite)))
+
+        returnValue(results)
+
+
+    @inlineCallbacks
+    def delegators(self, delegate, readWrite):
+
+        # First get the direct delegators
+        results = (yield self._selectDirectDelegatorsQuery.on(self,
+            delegate=delegate, readWrite=readWrite))
+
+        # Finally get those who have delegated to groups the delegate
+        # is a member of
+        results.extend((yield self._selectIndirectDelegatorsQuery.on(self,
+            delegate=delegate, readWrite=readWrite)))
+        returnValue(results)
+
+    # End of Delegates
 
 
     def preCommit(self, operation):

@@ -50,7 +50,7 @@ from twistedcaldav import memcachepool
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
-from twistedcaldav.directory.directory import schedulePolledGroupCachingUpdate
+from twext.who.groups import schedulePolledGroupCachingUpdate
 from calendarserver.push.notifier import NotifierFactory
 
 from txdav.common.datastore.file import CommonDataStore

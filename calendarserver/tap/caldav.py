@@ -81,11 +81,11 @@ from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
+from twext.who.groups import GroupCacher
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav import memcachepool
 from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
-from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
+from twext.who.groups import scheduleNextGroupCachingUpdate
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -890,9 +890,10 @@ class CalDAVServiceMaker (object):
 
         # Optionally set up group cacher
         if config.GroupCaching.Enabled:
-            groupCacher = GroupMembershipCacheUpdater(
+            groupCacher = GroupCacher(
                 calendaruserproxy.ProxyDBService,
                 directory,
+                store,
                 config.GroupCaching.UpdateSeconds,
                 config.GroupCaching.ExpireSeconds,
                 config.GroupCaching.LockSeconds,
@@ -1200,9 +1201,10 @@ class CalDAVServiceMaker (object):
 
             # Optionally set up group cacher
             if config.GroupCaching.Enabled:
-                groupCacher = GroupMembershipCacheUpdater(
+                groupCacher = GroupCacher(
                     calendaruserproxy.ProxyDBService,
                     directory,
+                    store,
                     config.GroupCaching.UpdateSeconds,
                     config.GroupCaching.ExpireSeconds,
                     config.GroupCaching.LockSeconds,
@@ -1713,9 +1715,10 @@ class CalDAVServiceMaker (object):
 
             # Optionally set up group cacher
             if config.GroupCaching.Enabled:
-                groupCacher = GroupMembershipCacheUpdater(
+                groupCacher = GroupCacher(
                     calendaruserproxy.ProxyDBService,
                     directory,
+                    store,
                     config.GroupCaching.UpdateSeconds,
                     config.GroupCaching.ExpireSeconds,
                     config.GroupCaching.LockSeconds,

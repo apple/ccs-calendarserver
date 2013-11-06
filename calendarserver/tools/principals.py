@@ -31,7 +31,7 @@ from txdav.xml.base import decodeXMLName, encodeXMLName
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
-from twistedcaldav.directory.directory import schedulePolledGroupCachingUpdate
+from twext.who.groups import schedulePolledGroupCachingUpdate
 
 from calendarserver.tools.util import (
     booleanArgument, proxySubprincipal, action_addProxyPrincipal,
