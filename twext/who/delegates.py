@@ -47,6 +47,7 @@ def addDelegate(txn, delegator, delegate, readWrite):
     else:
         yield txn.addDelegate(delegator.guid, delegate.guid,
             1 if readWrite else 0, False)
+        
 
 def removeDelegate(txn, delegator, delegate, readWrite):
     """
@@ -54,6 +55,7 @@ def removeDelegate(txn, delegator, delegate, readWrite):
     """
     return txn.removeDelegate(delegator.guid, delegate.guid,
         1 if readWrite else 0, delegate.recordType==RecordType.group)
+
 
 @inlineCallbacks
 def delegatesOf(txn, delegator, readWrite):
@@ -69,6 +71,7 @@ def delegatesOf(txn, delegator, readWrite):
             if record is not None:
                 records.append(record)
     returnValue(records)
+
 
 @inlineCallbacks
 def delegateFor(txn, delegate, readWrite):

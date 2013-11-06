@@ -68,7 +68,7 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
-    InvalidIMIPTokenValues, TooManyObjectResourcesError
+    InvalidIMIPTokenValues, TooManyObjectResourcesError, NotFoundError
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
@@ -876,7 +876,8 @@ class CommonStoreTransaction(object):
         gr = schema.GROUPS
         return Insert({gr.NAME: Parameter("name"),
                        gr.GROUP_GUID: Parameter("groupGUID"),
-                       gr.MEMBERSHIP_HASH: Parameter("membershipHash")})
+                       gr.MEMBERSHIP_HASH: Parameter("membershipHash")},
+                       Return=gr.GROUP_ID)
 
 
     @classproperty
@@ -926,12 +927,41 @@ class CommonStoreTransaction(object):
             membershipHash=membershipHash)
 
 
+    @inlineCallbacks
     def groupByGUID(self, groupGUID):
-        return self._groupByGUID.on(self, groupGUID=groupGUID)
+        results = (yield self._groupByGUID.on(self, groupGUID=groupGUID))
+        if results:
+            returnValue(results[0])
+        else:
+            savepoint = SavepointAction("groupByGUID")
+            yield savepoint.acquire(self)
+            try:
+                groupID = (yield self.addGroup(groupGUID, "", ""))[0][0]
+            except Exception:
+                yield savepoint.rollback(self)
+                results = (yield self._groupByGUID.on(self,
+                    groupGUID=groupGUID))
+                if results:
+                    returnValue(results[0])
+                else:
+                    raise
+            else:
+                yield savepoint.release(self)
+                results = (yield self._groupByGUID.on(self,
+                    groupGUID=groupGUID))
+                if results:
+                    returnValue(results[0])
+                else:
+                    raise
 
 
+    @inlineCallbacks
     def groupByID(self, groupID):
-        return self._groupByID.on(self, groupID=groupID)
+        try:
+            results = (yield self._groupByID.on(self, groupID=groupID))[0]
+            returnValue(results)
+        except IndexError:
+            raise NotFoundError
 
 
     def deleteGroup(self, groupID):

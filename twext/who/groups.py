@@ -92,8 +92,8 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
     @inlineCallbacks
     def doWork(self):
 
-        # Delete all other work items
-        yield Delete(From=self.table, Where=None).on(self.transaction)
+        # Delete all other work items for this group
+        yield Delete(From=self.table, Where=(self.table.GROUP_GUID == self.groupGUID)).on(self.transaction)
 
         groupCacher = getattr(self.transaction, "_groupCacher", None)
         if groupCacher is not None:
@@ -182,15 +182,8 @@ class GroupCacher(object):
         for member in members:
             membershipHashContent.update(member.guid)
         membershipHash = membershipHashContent.hexdigest()
-        results = (yield txn.groupByGUID(groupGUID))
-        if not results:
-            # Group is not yet in the DB
-            cachedName = ""
-            cachedMembershipHash = ""
-            addGroup = True
-        else:
-            groupID, cachedName, cachedMembershipHash = results[0]
-            addGroup = False
+        groupID, cachedName, cachedMembershipHash = (yield
+            txn.groupByGUID(groupGUID))
 
         if cachedMembershipHash != membershipHash:
             membershipChanged = True
@@ -198,11 +191,7 @@ class GroupCacher(object):
         else:
             membershipChanged = False
 
-        if addGroup:
-            yield txn.addGroup(groupGUID, record.fullNames[0], membershipHash)
-        else:
-            yield txn.updateGroup(groupGUID, record.fullNames[0],
-                membershipHash)
+        yield txn.updateGroup(groupGUID, record.fullNames[0], membershipHash)
 
         results = (yield txn.groupByGUID(groupGUID))
         if len(results) == 1:

@@ -23,6 +23,7 @@ from twext.who.test.test_xml import xmlService
 from twext.who.idirectory import RecordType
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.test.util import StoreTestCase
+from txdav.common.icommondatastore import NotFoundError
 
 class GroupCacherTest(StoreTestCase):
 
@@ -65,10 +66,10 @@ class GroupCacherTest(StoreTestCase):
         guid = "49b350c69611477b94d95516b13856ab"
         yield self.groupCacher.refreshGroup(txn, guid)
 
-        groupID, name, membershipHash = (yield txn.groupByGUID(guid))[0]
+        groupID, name, membershipHash = (yield txn.groupByGUID(guid))
         self.assertEquals(membershipHash, "e90052eb63d47f32d5b03df0073f7854")
 
-        groupGUID, name, membershipHash = (yield txn.groupByID(groupID))[0]
+        groupGUID, name, membershipHash = (yield txn.groupByID(groupID))
         self.assertEquals(groupGUID, guid)
         self.assertEquals(name, "Top Group 1")
         self.assertEquals(membershipHash, "e90052eb63d47f32d5b03df0073f7854")
@@ -99,7 +100,7 @@ class GroupCacherTest(StoreTestCase):
         # Refresh the group so it's assigned a group_id
         guid = "49b350c69611477b94d95516b13856ab"
         yield self.groupCacher.refreshGroup(txn, guid)
-        groupID, name, membershipHash = (yield txn.groupByGUID(guid))[0]
+        groupID, name, membershipHash = (yield txn.groupByGUID(guid))
 
         # Remove two members, and add one member
         newSet = set()
@@ -124,6 +125,23 @@ class GroupCacherTest(StoreTestCase):
         self.assertEquals(numRemoved, 3)
         records = (yield self.groupCacher.cachedMembers(txn, groupID))
         self.assertEquals(len(records), 0)
+
+
+    @inlineCallbacks
+    def test_groupByID(self):
+
+        store = self.storeUnderTest()
+        txn = store.newTransaction()
+
+        # Non-existent groupID
+        self.failUnlessFailure(txn.groupByID(42), NotFoundError)
+
+        guid = "49b350c69611477b94d95516b13856ab"
+        hash = "e90052eb63d47f32d5b03df0073f7854"
+        yield self.groupCacher.refreshGroup(txn, guid)
+        groupID, name, membershipHash = (yield txn.groupByGUID(guid))
+        results = (yield txn.groupByID(groupID))
+        self.assertEquals([guid, "Top Group 1", hash], results)
 
 
 testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
