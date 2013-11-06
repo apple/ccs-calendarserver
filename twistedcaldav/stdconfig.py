@@ -1010,7 +1010,8 @@ DEFAULT_CONFIG = {
     # means no automatic shutdown.
     "AgentInactivityTimeoutSeconds"  : 4 * 60 * 60,
 
-    # These two aren't relative to ConfigRoot:
+    # These aren't relative to ConfigRoot:
+    "ImportConfig": "", # Config to read first and merge
     "Includes": [], # Other plists to parse after this one
     "WritableConfigFile" : "", # which config file calendarserver_config should
         # write to for changes; empty string means the main config file.
@@ -1043,6 +1044,22 @@ class PListConfigProvider(ConfigProvider):
             configDict = self._parseConfigFromFile(self._configFileName)
         configDict = ConfigDict(configDict)
 
+        def _loadImport(childDict):
+            # Look for an import and read that one as the main config and merge the current one into that
+            if "ImportConfig" in childDict and childDict.ImportConfig:
+                configRoot = os.path.join(childDict.ServerRoot, childDict.ConfigRoot)
+                path = _expandPath(fullServerPath(configRoot, childDict.ImportConfig))
+                if os.path.exists(path):
+                    importDict = ConfigDict(self._parseConfigFromFile(path))
+                    if importDict:
+                        self.importedFiles.append(path)
+                        importDict = _loadImport(importDict)
+                        mergeData(importDict, childDict)
+                        return importDict
+                raise ConfigurationError("Import configuration file '{path}' must exist and be valid.".format(path=path))
+            else:
+                return childDict
+
         def _loadIncludes(parentDict):
             # Now check for Includes and parse and add each of those
             if "Includes" in parentDict:
@@ -1059,6 +1076,7 @@ class PListConfigProvider(ConfigProvider):
                     else:
                         self.missingFiles.append(path)
 
+        configDict = _loadImport(configDict)
         _loadIncludes(configDict)
         return configDict
 

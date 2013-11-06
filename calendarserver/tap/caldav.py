@@ -402,6 +402,8 @@ class CalDAVOptions (Options):
 
         config.load(self["config"])
 
+        for path in config.getProvider().importedFiles:
+            print("Imported configuration from file: '%s'" % (path,))
         for path in config.getProvider().includedFiles:
             print("Adding configuration from file: '%s'" % (path,))
         for path in config.getProvider().missingFiles:

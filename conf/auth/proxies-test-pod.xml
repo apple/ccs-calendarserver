@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+Copyright (c) 2009-2013 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,19 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
-<!DOCTYPE servers SYSTEM "localservers.dtd">
+<!DOCTYPE proxies SYSTEM "proxies.dtd">
 
-<servers>
-  <server>
-    <id>A</id>
-    <uri>http://localhost:8008</uri>
-    <allowed-from>localhost</allowed-from>
-    <shared-secret>A</shared-secret>
-  </server>
-  <server>
-    <id>B</id>
-    <uri>http://localhost:8108</uri>
-    <allowed-from>localhost</allowed-from>
-    <shared-secret>B</shared-secret>
-  </server>
-</servers>
+<proxies>
+</proxies>

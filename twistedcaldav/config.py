@@ -97,6 +97,7 @@ class ConfigProvider(object):
             self._defaults = ConfigDict()
         else:
             self._defaults = ConfigDict(copy.deepcopy(defaults))
+        self.importedFiles = []
         self.includedFiles = []
         self.missingFiles = []
 
