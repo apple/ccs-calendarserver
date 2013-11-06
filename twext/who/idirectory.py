@@ -36,6 +36,8 @@ __all__ = [
     "IDirectoryRecord",
 ]
 
+from uuid import UUID
+
 from zope.interface import Attribute, Interface
 
 from twisted.python.constants import Names, NamedConstant
@@ -158,6 +160,8 @@ class FieldName(Names):
     emailAddresses.description = "email addresses"
     password.description       = "password"
 
+    guid.valueType = UUID
+
     shortNames.multiValue     = True
     fullNames.multiValue      = True
     emailAddresses.multiValue = True
@@ -168,10 +172,27 @@ class FieldName(Names):
         """
         Check for whether a field is multi-value (as opposed to single-value).
 
+        @param name: The name of the field.
+        @type name: L{NamedConstant}
+
         @return: C{True} if the field is multi-value, C{False} otherwise.
         @rtype: L{BOOL}
         """
         return getattr(name, "multiValue", False)
+
+
+    @staticmethod
+    def valueType(name):
+        """
+        Check for the expected type of values for a field.
+
+        @param name: The name of the field.
+        @type name: L{NamedConstant}
+
+        @return: The expected type.
+        @rtype: L{type}
+        """
+        return getattr(name, "valueType", unicode)
 
 
 
@@ -295,7 +316,7 @@ class IDirectoryService(Interface):
         Find the record that has the given GUID.
 
         @param guid: a GUID
-        @type guid: L{bytes}
+        @type guid: L{UUID}
 
         @return: The matching record or C{None} if there is no match.
         @rtype: deferred L{IDirectoryRecord}s or C{None}

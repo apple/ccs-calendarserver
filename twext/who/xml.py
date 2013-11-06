@@ -28,6 +28,7 @@ __all__ = [
 ]
 
 from time import time
+from uuid import UUID
 
 from xml.etree.ElementTree import parse as parseXML
 from xml.etree.ElementTree import ParseError as XMLParseError
@@ -62,38 +63,38 @@ class ParseError(DirectoryServiceError):
 ##
 
 class Element(Values):
-    directory = ValueConstant("directory")
-    record    = ValueConstant("record")
+    directory = ValueConstant(u"directory")
+    record    = ValueConstant(u"record")
 
     #
     # Field names
     #
-    uid = ValueConstant("uid")
+    uid = ValueConstant(u"uid")
     uid.fieldName = BaseFieldName.uid
 
-    guid = ValueConstant("guid")
+    guid = ValueConstant(u"guid")
     guid.fieldName = BaseFieldName.guid
 
-    shortName = ValueConstant("short-name")
+    shortName = ValueConstant(u"short-name")
     shortName.fieldName = BaseFieldName.shortNames
 
-    fullName = ValueConstant("full-name")
+    fullName = ValueConstant(u"full-name")
     fullName.fieldName = BaseFieldName.fullNames
 
-    emailAddress = ValueConstant("email")
+    emailAddress = ValueConstant(u"email")
     emailAddress.fieldName = BaseFieldName.emailAddresses
 
-    password = ValueConstant("password")
+    password = ValueConstant(u"password")
     password.fieldName = BaseFieldName.password
 
-    memberUID = ValueConstant("member-uid")
+    memberUID = ValueConstant(u"member-uid")
     memberUID.fieldName = IndexFieldName.memberUIDs
 
 
 
 class Attribute(Values):
-    realm      = ValueConstant("realm")
-    recordType = ValueConstant("type")
+    realm      = ValueConstant(u"realm")
+    recordType = ValueConstant(u"type")
 
 
 
@@ -101,16 +102,16 @@ class Value(Values):
     #
     # Booleans
     #
-    true  = ValueConstant("true")
-    false = ValueConstant("false")
+    true  = ValueConstant(u"true")
+    false = ValueConstant(u"false")
 
     #
     # Record types
     #
-    user = ValueConstant("user")
+    user = ValueConstant(u"user")
     user.recordType = RecordType.user
 
-    group = ValueConstant("group")
+    group = ValueConstant(u"group")
     group.recordType = RecordType.group
 
 
@@ -235,8 +236,8 @@ class DirectoryService(BaseDirectoryService):
             )
 
         realmName = directoryNode.get(
-            self.attribute.realm.value, ""
-        ).encode("utf-8")
+            self.attribute.realm.value, u""
+        )
 
         if not realmName:
             raise ParseError("No realm name.")
@@ -289,8 +290,8 @@ class DirectoryService(BaseDirectoryService):
 
     def parseRecordNode(self, recordNode, unknownFieldElements=None):
         recordTypeAttribute = recordNode.get(
-            self.attribute.recordType.value, ""
-        ).encode("utf-8")
+            self.attribute.recordType.value, u""
+        )
         if recordTypeAttribute:
             try:
                 recordType = (
@@ -317,7 +318,15 @@ class DirectoryService(BaseDirectoryService):
                 if unknownFieldElements is not None:
                     unknownFieldElements.add(fieldNode.tag)
 
-            value = fieldNode.text.encode("utf-8")
+            vType = BaseFieldName.valueType(fieldName)
+
+            if vType in (unicode, UUID):
+                value = unicode(fieldNode.text)
+            else:
+                raise AssertionError(
+                    "Unknown value type {0} for field {1}",
+                    vType, fieldName
+                )
 
             if BaseFieldName.isMultiValue(fieldName):
                 values = fields.setdefault(fieldName, [])

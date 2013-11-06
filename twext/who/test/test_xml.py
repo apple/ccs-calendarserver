@@ -19,6 +19,7 @@ XML directory service tests.
 """
 
 from time import sleep
+from uuid import UUID
 
 from twisted.trial import unittest
 from twisted.python.filepath import FilePath
@@ -63,11 +64,11 @@ class DirectoryServiceBaseTest(
     def test_recordWithUID(self):
         service = self.service()
 
-        record = (yield service.recordWithUID("__null__"))
+        record = (yield service.recordWithUID(u"__null__"))
         self.assertEquals(record, None)
 
-        record = (yield service.recordWithUID("__wsanchez__"))
-        self.assertEquals(record.uid, "__wsanchez__")
+        record = (yield service.recordWithUID(u"__wsanchez__"))
+        self.assertEquals(record.uid, u"__wsanchez__")
 
 
     @inlineCallbacks
@@ -75,7 +76,7 @@ class DirectoryServiceBaseTest(
         service = self.service()
         record = (
             yield service.recordWithGUID(
-                "6C495FCD-7E78-4D5C-AA66-BC890AD04C9D"
+                UUID("6C495FCD-7E78-4D5C-AA66-BC890AD04C9D")
             )
         )
         self.assertEquals(record, None)
@@ -93,15 +94,15 @@ class DirectoryServiceBaseTest(
         self.assertRecords(
             records,
             (
-                "__wsanchez__",
-                "__glyph__",
-                "__sagen__",
-                "__cdaboo__",
-                "__dre__",
-                "__exarkun__",
-                "__dreid__",
-                "__alyssa__",
-                "__joe__",
+                u"__wsanchez__",
+                u"__glyph__",
+                u"__sagen__",
+                u"__cdaboo__",
+                u"__dre__",
+                u"__exarkun__",
+                u"__dreid__",
+                u"__alyssa__",
+                u"__joe__",
             ),
         )
 
@@ -111,9 +112,9 @@ class DirectoryServiceBaseTest(
         self.assertRecords(
             records,
             (
-                "__calendar-dev__",
-                "__twisted__",
-                "__developers__",
+                u"__calendar-dev__",
+                u"__twisted__",
+                u"__developers__",
             ),
         )
 
@@ -125,7 +126,7 @@ class DirectoryServiceBaseTest(
         record = (
             yield service.recordWithShortName(
                 service.recordType.user,
-                "null",
+                u"null",
             )
         )
         self.assertEquals(record, None)
@@ -133,18 +134,18 @@ class DirectoryServiceBaseTest(
         record = (
             yield service.recordWithShortName(
                 service.recordType.user,
-                "wsanchez",
+                u"wsanchez",
             )
         )
-        self.assertEquals(record.uid, "__wsanchez__")
+        self.assertEquals(record.uid, u"__wsanchez__")
 
         record = (
             yield service.recordWithShortName(
                 service.recordType.user,
-                "wilfredo_sanchez",
+                u"wilfredo_sanchez",
             )
         )
-        self.assertEquals(record.uid, "__wsanchez__")
+        self.assertEquals(record.uid, u"__wsanchez__")
 
 
     @inlineCallbacks
@@ -153,24 +154,24 @@ class DirectoryServiceBaseTest(
 
         records = (
             yield service.recordsWithEmailAddress(
-                "wsanchez@bitbucket.calendarserver.org"
+                u"wsanchez@bitbucket.calendarserver.org"
             )
         )
-        self.assertRecords(records, ("__wsanchez__",))
+        self.assertRecords(records, (u"__wsanchez__",))
 
         records = (
             yield service.recordsWithEmailAddress(
-                "wsanchez@devnull.twistedmatrix.com"
+                u"wsanchez@devnull.twistedmatrix.com"
             )
         )
-        self.assertRecords(records, ("__wsanchez__",))
+        self.assertRecords(records, (u"__wsanchez__",))
 
         records = (
             yield service.recordsWithEmailAddress(
-                "shared@example.com"
+                u"shared@example.com"
             )
         )
-        self.assertRecords(records, ("__sagen__", "__dre__"))
+        self.assertRecords(records, (u"__sagen__", u"__dre__"))
 
 
 
@@ -178,7 +179,7 @@ class DirectoryServiceRealmTest(BaseTest):
     def test_realmNameImmutable(self):
         def setRealmName():
             service = self.service()
-            service.realmName = "foo"
+            service.realmName = u"foo"
 
         self.assertRaises(AssertionError, setRealmName)
 
@@ -217,7 +218,7 @@ class DirectoryServiceParsingTest(BaseTest):
 
     def test_badRootElement(self):
         service = self.service(xmlData=(
-"""<?xml version="1.0" encoding="utf-8"?>
+b"""<?xml version="1.0" encoding="utf-8"?>
 
 <frobnitz />
 """
@@ -234,7 +235,7 @@ class DirectoryServiceParsingTest(BaseTest):
 
     def test_noRealmName(self):
         service = self.service(xmlData=(
-"""<?xml version="1.0" encoding="utf-8"?>
+b"""<?xml version="1.0" encoding="utf-8"?>
 
 <directory />
 """
@@ -256,7 +257,7 @@ class DirectoryServiceParsingTest(BaseTest):
 
     def test_unknownFieldElementsDirty(self):
         service = self.service(xmlData=(
-"""<?xml version="1.0" encoding="utf-8"?>
+b"""<?xml version="1.0" encoding="utf-8"?>
 
 <directory realm="Unknown Record Types">
   <record type="user">
@@ -269,7 +270,7 @@ class DirectoryServiceParsingTest(BaseTest):
         ))
         self.assertEquals(
             set(service.unknownFieldElements),
-            set(("political-affiliation",))
+            set((u"political-affiliation",))
         )
 
 
@@ -280,7 +281,7 @@ class DirectoryServiceParsingTest(BaseTest):
 
     def test_unknownRecordTypesDirty(self):
         service = self.service(xmlData=(
-"""<?xml version="1.0" encoding="utf-8"?>
+b"""<?xml version="1.0" encoding="utf-8"?>
 
 <directory realm="Unknown Record Types">
   <record type="camera">
@@ -291,7 +292,7 @@ class DirectoryServiceParsingTest(BaseTest):
 </directory>
 """
         ))
-        self.assertEquals(set(service.unknownRecordTypes), set(("camera",)))
+        self.assertEquals(set(service.unknownRecordTypes), set((u"camera",)))
 
 
 
@@ -301,12 +302,12 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery(
             (
-                service.query("emailAddresses", "shared@example.com"),
-                service.query("shortNames", "sagen"),
+                service.query(u"emailAddresses", u"shared@example.com"),
+                service.query(u"shortNames", u"sagen"),
             ),
             operand=Operand.AND
         )
-        self.assertRecords(records, ("__sagen__",))
+        self.assertRecords(records, (u"__sagen__",))
 
 
     @inlineCallbacks
@@ -317,8 +318,8 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery(
             (
-                service.query("emailAddresses", "nobody@example.com"),
-                service.query("shortNames", "sagen"),
+                service.query(u"emailAddresses", u"nobody@example.com"),
+                service.query(u"shortNames", u"sagen"),
             ),
             operand=Operand.AND
         )
@@ -330,12 +331,12 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery(
             (
-                service.query("emailAddresses", "shared@example.com"),
-                service.query("shortNames", "wsanchez"),
+                service.query(u"emailAddresses", u"shared@example.com"),
+                service.query(u"shortNames", u"wsanchez"),
             ),
             operand=Operand.OR
         )
-        self.assertRecords(records, ("__sagen__", "__dre__", "__wsanchez__"))
+        self.assertRecords(records, (u"__sagen__", u"__dre__", u"__wsanchez__"))
 
 
     @inlineCallbacks
@@ -343,12 +344,12 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery(
             (
-                service.query("emailAddresses", "shared@example.com"),
-                service.query("shortNames", "sagen", flags=MatchFlags.NOT),
+                service.query(u"emailAddresses", u"shared@example.com"),
+                service.query(u"shortNames", u"sagen", flags=MatchFlags.NOT),
             ),
             operand=Operand.AND
         )
-        self.assertRecords(records, ("__dre__",))
+        self.assertRecords(records, (u"__dre__",))
 
 
     @inlineCallbacks
@@ -356,15 +357,15 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery(
             (
-                service.query("emailAddresses", "shared@example.com"),
+                service.query(u"emailAddresses", u"shared@example.com"),
                 service.query(
-                    "fullNames", "Andre LaBranche",
+                    u"fullNames", u"Andre LaBranche",
                     flags=MatchFlags.NOT
                 ),
             ),
             operand=Operand.AND
         )
-        self.assertRecords(records, ("__sagen__",))
+        self.assertRecords(records, (u"__sagen__",))
 
 
     @inlineCallbacks
@@ -372,11 +373,11 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "shortNames", "SagEn",
+                u"shortNames", u"SagEn",
                 flags=MatchFlags.caseInsensitive
             ),
         ))
-        self.assertRecords(records, ("__sagen__",))
+        self.assertRecords(records, (u"__sagen__",))
 
 
     @inlineCallbacks
@@ -384,20 +385,20 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "fullNames", "moRGen SAGen",
+                u"fullNames", u"moRGen SAGen",
                 flags=MatchFlags.caseInsensitive
             ),
         ))
-        self.assertRecords(records, ("__sagen__",))
+        self.assertRecords(records, (u"__sagen__",))
 
 
     @inlineCallbacks
     def test_queryStartsWith(self):
         service = self.service()
         records = yield service.recordsFromQuery((
-            service.query("shortNames", "wil", matchType=MatchType.startsWith),
+            service.query(u"shortNames", u"wil", matchType=MatchType.startsWith),
         ))
-        self.assertRecords(records, ("__wsanchez__",))
+        self.assertRecords(records, (u"__wsanchez__",))
 
 
     @inlineCallbacks
@@ -405,11 +406,11 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "fullNames", "Wilfredo",
+                u"fullNames", u"Wilfredo",
                 matchType=MatchType.startsWith
             ),
         ))
-        self.assertRecords(records, ("__wsanchez__",))
+        self.assertRecords(records, (u"__wsanchez__",))
 
 
     @inlineCallbacks
@@ -417,7 +418,7 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "shortNames", "w",
+                u"shortNames", u"w",
                 matchType=MatchType.startsWith,
                 flags=MatchFlags.NOT,
             ),
@@ -425,17 +426,17 @@ class DirectoryServiceQueryTest(BaseTest):
         self.assertRecords(
             records,
             (
-                '__alyssa__',
-                '__calendar-dev__',
-                '__cdaboo__',
-                '__developers__',
-                '__dre__',
-                '__dreid__',
-                '__exarkun__',
-                '__glyph__',
-                '__joe__',
-                '__sagen__',
-                '__twisted__',
+                u"__alyssa__",
+                u"__calendar-dev__",
+                u"__cdaboo__",
+                u"__developers__",
+                u"__dre__",
+                u"__dreid__",
+                u"__exarkun__",
+                u"__glyph__",
+                u"__joe__",
+                u"__sagen__",
+                u"__twisted__",
             ),
         )
 
@@ -451,7 +452,7 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "shortNames", "wil",
+                u"shortNames", u"wil",
                 matchType=MatchType.startsWith,
                 flags=MatchFlags.NOT,
             ),
@@ -459,18 +460,18 @@ class DirectoryServiceQueryTest(BaseTest):
         self.assertRecords(
             records,
             (
-                '__alyssa__',
-                '__calendar-dev__',
-                '__cdaboo__',
-                '__developers__',
-                '__dre__',
-                '__dreid__',
-                '__exarkun__',
-                '__glyph__',
-                '__joe__',
-                '__sagen__',
-                '__twisted__',
-                '__wsanchez__',
+                u"__alyssa__",
+                u"__calendar-dev__",
+                u"__cdaboo__",
+                u"__developers__",
+                u"__dre__",
+                u"__dreid__",
+                u"__exarkun__",
+                u"__glyph__",
+                u"__joe__",
+                u"__sagen__",
+                u"__twisted__",
+                u"__wsanchez__",
             ),
         )
 
@@ -480,7 +481,7 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "fullNames", "Wilfredo",
+                u"fullNames", u"Wilfredo",
                 matchType=MatchType.startsWith,
                 flags=MatchFlags.NOT,
             ),
@@ -488,17 +489,17 @@ class DirectoryServiceQueryTest(BaseTest):
         self.assertRecords(
             records,
             (
-                '__alyssa__',
-                '__calendar-dev__',
-                '__cdaboo__',
-                '__developers__',
-                '__dre__',
-                '__dreid__',
-                '__exarkun__',
-                '__glyph__',
-                '__joe__',
-                '__sagen__',
-                '__twisted__',
+                u"__alyssa__",
+                u"__calendar-dev__",
+                u"__cdaboo__",
+                u"__developers__",
+                u"__dre__",
+                u"__dreid__",
+                u"__exarkun__",
+                u"__glyph__",
+                u"__joe__",
+                u"__sagen__",
+                u"__twisted__",
             ),
         )
 
@@ -508,12 +509,12 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "shortNames", "WIL",
+                u"shortNames", u"WIL",
                 matchType=MatchType.startsWith,
                 flags=MatchFlags.caseInsensitive,
             ),
         ))
-        self.assertRecords(records, ("__wsanchez__",))
+        self.assertRecords(records, (u"__wsanchez__",))
 
 
     @inlineCallbacks
@@ -521,12 +522,12 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "fullNames", "wilfrEdo",
+                u"fullNames", u"wilfrEdo",
                 matchType=MatchType.startsWith,
                 flags=MatchFlags.caseInsensitive,
             ),
         ))
-        self.assertRecords(records, ("__wsanchez__",))
+        self.assertRecords(records, (u"__wsanchez__",))
 
 
     @inlineCallbacks
@@ -534,20 +535,20 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "shortNames", "sanchez",
+                u"shortNames", u"sanchez",
                 matchType=MatchType.contains
             ),
         ))
-        self.assertRecords(records, ("__wsanchez__",))
+        self.assertRecords(records, (u"__wsanchez__",))
 
 
     @inlineCallbacks
     def test_queryContainsNoIndex(self):
         service = self.service()
         records = yield service.recordsFromQuery((
-            service.query("fullNames", "fred", matchType=MatchType.contains),
+            service.query(u"fullNames", u"fred", matchType=MatchType.contains),
         ))
-        self.assertRecords(records, ("__wsanchez__",))
+        self.assertRecords(records, (u"__wsanchez__",))
 
 
     @inlineCallbacks
@@ -555,7 +556,7 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "shortNames", "sanchez",
+                u"shortNames", u"sanchez",
                 matchType=MatchType.contains,
                 flags=MatchFlags.NOT,
             ),
@@ -563,17 +564,17 @@ class DirectoryServiceQueryTest(BaseTest):
         self.assertRecords(
             records,
             (
-                '__alyssa__',
-                '__calendar-dev__',
-                '__cdaboo__',
-                '__developers__',
-                '__dre__',
-                '__dreid__',
-                '__exarkun__',
-                '__glyph__',
-                '__joe__',
-                '__sagen__',
-                '__twisted__',
+                u"__alyssa__",
+                u"__calendar-dev__",
+                u"__cdaboo__",
+                u"__developers__",
+                u"__dre__",
+                u"__dreid__",
+                u"__exarkun__",
+                u"__glyph__",
+                u"__joe__",
+                u"__sagen__",
+                u"__twisted__",
             ),
         )
 
@@ -583,7 +584,7 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "fullNames", "fred",
+                u"fullNames", u"fred",
                 matchType=MatchType.contains,
                 flags=MatchFlags.NOT,
             ),
@@ -591,17 +592,17 @@ class DirectoryServiceQueryTest(BaseTest):
         self.assertRecords(
             records,
             (
-                '__alyssa__',
-                '__calendar-dev__',
-                '__cdaboo__',
-                '__developers__',
-                '__dre__',
-                '__dreid__',
-                '__exarkun__',
-                '__glyph__',
-                '__joe__',
-                '__sagen__',
-                '__twisted__',
+                u"__alyssa__",
+                u"__calendar-dev__",
+                u"__cdaboo__",
+                u"__developers__",
+                u"__dre__",
+                u"__dreid__",
+                u"__exarkun__",
+                u"__glyph__",
+                u"__joe__",
+                u"__sagen__",
+                u"__twisted__",
             ),
         )
 
@@ -611,12 +612,12 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "shortNames", "Sanchez",
+                u"shortNames", u"Sanchez",
                 matchType=MatchType.contains,
                 flags=MatchFlags.caseInsensitive,
             ),
         ))
-        self.assertRecords(records, ("__wsanchez__",))
+        self.assertRecords(records, (u"__wsanchez__",))
 
 
     @inlineCallbacks
@@ -624,12 +625,12 @@ class DirectoryServiceQueryTest(BaseTest):
         service = self.service()
         records = yield service.recordsFromQuery((
             service.query(
-                "fullNames", "frEdo",
+                u"fullNames", u"frEdo",
                 matchType=MatchType.contains,
                 flags=MatchFlags.caseInsensitive,
             ),
         ))
-        self.assertRecords(records, ("__wsanchez__",))
+        self.assertRecords(records, (u"__wsanchez__",))
 
 
 
@@ -638,27 +639,27 @@ class DirectoryServiceMutableTest(BaseTest):
     def test_updateRecord(self):
         service = self.service()
 
-        record = (yield service.recordWithUID("__wsanchez__"))
+        record = (yield service.recordWithUID(u"__wsanchez__"))
 
         fields = record.fields.copy()
-        fields[service.fieldName.fullNames] = ["Wilfredo Sanchez Vega"]
+        fields[service.fieldName.fullNames] = [u"Wilfredo Sanchez Vega"]
 
         updatedRecord = DirectoryRecord(service, fields)
         yield service.updateRecords((updatedRecord,))
 
         # Verify change is present immediately
-        record = (yield service.recordWithUID("__wsanchez__"))
+        record = (yield service.recordWithUID(u"__wsanchez__"))
         self.assertEquals(
             set(record.fullNames),
-            set(("Wilfredo Sanchez Vega",))
+            set((u"Wilfredo Sanchez Vega",))
         )
 
         # Verify change is persisted
         service.flush()
-        record = (yield service.recordWithUID("__wsanchez__"))
+        record = (yield service.recordWithUID(u"__wsanchez__"))
         self.assertEquals(
             set(record.fullNames),
-            set(("Wilfredo Sanchez Vega",))
+            set((u"Wilfredo Sanchez Vega",))
         )
 
 
@@ -669,22 +670,22 @@ class DirectoryServiceMutableTest(BaseTest):
         newRecord = DirectoryRecord(
             service,
             fields={
-                service.fieldName.uid:        "__plugh__",
+                service.fieldName.uid:        u"__plugh__",
                 service.fieldName.recordType: service.recordType.user,
-                service.fieldName.shortNames: ("plugh",),
+                service.fieldName.shortNames: (u"plugh",),
             }
         )
 
         yield service.updateRecords((newRecord,), create=True)
 
         # Verify change is present immediately
-        record = (yield service.recordWithUID("__plugh__"))
-        self.assertEquals(set(record.shortNames), set(("plugh",)))
+        record = (yield service.recordWithUID(u"__plugh__"))
+        self.assertEquals(set(record.shortNames), set((u"plugh",)))
 
         # Verify change is persisted
         service.flush()
-        record = (yield service.recordWithUID("__plugh__"))
-        self.assertEquals(set(record.shortNames), set(("plugh",)))
+        record = (yield service.recordWithUID(u"__plugh__"))
+        self.assertEquals(set(record.shortNames), set((u"plugh",)))
 
 
     def test_addRecordNoCreate(self):
@@ -693,9 +694,9 @@ class DirectoryServiceMutableTest(BaseTest):
         newRecord = DirectoryRecord(
             service,
             fields={
-                service.fieldName.uid:        "__plugh__",
+                service.fieldName.uid:        u"__plugh__",
                 service.fieldName.recordType: service.recordType.user,
-                service.fieldName.shortNames: ("plugh",),
+                service.fieldName.shortNames: (u"plugh",),
             }
         )
 
@@ -709,20 +710,20 @@ class DirectoryServiceMutableTest(BaseTest):
     def test_removeRecord(self):
         service = self.service()
 
-        yield service.removeRecords(("__wsanchez__",))
+        yield service.removeRecords((u"__wsanchez__",))
 
         # Verify change is present immediately
-        self.assertEquals((yield service.recordWithUID("__wsanchez__")), None)
+        self.assertEquals((yield service.recordWithUID(u"__wsanchez__")), None)
 
         # Verify change is persisted
         service.flush()
-        self.assertEquals((yield service.recordWithUID("__wsanchez__")), None)
+        self.assertEquals((yield service.recordWithUID(u"__wsanchez__")), None)
 
 
     def test_removeRecordNoExist(self):
         service = self.service()
 
-        return service.removeRecords(("__plugh__",))
+        return service.removeRecords((u"__plugh__",))
 
 
 
@@ -731,31 +732,31 @@ class DirectoryRecordTest(BaseTest, test_directory.BaseDirectoryRecordTest):
     def test_members(self):
         service = self.service()
 
-        record = (yield service.recordWithUID("__wsanchez__"))
+        record = (yield service.recordWithUID(u"__wsanchez__"))
         members = (yield record.members())
         self.assertEquals(set(members), set())
 
-        record = (yield service.recordWithUID("__twisted__"))
+        record = (yield service.recordWithUID(u"__twisted__"))
         members = (yield record.members())
         self.assertEquals(
             set((member.uid for member in members)),
             set((
-                "__wsanchez__",
-                "__glyph__",
-                "__exarkun__",
-                "__dreid__",
-                "__dre__",
+                u"__wsanchez__",
+                u"__glyph__",
+                u"__exarkun__",
+                u"__dreid__",
+                u"__dre__",
             ))
         )
 
-        record = (yield service.recordWithUID("__developers__"))
+        record = (yield service.recordWithUID(u"__developers__"))
         members = (yield record.members())
         self.assertEquals(
             set((member.uid for member in members)),
             set((
-                "__calendar-dev__",
-                "__twisted__",
-                "__alyssa__",
+                u"__calendar-dev__",
+                u"__twisted__",
+                u"__alyssa__",
             ))
         )
 
@@ -763,13 +764,13 @@ class DirectoryRecordTest(BaseTest, test_directory.BaseDirectoryRecordTest):
     def test_groups(self):
         service = self.service()
 
-        record = (yield service.recordWithUID("__wsanchez__"))
+        record = (yield service.recordWithUID(u"__wsanchez__"))
         groups = (yield record.groups())
         self.assertEquals(
             set(group.uid for group in groups),
             set((
-                "__calendar-dev__",
-                "__twisted__",
+                u"__calendar-dev__",
+                u"__twisted__",
             ))
         )
 
@@ -806,7 +807,7 @@ def xmlService(tmp, xmlData=None, serviceClass=None):
 
 
 
-testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
+testXMLConfig = b"""<?xml version="1.0" encoding="utf-8"?>
 
 <directory realm="xyzzy">
 

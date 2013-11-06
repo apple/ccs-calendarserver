@@ -66,10 +66,13 @@ class MatchExpression(object):
     """
     Query for a matching value in a given field.
 
-    @ivar fieldName: a L{NamedConstant} specifying the field
-    @ivar fieldValue: a text value to match
-    @ivar matchType: a L{NamedConstant} specifying the match algorythm
-    @ivar flags: L{NamedConstant} specifying additional options
+    @ivar fieldName: A L{NamedConstant} specifying the field.
+
+    @ivar fieldValue: A value to match.
+
+    @ivar matchType: A L{NamedConstant} specifying the match algorithm.
+
+    @ivar flags: A L{NamedConstant} specifying additional options.
     """
 
     def __init__(
@@ -81,6 +84,7 @@ class MatchExpression(object):
         self.fieldValue = fieldValue
         self.matchType  = matchType
         self.flags      = flags
+
 
     def __repr__(self):
         def describe(constant):

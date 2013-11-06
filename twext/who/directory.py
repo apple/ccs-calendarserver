@@ -24,8 +24,6 @@ __all__ = [
     "DirectoryRecord",
 ]
 
-from uuid import UUID
-
 from zope.interface import implementer
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -87,7 +85,6 @@ class DirectoryService(object):
     fieldName  = FieldName
 
     normalizedFields = {
-        FieldName.guid: lambda g: UUID(g).hex,
         FieldName.emailAddresses: lambda e: bytes(e).lower(),
     }
 
