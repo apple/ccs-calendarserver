@@ -936,7 +936,7 @@ class CommonStoreTransaction(object):
             savepoint = SavepointAction("groupByGUID")
             yield savepoint.acquire(self)
             try:
-                groupID = (yield self.addGroup(groupGUID, "", ""))[0][0]
+                yield self.addGroup(groupGUID, "", "")
             except Exception:
                 yield savepoint.rollback(self)
                 results = (yield self._groupByGUID.on(self,
@@ -1137,6 +1137,7 @@ class CommonStoreTransaction(object):
             return self._removeDelegateQuery.on(self, delegator=delegator,
                 delegate=delegate, readWrite=readWrite)
 
+    """
     def directDelegates(self, delegator, readWrite):
         return self._selectDelegatesQuery.on(self, delegator=delegator,
             readWrite=readWrite)
@@ -1144,6 +1145,7 @@ class CommonStoreTransaction(object):
     def groupDelegates(self, delegator, readWrite):
         return self._selectDelegateGroupssQuery.on(self, delegator=delegator,
             readWrite=readWrite)
+    """
 
     @inlineCallbacks
     def delegates(self, delegator, readWrite):
@@ -1171,6 +1173,17 @@ class CommonStoreTransaction(object):
         results.extend((yield self._selectIndirectDelegatorsQuery.on(self,
             delegate=delegate, readWrite=readWrite)))
         returnValue(results)
+
+
+    def allGroupDelegates(self):
+        gr = schema.GROUPS
+        dg = schema.DELEGATE_GROUPS
+
+        return Select(
+            [gr.GROUP_GUID],
+            From=gr,
+            Where=(gr.GROUP_ID.In(Select([dg.GROUP_ID], From=dg, Where=None)))
+        ).on(self)
 
     # End of Delegates
 

@@ -19,7 +19,7 @@ Delegates implementation tests
 """
 
 from twext.who.delegates import (
-    addDelegate, removeDelegate, delegatesOf, delegateFor
+    addDelegate, removeDelegate, delegatesOf, delegateFor, allGroupDelegates
 )
 from twext.who.groups import GroupCacher
 from twext.who.test.test_xml import xmlService
@@ -104,6 +104,15 @@ class DelegationTest(StoreTestCase):
         delegators = (yield delegateFor(txn, delegate1, True))
         self.assertEquals(["wsanchez"], [d.shortNames[0] for d in delegators])
 
+        # Verify we can ask for all delegated-to groups
+        group2 = yield self.xmlService.recordWithUID("__sub_group_1__")
+        yield addDelegate(txn, delegator, group2, True)
+        groups = (yield allGroupDelegates(txn))
+        self.assertEquals(
+            set([
+                "49b350c69611477b94d95516b13856ab",
+                "86144f73345a409782f1b782672087c7"
+                ]), set(groups))
 
 
 

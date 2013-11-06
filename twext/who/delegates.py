@@ -33,15 +33,7 @@ def addDelegate(txn, delegator, delegate, readWrite):
     """
     if delegate.recordType == RecordType.group:
         # find the groupID
-        results = (yield txn.groupByGUID(delegate.guid))
-        while not results:
-            # need to add the group to the groups table so we have a groupID
-
-            # TODO: is there a better pattern for this?
-            yield txn.addGroup(delegate.guid, delegate.fullNames[0], "")
-            results = (yield txn.groupByGUID(delegate.guid))
-
-        groupID = results[0][0]
+        groupID, name, membershipHash = (yield txn.groupByGUID(delegate.guid))
         yield txn.addDelegate(delegator.guid, groupID,
             1 if readWrite else 0, True)
     else:
@@ -87,3 +79,9 @@ def delegateFor(txn, delegate, readWrite):
             if record is not None:
                 records.append(record)
     returnValue(records)
+
+
+@inlineCallbacks
+def allGroupDelegates(txn):
+    results = (yield txn.allGroupDelegates())
+    returnValue([r[0] for r in results])
