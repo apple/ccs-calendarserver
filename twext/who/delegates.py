@@ -34,19 +34,23 @@ def addDelegate(txn, delegator, delegate, readWrite):
     if delegate.recordType == RecordType.group:
         # find the groupID
         groupID, name, membershipHash = (yield txn.groupByGUID(delegate.guid))
-        yield txn.addDelegate(delegator.guid, groupID,
-            1 if readWrite else 0, True)
+        yield txn.addDelegateGroup(delegator.guid, groupID, readWrite)
     else:
-        yield txn.addDelegate(delegator.guid, delegate.guid,
-            1 if readWrite else 0, False)
+        yield txn.addDelegate(delegator.guid, delegate.guid, readWrite)
         
 
+@inlineCallbacks
 def removeDelegate(txn, delegator, delegate, readWrite):
     """
     Args are records
     """
-    return txn.removeDelegate(delegator.guid, delegate.guid,
-        1 if readWrite else 0, delegate.recordType==RecordType.group)
+    if delegate.recordType == RecordType.group:
+        # find the groupID
+        groupID, name, membershipHash = (yield txn.groupByGUID(delegate.guid))
+        yield txn.removeDelegateGroup(delegator.guid, groupID, readWrite)
+    else:
+        yield txn.removeDelegate(delegator.guid, delegate.guid,
+            readWrite)
 
 
 @inlineCallbacks
@@ -56,32 +60,30 @@ def delegatesOf(txn, delegator, readWrite):
     """
     records = []
     directory = delegator.service
-    results = (yield txn.delegates(delegator.guid, 1 if readWrite else 0))
-    for row in results:
-        if row[0] != delegator.guid:
-            record = (yield directory.recordWithGUID(row[0]))
+    delegateGUIDs = (yield txn.delegates(delegator.guid, readWrite))
+    for guid in delegateGUIDs:
+        if guid != delegator.guid:
+            record = (yield directory.recordWithGUID(guid))
             if record is not None:
                 records.append(record)
     returnValue(records)
 
 
 @inlineCallbacks
-def delegateFor(txn, delegate, readWrite):
+def delegatedTo(txn, delegate, readWrite):
     """
     Args are records
     """
     records = []
     directory = delegate.service
-    results = (yield txn.delegators(delegate.guid, 1 if readWrite else 0))
-    for row in results:
-        if row[0] != delegate.guid:
-            record = (yield directory.recordWithGUID(row[0]))
+    delegatorGUIDs = (yield txn.delegators(delegate.guid, readWrite))
+    for guid in delegatorGUIDs:
+        if guid != delegate.guid:
+            record = (yield directory.recordWithGUID(guid))
             if record is not None:
                 records.append(record)
     returnValue(records)
 
 
-@inlineCallbacks
 def allGroupDelegates(txn):
-    results = (yield txn.allGroupDelegates())
-    returnValue([r[0] for r in results])
+    return txn.allGroupDelegates()

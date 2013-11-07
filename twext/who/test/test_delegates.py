@@ -19,12 +19,13 @@ Delegates implementation tests
 """
 
 from twext.who.delegates import (
-    addDelegate, removeDelegate, delegatesOf, delegateFor, allGroupDelegates
+    addDelegate, removeDelegate, delegatesOf, delegatedTo, allGroupDelegates
 )
 from twext.who.groups import GroupCacher
 from twext.who.test.test_xml import xmlService
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.test.util import StoreTestCase
+from twext.who.idirectory import RecordType
 
 class DelegationTest(StoreTestCase):
 
@@ -53,7 +54,7 @@ class DelegationTest(StoreTestCase):
         yield addDelegate(txn, delegator, delegate1, True)
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(["sagen"], [d.shortNames[0] for d in delegates])
-        delegators = (yield delegateFor(txn, delegate1, True))
+        delegators = (yield delegatedTo(txn, delegate1, True))
         self.assertEquals(["wsanchez"], [d.shortNames[0] for d in delegators])
 
         # Add another delegate
@@ -61,21 +62,21 @@ class DelegationTest(StoreTestCase):
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(set(["sagen", "cdaboo"]),
             set([d.shortNames[0] for d in delegates]))
-        delegators = (yield delegateFor(txn, delegate2, True))
+        delegators = (yield delegatedTo(txn, delegate2, True))
         self.assertEquals(["wsanchez"], [d.shortNames[0] for d in delegators])
 
         # Remove 1 delegate
         yield removeDelegate(txn, delegator, delegate1, True)
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(["cdaboo"], [d.shortNames[0] for d in delegates])
-        delegators = (yield delegateFor(txn, delegate1, True))
+        delegators = (yield delegatedTo(txn, delegate1, True))
         self.assertEquals(0, len(delegators))
 
         # Remove the other delegate
         yield removeDelegate(txn, delegator, delegate2, True)
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(0, len(delegates))
-        delegators = (yield delegateFor(txn, delegate2, True))
+        delegators = (yield delegatedTo(txn, delegate2, True))
         self.assertEquals(0, len(delegators))
 
 
@@ -85,8 +86,9 @@ class DelegationTest(StoreTestCase):
         txn = store.newTransaction()
 
         delegator = yield self.xmlService.recordWithUID("__wsanchez__")
-        group1 = yield self.xmlService.recordWithUID("__top_group_1__")
         delegate1 = yield self.xmlService.recordWithUID("__sagen__")
+        group1 = yield self.xmlService.recordWithUID("__top_group_1__")
+        group2 = yield self.xmlService.recordWithUID("__sub_group_1__")
 
         # Add group delegate, but before the group membership has been
         # pulled in
@@ -96,16 +98,16 @@ class DelegationTest(StoreTestCase):
 
         # Now refresh the group and there will be 3 delegates (contained
         # within 2 nested groups)
-        guid = "49b350c69611477b94d95516b13856ab"
-        yield self.groupCacher.refreshGroup(txn, guid)
+        # guid = "49b350c69611477b94d95516b13856ab"
+        yield self.groupCacher.refreshGroup(txn, group1.guid)
+        yield self.groupCacher.refreshGroup(txn, group2.guid)
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(set(["sagen", "cdaboo", "glyph"]),
             set([d.shortNames[0] for d in delegates]))
-        delegators = (yield delegateFor(txn, delegate1, True))
+        delegators = (yield delegatedTo(txn, delegate1, True))
         self.assertEquals(["wsanchez"], [d.shortNames[0] for d in delegators])
 
         # Verify we can ask for all delegated-to groups
-        group2 = yield self.xmlService.recordWithUID("__sub_group_1__")
         yield addDelegate(txn, delegator, group2, True)
         groups = (yield allGroupDelegates(txn))
         self.assertEquals(
@@ -113,6 +115,37 @@ class DelegationTest(StoreTestCase):
                 "49b350c69611477b94d95516b13856ab",
                 "86144f73345a409782f1b782672087c7"
                 ]), set(groups))
+
+        # Delegate to a user who is already indirectly delegated-to 
+        yield addDelegate(txn, delegator, delegate1, True)
+        delegates = (yield delegatesOf(txn, delegator, True))
+        self.assertEquals(set(["sagen", "cdaboo", "glyph"]),
+            set([d.shortNames[0] for d in delegates]))
+
+        # Add a member to the group; they become a delegate
+        newSet = set()
+        for name in ("wsanchez", "cdaboo", "sagen", "glyph", "dre"):
+            record = (yield self.xmlService.recordWithShortName(RecordType.user,
+                name))
+            newSet.add(record.guid)
+        groupID, name, membershipHash = (yield txn.groupByGUID(group1.guid))
+        numAdded, numRemoved = (yield self.groupCacher.synchronizeMembers(txn,
+            groupID, newSet))
+        delegates = (yield delegatesOf(txn, delegator, True))
+        self.assertEquals(set(["sagen", "cdaboo", "glyph", "dre"]),
+            set([d.shortNames[0] for d in delegates]))
+
+        # Remove delegate access from the top group
+        yield removeDelegate(txn, delegator, group1, True)
+        delegates = (yield delegatesOf(txn, delegator, True))
+        self.assertEquals(set(["sagen", "cdaboo"]),
+            set([d.shortNames[0] for d in delegates]))
+
+        # Remove delegate access from the sub group
+        yield removeDelegate(txn, delegator, group2, True)
+        delegates = (yield delegatesOf(txn, delegator, True))
+        self.assertEquals(set(["sagen"]),
+            set([d.shortNames[0] for d in delegates]))
 
 
 

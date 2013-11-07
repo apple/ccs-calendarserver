@@ -75,15 +75,19 @@ class GroupCacherTest(StoreTestCase):
         self.assertEquals(membershipHash, "e90052eb63d47f32d5b03df0073f7854")
 
         results = (yield txn.membersOfGroup(groupID))
-        for row in results:
-            print row[0]
+        self.assertEquals(
+            set(["9064df911dbc4e079c2b6839b0953876",
+                 "4ad155cbae9b475f986ce08a7537893e",
+                 "3bdcb95484d54f6d8035eac19a6d6e1f",
+                 "7d45cb10479e456bb54d528958c5734b"]),
+            set([r[0] for r in results])
+        )
 
         records = (yield self.groupCacher.cachedMembers(txn, groupID))
         self.assertEquals(
             set([r.shortNames[0] for r in records]),
             set(["wsanchez", "cdaboo", "glyph", "sagen"])
         )
-        print records
 
 
     @inlineCallbacks

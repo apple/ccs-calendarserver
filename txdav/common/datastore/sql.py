@@ -1016,6 +1016,7 @@ class CommonStoreTransaction(object):
                        de.READ_WRITE: Parameter("readWrite"),
                        })
 
+
     @classproperty
     def _addDelegateGroupQuery(cls): #@NoSelf
         ds = schema.DELEGATE_GROUPS
@@ -1023,6 +1024,7 @@ class CommonStoreTransaction(object):
                        ds.GROUP_ID: Parameter("groupID"),
                        ds.READ_WRITE: Parameter("readWrite"),
                        })
+
 
     @classproperty
     def _removeDelegateQuery(cls): #@NoSelf
@@ -1033,6 +1035,7 @@ class CommonStoreTransaction(object):
                    de.READ_WRITE == Parameter("readWrite"))
             )
 
+
     @classproperty
     def _removeDelegateGroupQuery(cls): #@NoSelf
         ds = schema.DELEGATE_GROUPS
@@ -1042,6 +1045,7 @@ class CommonStoreTransaction(object):
                    ds.READ_WRITE == Parameter("readWrite"))
             )
 
+
     @classproperty
     def _selectDelegatesQuery(cls): #@NoSelf
         de = schema.DELEGATES
@@ -1049,6 +1053,7 @@ class CommonStoreTransaction(object):
                 Where=(de.DELEGATOR == Parameter("delegator")).And(
                     de.READ_WRITE == Parameter("readWrite"))
                 )
+
 
     @classproperty
     def _selectDelegateGroupsQuery(cls): #@NoSelf
@@ -1059,6 +1064,7 @@ class CommonStoreTransaction(object):
                     ds.READ_WRITE == Parameter("readWrite"))
                 )
 
+
     @classproperty
     def _selectDirectDelegatorsQuery(cls): #@NoSelf
         de = schema.DELEGATES
@@ -1068,17 +1074,6 @@ class CommonStoreTransaction(object):
                     de.READ_WRITE == Parameter("readWrite"))
                 )
 
-    """
-    @classproperty
-    def _selectDelegatorsGroupsQuery(cls): #@NoSelf
-        ds = schema.DELEGATE_GROUPS
-        return Select([ds.DELEGATOR], From=ds,
-                Where=(
-                    ds.GROUP_ID == Parameter("groupID").And(
-                    ds.READ_WRITE == Parameter("readWrite"))
-                )
-            )
-    """
 
     @classproperty
     def _selectIndirectDelegatorsQuery(cls): #@NoSelf
@@ -1101,6 +1096,7 @@ class CommonStoreTransaction(object):
             )
         )
 
+
     @classproperty
     def _selectIndirectDelegatesQuery(cls): #@NoSelf
         dg = schema.DELEGATE_GROUPS
@@ -1121,69 +1117,165 @@ class CommonStoreTransaction(object):
             )
         )
 
-    def addDelegate(self, delegator, delegate, readWrite, isGroup):
-        if isGroup:
-            return self._addDelegateGroupQuery.on(self, delegator=delegator,
-                groupID=delegate, readWrite=readWrite)
-        else:
-            return self._addDelegateQuery.on(self, delegator=delegator,
-                delegate=delegate, readWrite=readWrite)
 
-    def removeDelegate(self, delegator, delegate, readWrite, isGroup):
-        if isGroup:
-            return self._removeDelegateGroupQuery.on(self, delegator=delegator,
-                groupID=delegate, readWrite=readWrite)
-        else:
-            return self._removeDelegateQuery.on(self, delegator=delegator,
-                delegate=delegate, readWrite=readWrite)
+    def addDelegate(self, delegator, delegate, readWrite):
+        """
+        Adds a row to the DELEGATES table.  The delegate should not be a
+        group.  To delegate to a group, call addDelegateGroup() instead.
 
-    """
-    def directDelegates(self, delegator, readWrite):
-        return self._selectDelegatesQuery.on(self, delegator=delegator,
-            readWrite=readWrite)
+        @param delegator: the GUID of the delegator
+        @type delegator: C{str} in normalized form (lowercase, no dashes)
+        @param delegate: the GUID of the delegate
+        @type delegate: C{str} in normalized form (lowercase, no dashes)
+        @param readWrite: grant read and write access if True, otherwise
+            read-only access
+        @type readWrite: C{boolean}
+        """
+        return self._addDelegateQuery.on(self, delegator=delegator,
+            delegate=delegate, readWrite=1 if readWrite else 0)
 
-    def groupDelegates(self, delegator, readWrite):
-        return self._selectDelegateGroupssQuery.on(self, delegator=delegator,
-            readWrite=readWrite)
-    """
+
+    def addDelegateGroup(self, delegator, delegateGroupID, readWrite):
+        """
+        Adds a row to the DELEGATE_GROUPS table.  The delegate should be a
+        group.  To delegate to a person, call addDelegate() instead.
+
+        @param delegator: the GUID of the delegator
+        @type delegator: C{str} in normalized form (lowercase, no dashes)
+        @param delegateGroupID: the GROUP_ID of the delegate group
+        @type delegateGroupID: C{int}
+        @param readWrite: grant read and write access if True, otherwise
+            read-only access
+        @type readWrite: C{boolean}
+        """
+        return self._addDelegateGroupQuery.on(self, delegator=delegator,
+            groupID=delegateGroupID, readWrite=1 if readWrite else 0)
+
+
+    def removeDelegate(self, delegator, delegate, readWrite):
+        """
+        Removes a row from the DELEGATES table.  The delegate should not be a
+        group.  To remove a delegate group, call removeDelegateGroup() instead.
+
+        @param delegator: the GUID of the delegator
+        @type delegator: C{str} in normalized form (lowercase, no dashes)
+        @param delegate: the GUID of the delegate
+        @type delegate: C{str} in normalized form (lowercase, no dashes)
+        @param readWrite: remove read and write access if True, otherwise
+            read-only access
+        @type readWrite: C{boolean}
+        """
+        return self._removeDelegateQuery.on(self, delegator=delegator,
+            delegate=delegate, readWrite=1 if readWrite else 0)
+
+
+    def removeDelegateGroup(self, delegator, delegateGroupID, readWrite):
+        """
+        Removes a row from the DELEGATE_GROUPS table.  The delegate should be a
+        group.  To remove a delegate person, call removeDelegate() instead.
+
+        @param delegator: the GUID of the delegator
+        @type delegator: C{str} in normalized form (lowercase, no dashes)
+        @param delegateGroupID: the GROUP_ID of the delegate group
+        @type delegateGroupID: C{int}
+        @param readWrite: remove read and write access if True, otherwise
+            read-only access
+        @type readWrite: C{boolean}
+        """
+        return self._removeDelegateGroupQuery.on(self, delegator=delegator,
+            groupID=delegateGroupID, readWrite=1 if readWrite else 0)
+
 
     @inlineCallbacks
     def delegates(self, delegator, readWrite):
+        """
+        Returns the GUIDs of all delegates for the given delegator.  If
+        delegate access was granted to any groups, those groups' members
+        (flattened) will be included. No GUIDs of the groups themselves
+        will be returned.
+
+        @param delegator: the GUID of the delegator
+        @type delegator: C{str} in normalized form (lowercase, no dashes)
+        @param readWrite: the access-type to check for; read and write
+            access if True, otherwise read-only access
+        @type readWrite: C{boolean}
+        @returns: the GUIDs of the delegates (for the specified access
+            type)
+        @rtype: a Deferred resulting in a set
+        """
+        delegates = set()
 
         # First get the direct delegates
         results = (yield self._selectDelegatesQuery.on(self,
-            delegator=delegator, readWrite=readWrite))
+            delegator=delegator, readWrite=1 if readWrite else 0))
+        for row in results:
+            delegates.add(row[0])
 
         # Finally get those who are in groups which have been delegated to
-        results.extend((yield self._selectIndirectDelegatesQuery.on(self,
-            delegator=delegator, readWrite=readWrite)))
+        results = (yield self._selectIndirectDelegatesQuery.on(self,
+            delegator=delegator, readWrite=1 if readWrite else 0))
+        for row in results:
+            delegates.add(row[0])
 
-        returnValue(results)
+        returnValue(delegates)
 
 
     @inlineCallbacks
     def delegators(self, delegate, readWrite):
+        """
+        Returns the GUIDs of all delegators which have granted access to
+        the given delegate, either directly or indirectly via groups.
+
+        @param delegate: the GUID of the delegate
+        @type delegate: C{str} in normalized form (lowercase, no dashes)
+        @param readWrite: the access-type to check for; read and write
+            access if True, otherwise read-only access
+        @type readWrite: C{boolean}
+        @returns: the GUIDs of the delegators (for the specified access
+            type)
+        @rtype: a Deferred resulting in a set
+        """
+        delegators = set()
 
         # First get the direct delegators
         results = (yield self._selectDirectDelegatorsQuery.on(self,
-            delegate=delegate, readWrite=readWrite))
+            delegate=delegate, readWrite=1 if readWrite else 0))
+        for row in results:
+            delegators.add(row[0])
 
         # Finally get those who have delegated to groups the delegate
         # is a member of
-        results.extend((yield self._selectIndirectDelegatorsQuery.on(self,
-            delegate=delegate, readWrite=readWrite)))
-        returnValue(results)
+        results = (yield self._selectIndirectDelegatorsQuery.on(self,
+            delegate=delegate, readWrite=1 if readWrite else 0))
+        for row in results:
+            delegators.add(row[0])
+
+        returnValue(delegators)
 
 
+    @inlineCallbacks
     def allGroupDelegates(self):
+        """
+        Return the GUIDs of all groups which have been delegated to.  Useful
+        for obtaining the set of groups which need to be synchronized from
+        the directory.
+
+        @returns: the GUIDs of all delegated-to groups
+        @rtype: a Deferred resulting in a set
+        """
         gr = schema.GROUPS
         dg = schema.DELEGATE_GROUPS
 
-        return Select(
+        results = (yield Select(
             [gr.GROUP_GUID],
             From=gr,
             Where=(gr.GROUP_ID.In(Select([dg.GROUP_ID], From=dg, Where=None)))
-        ).on(self)
+        ).on(self))
+        delegates = set()
+        for row in results:
+            delegates.add(row[0])
+
+        returnValue(delegates)
 
     # End of Delegates
 

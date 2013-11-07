@@ -27,6 +27,7 @@ from txdav.common.datastore.sql_tables import schema
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twext.enterprise.dal.syntax import Delete
 from twext.who.idirectory import RecordType
+from twext.who.delegates import allGroupDelegates
 
 from twext.python.log import Logger
 log = Logger()
@@ -156,7 +157,9 @@ class GroupCacher(object):
 
     @inlineCallbacks
     def update(self, txn):
-        # Pull in external proxy assignments and stick in proxy db
+        # Pull in external delegate assignments and stick in delegate db
+        # TODO
+
         # Figure out which groups matter
         groupGUIDs = yield self.groupsToRefresh()
         # For each of those groups, create a per-group refresh work item
@@ -165,8 +168,6 @@ class GroupCacher(object):
                 datetime.timedelta(seconds=1))
             yield txn.enqueue(GroupRefreshWork,
                 groupGUID=groupGUID, notBefore=notBefore)
-
-        pass
 
 
     @inlineCallbacks
@@ -253,21 +254,11 @@ class GroupCacher(object):
 
 
     @inlineCallbacks
-    def groupsToRefresh(self):
-        delegatedGUIDs = set((yield self.proxyDB.getAllMembers()))
-        self.log.info("There are %d proxies" % (len(delegatedGUIDs),))
-        self.log.info("Retrieving group hierarchy from directory")
+    def groupsToRefresh(self, txn):
+        delegatedGUIDs = set((yield allGroupDelegates(txn)))
+        self.log.info("There are %d group delegates" % (len(delegatedGUIDs),))
 
-        # "groups" maps a group to its members; the keys and values consist
-        # of whatever directory attribute is used to refer to members.  The
-        # attribute value comes from record.cachedGroupsAlias().
-        # "aliases" maps the record.cachedGroupsAlias() value for a group
-        # back to the group's guid.
-        groups, aliases = (yield self.getGroups(guids=delegatedGUIDs))
-        groupGUIDs = set(aliases.keys())
-        self.log.info("%d groups retrieved from the directory" %
-            (len(groupGUIDs),))
+        # TODO: Retrieve the set of attendee group guids
+        attendeeGroupGUIDs = set()
 
-        delegatedGUIDs = delegatedGUIDs.intersection(groupGUIDs)
-        self.log.info("%d groups are proxies" % (len(delegatedGUIDs),))
-        returnValue(delegatedGUIDs)
+        returnValue(delegatedGUIDs.union(attendeeGroupGUIDs))
