@@ -194,12 +194,6 @@ class GroupCacher(object):
 
         yield txn.updateGroup(groupGUID, record.fullNames[0], membershipHash)
 
-        results = (yield txn.groupByGUID(groupGUID))
-        if len(results) == 1:
-            groupID, name, cachedMembershipHash = results[0]
-        else:
-            self.log.error("Multiple group entries for {guid}", guid=groupGUID)
-
         if membershipChanged:
             newMemberGUIDs = set()
             for member in members:
@@ -212,10 +206,7 @@ class GroupCacher(object):
     @inlineCallbacks
     def synchronizeMembers(self, txn, groupID, newMemberGUIDs):
         numRemoved = numAdded = 0
-        cachedMemberGUIDs = set()
-        results = (yield txn.membersOfGroup(groupID))
-        for row in results:
-            cachedMemberGUIDs.add(row[0])
+        cachedMemberGUIDs = (yield txn.membersOfGroup(groupID))
 
         for memberGUID in cachedMemberGUIDs:
             if memberGUID not in newMemberGUIDs:
@@ -233,9 +224,9 @@ class GroupCacher(object):
     @inlineCallbacks
     def cachedMembers(self, txn, groupID):
         members = set()
-        results = (yield txn.membersOfGroup(groupID))
-        for row in results:
-            record = (yield self.directory.recordWithGUID(row[0]))
+        memberGUIDs = (yield txn.membersOfGroup(groupID))
+        for guid in memberGUIDs:
+            record = (yield self.directory.recordWithGUID(guid))
             if record is not None:
                 members.add(record)
         returnValue(members)

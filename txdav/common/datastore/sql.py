@@ -1001,8 +1001,23 @@ class CommonStoreTransaction(object):
         return self._removeMemberFromGroupQuery.on(self,
             groupID=groupID, memberGUID=memberGUID)
 
+    @inlineCallbacks
     def membersOfGroup(self, groupID):
-        return self._selectGroupMembersQuery.on(self, groupID=groupID)
+        """
+        Returns the cached set of GUIDs for members of the given groupID.
+        Sub-groups are not returned in the results but their members are.
+
+        @param groupID: the group ID
+        @type groupID: C{int}
+        @return: the set of member GUIDs
+        @rtype: a Deferred which fires with a set() of C{str} GUIDs
+        """
+        members = set()
+        results = (yield self._selectGroupMembersQuery.on(self,
+            groupID=groupID))
+        for row in results:
+            members.add(row[0])
+        returnValue(members)
 
     # End of Group Members
 

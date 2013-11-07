@@ -41,6 +41,11 @@ class GroupCacherTest(StoreTestCase):
 
     @inlineCallbacks
     def test_expandedMembers(self):
+        """
+        Verify _expandedMembers() returns a "flattened" set of records
+        belonging to a group (and does not return sub-groups themselves,
+        only their members)
+        """
         record = yield self.xmlService.recordWithUID("__top_group_1__")
         memberUIDs = set()
         for member in (yield _expandedMembers(record)):
@@ -48,6 +53,7 @@ class GroupCacherTest(StoreTestCase):
         self.assertEquals(memberUIDs, set(["__cdaboo__",
             "__glyph__", "__sagen__", "__wsanchez__"]))
 
+        # Non group records return an empty set() of members
         record = yield self.xmlService.recordWithUID("__sagen__")
         members = yield _expandedMembers(record)
         self.assertEquals(0, len(list(members)))
@@ -63,24 +69,24 @@ class GroupCacherTest(StoreTestCase):
         store = self.storeUnderTest()
         txn = store.newTransaction()
 
-        guid = "49b350c69611477b94d95516b13856ab"
-        yield self.groupCacher.refreshGroup(txn, guid)
+        record = yield self.xmlService.recordWithUID("__top_group_1__")
+        yield self.groupCacher.refreshGroup(txn, record.guid)
 
-        groupID, name, membershipHash = (yield txn.groupByGUID(guid))
+        groupID, name, membershipHash = (yield txn.groupByGUID(record.guid))
         self.assertEquals(membershipHash, "e90052eb63d47f32d5b03df0073f7854")
 
         groupGUID, name, membershipHash = (yield txn.groupByID(groupID))
-        self.assertEquals(groupGUID, guid)
+        self.assertEquals(groupGUID, record.guid)
         self.assertEquals(name, "Top Group 1")
         self.assertEquals(membershipHash, "e90052eb63d47f32d5b03df0073f7854")
 
-        results = (yield txn.membersOfGroup(groupID))
+        members = (yield txn.membersOfGroup(groupID))
         self.assertEquals(
             set(["9064df911dbc4e079c2b6839b0953876",
                  "4ad155cbae9b475f986ce08a7537893e",
                  "3bdcb95484d54f6d8035eac19a6d6e1f",
                  "7d45cb10479e456bb54d528958c5734b"]),
-            set([r[0] for r in results])
+            members
         )
 
         records = (yield self.groupCacher.cachedMembers(txn, groupID))
