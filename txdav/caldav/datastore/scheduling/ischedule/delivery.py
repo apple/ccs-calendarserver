@@ -40,8 +40,7 @@ from twistedcaldav.config import config
 from twistedcaldav.ical import normalizeCUAddress, Component
 from twistedcaldav.util import utf8String
 
-from txdav.caldav.datastore.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser, \
-    OtherServerCalendarUser
+from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, OtherServerCalendarUser
 from txdav.caldav.datastore.scheduling.delivery import DeliveryService
 from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMRequest, DKIMUtils
 from txdav.caldav.datastore.scheduling.ischedule.remoteservers import IScheduleServerRecord
@@ -58,7 +57,7 @@ from urlparse import urlsplit
 
 """
 Handles the sending of iSchedule scheduling messages. Used for both cross-domain scheduling,
-as well as internal partitioning or podding.
+as well as internal podding.
 """
 
 __all__ = [
@@ -140,8 +139,6 @@ class ScheduleViaISchedule(DeliveryService):
             if isinstance(recipient, RemoteCalendarUser):
                 # Map the recipient's domain to a server
                 server = (yield self.serverForDomain(recipient.domain))
-            elif isinstance(recipient, PartitionedCalendarUser):
-                server = self._getServerForPartitionedUser(recipient)
             elif isinstance(recipient, OtherServerCalendarUser):
                 server = self._getServerForOtherServerUser(recipient)
             else:
@@ -184,23 +181,6 @@ class ScheduleViaISchedule(DeliveryService):
             deferreds.append(requestor.doRequest())
 
         yield DeferredList(deferreds)
-
-
-    def _getServerForPartitionedUser(self, recipient):
-
-        if not hasattr(self, "partitionedServers"):
-            self.partitionedServers = {}
-
-        partition = recipient.principal.partitionURI()
-        if partition not in self.partitionedServers:
-            self.partitionedServers[partition] = IScheduleServerRecord(
-                uri=joinURL(partition, config.Servers.InboxName),
-                unNormalizeAddresses=False,
-                moreHeaders=[recipient.principal.server().secretHeader(), ],
-                podding=True,
-            )
-
-        return self.partitionedServers[partition]
 
 
     def _getServerForOtherServerUser(self, recipient):

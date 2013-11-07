@@ -23,7 +23,7 @@ from twistedcaldav import xmlutil
 
 """
 XML based iSchedule configuration file handling. This is for handling of remote servers. The localservers.py module
-handles servers that are local (partitioned or podded).
+handles servers that are local (podded).
 """
 
 __all__ = [

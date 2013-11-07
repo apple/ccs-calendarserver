@@ -29,7 +29,7 @@ from twistedcaldav.ical import Property
 from txdav.caldav.datastore.scheduling import addressmapping
 from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
 from txdav.caldav.datastore.scheduling.cuaddress import InvalidCalendarUser, \
-    LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser, \
+    LocalCalendarUser, OtherServerCalendarUser, \
     normalizeCUAddr
 from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator, iTIPRequestStatus
@@ -251,7 +251,7 @@ class ImplicitScheduler(object):
         # to create new scheduling resources.
         if self.action == "create":
             if self.organizerPrincipal and not self.organizerPrincipal.enabledAsOrganizer():
-                log.error("ORGANIZER not allowed to be an Organizer: %s" % (self.organizer,))
+                log.error("ORGANIZER not allowed to be an Organizer: {organizer}", organizer=self.organizer)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "organizer-allowed"),
@@ -427,7 +427,7 @@ class ImplicitScheduler(object):
             self.organizer = self.calendar.validOrganizerForScheduling()
         except ValueError:
             # We have different ORGANIZERs in the same iCalendar object - this is an error
-            log.error("Only one ORGANIZER is allowed in an iCalendar object:\n%s" % (self.calendar,))
+            log.error("Only one ORGANIZER is allowed in an iCalendar object:\n{calendar}", calendar=self.calendar)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "single-organizer"),
@@ -462,7 +462,7 @@ class ImplicitScheduler(object):
         # Check for matching resource somewhere else in the home
         foundElsewhere = (yield self.calendar_home.hasCalendarResourceUIDSomewhereElse(self.uid, check_resource, mode))
         if foundElsewhere is not None:
-            log.debug("Implicit - found component with same UID in a different collection: %s" % (check_resource,))
+            log.debug("Implicit - found component with same UID in a different collection: {resource}", resource=check_resource)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "unique-scheduling-object-resource"),
@@ -531,7 +531,7 @@ class ImplicitScheduler(object):
         # Check for a delete
         if self.action == "remove":
 
-            log.debug("Implicit - organizer '%s' is removing UID: '%s'" % (self.organizer, self.uid))
+            log.debug("Implicit - organizer '{organizer}' is removing UID: '{uid}'", organizer=self.organizer, uid=self.uid)
             self.oldcalendar = self.calendar
 
             # Cancel all attendees
@@ -557,16 +557,16 @@ class ImplicitScheduler(object):
             no_change, self.changed_rids, self.needs_action_rids, reinvites, recurrence_reschedule = self.isOrganizerChangeInsignificant()
             if no_change:
                 if reinvites:
-                    log.debug("Implicit - organizer '%s' is re-inviting UID: '%s', attendees: %s" % (self.organizer, self.uid, ", ".join(reinvites)))
+                    log.debug("Implicit - organizer '{organizer}' is re-inviting UID: '{uid}', attendees: {attendees}", organizer=self.organizer, uid=self.uid, attendees=", ".join(reinvites))
                     self.reinvites = reinvites
                 else:
                     # Nothing to do
-                    log.debug("Implicit - organizer '%s' is modifying UID: '%s' but change is not significant" % (self.organizer, self.uid))
+                    log.debug("Implicit - organizer '{organizer}' is modifying UID: '{uid}' but change is not significant", organizer=self.organizer, uid=self.uid)
                     returnValue(None)
             else:
                 # Do not change PARTSTATs for a split operation
                 if self.split_details is None:
-                    log.debug("Implicit - organizer '%s' is modifying UID: '%s'" % (self.organizer, self.uid))
+                    log.debug("Implicit - organizer '{organizer}' is modifying UID: '{uid}'", organizer=self.organizer, uid=self.uid)
 
                     for rid in self.needs_action_rids:
                         comp = self.calendar.overriddenComponent(rid)
@@ -587,7 +587,7 @@ class ImplicitScheduler(object):
 
                                 attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
                 else:
-                    log.debug("Implicit - organizer '%s' is splitting UID: '%s'" % (self.organizer, self.uid))
+                    log.debug("Implicit - organizer '{organizer}' is splitting UID: '{uid}'", organizer=self.organizer, uid=self.uid)
 
                 # Check for removed attendees
                 if not recurrence_reschedule:
@@ -601,10 +601,10 @@ class ImplicitScheduler(object):
 
         elif self.action == "create":
             if self.split_details is None:
-                log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
+                log.debug("Implicit - organizer '{organizer}' is creating UID: '{uid}'", organizer=self.organizer, uid=self.uid)
                 self.coerceAttendeesPartstatOnCreate()
             else:
-                log.debug("Implicit - organizer '%s' is creating a split UID: '%s'" % (self.organizer, self.uid))
+                log.debug("Implicit - organizer '{organizer}' is creating a split UID: '{uid}'", organizer=self.organizer, uid=self.uid)
                 self.needs_sequence_change = False
 
         # Always set RSVP=TRUE for any NEEDS-ACTION
@@ -698,7 +698,7 @@ class ImplicitScheduler(object):
                 oldOrganizer = self.oldcalendar.getOrganizer()
                 newOrganizer = self.calendar.getOrganizer()
                 if oldOrganizer != newOrganizer:
-                    log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
+                    log.error("Cannot change ORGANIZER: UID:{uid}", uid=self.uid)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (caldav_namespace, "valid-organizer-change"),
@@ -906,7 +906,7 @@ class ImplicitScheduler(object):
                 if cuaddr not in coerced:
                     attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(cuaddr)
                     attendeeAddress = (yield addressmapping.mapper.getCalendarUser(cuaddr, attendeePrincipal))
-                    local_attendee = type(attendeeAddress) in (LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,)
+                    local_attendee = type(attendeeAddress) in (LocalCalendarUser, OtherServerCalendarUser,)
                     coerced[cuaddr] = local_attendee
                 if coerced[cuaddr]:
                     attendee.removeParameter("SCHEDULE-AGENT")
@@ -977,7 +977,7 @@ class ImplicitScheduler(object):
                 scheduler = self.makeScheduler()
 
                 # Do the PUT processing
-                log.info("Implicit CANCEL - organizer: '%s' to attendee: '%s', UID: '%s', RIDs: '%s'" % (self.organizer, attendee, self.uid, rids))
+                log.info("Implicit CANCEL - organizer: '{organizer}' to attendee: '{attendee}', UID: '{uid}', RIDs: '{rids}'", organizer=self.organizer, attendee=attendee, uid=self.uid, rids=rids)
                 response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, internal_request=True, suppress_refresh=self.suppress_refresh))
                 self.handleSchedulingResponse(response, True)
 
@@ -1034,7 +1034,7 @@ class ImplicitScheduler(object):
                 scheduler = self.makeScheduler()
 
                 # Do the PUT processing
-                log.info("Implicit REQUEST - organizer: '%s' to attendee: '%s', UID: '%s'" % (self.organizer, attendee, self.uid,))
+                log.info("Implicit REQUEST - organizer: '{organizer}' to attendee: '{attendee}', UID: '{uid}'", organizer=self.organizer, attendee=attendee, uid=self.uid)
                 response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, internal_request=True, suppress_refresh=self.suppress_refresh))
                 self.handleSchedulingResponse(response, True)
 
@@ -1069,19 +1069,19 @@ class ImplicitScheduler(object):
 
         if self.action == "remove":
             if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
-                log.debug("Implicit - attendee '%s' is removing cancelled UID: '%s'" % (self.attendee, self.uid))
+                log.debug("Implicit - attendee '{attendee}' is removing cancelled UID: '{uid}'", attendee=self.attendee, uid=self.uid)
                 # Nothing else to do
             elif doScheduling:
                 # If attendee is already marked as declined in all components - nothing to do
                 attendees = self.calendar.getAttendeeProperties((self.attendee,))
                 if all([attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED" for attendee in attendees]):
-                    log.debug("Implicit - attendee '%s' is removing fully declined UID: '%s'" % (self.attendee, self.uid))
+                    log.debug("Implicit - attendee '{attendee}' is removing fully declined UID: '{uid}'", attendee=self.attendee, uid=self.uid)
                     # Nothing else to do
                 else:
-                    log.debug("Implicit - attendee '%s' is cancelling UID: '%s'" % (self.attendee, self.uid))
+                    log.debug("Implicit - attendee '{attendee}' is cancelling UID: '{uid}'", attendee=self.attendee, uid=self.uid)
                     yield self.scheduleCancelWithOrganizer()
             else:
-                log.debug("Implicit - attendee '%s' is removing UID without server scheduling: '%s'" % (self.attendee, self.uid))
+                log.debug("Implicit - attendee '{attendee}' is removing UID without server scheduling: '{uid}'", attendee=self.attendee, uid=self.uid)
                 # Nothing else to do
             returnValue(None)
 
@@ -1092,7 +1092,7 @@ class ImplicitScheduler(object):
                 oldOrganizer = self.oldcalendar.getOrganizer()
                 newOrganizer = self.calendar.getOrganizer()
                 if oldOrganizer != newOrganizer:
-                    log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
+                    log.error("Cannot change ORGANIZER: UID:{uid}", uid=self.uid)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (caldav_namespace, "valid-attendee-change"),
@@ -1107,7 +1107,7 @@ class ImplicitScheduler(object):
 
                 # If Organizer copy exists we cannot allow SCHEDULE-AGENT=CLIENT or NONE
                 if not doScheduling:
-                    log.error("Attendee '%s' is not allowed to change SCHEDULE-AGENT on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
+                    log.error("Attendee '{attendee}' is not allowed to change SCHEDULE-AGENT on organizer: UID:{uid}", attendee=self.attendeePrincipal, uid=self.uid)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (caldav_namespace, "valid-attendee-change"),
@@ -1121,11 +1121,11 @@ class ImplicitScheduler(object):
 
                 if not changeAllowed:
                     if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
-                        log.debug("Attendee '%s' is creating CANCELLED event for mismatched UID: '%s' - removing entire event" % (self.attendee, self.uid,))
+                        log.debug("Attendee '{attendee}' is creating CANCELLED event for mismatched UID: '{uid}' - removing entire event", attendee=self.attendee, uid=self.uid)
                         self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT
                         returnValue(None)
                     else:
-                        log.error("Attendee '%s' is not allowed to make an unauthorized change to an organized event: UID:%s" % (self.attendeePrincipal, self.uid,))
+                        log.error("Attendee '{attendee}' is not allowed to make an unauthorized change to an organized event: UID:{uid}", attendee=self.attendeePrincipal, uid=self.uid)
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "valid-attendee-change"),
@@ -1135,21 +1135,21 @@ class ImplicitScheduler(object):
                 # Check that the return calendar actually has any components left - this can happen if a cancelled
                 # component is removed and replaced by another cancelled or invalid one
                 if self.calendar.mainType() is None:
-                    log.debug("Attendee '%s' is replacing CANCELLED event: '%s' - removing entire event" % (self.attendee, self.uid,))
+                    log.debug("Attendee '{attendee}' is replacing CANCELLED event: '{uid}' - removing entire event", attendee=self.attendee, uid=self.uid)
                     self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT
                     returnValue(None)
 
                 if not doITipReply:
-                    log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
+                    log.debug("Implicit - attendee '{attendee}' is updating UID: '{uid}' but change is not significant", attendee=self.attendee, uid=self.uid)
                     returnValue(self.return_calendar)
-                log.debug("Attendee '%s' is allowed to update UID: '%s' with local organizer '%s'" % (self.attendee, self.uid, self.organizer))
+                log.debug("Attendee '{attendee}' is allowed to update UID: '{uid}' with local organizer '{organizer}'", attendee=self.attendee, uid=self.uid, organizer=self.organizer)
 
             elif isinstance(self.organizerAddress, LocalCalendarUser):
                 # If Organizer copy does not exists we cannot allow SCHEDULE-AGENT=SERVER
                 if doScheduling:
                     # Check to see whether all instances are CANCELLED
                     if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
-                        log.debug("Attendee '%s' is creating CANCELLED event for missing UID: '%s' - removing entire event" % (self.attendee, self.uid,))
+                        log.debug("Attendee '{attendee}' is creating CANCELLED event for missing UID: '{uid}' - removing entire event", attendee=self.attendee, uid=self.uid)
                         self.return_status = ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT
                         returnValue(None)
                     else:
@@ -1157,25 +1157,25 @@ class ImplicitScheduler(object):
                         if self.oldcalendar:
                             oldScheduling = self.oldcalendar.getOrganizerScheduleAgent()
                             if not oldScheduling:
-                                log.error("Attendee '%s' is not allowed to set SCHEDULE-AGENT=SERVER on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
+                                log.error("Attendee '{attendee}' is not allowed to set SCHEDULE-AGENT=SERVER on organizer: UID:{uid}", attendee=self.attendeePrincipal, uid=self.uid)
                                 raise HTTPError(ErrorResponse(
                                     responsecode.FORBIDDEN,
                                     (caldav_namespace, "valid-attendee-change"),
                                     "Attendee cannot change organizer state",
                                 ))
 
-                        log.debug("Attendee '%s' is not allowed to update UID: '%s' - missing organizer copy - removing entire event" % (self.attendee, self.uid,))
+                        log.debug("Attendee '{attendee}' is not allowed to update UID: '{uid}' - missing organizer copy - removing entire event", attendee=self.attendee, uid=self.uid)
                         self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT
                         returnValue(None)
                 else:
-                    log.debug("Implicit - attendee '%s' is modifying UID without server scheduling: '%s'" % (self.attendee, self.uid))
+                    log.debug("Implicit - attendee '{attendee}' is modifying UID without server scheduling: '{uid}'", attendee=self.attendee, uid=self.uid)
                     # Nothing else to do
                     returnValue(None)
 
             elif isinstance(self.organizerAddress, InvalidCalendarUser):
                 # We will allow the attendee to do anything in this case, but we will mark the organizer
                 # with an schedule-status error
-                log.debug("Attendee '%s' is allowed to update UID: '%s' with invalid organizer '%s'" % (self.attendee, self.uid, self.organizer))
+                log.debug("Attendee '{attendee}' is allowed to update UID: '{uid}' with invalid organizer '{organizer}'", attendee=self.attendee, uid=self.uid, organizer=self.organizer)
                 if doScheduling:
                     self.calendar.setParameterToValueForPropertyWithValue(
                         "SCHEDULE-STATUS",
@@ -1189,14 +1189,14 @@ class ImplicitScheduler(object):
                 # to make any change they like as we cannot verify what is reasonable. In reality
                 # we ought to be comparing the Attendee changes against the attendee's own copy
                 # and restrict changes based on that when the organizer's copy is not available.
-                log.debug("Attendee '%s' is allowed to update UID: '%s' with remote organizer '%s'" % (self.attendee, self.uid, self.organizer))
+                log.debug("Attendee '{attendee}' is allowed to update UID: '{uid}' with remote organizer '{organizer}'", attendee=self.attendee, uid=self.uid, organizer=self.organizer)
                 changedRids = None
 
             if doScheduling:
-                log.debug("Implicit - attendee '%s' is updating UID: '%s'" % (self.attendee, self.uid))
+                log.debug("Implicit - attendee '{attendee}' is updating UID: '{uid}'", attendee=self.attendee, uid=self.uid)
                 yield self.scheduleWithOrganizer(changedRids)
             else:
-                log.debug("Implicit - attendee '%s' is updating UID without server scheduling: '%s'" % (self.attendee, self.uid))
+                log.debug("Implicit - attendee '{attendee}' is updating UID without server scheduling: '{uid}'", attendee=self.attendee, uid=self.uid)
                 # Nothing else to do
 
 
@@ -1205,7 +1205,7 @@ class ImplicitScheduler(object):
 
         if self.action == "remove":
             # Nothing else to do
-            log.debug("Implicit - missing attendee is removing UID without server scheduling: '%s'" % (self.uid,))
+            log.debug("Implicit - missing attendee is removing UID without server scheduling: '{uid}'", uid=self.uid)
 
         else:
             # Make sure ORGANIZER is not changed if originally SCHEDULE-AGENT=SERVER
@@ -1214,7 +1214,7 @@ class ImplicitScheduler(object):
                 oldOrganizer = self.oldcalendar.getOrganizer()
                 newOrganizer = self.calendar.getOrganizer()
                 if oldOrganizer != newOrganizer and self.oldcalendar.getOrganizerScheduleAgent():
-                    log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
+                    log.error("Cannot change ORGANIZER: UID:{uid}", uid=self.uid)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (caldav_namespace, "valid-attendee-change"),
@@ -1223,7 +1223,7 @@ class ImplicitScheduler(object):
 
             # Never allow a missing attendee with a locally hosted organizer
             if isinstance(self.organizerAddress, LocalCalendarUser):
-                log.error("Cannot remove ATTENDEE: UID:%s" % (self.uid,))
+                log.error("Cannot remove ATTENDEE: UID:{uid}", uid=self.uid)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "valid-attendee-change"),
@@ -1232,7 +1232,7 @@ class ImplicitScheduler(object):
 
             # We will allow the attendee to do anything in this case, but we will mark the organizer
             # with an schedule-status error and schedule-agent none
-            log.debug("Missing attendee is allowed to update UID: '%s' with invalid organizer '%s'" % (self.uid, self.organizer))
+            log.debug("Missing attendee is allowed to update UID: '{uid}' with invalid organizer '{organizer}'", uid=self.uid, organizer=self.organizer)
 
             # Check SCHEDULE-AGENT and coerce SERVER to NONE
             if self.calendar.getOrganizerScheduleAgent():
@@ -1243,14 +1243,14 @@ class ImplicitScheduler(object):
     def checkOrganizerScheduleAgent(self):
 
         is_server = self.calendar.getOrganizerScheduleAgent()
-        local_organizer = type(self.organizerAddress) in (LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,)
+        local_organizer = type(self.organizerAddress) in (LocalCalendarUser, OtherServerCalendarUser,)
 
         if config.Scheduling.iMIP.Enabled and self.organizerAddress.cuaddr.lower().startswith("mailto:"):
             return is_server
 
         if not config.Scheduling.iSchedule.Enabled and not local_organizer and is_server:
             # Coerce ORGANIZER to SCHEDULE-AGENT=NONE
-            log.debug("Attendee '%s' is not allowed to use SCHEDULE-AGENT=SERVER on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
+            log.debug("Attendee '{attendee}' is not allowed to use SCHEDULE-AGENT=SERVER on organizer: UID:{uid}", attendee=self.attendeePrincipal, uid=self.uid)
             self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-AGENT", "NONE", "ORGANIZER", None)
             self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.NO_USER_SUPPORT_CODE, "ORGANIZER", None)
             is_server = False
@@ -1272,8 +1272,8 @@ class ImplicitScheduler(object):
         calendar_resource = (yield getCalendarObjectForRecord(self.calendar_home.transaction(), self.organizerPrincipal, self.uid))
         if calendar_resource is not None:
             self.organizer_calendar = (yield calendar_resource.componentForUser())
-        elif type(self.organizerAddress) in (PartitionedCalendarUser, OtherServerCalendarUser,):
-            # For partitioning where the organizer is on a different node, we will assume that the attendee's copy
+        elif type(self.organizerAddress) in (OtherServerCalendarUser,):
+            # For podding where the organizer is on a different node, we will assume that the attendee's copy
             # of the event is up to date and "authoritative". So we pretend that is the organizer copy
             self.organizer_calendar = self.oldcalendar
 
@@ -1290,7 +1290,7 @@ class ImplicitScheduler(object):
             oldcalendar = self.organizer_calendar
             oldcalendar.attendeesView((self.attendee,), onlyScheduleAgentServer=True)
             if oldcalendar.mainType() is None:
-                log.debug("Implicit - attendee '%s' cannot use an event they are not an attendee of, UID: '%s'" % (self.attendee, self.uid))
+                log.debug("Implicit - attendee '{attendee}' cannot use an event they are not an attendee of, UID: '{uid}'", attendee=self.attendee, uid=self.uid)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "valid-attendee-change"),
@@ -1339,7 +1339,7 @@ class ImplicitScheduler(object):
         def _gotResponse(response):
             self.handleSchedulingResponse(response, False)
 
-        log.info("Implicit %s - attendee: '%s' to organizer: '%s', UID: '%s'" % (action, self.attendee, self.organizer, self.uid,))
+        log.info("Implicit {action} - attendee: '{attendee}' to organizer: '{organizer}', UID: '{uid}'", action=action, attendee=self.attendee, organizer=self.organizer, uid=self.uid)
         d = scheduler.doSchedulingViaPUT(self.originator, (self.organizer,), itipmsg, internal_request=True)
         d.addCallback(_gotResponse)
         return d

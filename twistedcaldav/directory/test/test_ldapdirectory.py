@@ -276,6 +276,7 @@ else:
                     entry["expected"]
                 )
 
+
     class StubList(object):
         def __init__(self, wrapper):
             self.ldap = wrapper
@@ -293,6 +294,7 @@ else:
             self.allResults = self.ldap.search_s(self.base, self.scope,
                 self.filterstr, attrlist=self.attrList)
 
+
     class StubAsync(object):
         def List(self, wrapper):
             return StubList(wrapper)
@@ -303,7 +305,6 @@ else:
         A test stub which replaces search_s( ) with a version that will return
         whatever you have previously called addTestResults( ) with.
         """
-
 
         def __init__(self, actual, records):
             self.actual = actual
@@ -587,9 +588,8 @@ else:
                     "readOnlyProxyAttr": "read-only-proxy",
                     "autoAcceptGroupAttr": None,
                 },
-                "partitionSchema": {
+                "poddingSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
-                    "partitionIdAttr": "partition-id", # maps to augments partition-id
                 },
             }
         )
@@ -803,9 +803,8 @@ else:
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
                 },
-                "partitionSchema": {
+                "poddingSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
-                    "partitionIdAttr": "partition-id", # maps to augments partition-id
                 },
             }
         )
@@ -1021,9 +1020,8 @@ else:
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
                 },
-                "partitionSchema": {
+                "poddingSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
-                    "partitionIdAttr": "partition-id", # maps to augments partition-id
                 },
             }
         )
@@ -1235,9 +1233,8 @@ else:
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
                 },
-                "partitionSchema": {
+                "poddingSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
-                    "partitionIdAttr": "partition-id", # maps to augments partition-id
                 },
             }
         )
@@ -1295,7 +1292,6 @@ else:
             self.assertEquals(record.firstName, 'Amanda')
             self.assertEquals(record.lastName, 'Test')
             self.assertEquals(record.serverID, None)
-            self.assertEquals(record.partitionID, None)
             self.assertFalse(record.enabledForCalendaring)
 
             # User with enabled-for-calendaring specified
@@ -1325,13 +1321,11 @@ else:
                 'apple-generateduid': [guid],
                 'cn': ['Amanda Test'],
                 'server-id' : ["test-server-id"],
-                'partition-id' : ["test-partition-id"],
             }
 
             record = self.service._ldapResultToRecord(dn, attrs,
                 self.service.recordType_users)
             self.assertEquals(record.serverID, "test-server-id")
-            self.assertEquals(record.partitionID, "test-partition-id")
 
             # User missing guidAttr
 
@@ -1470,7 +1464,6 @@ else:
                 set())
             self.assertFalse(record.autoSchedule)
             self.assertEquals(record.autoAcceptGroup, "")
-
 
             # Now switch off the resourceInfoAttr and switch to individual
             # attributes...
@@ -1625,7 +1618,6 @@ else:
                 self.assertFalse(self.service.isAllowedByRestrictToGroup(dn, attrs))
 
 
-
         @inlineCallbacks
         def test_groupMembershipAliases(self):
             """
@@ -1678,7 +1670,6 @@ else:
                         ['6423F94A-6B76-4A3A-815B-D52CFD77935D'])
                 ]
             )
-
 
 
         def test_splitIntoBatches(self):

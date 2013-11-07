@@ -231,7 +231,7 @@ class IScheduleScheduler(RemoteScheduler):
         originatorPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.originator)
         localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
         if originatorPrincipal or localUser:
-            if originatorPrincipal.locallyHosted():
+            if originatorPrincipal.thisServer():
                 log.error("Cannot use originator that is on this server: %s" % (self.originator,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
@@ -309,23 +309,17 @@ class IScheduleScheduler(RemoteScheduler):
 
     def _validAlternateServer(self, principal):
         """
-        Check the validity of the partitioned host.
+        Check the validity of the podded host.
         """
 
-        # Extract expected host/port. This will be the partitionURI, or if no partitions,
-        # the serverURI
-        expected_uri = principal.partitionURI()
-        if expected_uri is None:
-            expected_uri = principal.serverURI()
+        # Extract expected host/port. This will be the serverURI.
+        expected_uri = principal.serverURI()
         expected_uri = urlparse.urlparse(expected_uri)
 
         # Get the request IP and map to hostname.
         clientip = self.remoteAddr.host
 
-        # Check against this server (or any of its partitions). We need this because an external iTIP message
-        # may be addressed to users on different partitions, and the node receiving the iTIP message will need to
-        # forward it to the partition nodes, thus the client ip seen by the partitions will in fact be the initial
-        # receiving node.
+        # Check against this server.
         matched = False
         if Servers.getThisServer().checkThisIP(clientip):
             matched = True
@@ -377,7 +371,7 @@ class IScheduleScheduler(RemoteScheduler):
         if organizer:
             organizerPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(organizer)
             if organizerPrincipal:
-                if organizerPrincipal.locallyHosted():
+                if organizerPrincipal.thisServer():
                     log.error("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
@@ -385,7 +379,7 @@ class IScheduleScheduler(RemoteScheduler):
                         "Organizer is not local to server",
                     ))
                 else:
-                    # Check that the origin server is the correct partition
+                    # Check that the origin server is the correct pod
                     self.organizer = calendarUserFromPrincipal(organizer, organizerPrincipal)
                     self._validAlternateServer(self.organizer.principal)
             else:
@@ -418,7 +412,7 @@ class IScheduleScheduler(RemoteScheduler):
         # Attendee cannot be local.
         attendeePrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.attendee)
         if attendeePrincipal:
-            if attendeePrincipal.locallyHosted():
+            if attendeePrincipal.thisServer():
                 log.error("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
