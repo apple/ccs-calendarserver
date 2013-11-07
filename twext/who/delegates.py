@@ -29,7 +29,15 @@ log = Logger()
 @inlineCallbacks
 def addDelegate(txn, delegator, delegate, readWrite):
     """
-    Args are records
+    Adds "delegate" as a delegate of "delegator".  The type of access is
+    specified by the "readWrite" parameter.
+
+    @param delegator: the delegator's directory record
+    @type delegator: L{IDirectoryRecord}
+    @param delegate: the delegate's directory record
+    @type delegate: L{IDirectoryRecord}
+    @param readWrite: if True, read and write access is granted; read-only
+        access otherwise
     """
     if delegate.recordType == RecordType.group:
         # find the groupID
@@ -42,7 +50,15 @@ def addDelegate(txn, delegator, delegate, readWrite):
 @inlineCallbacks
 def removeDelegate(txn, delegator, delegate, readWrite):
     """
-    Args are records
+    Removes "delegate" as a delegate of "delegator".  The type of access is
+    specified by the "readWrite" parameter.
+
+    @param delegator: the delegator's directory record
+    @type delegator: L{IDirectoryRecord}
+    @param delegate: the delegate's directory record
+    @type delegate: L{IDirectoryRecord}
+    @param readWrite: if True, read and write access is revoked; read-only
+        access otherwise
     """
     if delegate.recordType == RecordType.group:
         # find the groupID
@@ -56,7 +72,15 @@ def removeDelegate(txn, delegator, delegate, readWrite):
 @inlineCallbacks
 def delegatesOf(txn, delegator, readWrite):
     """
-    Args are records
+    Return the records of the delegates of "delegator".  The type of access
+    is specified by the "readWrite" parameter.
+
+    @param delegator: the delegator's directory record
+    @type delegator: L{IDirectoryRecord}
+    @param readWrite: if True, read and write access delegates are returned;
+        read-only access otherwise
+    @return: the set of directory records
+    @rtype: a Deferred which fires a set of L{IDirectoryRecord}
     """
     records = []
     directory = delegator.service
@@ -72,7 +96,15 @@ def delegatesOf(txn, delegator, readWrite):
 @inlineCallbacks
 def delegatedTo(txn, delegate, readWrite):
     """
-    Args are records
+    Return the records of those who have delegated to "delegate".  The type of
+    access is specified by the "readWrite" parameter.
+
+    @param delegate: the delegate's directory record
+    @type delegate: L{IDirectoryRecord}
+    @param readWrite: if True, read and write access delegators are returned;
+        read-only access otherwise
+    @return: the set of directory records
+    @rtype: a Deferred which fires a set of L{IDirectoryRecord}
     """
     records = []
     directory = delegate.service
@@ -86,4 +118,8 @@ def delegatedTo(txn, delegate, readWrite):
 
 
 def allGroupDelegates(txn):
+    """
+    @return: the GUIDs of all groups which are currently delegated to
+    @rtype: a Deferred which fires with a set() of GUID strings
+    """
     return txn.allGroupDelegates()
