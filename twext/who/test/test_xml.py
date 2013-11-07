@@ -57,7 +57,7 @@ class DirectoryServiceBaseTest(
 
         self.assertEquals(repr(service), "<TestService (not loaded)>")
         service.loadRecords()
-        self.assertEquals(repr(service), "<TestService 'xyzzy'>")
+        self.assertEquals(repr(service), "<TestService u'xyzzy'>")
 
 
     @inlineCallbacks

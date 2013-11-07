@@ -235,9 +235,9 @@ class DirectoryService(BaseDirectoryService):
                 "Incorrect root element: {0}".format(directoryNode.tag)
             )
 
-        realmName = directoryNode.get(
+        realmName = unicode(directoryNode.get(
             self.attribute.realm.value, u""
-        )
+        ))
 
         if not realmName:
             raise ParseError("No realm name.")
@@ -321,7 +321,7 @@ class DirectoryService(BaseDirectoryService):
             vType = BaseFieldName.valueType(fieldName)
 
             if vType in (unicode, UUID):
-                value = unicode(fieldNode.text)
+                value = vType(fieldNode.text)
             else:
                 raise AssertionError(
                     "Unknown value type {0} for field {1}",

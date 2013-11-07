@@ -16,7 +16,7 @@
 ##
 
 """
-Directory service interface.
+Directory service interfaces.
 """
 
 __all__ = [
@@ -111,8 +111,8 @@ class RecordType(Names):
     user  = NamedConstant()
     group = NamedConstant()
 
-    user.description  = "user"
-    group.description = "group"
+    user.description  = u"user"
+    group.description = u"group"
 
 
 
@@ -152,13 +152,13 @@ class FieldName(Names):
     emailAddresses = NamedConstant()
     password       = NamedConstant()
 
-    uid.description            = "UID"
-    guid.description           = "GUID"
-    recordType.description     = "record type"
-    shortNames.description     = "short names"
-    fullNames.description      = "full names"
-    emailAddresses.description = "email addresses"
-    password.description       = "password"
+    uid.description            = u"UID"
+    guid.description           = u"GUID"
+    recordType.description     = u"record type"
+    shortNames.description     = u"short names"
+    fullNames.description      = u"full names"
+    emailAddresses.description = u"email addresses"
+    password.description       = u"password"
 
     guid.valueType = UUID
 
@@ -203,8 +203,8 @@ class Operand(Names):
     OR  = NamedConstant()
     AND = NamedConstant()
 
-    OR.description  = "or"
-    AND.description = "and"
+    OR.description  = u"or"
+    AND.description = u"and"
 
 
 

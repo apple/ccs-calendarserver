@@ -44,7 +44,7 @@ from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 
 class FieldName(Names):
     memberUIDs = NamedConstant()
-    memberUIDs.description = "member UIDs"
+    memberUIDs.description = u"member UIDs"
     memberUIDs.multiValue = True
 
 

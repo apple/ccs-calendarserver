@@ -49,7 +49,7 @@ class BaseTest(object):
         class TestService(DirectoryService, QueryMixIn):
             pass
 
-        return TestService("xyzzy", services)
+        return TestService(u"xyzzy", services)
 
 
     def xmlService(self, xmlData=None, serviceClass=None):
@@ -60,7 +60,7 @@ class BaseTest(object):
 class DirectoryServiceBaseTest(BaseTest, test_xml.DirectoryServiceBaseTest):
     def test_repr(self):
         service = self.service()
-        self.assertEquals(repr(service), "<TestService 'xyzzy'>")
+        self.assertEquals(repr(service), "<TestService u'xyzzy'>")
 
 
 

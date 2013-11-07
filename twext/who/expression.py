@@ -20,6 +20,8 @@ Directory query expressions.
 """
 
 __all__ = [
+    "CompoundExpression",
+
     "MatchType",
     "MatchFlags",
     "MatchExpression",
@@ -30,11 +32,27 @@ from twisted.python.constants import Flags, FlagConstant
 
 
 
-##
+#
+# Compound expression
+#
+
+class CompoundExpression(object):
+    """
+    An expression that groups multiple expressions with an operand.
+
+    @ivar expressions: An iterable of expressions.
+
+    @ivar operand: A L{NamedConstant} specifying an operand.
+    """
+
+    def __init__(self, expressions, operand):
+        self.expressions = expressions
+        self.operand = operand
+
+
+#
 # Match expression
-##
-
-
+#
 
 class MatchType(Names):
     """
@@ -44,9 +62,9 @@ class MatchType(Names):
     startsWith = NamedConstant()
     contains   = NamedConstant()
 
-    equals.description     = "equals"
-    startsWith.description = "starts with"
-    contains.description   = "contains"
+    equals.description     = u"equals"
+    startsWith.description = u"starts with"
+    contains.description   = u"contains"
 
 
 
@@ -55,10 +73,10 @@ class MatchFlags(Flags):
     Match expression flags.
     """
     NOT = FlagConstant()
-    NOT.description = "not"
+    NOT.description = u"not"
 
     caseInsensitive = FlagConstant()
-    caseInsensitive.description = "case insensitive"
+    caseInsensitive.description = u"case insensitive"
 
 
 
@@ -88,7 +106,7 @@ class MatchExpression(object):
 
     def __repr__(self):
         def describe(constant):
-            return getattr(constant, "description", str(constant))
+            return getattr(constant, "description", unicode(constant))
 
         if self.flags is None:
             flags = ""

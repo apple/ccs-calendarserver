@@ -32,7 +32,7 @@ from twext.who.directory import DirectoryService, DirectoryRecord
 
 
 class ServiceMixIn(object):
-    realmName = "xyzzy"
+    realmName = u"xyzzy"
 
 
     def service(self):
@@ -58,7 +58,7 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
     def test_repr(self):
         service = self.service()
-        self.assertEquals(repr(service), "<DirectoryService 'xyzzy'>")
+        self.assertEquals(repr(service), "<DirectoryService u'xyzzy'>")
 
 
     def test_recordTypes(self):
@@ -161,9 +161,9 @@ class BaseDirectoryServiceImmutableTest(ServiceMixIn):
         newRecord = DirectoryRecord(
             service,
             fields={
-                service.fieldName.uid:        "__plugh__",
+                service.fieldName.uid:        u"__plugh__",
                 service.fieldName.recordType: service.recordType.user,
-                service.fieldName.shortNames: ("plugh",),
+                service.fieldName.shortNames: (u"plugh",),
             }
         )
 
@@ -183,7 +183,7 @@ class BaseDirectoryServiceImmutableTest(ServiceMixIn):
 
         service.removeRecords(())
         self.assertFailure(
-            service.removeRecords(("foo",)),
+            service.removeRecords((u"foo",)),
             NotAllowedError,
         )
 
@@ -199,41 +199,41 @@ class DirectoryServiceImmutableTest(
 
 class BaseDirectoryRecordTest(ServiceMixIn):
     fields_wsanchez = {
-        FieldName.uid: "UID:wsanchez",
+        FieldName.uid: u"UID:wsanchez",
         FieldName.recordType: RecordType.user,
-        FieldName.shortNames: ("wsanchez", "wilfredo_sanchez"),
+        FieldName.shortNames: (u"wsanchez", u"wilfredo_sanchez"),
         FieldName.fullNames: (
-            "Wilfredo Sanchez",
-            "Wilfredo Sanchez Vega",
+            u"Wilfredo Sanchez",
+            u"Wilfredo Sanchez Vega",
         ),
         FieldName.emailAddresses: (
-            "wsanchez@calendarserver.org",
-            "wsanchez@example.com",
+            u"wsanchez@calendarserver.org",
+            u"wsanchez@example.com",
         )
     }
 
     fields_glyph = {
-        FieldName.uid: "UID:glyph",
+        FieldName.uid: u"UID:glyph",
         FieldName.recordType: RecordType.user,
-        FieldName.shortNames: ("glyph",),
-        FieldName.fullNames: ("Glyph Lefkowitz",),
-        FieldName.emailAddresses: ("glyph@calendarserver.org",)
+        FieldName.shortNames: (u"glyph",),
+        FieldName.fullNames: (u"Glyph Lefkowitz",),
+        FieldName.emailAddresses: (u"glyph@calendarserver.org",)
     }
 
     fields_sagen = {
-        FieldName.uid: "UID:sagen",
+        FieldName.uid: u"UID:sagen",
         FieldName.recordType: RecordType.user,
-        FieldName.shortNames: ("sagen",),
-        FieldName.fullNames: ("Morgen Sagen",),
-        FieldName.emailAddresses: ("sagen@CalendarServer.org",)
+        FieldName.shortNames: (u"sagen",),
+        FieldName.fullNames: (u"Morgen Sagen",),
+        FieldName.emailAddresses: (u"sagen@CalendarServer.org",)
     }
 
     fields_staff = {
-        FieldName.uid: "UID:staff",
+        FieldName.uid: u"UID:staff",
         FieldName.recordType: RecordType.group,
-        FieldName.shortNames: ("staff",),
-        FieldName.fullNames: ("Staff",),
-        FieldName.emailAddresses: ("staff@CalendarServer.org",)
+        FieldName.shortNames: (u"staff",),
+        FieldName.fullNames: (u"Staff",),
+        FieldName.emailAddresses: (u"staff@CalendarServer.org",)
     }
 
 
@@ -267,7 +267,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
-        fields[FieldName.uid] = ""
+        fields[FieldName.uid] = u""
         self.assertRaises(ValueError, self.makeRecord, fields)
 
 
@@ -277,7 +277,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
-        fields[FieldName.recordType] = ""
+        fields[FieldName.recordType] = None
         self.assertRaises(ValueError, self.makeRecord, fields)
 
 
@@ -291,11 +291,11 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
-        fields[FieldName.shortNames] = ("",)
+        fields[FieldName.shortNames] = (u"",)
         self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
-        fields[FieldName.shortNames] = ("wsanchez", "")
+        fields[FieldName.shortNames] = (u"wsanchez", u"")
         self.assertRaises(ValueError, self.makeRecord, fields)
 
 
@@ -310,7 +310,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
         self.assertEquals(
             sagen.fields[FieldName.emailAddresses],
-            ("sagen@calendarserver.org",)
+            (u"sagen@calendarserver.org",)
         )
 
 
@@ -318,7 +318,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         fields_glyphmod = self.fields_glyph.copy()
         del fields_glyphmod[FieldName.emailAddresses]
 
-        plugh = DirectoryService("plugh")
+        plugh = DirectoryService(u"plugh")
 
         wsanchez    = self.makeRecord(self.fields_wsanchez)
         wsanchezmod = self.makeRecord(self.fields_wsanchez, plugh)

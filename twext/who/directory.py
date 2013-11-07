@@ -92,7 +92,7 @@ class DirectoryService(object):
     def __init__(self, realmName):
         """
         @param realmName: a realm name
-        @type realmName: unicode
+        @type realmName: L{unicode}
         """
         self.realmName = realmName
 
@@ -337,25 +337,31 @@ class DirectoryRecord(object):
 
 
     def description(self):
-        description = [self.__class__.__name__, ":"]
+        """
+        Generate a string description of this directory record.
+
+        @return: A description.
+        @rtype: L{unicode}
+        """
+        description = [self.__class__.__name__, u":"]
 
         for name, value in self.fields.items():
             if hasattr(name, "description"):
                 name = name.description
             else:
-                name = str(name)
+                name = unicode(name)
 
             if hasattr(value, "description"):
                 value = value.description
             else:
-                value = str(value)
+                value = unicode(value)
 
-            description.append("\n  ")
+            description.append(u"\n  ")
             description.append(name)
-            description.append(" = ")
+            description.append(u" = ")
             description.append(value)
 
-        return "".join(description)
+        return u"".join(description)
 
 
     def members(self):
