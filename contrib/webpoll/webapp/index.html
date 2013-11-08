@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="us">
+<head>
+	<meta charset="utf-8">
+	<title>WebPoll</title>
+	<link href="css/cupertino/jquery-ui-1.10.3.css" rel="stylesheet">
+	<link href="css/datetimepicker.css" rel="stylesheet">
+	<link href="css/webpoll.css" rel="stylesheet">
+	<script src="js/jquery-2.0.3.js"></script>
+	<script src="js/jquery-ui-1.10.3.js"></script>
+	<script src="js/datetimepicker.js"></script>
+	<script src="js/json2.js"></script>
+	<script src="js/utils.js"></script>
+	<script src="js/jcal.js"></script>
+	<script src="js/caldav.js"></script>
+	<script src="js/webpoll.js"></script>
+</head>
+<body>
+
+<div id="main-panel">
+
+<div id="title">WebPoll</div>
+
+<div id="loading">
+Loading
+<div id="progressbar"></div>
+</div>
+
+<!-- Sidebar Panel-->
+<div id="sidepanel">
+	<div id="sidebar">
+		<h3 class="sidebar-title"><span>Your Polls</span><span id="sidebar-new-poll-count">0</span></h3>
+		<div>
+			<ul id="sidebar-owned"></ul>
+			<button id="sidebar-new-poll">New Poll</button>
+		</div>
+		<h3 class="sidebar-title"><span>Polls to Vote On<span id="sidebar-vote-poll-count">0</span></span></h3>
+		<div>
+			<ul id="sidebar-voter"></ul>
+		</div>
+	</div>
+	<div id="refresh"><button id="refresh-btn">Refresh</button></div>
+</div>
+
+<!-- Detail Panel -->
+<div id="detail">
+	<div id="detail-nocontent" class="ui-widget">Select a poll in the side-bar to view its details.</div>
+	<div id="editpoll">
+		<div id="editpoll-description">
+			<div id="editpoll-title-edit-panel" class="ui-widget">
+				<label for="editpoll-title-edit">Title: </label>
+				<input id="editpoll-title-edit" />
+			</div>
+			<div id="editpoll-title-panel" class="ui-widget">Title: <span id="editpoll-title"></span></div>
+			<div id="editpoll-organizer-panel" class="ui-widget">Organizer: <span id="editpoll-organizer"></span></div>
+			<div id="editpoll-status-panel" class="ui-widget">Status: <span id="editpoll-status"></span></div>
+		</div>
+		<div id="editpoll-details">
+			<div id="editpoll-tabs">
+				<ul>
+					<li id="editpoll-events-tab"><a href="#editpoll-events">Events</a></li>
+					<li id="editpoll-voters-tab"><a href="#editpoll-voters">Voters</a></li>
+					<li><a href="#editpoll-results">Results</a></li>
+				</ul>
+				<div id="editpoll-events">
+					<div id="editpoll-eventlist"></div>
+					<button id="editpoll-addevent">Add Event</button>
+				</div>
+				<div id="editpoll-voters">
+					<div id="editpoll-voterlist"></div>
+					<button id="editpoll-addvoter">Add Voter</button>
+				</div>
+				<div id="editpoll-results">
+					<table id="editpoll-resulttable">
+						<thead>
+							<tr></tr>
+							<tr></tr>
+							<tr></tr>
+						</thead>
+						<tbody>
+						</tbody>
+						<tfoot>
+							<tr></tr>
+							<tr></tr>
+						</tfoot>
+					</table>
+				</div>
+			</div>
+			<button id="editpoll-save">Save</button>
+			<button id="editpoll-cancel">Cancel</button>
+			<button id="editpoll-done">Done</button>
+			<button id="editpoll-delete">Delete Poll</button>
+			<button id="editpoll-autofill">Auto Fill</button>
+			<div id="response-key" class="ui-widget">
+				Possible Responses:
+				<ul id="response-menu">
+					<li><a href="#"><span class="ui-icon ui-icon-close"></span>No</a></li>
+					<li><a href="#"><span class="ui-icon ui-icon-help"></span>Maybe</a></li>
+					<li><a href="#"><span class="ui-icon ui-icon-check"></span>Ok</a></li>
+					<li><a href="#"><span class="ui-icon ui-icon-circle-check"></span>Best</a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</div>
+
+</div>
+
+</body>
+</html>
