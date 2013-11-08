@@ -36,6 +36,7 @@ from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 from twistedcaldav.util import computeProcessCount
 
 from calendarserver.push.util import getAPNTopicFromCertificate
+from twistedcaldav import ical
 
 log = Logger()
 
@@ -545,6 +546,11 @@ DEFAULT_CONFIG = {
     "EnableManagedAttachments"    : False, # Support Managed Attachments
 
     #
+    # Generic CalDAV/CardDAV extensions
+    #
+    "EnableJSONData"          : True, # Allow clients to send/receive JSON jCal and jCard format data
+
+    #
     # Non-standard CalDAV extensions
     #
     "EnableDropBox"           : False, # Calendar Drop Box
@@ -593,6 +599,12 @@ DEFAULT_CONFIG = {
                                                    # split existing calendars into multiples based on component type.
                                                    # If on, it will also cause new accounts to provision with separate
                                                    # calendars for events and tasks.
+
+    "SupportedComponents" : [                      # Set of supported iCalendar components
+        "VEVENT",
+        "VTODO",
+        #"VPOLL",
+    ],
 
     "ParallelUpgrades" : False, # Perform upgrades - currently only the
                                    # database -> filesystem migration - but in
@@ -1502,6 +1514,14 @@ def _updateNotifications(configDict, reloading=False):
 
 
 
+def _updateICalendar(configDict, reloading=False):
+    """
+    Updated support iCalendar components.
+    """
+    ical._updateAllowedComponents(tuple(configDict.SupportedComponents))
+
+
+
 def _updateScheduling(configDict, reloading=False):
     #
     # Scheduling
@@ -1612,6 +1632,7 @@ POST_UPDATE_HOOKS = (
     _updateRejectClients,
     _updateLogLevels,
     _updateNotifications,
+    _updateICalendar,
     _updateScheduling,
     _updateServers,
     _updateCompliance,

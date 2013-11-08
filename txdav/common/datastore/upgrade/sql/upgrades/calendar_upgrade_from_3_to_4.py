@@ -108,8 +108,12 @@ def _processDefaultCalendarProperty(home, propname):
                     calendar = (yield home.calendarWithName(calendarName))
                     if calendar is not None:
                         try:
+                            if propname == caldavxml.ScheduleDefaultCalendarURL:
+                                ctype = "VEVENT"
+                            elif propname == customxml.ScheduleDefaultTasksURL:
+                                ctype = "VTODO"
                             yield home.setDefaultCalendar(
-                                calendar, tasks=(propname == customxml.ScheduleDefaultTasksURL)
+                                calendar, ctype
                             )
                         except InvalidDefaultCalendar:
                             # Ignore these - the server will recover

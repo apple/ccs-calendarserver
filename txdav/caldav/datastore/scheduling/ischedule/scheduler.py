@@ -23,7 +23,7 @@ from twisted.internet.abstract import isIPAddress
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.config import config
-from twistedcaldav.ical import normalizeCUAddress, Component
+from twistedcaldav.ical import normalizeCUAddress
 
 from txdav.caldav.datastore.scheduling import addressmapping
 from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser
@@ -147,7 +147,7 @@ class IScheduleScheduler(RemoteScheduler):
 
 
     @inlineCallbacks
-    def doSchedulingViaPOST(self, remoteAddr, headers, body, originator, recipients):
+    def doSchedulingViaPOST(self, remoteAddr, headers, body, calendar, originator, recipients):
         """
         Carry out iSchedule specific processing.
         """
@@ -179,8 +179,6 @@ class IScheduleScheduler(RemoteScheduler):
                     (ischedule_namespace, "verification-failed"),
                     msg,
                 ))
-
-        calendar = Component.fromString(body)
 
         if self._podding and self.headers.getRawHeaders('x-calendarserver-itip-refreshonly', ("F"))[0] == "T":
             self.txn.doing_attendee_refresh = 1

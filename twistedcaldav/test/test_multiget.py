@@ -16,6 +16,7 @@
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2 import responsecode
 from twext.web2.dav.util import davXMLFromStream, joinURL
+from twext.web2.http_headers import Headers, MimeType
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 
@@ -268,7 +269,13 @@ END:VCALENDAR
 
             if data:
                 for filename, icaldata in data.iteritems():
-                    request = SimpleStoreRequest(self, "PUT", joinURL(calendar_uri, filename + ".ics"), authid="wsanchez")
+                    request = SimpleStoreRequest(
+                        self,
+                        "PUT",
+                        joinURL(calendar_uri, filename + ".ics"),
+                        headers=Headers({"content-type": MimeType.fromString("text/calendar")}),
+                        authid="wsanchez"
+                    )
                     request.stream = MemoryStream(icaldata)
                     yield self.send(request)
             else:
@@ -276,7 +283,13 @@ END:VCALENDAR
                 for child in FilePath(self.holidays_dir).children():
                     if os.path.splitext(child.basename())[1] != ".ics":
                         continue
-                    request = SimpleStoreRequest(self, "PUT", joinURL(calendar_uri, child.basename()), authid="wsanchez")
+                    request = SimpleStoreRequest(
+                        self,
+                        "PUT",
+                        joinURL(calendar_uri, child.basename()),
+                        headers=Headers({"content-type": MimeType.fromString("text/calendar")}),
+                        authid="wsanchez"
+                    )
                     request.stream = MemoryStream(child.getContent())
                     yield self.send(request)
 

@@ -25,8 +25,8 @@ change.
 See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 from txdav.xml.element import registerElement, dav_namespace
 from txdav.xml.element import WebDAVElement, PCDATAElement
@@ -110,8 +110,8 @@ class CalDAVTimeRangeElement (CalDAVEmptyElement):
         if "start" not in attributes and "end" not in attributes:
             raise ValueError("One of 'start' or 'end' must be present in CALDAV:time-range")
 
-        self.start = PyCalendarDateTime.parseText(attributes["start"]) if "start" in attributes else None
-        self.end = PyCalendarDateTime.parseText(attributes["end"]) if "end" in attributes else None
+        self.start = DateTime.parseText(attributes["start"]) if "start" in attributes else None
+        self.end = DateTime.parseText(attributes["end"]) if "end" in attributes else None
 
 
     def valid(self, level=0):
@@ -139,23 +139,102 @@ class CalDAVTimeRangeElement (CalDAVEmptyElement):
 
 
 
-class CalDAVTimeZoneElement (CalDAVTextElement):
+class CalDAVDataMixin(object):
+    """
+    A mixin to support accept/returning data in various formats.
+    """
+
+    def __init__(self, *children, **attributes):
+
+        if "content-type" in attributes:
+            self.content_type = attributes["content-type"]
+        else:
+            self.content_type = "text/calendar"
+
+        if "version" in attributes:
+            self.version = attributes["version"]
+        else:
+            self.version = "2.0"
+
+        super(CalDAVDataMixin, self).__init__(*children, **attributes)
+
+
+    def verifyTypeVersion(self):
+        """
+        Make sure any content-type and version matches at least one supported set.
+
+        @return: C{True} if there is at least one match, C{False} otherwise.
+        """
+        allowedTypes = set()
+        allowedTypes.add(("text/calendar", "2.0",))
+        if config.EnableJSONData:
+            allowedTypes.add(("application/calendar+json", "2.0",))
+        for format, version in allowedTypes:
+            if (format == self.content_type) and (version == self.version):
+                return True
+
+        return False
+
+
+    @classmethod
+    def fromCalendar(clazz, calendar, format=None):
+        attrs = {}
+        if format is not None and format != "text/calendar":
+            attrs["content-type"] = format
+
+        if isinstance(calendar, str):
+            if not calendar:
+                raise ValueError("Missing calendar data")
+            return clazz(PCDATAElement(calendar), **attrs)
+        elif isinstance(calendar, iComponent):
+            assert calendar.name() == "VCALENDAR", "Not a calendar: %r" % (calendar,)
+            return clazz(PCDATAElement(calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference, format=format)), **attrs)
+        else:
+            raise ValueError("Not a calendar: %s" % (calendar,))
+
+    fromTextData = fromCalendar
+    fromComponent = fromCalendar
+
+    def calendar(self):
+        """
+        Returns a calendar component derived from this element.
+        """
+        data = self.calendarData()
+        if data:
+            return iComponent.fromString(data, format=self.content_type)
+        else:
+            return None
+
+    generateComponent = calendar
+
+
+    def calendarData(self):
+        """
+        Returns the calendar data derived from this element.
+        """
+        for data in self.children:
+            if not isinstance(data, PCDATAElement):
+                return None
+            else:
+                # We guaranteed in __init__() that there is only one child...
+                break
+
+        return str(data)
+
+    textData = calendarData
+
+
+
+class CalDAVTimeZoneElement (CalDAVDataMixin, CalDAVTextElement):
     """
     CalDAV element containing iCalendar data with a single VTIMEZONE component.
     """
-    def calendar(self):
-        """
-        Returns a calendar component derived from this element, which contains
-        exactly one VTIMEZONE component.
-        """
-        return iComponent.fromString(str(self))
-
 
     def gettimezone(self):
         """
         Get the timezone to use. If none, return UTC timezone.
 
-        @return: the L{PyCalendarTimezone} derived from the VTIMEZONE or utc.
+        @return: the L{Timezone} derived from the VTIMEZONE or utc.
         """
         calendar = self.calendar()
         if calendar is not None:
@@ -164,7 +243,7 @@ class CalDAVTimeZoneElement (CalDAVTextElement):
                 return tz
 
         # Default to using utc tzinfo
-        return PyCalendarTimezone(utc=True)
+        return Timezone(utc=True)
 
 
     def valid(self):
@@ -230,6 +309,11 @@ class CalendarTimeZone (CalDAVTimeZoneElement):
     """
     name = "calendar-timezone"
     hidden = True
+
+    allowed_attributes = {
+        "content-type": False,
+        "version"     : False,
+    }
 
 
 
@@ -428,7 +512,7 @@ class CalendarQuery (CalDAVElement):
 
 
 @registerElement
-class CalendarData (CalDAVElement):
+class CalendarData (CalDAVDataMixin, CalDAVElement):
     """
     Defines which parts of a calendar component object should be returned by a
     report.
@@ -447,21 +531,6 @@ class CalendarData (CalDAVElement):
         "content-type": False,
         "version"     : False,
     }
-
-    @classmethod
-    def fromCalendar(clazz, calendar):
-        if isinstance(calendar, str):
-            if not calendar:
-                raise ValueError("Missing calendar data")
-            return clazz(PCDATAElement(calendar))
-        elif isinstance(calendar, iComponent):
-            assert calendar.name() == "VCALENDAR", "Not a calendar: %r" % (calendar,)
-            return clazz(PCDATAElement(calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference)))
-        else:
-            raise ValueError("Not a calendar: %s" % (calendar,))
-
-    fromTextData = fromCalendar
-
 
     def __init__(self, *children, **attributes):
         super(CalendarData, self).__init__(*children, **attributes)
@@ -514,59 +583,6 @@ class CalendarData (CalDAVElement):
                 # Since we've already combined PCDATA elements, we'd may as well
                 # optimize them originals away
                 self.children = (data,)
-
-        if "content-type" in attributes:
-            self.content_type = attributes["content-type"]
-        else:
-            self.content_type = "text/calendar"
-
-        if "version" in attributes:
-            self.version = attributes["version"]
-        else:
-            self.version = "2.0"
-
-
-    def verifyTypeVersion(self, types_and_versions):
-        """
-        Make sure any content-type and version matches at least one of the supplied set.
-
-        @param types_and_versions: a list of (content-type, version) tuples to test against.
-        @return:                   True if there is at least one match, False otherwise.
-        """
-        for item in types_and_versions:
-            if (item[0] == self.content_type) and (item[1] == self.version):
-                return True
-
-        return False
-
-
-    def calendar(self):
-        """
-        Returns a calendar component derived from this element.
-        """
-        data = self.calendarData()
-        if data:
-            return iComponent.fromString(data)
-        else:
-            return None
-
-    generateComponent = calendar
-
-
-    def calendarData(self):
-        """
-        Returns the calendar data derived from this element.
-        """
-        for data in self.children:
-            if not isinstance(data, PCDATAElement):
-                return None
-            else:
-                # We guaranteed in __init__() that there is only one child...
-                break
-
-        return str(data)
-
-    textData = calendarData
 
 
 
@@ -881,6 +897,11 @@ class TimeZone (CalDAVTimeZoneElement):
     (CalDAV-access, RFC 4791 section 9.8)
     """
     name = "timezone"
+
+    allowed_attributes = {
+        "content-type": False,
+        "version"     : False,
+    }
 
 
 

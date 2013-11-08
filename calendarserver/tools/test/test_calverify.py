@@ -22,7 +22,7 @@ Tests for calendarserver.tools.calverify
 from calendarserver.tools.calverify import BadDataService, \
     SchedulingMismatchService, DoubleBookingService, DarkPurgeService
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
@@ -969,7 +969,7 @@ class CalVerifyMismatchTestsBase(StoreTestCase):
         self.notifierFactory.reset()
 
 
-now = PyCalendarDateTime.getToday()
+now = DateTime.getToday()
 now.setDay(1)
 now.offsetMonth(2)
 nowYear = now.getYear()
@@ -1404,7 +1404,7 @@ END:VCALENDAR
 
         home = (yield self.homeUnderTest(name=self.uuid3))
         calendar = (yield self.calendarUnderTest(name="calendar2", home=self.uuid3))
-        yield home.setDefaultCalendar(calendar)
+        yield home.setDefaultCalendar(calendar, "VEVENT")
         yield self.commit()
 
 
@@ -1431,7 +1431,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1498,7 +1498,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1707,7 +1707,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1758,7 +1758,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1934,7 +1934,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": CalVerifyMismatchTestsBase.uuidl1,
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1983,7 +1983,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": CalVerifyMismatchTestsBase.uuidl1,
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2446,7 +2446,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": self.uuidl1,
             "tzid": "utc",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = DoubleBookingService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2609,7 +2609,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": self.uuidl1,
             "tzid": "utc",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
             "no-organizer": False,
             "invalid-organizer": False,
             "disabled-organizer": False,
@@ -2656,7 +2656,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": self.uuidl1,
             "tzid": "utc",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
             "no-organizer": False,
             "invalid-organizer": False,
             "disabled-organizer": False,
@@ -2715,7 +2715,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": self.uuidl1,
             "tzid": "utc",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
             "no-organizer": True,
             "invalid-organizer": False,
             "disabled-organizer": False,
@@ -2774,7 +2774,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": self.uuidl1,
             "tzid": "utc",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
             "no-organizer": True,
             "invalid-organizer": True,
             "disabled-organizer": True,

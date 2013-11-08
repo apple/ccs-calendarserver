@@ -32,7 +32,7 @@ from calendarserver.push.notifier import Notifier
 
 from hashlib import md5
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from random import Random
 
@@ -50,6 +50,7 @@ from twisted.internet.defer import returnValue
 from twisted.internet.task import deferLater
 from twisted.trial.unittest import TestCase
 
+from twistedcaldav import ical
 from twistedcaldav.config import config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 from twistedcaldav.vcard import Component as ABComponent
@@ -447,12 +448,11 @@ def populateCalendarsFrom(requirements, store, migrating=False):
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
             try:
-                yield home.removeCalendarWithName("calendar")
-                # FIXME: this should be an argument to the function, not a
-                # global configuration variable.  Related: this needs
-                # independent tests.
                 if config.RestrictCalendarsToOneComponentType:
-                    yield home.removeCalendarWithName("tasks")
+                    for name in ical.allowedStoreComponents:
+                        yield home.removeCalendarWithName(home._componentCalendarName[name])
+                else:
+                    yield home.removeCalendarWithName("calendar")
                 yield home.removeCalendarWithName("inbox")
             except NoSuchHomeChildError:
                 pass
@@ -480,7 +480,7 @@ def updateToCurrentYear(data):
     Update the supplied iCalendar data so that all dates are updated to the current year.
     """
 
-    nowYear = PyCalendarDateTime.getToday().getYear()
+    nowYear = DateTime.getToday().getYear()
     return data % {"now": nowYear}
 
 

@@ -23,7 +23,7 @@ from calendarserver.tools.util import removeProxy
 
 from getopt import getopt, GetoptError
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twext.python.log import Logger
 
@@ -147,7 +147,7 @@ class PurgeOldEventsService(WorkerService):
         if dryrun:
             verbose = True
 
-        cutoff = PyCalendarDateTime.getToday()
+        cutoff = DateTime.getToday()
         cutoff.setDateOnly(False)
         cutoff.offsetDay(-days)
         cls.cutoff = cutoff
@@ -328,7 +328,7 @@ class PurgeAttachmentsService(WorkerService):
 
         cls.uuid = uuid
         if days > 0:
-            cutoff = PyCalendarDateTime.getToday()
+            cutoff = DateTime.getToday()
             cutoff.setDateOnly(False)
             cutoff.offsetDay(-days)
             cls.cutoff = cutoff
@@ -352,7 +352,7 @@ class PurgeAttachmentsService(WorkerService):
         service = cls(store)
         service.uuid = uuid
         if days > 0:
-            cutoff = PyCalendarDateTime.getToday()
+            cutoff = DateTime.getToday()
             cutoff.setDateOnly(False)
             cutoff.offsetDay(-days)
             service.cutoff = cutoff
@@ -732,7 +732,7 @@ class PurgePrincipalService(WorkerService):
     def _purgeUID(self, uid):
 
         if self.when is None:
-            self.when = PyCalendarDateTime.getNowUTC()
+            self.when = DateTime.getNowUTC()
 
         # Does the record exist?
         record = self.directory.recordWithUID(uid)
@@ -1020,7 +1020,7 @@ class PurgePrincipalService(WorkerService):
         @type event: L{twistedcaldav.ical.Component}
 
         @param when: the cutoff date (anything after which is removed)
-        @type when: PyCalendarDateTime
+        @type when: DateTime
 
         @param cua: Calendar User Address of principal being purged, to compare
             to see if it's the organizer of the event or just an attendee

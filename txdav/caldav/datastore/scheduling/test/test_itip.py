@@ -15,8 +15,8 @@
 ##
 from __future__ import print_function
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 from twisted.trial import unittest
 
@@ -2025,7 +2025,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 ("mailto:user2@example.com",),
-                (PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),),
+                (DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),),
             ),
 
             # Recurring component with one instance, each with one attendee - cancel instance
@@ -2066,7 +2066,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 ("mailto:user2@example.com",),
-                (PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),),
+                (DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),),
             ),
 
             # Recurring component with one instance, each with one attendee - cancel master
@@ -2127,7 +2127,7 @@ END:VCALENDAR
 """,
                 "",
                 ("mailto:user2@example.com",),
-                (PyCalendarDateTime(2008, 12, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),),
+                (DateTime(2008, 12, 14, 0, 0, 0, tzid=Timezone(utc=True)),),
             ),
 
         )
@@ -2229,7 +2229,8 @@ RECURRENCE-ID;TZID=America/Los_Angeles:20100826T130000
 DTSTART;TZID=America/Los_Angeles:20101007T113000
 DTEND;TZID=America/Los_Angeles:20101007T120000
 ATTENDEE;CN=Missing Attendee;CUTYPE=INDIVIDUAL;EMAIL=missing@example.com;P
- ARTSTAT=DECLINED;ROLE=OPT-PARTICIPANT;RSVP=TRUE:mailto:missing@example.com
+ ARTSTAT=DECLINED;ROLE=OPT-PARTICIPANT;RSVP=TRUE:mailto:missing@example.co
+ m
 ORGANIZER;CN=The Organizer:mailto:organizer@example.com
 REQUEST-STATUS:2.0;Success
 SEQUENCE:24

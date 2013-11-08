@@ -1686,6 +1686,7 @@ class Lock(_LockingStatement):
             SQLFragment(' in %s mode' % (self.mode,)))
 
 
+
 class DatabaseLock(_LockingStatement):
     """
     An SQL exclusive session level advisory lock
@@ -1706,6 +1707,7 @@ class DatabaseLock(_LockingStatement):
         return succeed(None)
 
 
+
 class DatabaseUnlock(_LockingStatement):
     """
     An SQL exclusive session level advisory lock
@@ -1724,6 +1726,7 @@ class DatabaseUnlock(_LockingStatement):
             return super(DatabaseUnlock, self).on(txn, *a, **kw)
 
         return succeed(None)
+
 
 
 class Savepoint(_LockingStatement):

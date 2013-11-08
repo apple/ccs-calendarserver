@@ -99,6 +99,7 @@ class MemCacheClientFactory(ReconnectingClientFactory):
             connector,
             reason)
 
+
     def buildProtocol(self, addr):
         """
         Attach the C{self.connectionPool} to the protocol so it can tell it,
@@ -167,12 +168,14 @@ class MemCachePool(object):
         self._pendingConnects = 0
         self._commands = []
 
+
     def _isIdle(self):
         return (
             len(self._busyClients) == 0 and
             len(self._commands) == 0 and
             self._pendingConnects == 0
         )
+
 
     def _shutdownCallback(self):
         self.shutdown_requested = True
@@ -181,13 +184,14 @@ class MemCachePool(object):
         self.shutdown_deferred = Deferred()
         return self.shutdown_deferred
 
+
     def _newClientConnection(self):
         """
         Create a new client connection.
 
         @return: A L{Deferred} that fires with the L{IProtocol} instance.
         """
-        self.log.debug("Initating new client connection to: %r" % (
+        self.log.debug("Initiating new client connection to: %r" % (
                 self._endpoint,))
         self._logClientStats()
 
@@ -219,7 +223,7 @@ class MemCachePool(object):
 
         @param command: A C{str} representing an attribute of
             L{MemCacheProtocol}.
-        @parma args: Any positional arguments that should be passed to
+        @param args: Any positional arguments that should be passed to
             C{command}.
         @param kwargs: Any keyword arguments that should be passed to
             C{command}.
@@ -258,7 +262,7 @@ class MemCachePool(object):
 
         @param command: A C{str} representing an attribute of
             L{MemCacheProtocol}.
-        @parma args: Any positional arguments that should be passed to
+        @param args: Any positional arguments that should be passed to
             C{command}.
         @param kwargs: Any keyword arguments that should be passed to
             C{command}.
@@ -371,23 +375,30 @@ class MemCachePool(object):
     def get(self, *args, **kwargs):
         return self.performRequest('get', *args, **kwargs)
 
+
     def set(self, *args, **kwargs):
         return self.performRequest('set', *args, **kwargs)
+
 
     def checkAndSet(self, *args, **kwargs):
         return self.performRequest('checkAndSet', *args, **kwargs)
 
+
     def delete(self, *args, **kwargs):
         return self.performRequest('delete', *args, **kwargs)
+
 
     def add(self, *args, **kwargs):
         return self.performRequest('add', *args, **kwargs)
 
+
     def incr(self, *args, **kwargs):
         return self.performRequest('increment', *args, **kwargs)
 
+
     def decr(self, *args, **kwargs):
         return self.performRequest('decrement', *args, **kwargs)
+
 
     def flushAll(self, *args, **kwargs):
         return self.performRequest('flushAll', *args, **kwargs)

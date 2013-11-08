@@ -25,7 +25,7 @@ from twext.web2 import responsecode
 from txdav.xml import element as davxml
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.util import parentForURL
-from twext.web2.http import HTTPError
+from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.http import Response
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
@@ -34,8 +34,10 @@ from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
+from twistedcaldav.ical import Component
 from twistedcaldav.resource import isPseudoCalendarCollectionResource, \
     CalDAVResource
+from twistedcaldav.util import bestAcceptType
 
 @inlineCallbacks
 def http_GET(self, request):
@@ -70,6 +72,8 @@ def http_GET(self, request):
                 returnValue(response)
 
         else:
+            # FIXME: this should be implemented in storebridge.CalendarObject.render
+
             # Look for calendar access restriction on existing resource.
             parentURL = parentForURL(request.uri)
             parent = (yield request.locateResource(parentURL))
@@ -77,6 +81,11 @@ def http_GET(self, request):
 
                 # Check authorization first
                 yield self.authorize(request, (davxml.Read(),))
+
+                # Accept header handling
+                accepted_type = bestAcceptType(request.headers.getHeader("accept"), Component.allowedTypes())
+                if accepted_type is None:
+                    raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
 
                 caldata = (yield self.iCalendarForUser(request))
 
@@ -92,8 +101,8 @@ def http_GET(self, request):
                     caldata = PrivateEventFilter(self.accessMode, isowner).filter(caldata)
 
                 response = Response()
-                response.stream = MemoryStream(caldata.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference))
-                response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
+                response.stream = MemoryStream(caldata.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference, format=accepted_type))
+                response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (accepted_type,)))
 
                 # Add Schedule-Tag header if property is present
                 if self.scheduleTag:

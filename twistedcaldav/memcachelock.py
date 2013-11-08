@@ -15,7 +15,7 @@
 ##
 
 from twistedcaldav.memcacher import Memcacher
-from twisted.internet.defer import inlineCallbacks, Deferred, returnValue,\
+from twisted.internet.defer import inlineCallbacks, Deferred, returnValue, \
     succeed
 from twisted.internet import reactor
 import time
@@ -24,7 +24,7 @@ class MemcacheLock(Memcacher):
 
     def __init__(self, namespace, locktoken, timeout=5.0, retry_interval=0.1, expire_time=0):
         """
-        
+
         @param namespace: a unique namespace for this lock's tokens
         @type namespace: C{str}
         @param locktoken: the name of the locktoken
@@ -44,31 +44,33 @@ class MemcacheLock(Memcacher):
         self._expire_time = expire_time
         self._hasLock = False
 
+
     def _getMemcacheProtocol(self):
-        
+
         result = super(MemcacheLock, self)._getMemcacheProtocol()
 
         if isinstance(result, Memcacher.nullCacher):
             raise AssertionError("No implementation of shared locking without memcached")
-        
+
         return result
+
 
     @inlineCallbacks
     def acquire(self):
-        
+
         assert not self._hasLock, "Lock already acquired."
-    
+
         timeout_at = time.time() + self._timeout
         waiting = False
         while True:
-            
+
             result = (yield self.add(self._locktoken, "1", expireTime=self._expire_time))
             if result:
                 self._hasLock = True
                 if waiting:
                     self.log.debug("Got lock after waiting on %s" % (self._locktoken,))
                 break
-            
+
             if self._timeout and time.time() < timeout_at:
                 waiting = True
                 self.log.debug("Waiting for lock on %s" % (self._locktoken,))
@@ -80,13 +82,14 @@ class MemcacheLock(Memcacher):
             else:
                 self.log.debug("Timed out lock after waiting on %s" % (self._locktoken,))
                 raise MemcacheLockTimeoutError()
-        
+
         returnValue(True)
 
+
     def release(self):
-        
+
         assert self._hasLock, "Lock not acquired."
-    
+
         def _done(result):
             self._hasLock = False
             return result
@@ -95,24 +98,28 @@ class MemcacheLock(Memcacher):
         d.addCallback(_done)
         return d
 
+
     def clean(self):
-        
+
         if self._hasLock:
             return self.release()
         else:
             return succeed(True)
 
+
     def locked(self):
         """
         Test if the lock is currently being held.
         """
-        
+
         def _gotit(value):
             return value is not None
 
         d = self.get(self._locktoken)
         d.addCallback(_gotit)
         return d
+
+
 
 class MemcacheLockTimeoutError(Exception):
     pass

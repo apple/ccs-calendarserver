@@ -42,8 +42,8 @@ from contrib.performance.stats import LogNormalDistribution, RecurrenceDistribut
 from contrib.performance.loadtest.logger import SummarizingMixin
 from contrib.performance.loadtest.ical import IncorrectResponseCode
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
 
 class ProfileBase(object):
     """
@@ -407,9 +407,9 @@ END:VCALENDAR
             vevent = vcalendar.mainComponent()
             uid = str(uuid4())
             dtstart = self._eventStartDistribution.sample()
-            dtend = dtstart + PyCalendarDuration(seconds=self._eventDurationDistribution.sample())
-            vevent.replaceProperty(Property("CREATED", PyCalendarDateTime.getNowUTC()))
-            vevent.replaceProperty(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+            dtend = dtstart + Duration(seconds=self._eventDurationDistribution.sample())
+            vevent.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
+            vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
             vevent.replaceProperty(Property("DTSTART", dtstart))
             vevent.replaceProperty(Property("DTEND", dtend))
             vevent.replaceProperty(Property("UID", uid))
@@ -650,9 +650,9 @@ END:VCALENDAR
             vevent = vcalendar.mainComponent()
             uid = str(uuid4())
             dtstart = self._eventStartDistribution.sample()
-            dtend = dtstart + PyCalendarDuration(seconds=self._eventDurationDistribution.sample())
-            vevent.replaceProperty(Property("CREATED", PyCalendarDateTime.getNowUTC()))
-            vevent.replaceProperty(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+            dtend = dtstart + Duration(seconds=self._eventDurationDistribution.sample())
+            vevent.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
+            vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
             vevent.replaceProperty(Property("DTSTART", dtstart))
             vevent.replaceProperty(Property("DTEND", dtend))
             vevent.replaceProperty(Property("UID", uid))
@@ -719,8 +719,8 @@ END:VCALENDAR
             vtodo = vcalendar.mainComponent()
             uid = str(uuid4())
             due = self._taskStartDistribution.sample()
-            vtodo.replaceProperty(Property("CREATED", PyCalendarDateTime.getNowUTC()))
-            vtodo.replaceProperty(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+            vtodo.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
+            vtodo.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
             vtodo.replaceProperty(Property("DUE", due))
             vtodo.replaceProperty(Property("UID", uid))
 

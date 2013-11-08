@@ -18,7 +18,7 @@
 Tests for calendarserver.tools.purge
 """
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
@@ -30,7 +30,7 @@ from txdav.caldav.datastore.test.util import buildCalendarStore, \
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 
 
-now = PyCalendarDateTime.getToday().getYear()
+now = DateTime.getToday().getYear()
 
 ORGANIZER_ICS = """BEGIN:VCALENDAR
 VERSION:2.0

@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twistedcaldav.ical import Property
 
@@ -34,10 +34,10 @@ class iCalSplitter(object):
 
         """
         self.threshold = threshold
-        self.past = PyCalendarDateTime.getNowUTC()
+        self.past = DateTime.getNowUTC()
         self.past.setHHMMSS(0, 0, 0)
         self.past.offsetDay(-past)
-        self.now = PyCalendarDateTime.getNowUTC()
+        self.now = DateTime.getNowUTC()
         self.now.setHHMMSS(0, 0, 0)
         self.now.offsetDay(-1)
 
@@ -91,7 +91,7 @@ class iCalSplitter(object):
         @type ical: L{Component}
 
         @return: recurrence-id of the split
-        @rtype: L{PyCalendarDateTime}
+        @rtype: L{DateTime}
         """
 
         # Find the instance RECURRENCE-ID where a split is going to happen
@@ -124,7 +124,7 @@ class iCalSplitter(object):
         @type ical: L{Component}
 
         @param rid: recurrence-id where the split should occur, or C{None} to determine it here
-        @type rid: L{PyCalendarDateTime} or C{None}
+        @type rid: L{DateTime} or C{None}
 
         @param olderUID: UID to use for the split off component, or C{None} to generate one here
         @type olderUID: C{str} or C{None}

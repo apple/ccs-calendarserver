@@ -41,7 +41,9 @@ from txdav.caldav.datastore.scheduling.cuaddress import EmailCalendarUser
 from txdav.caldav.datastore.scheduling.imip.delivery import ScheduleViaIMip
 from txdav.caldav.datastore.scheduling.ischedule.delivery import ScheduleViaISchedule
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
+
 import hashlib
+from collections import namedtuple
 
 """
 CalDAV/Server-to-Server scheduling behavior.
@@ -654,6 +656,11 @@ class ScheduleResponseQueue (object):
     response_description_element = davxml.ResponseDescription
     calendar_data_element = caldavxml.CalendarData
 
+    ScheduleResonseDetails = namedtuple(
+        "ScheduleResonseDetails",
+        ["recipient", "reqstatus", "calendar", "error", "message", ]
+    )
+
     def __init__(self, method, success_response, recipient_mapper=None):
         """
         @param method: the name of the method generating the queue.
@@ -703,16 +710,14 @@ class ScheduleResponseQueue (object):
         if not suppressErrorLog and code > 400: # Error codes only
             self.log.error("Error during %s for %s: %s" % (self.method, recipient, message))
 
-        children = []
-        children.append(self.recipient_element(davxml.HRef.fromString(recipient)) if self.recipient_uses_href else self.recipient_element.fromString(recipient))
-        children.append(self.request_status_element(reqstatus))
-        if calendar is not None:
-            children.append(self.calendar_data_element.fromCalendar(calendar))
-        if error is not None:
-            children.append(error)
-        if message is not None:
-            children.append(self.response_description_element(message))
-        self.responses.append(self.response_element(*children))
+        details = ScheduleResponseQueue.ScheduleResonseDetails(
+            self.recipient_element(davxml.HRef.fromString(recipient)) if self.recipient_uses_href else self.recipient_element.fromString(recipient),
+            self.request_status_element(reqstatus),
+            calendar,
+            error,
+            self.response_description_element(message) if message is not None else None,
+        )
+        self.responses.append(details)
 
 
     def errorForFailure(self, failure):
@@ -728,19 +733,17 @@ class ScheduleResponseQueue (object):
         @param clone: the response to clone.
         """
 
-        children = []
-        children.append(self.recipient_element(davxml.HRef.fromString(recipient)) if self.recipient_uses_href else self.recipient_element.fromString(recipient))
-        children.append(self.request_status_element.fromString(request_status))
-        if calendar_data is not None:
-            children.append(self.calendar_data_element.fromCalendar(calendar_data))
-        if error is not None:
-            children.append(self.error_element(*error))
-        if desc is not None:
-            children.append(self.response_description_element.fromString(desc))
-        self.responses.append(self.response_element(*children))
+        details = ScheduleResponseQueue.ScheduleResonseDetails(
+            self.recipient_element(davxml.HRef.fromString(recipient)) if self.recipient_uses_href else self.recipient_element.fromString(recipient),
+            self.request_status_element.fromString(request_status),
+            calendar_data,
+            self.error_element(*error) if error is not None else None,
+            self.response_description_element.fromString(desc) if desc is not None else None,
+        )
+        self.responses.append(details)
 
 
-    def response(self):
+    def response(self, format=None):
         """
         Generate a L{ScheduleResponseResponse} with the responses contained in the
         queue or, if no such responses, return the C{success_response} provided
@@ -748,6 +751,20 @@ class ScheduleResponseQueue (object):
         @return: the response.
         """
         if self.responses:
-            return ScheduleResponseResponse(self.schedule_response_element, self.responses, self.location)
+            # Convert our queue to all XML elements
+            xml_responses = []
+            for response in self.responses:
+                children = []
+                children.append(response.recipient)
+                children.append(response.reqstatus)
+                if response.calendar is not None:
+                    children.append(self.calendar_data_element.fromCalendar(response.calendar, format))
+                if response.error is not None:
+                    children.append(response.error)
+                if response.message is not None:
+                    children.append(response.message)
+                xml_responses.append(self.response_element(*children))
+
+            return ScheduleResponseResponse(self.schedule_response_element, xml_responses, self.location)
         else:
             return self.success_response

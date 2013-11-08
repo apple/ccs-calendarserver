@@ -94,6 +94,7 @@ class iSchedulePOST (CommonCommonTests, twext.web2.dav.test.util.TestCase):
             headers=http_headers.Headers(rawHeaders={
                 "Originator": ("mailto:wsanchez@example.com",),
                 "Recipient": ("mailto:cdaboo@example.com",),
+                "Content-Type": "text/calendar",
             }),
             content="""BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
@@ -144,6 +145,7 @@ END:VCALENDAR
             headers=http_headers.Headers(rawHeaders={
                 "Originator": ("mailto:user01@example.org",),
                 "Recipient": ("mailto:user02@example.com",),
+                "Content-Type": ("text/calendar",)
             }),
             content="""BEGIN:VCALENDAR
 CALSCALE:GREGORIAN

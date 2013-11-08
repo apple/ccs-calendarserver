@@ -30,7 +30,7 @@ from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
 import twistedcaldav.test.util
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 import os
 
@@ -311,7 +311,7 @@ END:VCALENDAR
             else:
                 self.assertFalse(self.db.resourceExists(name), msg=description)
 
-        self.db.testAndUpdateIndex(PyCalendarDateTime(2020, 1, 1))
+        self.db.testAndUpdateIndex(DateTime(2020, 1, 1))
         for description, name, calendar_txt, reCreate, ok in data:
             if ok:
                 self.assertTrue(self.db.resourceExists(name), msg=description)

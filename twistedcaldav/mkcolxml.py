@@ -45,9 +45,10 @@ class MakeCollection (davxml.WebDAVElement):
     """
     name = "mkcol"
 
-    allowed_children = { (davxml.dav_namespace, "set"): (0, 1) }
+    allowed_children = {(davxml.dav_namespace, "set"): (0, 1)}
 
-    child_types = { "WebDAVUnknownElement": (0, None) }
+    child_types = {"WebDAVUnknownElement": (0, None)}
+
 
 
 @registerElement
@@ -58,4 +59,4 @@ class MakeCollectionResponse (davxml.WebDAVElement):
     """
     name = "mkcol-response"
 
-    allowed_children = { davxml.WebDAVElement: (0, None) }
+    allowed_children = {davxml.WebDAVElement: (0, None)}

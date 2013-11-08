@@ -563,8 +563,8 @@ class PeerConnectionPoolUnitTests(TestCase):
             t = StringTransport()
             p.makeConnection(t)
             return p, t
-        worker1, trans1 = peer()
-        worker2, trans2 = peer()
+        worker1, _ignore_trans1 = peer()
+        worker2, _ignore_trans2 = peer()
         # Ask the worker to do something.
         worker1.performWork(schema.DUMMY_WORK_ITEM, 1)
         self.assertEquals(worker1.currentLoad, 1)
@@ -678,7 +678,7 @@ class Connection(object):
         """
         Keep relaying data until there's no more.
         """
-        for x in range(turns):
+        for _ignore_x in range(turns):
             if not (self.pump() or self.pump()):
                 return
 

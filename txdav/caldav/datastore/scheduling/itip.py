@@ -33,7 +33,7 @@ from twistedcaldav.config import config
 from twistedcaldav.ical import Property, iCalendarProductID, Component, \
     ignoredComponents
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 log = Logger()
 
@@ -402,8 +402,13 @@ class iTipProcessing(object):
     @staticmethod
     def updateAttendeeData(from_component, to_component):
         """
+        Called when processing a REPLY only.
+
         Copy the PARTSTAT of the Attendee in the from_component to the matching ATTENDEE
         in the to_component. Ignore if no match found. Also update the private comments.
+
+        For VPOLL we need to copy POLL-ITEM-ID response values into the actual matching
+        polled sub-components as VOTER properties.
 
         @param from_component: component to copy from
         @type from_component: L{Component}
@@ -423,7 +428,7 @@ class iTipProcessing(object):
             reqstatus = "2.0"
 
         # Get attendee in from_component - there MUST be only one
-        attendees = tuple(from_component.properties("ATTENDEE"))
+        attendees = tuple(from_component.properties(from_component.recipientPropertyName()))
         if len(attendees) != 1:
             log.error("There must be one and only one ATTENDEE property in a REPLY\n%s" % (str(from_component),))
             return None, False, False
@@ -484,7 +489,7 @@ class iTipProcessing(object):
                     attendee_comment.value(),
                     params={
                         "X-CALENDARSERVER-ATTENDEE-REF": attendee.value(),
-                        "X-CALENDARSERVER-DTSTAMP": PyCalendarDateTime.getNowUTC().getText(),
+                        "X-CALENDARSERVER-DTSTAMP": DateTime.getNowUTC().getText(),
                     }
                 )
                 to_component.addProperty(private_comment)
@@ -499,14 +504,57 @@ class iTipProcessing(object):
 
                     # Add default parameters
                     private_comment.setParameter("X-CALENDARSERVER-ATTENDEE-REF", attendee.value())
-                    private_comment.setParameter("X-CALENDARSERVER-DTSTAMP", PyCalendarDateTime.getNowUTC().getText())
+                    private_comment.setParameter("X-CALENDARSERVER-DTSTAMP", DateTime.getNowUTC().getText())
 
                     # Set new value
                     private_comment.setValue(attendee_comment.value())
 
                     private_comment_changed = True
 
+            # Do VPOLL transfer
+            if from_component.name() == "VPOLL":
+                # TODO: figure out how to report changes back
+                iTipProcessing.updateVPOLLData(from_component, to_component, attendee)
+
         return attendee.value(), partstat_changed, private_comment_changed
+
+
+    @staticmethod
+    def updateVPOLLData(from_component, to_component, attendee):
+        """
+        Update VPOLL sub-components with voter's response.
+
+        @param from_component: component to copy from
+        @type from_component: L{Component}
+        @param to_component: component to copy to
+        @type to_component: L{Component}
+        @param attendee: attendee being processed
+        @type attendee: L{Property}
+        """
+
+        responses = {}
+        for prop in from_component.properties("POLL-ITEM-ID"):
+            responses[prop.value()] = prop
+
+        for component in to_component.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
+            poll_item_id = component.propertyValue("POLL-ITEM-ID")
+            if poll_item_id is None:
+                continue
+            voter = component.getVoterProperty((attendee.value(),))
+
+            # If no response - remove
+            if poll_item_id not in responses or not responses[poll_item_id].hasParameter("RESPONSE"):
+                if voter is not None:
+                    component.removeProperty(voter)
+                continue
+
+            # Add or update voter
+            if voter is None:
+                voter = Property("VOTER", attendee.value())
+                component.addProperty(voter)
+            voter.setParameter("RESPONSE", responses[poll_item_id].parameterValue("RESPONSE"))
 
 
     @staticmethod
@@ -847,7 +895,7 @@ class iTipGenerator(object):
         itip.filterComponents(changedRids)
 
         # Force update to DTSTAMP everywhere so reply sequencing will work
-        itip.replacePropertyInAllComponents(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+        itip.replacePropertyInAllComponents(Property("DTSTAMP", DateTime.getNowUTC()))
 
         # Remove all attendees except the one we want
         itip.removeAllButOneAttendee(attendee)
@@ -877,6 +925,7 @@ class iTipGenerator(object):
             "EXDATE",
             "ORGANIZER",
             "ATTENDEE",
+            "VOTER",
             "X-CALENDARSERVER-PRIVATE-COMMENT",
             "SUMMARY",
             "LOCATION",
@@ -896,7 +945,35 @@ class iTipGenerator(object):
         # Strip out unwanted bits
         iTipGenerator.prepareSchedulingMessage(itip, reply=True)
 
+        # Handle VPOLL behavior
+        for component in itip.subcomponents():
+            if component.name() == "VPOLL":
+                iTipGenerator.generateVPOLLReply(component, attendee)
+
         return itip
+
+
+    @staticmethod
+    def generateVPOLLReply(vpoll, attendee):
+        """
+        Generate the proper poll response in a reply for each component being voted on.
+
+        @param vpoll: the VPOLL component to process
+        @type vpoll: L{Component}
+        @param attendee: calendar user address of attendee replying
+        @type attendee: C{str}
+        """
+
+        for component in tuple(vpoll.subcomponents()):
+            if component.name() in ignoredComponents:
+                continue
+            poll_item_id = component.propertyValue("POLL-ITEM-ID")
+            if poll_item_id is None:
+                continue
+            voter = component.getVoterProperty((attendee,))
+            if voter is not None and voter.hasParameter("RESPONSE"):
+                vpoll.addProperty(Property("POLL-ITEM-ID", poll_item_id, {"RESPONSE": voter.parameterValue("RESPONSE")}))
+            vpoll.removeComponent(component)
 
 
     @staticmethod
@@ -925,6 +1002,7 @@ class iTipGenerator(object):
 
         # Property Parameters
         itip.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND", "X-CALENDARSERVER-DTSTAMP",))
+        itip.removePropertyParameters("VOTER", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND", "X-CALENDARSERVER-DTSTAMP",))
         itip.removePropertyParameters("ORGANIZER", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
 
 

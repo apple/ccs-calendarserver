@@ -28,8 +28,8 @@ from twistedcaldav.caldavxml import caldav_namespace, CalDAVTimeZoneElement
 from twistedcaldav.dateops import timeRangesOverlap
 from twistedcaldav.ical import Component, Property
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 log = Logger()
 
@@ -89,7 +89,7 @@ class Filter(FilterBase):
                     instances = None
                 else:
                     # Expand the instances up to infinity
-                    instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), ignoreInvalidInstances=True)
+                    instances = component.expandTimeRanges(DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True)), ignoreInvalidInstances=True)
             else:
                 instances = component.expandTimeRanges(maxend, ignoreInvalidInstances=True)
         else:
@@ -117,7 +117,7 @@ class Filter(FilterBase):
         Set the default timezone to use with this query.
         @param calendar: a L{Component} for the VCALENDAR containing the one
             VTIMEZONE that we want
-        @return: the L{PyCalendarTimezone} derived from the VTIMEZONE or utc.
+        @return: the L{Timezone} derived from the VTIMEZONE or utc.
         """
 
         if tzelement is None:
@@ -127,7 +127,7 @@ class Filter(FilterBase):
         elif isinstance(tzelement, Component):
             tz = tzelement.gettimezone()
         if tz is None:
-            tz = PyCalendarTimezone(utc=True)
+            tz = Timezone(utc=True)
         self.child.settzinfo(tz)
         return tz
 
@@ -357,7 +357,7 @@ class ComponentFilter (FilterChildBase):
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
-        @param tzinfo: a L{PyCalendarTimezone} to use.
+        @param tzinfo: a L{Timezone} to use.
         """
 
         # Give tzinfo to any TimeRange we have
@@ -374,7 +374,7 @@ class ComponentFilter (FilterChildBase):
         Get the date farthest into the future in any time-range elements
 
         @param currentMaximum: current future value to compare with
-        @type currentMaximum: L{PyCalendarDateTime}
+        @type currentMaximum: L{DateTime}
         """
 
         # Give tzinfo to any TimeRange we have
@@ -471,7 +471,7 @@ class PropertyFilter (FilterChildBase):
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
-        @param tzinfo: a L{PyCalendarTimezone} to use.
+        @param tzinfo: a L{Timezone} to use.
         """
 
         # Give tzinfo to any TimeRange we have
@@ -484,7 +484,7 @@ class PropertyFilter (FilterChildBase):
         Get the date farthest into the future in any time-range elements
 
         @param currentMaximum: current future value to compare with
-        @type currentMaximum: L{PyCalendarDateTime}
+        @type currentMaximum: L{DateTime}
         """
 
         # Give tzinfo to any TimeRange we have
@@ -652,15 +652,15 @@ class TimeRange (FilterBase):
         if "start" not in xml_element.attributes and "end" not in xml_element.attributes:
             raise ValueError("One of 'start' or 'end' must be present in CALDAV:time-range")
 
-        self.start = PyCalendarDateTime.parseText(xml_element.attributes["start"]) if "start" in xml_element.attributes else None
-        self.end = PyCalendarDateTime.parseText(xml_element.attributes["end"]) if "end" in xml_element.attributes else None
+        self.start = DateTime.parseText(xml_element.attributes["start"]) if "start" in xml_element.attributes else None
+        self.end = DateTime.parseText(xml_element.attributes["end"]) if "end" in xml_element.attributes else None
         self.tzinfo = None
 
 
     def settzinfo(self, tzinfo):
         """
         Set the default timezone to use with this query.
-        @param tzinfo: a L{PyCalendarTimezone} to use.
+        @param tzinfo: a L{Timezone} to use.
         """
 
         # Give tzinfo to any TimeRange we have

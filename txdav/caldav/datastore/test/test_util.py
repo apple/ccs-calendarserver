@@ -349,7 +349,8 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
                 "inbox": {},
                 # XXX: implementation is configuration-sensitive regarding the
                 # 'tasks' calendar and it shouldn't be.
-                "tasks": {}
+                "tasks": {},
+                "polls": {},
             }
         }, self.storeUnderTest())
         txn = self.transactionUnderTest()
@@ -412,7 +413,7 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
             c1 = {"1.ics": self.sampleEvent("uid1")}
         if c2 is None:
             c2 = {"2.ics": self.sampleEvent("uid2")}
-        defaults = {"calendar": {}, "inbox": {}, "tasks": {}}
+        defaults = {"calendar": {}, "inbox": {}, "tasks": {}, "polls": {}}
         def conflicted(caldata):
             d = defaults.copy()
             d.update(conflicted=caldata)

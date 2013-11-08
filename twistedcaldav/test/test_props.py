@@ -88,7 +88,7 @@ class Properties(StoreTestCase):
                         self.fail("Expected CalDAV:supported-calendar-data element; but got none.")
 
                     for calendar in supported_calendar.children:
-                        if calendar.content_type != "text/calendar":
+                        if calendar.content_type not in ("text/calendar", "application/calendar+json"):
                             self.fail("Expected a text/calendar calendar-data type restriction")
                         if calendar.version != "2.0":
                             self.fail("Expected a version 2.0 calendar-data restriction")

@@ -21,8 +21,8 @@ from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import StoreTestCase
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 from twisted.internet.defer import inlineCallbacks
 from txdav.common.datastore.test.util import populateCalendarsFrom
@@ -33,11 +33,11 @@ from twext.web2.http_headers import MimeType
 import os
 
 
-future = PyCalendarDateTime.getNowUTC()
+future = DateTime.getNowUTC()
 future.offsetDay(1)
 future = future.getText()
 
-past = PyCalendarDateTime.getNowUTC()
+past = DateTime.getNowUTC()
 past.offsetDay(-1)
 past = past.getText()
 
@@ -230,7 +230,7 @@ class CancelEventTestCase(StoreTestCase):
     def test_cancelRepeating(self):
         # A repeating event where purged CUA is organizer
         event = Component.fromString(REPEATING_1_ICS_BEFORE)
-        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
         self.assertEquals(action, PurgePrincipalService.CANCELEVENT_MODIFIED)
         self.assertEquals(str(event), REPEATING_1_ICS_AFTER)
@@ -239,7 +239,7 @@ class CancelEventTestCase(StoreTestCase):
     def test_cancelAllDayRepeating(self):
         # A repeating All Day event where purged CUA is organizer
         event = Component.fromString(REPEATING_2_ICS_BEFORE)
-        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
         self.assertEquals(action, PurgePrincipalService.CANCELEVENT_MODIFIED)
         self.assertEquals(str(event), REPEATING_2_ICS_AFTER)
@@ -248,7 +248,7 @@ class CancelEventTestCase(StoreTestCase):
     def test_cancelFutureEvent(self):
         # A future event
         event = Component.fromString(FUTURE_EVENT_ICS)
-        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
         self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
 
@@ -256,7 +256,7 @@ class CancelEventTestCase(StoreTestCase):
     def test_cancelNonMeeting(self):
         # A repeating non-meeting event
         event = Component.fromString(REPEATING_NON_MEETING_ICS)
-        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
         self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
 
@@ -264,7 +264,7 @@ class CancelEventTestCase(StoreTestCase):
     def test_cancelAsAttendee(self):
         # A repeating meeting event where purged CUA is an attendee
         event = Component.fromString(REPEATING_ATTENDEE_MEETING_ICS)
-        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
         self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
 
@@ -273,7 +273,7 @@ class CancelEventTestCase(StoreTestCase):
         # A repeating meeting occurrence with no master, where purged CUA is
         # an attendee
         event = Component.fromString(INVITED_TO_OCCURRENCE_ICS)
-        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
             "urn:uuid:9DC04A71-E6DD-11DF-9492-0800200C9A66")
         self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
 
@@ -282,7 +282,7 @@ class CancelEventTestCase(StoreTestCase):
         # Multiple meeting occurrences with no master, where purged CUA is
         # an attendee
         event = Component.fromString(INVITED_TO_MULTIPLE_OCCURRENCES_ICS)
-        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
             "urn:uuid:9DC04A71-E6DD-11DF-9492-0800200C9A66")
         self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
 

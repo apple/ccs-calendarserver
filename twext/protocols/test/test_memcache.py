@@ -329,7 +329,7 @@ class MemCacheTestCase(TestCase):
         def check(result):
             self.assertEquals(result, (0, "bar"))
             self.assertEquals(len(self.clock.calls), 1)
-            for i in range(self.proto.persistentTimeOut):
+            for _ignore_i in range(self.proto.persistentTimeOut):
                 self.clock.advance(1)
             return self.assertFailure(d2, TimeoutError).addCallback(checkTime)
         def checkTime(ignored):

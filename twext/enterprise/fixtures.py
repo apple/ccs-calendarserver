@@ -194,7 +194,6 @@ class ClockWithThreads(Clock):
         No implementation.
         """
 
-
     def callFromThread(self, thunk, *a, **kw):
         """
         No implementation.
@@ -223,14 +222,16 @@ class ConnectionPoolHelper(object):
             self.factory = ConnectionFactory()
             connect = self.factory.connect
         self.connect = connect
-        self.paused             = False
-        self.holders            = []
-        self.pool               = ConnectionPool(connect,
-                                                 maxConnections=2,
-                                                 dialect=self.dialect,
-                                                 paramstyle=self.paramstyle)
+        self.paused = False
+        self.holders = []
+        self.pool = ConnectionPool(
+            connect,
+            maxConnections=2,
+            dialect=self.dialect,
+            paramstyle=self.paramstyle
+        )
         self.pool._createHolder = self.makeAHolder
-        self.clock              = self.pool.reactor = ClockWithThreads()
+        self.clock = self.pool.reactor = ClockWithThreads()
         self.pool.startService()
         test.addCleanup(self.flushHolders)
 
@@ -239,7 +240,7 @@ class ConnectionPoolHelper(object):
         """
         Flush all pending C{submit}s since C{pauseHolders} was called.  This
         makes sure the service is stopped and the fake ThreadHolders are all
-        executing their queues so failed tsets can exit cleanly.
+        executing their queues so failed tests can exit cleanly.
         """
         self.paused = False
         for holder in self.holders:

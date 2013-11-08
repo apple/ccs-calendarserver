@@ -38,7 +38,8 @@ class Options(dict):
         for x in xrange(0, len(argv)):
             opt = argv[x]
             if opt.startswith('-'):
-                self[opt.strip('-')] = argv[x+1]
+                self[opt.strip('-')] = argv[x + 1]
+
 
 
 def debug(string):
@@ -46,9 +47,11 @@ def debug(string):
         print("DEBUG:", string)
 
 
+
 def funclog(string):
     if FUNCLOG:
         print("FUNCLOG:", string)
+
 
 
 def logFuncCall(func):
@@ -60,6 +63,7 @@ def logFuncCall(func):
 
         return ''.join(a).strip(', ')
 
+
     def printKwargs(kwargs):
         a = []
         for kwarg, value in kwargs:
@@ -67,8 +71,9 @@ def logFuncCall(func):
 
         return ''.join(a).strip(', ')
 
+
     def _(*args, **kwargs):
-        funclog("%s(%s)" % (func.func_name, 
+        funclog("%s(%s)" % (func.func_name,
                             ', '.join((printArgs(args),
                                        printKwargs(kwargs))).strip(', ')))
 
@@ -77,8 +82,9 @@ def logFuncCall(func):
         funclog("%s - > %s" % (func.func_name, retval))
 
         return retval
-    
+
     return _
+
 
 
 @logFuncCall
@@ -89,12 +95,14 @@ def readConfig(configFile):
         config.update(readPlist(configFile))
 
     return config
-        
+
+
 
 @logFuncCall
 def mkroot(path):
     root = '/'.join(path.rstrip('/').split('/')[:-1])
     os.makedirs(root)
+
 
 
 @logFuncCall
@@ -110,6 +118,7 @@ def serveradmin(action, service):
         debug("C: %s" % (line,))
 
     return status
+
 
 
 @logFuncCall
@@ -134,9 +143,11 @@ def isRunning(service):
         return False
 
 
+
 @logFuncCall
 def copy(src, dst):
     shutil.copytree(src, dst)
+
 
 
 @logFuncCall
@@ -144,9 +155,11 @@ def move(src, dst):
     os.rename(src, dst)
 
 
+
 @logFuncCall
 def remove(dst):
     shutil.rmtree(dst)
+
 
 
 @logFuncCall
@@ -175,5 +188,5 @@ def purge(root, patterns):
                     os.remove(full)
 
                     removed.append(full)
-                    
+
     return removed

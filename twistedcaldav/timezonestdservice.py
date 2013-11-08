@@ -49,9 +49,9 @@ from twistedcaldav.timezones import TimezoneException, TimezoneCache, readVTZ, \
     addVTZ
 from twistedcaldav.xmlutil import addSubElement
 
-from pycalendar.calendar import PyCalendar
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.exceptions import PyCalendarInvalidData
+from pycalendar.icalendar.calendar import Calendar
+from pycalendar.datetime import DateTime
+from pycalendar.exceptions import InvalidData
 
 import hashlib
 import itertools
@@ -88,6 +88,12 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             self._initSecondaryService()
         else:
             raise ValueError("Invalid TimezoneService mode: %s" % (config.TimezoneService.Mode,))
+
+        self.formats = []
+        self.formats.append("text/calendar")
+        self.formats.append("text/plain")
+        if config.EnableJSONData:
+            self.formats.append("application/calendar+json")
 
 
     def _initPrimaryService(self):
@@ -268,7 +274,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 {
                     "name": "get",
                     "parameters": [
-                        {"name": "format", "required": False, "multi": False, "values": ["text/calendar", "text/plain", ], },
+                        {"name": "format", "required": False, "multi": False, "values": self.formats, },
                         {"name": "tzid", "required": True, "multi": False, },
                     ],
                 },
@@ -303,7 +309,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             # Validate a date-time stamp
             changedsince = changedsince[0]
             try:
-                dt = PyCalendarDateTime.parseText(changedsince)
+                dt = DateTime.parseText(changedsince)
             except ValueError:
                 raise HTTPError(JSONResponse(
                     responsecode.BAD_REQUEST,
@@ -348,7 +354,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             ))
 
         format = request.args.get("format", ("text/calendar",))
-        if len(format) != 1 or format[0] not in ("text/calendar", "text/plain",):
+        if len(format) != 1 or format[0] not in self.formats:
             raise HTTPError(JSONResponse(
                 responsecode.BAD_REQUEST,
                 {
@@ -368,7 +374,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 }
             ))
 
-        tzdata = calendar.getText()
+        tzdata = calendar.getText(format=format if format != "text/plain" else None)
 
         response = Response()
         response.stream = MemoryStream(tzdata)
@@ -396,9 +402,9 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             if len(start) > 1:
                 raise ValueError()
             elif len(start) == 1:
-                start = PyCalendarDateTime.parseText(start[0])
+                start = DateTime.parseText(start[0])
             else:
-                start = PyCalendarDateTime.getToday()
+                start = DateTime.getToday()
                 start.setDay(1)
                 start.setMonth(1)
         except ValueError:
@@ -415,9 +421,9 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             if len(end) > 1:
                 raise ValueError()
             elif len(end) == 1:
-                end = PyCalendarDateTime.parseText(end[0])
+                end = DateTime.parseText(end[0])
             else:
-                end = PyCalendarDateTime.getToday()
+                end = DateTime.getToday()
                 end.setDay(1)
                 end.setMonth(1)
                 end.offsetYear(10)
@@ -558,7 +564,7 @@ class CommonTimezoneDatabase(object):
         Generate a PyCalendar containing the requested timezone.
         """
         # We will just use our existing TimezoneCache here
-        calendar = PyCalendar()
+        calendar = Calendar()
         try:
             vtz = readVTZ(tzid)
             calendar.addComponent(vtz.getComponents()[0].duplicate())
@@ -618,7 +624,7 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
         Create a new DB xml file from scratch by scanning zoneinfo.
         """
 
-        self.dtstamp = PyCalendarDateTime.getNowUTC().getXMLText()
+        self.dtstamp = DateTime.getNowUTC().getXMLText()
         self._scanTZs("")
         self._dumpTZs()
 
@@ -672,7 +678,7 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
         """
         Update existing DB info by comparing md5's.
         """
-        self.dtstamp = PyCalendarDateTime.getNowUTC().getXMLText()
+        self.dtstamp = DateTime.getNowUTC().getXMLText()
         self.changeCount = 0
         self.changed = set()
         self._scanTZs("", checkIfChanged=True)
@@ -847,8 +853,8 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
 
         ical = response.data
         try:
-            calendar = PyCalendar.parseText(ical)
-        except PyCalendarInvalidData:
+            calendar = Calendar.parseText(ical)
+        except InvalidData:
             log.error("Invalid calendar data for tzid: %s" % (tzinfo.tzid,))
             returnValue(None)
         ical = calendar.getText()

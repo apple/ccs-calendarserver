@@ -30,7 +30,6 @@ create table CALENDAR_HOME_METADATA (
     "QUOTA_USED_BYTES" integer default 0 not null,
     "DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
     "DEFAULT_TASKS" integer default null references CALENDAR on delete set null,
-    "DEFAULT_POLLS" integer default null references CALENDAR on delete set null,
     "ALARM_VEVENT_TIMED" nclob default null,
     "ALARM_VEVENT_ALLDAY" nclob default null,
     "ALARM_VTODO_TIMED" nclob default null,
@@ -366,7 +365,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '27');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '26');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
@@ -375,10 +374,6 @@ create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
 
 create index CALENDAR_HOME_METADAT_d55e5548 on CALENDAR_HOME_METADATA (
     DEFAULT_TASKS
-);
-
-create index CALENDAR_HOME_METADAT_910264ce on CALENDAR_HOME_METADATA (
-    DEFAULT_POLLS
 );
 
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (

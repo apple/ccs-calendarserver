@@ -18,7 +18,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.query import calendarqueryfilter
 import twistedcaldav.test.util
 from twistedcaldav.caldavxml import TimeZone
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.timezone import Timezone
 
 class Tests(twistedcaldav.test.util.TestCase):
 
@@ -227,4 +227,4 @@ END:VTIMEZONE
 END:VCALENDAR
 """))
 
-        self.assertTrue(isinstance(tz, PyCalendarTimezone))
+        self.assertTrue(isinstance(tz, Timezone))

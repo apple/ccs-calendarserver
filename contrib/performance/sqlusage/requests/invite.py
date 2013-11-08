@@ -16,7 +16,7 @@
 
 from caldavclientlibrary.protocol.url import URL
 from contrib.performance.sqlusage.requests.httpTests import HTTPTestBase
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 from twext.web2.dav.util import joinURL
 from caldavclientlibrary.protocol.webdav.definitions import davxml
 
@@ -67,7 +67,7 @@ class InviteTest(HTTPTestBase):
         """
 
         # Invite as user02
-        now = PyCalendarDateTime.getNowUTC()
+        now = DateTime.getNowUTC()
         href = joinURL(self.sessions[1].calendarHref, "organizer.ics")
         self.sessions[1].writeData(URL(path=href), ICAL % (now.getYear() + 1,), "text/calendar")
 

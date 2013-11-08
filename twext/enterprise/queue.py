@@ -115,7 +115,7 @@ class _IWorkPerformer(Interface):
     (in the worst case) pass from worker->controller->controller->worker.
     """
 
-    def performWork(table, workID):
+    def performWork(table, workID): #@NoSelf
         """
         @param table: The table where work is waiting.
         @type table: L{TableSyntax}
@@ -370,7 +370,6 @@ class WorkItem(Record):
         This method does I{not} need to delete the row referencing it; that
         will be taken care of by the job queueing machinery.
         """
-
 
     @classmethod
     def forTable(cls, table):

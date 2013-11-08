@@ -27,7 +27,7 @@ from contrib.performance.sqlusage.requests.propfind_invite import PropfindInvite
 from contrib.performance.sqlusage.requests.put import PutTest
 from contrib.performance.sqlusage.requests.query import QueryTest
 from contrib.performance.sqlusage.requests.sync import SyncTest
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 from twext.web2.dav.util import joinURL
 import getopt
 import itertools
@@ -183,7 +183,7 @@ class EventSQLUsage(object):
         @param n: number of events
         @type n: C{int}
         """
-        now = PyCalendarDateTime.getNowUTC()
+        now = DateTime.getNowUTC()
         for i in range(n - self.currentCount):
             index = self.currentCount + i + 1
             href = joinURL(calendarhref, "%d.ics" % (index,))
