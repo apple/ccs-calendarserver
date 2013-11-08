@@ -25,6 +25,7 @@ from zope.interface.verify import verifyObject, BrokenMethodImplementation
 from twisted.trial import unittest
 from twisted.trial.unittest import SkipTest
 from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import succeed
 
 from twext.who.idirectory import QueryNotSupportedError, NotAllowedError
 from twext.who.idirectory import RecordType, FieldName
@@ -185,6 +186,116 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
 
 class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
+    @inlineCallbacks
+    def test_recordsFromExpression_single(self):
+        """
+        C{recordsFromExpression} handles a single expression
+        """
+        service = StubDirectoryService()
+
+        result = yield service.recordsFromExpression("twistedmatrix.com")
+
+        self.assertEquals(
+            set((
+                u"__wsanchez__",
+                u"__glyph__",
+                u"__exarkun__",
+                u"__dreid__",
+            )),
+            set((record.uid for record in result))
+        )
+
+
+    @inlineCallbacks
+    def test_recordsFromExpression_OR(self):
+        """
+        C{recordsFromExpression} handles a L{CompoundExpression} with
+        L{Operand.OR}.
+        """
+        service = StubDirectoryService()
+
+        result = yield service.recordsFromExpression(
+            CompoundExpression(
+                (
+                    u"twistedmatrix.com",
+                    u"calendarserver.org",
+                ),
+                Operand.OR
+            )
+        )
+
+        self.assertEquals(
+            set((
+                u"__wsanchez__",
+                u"__glyph__",
+                u"__sagen__",
+                u"__cdaboo__",
+                u"__dre__",
+                u"__exarkun__",
+                u"__dreid__",
+            )),
+            set((record.uid for record in result))
+        )
+
+
+    @inlineCallbacks
+    def test_recordsFromExpression_AND(self):
+        """
+        C{recordsFromExpression} handles a L{CompoundExpression} with
+        L{Operand.AND}.
+        """
+        service = StubDirectoryService()
+
+        result = yield service.recordsFromExpression(
+            CompoundExpression(
+                (
+                    u"twistedmatrix.com",
+                    u"calendarserver.org",
+                ),
+                Operand.AND
+            )
+        )
+
+        self.assertEquals(
+            set((
+                u"__wsanchez__",
+                u"__glyph__",
+            )),
+            set((record.uid for record in result))
+        )
+
+
+    @inlineCallbacks
+    def test_recordsFromExpression_AND_optimized(self):
+        """
+        C{recordsFromExpression} handles a L{CompoundExpression} with
+        L{Operand.AND}, and when one of the expression matches no records, the
+        subsequent expressions are skipped.
+        """
+        service = StubDirectoryService()
+
+        result = yield service.recordsFromExpression(
+            CompoundExpression(
+                (
+                    u"twistedmatrix.com",
+                    u"None",
+                    u"calendarserver.org",
+                ),
+                Operand.AND
+            )
+        )
+
+        self.assertEquals(
+            set(()),
+            set((record.uid for record in result))
+        )
+
+        self.assertEquals(
+            [u"twistedmatrix.com", u"None"],
+            service.seenExpressions
+        )
+
+
     def test_recordWithUID(self):
         service = self.service()
         self.assertFailure(
@@ -235,7 +346,7 @@ class BaseDirectoryServiceImmutableTest(ServiceMixIn):
         newRecord = DirectoryRecord(
             service,
             fields={
-                service.fieldName.uid:        u"__plugh__",
+                service.fieldName.uid: u"__plugh__",
                 service.fieldName.recordType: service.recordType.user,
                 service.fieldName.shortNames: (u"plugh",),
             }
@@ -463,7 +574,7 @@ class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
 
 class StubDirectoryService(DirectoryService):
     def __init__(self):
-        DirectoryService.__init__(self, self.realmName)
+        DirectoryService.__init__(self, u"Stub")
 
         self.records = []
         self._addRecords()
@@ -558,6 +669,27 @@ class StubDirectoryService(DirectoryService):
         }))
 
 
-    def recordsFromNonCompoundExpression(expression, records=None):
-        if expression == "":
-            pass
+    def recordsFromExpression(self, expression):
+        self.seenExpressions = []
+
+        return DirectoryService.recordsFromExpression(self, expression)
+
+
+    def recordsFromNonCompoundExpression(self, expression, records=None):
+        self.seenExpressions.append(expression)
+
+        if expression == u"None":
+            return succeed([])
+
+        if expression in (u"twistedmatrix.com", u"calendarserver.org"):
+            result = []
+            for record in self.records:
+                for email in record.emailAddresses:
+                    if email.endswith(expression):
+                        result.append(record)
+                        break
+            return succeed(result)
+
+        return DirectoryService.recordsFromNonCompoundExpression(
+            self, expression, records=records
+        )
