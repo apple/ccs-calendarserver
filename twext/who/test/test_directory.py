@@ -18,6 +18,8 @@
 Generic directory service base implementation tests.
 """
 
+from uuid import UUID
+
 from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
 from twisted.trial import unittest
@@ -91,7 +93,7 @@ class BaseDirectoryServiceTest(ServiceMixIn):
         )
 
 
-    def test_recordsFromNonCompoundExpression_unknown(self):
+    def test_recordsFromNonCompoundExpression_unknownExpression(self):
         """
         C{recordsFromNonCompoundExpression} with an unknown expression type
         fails with L{QueryNotSupportedError}.
@@ -104,7 +106,7 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
 
     @inlineCallbacks
-    def test_recordsFromNonCompoundExpression_unknown_empty(self):
+    def test_recordsFromNonCompoundExpression_emptyRecords(self):
         """
         C{recordsFromNonCompoundExpression} with an unknown expression type
         and an empty C{records} set returns an empty result.
@@ -118,7 +120,7 @@ class BaseDirectoryServiceTest(ServiceMixIn):
         self.assertEquals(set(result), set(()))
 
 
-    def test_recordsFromExpression_unknown(self):
+    def test_recordsFromExpression_unknownExpression(self):
         """
         C{recordsFromExpression} with an unknown expression type fails with
         L{QueryNotSupportedError}.
@@ -129,10 +131,10 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
 
     @inlineCallbacks
-    def test_recordsFromExpression_empty(self):
+    def test_recordsFromExpression_emptyExpression(self):
         """
         C{recordsFromExpression} with an unknown expression type and an empty
-        C{records} set returns an empty result.
+        L{CompoundExpression} returns an empty result.
         """
         service = self.service()
 
@@ -143,24 +145,18 @@ class BaseDirectoryServiceTest(ServiceMixIn):
             self.assertEquals(set(result), set(()))
 
 
-    def test_recordWithUID(self):
-        raise SkipTest("Subclasses should implement this test.")
+    def _unimplemented(self):
+        """
+        Unimplemented test.
+        """
+        raise NotImplementedError("Subclasses should implement this test.")
 
 
-    def test_recordWithGUID(self):
-        raise SkipTest("Subclasses should implement this test.")
-
-
-    def test_recordsWithRecordType(self):
-        raise SkipTest("Subclasses should implement this test.")
-
-
-    def test_recordWithShortName(self):
-        raise SkipTest("Subclasses should implement this test.")
-
-
-    def test_recordsWithEmailAddress(self):
-        raise SkipTest("Subclasses should implement this test.")
+    test_recordWithUID = _unimplemented
+    test_recordWithGUID = _unimplemented
+    test_recordsWithRecordType = _unimplemented
+    test_recordWithShortName = _unimplemented
+    test_recordsWithEmailAddress = _unimplemented
 
 
 
@@ -168,7 +164,7 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
     def test_recordWithUID(self):
         service = self.service()
         self.assertFailure(
-            service.recordWithUID(None),
+            service.recordWithUID(u""),
             QueryNotSupportedError
         )
 
@@ -176,31 +172,33 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
     def test_recordWithGUID(self):
         service = self.service()
         self.assertFailure(
-            service.recordWithGUID(None),
+            service.recordWithGUID(UUID(int=0)),
             QueryNotSupportedError
         )
 
 
     def test_recordsWithRecordType(self):
         service = self.service()
-        self.assertFailure(
-            service.recordsWithRecordType(None),
-            QueryNotSupportedError
-        )
+        for recordType in RecordType.iterconstants():
+            self.assertFailure(
+                service.recordsWithRecordType(recordType),
+                QueryNotSupportedError
+            )
 
 
     def test_recordWithShortName(self):
         service = self.service()
-        self.assertFailure(
-            service.recordWithShortName(None, None),
-            QueryNotSupportedError
-        )
+        for recordType in RecordType.iterconstants():
+            self.assertFailure(
+                service.recordWithShortName(recordType, u""),
+                QueryNotSupportedError
+            )
 
 
     def test_recordsWithEmailAddress(self):
         service = self.service()
         self.assertFailure(
-            service.recordsWithEmailAddress(None),
+            service.recordsWithEmailAddress("a@b"),
             QueryNotSupportedError
         )
 
