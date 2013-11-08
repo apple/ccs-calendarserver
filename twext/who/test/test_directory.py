@@ -22,6 +22,7 @@ from uuid import UUID
 
 from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
+from twisted.python.constants import Names, NamedConstant
 from twisted.trial import unittest
 from twisted.trial.unittest import SkipTest
 from twisted.internet.defer import inlineCallbacks
@@ -294,6 +295,26 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
             [u"twistedmatrix.com", u"None"],
             service.seenExpressions
         )
+
+
+    def test_recordsFromExpression_unknownOperand(self):
+        """
+        C{recordsFromExpression} fails with L{QueryNotSupportedError} when
+        given a L{CompoundExpression} with an unknown operand.
+        """
+        service = StubDirectoryService()
+
+        results = service.recordsFromExpression(
+            CompoundExpression(
+                (
+                    u"twistedmatrix.com",
+                    u"calendarserver.org",
+                ),
+                WackyOperand.WHUH
+            )
+        )
+
+        self.assertFailure(results, QueryNotSupportedError)
 
 
     def test_recordWithUID(self):
@@ -693,3 +714,10 @@ class StubDirectoryService(DirectoryService):
         return DirectoryService.recordsFromNonCompoundExpression(
             self, expression, records=records
         )
+
+
+class WackyOperand(Names):
+    """
+    Wacky operands.
+    """
+    WHUH = NamedConstant()
