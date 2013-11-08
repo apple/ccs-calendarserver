@@ -132,6 +132,11 @@ class DirectoryService(object):
 
         @param records: a set of records to limit the search to. C{None} if
             the whole directory should be searched.
+            This is provided by L{recordsFromExpression} when it has already
+            narrowed down results to a set of records.
+            That is, it's a performance optimization; ignoring this and
+            searching the entire directory will also work.
+
         @type records: L{set} or L{frozenset}
 
         @return: The matching records.
@@ -140,6 +145,12 @@ class DirectoryService(object):
         @raises: L{QueryNotSupportedError} if the expression is not
             supported by this directory service.
         """
+        if records is not None:
+            for record in records:
+                break
+            else:
+                return succeed(())
+
         return fail(QueryNotSupportedError(
             "Unknown expression: {0}".format(expression)
         ))

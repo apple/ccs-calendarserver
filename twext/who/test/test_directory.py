@@ -27,11 +27,15 @@ from twisted.internet.defer import inlineCallbacks
 from twext.who.idirectory import QueryNotSupportedError, NotAllowedError
 from twext.who.idirectory import RecordType, FieldName
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
+from twext.who.idirectory import Operand
 from twext.who.expression import CompoundExpression
 from twext.who.directory import DirectoryService, DirectoryRecord
 
 
 class ServiceMixIn(object):
+    """
+    MixIn that sets up a service appropriate for testing.
+    """
     realmName = u"xyzzy"
 
 
@@ -43,7 +47,14 @@ class ServiceMixIn(object):
 
 
 class BaseDirectoryServiceTest(ServiceMixIn):
+    """
+    Tests for directory services.
+    """
+
     def test_interface(self):
+        """
+        Service instance conforms to L{IDirectoryService}.
+        """
         service = self.service()
         try:
             verifyObject(IDirectoryService, service)
@@ -52,16 +63,27 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
 
     def test_init(self):
+        """
+        Test initialization.
+        """
         service = self.service()
         self.assertEquals(service.realmName, self.realmName)
 
 
     def test_repr(self):
+        """
+        C{repr()} returns the expected string.
+        """
         service = self.service()
         self.assertEquals(repr(service), "<DirectoryService u'xyzzy'>")
 
 
     def test_recordTypes(self):
+        """
+        C{recordTypes} returns the supported set of record types.
+        For L{DirectoryService}, that's the set of constants in the
+        C{recordType} attribute.
+        """
         service = self.service()
         self.assertEquals(
             set(service.recordTypes()),
@@ -69,20 +91,56 @@ class BaseDirectoryServiceTest(ServiceMixIn):
         )
 
 
-    # @inlineCallbacks
-    # def test_recordsFromExpressionNone(self):
-    #     service = self.service()
-    #     records = (yield service.recordsFromExpression(CompoundExpression()))
-    #     for record in records:
-    #         self.failTest("No records expected")
+    def test_recordsFromNonCompoundExpression_unknown(self):
+        """
+        C{recordsFromNonCompoundExpression} with an unknown expression type
+        fails with L{QueryNotSupportedError}.
+        """
+        service = self.service()
+        self.assertFailure(
+            service.recordsFromNonCompoundExpression(object()),
+            QueryNotSupportedError
+        )
 
 
-    # def test_recordsFromExpressionBogus(self):
-    #     service = self.service()
-    #     self.assertFailure(
-    #         service.recordsFromQuery(CompoundExpression(object(),)),
-    #         QueryNotSupportedError
-    #     )
+    @inlineCallbacks
+    def test_recordsFromNonCompoundExpression_unknown_empty(self):
+        """
+        C{recordsFromNonCompoundExpression} with an unknown expression type
+        and an empty C{records} set returns an empty result.
+        """
+        service = self.service()
+        result = (
+            yield service.recordsFromNonCompoundExpression(
+                object(), records=()
+            )
+        )
+        self.assertEquals(set(result), set(()))
+
+
+    def test_recordsFromExpression_unknown(self):
+        """
+        C{recordsFromExpression} with an unknown expression type fails with
+        L{QueryNotSupportedError}.
+        """
+        service = self.service()
+        result = yield(service.recordsFromExpression(object()))
+        self.assertFailure(result, QueryNotSupportedError)
+
+
+    @inlineCallbacks
+    def test_recordsFromExpression_empty(self):
+        """
+        C{recordsFromExpression} with an unknown expression type and an empty
+        C{records} set returns an empty result.
+        """
+        service = self.service()
+
+        for operand in Operand.iterconstants():
+            result = yield(service.recordsFromExpression(
+                CompoundExpression((), operand)
+            ))
+            self.assertEquals(set(result), set(()))
 
 
     def test_recordWithUID(self):
@@ -107,12 +165,6 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
 
 class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
-    def test_recordsFromExpression(self):
-        service = self.service()
-        result = yield(service.recordsFromExpression(None))
-        self.assertFailure(result, QueryNotSupportedError)
-
-
     def test_recordWithUID(self):
         service = self.service()
         self.assertFailure(
