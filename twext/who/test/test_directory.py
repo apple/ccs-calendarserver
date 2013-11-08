@@ -74,7 +74,7 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
     def test_repr(self):
         """
-        C{repr()} returns the expected string.
+        C{repr} returns the expected string.
         """
         service = self.service()
         self.assertEquals(repr(service), "<DirectoryService u'xyzzy'>")
@@ -118,6 +118,30 @@ class BaseDirectoryServiceTest(ServiceMixIn):
             )
         )
         self.assertEquals(set(result), set(()))
+
+
+    def test_recordsFromNonCompoundExpression_nonEmptyRecords(self):
+        """
+        C{recordsFromNonCompoundExpression} with an unknown expression type
+        and a non-empty C{records} fails with L{QueryNotSupportedError}.
+        """
+        service = self.service()
+
+        wsanchez = DirectoryRecord(
+            service,
+            {
+                service.fieldName.recordType: service.recordType.user,
+                service.fieldName.uid: u"__wsanchez__",
+                service.fieldName.shortNames: [u"wsanchez"],
+            }
+        )
+
+        self.assertFailure(
+            service.recordsFromNonCompoundExpression(
+                object(), records=((wsanchez,))
+            ),
+            QueryNotSupportedError
+        )
 
 
     def test_recordsFromExpression_unknownExpression(self):
@@ -434,3 +458,106 @@ class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
     def test_groups(self):
         wsanchez = self.makeRecord(self.fields_wsanchez)
         self.assertFailure(wsanchez.groups(), NotImplementedError)
+
+
+
+class StubDirectoryService(DirectoryService):
+    def __init__(self):
+        DirectoryService.__init__(self, self.realmName)
+
+        self.records = []
+        self._addRecords()
+
+
+    def _addRecords(self):
+        self._addUser(
+            shortNames=[u"wsanchez", u"wilfredo_sanchez"],
+            fullNames=[u"Wilfredo S\xe1nchez Vega"],
+            emailAddresses=[
+                u"wsanchez@bitbucket.calendarserver.org",
+                u"wsanchez@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self._addUser(
+            shortNames=[u"glyph"],
+            fullNames=[u"Glyph Lefkowitz"],
+            emailAddresses=[
+                u"glyph@bitbucket.calendarserver.org",
+                u"glyph@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self._addUser(
+            shortNames=[u"sagen"],
+            fullNames=[u"Morgen Sagen"],
+            emailAddresses=[
+                u"sagen@bitbucket.calendarserver.org",
+                u"shared@example.com",
+            ],
+        )
+
+        self._addUser(
+            shortNames=[u"cdaboo"],
+            fullNames=[u"Cyrus Daboo"],
+            emailAddresses=[
+                u"cdaboo@bitbucket.calendarserver.org",
+            ],
+        )
+
+        self._addUser(
+            shortNames=[u"dre"],
+            fullNames=[u"Andre LaBranche"],
+            emailAddresses=[
+                u"dre@bitbucket.calendarserver.org",
+                u"shared@example.com",
+            ],
+        )
+
+        self._addUser(
+            shortNames=[u"exarkun"],
+            fullNames=[u"Jean-Paul Calderone"],
+            emailAddresses=[
+                u"exarkun@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self._addUser(
+            shortNames=[u"dreid"],
+            fullNames=[u"David Reid"],
+            emailAddresses=[
+                u"dreid@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self._addUser(
+            shortNames=[u"joe"],
+            fullNames=[u"Joe Schmoe"],
+            emailAddresses=[
+                u"joe@example.com",
+            ],
+        )
+
+        self._addUser(
+            shortNames=[u"alyssa"],
+            fullNames=[u"Alyssa P. Hacker"],
+            emailAddresses=[
+                u"alyssa@example.com",
+            ],
+        )
+
+
+    def _addUser(self, shortNames, fullNames, emailAddresses=[]):
+        self.records.append(DirectoryRecord(self, {
+            self.fieldName.recordType: self.recordType.user,
+            self.fieldName.uid: u"__{0}__".format(shortNames[0]),
+            self.fieldName.shortNames: shortNames,
+            self.fieldName.fullNames: fullNames,
+            self.fieldName.password: u"".join(reversed(shortNames[0])),
+            self.fieldName.emailAddresses: emailAddresses,
+        }))
+
+
+    def recordsFromNonCompoundExpression(expression, records=None):
+        if expression == "":
+            pass
