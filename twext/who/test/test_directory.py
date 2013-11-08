@@ -185,6 +185,24 @@ class BaseDirectoryServiceTest(ServiceMixIn):
     test_recordsWithEmailAddress = _unimplemented
 
 
+    def test_updateRecordsEmpty(self):
+        """
+        Updating no records is not an error.
+        """
+        service = self.service()
+        for create in (True, False):
+            service.updateRecords((), create=create),
+
+
+    def test_removeRecordsEmpty(self):
+        """
+        Removing no records is allowed.
+        """
+        service = self.service()
+
+        service.removeRecords(())
+
+
 
 class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
     @inlineCallbacks
@@ -318,7 +336,11 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
 
     def test_recordWithUID(self):
+        """
+        C{recordWithUID} fails with L{QueryNotSupportedError}.
+        """
         service = self.service()
+
         self.assertFailure(
             service.recordWithUID(u""),
             QueryNotSupportedError
@@ -326,7 +348,11 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
 
     def test_recordWithGUID(self):
+        """
+        C{recordWithGUID} fails with L{QueryNotSupportedError}.
+        """
         service = self.service()
+
         self.assertFailure(
             service.recordWithGUID(UUID(int=0)),
             QueryNotSupportedError
@@ -334,7 +360,11 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
 
     def test_recordsWithRecordType(self):
+        """
+        C{recordsWithRecordType} fails with L{QueryNotSupportedError}.
+        """
         service = self.service()
+
         for recordType in RecordType.iterconstants():
             self.assertFailure(
                 service.recordsWithRecordType(recordType),
@@ -343,7 +373,11 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
 
     def test_recordWithShortName(self):
+        """
+        C{recordWithShortName} fails with L{QueryNotSupportedError}.
+        """
         service = self.service()
+
         for recordType in RecordType.iterconstants():
             self.assertFailure(
                 service.recordWithShortName(recordType, u""),
@@ -352,7 +386,11 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
 
     def test_recordsWithEmailAddress(self):
+        """
+        C{recordsWithEmailAddress} fails with L{QueryNotSupportedError}.
+        """
         service = self.service()
+
         self.assertFailure(
             service.recordsWithEmailAddress("a@b"),
             QueryNotSupportedError
@@ -361,7 +399,14 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
 
 class BaseDirectoryServiceImmutableTest(ServiceMixIn):
+    """
+    Immutable directory record tests.
+    """
+
     def test_updateRecordsNotAllowed(self):
+        """
+        Updating records is not allowed.
+        """
         service = self.service()
 
         newRecord = DirectoryRecord(
@@ -373,21 +418,19 @@ class BaseDirectoryServiceImmutableTest(ServiceMixIn):
             }
         )
 
-        self.assertFailure(
-            service.updateRecords((newRecord,), create=True),
-            NotAllowedError,
-        )
-
-        self.assertFailure(
-            service.updateRecords((newRecord,), create=False),
-            NotAllowedError,
-        )
+        for create in (True, False):
+            self.assertFailure(
+                service.updateRecords((newRecord,), create=create),
+                NotAllowedError,
+            )
 
 
     def test_removeRecordsNotAllowed(self):
+        """
+        Removing records is not allowed.
+        """
         service = self.service()
 
-        service.removeRecords(())
         self.assertFailure(
             service.removeRecords((u"foo",)),
             NotAllowedError,
@@ -444,6 +487,18 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 
     def makeRecord(self, fields=None, service=None):
+        """
+        Create a directory record from fields and a service.
+
+        @param fields: Record fields.
+        @type fields: L{dict} with L{FieldName} keys
+
+        @param service: Directory service.
+        @type service: L{DirectoryService}
+
+        @return: A directory record.
+        @rtype: L{DirectoryRecord}
+        """
         if fields is None:
             fields = self.fields_wsanchez
         if service is None:
@@ -452,6 +507,9 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 
     def test_interface(self):
+        """
+        L{DirectoryRecord} complies with L{IDirectoryRecord}.
+        """
         record = self.makeRecord()
         try:
             verifyObject(IDirectoryRecord, record)
@@ -460,6 +518,9 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 
     def test_init(self):
+        """
+        L{DirectoryRecord} initialization sets service and fields.
+        """
         service  = self.service()
         wsanchez = self.makeRecord(self.fields_wsanchez, service=service)
 
@@ -468,6 +529,9 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 
     def test_initWithNoUID(self):
+        """
+        Directory records must have a UID.
+        """
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.uid]
         self.assertRaises(ValueError, self.makeRecord, fields)
@@ -478,6 +542,9 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 
     def test_initWithNoRecordType(self):
+        """
+        Directory records must have a record type.
+        """
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.recordType]
         self.assertRaises(ValueError, self.makeRecord, fields)
@@ -487,7 +554,19 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         self.assertRaises(ValueError, self.makeRecord, fields)
 
 
+    def test_initWithBogusRecordType(self):
+        """
+        Directory records must have a known record type.
+        """
+        fields = self.fields_wsanchez.copy()
+        fields[FieldName.recordType] = object()
+        self.assertRaises(ValueError, self.makeRecord, fields)
+
+
     def test_initWithNoShortNames(self):
+        """
+        Directory records must have a short name.
+        """
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.shortNames]
         self.assertRaises(ValueError, self.makeRecord, fields)
@@ -505,13 +584,10 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         self.assertRaises(ValueError, self.makeRecord, fields)
 
 
-    def test_initWithBogusRecordType(self):
-        fields = self.fields_wsanchez.copy()
-        fields[FieldName.recordType] = object()
-        self.assertRaises(ValueError, self.makeRecord, fields)
-
-
-    def test_initNormalize(self):
+    def test_initNormalizeEmailLowercase(self):
+        """
+        Email addresses are normalized to lowercase.
+        """
         sagen = self.makeRecord(self.fields_sagen)
 
         self.assertEquals(
@@ -521,6 +597,9 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 
     def test_compare(self):
+        """
+        Comparison of records.
+        """
         fields_glyphmod = self.fields_glyph.copy()
         del fields_glyphmod[FieldName.emailAddresses]
 
@@ -539,6 +618,9 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 
     def test_attributeAccess(self):
+        """
+        Fields can be accessed as attributes.
+        """
         wsanchez = self.makeRecord(self.fields_wsanchez)
 
         self.assertEquals(
@@ -560,23 +642,34 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 
     @inlineCallbacks
-    def test_members(self):
+    def test_members_group(self):
+        """
+        Group members.
+        """
+        raise SkipTest("Subclasses should implement this test.")
+
+
+    def test_members_nonGroup(self):
+        """
+        Non-groups have no members.
+        """
         wsanchez = self.makeRecord(self.fields_wsanchez)
         self.assertEquals(
             set((yield wsanchez.members())),
             set()
         )
 
-        raise SkipTest("Subclasses should implement this test.")
-
 
     def test_groups(self):
+        """
+        Group memberships.
+        """
         raise SkipTest("Subclasses should implement this test.")
 
 
 
 class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
-    def test_members(self):
+    def test_members_group(self):
         wsanchez = self.makeRecord(self.fields_wsanchez)
         self.assertEquals(
             set((yield wsanchez.members())),
@@ -594,6 +687,11 @@ class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
 
 
 class StubDirectoryService(DirectoryService):
+    """
+    Stubn directory service with some built-in records and an implementation
+    of C{recordsFromNonCompoundExpression}.
+    """
+
     def __init__(self):
         DirectoryService.__init__(self, u"Stub")
 
@@ -602,6 +700,9 @@ class StubDirectoryService(DirectoryService):
 
 
     def _addRecords(self):
+        """
+        Add a known set of records to this service.
+        """
         self._addUser(
             shortNames=[u"wsanchez", u"wilfredo_sanchez"],
             fullNames=[u"Wilfredo S\xe1nchez Vega"],
@@ -680,6 +781,18 @@ class StubDirectoryService(DirectoryService):
 
 
     def _addUser(self, shortNames, fullNames, emailAddresses=[]):
+        """
+        Add a user record with the given field information.
+
+        @param shortNames: Record short names.
+        @type shortNames: L{list} of L{unicode}s
+
+        @param fullNames: Record full names.
+        @type fullNames: L{list} of L{unicode}s
+
+        @param emailAddresses: Record email addresses.
+        @type emailAddresses: L{list} of L{unicode}s
+        """
         self.records.append(DirectoryRecord(self, {
             self.fieldName.recordType: self.recordType.user,
             self.fieldName.uid: u"__{0}__".format(shortNames[0]),
