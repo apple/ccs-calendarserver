@@ -33,7 +33,7 @@ from twext.who.idirectory import QueryNotSupportedError, NotAllowedError
 from twext.who.idirectory import FieldName, RecordType
 from twext.who.idirectory import Operand
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
-from twext.who.expression import MatchExpression
+from twext.who.expression import CompoundExpression, MatchExpression
 from twext.who.util import uniqueResult, describe
 
 
@@ -43,24 +43,29 @@ class DirectoryService(object):
     """
     Generic implementation of L{IDirectoryService}.
 
-    This is a complete implementation of L{IDirectoryService}, with support for
-    the query operands in L{Operand}.
+    Most of the C{recordsWith*} methods call L{recordsWithFieldValue}, which in
+    turn calls L{recordsFromExpression} with a corresponding
+    L{MatchExpression}.
 
-    The C{recordsWith*} methods are all implemented in terms of
-    L{recordsWithFieldValue}, which is in turn implemented in terms of
-    L{recordsFromExpression}.
-    L{recordsFromQuery} is also implemented in terms of
-    {recordsFromExpression}.
+    L{recordsFromExpression} relies on L{recordsFromNonCompoundExpression} for
+    all expression types other than L{CompoundExpression}, which it handles
+    directly.
 
-    L{recordsFromExpression} (and therefore most uses of the other methods)
-    will always fail with a L{QueryNotSupportedError}.
+    L{recordsFromNonCompoundExpression} (and therefore most uses of the other
+    methods) will always fail with a L{QueryNotSupportedError}.
 
-    A subclass should therefore override L{recordsFromExpression} with an
-    implementation that handles any queries that it can support and its
-    superclass' implementation with any query it cannot support.
+    A subclass should therefore override L{recordsFromNonCompoundExpression}
+    with an implementation that handles any queries that it can support (which
+    should include L{MatchExpression}) and calls its superclass' implementation
+    with any query it cannot support.
 
-    A subclass may override L{recordsFromQuery} if it is to support additional
-    operands.
+    A subclass may override L{recordsFromExpression} if it is to support
+    L{CompoundExpression}s with operands other than L{Operand.AND} and
+    L{Operand.OR}.
+
+    A subclass may override L{recordsFromExpression} if it is built on top
+    of a directory service that supports compound expressions, as that may be
+    more effient than relying on L{DirectoryService}'s implementation.
 
     L{updateRecords} and L{removeRecords} will fail with L{NotAllowedError}
     when asked to modify data.
@@ -108,20 +113,19 @@ class DirectoryService(object):
         return self.recordType.iterconstants()
 
 
-    def recordsFromExpression(self, expression, records=None):
+    def recordsFromNonCompoundExpression(self, expression, records=None):
         """
-        Finds records matching a single expression.
+        Finds records matching a expression.
 
-        @note: The implementation in L{DirectoryService} always raises
-            L{QueryNotSupportedError}.
+        @note: This method is called by L{recordsFromExpression} to handle
+            all expressions other than L{CompoundExpression}.
+            This implementation always fails with L{QueryNotSupportedError}.
+            Subclasses should override this in order to handle additional
+            expression types, and call on the superclass' implementation
+            for other expression types.
 
-        @note: This L{DirectoryService} adds a C{records} keyword argument to
-            the interface defined by L{IDirectoryService}.
-            This allows the implementation of
-            L{DirectoryService.recordsFromQuery} to narrow the scope of records
-            being searched as it applies expressions.
-            This is therefore relevant to subclasses, which need to support the
-            added parameter, but not to users of L{IDirectoryService}.
+        @note: This interface is the same as L{recordsFromExpression}, except
+            for the additional C{records} argument.
 
         @param expression: an expression to apply
         @type expression: L{object}
@@ -142,44 +146,55 @@ class DirectoryService(object):
 
 
     @inlineCallbacks
-    def recordsFromQuery(self, expressions, operand=Operand.AND):
-        expressionIterator = iter(expressions)
+    def recordsFromExpression(self, expression):
+        if isinstance(expression, CompoundExpression):
+            operand = expression.operand
+            subExpressions = iter(expression.expressions)
 
-        try:
-            expression = expressionIterator.next()
-        except StopIteration:
-            returnValue(())
+            try:
+                subExpression = subExpressions.next()
+            except StopIteration:
+                returnValue(())
 
-        results = set((yield self.recordsFromExpression(expression)))
-
-        for expression in expressions:
-            if operand == Operand.AND:
-                if not results:
-                    # No need to bother continuing here
-                    returnValue(())
-
-                records = results
-            else:
-                records = None
-
-            recordsMatchingExpression = frozenset((
-                yield self.recordsFromExpression(expression, records=records)
+            results = set((
+                yield self.recordsFromNonCompoundExpression(subExpression)
             ))
 
-            if operand == Operand.AND:
-                results &= recordsMatchingExpression
-            elif operand == Operand.OR:
-                results |= recordsMatchingExpression
-            else:
-                raise QueryNotSupportedError(
-                    "Unknown operand: {0}".format(operand)
-                )
+            for subExpression in subExpressions:
+                if operand == Operand.AND:
+                    if not results:
+                        # No need to bother continuing here
+                        returnValue(())
+
+                    records = results
+                else:
+                    records = None
+
+                recordsMatchingExpression = frozenset((
+                    yield self.recordsFromNonCompoundExpression(
+                        subExpression,
+                        records=records
+                    )
+                ))
+
+                if operand == Operand.AND:
+                    results &= recordsMatchingExpression
+                elif operand == Operand.OR:
+                    results |= recordsMatchingExpression
+                else:
+                    raise QueryNotSupportedError(
+                        "Unknown operand: {0}".format(operand)
+                    )
+        else:
+            results = yield self.recordsFromNonCompoundExpression(expression)
 
         returnValue(results)
 
 
     def recordsWithFieldValue(self, fieldName, value):
-        return self.recordsFromExpression(MatchExpression(fieldName, value))
+        return self.recordsFromExpression(
+            MatchExpression(fieldName, value)
+        )
 
 
     @inlineCallbacks
@@ -202,10 +217,17 @@ class DirectoryService(object):
 
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName):
-        returnValue(uniqueResult((yield self.recordsFromQuery((
-            MatchExpression(FieldName.recordType, recordType),
-            MatchExpression(FieldName.shortNames, shortName),
-        )))))
+        returnValue(uniqueResult((
+            yield self.recordsFromExpression(
+                CompoundExpression(
+                    (
+                        MatchExpression(FieldName.recordType, recordType),
+                        MatchExpression(FieldName.shortNames, shortName),
+                    ),
+                    operand=Operand.AND
+                )
+            )
+        )))
 
 
     def recordsWithEmailAddress(self, emailAddress):

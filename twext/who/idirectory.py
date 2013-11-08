@@ -249,7 +249,7 @@ class IDirectoryService(Interface):
         """
 
 
-    def recordsFromExpression(self, expression):
+    def recordsFromExpression(expression):
         """
         Find records matching an expression.
 
@@ -260,25 +260,6 @@ class IDirectoryService(Interface):
         @rtype: deferred iterable of L{IDirectoryRecord}s
 
         @raises: L{QueryNotSupportedError} if the expression is not
-            supported by this directory service.
-        """
-
-
-    def recordsFromQuery(expressions, operand=Operand.AND):
-        """
-        Find records by composing a query consisting of an iterable of
-        expressions and an operand.
-
-        @param expressions: expressions to query against
-        @type expressions: iterable of L{object}s
-
-        @param operand: an operand
-        @type operand: a L{NamedConstant}
-
-        @return: The matching records.
-        @rtype: deferred iterable of L{IDirectoryRecord}s
-
-        @raises: L{QueryNotSupportedError} if the query is not
             supported by this directory service.
         """
 

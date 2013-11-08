@@ -215,7 +215,7 @@ class DirectoryService(BaseDirectoryService):
         return succeed(result)
 
 
-    def recordsFromExpression(self, expression, records=None):
+    def recordsFromNonCompoundExpression(self, expression, records=None):
         if isinstance(expression, MatchExpression):
             if expression.fieldName in self.indexedFields:
                 return self.indexedRecordsFromMatchExpression(
@@ -226,7 +226,7 @@ class DirectoryService(BaseDirectoryService):
                     expression, records=records
                 )
         else:
-            return BaseDirectoryService.recordsFromExpression(
+            return BaseDirectoryService.recordsFromNonCompoundExpression(
                 self, expression, records=records
             )
 

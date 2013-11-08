@@ -27,8 +27,8 @@ from twisted.internet.defer import inlineCallbacks
 from twext.who.idirectory import QueryNotSupportedError, NotAllowedError
 from twext.who.idirectory import RecordType, FieldName
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
+from twext.who.expression import CompoundExpression
 from twext.who.directory import DirectoryService, DirectoryRecord
-
 
 
 class ServiceMixIn(object):
@@ -69,20 +69,20 @@ class BaseDirectoryServiceTest(ServiceMixIn):
         )
 
 
-    @inlineCallbacks
-    def test_recordsFromQueryNone(self):
-        service = self.service()
-        records = (yield service.recordsFromQuery(()))
-        for record in records:
-            self.failTest("No records expected")
+    # @inlineCallbacks
+    # def test_recordsFromExpressionNone(self):
+    #     service = self.service()
+    #     records = (yield service.recordsFromExpression(CompoundExpression()))
+    #     for record in records:
+    #         self.failTest("No records expected")
 
 
-    def test_recordsFromQueryBogus(self):
-        service = self.service()
-        self.assertFailure(
-            service.recordsFromQuery((object(),)),
-            QueryNotSupportedError
-        )
+    # def test_recordsFromExpressionBogus(self):
+    #     service = self.service()
+    #     self.assertFailure(
+    #         service.recordsFromQuery(CompoundExpression(object(),)),
+    #         QueryNotSupportedError
+    #     )
 
 
     def test_recordWithUID(self):
