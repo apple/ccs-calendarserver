@@ -428,8 +428,12 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 authz = (yield request.locateResource(principalURL))
                 self._associatedTransaction._authz_uid = authz.record.guid
 
+        # Log extended item
+        if not hasattr(request, "extendedLogItems"):
+            request.extendedLogItems = {}
+
         # This is a local CALDAV scheduling operation.
-        scheduler = CalDAVScheduler(self._associatedTransaction, self.parent._newStoreHome.uid())
+        scheduler = CalDAVScheduler(self._associatedTransaction, self.parent._newStoreHome.uid(), logItems=request.extendedLogItems)
 
         # Do the POST processing treating
         result = (yield scheduler.doSchedulingViaPOST(originator, recipients, calendar))

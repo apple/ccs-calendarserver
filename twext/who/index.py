@@ -29,7 +29,8 @@ from itertools import chain
 from twisted.python.constants import Names, NamedConstant
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
-from twext.who.util import ConstantsContainer, describe, uniqueResult, iterFlags
+from twext.who.util import ConstantsContainer
+from twext.who.util import describe, uniqueResult, iterFlags
 from twext.who.idirectory import FieldName as BaseFieldName
 from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.directory import DirectoryService as BaseDirectoryService
@@ -57,7 +58,10 @@ class DirectoryService(BaseDirectoryService):
     XML directory service.
     """
 
-    fieldName = ConstantsContainer(chain(BaseDirectoryService.fieldName.iterconstants(), FieldName.iterconstants()))
+    fieldName = ConstantsContainer(chain(
+        BaseDirectoryService.fieldName.iterconstants(),
+        FieldName.iterconstants()
+    ))
 
     indexedFields = (
         BaseFieldName.recordType,
@@ -90,7 +94,7 @@ class DirectoryService(BaseDirectoryService):
         """
         Load records.
         """
-        raise NotImplementedError("Subclasses should implement loadRecords().")
+        raise NotImplementedError("Subclasses must implement loadRecords().")
 
 
     def flush(self):
@@ -112,7 +116,9 @@ class DirectoryService(BaseDirectoryService):
                 elif flag == MatchFlags.caseInsensitive:
                     normalize = lambda x: x.lower()
                 else:
-                    raise NotImplementedError("Unknown query flag: %s" % (describe(flag),))
+                    raise NotImplementedError(
+                        "Unknown query flag: {0}".format(describe(flag))
+                    )
 
         return predicate, normalize
 
@@ -131,16 +137,27 @@ class DirectoryService(BaseDirectoryService):
         matchType  = expression.matchType
 
         if matchType == MatchType.startsWith:
-            indexKeys = (key for key in fieldIndex if predicate(normalize(key).startswith(matchValue)))
+            indexKeys = (
+                key for key in fieldIndex
+                if predicate(normalize(key).startswith(matchValue))
+            )
         elif matchType == MatchType.contains:
-            indexKeys = (key for key in fieldIndex if predicate(matchValue in normalize(key)))
+            indexKeys = (
+                key for key in fieldIndex
+                if predicate(matchValue in normalize(key))
+            )
         elif matchType == MatchType.equals:
             if predicate(True):
                 indexKeys = (matchValue,)
             else:
-                indexKeys = (key for key in fieldIndex if normalize(key) != matchValue)
+                indexKeys = (
+                    key for key in fieldIndex
+                    if normalize(key) != matchValue
+                )
         else:
-            raise NotImplementedError("Unknown match type: %s" % (describe(matchType),))
+            raise NotImplementedError(
+                "Unknown match type: {0}".format(describe(matchType))
+            )
 
         matchingRecords = set()
         for key in indexKeys:
@@ -165,18 +182,25 @@ class DirectoryService(BaseDirectoryService):
         matchType  = expression.matchType
 
         if matchType == MatchType.startsWith:
-            match = lambda fieldValue: predicate(fieldValue.startswith(matchValue))
+            match = lambda fieldValue: predicate(
+                fieldValue.startswith(matchValue)
+            )
         elif matchType == MatchType.contains:
             match = lambda fieldValue: predicate(matchValue in fieldValue)
         elif matchType == MatchType.equals:
             match = lambda fieldValue: predicate(fieldValue == matchValue)
         else:
-            raise NotImplementedError("Unknown match type: %s" % (describe(matchType),))
+            raise NotImplementedError(
+                "Unknown match type: {0}".format(describe(matchType))
+            )
 
         result = set()
 
         if records is None:
-            records = (uniqueResult(values) for values in self.index[self.fieldName.uid].itervalues())
+            records = (
+                uniqueResult(values) for values
+                in self.index[self.fieldName.uid].itervalues()
+            )
 
         for record in records:
             fieldValues = record.fields.get(expression.fieldName, None)
@@ -194,11 +218,17 @@ class DirectoryService(BaseDirectoryService):
     def recordsFromExpression(self, expression, records=None):
         if isinstance(expression, MatchExpression):
             if expression.fieldName in self.indexedFields:
-                return self.indexedRecordsFromMatchExpression(expression, records=records)
+                return self.indexedRecordsFromMatchExpression(
+                    expression, records=records
+                )
             else:
-                return self.unIndexedRecordsFromMatchExpression(expression, records=records)
+                return self.unIndexedRecordsFromMatchExpression(
+                    expression, records=records
+                )
         else:
-            return BaseDirectoryService.recordsFromExpression(self, expression, records=records)
+            return BaseDirectoryService.recordsFromExpression(
+                self, expression, records=records
+            )
 
 
 
@@ -206,6 +236,7 @@ class DirectoryRecord(BaseDirectoryRecord):
     """
     XML directory record
     """
+
     @inlineCallbacks
     def members(self):
         members = set()
@@ -215,4 +246,6 @@ class DirectoryRecord(BaseDirectoryRecord):
 
 
     def groups(self):
-        return self.service.recordsWithFieldValue(FieldName.memberUIDs, self.uid)
+        return self.service.recordsWithFieldValue(
+            FieldName.memberUIDs, self.uid
+        )

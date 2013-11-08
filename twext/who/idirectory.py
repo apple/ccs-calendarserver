@@ -36,30 +36,38 @@ __all__ = [
     "IDirectoryRecord",
 ]
 
+from uuid import UUID
+
 from zope.interface import Attribute, Interface
 
 from twisted.python.constants import Names, NamedConstant
 
 
 
-##
+#
 # Exceptions
-##
+#
 
 class DirectoryServiceError(Exception):
     """
     Directory service generic error.
     """
 
+
+
 class DirectoryConfigurationError(DirectoryServiceError):
     """
-    Directory configurtion error.
+    Directory configuration error.
     """
+
+
 
 class DirectoryAvailabilityError(DirectoryServiceError):
     """
     Directory not available.
     """
+
+
 
 class UnknownRecordTypeError(DirectoryServiceError):
     """
@@ -69,28 +77,37 @@ class UnknownRecordTypeError(DirectoryServiceError):
         DirectoryServiceError.__init__(self, token)
         self.token = token
 
+
+
 class QueryNotSupportedError(DirectoryServiceError):
     """
     Query not supported.
     """
+
+
 
 class NoSuchRecordError(DirectoryServiceError):
     """
     Record does not exist.
     """
 
+
+
 class NotAllowedError(DirectoryServiceError):
     """
-    Apparently, you can't do that.
+    It seems you aren't permitted to do that.
     """
 
 
 
-##
+#
 # Data Types
-##
+#
 
 class RecordType(Names):
+    """
+    Constants for common directory record types.
+    """
     user  = NamedConstant()
     group = NamedConstant()
 
@@ -101,7 +118,31 @@ class RecordType(Names):
 
 class FieldName(Names):
     """
-    Constants for common field names.
+    Constants for common directory record field names.
+
+    Fields as assciated with either a single value or an iterable of values.
+
+    @cvar uid: The primary unique identifier for a directory record.
+        The associated value must be a L{unicode}.
+
+    @cvar guid: The globally unique identifier for a directory record.
+        The associated value must be a L{UUID} or C{None}.
+
+    @cvar recordType: The type of a directory record.
+        The associated value must be a L{NamedConstant}.
+
+    @cvar shortNames: The short names for a directory record.
+        The associated values must L{unicode}s and there must be at least
+        one associated value.
+
+    @cvar fullNames: The full names for a directory record.
+        The associated values must be L{unicode}s.
+
+    @cvar emailAddresses: The email addresses for a directory record.
+        The associated values must be L{unicodes}.
+
+    @cvar password: The clear text password for a directory record.
+        The associated value must be a L{unicode} or C{None}.
     """
     uid            = NamedConstant()
     guid           = NamedConstant()
@@ -119,17 +160,46 @@ class FieldName(Names):
     emailAddresses.description = "email addresses"
     password.description       = "password"
 
+    guid.valueType = UUID
+
     shortNames.multiValue     = True
     fullNames.multiValue      = True
     emailAddresses.multiValue = True
 
+
     @staticmethod
     def isMultiValue(name):
+        """
+        Check for whether a field is multi-value (as opposed to single-value).
+
+        @param name: The name of the field.
+        @type name: L{NamedConstant}
+
+        @return: C{True} if the field is multi-value, C{False} otherwise.
+        @rtype: L{BOOL}
+        """
         return getattr(name, "multiValue", False)
+
+
+    @staticmethod
+    def valueType(name):
+        """
+        Check for the expected type of values for a field.
+
+        @param name: The name of the field.
+        @type name: L{NamedConstant}
+
+        @return: The expected type.
+        @rtype: L{type}
+        """
+        return getattr(name, "valueType", unicode)
 
 
 
 class Operand(Names):
+    """
+    Contants for common operands.
+    """
     OR  = NamedConstant()
     AND = NamedConstant()
 
@@ -138,9 +208,9 @@ class Operand(Names):
 
 
 
-##
+#
 # Interfaces
-##
+#
 
 class IDirectoryService(Interface):
     """
@@ -156,109 +226,172 @@ class IDirectoryService(Interface):
 
     A directory service may allow support the editing, removal and
     addition of records.
+    Services are read-only should fail with L{NotAllowedError} in editing
+    methods.
+
+    The L{FieldName.uid} field, the L{FieldName.guid} field (if not C{None}),
+    and the combination of the L{FieldName.recordType} and
+    L{FieldName.shortName} fields must be unique to each directory record
+    vended by a directory service.
     """
-    realmName = Attribute("The name of the authentication realm this service represents.")
+
+    realmName = Attribute(
+        "The name of the authentication realm this service represents."
+    )
+
 
     def recordTypes():
         """
-        @return: an iterable of L{NamedConstant}s denoting the record
-            types that are kept in this directory.
+        Get the record types supported by this directory service.
+
+        @return: The record types that are supported by this directory service.
+        @rtype: iterable of L{NamedConstant}s
         """
+
 
     def recordsFromExpression(self, expression):
         """
         Find records matching an expression.
+
         @param expression: an expression to apply
         @type expression: L{object}
-        @return: a deferred iterable of matching L{IDirectoryRecord}s.
+
+        @return: The matching records.
+        @rtype: deferred iterable of L{IDirectoryRecord}s
+
         @raises: L{QueryNotSupportedError} if the expression is not
             supported by this directory service.
         """
+
 
     def recordsFromQuery(expressions, operand=Operand.AND):
         """
         Find records by composing a query consisting of an iterable of
         expressions and an operand.
+
         @param expressions: expressions to query against
         @type expressions: iterable of L{object}s
+
         @param operand: an operand
         @type operand: a L{NamedConstant}
-        @return: a deferred iterable of matching L{IDirectoryRecord}s.
+
+        @return: The matching records.
+        @rtype: deferred iterable of L{IDirectoryRecord}s
+
         @raises: L{QueryNotSupportedError} if the query is not
             supported by this directory service.
         """
+
 
     def recordsWithFieldValue(fieldName, value):
         """
         Find records that have the given field name with the given
         value.
+
         @param fieldName: a field name
         @type fieldName: L{NamedConstant}
+
         @param value: a value to match
         @type value: L{bytes}
-        @return: a deferred iterable of L{IDirectoryRecord}s.
+
+        @return: The matching records.
+        @rtype: deferred iterable of L{IDirectoryRecord}s
         """
+
 
     def recordWithUID(uid):
         """
         Find the record that has the given UID.
+
         @param uid: a UID
         @type uid: L{bytes}
-        @return: a deferred iterable of L{IDirectoryRecord}s, or
-            C{None} if there is no such record.
+
+        @return: The matching record or C{None} if there is no match.
+        @rtype: deferred L{IDirectoryRecord}s or C{None}
         """
-               
+
+
     def recordWithGUID(guid):
         """
         Find the record that has the given GUID.
+
         @param guid: a GUID
-        @type guid: L{bytes}
-        @return: a deferred iterable of L{IDirectoryRecord}s, or
-            C{None} if there is no such record.
+        @type guid: L{UUID}
+
+        @return: The matching record or C{None} if there is no match.
+        @rtype: deferred L{IDirectoryRecord}s or C{None}
         """
+
 
     def recordsWithRecordType(recordType):
         """
         Find the records that have the given record type.
+
         @param recordType: a record type
         @type recordType: L{NamedConstant}
-        @return: a deferred iterable of L{IDirectoryRecord}s.
+
+        @return: The matching records.
+        @rtype: deferred iterable of L{IDirectoryRecord}s
         """
+
 
     def recordWithShortName(recordType, shortName):
         """
         Find the record that has the given record type and short name.
+
         @param recordType: a record type
         @type recordType: L{NamedConstant}
+
         @param shortName: a short name
         @type shortName: L{bytes}
-        @return: a deferred iterable of L{IDirectoryRecord}s, or
-            C{None} if there is no such record.
+
+        @return: The matching record or C{None} if there is no match.
+        @rtype: deferred L{IDirectoryRecord}s or C{None}
         """
+
 
     def recordsWithEmailAddress(emailAddress):
         """
         Find the records that have the given email address.
+
         @param emailAddress: an email address
         @type emailAddress: L{bytes}
-        @return: a deferred iterable of L{IDirectoryRecord}s, or
-            C{None} if there is no such record.
+
+        @return: The matching records.
+        @rtype: deferred iterable of L{IDirectoryRecord}s
         """
+
 
     def updateRecords(records, create=False):
         """
         Updates existing directory records.
+
         @param records: the records to update
         @type records: iterable of L{IDirectoryRecord}s
+
         @param create: if true, create records if necessary
         @type create: boolean
+
+        @return: unspecifiied
+        @rtype: deferred object
+
+        @raises L{NotAllowedError}: if the update is not allowed by the
+            directory service.
         """
+
 
     def removeRecords(uids):
         """
         Removes the records with the given UIDs.
+
         @param uids: the UIDs of the records to remove
         @type uids: iterable of L{bytes}
+
+        @return: unspecifiied
+        @rtype: deferred object
+
+        @raises L{NotAllowedError}: if the removal is not allowed by the
+            directory service.
         """
 
 
@@ -294,19 +427,23 @@ class IDirectoryRecord(Interface):
     service = Attribute("The L{IDirectoryService} this record exists in.")
     fields  = Attribute("A mapping with L{NamedConstant} keys.")
 
+
     def members():
         """
         Find the records that are members of this group.  Only direct
         members are included; members of members are not expanded.
+
         @return: a deferred iterable of L{IDirectoryRecord}s which are
             direct members of this group.
         """
+
 
     def groups():
         """
         Find the group records that this record is a member of.  Only
         groups for which this record is a direct member is are
         included; membership is not expanded.
+
         @return: a deferred iterable of L{IDirectoryRecord}s which are
             groups that this record is a member of.
         """

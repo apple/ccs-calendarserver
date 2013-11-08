@@ -494,13 +494,13 @@ class DirectoryRenderingMixIn(object):
             size = child.contentLength()
             lastModified = child.lastModified()
             rtypes = []
-            fullrtype = child.resourceType()
+            fullrtype = child.resourceType() if hasattr(child, "resourceType") else None
             if fullrtype is not None:
                 for rtype in fullrtype.children:
                     rtypes.append(rtype.name)
             if rtypes:
                 rtypes = "(%s)" % (", ".join(rtypes),)
-            if child.isCollection():
+            if child.isCollection() if hasattr(child, "isCollection") else False:
                 contentType = rtypes
             else:
                 mimeType = child.contentType()

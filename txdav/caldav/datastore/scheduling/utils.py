@@ -21,7 +21,7 @@ from txdav.caldav.icalendarstore import ComponentRemoveState
 log = Logger()
 
 @inlineCallbacks
-def getCalendarObjectForRecord(txn, record, uid, allow_shared=False):
+def getCalendarObjectForRecord(txn, record, uid):
     """
     Get a copy of the event for a calendar user identified by a directory record.
 
@@ -29,12 +29,12 @@ def getCalendarObjectForRecord(txn, record, uid, allow_shared=False):
     one of them to avoid scheduling problems.
     """
 
-    if record and record.locallyHosted():
+    if record and record.thisServer():
         # Get record's calendar-home
         calendar_home = yield txn.calendarHomeWithUID(record.uid)
 
         # Get matching newstore objects
-        objectResources = (yield calendar_home.getCalendarResourcesForUID(uid, allow_shared))
+        objectResources = (yield calendar_home.getCalendarResourcesForUID(uid))
 
         if len(objectResources) > 1:
             # Delete all but the first one

@@ -63,9 +63,7 @@ log = Logger()
 iCalendarProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
 
 allowedStoreComponents = (
-    "VEVENT",
-    "VTODO",
-    "VPOLL",
+    "VEVENT", "VTODO", "VPOLL",
 )
 allowedSchedulingComponents = allowedStoreComponents + ("VFREEBUSY",)
 allowedComponents = allowedSchedulingComponents + ("VTIMEZONE",)

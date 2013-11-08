@@ -66,17 +66,25 @@ class MatchExpression(object):
     """
     Query for a matching value in a given field.
 
-    @ivar fieldName: a L{NamedConstant} specifying the field
-    @ivar fieldValue: a text value to match
-    @ivar matchType: a L{NamedConstant} specifying the match algorythm
-    @ivar flags: L{NamedConstant} specifying additional options
+    @ivar fieldName: A L{NamedConstant} specifying the field.
+
+    @ivar fieldValue: A value to match.
+
+    @ivar matchType: A L{NamedConstant} specifying the match algorithm.
+
+    @ivar flags: A L{NamedConstant} specifying additional options.
     """
 
-    def __init__(self, fieldName, fieldValue, matchType=MatchType.equals, flags=None):
+    def __init__(
+        self,
+        fieldName, fieldValue,
+        matchType=MatchType.equals, flags=None
+    ):
         self.fieldName  = fieldName
         self.fieldValue = fieldValue
         self.matchType  = matchType
         self.flags      = flags
+
 
     def __repr__(self):
         def describe(constant):
@@ -85,12 +93,16 @@ class MatchExpression(object):
         if self.flags is None:
             flags = ""
         else:
-            flags = " (%s)" % (describe(self.flags),)
+            flags = " ({0})".format(describe(self.flags))
 
-        return "<%s: %r %s %r%s>" % (
-            self.__class__.__name__,
-            describe(self.fieldName),
-            describe(self.matchType),
-            describe(self.fieldValue),
-            flags
+        return (
+            "<{self.__class__.__name__}: {fieldName!r} "
+            "{matchType} {fieldValue!r}{flags}>"
+            .format(
+                self=self,
+                fieldName=describe(self.fieldName),
+                matchType=describe(self.matchType),
+                fieldValue=describe(self.fieldValue),
+                flags=flags,
+            )
         )

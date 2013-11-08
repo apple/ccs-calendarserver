@@ -89,8 +89,8 @@ class DirectoryService(object):
 
     searchContext_location = "location"
     searchContext_resource = "resource"
-    searchContext_user     = "user"
-    searchContext_group    = "group"
+    searchContext_user = "user"
+    searchContext_group = "group"
     searchContext_attendee = "attendee"
 
     aggregateService = None
@@ -533,10 +533,11 @@ class DirectoryService(object):
         )
         for record in resources:
             guid = record.guid
-            assignments.append(("%s#calendar-proxy-write" % (guid,),
-                               record.externalProxies()))
-            assignments.append(("%s#calendar-proxy-read" % (guid,),
-                               record.externalReadOnlyProxies()))
+            if record.enabledForCalendaring:
+                assignments.append(("%s#calendar-proxy-write" % (guid,),
+                                   record.externalProxies()))
+                assignments.append(("%s#calendar-proxy-read" % (guid,),
+                                   record.externalReadOnlyProxies()))
 
         return assignments
 
@@ -627,6 +628,7 @@ class GroupMembershipCache(Memcacher):
         self.expireSeconds = expireSeconds
         self.lockSeconds = lockSeconds
 
+
     def setGroupsFor(self, guid, memberships):
         self.log.debug("set groups-for %s : %s" % (guid, memberships))
         return self.set("groups-for:%s" %
@@ -674,7 +676,6 @@ class GroupMembershipCache(Memcacher):
         return self.add("group-cacher-lock", "1", expireTime=self.lockSeconds)
 
 
-
     def extendLock(self):
         """
         Update the expiration time of the memcached lock
@@ -691,6 +692,7 @@ class GroupMembershipCache(Memcacher):
         """
         self.log.debug("delete group-cacher-lock")
         return self.delete("group-cacher-lock")
+
 
 
 class GroupMembershipCacheUpdater(object):
@@ -1129,7 +1131,7 @@ class DirectoryRecord(object):
     implements(IDirectoryRecord, ICalendarStoreDirectoryRecord)
 
     def __repr__(self):
-        return "<%s[%s@%s(%s)] %s(%s) %r @ %s/#%s>" % (
+        return "<%s[%s@%s(%s)] %s(%s) %r @ %s>" % (
             self.__class__.__name__,
             self.recordType,
             self.service.guid,
@@ -1138,7 +1140,6 @@ class DirectoryRecord(object):
             ",".join(self.shortNames),
             self.fullName,
             self.serverURI(),
-            self.partitionID,
         )
 
 
@@ -1174,7 +1175,6 @@ class DirectoryRecord(object):
         self.uid = uid
         self.enabled = False
         self.serverID = ""
-        self.partitionID = ""
         self.shortNames = shortNames
         self.authIDs = authIDs
         self.fullName = fullName
@@ -1256,7 +1256,6 @@ class DirectoryRecord(object):
         if augment:
             self.enabled = augment.enabled
             self.serverID = augment.serverID
-            self.partitionID = augment.partitionID
             self.enabledForCalendaring = augment.enabledForCalendaring
             self.enabledForAddressBooks = augment.enabledForAddressBooks
             self.autoSchedule = augment.autoSchedule
@@ -1277,7 +1276,6 @@ class DirectoryRecord(object):
             # Groups are by default always enabled
             self.enabled = (self.recordType == self.service.recordType_groups)
             self.serverID = ""
-            self.partitionID = ""
             self.enabledForCalendaring = False
             self.enabledForAddressBooks = False
             self.enabledForLogin = False
@@ -1495,46 +1493,9 @@ class DirectoryRecord(object):
             return None
 
 
-    def partitionURI(self):
-        """
-        URL of the server hosting this record. Return None if hosted on this server.
-        """
-        if config.Servers.Enabled and self.serverID:
-            s = Servers.getServerById(self.serverID)
-            if s:
-                return s.getPartitionURIForId(self.partitionID)
-        return None
-
-
-    def locallyHosted(self):
-        """
-        Hosted on this server/partition instance.
-        """
-
-        if config.Servers.Enabled and self.serverID:
-            s = Servers.getServerById(self.serverID)
-            if s:
-                return s.thisServer and (not s.isPartitioned() or not self.partitionID or self.partitionID == config.ServerPartitionID)
-        return True
-
-
-    def effectivePartitionID(self):
-        """
-        Record partition ID taking into account whether the server is partitioned.
-        """
-        if config.Servers.Enabled and self.serverID:
-            s = Servers.getServerById(self.serverID)
-            if s and s.isPartitioned():
-                return self.partitionID
-        return ""
-
-
     def thisServer(self):
-        if config.Servers.Enabled and self.serverID:
-            s = Servers.getServerById(self.serverID)
-            if s:
-                return s.thisServer
-        return True
+        s = self.server()
+        return s.thisServer if s is not None else True
 
 
     def autoAcceptMembers(self):

@@ -18,13 +18,23 @@
 -- Upgrade database schema from VERSION 25 to 26 --
 ---------------------------------------------------
 
--- Calendar home related updates
+-- Replace index
 
-alter table CALENDAR_HOME_METADATA
- add ("DEFAULT_POLLS" integer default null references CALENDAR on delete set null);
+drop index CALENDAR_OBJECT_REVIS_2643d556;
+create index CALENDAR_OBJECT_REVIS_6d9d929c on CALENDAR_OBJECT_REVISIONS (
+    CALENDAR_RESOURCE_ID,
+    RESOURCE_NAME,
+    DELETED,
+    REVISION
+);
 
-create index CALENDAR_HOME_METADAT_910264ce on CALENDAR_HOME_METADATA (
-    DEFAULT_POLLS
+
+drop index ADDRESSBOOK_OBJECT_RE_980b9872;
+create index ADDRESSBOOK_OBJECT_RE_00fe8288 on ADDRESSBOOK_OBJECT_REVISIONS (
+    OWNER_HOME_RESOURCE_ID,
+    RESOURCE_NAME,
+    DELETED,
+    REVISION
 );
 
 

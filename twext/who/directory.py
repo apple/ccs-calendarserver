@@ -24,9 +24,7 @@ __all__ = [
     "DirectoryRecord",
 ]
 
-from uuid import UUID
-
-from zope.interface import implements
+from zope.interface import implementer
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed, fail
@@ -40,26 +38,69 @@ from twext.who.util import uniqueResult, describe
 
 
 
+@implementer(IDirectoryService)
 class DirectoryService(object):
-    implements(IDirectoryService)
+    """
+    Generic implementation of L{IDirectoryService}.
+
+    This is a complete implementation of L{IDirectoryService}, with support for
+    the query operands in L{Operand}.
+
+    The C{recordsWith*} methods are all implemented in terms of
+    L{recordsWithFieldValue}, which is in turn implemented in terms of
+    L{recordsFromExpression}.
+    L{recordsFromQuery} is also implemented in terms of
+    {recordsFromExpression}.
+
+    L{recordsFromExpression} (and therefore most uses of the other methods)
+    will always fail with a L{QueryNotSupportedError}.
+
+    A subclass should therefore override L{recordsFromExpression} with an
+    implementation that handles any queries that it can support and its
+    superclass' implementation with any query it cannot support.
+
+    A subclass may override L{recordsFromQuery} if it is to support additional
+    operands.
+
+    L{updateRecords} and L{removeRecords} will fail with L{NotAllowedError}
+    when asked to modify data.
+    A subclass should override these methods if is to allow editing of
+    directory information.
+
+    @cvar recordType: a L{Names} class or compatible object (eg.
+        L{ConstantsContainer}) which contains the L{NamedConstant}s denoting
+        the record types that are supported by this directory service.
+
+    @cvar fieldName: a L{Names} class or compatible object (eg.
+        L{ConstantsContainer}) which contains the L{NamedConstant}s denoting
+        the record field names that are supported by this directory service.
+
+    @cvar normalizedFields: a L{dict} mapping of (ie. L{NamedConstant}s
+        contained in the C{fieldName} class variable) to callables that take
+        a field value (a L{unicode}) and return a normalized field value (also
+        a L{unicode}).
+    """
 
     recordType = RecordType
     fieldName  = FieldName
 
     normalizedFields = {
-        FieldName.guid:           lambda g: UUID(g).hex,
-        FieldName.emailAddresses: lambda e: e.lower(),
+        FieldName.emailAddresses: lambda e: bytes(e).lower(),
     }
 
 
     def __init__(self, realmName):
+        """
+        @param realmName: a realm name
+        @type realmName: unicode
+        """
         self.realmName = realmName
 
 
     def __repr__(self):
-        return "<%s %r>" % (
-            self.__class__.__name__,
-            self.realmName,
+        return (
+            "<{self.__class__.__name__} {self.realmName!r}>"
+            .format(self=self)
         )
 
 
@@ -70,13 +111,34 @@ class DirectoryService(object):
     def recordsFromExpression(self, expression, records=None):
         """
         Finds records matching a single expression.
-        @param expression: an expression
+
+        @note: The implementation in L{DirectoryService} always raises
+            L{QueryNotSupportedError}.
+
+        @note: This L{DirectoryService} adds a C{records} keyword argument to
+            the interface defined by L{IDirectoryService}.
+            This allows the implementation of
+            L{DirectoryService.recordsFromQuery} to narrow the scope of records
+            being searched as it applies expressions.
+            This is therefore relevant to subclasses, which need to support the
+            added parameter, but not to users of L{IDirectoryService}.
+
+        @param expression: an expression to apply
         @type expression: L{object}
-        @param records: a set of records to search within. C{None} if
+
+        @param records: a set of records to limit the search to. C{None} if
             the whole directory should be searched.
         @type records: L{set} or L{frozenset}
+
+        @return: The matching records.
+        @rtype: deferred iterable of L{IDirectoryRecord}s
+
+        @raises: L{QueryNotSupportedError} if the expression is not
+            supported by this directory service.
         """
-        return fail(QueryNotSupportedError("Unknown expression: %s" % (expression,)))
+        return fail(QueryNotSupportedError(
+            "Unknown expression: {0}".format(expression)
+        ))
 
 
     @inlineCallbacks
@@ -109,7 +171,9 @@ class DirectoryService(object):
             elif operand == Operand.OR:
                 results |= recordsMatchingExpression
             else:
-                raise QueryNotSupportedError("Unknown operand: %s" % (operand,))
+                raise QueryNotSupportedError(
+                    "Unknown operand: {0}".format(operand)
+                )
 
         returnValue(results)
 
@@ -120,12 +184,16 @@ class DirectoryService(object):
 
     @inlineCallbacks
     def recordWithUID(self, uid):
-        returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.uid, uid))))
-               
+        returnValue(uniqueResult(
+            (yield self.recordsWithFieldValue(FieldName.uid, uid))
+        ))
+
 
     @inlineCallbacks
     def recordWithGUID(self, guid):
-        returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.guid, guid))))
+        returnValue(uniqueResult(
+            (yield self.recordsWithFieldValue(FieldName.guid, guid))
+        ))
 
 
     def recordsWithRecordType(self, recordType):
@@ -136,27 +204,45 @@ class DirectoryService(object):
     def recordWithShortName(self, recordType, shortName):
         returnValue(uniqueResult((yield self.recordsFromQuery((
             MatchExpression(FieldName.recordType, recordType),
-            MatchExpression(FieldName.shortNames, shortName ),
+            MatchExpression(FieldName.shortNames, shortName),
         )))))
 
 
     def recordsWithEmailAddress(self, emailAddress):
-        return self.recordsWithFieldValue(FieldName.emailAddresses, emailAddress)
+        return self.recordsWithFieldValue(
+            FieldName.emailAddresses,
+            emailAddress,
+        )
 
 
     def updateRecords(self, records, create=False):
         for record in records:
             return fail(NotAllowedError("Record updates not allowed."))
+        return succeed(None)
 
 
     def removeRecords(self, uids):
         for uid in uids:
             return fail(NotAllowedError("Record removal not allowed."))
+        return succeed(None)
 
 
 
+@implementer(IDirectoryRecord)
 class DirectoryRecord(object):
-    implements(IDirectoryRecord)
+    """
+    Generic implementation of L{IDirectoryService}.
+
+    This is an incomplete implementation of L{IDirectoryRecord}.
+
+    L{groups} will always fail with L{NotImplementedError} and L{members} will
+    do so if this is a group record.
+    A subclass should override these methods to support group membership and
+    complete this implementation.
+
+    @cvar requiredFields: an iterable of field names that must be present in
+        all directory records.
+    """
 
     requiredFields = (
         FieldName.uid,
@@ -168,21 +254,31 @@ class DirectoryRecord(object):
     def __init__(self, service, fields):
         for fieldName in self.requiredFields:
             if fieldName not in fields or not fields[fieldName]:
-                raise ValueError("%s field is required." % (fieldName,))
+                raise ValueError("{0} field is required.".format(fieldName))
 
             if FieldName.isMultiValue(fieldName):
                 values = fields[fieldName]
                 if len(values) == 0:
-                    raise ValueError("%s field must have at least one value." % (fieldName,))
+                    raise ValueError(
+                        "{0} field must have at least one value."
+                        .format(fieldName)
+                    )
                 for value in values:
                     if not value:
-                        raise ValueError("%s field must not be empty." % (fieldName,))
+                        raise ValueError(
+                            "{0} field must not be empty.".format(fieldName)
+                        )
 
-        if fields[FieldName.recordType] not in service.recordType.iterconstants():
-            raise ValueError("Record type must be one of %r, not %r." % (
-                tuple(service.recordType.iterconstants()),
-                fields[FieldName.recordType]
-            ))
+        if (
+            fields[FieldName.recordType] not in
+            service.recordType.iterconstants()
+        ):
+            raise ValueError(
+                "Record type must be one of {0!r}, not {1!r}.".format(
+                    tuple(service.recordType.iterconstants()),
+                    fields[FieldName.recordType],
+                )
+            )
 
         # Normalize fields
         normalizedFields = {}
@@ -197,16 +293,18 @@ class DirectoryRecord(object):
                 normalizedFields[name] = tuple((normalize(v) for v in value))
             else:
                 normalizedFields[name] = normalize(value)
-        
+
         self.service = service
         self.fields  = normalizedFields
 
 
     def __repr__(self):
-        return "<%s (%s)%s>" % (
-            self.__class__.__name__,
-            describe(self.recordType),
-            self.shortNames[0],
+        return (
+            "<{self.__class__.__name__} ({recordType}){shortName}>".format(
+                self=self,
+                recordType=describe(self.recordType),
+                shortName=self.shortNames[0],
+            )
         )
 
 
@@ -262,9 +360,11 @@ class DirectoryRecord(object):
 
     def members(self):
         if self.recordType == RecordType.group:
-            raise NotImplementedError()
+            return fail(
+                NotImplementedError("Subclasses must implement members()")
+            )
         return succeed(())
 
 
     def groups(self):
-        raise NotImplementedError()
+        return fail(NotImplementedError("Subclasses must implement groups()"))

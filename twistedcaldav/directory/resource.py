@@ -25,14 +25,13 @@ from twistedcaldav.client.reverseproxy import ReverseProxyResource
 __all__ = ["DirectoryReverseProxyResource"]
 
 class DirectoryReverseProxyResource(ReverseProxyResource):
-    
+
     def __init__(self, parent, record):
         self.parent = parent
         self.record = record
-        
-        super(DirectoryReverseProxyResource, self).__init__(self.record.partitionID)
-    
+
+        super(DirectoryReverseProxyResource, self).__init__(self.record.serverID)
+
+
     def url(self):
         return joinURL(self.parent.url(), self.record.uid)
-
-

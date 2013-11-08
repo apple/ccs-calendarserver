@@ -31,7 +31,7 @@ from twext.who.directory import DirectoryService, DirectoryRecord
 
 
 
-class BaseTest(unittest.TestCase):
+class ServiceMixIn(object):
     realmName = "xyzzy"
 
 
@@ -42,7 +42,7 @@ class BaseTest(unittest.TestCase):
 
 
 
-class DirectoryServiceTest(BaseTest):
+class BaseDirectoryServiceTest(ServiceMixIn):
     def test_interface(self):
         service = self.service()
         try:
@@ -79,7 +79,10 @@ class DirectoryServiceTest(BaseTest):
 
     def test_recordsFromQueryBogus(self):
         service = self.service()
-        self.assertFailure(service.recordsFromQuery((object(),)), QueryNotSupportedError)
+        self.assertFailure(
+            service.recordsFromQuery((object(),)),
+            QueryNotSupportedError
+        )
 
 
     def test_recordWithUID(self):
@@ -103,13 +106,61 @@ class DirectoryServiceTest(BaseTest):
 
 
 
-class DirectoryServiceImmutableTest(BaseTest):
+class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
+    def test_recordsFromExpression(self):
+        service = self.service()
+        result = yield(service.recordsFromExpression(None))
+        self.assertFailure(result, QueryNotSupportedError)
+
+
+    def test_recordWithUID(self):
+        service = self.service()
+        self.assertFailure(
+            service.recordWithUID(None),
+            QueryNotSupportedError
+        )
+
+
+    def test_recordWithGUID(self):
+        service = self.service()
+        self.assertFailure(
+            service.recordWithGUID(None),
+            QueryNotSupportedError
+        )
+
+
+    def test_recordsWithRecordType(self):
+        service = self.service()
+        self.assertFailure(
+            service.recordsWithRecordType(None),
+            QueryNotSupportedError
+        )
+
+
+    def test_recordWithShortName(self):
+        service = self.service()
+        self.assertFailure(
+            service.recordWithShortName(None, None),
+            QueryNotSupportedError
+        )
+
+
+    def test_recordsWithEmailAddress(self):
+        service = self.service()
+        self.assertFailure(
+            service.recordsWithEmailAddress(None),
+            QueryNotSupportedError
+        )
+
+
+
+class BaseDirectoryServiceImmutableTest(ServiceMixIn):
     def test_updateRecordsNotAllowed(self):
         service = self.service()
 
         newRecord = DirectoryRecord(
             service,
-            fields = {
+            fields={
                 service.fieldName.uid:        "__plugh__",
                 service.fieldName.recordType: service.recordType.user,
                 service.fieldName.shortNames: ("plugh",),
@@ -138,33 +189,55 @@ class DirectoryServiceImmutableTest(BaseTest):
 
 
 
-class DirectoryRecordTest(BaseTest):
+class DirectoryServiceImmutableTest(
+    unittest.TestCase,
+    BaseDirectoryServiceImmutableTest,
+):
+    pass
+
+
+
+class BaseDirectoryRecordTest(ServiceMixIn):
     fields_wsanchez = {
-        FieldName.uid:            "UID:wsanchez",
-        FieldName.recordType:     RecordType.user,
-        FieldName.shortNames:     ("wsanchez", "wilfredo_sanchez"),
-        FieldName.fullNames:      ("Wilfredo Sanchez", "Wilfredo Sanchez Vega"),
-        FieldName.emailAddresses: ("wsanchez@calendarserver.org", "wsanchez@example.com")
+        FieldName.uid: "UID:wsanchez",
+        FieldName.recordType: RecordType.user,
+        FieldName.shortNames: ("wsanchez", "wilfredo_sanchez"),
+        FieldName.fullNames: (
+            "Wilfredo Sanchez",
+            "Wilfredo Sanchez Vega",
+        ),
+        FieldName.emailAddresses: (
+            "wsanchez@calendarserver.org",
+            "wsanchez@example.com",
+        )
     }
 
     fields_glyph = {
-        FieldName.uid:            "UID:glyph",
-        FieldName.recordType:     RecordType.user,
-        FieldName.shortNames:     ("glyph",),
-        FieldName.fullNames:      ("Glyph Lefkowitz",),
+        FieldName.uid: "UID:glyph",
+        FieldName.recordType: RecordType.user,
+        FieldName.shortNames: ("glyph",),
+        FieldName.fullNames: ("Glyph Lefkowitz",),
         FieldName.emailAddresses: ("glyph@calendarserver.org",)
     }
 
     fields_sagen = {
-        FieldName.uid:            "UID:sagen",
-        FieldName.recordType:     RecordType.user,
-        FieldName.shortNames:     ("sagen",),
-        FieldName.fullNames:      ("Morgen Sagen",),
+        FieldName.uid: "UID:sagen",
+        FieldName.recordType: RecordType.user,
+        FieldName.shortNames: ("sagen",),
+        FieldName.fullNames: ("Morgen Sagen",),
         FieldName.emailAddresses: ("sagen@CalendarServer.org",)
     }
 
+    fields_staff = {
+        FieldName.uid: "UID:staff",
+        FieldName.recordType: RecordType.group,
+        FieldName.shortNames: ("staff",),
+        FieldName.fullNames: ("Staff",),
+        FieldName.emailAddresses: ("staff@CalendarServer.org",)
+    }
 
-    def _testRecord(self, fields=None, service=None):
+
+    def makeRecord(self, fields=None, service=None):
         if fields is None:
             fields = self.fields_wsanchez
         if service is None:
@@ -173,7 +246,7 @@ class DirectoryRecordTest(BaseTest):
 
 
     def test_interface(self):
-        record = self._testRecord()
+        record = self.makeRecord()
         try:
             verifyObject(IDirectoryRecord, record)
         except BrokenMethodImplementation as e:
@@ -182,58 +255,58 @@ class DirectoryRecordTest(BaseTest):
 
     def test_init(self):
         service  = self.service()
-        wsanchez = self._testRecord(self.fields_wsanchez, service=service)
+        wsanchez = self.makeRecord(self.fields_wsanchez, service=service)
 
         self.assertEquals(wsanchez.service, service)
-        self.assertEquals(wsanchez.fields , self.fields_wsanchez)
+        self.assertEquals(wsanchez.fields, self.fields_wsanchez)
 
 
     def test_initWithNoUID(self):
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.uid]
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
         fields[FieldName.uid] = ""
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
 
     def test_initWithNoRecordType(self):
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.recordType]
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
         fields[FieldName.recordType] = ""
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
 
     def test_initWithNoShortNames(self):
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.shortNames]
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
         fields[FieldName.shortNames] = ()
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
         fields[FieldName.shortNames] = ("",)
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
         fields[FieldName.shortNames] = ("wsanchez", "")
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
 
     def test_initWithBogusRecordType(self):
         fields = self.fields_wsanchez.copy()
         fields[FieldName.recordType] = object()
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
 
     def test_initNormalize(self):
-        sagen = self._testRecord(self.fields_sagen)
+        sagen = self.makeRecord(self.fields_sagen)
 
         self.assertEquals(
             sagen.fields[FieldName.emailAddresses],
@@ -245,30 +318,44 @@ class DirectoryRecordTest(BaseTest):
         fields_glyphmod = self.fields_glyph.copy()
         del fields_glyphmod[FieldName.emailAddresses]
 
-        wsanchez    = self._testRecord(self.fields_wsanchez)
-        wsanchezmod = self._testRecord(self.fields_wsanchez, DirectoryService("plugh"))
-        glyph       = self._testRecord(self.fields_glyph)
-        glyphmod    = self._testRecord(fields_glyphmod)
+        plugh = DirectoryService("plugh")
+
+        wsanchez    = self.makeRecord(self.fields_wsanchez)
+        wsanchezmod = self.makeRecord(self.fields_wsanchez, plugh)
+        glyph       = self.makeRecord(self.fields_glyph)
+        glyphmod    = self.makeRecord(fields_glyphmod)
 
         self.assertEquals(wsanchez, wsanchez)
         self.assertNotEqual(wsanchez, glyph)
-        self.assertNotEqual(glyph, glyphmod) # UID matches, other fields do not
+        self.assertNotEqual(glyph, glyphmod)  # UID matches, other fields don't
         self.assertNotEqual(glyphmod, wsanchez)
-        self.assertNotEqual(wsanchez, wsanchezmod) # Different service
+        self.assertNotEqual(wsanchez, wsanchezmod)  # Different service
 
 
     def test_attributeAccess(self):
-        wsanchez = self._testRecord(self.fields_wsanchez)
+        wsanchez = self.makeRecord(self.fields_wsanchez)
 
-        self.assertEquals(wsanchez.recordType    , wsanchez.fields[FieldName.recordType    ])
-        self.assertEquals(wsanchez.uid           , wsanchez.fields[FieldName.uid           ])
-        self.assertEquals(wsanchez.shortNames    , wsanchez.fields[FieldName.shortNames    ])
-        self.assertEquals(wsanchez.emailAddresses, wsanchez.fields[FieldName.emailAddresses])
+        self.assertEquals(
+            wsanchez.recordType,
+            wsanchez.fields[FieldName.recordType]
+        )
+        self.assertEquals(
+            wsanchez.uid,
+            wsanchez.fields[FieldName.uid]
+        )
+        self.assertEquals(
+            wsanchez.shortNames,
+            wsanchez.fields[FieldName.shortNames]
+        )
+        self.assertEquals(
+            wsanchez.emailAddresses,
+            wsanchez.fields[FieldName.emailAddresses]
+        )
+
 
     @inlineCallbacks
     def test_members(self):
-        wsanchez = self._testRecord(self.fields_wsanchez)
-
+        wsanchez = self.makeRecord(self.fields_wsanchez)
         self.assertEquals(
             set((yield wsanchez.members())),
             set()
@@ -276,5 +363,24 @@ class DirectoryRecordTest(BaseTest):
 
         raise SkipTest("Subclasses should implement this test.")
 
+
     def test_groups(self):
         raise SkipTest("Subclasses should implement this test.")
+
+
+
+class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
+    def test_members(self):
+        wsanchez = self.makeRecord(self.fields_wsanchez)
+        self.assertEquals(
+            set((yield wsanchez.members())),
+            set()
+        )
+
+        staff = self.makeRecord(self.fields_staff)
+        self.assertFailure(staff.members(), NotImplementedError)
+
+
+    def test_groups(self):
+        wsanchez = self.makeRecord(self.fields_wsanchez)
+        self.assertFailure(wsanchez.groups(), NotImplementedError)

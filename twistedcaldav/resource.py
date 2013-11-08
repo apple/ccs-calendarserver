@@ -334,6 +334,12 @@ class CalDAVResource (
             else:
                 yield transaction.commit()
 
+                # Log extended item
+                if transaction.logItems:
+                    if not hasattr(request, "extendedLogItems"):
+                        request.extendedLogItems = {}
+                    request.extendedLogItems.update(transaction.logItems)
+
                 # May need to reset the last-modified header in the response as txn.commit() can change it due to pre-commit hooks
                 if response.headers.hasHeader("last-modified"):
                     response.headers.setHeader("last-modified", self.lastModified())
@@ -2557,15 +2563,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         Pass through direct to store.
         """
         return self._newStoreHome.hasCalendarResourceUIDSomewhereElse(uid, ok_object._newStoreObject, mode)
-
-
-    def getCalendarResourcesForUID(self, uid, allow_shared=False):
-        """
-        Return all child object resources with the specified UID.
-
-        Pass through direct to store.
-        """
-        return self._newStoreHome.getCalendarResourcesForUID(uid, allow_shared)
 
 
     def defaultAccessControlList(self):

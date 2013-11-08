@@ -28,6 +28,7 @@ __all__ = [
 ]
 
 from time import time
+from uuid import UUID
 
 from xml.etree.ElementTree import parse as parseXML
 from xml.etree.ElementTree import ParseError as XMLParseError
@@ -62,38 +63,38 @@ class ParseError(DirectoryServiceError):
 ##
 
 class Element(Values):
-    directory = ValueConstant("directory")
-    record    = ValueConstant("record")
+    directory = ValueConstant(u"directory")
+    record    = ValueConstant(u"record")
 
     #
     # Field names
     #
-    uid = ValueConstant("uid")
+    uid = ValueConstant(u"uid")
     uid.fieldName = BaseFieldName.uid
 
-    guid = ValueConstant("guid")
+    guid = ValueConstant(u"guid")
     guid.fieldName = BaseFieldName.guid
 
-    shortName = ValueConstant("short-name")
+    shortName = ValueConstant(u"short-name")
     shortName.fieldName = BaseFieldName.shortNames
 
-    fullName = ValueConstant("full-name")
+    fullName = ValueConstant(u"full-name")
     fullName.fieldName = BaseFieldName.fullNames
 
-    emailAddress = ValueConstant("email")
+    emailAddress = ValueConstant(u"email")
     emailAddress.fieldName = BaseFieldName.emailAddresses
 
-    password = ValueConstant("password")
+    password = ValueConstant(u"password")
     password.fieldName = BaseFieldName.password
 
-    memberUID = ValueConstant("member-uid")
+    memberUID = ValueConstant(u"member-uid")
     memberUID.fieldName = IndexFieldName.memberUIDs
 
 
 
 class Attribute(Values):
-    realm      = ValueConstant("realm")
-    recordType = ValueConstant("type")
+    realm      = ValueConstant(u"realm")
+    recordType = ValueConstant(u"type")
 
 
 
@@ -101,16 +102,16 @@ class Value(Values):
     #
     # Booleans
     #
-    true  = ValueConstant("true")
-    false = ValueConstant("false")
+    true  = ValueConstant(u"true")
+    false = ValueConstant(u"false")
 
     #
     # Record types
     #
-    user = ValueConstant("user")
+    user = ValueConstant(u"user")
     user.recordType = RecordType.user
 
-    group = ValueConstant("group")
+    group = ValueConstant(u"group")
     group.recordType = RecordType.group
 
 
@@ -144,9 +145,11 @@ class DirectoryService(BaseDirectoryService):
         else:
             realmName = repr(realmName)
 
-        return "<%s %s>" % (
-            self.__class__.__name__,
-            realmName,
+        return (
+            "<{self.__class__.__name__} {realmName}>".format(
+                self=self,
+                realmName=realmName,
+            )
         )
 
 
@@ -201,7 +204,10 @@ class DirectoryService(BaseDirectoryService):
         #
         if stat:
             self.filePath.restat()
-            cacheTag = (self.filePath.getModificationTime(), self.filePath.getsize())
+            cacheTag = (
+                self.filePath.getModificationTime(),
+                self.filePath.getsize()
+            )
             if cacheTag == self._cacheTag:
                 return
         else:
@@ -225,9 +231,13 @@ class DirectoryService(BaseDirectoryService):
         #
         directoryNode = etree.getroot()
         if directoryNode.tag != self.element.directory.value:
-            raise ParseError("Incorrect root element: %s" % (directoryNode.tag,))
+            raise ParseError(
+                "Incorrect root element: {0}".format(directoryNode.tag)
+            )
 
-        realmName = directoryNode.get(self.attribute.realm.value, "").encode("utf-8")
+        realmName = directoryNode.get(
+            self.attribute.realm.value, u""
+        )
 
         if not realmName:
             raise ParseError("No realm name.")
@@ -239,7 +249,9 @@ class DirectoryService(BaseDirectoryService):
 
         for recordNode in directoryNode:
             try:
-                records.add(self.parseRecordNode(recordNode, unknownFieldElements))
+                records.add(
+                    self.parseRecordNode(recordNode, unknownFieldElements)
+                )
             except UnknownRecordTypeError as e:
                 unknownRecordTypes.add(e.token)
 
@@ -277,10 +289,14 @@ class DirectoryService(BaseDirectoryService):
 
 
     def parseRecordNode(self, recordNode, unknownFieldElements=None):
-        recordTypeAttribute = recordNode.get(self.attribute.recordType.value, "").encode("utf-8")
+        recordTypeAttribute = recordNode.get(
+            self.attribute.recordType.value, u""
+        )
         if recordTypeAttribute:
             try:
-                recordType = self.value.lookupByValue(recordTypeAttribute).recordType
+                recordType = (
+                    self.value.lookupByValue(recordTypeAttribute).recordType
+                )
             except (ValueError, AttributeError):
                 raise UnknownRecordTypeError(recordTypeAttribute)
         else:
@@ -302,7 +318,15 @@ class DirectoryService(BaseDirectoryService):
                 if unknownFieldElements is not None:
                     unknownFieldElements.add(fieldNode.tag)
 
-            value = fieldNode.text.encode("utf-8")
+            vType = BaseFieldName.valueType(fieldName)
+
+            if vType in (unicode, UUID):
+                value = unicode(fieldNode.text)
+            else:
+                raise AssertionError(
+                    "Unknown value type {0} for field {1}",
+                    vType, fieldName
+                )
 
             if BaseFieldName.isMultiValue(fieldName):
                 values = fields.setdefault(fieldName, [])
@@ -357,9 +381,14 @@ class DirectoryService(BaseDirectoryService):
             for (name, value) in record.fields.items():
                 if name == self.fieldName.recordType:
                     if value in recordTypes:
-                        recordNode.set(self.attribute.recordType.value, recordTypes[value])
+                        recordNode.set(
+                            self.attribute.recordType.value,
+                            recordTypes[value]
+                        )
                     else:
-                        raise AssertionError("Unknown record type: %r" % (value,))
+                        raise AssertionError(
+                            "Unknown record type: {0}".format(value)
+                        )
 
                 else:
                     if name in fieldNames:
@@ -376,7 +405,9 @@ class DirectoryService(BaseDirectoryService):
                             recordNode.append(subNode)
 
                     else:
-                        raise AssertionError("Unknown field name: %r" % (name,))
+                        raise AssertionError(
+                            "Unknown field name: {0!r}".format(name)
+                        )
 
         # Walk through the record nodes in the XML tree and apply
         # updates.

@@ -95,6 +95,7 @@ from calendarserver.webcal.resource import WebCalendarResource
 from txdav.common.datastore.sql import CommonDataStore as CommonSQLDataStore
 from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
 from txdav.common.datastore.sql import current_sql_schema
+from txdav.common.datastore.upgrade.sql.upgrade import NotAllowedToUpgrade
 from twext.python.filepath import CachingFilePath
 from urllib import quote
 from twisted.python.usage import UsageError
@@ -635,11 +636,23 @@ def getRootResource(config, newStore, resources=None):
             addSystemEventTrigger("after", "startup", timezoneStdService.onStartup)
 
     #
-    # iSchedule service
+    # iSchedule service for podding
+    #
+    if config.Servers.Enabled:
+        log.info("Setting up iSchedule podding inbox resource: {cls}", cls=iScheduleResourceClass)
+
+        ischedule = iScheduleResourceClass(
+            root,
+            newStore,
+            podding=True
+        )
+        root.putChild(config.Servers.InboxName, ischedule)
+
+    #
+    # iSchedule service (not used for podding)
     #
     if config.Scheduling.iSchedule.Enabled:
-        log.info("Setting up iSchedule inbox resource: {cls}",
-                      cls=iScheduleResourceClass)
+        log.info("Setting up iSchedule inbox resource: {cls}", cls=iScheduleResourceClass)
 
         ischedule = iScheduleResourceClass(
             root,
@@ -650,8 +663,7 @@ def getRootResource(config, newStore, resources=None):
         # Do DomainKey resources
         DKIMUtils.validConfiguration(config)
         if config.Scheduling.iSchedule.DKIM.Enabled:
-            log.info("Setting up domainkey resource: {res}",
-                res=DomainKeyResource)
+            log.info("Setting up domainkey resource: {res}", res=DomainKeyResource)
             domain = config.Scheduling.iSchedule.DKIM.Domain if config.Scheduling.iSchedule.DKIM.Domain else config.ServerHostName
             dk = DomainKeyResource(
                 domain,
@@ -1077,7 +1089,8 @@ class Stepper(object):
 
 
     def defaultStepWithFailure(self, failure):
-        log.failure("Step failure", failure=failure)
+        if failure.type != NotAllowedToUpgrade:
+            log.failure("Step failure", failure=failure)
         return failure
 
     # def protectStep(self, callback):

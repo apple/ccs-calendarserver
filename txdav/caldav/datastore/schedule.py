@@ -112,8 +112,8 @@ class ImplicitCalendarHome(
         return self._calendarHome.hasCalendarResourceUIDSomewhereElse(uid, ok_object, type)
 
 
-    def getCalendarResourcesForUID(self, uid, allow_shared=False):
-        return self._calendarHome.getCalendarResourcesForUID(uid, allow_shared)
+    def getCalendarResourcesForUID(self, uid):
+        return self._calendarHome.getCalendarResourcesForUID(uid)
 
 
 

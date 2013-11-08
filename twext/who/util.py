@@ -40,10 +40,11 @@ class ConstantsContainer(object):
         myConstants = {}
         for constant in constants:
             if constant.name in myConstants:
-                raise ValueError("Name conflict: %r" % (constant.name,))
+                raise ValueError("Name conflict: {0}".format(constant.name))
             myConstants[constant.name] = constant
 
         self._constants = myConstants
+
 
     def __getattr__(self, name):
         try:
@@ -51,8 +52,10 @@ class ConstantsContainer(object):
         except KeyError:
             raise AttributeError(name)
 
+
     def iterconstants(self):
         return self._constants.itervalues()
+
 
     def lookupByName(self, name):
         try:
@@ -61,14 +64,18 @@ class ConstantsContainer(object):
             raise ValueError(name)
 
 
+
 def uniqueResult(values):
     result = None
     for value in values:
         if result is None:
             result = value
         else:
-            raise DirectoryServiceError("Multiple values found where one expected.")
+            raise DirectoryServiceError(
+                "Multiple values found where one expected."
+            )
     return result
+
 
 
 def describe(constant):
@@ -79,6 +86,7 @@ def describe(constant):
         return "|".join(parts)
     else:
         return getattr(constant, "description", constant.name)
+
 
 
 def iterFlags(flags):

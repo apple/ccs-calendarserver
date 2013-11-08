@@ -546,9 +546,7 @@ class CalendarHome(CommonHome):
         # refer to calendar *object* UIDs, since calendar *resources* are an
         # HTTP protocol layer thing, not a data store thing.  (See also
         # objectResourcesWithUID.)
-        objectResources = (
-            yield self.objectResourcesWithUID(uid, ["inbox"], False)
-        )
+        objectResources = (yield self.getCalendarResourcesForUID(uid))
         for objectResource in objectResources:
             if ok_object and objectResource._resourceID == ok_object._resourceID:
                 continue
@@ -560,15 +558,22 @@ class CalendarHome(CommonHome):
 
 
     @inlineCallbacks
-    def getCalendarResourcesForUID(self, uid, allow_shared=False):
+    def getCalendarResourcesForUID(self, uid):
+        """
+        Find all calendar object resources in the calendar home that are not in the "inbox" collection
+        and not in shared collections.
+        Cache the result of this query as it can happen multiple times during scheduling under slightly
+        different circumstances.
 
-        results = []
-        objectResources = (yield self.objectResourcesWithUID(uid, ["inbox"]))
-        for objectResource in objectResources:
-            if allow_shared or objectResource._parentCollection.owned():
-                results.append(objectResource)
+        @param uid: the UID of the calendar object resources to find
+        @type uid: C{str}
+        """
 
-        returnValue(results)
+        if not hasattr(self, "_cachedCalendarResourcesForUID"):
+            self._cachedCalendarResourcesForUID = {}
+        if uid not in self._cachedCalendarResourcesForUID:
+            self._cachedCalendarResourcesForUID[uid] = (yield self.objectResourcesWithUID(uid, ["inbox"], allowShared=False))
+        returnValue(self._cachedCalendarResourcesForUID[uid])
 
 
     @inlineCallbacks
@@ -1566,10 +1571,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 if calsize > config.MaxResourceSize:
                     raise ObjectResourceTooBigError()
 
-        # Possible timezone stripping
-        if config.EnableTimezonesByReference:
-            component.stripKnownTimezones()
-
         # Do validation on external requests
         if internal_state == ComponentUpdateState.NORMAL:
 
@@ -1586,6 +1587,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Normalize the calendar user addresses once we know we have valid
             # calendar data
             component.normalizeCalendarUserAddresses(normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
+
+        # Possible timezone stripping
+        if config.EnableTimezonesByReference:
+            component.stripKnownTimezones()
 
         # Check location/resource organizer requirement
         self.validLocationResourceOrganizer(component, inserting, internal_state)
@@ -1721,20 +1726,23 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         NB Do this before implicit scheduling as we don't want old clients to trigger scheduling when
         the X- property is missing.
+
+        We now only preserve the "X-CALENDARSERVER-ATTENDEE-COMMENT" property. We will now allow clients
+        to delete the "X-CALENDARSERVER-PRIVATE-COMMENT" and treat that as a removal of the attendee
+        comment (which will trigger scheduling with the organizer to remove the comment on the organizer's
+        side).
         """
         if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
             old_has_private_comments = not inserting and self.hasPrivateComment
             new_has_private_comments = component.hasPropertyInAnyComponent((
-                "X-CALENDARSERVER-PRIVATE-COMMENT",
                 "X-CALENDARSERVER-ATTENDEE-COMMENT",
             ))
 
             if old_has_private_comments and not new_has_private_comments:
                 # Transfer old comments to new calendar
-                log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
+                log.debug("Organizer private comment properties were entirely removed by the client. Restoring existing properties.")
                 old_calendar = (yield self.componentForUser())
                 component.transferProperties(old_calendar, (
-                    "X-CALENDARSERVER-PRIVATE-COMMENT",
                     "X-CALENDARSERVER-ATTENDEE-COMMENT",
                 ))
 
@@ -1943,7 +1951,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 user_uuid = self._parentCollection.viewerHome().uid()
                 component = PerUserDataFilter(user_uuid).filter(component.duplicate())
 
-            scheduler = ImplicitScheduler()
+            scheduler = ImplicitScheduler(logItems=self._txn.logItems)
 
             # PUT
             do_implicit_action, is_scheduling_resource = (yield scheduler.testImplicitSchedulingPUT(
@@ -2600,7 +2608,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if not isinbox and internal_state == ComponentRemoveState.NORMAL:
             # Get data we need for implicit scheduling
             calendar = (yield self.componentForUser())
-            scheduler = ImplicitScheduler()
+            scheduler = ImplicitScheduler(logItems=self._txn.logItems)
             do_implicit_action, _ignore = (yield scheduler.testImplicitSchedulingDELETE(
                 self.calendar(),
                 self,
@@ -2919,7 +2927,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Only allow organizers to manipulate managed attachments for now
         calendar = (yield self.componentForUser())
-        scheduler = ImplicitScheduler()
+        scheduler = ImplicitScheduler(logItems=self._txn.logItems)
         is_attendee = (yield scheduler.testAttendeeEvent(self.calendar(), self, calendar,))
         if is_attendee:
             raise InvalidAttachmentOperation("Attendees are not allowed to manipulate managed attachments")

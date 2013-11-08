@@ -61,7 +61,6 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
         fullName,
         calendarUserAddresses,
         cutype="INDIVIDUAL",
-        locallyHosted=True,
         thisServer=True,
     ):
 
@@ -72,7 +71,6 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
         self.displayName = self.fullName if self.fullName else self.shortNames[0]
         self.calendarUserAddresses = calendarUserAddresses
         self.cutype = cutype
-        self._locallyHosted = locallyHosted
         self._thisServer = thisServer
 
 
@@ -90,10 +88,6 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
             elif candidate.startswith("mailto:"):
                 cua = candidate
         return cua
-
-
-    def locallyHosted(self):
-        return self._locallyHosted
 
 
     def thisServer(self):

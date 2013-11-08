@@ -113,8 +113,12 @@ create table ABO_FOREIGN_MEMBERS (
 -- Alter  ADDRESSBOOK_HOME --
 -----------------------------
 
+-- This is tricky as we have to create a new not null column and populate it, but we can't do
+-- not null immediately without a default - which we do not want. So we create the column without not null,
+-- do the updates, then add the constraint.
+
 alter table ADDRESSBOOK_HOME
-	add ("ADDRESSBOOK_PROPERTY_STORE_ID" integer not null);
+	add ("ADDRESSBOOK_PROPERTY_STORE_ID" integer);
 
 update ADDRESSBOOK_HOME
 	set	ADDRESSBOOK_PROPERTY_STORE_ID = (
@@ -133,7 +137,10 @@ update ADDRESSBOOK_HOME
 			ADDRESSBOOK_BIND.BIND_MODE = 0 and 	-- CALENDAR_BIND_MODE 'own'
 			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME = 'addressbook'
   	);
-	
+
+alter table ADDRESSBOOK_HOME
+	modify ("ADDRESSBOOK_PROPERTY_STORE_ID" not null);
+
 
 --------------------------------
 -- change  ADDRESSBOOK_OBJECT --
@@ -176,14 +183,15 @@ delete
   	
 -- add non null constraints after update and delete are complete
 alter table ADDRESSBOOK_OBJECT
-	modify ("KIND" not null,
-            "ADDRESSBOOK_HOME_RESOURCE_ID" not null)
-	drop ("ADDRESSBOOK_RESOURCE_ID");
+        modify ("KIND" not null)
+        modify ("ADDRESSBOOK_HOME_RESOURCE_ID" not null);
 
+alter table ADDRESSBOOK_OBJECT
+        drop column ADDRESSBOOK_RESOURCE_ID cascade constraints;
 
 alter table ADDRESSBOOK_OBJECT
 	add unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "RESOURCE_NAME")
-	    unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "VCARD_UID");
+	add unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "VCARD_UID");
 
 ------------------------------------------
 -- change  ADDRESSBOOK_OBJECT_REVISIONS --

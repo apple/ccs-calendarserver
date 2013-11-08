@@ -15,19 +15,17 @@
 # limitations under the License.
 ##
 
-from twext.enterprise.dal.syntax import Select, Delete, Parameter
-
 from twisted.internet.defer import inlineCallbacks
 
 from twistedcaldav import caldavxml, customxml
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
-from txdav.common.datastore.upgrade.sql.upgrades.util import rowsForProperty, updateCalendarDataVersion, \
-    updateAllCalendarHomeDataVersions, removeProperty, cleanPropertyStore
-from txdav.xml.parser import WebDAVDocument
+from txdav.caldav.icalendarstore import InvalidDefaultCalendar
+from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.upgrade.sql.upgrades.util import updateCalendarDataVersion, \
+    removeProperty, cleanPropertyStore, logUpgradeStatus, doToEachHomeNotAtVersion
 from txdav.xml import element
-from twisted.python.failure import Failure
+from twistedcaldav.config import config
 
 """
 Data upgrade from database version 3 to 4
@@ -41,167 +39,114 @@ def doUpgrade(sqlStore):
     """
     Do the required upgrade steps.
     """
-    yield moveDefaultCalendarProperties(sqlStore)
-    yield moveCalendarTranspProperties(sqlStore)
-    yield moveDefaultAlarmProperties(sqlStore)
-    yield removeResourceType(sqlStore)
+    yield updateCalendarHomes(sqlStore, config.UpgradeHomePrefix)
 
-    # Always bump the DB value
-    yield updateCalendarDataVersion(sqlStore, UPGRADE_TO_VERSION)
-    yield updateAllCalendarHomeDataVersions(sqlStore, UPGRADE_TO_VERSION)
+    # Don't do remaining upgrade if we are only process a subset of the homes
+    if not config.UpgradeHomePrefix:
+        yield removeResourceType(sqlStore)
+
+        # Always bump the DB value
+        yield updateCalendarDataVersion(sqlStore, UPGRADE_TO_VERSION)
 
 
 
 @inlineCallbacks
-def moveDefaultCalendarProperties(sqlStore):
+def updateCalendarHomes(sqlStore, prefix=None):
     """
-    Need to move all the CalDAV:default-calendar and CS:default-tasks properties in the
+    For each calendar home, update the associated properties on the home or its owned calendars.
+    """
+
+    yield doToEachHomeNotAtVersion(sqlStore, schema.CALENDAR_HOME, UPGRADE_TO_VERSION, updateCalendarHome, "Update Calendar Home", filterOwnerUID=prefix)
+
+
+
+@inlineCallbacks
+def updateCalendarHome(txn, homeResourceID):
+    """
+    For this calendar home, update the associated properties on the home or its owned calendars.
+    """
+
+    home = yield txn.calendarHomeWithResourceID(homeResourceID)
+    yield moveDefaultCalendarProperties(home)
+    yield moveCalendarTranspProperties(home)
+    yield moveDefaultAlarmProperties(home)
+    yield cleanPropertyStore()
+
+
+
+@inlineCallbacks
+def moveDefaultCalendarProperties(home):
+    """
+    Need to move any the CalDAV:default-calendar and CS:default-tasks properties in the
     RESOURCE_PROPERTY table to the new CALENDAR_HOME_METADATA table columns, extracting
     the new value from the XML property.
     """
 
-    meta = schema.CALENDAR_HOME_METADATA
-    yield _processDefaultCalendarProperty(sqlStore, caldavxml.ScheduleDefaultCalendarURL, meta.DEFAULT_EVENTS)
-    yield _processDefaultCalendarProperty(sqlStore, customxml.ScheduleDefaultTasksURL, meta.DEFAULT_TASKS)
+    yield _processDefaultCalendarProperty(home, caldavxml.ScheduleDefaultCalendarURL)
+    yield _processDefaultCalendarProperty(home, customxml.ScheduleDefaultTasksURL)
 
 
 
 @inlineCallbacks
-def _processDefaultCalendarProperty(sqlStore, propname, colname):
+def _processDefaultCalendarProperty(home, propname):
     """
     Move the specified property value to the matching CALENDAR_HOME_METADATA table column.
-
-    Since the number of calendar homes may well be large, we need to do this in batches.
     """
 
-    cb = schema.CALENDAR_BIND
-    rp = schema.RESOURCE_PROPERTY
+    inbox = (yield home.calendarWithName("inbox"))
+    if inbox is not None:
+        prop = inbox.properties().get(PropertyName.fromElement(propname))
+        if prop is not None:
+            defaultCalendar = str(prop.children[0])
+            parts = defaultCalendar.split("/")
+            if len(parts) == 5:
 
-    try:
-        while True:
-            sqlTxn = sqlStore.newTransaction()
-            rows = (yield rowsForProperty(sqlTxn, propname, batch=BATCH_SIZE))
-            if len(rows) == 0:
-                yield sqlTxn.commit()
-                break
-            delete_ids = []
-            for inbox_rid, value in rows:
-                delete_ids.append(inbox_rid)
-                ids = yield Select(
-                    [cb.CALENDAR_HOME_RESOURCE_ID, ],
-                    From=cb,
-                    Where=cb.CALENDAR_RESOURCE_ID == inbox_rid,
-                ).on(sqlTxn)
-                if len(ids) > 0:
+                calendarName = parts[-1]
+                calendarHomeUID = parts[-2]
+                if calendarHomeUID == home.uid():
 
-                    calendarHome = (yield sqlTxn.calendarHomeWithResourceID(ids[0][0]))
-                    if calendarHome is not None:
+                    calendar = (yield home.calendarWithName(calendarName))
+                    if calendar is not None:
+                        try:
+                            if propname == caldavxml.ScheduleDefaultCalendarURL:
+                                ctype = "VEVENT"
+                            elif propname == customxml.ScheduleDefaultTasksURL:
+                                ctype = "VTODO"
+                            yield home.setDefaultCalendar(
+                                calendar, ctype
+                            )
+                        except InvalidDefaultCalendar:
+                            # Ignore these - the server will recover
+                            pass
 
-                        prop = WebDAVDocument.fromString(value).root_element
-                        defaultCalendar = str(prop.children[0])
-                        parts = defaultCalendar.split("/")
-                        if len(parts) == 5:
-
-                            calendarName = parts[-1]
-                            calendarHomeUID = parts[-2]
-                            expectedHome = (yield sqlTxn.calendarHomeWithUID(calendarHomeUID))
-                            if expectedHome is not None and expectedHome.id() == calendarHome.id():
-
-                                calendar = (yield calendarHome.calendarWithName(calendarName))
-                                if calendar is not None:
-                                    if propname == caldavxml.ScheduleDefaultCalendarURL:
-                                        ctype = "VEVENT"
-                                    elif propname == customxml.ScheduleDefaultTasksURL:
-                                        ctype = "VTODO"
-                                    yield calendarHome.setDefaultCalendar(calendar, ctype)
-
-            # Always delete the rows so that batch processing works correctly
-            yield Delete(
-                From=rp,
-                Where=(rp.RESOURCE_ID.In(Parameter("ids", len(delete_ids)))).And
-                      (rp.NAME == PropertyName.fromElement(propname).toString()),
-            ).on(sqlTxn, ids=delete_ids)
-
-            yield sqlTxn.commit()
-
-        yield cleanPropertyStore()
-
-    except RuntimeError:
-        f = Failure()
-        yield sqlTxn.abort()
-        f.raiseException()
+            del inbox.properties()[PropertyName.fromElement(propname)]
 
 
 
 @inlineCallbacks
-def moveCalendarTranspProperties(sqlStore):
+def moveCalendarTranspProperties(home):
     """
     Need to move all the CalDAV:schedule-calendar-transp properties in the
     RESOURCE_PROPERTY table to the new CALENDAR_BIND table columns, extracting
     the new value from the XML property.
     """
 
-    cb = schema.CALENDAR_BIND
-    rp = schema.RESOURCE_PROPERTY
-
-    try:
-        calendars_for_id = {}
-        while True:
-            sqlTxn = sqlStore.newTransaction()
-            rows = (yield rowsForProperty(sqlTxn, caldavxml.ScheduleCalendarTransp, with_uid=True, batch=BATCH_SIZE))
-            if len(rows) == 0:
-                yield sqlTxn.commit()
-                break
-            delete_ids = []
-            for calendar_rid, value, viewer in rows:
-                delete_ids.append(calendar_rid)
-                if calendar_rid not in calendars_for_id:
-                    ids = yield Select(
-                        [cb.CALENDAR_HOME_RESOURCE_ID, cb.BIND_MODE, ],
-                        From=cb,
-                        Where=cb.CALENDAR_RESOURCE_ID == calendar_rid,
-                    ).on(sqlTxn)
-                    calendars_for_id[calendar_rid] = ids
-
-                if viewer:
-                    calendarHome = (yield sqlTxn.calendarHomeWithUID(viewer))
-                else:
-                    calendarHome = None
-                    for row in calendars_for_id[calendar_rid]:
-                        home_id, bind_mode = row
-                        if bind_mode == _BIND_MODE_OWN:
-                            calendarHome = (yield sqlTxn.calendarHomeWithResourceID(home_id))
-                            break
-
-                if calendarHome is not None:
-                    prop = WebDAVDocument.fromString(value).root_element
-                    calendar = (yield calendarHome.childWithID(calendar_rid))
-                    if calendar is not None:
-                        yield calendar.setUsedForFreeBusy(prop == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
-
-            # Always delete the rows so that batch processing works correctly
-            yield Delete(
-                From=rp,
-                Where=(rp.RESOURCE_ID.In(Parameter("ids", len(delete_ids)))).And
-                      (rp.NAME == PropertyName.fromElement(caldavxml.ScheduleCalendarTransp).toString()),
-            ).on(sqlTxn, ids=delete_ids)
-
-            yield sqlTxn.commit()
-
-        sqlTxn = sqlStore.newTransaction()
-        yield removeProperty(sqlTxn, PropertyName.fromElement(caldavxml.CalendarFreeBusySet))
-        yield sqlTxn.commit()
-        yield cleanPropertyStore()
-
-    except RuntimeError:
-        f = Failure()
-        yield sqlTxn.abort()
-        f.raiseException()
+    # Iterate over each calendar (both owned and shared)
+    calendars = (yield home.loadChildren())
+    for calendar in calendars:
+        if calendar.isInbox():
+            prop = calendar.properties().get(PropertyName.fromElement(caldavxml.CalendarFreeBusySet))
+            if prop is not None:
+                del calendar.properties()[PropertyName.fromElement(caldavxml.CalendarFreeBusySet)]
+        prop = calendar.properties().get(PropertyName.fromElement(caldavxml.ScheduleCalendarTransp))
+        if prop is not None:
+            yield calendar.setUsedForFreeBusy(prop == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
+            del calendar.properties()[PropertyName.fromElement(caldavxml.ScheduleCalendarTransp)]
 
 
 
 @inlineCallbacks
-def moveDefaultAlarmProperties(sqlStore):
+def moveDefaultAlarmProperties(home):
     """
     Need to move all the CalDAV:default-calendar and CS:default-tasks properties in the
     RESOURCE_PROPERTY table to the new CALENDAR_HOME_METADATA table columns, extracting
@@ -209,25 +154,25 @@ def moveDefaultAlarmProperties(sqlStore):
     """
 
     yield _processDefaultAlarmProperty(
-        sqlStore,
+        home,
         caldavxml.DefaultAlarmVEventDateTime,
         True,
         True,
     )
     yield _processDefaultAlarmProperty(
-        sqlStore,
+        home,
         caldavxml.DefaultAlarmVEventDate,
         True,
         False,
     )
     yield _processDefaultAlarmProperty(
-        sqlStore,
+        home,
         caldavxml.DefaultAlarmVToDoDateTime,
         False,
         True,
     )
     yield _processDefaultAlarmProperty(
-        sqlStore,
+        home,
         caldavxml.DefaultAlarmVToDoDate,
         False,
         False,
@@ -236,90 +181,40 @@ def moveDefaultAlarmProperties(sqlStore):
 
 
 @inlineCallbacks
-def _processDefaultAlarmProperty(sqlStore, propname, vevent, timed):
+def _processDefaultAlarmProperty(home, propname, vevent, timed):
     """
     Move the specified property value to the matching CALENDAR_HOME_METADATA or CALENDAR_BIND table column.
 
     Since the number of properties may well be large, we need to do this in batches.
     """
 
-    hm = schema.CALENDAR_HOME_METADATA
-    cb = schema.CALENDAR_BIND
-    rp = schema.RESOURCE_PROPERTY
+    # Check the home first
+    prop = home.properties().get(PropertyName.fromElement(propname))
+    if prop is not None:
+        alarm = str(prop.children[0]) if prop.children else None
+        yield home.setDefaultAlarm(alarm, vevent, timed)
+        del home.properties()[PropertyName.fromElement(propname)]
 
-    try:
-        calendars_for_id = {}
-        while True:
-            sqlTxn = sqlStore.newTransaction()
-            rows = (yield rowsForProperty(sqlTxn, propname, with_uid=True, batch=BATCH_SIZE))
-            if len(rows) == 0:
-                yield sqlTxn.commit()
-                break
-            delete_ids = []
-            for rid, value, viewer in rows:
-                delete_ids.append(rid)
-
-                prop = WebDAVDocument.fromString(value).root_element
-                alarm = str(prop.children[0]) if prop.children else None
-
-                # First check if the rid is a home - this is the most common case
-                ids = yield Select(
-                    [hm.RESOURCE_ID, ],
-                    From=hm,
-                    Where=hm.RESOURCE_ID == rid,
-                ).on(sqlTxn)
-
-                if len(ids) > 0:
-                    # Home object
-                    calendarHome = (yield sqlTxn.calendarHomeWithResourceID(ids[0][0]))
-                    if calendarHome is not None:
-                        yield calendarHome.setDefaultAlarm(alarm, vevent, timed)
-                else:
-                    # rid is a calendar - we need to find the per-user calendar for the resource viewer
-                    if rid not in calendars_for_id:
-                        ids = yield Select(
-                            [cb.CALENDAR_HOME_RESOURCE_ID, cb.BIND_MODE, ],
-                            From=cb,
-                            Where=cb.CALENDAR_RESOURCE_ID == rid,
-                        ).on(sqlTxn)
-                        calendars_for_id[rid] = ids
-
-                    if viewer:
-                        calendarHome = (yield sqlTxn.calendarHomeWithUID(viewer))
-                    else:
-                        calendarHome = None
-                        for row in calendars_for_id[rid]:
-                            home_id, bind_mode = row
-                            if bind_mode == _BIND_MODE_OWN:
-                                calendarHome = (yield sqlTxn.calendarHomeWithResourceID(home_id))
-                                break
-
-                    if calendarHome is not None:
-                        calendar = yield calendarHome.childWithID(rid)
-                        if calendar is not None:
-                            yield calendar.setDefaultAlarm(alarm, vevent, timed)
-
-            # Always delete the rows so that batch processing works correctly
-            yield Delete(
-                From=rp,
-                Where=(rp.RESOURCE_ID.In(Parameter("ids", len(delete_ids)))).And
-                      (rp.NAME == PropertyName.fromElement(propname).toString()),
-            ).on(sqlTxn, ids=delete_ids)
-
-            yield sqlTxn.commit()
-
-        yield cleanPropertyStore()
-
-    except RuntimeError:
-        f = Failure()
-        yield sqlTxn.abort()
-        f.raiseException()
+    # Now each child
+    calendars = (yield home.loadChildren())
+    for calendar in calendars:
+        if calendar.isInbox():
+            continue
+        prop = calendar.properties().get(PropertyName.fromElement(propname))
+        if prop is not None:
+            alarm = str(prop.children[0]) if prop.children else None
+            yield calendar.setDefaultAlarm(alarm, vevent, timed)
+            del calendar.properties()[PropertyName.fromElement(propname)]
 
 
 
 @inlineCallbacks
 def removeResourceType(sqlStore):
+    logUpgradeStatus("Starting Calendar Remove Resource Type")
+
     sqlTxn = sqlStore.newTransaction()
     yield removeProperty(sqlTxn, PropertyName.fromElement(element.ResourceType))
     yield sqlTxn.commit()
     yield cleanPropertyStore()
+
+    logUpgradeStatus("End Calendar Remove Resource Type")

@@ -588,9 +588,8 @@ else:
                     "readOnlyProxyAttr": "read-only-proxy",
                     "autoAcceptGroupAttr": None,
                 },
-                "partitionSchema": {
+                "poddingSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
-                    "partitionIdAttr": "partition-id", # maps to augments partition-id
                 },
             }
         )
@@ -804,9 +803,8 @@ else:
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
                 },
-                "partitionSchema": {
+                "poddingSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
-                    "partitionIdAttr": "partition-id", # maps to augments partition-id
                 },
             }
         )
@@ -1022,9 +1020,8 @@ else:
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
                 },
-                "partitionSchema": {
+                "poddingSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
-                    "partitionIdAttr": "partition-id", # maps to augments partition-id
                 },
             }
         )
@@ -1236,9 +1233,8 @@ else:
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
                 },
-                "partitionSchema": {
+                "poddingSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
-                    "partitionIdAttr": "partition-id", # maps to augments partition-id
                 },
             }
         )
@@ -1296,7 +1292,6 @@ else:
             self.assertEquals(record.firstName, 'Amanda')
             self.assertEquals(record.lastName, 'Test')
             self.assertEquals(record.serverID, None)
-            self.assertEquals(record.partitionID, None)
             self.assertFalse(record.enabledForCalendaring)
 
             # User with enabled-for-calendaring specified
@@ -1326,13 +1321,11 @@ else:
                 'apple-generateduid': [guid],
                 'cn': ['Amanda Test'],
                 'server-id' : ["test-server-id"],
-                'partition-id' : ["test-partition-id"],
             }
 
             record = self.service._ldapResultToRecord(dn, attrs,
                 self.service.recordType_users)
             self.assertEquals(record.serverID, "test-server-id")
-            self.assertEquals(record.partitionID, "test-partition-id")
 
             # User missing guidAttr
 

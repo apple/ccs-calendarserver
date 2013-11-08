@@ -41,6 +41,7 @@ def findRecords(directory, terms):
     returnValue(sorted(records, key=operator.attrgetter("fullName")))
 
 
+
 @inlineCallbacks
 def recordInfo(directory, record):
     """
@@ -58,7 +59,8 @@ def recordInfo(directory, record):
     add("Proxy access"     , (yield recordProxyAccessInfo(directory, record)))
 
     returnValue("\n".join(info))
-        
+
+
 
 def recordBasicInfo(directory, record):
     """
@@ -87,13 +89,13 @@ def recordBasicInfo(directory, record):
     for cua in record.calendarUserAddresses:
         add("Calendar User Address", cua)
 
-    add("Server ID"           , record.serverID              )
-    add("Partition ID"        , record.partitionID           )
-    add("Enabled"             , record.enabled               )
-    add("Enabled for Calendar", record.enabledForCalendaring )
+    add("Server ID"           , record.serverID)
+    add("Enabled"             , record.enabled)
+    add("Enabled for Calendar", record.enabledForCalendaring)
     add("Enabled for Contacts", record.enabledForAddressBooks)
 
     return succeed(table.toString())
+
 
 
 def recordGroupMembershipInfo(directory, record):
@@ -109,7 +111,7 @@ def recordGroupMembershipInfo(directory, record):
         return succeed(None)
 
     rows = sorted(rows,
-        key = lambda row: (row[1], row[2])
+        key=lambda row: (row[1], row[2])
     )
 
     table = Table()
@@ -118,6 +120,7 @@ def recordGroupMembershipInfo(directory, record):
         table.addRow(row)
 
     return succeed(table.toString())
+
 
 
 @inlineCallbacks
@@ -154,7 +157,7 @@ def recordProxyAccessInfo(directory, record):
         returnValue(None)
 
     rows = sorted(rows,
-        key = lambda row: (row[1], row[2], row[4])
+        key=lambda row: (row[1], row[2], row[4])
     )
 
     table = Table()
@@ -163,6 +166,7 @@ def recordProxyAccessInfo(directory, record):
         table.addRow(row)
 
     returnValue(table.toString())
+
 
 
 def summarizeRecords(directory, records):

@@ -136,7 +136,7 @@ class CalendarHome(CommonHome):
     @inlineCallbacks
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
 
-        objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
+        objectResources = (yield self.getCalendarResourcesForUID(uid))
         for objectResource in objectResources:
             if ok_object and objectResource._path == ok_object._path:
                 continue
@@ -148,14 +148,9 @@ class CalendarHome(CommonHome):
 
 
     @inlineCallbacks
-    def getCalendarResourcesForUID(self, uid, allow_shared=False):
+    def getCalendarResourcesForUID(self, uid):
 
-        results = []
-        objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
-        for objectResource in objectResources:
-            if allow_shared or objectResource._parentCollection.owned():
-                results.append(objectResource)
-
+        results = (yield self.objectResourcesWithUID(uid, ("inbox",)))
         returnValue(results)
 
 

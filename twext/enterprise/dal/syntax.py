@@ -1687,6 +1687,48 @@ class Lock(_LockingStatement):
 
 
 
+class DatabaseLock(_LockingStatement):
+    """
+    An SQL exclusive session level advisory lock
+    """
+
+    def _toSQL(self, queryGenerator):
+        assert(queryGenerator.dialect == POSTGRES_DIALECT)
+        return SQLFragment('select pg_advisory_lock(1)')
+
+
+    def on(self, txn, *a, **kw):
+        """
+        Override on() to only execute on Postgres
+        """
+        if txn.dialect == POSTGRES_DIALECT:
+            return super(DatabaseLock, self).on(txn, *a, **kw)
+
+        return succeed(None)
+
+
+
+class DatabaseUnlock(_LockingStatement):
+    """
+    An SQL exclusive session level advisory lock
+    """
+
+    def _toSQL(self, queryGenerator):
+        assert(queryGenerator.dialect == POSTGRES_DIALECT)
+        return SQLFragment('select pg_advisory_unlock(1)')
+
+
+    def on(self, txn, *a, **kw):
+        """
+        Override on() to only execute on Postgres
+        """
+        if txn.dialect == POSTGRES_DIALECT:
+            return super(DatabaseUnlock, self).on(txn, *a, **kw)
+
+        return succeed(None)
+
+
+
 class Savepoint(_LockingStatement):
     """
     An SQL 'savepoint' statement.
