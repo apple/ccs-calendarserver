@@ -58,13 +58,14 @@ class MatchType(Names):
     """
     Query match types.
     """
-    equals     = NamedConstant()
-    startsWith = NamedConstant()
-    contains   = NamedConstant()
+    equals = NamedConstant()
+    equals.description = u"equals"
 
-    equals.description     = u"equals"
+    startsWith = NamedConstant()
     startsWith.description = u"starts with"
-    contains.description   = u"contains"
+
+    contains = NamedConstant()
+    contains.description = u"contains"
 
 
 
@@ -98,10 +99,10 @@ class MatchExpression(object):
         fieldName, fieldValue,
         matchType=MatchType.equals, flags=None
     ):
-        self.fieldName  = fieldName
+        self.fieldName = fieldName
         self.fieldValue = fieldValue
-        self.matchType  = matchType
-        self.flags      = flags
+        self.matchType = matchType
+        self.flags = flags
 
 
     def __repr__(self):
