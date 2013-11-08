@@ -291,11 +291,6 @@ class DirectoryRecord(object):
 
             if FieldName.isMultiValue(fieldName):
                 values = fields[fieldName]
-                if len(values) == 0:
-                    raise ValueError(
-                        "{0} field must have at least one value."
-                        .format(fieldName)
-                    )
                 for value in values:
                     if not value:
                         raise ValueError(
