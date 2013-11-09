@@ -665,7 +665,6 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         self.assertRaises(AttributeError, lambda: nobody.emailAddresses)
 
 
-    @inlineCallbacks
     def test_members_group(self):
         """
         Group members.
@@ -673,6 +672,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         raise SkipTest("Subclasses should implement this test.")
 
 
+    @inlineCallbacks
     def test_members_nonGroup(self):
         """
         Non-groups have no members.
@@ -694,12 +694,6 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
     def test_members_group(self):
-        wsanchez = self.makeRecord(self.fields_wsanchez)
-        self.assertEquals(
-            set((yield wsanchez.members())),
-            set()
-        )
-
         staff = self.makeRecord(self.fields_staff)
         self.assertFailure(staff.members(), NotImplementedError)
 
