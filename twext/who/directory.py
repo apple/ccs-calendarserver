@@ -136,7 +136,6 @@ class DirectoryService(object):
             narrowed down results to a set of records.
             That is, it's a performance optimization; ignoring this and
             searching the entire directory will also work.
-
         @type records: L{set} or L{frozenset}
 
         @return: The matching records.

@@ -81,12 +81,21 @@ class DirectoryService(BaseDirectoryService):
 
     @property
     def index(self):
+        """
+        Call L{loadRecords}C{()} and return the index.
+        """
         self.loadRecords()
         return self._index
 
 
     @index.setter
     def index(self, value):
+        """
+        Sets the index.
+
+        @param index: An index.
+        @type index: L{dict}
+        """
         self._index = value
 
 
@@ -105,7 +114,17 @@ class DirectoryService(BaseDirectoryService):
 
 
     @staticmethod
-    def _queryFlags(flags):
+    def _matchFlags(flags):
+        """
+        Compute a predicate and normalize functions for the given match
+        expression flags.
+
+        @param flags: Match expression flags.
+        @type flags: L{MatchFlags}
+
+        @return: Predicate and normalize functions.
+        @rtype: L{tuple} of callables.
+        """
         predicate = lambda x: x
         normalize = lambda x: x
 
@@ -125,12 +144,19 @@ class DirectoryService(BaseDirectoryService):
 
     def indexedRecordsFromMatchExpression(self, expression, records=None):
         """
-        Finds records in the internal indexes matching a single
-        expression.
-        @param expression: an expression
+        Finds records in the internal indexes matching a single expression.
+
+        @param expression: An expression.
         @type expression: L{object}
+
+        @param records: a set of records to limit the search to. C{None} if
+            the whole directory should be searched.
+        @type records: L{set} or L{frozenset}
+
+        @return: The matching records.
+        @rtype: deferred iterable of L{DirectoryRecord}s
         """
-        predicate, normalize = self._queryFlags(expression.flags)
+        predicate, normalize = self._matchFlags(expression.flags)
 
         fieldIndex = self.index[expression.fieldName]
         matchValue = normalize(expression.fieldValue)
@@ -171,12 +197,19 @@ class DirectoryService(BaseDirectoryService):
 
     def unIndexedRecordsFromMatchExpression(self, expression, records=None):
         """
-        Finds records not in the internal indexes matching a single
-        expression.
-        @param expression: an expression
+        Finds records not in the internal indexes matching a single expression.
+
+        @param expression: An expression.
         @type expression: L{object}
+
+        @param records: a set of records to limit the search to. C{None} if
+            the whole directory should be searched.
+        @type records: L{set} or L{frozenset}
+
+        @return: The matching records.
+        @rtype: deferred iterable of L{DirectoryRecord}s
         """
-        predicate, normalize = self._queryFlags(expression.flags)
+        predicate, normalize = self._matchFlags(expression.flags)
 
         matchValue = normalize(expression.fieldValue)
         matchType  = expression.matchType
