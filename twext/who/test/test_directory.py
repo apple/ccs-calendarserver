@@ -665,6 +665,25 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         self.assertRaises(AttributeError, lambda: nobody.emailAddresses)
 
 
+    def test_description(self):
+        """
+        C{description} returns the expected string.
+        """
+        wsanchez = self.makeRecord(self.fields_wsanchez)
+
+        self.assertEquals(
+u"""
+DirectoryRecord:
+  UID = UID:wsanchez
+  record type = user
+  short names = (u'wsanchez', u'wilfredo_sanchez')
+  full names = (u'Wilfredo Sanchez', u'Wilfredo Sanchez Vega')
+  email addresses = ('wsanchez@calendarserver.org', 'wsanchez@example.com')
+"""[1:],
+            wsanchez.description()
+        )
+
+
     def test_members_group(self):
         """
         Group members.
@@ -678,6 +697,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         Non-groups have no members.
         """
         wsanchez = self.makeRecord(self.fields_wsanchez)
+
         self.assertEquals(
             set((yield wsanchez.members())),
             set()
@@ -695,11 +715,13 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
     def test_members_group(self):
         staff = self.makeRecord(self.fields_staff)
+
         self.assertFailure(staff.members(), NotImplementedError)
 
 
     def test_groups(self):
         wsanchez = self.makeRecord(self.fields_wsanchez)
+
         self.assertFailure(wsanchez.groups(), NotImplementedError)
 
 

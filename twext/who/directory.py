@@ -373,7 +373,13 @@ class DirectoryRecord(object):
         """
         description = [self.__class__.__name__, u":"]
 
-        for name, value in self.fields.items():
+        # for name in sorted(self.fields, key=lambda name: name.name):
+        for name in self.service.fieldName.iterconstants():
+            if name not in self.fields:
+                continue
+
+            value = self.fields[name]
+
             if hasattr(name, "description"):
                 name = name.description
             else:
@@ -388,6 +394,8 @@ class DirectoryRecord(object):
             description.append(name)
             description.append(u" = ")
             description.append(value)
+
+        description.append(u"\n")
 
         return u"".join(description)
 
