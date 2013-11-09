@@ -30,7 +30,6 @@ __all__ = [
 
     "RecordType",
     "FieldName",
-    "Operand",
 
     "IDirectoryService",
     "IDirectoryRecord",
@@ -193,18 +192,6 @@ class FieldName(Names):
         @rtype: L{type}
         """
         return getattr(name, "valueType", unicode)
-
-
-
-class Operand(Names):
-    """
-    Contants for common operands.
-    """
-    OR  = NamedConstant()
-    AND = NamedConstant()
-
-    OR.description  = u"or"
-    AND.description = u"and"
 
 
 

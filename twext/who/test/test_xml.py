@@ -27,8 +27,7 @@ from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks
 
 from twext.who.idirectory import NoSuchRecordError
-from twext.who.idirectory import Operand
-from twext.who.expression import CompoundExpression
+from twext.who.expression import CompoundExpression, Operand
 from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.xml import ParseError
 from twext.who.xml import DirectoryService, DirectoryRecord

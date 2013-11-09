@@ -31,9 +31,9 @@ from twisted.internet.defer import succeed, fail
 
 from twext.who.idirectory import QueryNotSupportedError, NotAllowedError
 from twext.who.idirectory import FieldName, RecordType
-from twext.who.idirectory import Operand
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
-from twext.who.expression import CompoundExpression, MatchExpression
+from twext.who.expression import CompoundExpression, Operand
+from twext.who.expression import MatchExpression
 from twext.who.util import uniqueResult, describe
 
 

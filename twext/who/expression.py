@@ -20,6 +20,7 @@ Directory query expressions.
 """
 
 __all__ = [
+    "Operand",
     "CompoundExpression",
 
     "MatchType",
@@ -35,6 +36,18 @@ from twisted.python.constants import Flags, FlagConstant
 #
 # Compound expression
 #
+
+class Operand(Names):
+    """
+    Contants for common operands.
+    """
+    OR  = NamedConstant()
+    AND = NamedConstant()
+
+    OR.description  = u"or"
+    AND.description = u"and"
+
+
 
 class CompoundExpression(object):
     """
