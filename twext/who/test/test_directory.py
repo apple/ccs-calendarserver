@@ -477,6 +477,12 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         FieldName.emailAddresses: (u"sagen@CalendarServer.org",)
     }
 
+    fields_nobody = {
+        FieldName.uid: u"UID:nobody",
+        FieldName.recordType: RecordType.user,
+        FieldName.shortNames: (u"nobody",),
+    }
+
     fields_staff = {
         FieldName.uid: u"UID:staff",
         FieldName.recordType: RecordType.group,
@@ -596,6 +602,18 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         )
 
 
+    def test_repr(self):
+        """
+        C{repr} returns the expected string.
+        """
+        wsanchez = self.makeRecord(self.fields_wsanchez)
+
+        self.assertEquals(
+            "<DirectoryRecord (user)wsanchez>",
+            repr(wsanchez)
+        )
+
+
     def test_compare(self):
         """
         Comparison of records.
@@ -639,6 +657,12 @@ class BaseDirectoryRecordTest(ServiceMixIn):
             wsanchez.emailAddresses,
             wsanchez.fields[FieldName.emailAddresses]
         )
+
+        self.assertRaises(AttributeError, lambda: wsanchez.fooBarBaz)
+
+        nobody = self.makeRecord(self.fields_nobody)
+
+        self.assertRaises(AttributeError, lambda: nobody.emailAddresses)
 
 
     @inlineCallbacks
