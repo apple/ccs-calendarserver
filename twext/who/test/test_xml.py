@@ -20,6 +20,7 @@ XML directory service tests.
 
 from time import sleep
 from uuid import UUID
+from textwrap import dedent
 
 from twisted.trial import unittest
 from twisted.python.filepath import FilePath
@@ -218,12 +219,13 @@ class DirectoryServiceParsingTest(BaseTest):
 
 
     def test_badRootElement(self):
-        service = self.service(xmlData=(
-b"""<?xml version="1.0" encoding="utf-8"?>
+        service = self.service(xmlData=(dedent(
+            b"""
+            <?xml version="1.0" encoding="utf-8"?>
 
-<frobnitz />
-"""
-        ))
+            <frobnitz />
+            """[1:]
+        )))
 
         self.assertRaises(ParseError, service.loadRecords)
         try:
@@ -235,12 +237,13 @@ b"""<?xml version="1.0" encoding="utf-8"?>
 
 
     def test_noRealmName(self):
-        service = self.service(xmlData=(
-b"""<?xml version="1.0" encoding="utf-8"?>
+        service = self.service(xmlData=(dedent(
+            b"""
+            <?xml version="1.0" encoding="utf-8"?>
 
-<directory />
-"""
-        ))
+            <directory />
+            """[1:]
+        )))
 
         self.assertRaises(ParseError, service.loadRecords)
         try:
@@ -257,18 +260,19 @@ b"""<?xml version="1.0" encoding="utf-8"?>
 
 
     def test_unknownFieldElementsDirty(self):
-        service = self.service(xmlData=(
-b"""<?xml version="1.0" encoding="utf-8"?>
+        service = self.service(xmlData=(dedent(
+            b"""
+            <?xml version="1.0" encoding="utf-8"?>
 
-<directory realm="Unknown Record Types">
-  <record type="user">
-    <uid>__wsanchez__</uid>
-    <short-name>wsanchez</short-name>
-    <political-affiliation>Community and Freedom Party</political-affiliation>
-  </record>
-</directory>
-"""
-        ))
+            <directory realm="Unknown Record Types">
+              <record type="user">
+                <uid>__wsanchez__</uid>
+                <short-name>wsanchez</short-name>
+                <political-affiliation>Community and Freedom Party</political-affiliation>
+              </record>
+            </directory>
+            """[1:]
+        )))
         self.assertEquals(
             set(service.unknownFieldElements),
             set((u"political-affiliation",))
@@ -281,18 +285,19 @@ b"""<?xml version="1.0" encoding="utf-8"?>
 
 
     def test_unknownRecordTypesDirty(self):
-        service = self.service(xmlData=(
-b"""<?xml version="1.0" encoding="utf-8"?>
+        service = self.service(xmlData=(dedent(
+            b"""
+            <?xml version="1.0" encoding="utf-8"?>
 
-<directory realm="Unknown Record Types">
-  <record type="camera">
-    <uid>__d600__</uid>
-    <short-name>d600</short-name>
-    <full-name>Nikon D600</full-name>
-  </record>
-</directory>
-"""
-        ))
+            <directory realm="Unknown Record Types">
+              <record type="camera">
+                <uid>__d600__</uid>
+                <short-name>d600</short-name>
+                <full-name>Nikon D600</full-name>
+              </record>
+            </directory>
+            """[1:]
+        )))
         self.assertEquals(set(service.unknownRecordTypes), set((u"camera",)))
 
 

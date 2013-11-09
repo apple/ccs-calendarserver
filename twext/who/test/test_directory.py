@@ -19,6 +19,7 @@ Generic directory service base implementation tests.
 """
 
 from uuid import UUID
+from textwrap import dedent
 
 from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
@@ -669,18 +670,20 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         """
         C{description} returns the expected string.
         """
-        wsanchez = self.makeRecord(self.fields_wsanchez)
+        sagen = self.makeRecord(self.fields_sagen)
 
         self.assertEquals(
-u"""
-DirectoryRecord:
-  UID = UID:wsanchez
-  record type = user
-  short names = (u'wsanchez', u'wilfredo_sanchez')
-  full names = (u'Wilfredo Sanchez', u'Wilfredo Sanchez Vega')
-  email addresses = ('wsanchez@calendarserver.org', 'wsanchez@example.com')
-"""[1:],
-            wsanchez.description()
+            dedent(
+                u"""
+                DirectoryRecord:
+                  UID = UID:sagen
+                  record type = user
+                  short names = (u'sagen',)
+                  full names = (u'Morgen Sagen',)
+                  email addresses = ('sagen@calendarserver.org',)
+                """[1:]
+            ),
+            sagen.description()
         )
 
 
