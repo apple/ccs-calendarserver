@@ -189,8 +189,9 @@ class DirectoryService(BaseDirectoryService):
         for key in indexKeys:
             matchingRecords |= fieldIndex.get(key, frozenset())
 
-        if records is not None:
-            matchingRecords &= records
+        # Not necessary, so don't unless we know it's a performance win:
+        # if records is not None:
+        #     matchingRecords &= records
 
         return succeed(matchingRecords)
 
