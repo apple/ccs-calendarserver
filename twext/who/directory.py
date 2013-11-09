@@ -373,8 +373,7 @@ class DirectoryRecord(object):
         """
         description = [self.__class__.__name__, u":"]
 
-        # for name in sorted(self.fields, key=lambda name: name.name):
-        for name in self.service.fieldName.iterconstants():
+        for name in sorted(self.service.fieldName.iterconstants()):
             if name not in self.fields:
                 continue
 
