@@ -30,7 +30,7 @@ from twisted.python.constants import Names, NamedConstant
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.who.util import ConstantsContainer
-from twext.who.util import describe, uniqueResult, iterFlags
+from twext.who.util import describe, uniqueResult
 from twext.who.idirectory import FieldName as BaseFieldName
 from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.directory import DirectoryService as BaseDirectoryService
@@ -113,35 +113,6 @@ class DirectoryService(BaseDirectoryService):
         self._index = None
 
 
-    @staticmethod
-    def _matchFlags(flags):
-        """
-        Compute a predicate and normalize functions for the given match
-        expression flags.
-
-        @param flags: Match expression flags.
-        @type flags: L{MatchFlags}
-
-        @return: Predicate and normalize functions.
-        @rtype: L{tuple} of callables.
-        """
-        predicate = lambda x: x
-        normalize = lambda x: x
-
-        if flags is not None:
-            for flag in iterFlags(flags):
-                if flag == MatchFlags.NOT:
-                    predicate = lambda x: not x
-                elif flag == MatchFlags.caseInsensitive:
-                    normalize = lambda x: x.lower()
-                else:
-                    raise NotImplementedError(
-                        "Unknown query flag: {0}".format(describe(flag))
-                    )
-
-        return predicate, normalize
-
-
     def indexedRecordsFromMatchExpression(self, expression, records=None):
         """
         Finds records in the internal indexes matching a single expression.
@@ -156,7 +127,8 @@ class DirectoryService(BaseDirectoryService):
         @return: The matching records.
         @rtype: deferred iterable of L{DirectoryRecord}s
         """
-        predicate, normalize = self._matchFlags(expression.flags)
+        predicate = MatchFlags.predicator(expression.flags)
+        normalize = MatchFlags.normalizer(expression.flags)
 
         fieldIndex = self.index[expression.fieldName]
         matchValue = normalize(expression.fieldValue)
@@ -210,7 +182,8 @@ class DirectoryService(BaseDirectoryService):
         @return: The matching records.
         @rtype: deferred iterable of L{DirectoryRecord}s
         """
-        predicate, normalize = self._matchFlags(expression.flags)
+        predicate = MatchFlags.predicator(expression.flags)
+        normalize = MatchFlags.normalizer(expression.flags)
 
         matchValue = normalize(expression.fieldValue)
         matchType  = expression.matchType

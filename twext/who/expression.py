@@ -31,6 +31,7 @@ __all__ = [
 from twisted.python.constants import Names, NamedConstant
 from twisted.python.constants import Flags, FlagConstant
 
+from twext.who.util import iterFlags, describe
 
 
 #
@@ -91,6 +92,77 @@ class MatchFlags(Flags):
 
     caseInsensitive = FlagConstant()
     caseInsensitive.description = u"case insensitive"
+
+
+    @staticmethod
+    def _setMatchFunctions(flags):
+        """
+        Compute a predicate and normalize functions for the given match
+        expression flags.
+
+        @param flags: Match expression flags.
+        @type flags: L{MatchFlags}
+
+        @return: Predicate and normalize functions.
+        @rtype: L{tuple} of callables.
+        """
+        predicate = lambda x: x
+        normalize = lambda x: x
+
+        if flags is None:
+            flags = FlagConstant()
+        else:
+            for flag in iterFlags(flags):
+                if flag == MatchFlags.NOT:
+                    predicate = lambda x: not x
+                elif flag == MatchFlags.caseInsensitive:
+                    normalize = lambda x: x.lower()
+                else:
+                    raise NotImplementedError(
+                        "Unknown query flag: {0}".format(describe(flag))
+                    )
+
+        flags._predicate = predicate
+        flags._normalize = normalize
+
+        return flags
+
+
+    @staticmethod
+    def predicator(flags):
+        """
+        Determine a predicate function for the given flags.
+
+        @param flags: Match expression flags.
+        @type flags: L{MatchFlags}
+
+        @return: a L{callable} that accepts an L{object} argument and returns a
+        L{object} that has the opposite or same truth value as the argument,
+        depending on whether L{MatchFlags.NOT} is or is not in C{flags}.
+        @rtype: callable
+        """
+        if not hasattr(flags, "_predicate"):
+            flags = MatchFlags._setMatchFunctions(flags)
+        return flags._predicate
+
+
+    @staticmethod
+    def normalizer(flags):
+        """
+        Determine a predicate function for the given flags.
+
+        @param flags: Match expression flags.
+        @type flags: L{MatchFlags}
+
+        @return: a L{callable} that accepts a L{unicode} and returns the same
+        L{unicode} or a normalized L{unicode} that can be compared with other
+        normalized L{unicode}s in a case-insensitive fashion, depending on
+        whether L{MatchFlags.caseInsensitive} is not or is in C{flags}.
+        @rtype: callable
+        """
+        if not hasattr(flags, "_normalize"):
+            flags = MatchFlags._setMatchFunctions(flags)
+        return flags._normalize
 
 
 
