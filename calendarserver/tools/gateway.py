@@ -156,6 +156,7 @@ attrMap = {
     'ZIP' : { 'extras' : True, 'attr' : 'zip', },
     'Country' : { 'extras' : True, 'attr' : 'country', },
     'Phone' : { 'extras' : True, 'attr' : 'phone', },
+    'Geo' : { 'extras' : True, 'attr' : 'geo', },
     'AutoSchedule' : { 'attr' : 'autoSchedule', },
     'AutoAcceptGroup' : { 'attr' : 'autoAcceptGroup', },
 }

@@ -89,6 +89,8 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
     InvalidResourceMove, InvalidComponentForStoreError
 
+from txdav.idav import ChangeCategory
+
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
 from pycalendar.timezone import Timezone
@@ -2192,7 +2194,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         else:
             yield self._calendar._updateRevision(self._name)
 
-        yield self._calendar.notifyChanged()
+        # Determine change category
+        category = ChangeCategory.default
+        if internal_state == ComponentUpdateState.INBOX:
+            category = ChangeCategory.inbox
+        elif internal_state == ComponentUpdateState.ORGANIZER_ITIP_UPDATE:
+            category = ChangeCategory.organizerITIPUpdate
+        elif (internal_state == ComponentUpdateState.ATTENDEE_ITIP_UPDATE and
+            hasattr(self._txn, "doing_attende_refresh")):
+            category = ChangeCategory.attendeeITIPUpdate
+
+        yield self._calendar.notifyChanged(category=category)
 
         # Finally check if a split is needed
         if internal_state not in (ComponentUpdateState.SPLIT_OWNER, ComponentUpdateState.SPLIT_ATTENDEE,) and schedule_state == "organizer":

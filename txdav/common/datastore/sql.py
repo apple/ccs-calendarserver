@@ -73,6 +73,7 @@ from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.xml.parser import WebDAVDocument
+from txdav.idav import ChangeCategory
 
 from uuid import uuid4, UUID
 
@@ -2236,7 +2237,7 @@ class CommonHome(object):
 
 
     @inlineCallbacks
-    def notifyChanged(self):
+    def notifyChanged(self, category=ChangeCategory.default):
         """
         Send notifications, change sync token and bump last modified because
         the resource has changed.  We ensure we only do this once per object
@@ -2260,7 +2261,7 @@ class CommonHome(object):
             # push notifiers add their work items immediately
             notifier = self._notifiers.get("push", None)
             if notifier:
-                yield notifier.notify(self._txn)
+                yield notifier.notify(self._txn, priority=category.value)
 
 
     @classproperty
@@ -4297,11 +4298,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         return self.ownerHome().notifierID()
 
 
-    def notifyChanged(self):
+    def notifyChanged(self, category=ChangeCategory.default):
         """
         Send notifications when a child resource is changed.
         """
-        return self._notifyChanged(property_change=False)
+        return self._notifyChanged(property_change=False, category=category)
 
 
     def notifyPropertyChanged(self):
@@ -4312,7 +4313,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @inlineCallbacks
-    def _notifyChanged(self, property_change=False):
+    def _notifyChanged(self, property_change=False,
+            category=ChangeCategory.default):
         """
         Send notifications, change sync token and bump last modified because
         the resource has changed.  We ensure we only do this once per object
@@ -4348,7 +4350,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             # push notifiers add their work items immediately
             notifier = self._notifiers.get("push", None)
             if notifier:
-                yield notifier.notify(self._txn)
+                yield notifier.notify(self._txn, priority=category.value)
 
 
     @classproperty
@@ -5162,7 +5164,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     @inlineCallbacks
-    def notifyChanged(self):
+    def notifyChanged(self, category=ChangeCategory.default):
         """
         Send notifications, change sync token and bump last modified because
         the resource has changed.  We ensure we only do this once per object
@@ -5181,7 +5183,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             # push notifiers add their work items immediately
             notifier = self._notifiers.get("push", None)
             if notifier:
-                yield notifier.notify(self._txn)
+                yield notifier.notify(self._txn, priority=category.value)
 
         returnValue(None)
 

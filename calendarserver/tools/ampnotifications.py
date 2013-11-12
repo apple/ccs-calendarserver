@@ -141,8 +141,8 @@ def main():
 
 
 
-def notificationCallback(id, dataChangedTimestamp):
-    print("Received notification for:", id)
+def notificationCallback(id, dataChangedTimestamp, priority):
+    print("Received notification for:", id, "Priority", priority)
     return succeed(True)
 
 

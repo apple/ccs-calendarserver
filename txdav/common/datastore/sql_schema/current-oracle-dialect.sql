@@ -347,7 +347,8 @@ create table IMIP_REPLY_WORK (
 create table PUSH_NOTIFICATION_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "PUSH_ID" nvarchar2(255)
+    "PUSH_ID" nvarchar2(255),
+    "PRIORITY" integer not null
 );
 
 create table GROUP_CACHER_POLLING_WORK (
@@ -366,7 +367,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '27');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '28');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
