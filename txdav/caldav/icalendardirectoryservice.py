@@ -133,3 +133,14 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @return: C{True} if it is a proxy.
         @rtype: C{bool}
         """
+
+    def attendee(groupUIDs=None): #@NoSelf
+        """
+        Returns a pycalendar ATTENDEE property for this record.
+
+        @param groupUIDs: group uids for the MEMBER parameter of returned property
+        @type organizer: C{List}
+
+        @return: the attendee property
+        @rtype: C{Property}
+        """

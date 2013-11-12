@@ -19,15 +19,16 @@
 Group membership caching
 """
 
+from twext.enterprise.dal.record import fromTable
+from twext.enterprise.dal.syntax import Delete, Select
+from twext.enterprise.queue import WorkItem, PeerConnectionPool
+from twext.who.delegates import allGroupDelegates
+from twext.who.idirectory import RecordType
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twistedcaldav.ical import ignoredComponents
+from txdav.common.datastore.sql_tables import schema
 import datetime
 import hashlib
-from twext.enterprise.dal.record import fromTable
-from twext.enterprise.queue import WorkItem, PeerConnectionPool
-from txdav.common.datastore.sql_tables import schema
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from twext.enterprise.dal.syntax import Delete
-from twext.who.idirectory import RecordType
-from twext.who.delegates import allGroupDelegates
 
 from twext.python.log import Logger
 log = Logger()
@@ -37,7 +38,7 @@ class GroupCacherPollingWork(WorkItem,
     fromTable(schema.GROUP_CACHER_POLLING_WORK)):
 
     group = "group_cacher_polling"
-  
+
     @inlineCallbacks
     def doWork(self):
 
@@ -67,6 +68,7 @@ class GroupCacherPollingWork(WorkItem,
                 notBefore=notBefore)
 
 
+
 @inlineCallbacks
 def scheduleNextGroupCachingUpdate(store, seconds):
     txn = store.newTransaction()
@@ -77,6 +79,7 @@ def scheduleNextGroupCachingUpdate(store, seconds):
     returnValue(wp)
 
 
+
 def schedulePolledGroupCachingUpdate(store):
     """
     Schedules a group caching update work item in "the past" so PeerConnectionPool's
@@ -84,6 +87,7 @@ def schedulePolledGroupCachingUpdate(store):
     """
     seconds = -PeerConnectionPool.queueProcessTimeout
     return scheduleNextGroupCachingUpdate(store, seconds)
+
 
 
 class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
@@ -114,8 +118,85 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
                 groupGUID=self.groupGUID, notBefore=notBefore)
 
 
+
 class GroupAttendeeReconciliationWork(WorkItem, fromTable(schema.GROUP_ATTENDEE_RECONCILIATION_WORK)):
-    pass
+
+    group = property(lambda self: "%s, %s" % (self.groupID, self.eventID))
+
+    @inlineCallbacks
+    def doWork(self):
+
+        # Delete all other work items for this group
+        yield Delete(From=self.table,
+            Where=((self.table.GROUP_ID == self.self.groupID).And(
+                self.table.RESOURCE_ID == self.self.eventID)
+            )
+        ).on(self.transaction)
+
+        # get group individual UIDs
+        groupMemember = schema.GROUP_MEMBERSHIP
+        rows = yield Select(
+                [groupMemember.MEMBER_GUID, ],
+                From=groupMemember,
+                Where=groupMemember.GROUP_ID == self.groupID,
+        ).on(self.transaction)
+        individualGUIDs = [row[0] for row in rows]
+
+        # get calendar Object
+        calObject = schema.CALENDAR_OBJECT
+        rows = yield Select(
+                [calObject.CALENDAR_RESOURCE_ID, ],
+                From=calObject,
+                Where=calObject.RESOURCE_ID == self.eventID,
+        ).on(self.transaction)
+
+        calendarID = row[0][0]
+        calendarHome = (yield self.Calendar._ownerHomeWithResourceID.on(
+            self.transaction, resourceID=calendarID)
+        )[0][0]
+
+        calendar = yield calendarHome.childWithID(calendarID)
+        calendarObject = yield calendar.objectResourceWithID(self.eventID)
+        changed = False
+
+        individualUUIDs = set(["urn:uuid:" + individualGUID for individualGUID in individualGUIDs])
+        groupUUID = "urn:uuid:" + self.groupGUID()
+        vcalendar = yield calendarObject.component()
+        for component in vcalendar.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
+
+            oldAttendeeProps = component.getAttendees()
+            oldAttendeeUUIDs = set([attendeeProp.value() for attendeeProp in oldAttendeeProps])
+
+            # add new member attendees
+            for individualUUID in individualUUIDs - oldAttendeeUUIDs:
+                individualGUID = individualUUID[len("urn:uuid:"):]
+                directoryRecord = self.transaction.directoryService().recordWithUID(individualGUID)
+                newAttendeeProp = directoryRecord.attendee(params={"MEMBER": groupUUID})
+                component.addProperty(newAttendeeProp)
+                changed = True
+
+            # remove attendee or update MEMBER attribute for non-primary attendees in this group,
+            for attendeeProp in oldAttendeeProps:
+                memberParam = attendeeProp.getParameter("MEMBER")
+                if memberParam:
+                    if groupUUID in memberParam.getValues():
+                        if attendeeProp.value() not in individualUUIDs:
+                            valueCount = memberParam.removeValue(groupUUID)
+                            if valueCount == 0:
+                                component.removeProperty(attendeeProp)
+                            changed = True
+                    else:
+                        if attendeeProp.value() in individualUUIDs:
+                            memberParam.addValue(groupUUID)
+                            changed = True
+
+        # replace old with new
+        if changed:
+            # TODO:  call calendarObject._setComponentInternal( vcalendar, mode ) instead?
+            yield calendarObject.setComponent(vcalendar)
+
 
 
 @inlineCallbacks
@@ -138,6 +219,7 @@ def _expandedMembers(record, members=None, records=None):
                 yield _expandedMembers(member, members, records)
 
     returnValue(members)
+
 
 
 class GroupCacher(object):
@@ -179,11 +261,11 @@ class GroupCacher(object):
         membershipHashContent = hashlib.md5()
         members = (yield _expandedMembers(record))
         members = list(members)
-        members.sort(cmp=lambda x,y: cmp(x.guid, y.guid))
+        members.sort(cmp=lambda x, y: cmp(x.guid, y.guid))
         for member in members:
             membershipHashContent.update(member.guid)
         membershipHash = membershipHashContent.hexdigest()
-        groupID, cachedName, cachedMembershipHash = (yield
+        groupID, cachedName, cachedMembershipHash = (yield #@UnusedVariable
             txn.groupByGUID(groupGUID))
 
         if cachedMembershipHash != membershipHash:
@@ -200,7 +282,7 @@ class GroupCacher(object):
                 newMemberGUIDs.add(member.guid)
             yield self.synchronizeMembers(txn, groupID, newMemberGUIDs)
 
-        yield self.scheduleEventReconciliations(txn, groupID)
+        yield self.scheduleEventReconciliations(txn, groupID, groupGUID)
 
 
     @inlineCallbacks
@@ -232,16 +314,36 @@ class GroupCacher(object):
         returnValue(members)
 
 
-
-
     # @inlineCallbacks
-    def scheduleEventReconciliations(self, txn, groupID):
+    def scheduleEventReconciliations(self, txn, groupID, groupGUID):
         """
         Find all events who have this groupID as an attendee and create
         work items for them.
         """
-        return succeed(None)
+        groupAttendee = schema.GROUP_ATTENDEE
+        rows = yield Select(
+                [groupAttendee.RESOURCE_ID, ],
+                From=groupAttendee,
+                Where=groupAttendee.GROUP_ID == groupID,
+        ).on(txn)
+        eventIDs = [row[0] for row in rows]
 
+        for eventID in eventIDs:
+
+            notBefore = (datetime.datetime.utcnow() +
+                datetime.timedelta(seconds=10))
+            log.debug("scheduling group reconciliation for ({eventID}, {groupID}, {groupGUID}): {when}",
+                eventID=eventID,
+                groupID=groupID,
+                groupGUID=groupGUID,
+                when=notBefore)
+
+            yield txn.enqueue(GroupAttendeeReconciliationWork,
+                eventID=eventID,
+                groupID=groupID,
+                groupGUID=groupGUID,
+                notBefore=notBefore
+            )
 
 
     @inlineCallbacks

@@ -43,6 +43,7 @@ from twisted.python.filepath import FilePath
 from twistedcaldav.config import config
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
 from twistedcaldav.directory.util import uuidFromName, normalizeUUID
+from twistedcaldav.ical import Property
 from twistedcaldav.memcacher import Memcacher
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
@@ -85,8 +86,8 @@ class DirectoryService(object):
 
     searchContext_location = "location"
     searchContext_resource = "resource"
-    searchContext_user     = "user"
-    searchContext_group    = "group"
+    searchContext_user = "user"
+    searchContext_group = "group"
     searchContext_attendee = "attendee"
 
     aggregateService = None
@@ -240,7 +241,7 @@ class DirectoryService(object):
         return record if record and record.enabledForCalendaring else None
 
 
-    def recordWithCachedGroupsAlias(self, recordType, alias):
+    def recordWithCachedGroupsAlias(self, recordType, alias): #@UnusedVariable
         """
         @param recordType: the type of the record to look up.
         @param alias: the cached-groups alias of the record to look up.
@@ -441,7 +442,7 @@ class DirectoryService(object):
         return succeed(yieldMatches(recordType))
 
 
-    def getGroups(self, guids):
+    def getGroups(self, guids): #@UnusedVariable
         """
         This implementation returns all groups, not just the ones specified
         by guids
@@ -624,6 +625,7 @@ class GroupMembershipCache(Memcacher):
         self.expireSeconds = expireSeconds
         self.lockSeconds = lockSeconds
 
+
     def setGroupsFor(self, guid, memberships):
         self.log.debug("set groups-for %s : %s" % (guid, memberships))
         return self.set("groups-for:%s" %
@@ -671,7 +673,6 @@ class GroupMembershipCache(Memcacher):
         return self.add("group-cacher-lock", "1", expireTime=self.lockSeconds)
 
 
-
     def extendLock(self):
         """
         Update the expiration time of the memcached lock
@@ -688,6 +689,7 @@ class GroupMembershipCache(Memcacher):
         """
         self.log.debug("delete group-cacher-lock")
         return self.delete("group-cacher-lock")
+
 
 
 class GroupMembershipCacheUpdater(object):
@@ -1034,6 +1036,7 @@ class GroupMembershipCacheUpdater(object):
         returnValue((fast, len(members), len(changedMembers)))
 
 
+
 def diffAssignments(old, new):
     """
     Compare two proxy assignment lists and return their differences in the form of
@@ -1087,7 +1090,7 @@ class DirectoryRecord(object):
         self, service, recordType, guid=None,
         shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
-        calendarUserAddresses=set(),
+        calendarUserAddresses=set(), #@UnusedVariable
         autoSchedule=False, autoScheduleMode=None,
         autoAcceptGroup="",
         enabledForCalendaring=None,
@@ -1325,7 +1328,7 @@ class DirectoryRecord(object):
         return set()
 
 
-    def verifyCredentials(self, credentials):
+    def verifyCredentials(self, credentials): #@UnusedVariable
         return False
 
 
@@ -1511,6 +1514,34 @@ class DirectoryRecord(object):
         @rtype: C{bool}
         """
         return self.service.isProxyFor(self, other)
+
+
+    def attendee(self, params=None):
+        """
+        Returns a pycalendar ATTENDEE property for this record.
+
+        @param groupUIDs: group uids for the MEMBER parameter of returned property
+        @type organizer: C{List}
+
+        @return: the attendee property
+        @rtype: C{Property}
+        """
+        if params is None:
+            params = {}
+        if "PARTSTAT" not in params:
+            params["PARTSTAT"] = "NEEDS-ACTION"
+        if "CN"not in params:
+            if self.fullName():
+                params["CN"] = self.fullName()
+        if "EMAIL" not in params:
+            if self.emailAddresses():
+                params["EMAIL"] = self.emailAddresses()[0]
+        if "CUTYPE" not in params:
+            cuType = self.getCUType()
+            if cuType is not "INDIVIDUAL":
+                params["CUTYPE"] = cuType
+
+        return Property("ATTENDEE", "urn:uuid:" + self.uid(), params=params)
 
 
 
