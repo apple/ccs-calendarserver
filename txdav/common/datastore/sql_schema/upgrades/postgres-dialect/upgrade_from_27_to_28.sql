@@ -21,7 +21,7 @@
 -- Push notification work related updates
 
 alter table PUSH_NOTIFICATION_WORK
- add column PRIORITY integer default 10;
+ add column PRIORITY integer default 10 not null;
 
 update PUSH_NOTIFICATION_WORK set PRIORITY = 10;
 
