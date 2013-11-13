@@ -14,20 +14,21 @@
 # limitations under the License.
 ##
 
+
+from twext.who.groups import schedulePolledGroupCachingUpdate
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.filepath import FilePath
-
+from twistedcaldav.config import config
+from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, \
+    GroupMembershipCache, GroupMembershipCacheUpdater, diffAssignments
+from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+from twistedcaldav.directory.util import normalizeUUID
+from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile, dirTest
-from twistedcaldav.config import config
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, GroupMembershipCache, GroupMembershipCacheUpdater, diffAssignments
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
-from twistedcaldav.directory import augment, calendaruserproxy
-from twistedcaldav.directory.util import normalizeUUID
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from txdav.common.datastore.test.util import buildStore
-from twext.who.groups import schedulePolledGroupCachingUpdate
 
 import cPickle as pickle
 import uuid
