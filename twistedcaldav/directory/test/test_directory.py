@@ -20,13 +20,14 @@ from twisted.python.filepath import FilePath
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile, dirTest
 from twistedcaldav.config import config
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, GroupMembershipCache, GroupMembershipCacheUpdater, diffAssignments, schedulePolledGroupCachingUpdate
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, GroupMembershipCache, GroupMembershipCacheUpdater, diffAssignments
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.util import normalizeUUID
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from txdav.common.datastore.test.util import buildStore
+from twext.who.groups import schedulePolledGroupCachingUpdate
 
 import cPickle as pickle
 import uuid
@@ -119,7 +120,6 @@ class GroupMembershipTests (TestCase):
         Update a counter in the following test
         """
         self.count += 1
-
 
 
     def test_expandedMembers(self):
@@ -889,7 +889,7 @@ class GroupMembershipTests (TestCase):
         }
         members = pickle.loads(snapshotFile.getContent())
         self.assertEquals(members, expected)
-        
+
         # "Corrupt" the snapshot and verify it is regenerated properly
         snapshotFile.setContent("xyzzy")
         cache.delete("group-cacher-populated")
@@ -900,7 +900,7 @@ class GroupMembershipTests (TestCase):
         self.assertTrue(snapshotFile.exists())
         members = pickle.loads(snapshotFile.getContent())
         self.assertEquals(members, expected)
-        
+
 
     def test_autoAcceptMembers(self):
         """
@@ -926,6 +926,7 @@ class GroupMembershipTests (TestCase):
             ])
         )
 
+
     @inlineCallbacks
     def testScheduling(self):
         """
@@ -945,13 +946,17 @@ class GroupMembershipTests (TestCase):
 
     testScheduling.skip = "Fix WorkProposal to track delayed calls and cancel them"
 
+
+
 class StubGroupCacher(object):
     def __init__(self):
         self.called = False
         self.updateSeconds = 99
 
+
     def updateCache(self):
         self.called = True
+
 
 
 class RecordsMatchingTokensTests(TestCase):
@@ -1036,6 +1041,7 @@ class RecordsMatchingTokensTests(TestCase):
             ]),
             set(self.directoryService.recordTypesForSearchContext("attendee"))
         )
+
 
 
 class GUIDTests(TestCase):
