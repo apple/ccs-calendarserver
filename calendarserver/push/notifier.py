@@ -48,8 +48,7 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
         # Find all work items with the same push ID and find the highest
         # priority.  Delete matching work items.
-        results = (yield Select([self.table.WORK_ID, self.table.PRIORITY,
-            self.table.PUSH_ID],
+        results = (yield Select([self.table.WORK_ID, self.table.PRIORITY],
             From=self.table, Where=self.table.PUSH_ID == self.pushID).on(
             self.transaction))
 
@@ -59,7 +58,7 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
         # highest priority one and use that value
         if results:
             workIDs = []
-            for workID, priority, pushID in results:
+            for workID, priority in results:
                 if priority > maxPriority:
                     maxPriority = priority
                 workIDs.append(workID)
