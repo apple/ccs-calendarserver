@@ -18,13 +18,12 @@ from twistedcaldav.test.util import StoreTestCase
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.notifier import getPubSubAPSConfiguration
 from calendarserver.push.notifier import PushNotificationWork
-from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.internet.defer import inlineCallbacks, succeed, gatherResults
 from twistedcaldav.config import ConfigDict
 from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 from calendarserver.push.util import PushPriority
 from txdav.idav import ChangeCategory
-
 
 class StubService(object):
     def __init__(self):
@@ -97,7 +96,7 @@ class StubDistributor(object):
     def enqueue(self, transaction, pushID, dataChangedTimestamp=None,
         priority=None):
         self.history.append((pushID, priority))
-
+        return(succeed(None))
 
 
 class PushNotificationWorkTests(StoreTestCase):
@@ -124,27 +123,32 @@ class PushNotificationWorkTests(StoreTestCase):
 
         pushDistributor.reset()
         txn = self._sqlCalendarStore.newTransaction()
-        wp = (yield txn.enqueue(PushNotificationWork,
+        proposals = []
+        wp = txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             priority=PushPriority.high.value
-        ))
-        wp = (yield txn.enqueue(PushNotificationWork,
+        )
+        proposals.append(wp.whenExecuted())
+        wp = txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             priority=PushPriority.high.value
-        ))
-        wp = (yield txn.enqueue(PushNotificationWork,
+        )
+        proposals.append(wp.whenExecuted())
+        wp = txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             priority=PushPriority.high.value
-        ))
+        )
+        proposals.append(wp.whenExecuted())
         # Enqueue a different pushID to ensure those are not grouped with
         # the others:
-        wp = (yield txn.enqueue(PushNotificationWork,
+        wp = txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/baz/",
             priority=PushPriority.high.value
-        ))
+        )
+        proposals.append(wp.whenExecuted())
 
         yield txn.commit()
-        yield wp.whenExecuted()
+        yield gatherResults(proposals)
         self.assertEquals(set(pushDistributor.history),
             set([("/CalDAV/localhost/bar/", PushPriority.high),
              ("/CalDAV/localhost/baz/", PushPriority.high)]))
@@ -153,20 +157,24 @@ class PushNotificationWorkTests(StoreTestCase):
         # enqueuing low, medium, and high notifications
         pushDistributor.reset()
         txn = self._sqlCalendarStore.newTransaction()
-        wp = (yield txn.enqueue(PushNotificationWork,
+        proposals = []
+        wp = txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             priority=PushPriority.low.value
-        ))
-        wp = (yield txn.enqueue(PushNotificationWork,
+        )
+        proposals.append(wp.whenExecuted())
+        wp = txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             priority=PushPriority.high.value
-        ))
-        wp = (yield txn.enqueue(PushNotificationWork,
+        )
+        proposals.append(wp.whenExecuted())
+        wp = txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             priority=PushPriority.medium.value
-        ))
+        )
+        proposals.append(wp.whenExecuted())
         yield txn.commit()
-        yield wp.whenExecuted()
+        yield gatherResults(proposals)
         self.assertEquals(pushDistributor.history,
             [("/CalDAV/localhost/bar/", PushPriority.high)])
 
