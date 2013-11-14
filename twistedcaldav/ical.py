@@ -286,11 +286,20 @@ class Property (object):
 
     def parameterValue(self, name, default=None):
         """
-        Returns a single value for the given parameter.  Raises
-        InvalidICalendarDataError if the parameter has more than one value.
+        Returns a single value for the given parameter.
         """
         try:
             return self._pycalendar.getParameterValue(name)
+        except KeyError:
+            return default
+
+
+    def parameterValues(self, name, default=None):
+        """
+        Returns a multi-value C{list} for the given parameter.
+        """
+        try:
+            return self._pycalendar.getParameterValues(name)
         except KeyError:
             return default
 
