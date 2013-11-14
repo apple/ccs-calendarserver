@@ -58,6 +58,7 @@ from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
 from errno import EEXIST, ENOENT
 from zope.interface import implements, directlyProvides
 
+import json
 import uuid
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 import os
@@ -1499,17 +1500,17 @@ class NotificationCollection(CommonHomeChild):
         return self.notificationObjectWithName(name)
 
 
-    def writeNotificationObject(self, uid, xmltype, xmldata):
+    def writeNotificationObject(self, uid, notificationtype, notificationdata):
         name = uid + ".xml"
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
         objectResource = NotificationObject(name, self)
-        objectResource.setData(uid, xmltype, xmldata)
+        objectResource.setData(uid, notificationtype, notificationdata)
         self._cachedObjectResources[name] = objectResource
 
         # Update database
-        self.retrieveOldIndex().addOrUpdateRecord(NotificationRecord(uid, name, xmltype))
+        self.retrieveOldIndex().addOrUpdateRecord(NotificationRecord(uid, name, notificationtype))
 
         self.notifyChanged()
 
@@ -1572,15 +1573,16 @@ class NotificationObject(CommonObjectResource):
 
 
     @writeOperation
-    def setData(self, uid, xmltype, xmldata, inserting=False):
+    def setData(self, uid, notificationtype, notificationdata, inserting=False):
 
         rname = uid + ".xml"
         self._parentCollection.retrieveOldIndex().addOrUpdateRecord(
-            NotificationRecord(uid, rname, xmltype)
+            NotificationRecord(uid, rname, notificationtype)
         )
 
-        self._xmldata = xmldata
-        md5 = hashlib.md5(xmldata).hexdigest()
+        self._notificationdata = notificationdata
+        notificationtext = json.dumps(self._notificationdata)
+        md5 = hashlib.md5(notificationtext).hexdigest()
 
         def do():
             backup = None
@@ -1591,7 +1593,7 @@ class NotificationObject(CommonObjectResource):
             try:
                 # FIXME: concurrency problem; if this write is interrupted
                 # halfway through, the underlying file will be corrupt.
-                fh.write(xmldata)
+                fh.write(notificationtext)
             finally:
                 fh.close()
             def undo():
@@ -1610,7 +1612,7 @@ class NotificationObject(CommonObjectResource):
 
         props = self.properties()
         props[PropertyName(*GETContentType.qname())] = GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset": "utf-8"})))
-        props[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
+        props[PropertyName.fromElement(NotificationType)] = NotificationType(json.dumps(notificationtype))
         props[PropertyName.fromElement(TwistedGETContentMD5)] = TwistedGETContentMD5.fromString(md5)
 
         # FIXME: the property store's flush() method may already have been
@@ -1620,11 +1622,11 @@ class NotificationObject(CommonObjectResource):
         # manipulation methods won't work.
         self._transaction.addOperation(self.properties().flush, "post-update property flush")
 
-    _xmldata = None
+    _notificationdata = None
 
-    def xmldata(self):
-        if self._xmldata is not None:
-            return self._xmldata
+    def notificationData(self):
+        if self._notificationdata is not None:
+            return self._notificationdata
         try:
             fh = self._path.open()
         except IOError, e:
@@ -1638,14 +1640,14 @@ class NotificationObject(CommonObjectResource):
         finally:
             fh.close()
 
-        return text
+        return json.loads(text)
 
 
     def uid(self):
         return self._uid
 
 
-    def xmlType(self):
+    def notificationType(self):
         # NB This is the NotificationType property element
         return self.properties()[PropertyName.fromElement(NotificationType)]
 

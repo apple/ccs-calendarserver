@@ -77,6 +77,7 @@ from uuid import uuid4, UUID
 
 from zope.interface import implements, directlyProvides
 
+import json
 import sys
 import time
 
@@ -4430,7 +4431,7 @@ class CommonObjectResource(FancyEqMixin, object):
         self._size = None
         self._created = None
         self._modified = None
-        self._objectText = None
+        self._notificationData = None
 
         self._locked = False
 
@@ -4841,7 +4842,7 @@ class CommonObjectResource(FancyEqMixin, object):
         self._size = None
         self._created = None
         self._modified = None
-        self._objectText = None
+        self._notificationData = None
 
 
     def uid(self):
@@ -4885,19 +4886,19 @@ class CommonObjectResource(FancyEqMixin, object):
 
     @inlineCallbacks
     def _text(self):
-        if self._objectText is None:
+        if self._notificationData is None:
             texts = (
                 yield self._textByIDQuery.on(self._txn,
                                              resourceID=self._resourceID)
             )
             if texts:
                 text = texts[0][0]
-                self._objectText = text
+                self._notificationData = text
                 returnValue(text)
             else:
                 raise ConcurrentModification()
         else:
-            returnValue(self._objectText)
+            returnValue(self._notificationData)
 
 
 
@@ -5118,14 +5119,14 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     @inlineCallbacks
-    def writeNotificationObject(self, uid, xmltype, xmldata):
+    def writeNotificationObject(self, uid, notificationtype, notificationdata):
 
         inserting = False
         notificationObject = yield self.notificationObjectWithUID(uid)
         if notificationObject is None:
             notificationObject = NotificationObject(self, uid)
             inserting = True
-        yield notificationObject.setData(uid, xmltype, xmldata, inserting=inserting)
+        yield notificationObject.setData(uid, notificationtype, notificationdata, inserting=inserting)
         if inserting:
             yield self._insertRevision("%s.xml" % (uid,))
         else:
@@ -5298,8 +5299,8 @@ class NotificationObject(FancyEqMixin, object):
         self._size = None
         self._created = None
         self._modified = None
-        self._xmlType = None
-        self._objectText = None
+        self._notificationType = None
+        self._notificationData = None
 
 
     def __repr__(self):
@@ -5314,7 +5315,7 @@ class NotificationObject(FancyEqMixin, object):
         obj = cls._objectSchema
         return Select(
             [obj.RESOURCE_ID, obj.NOTIFICATION_UID, obj.MD5,
-             Len(obj.XML_DATA), obj.XML_TYPE, obj.CREATED, obj.MODIFIED],
+             Len(obj.NOTIFICATION_DATA), obj.NOTIFICATION_TYPE, obj.CREATED, obj.MODIFIED],
             From=obj,
             Where=(obj.NOTIFICATION_HOME_RESOURCE_ID == Parameter("homeID"))
         )
@@ -5354,9 +5355,13 @@ class NotificationObject(FancyEqMixin, object):
              child._uid,
              child._md5,
              child._size,
-             child._xmlType,
+             child._notificationType,
              child._created,
              child._modified,) = tuple(row)
+            try:
+                child._notificationType = json.loads(child._notificationType)
+            except ValueError:
+                pass
             child._loadPropertyStore(
                 props=propertyStores.get(child._resourceID, None)
             )
@@ -5372,8 +5377,8 @@ class NotificationObject(FancyEqMixin, object):
             [
                 no.RESOURCE_ID,
                 no.MD5,
-                Len(no.XML_DATA),
-                no.XML_TYPE,
+                Len(no.NOTIFICATION_DATA),
+                no.NOTIFICATION_TYPE,
                 no.CREATED,
                 no.MODIFIED
             ],
@@ -5398,9 +5403,13 @@ class NotificationObject(FancyEqMixin, object):
             (self._resourceID,
              self._md5,
              self._size,
-             self._xmlType,
+             self._notificationType,
              self._created,
              self._modified,) = tuple(rows[0])
+            try:
+                self._notificationType = json.loads(self._notificationType)
+            except ValueError:
+                pass
             self._loadPropertyStore()
             returnValue(self)
         else:
@@ -5451,8 +5460,8 @@ class NotificationObject(FancyEqMixin, object):
             {
                 no.NOTIFICATION_HOME_RESOURCE_ID: Parameter("homeID"),
                 no.NOTIFICATION_UID: Parameter("uid"),
-                no.XML_TYPE: Parameter("xmlType"),
-                no.XML_DATA: Parameter("xmlData"),
+                no.NOTIFICATION_TYPE: Parameter("notificationType"),
+                no.NOTIFICATION_DATA: Parameter("notificationData"),
                 no.MD5: Parameter("md5"),
             },
             Return=[no.RESOURCE_ID, no.CREATED, no.MODIFIED]
@@ -5464,8 +5473,8 @@ class NotificationObject(FancyEqMixin, object):
         no = cls._objectSchema
         return Update(
             {
-                no.XML_TYPE: Parameter("xmlType"),
-                no.XML_DATA: Parameter("xmlData"),
+                no.NOTIFICATION_TYPE: Parameter("notificationType"),
+                no.NOTIFICATION_DATA: Parameter("notificationData"),
                 no.MD5: Parameter("md5"),
             },
             Where=(no.NOTIFICATION_HOME_RESOURCE_ID == Parameter("homeID")).And(
@@ -5475,41 +5484,44 @@ class NotificationObject(FancyEqMixin, object):
 
 
     @inlineCallbacks
-    def setData(self, uid, xmltype, xmldata, inserting=False):
+    def setData(self, uid, notificationtype, notificationdata, inserting=False):
         """
         Set the object resource data and update and cached metadata.
         """
 
-        self._xmlType = xmltype
-        self._md5 = hashlib.md5(xmldata).hexdigest()
-        self._size = len(xmldata)
+        notificationtext = json.dumps(notificationdata)
+        self._notificationType = notificationtype
+        self._md5 = hashlib.md5(notificationtext).hexdigest()
+        self._size = len(notificationtext)
         if inserting:
             rows = yield self._newNotificationQuery.on(
                 self._txn, homeID=self._home._resourceID, uid=uid,
-                xmlType=self._xmlType, xmlData=xmldata, md5=self._md5
+                notificationType=json.dumps(self._notificationType), notificationData=notificationtext, md5=self._md5
             )
             self._resourceID, self._created, self._modified = rows[0]
             self._loadPropertyStore()
         else:
             rows = yield self._updateNotificationQuery.on(
                 self._txn, homeID=self._home._resourceID, uid=uid,
-                xmlType=self._xmlType, xmlData=xmldata, md5=self._md5
+                notificationType=json.dumps(self._notificationType), notificationData=notificationtext, md5=self._md5
             )
             self._modified = rows[0][0]
-        self._objectText = xmldata
+        self._notificationData = notificationdata
 
-    _xmlDataFromID = Select(
-        [_objectSchema.XML_DATA], From=_objectSchema,
+    _notificationDataFromID = Select(
+        [_objectSchema.NOTIFICATION_DATA], From=_objectSchema,
         Where=_objectSchema.RESOURCE_ID == Parameter("resourceID"))
 
 
     @inlineCallbacks
-    def xmldata(self):
-        if self._objectText is None:
-            self._objectText = (
-                yield self._xmlDataFromID.on(
-                    self._txn, resourceID=self._resourceID))[0][0]
-        returnValue(self._objectText)
+    def notificationData(self):
+        if self._notificationData is None:
+            self._notificationData = (yield self._notificationDataFromID.on(self._txn, resourceID=self._resourceID))[0][0]
+            try:
+                self._notificationData = json.loads(self._notificationData)
+            except ValueError:
+                pass
+        returnValue(self._notificationData)
 
 
     def contentType(self):
@@ -5527,8 +5539,8 @@ class NotificationObject(FancyEqMixin, object):
         return self._size
 
 
-    def xmlType(self):
-        return self._xmlType
+    def notificationType(self):
+        return self._notificationType
 
 
     def created(self):

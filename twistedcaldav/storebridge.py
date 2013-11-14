@@ -86,7 +86,6 @@ from twistedcaldav.util import bestAcceptType
 import collections
 from twistedcaldav.sharing import invitationBindStatusToXMLMap, \
     invitationBindModeToXMLMap
-import json
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -3669,13 +3668,6 @@ class StoreNotificationCollectionResource(_NotificationChildHelper, Notification
         )
 
 
-    def addNotification(self, request, uid, xmltype, xmldata):
-        return maybeDeferred(
-            self._newStoreNotifications.writeNotificationObject,
-            uid, xmltype, xmldata
-        )
-
-
     def deleteNotification(self, request, record):
         return maybeDeferred(
             self._newStoreNotifications.removeNotificationObjectWithName,
@@ -3720,8 +3712,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             qname = prop.qname()
 
         if qname == customxml.NotificationType.qname():
-            jsontype = self._newStoreObject.xmlType()
-            jsontype = json.loads(jsontype)
+            jsontype = self._newStoreObject.notificationType()
             if jsontype["notification-type"] == "invite-notification":
                 typeAttr = {"shared-type": jsontype["shared-type"]}
                 xmltype = customxml.InviteNotification(**typeAttr)
@@ -3745,8 +3736,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
     @inlineCallbacks
     def text(self, ignored=None):
         assert ignored is None, "This is a notification object, not a notification"
-        jsondata = (yield self._newStoreObject.xmldata())
-        jsondata = json.loads(jsondata)
+        jsondata = (yield self._newStoreObject.notificationData())
         if jsondata["notification-type"] == "invite-notification":
             ownerPrincipal = self.principalForUID(jsondata["owner"])
             ownerCN = ownerPrincipal.displayName()

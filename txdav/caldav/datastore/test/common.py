@@ -377,8 +377,8 @@ class CommonTests(CommonCommonTests):
         notifications = yield txn.notificationsWithUID("home1")
         yield notifications.writeNotificationObject(
             "abc",
-            "{\"notification-type\":\"invite-notification\"}",
-            "{\"notification-type\":\"invite-notification\"}"
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
         )
         notificationObject = yield notifications.notificationObjectWithUID("abc")
         returnValue(notificationObject)
@@ -402,9 +402,17 @@ class CommonTests(CommonCommonTests):
         """
         txn = self.transactionUnderTest()
         coll = yield txn.notificationsWithUID("home1")
-        yield coll.writeNotificationObject("1", "{\"notification-type\":\"invite-notification\"}", "{\"notification-type\":\"invite-notification\"}")
+        yield coll.writeNotificationObject(
+            "1",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
         st = yield coll.syncToken()
-        yield coll.writeNotificationObject("2", "{\"notification-type\":\"invite-notification\"}", "{\"notification-type\":\"invite-notification\"}")
+        yield coll.writeNotificationObject(
+            "2",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
         rev = self.token2revision(st)
         yield coll.removeNotificationObjectWithUID("1")
         st2 = yield coll.syncToken()
@@ -428,17 +436,17 @@ class CommonTests(CommonCommonTests):
         )
         yield notifications.writeNotificationObject(
             "abc",
-            "{\"notification-type\":\"invite-notification\"}",
-            "{\"notification-type\":\"invite-notification\"}",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
         )
         yield notifications.writeNotificationObject(
             "abc",
-            "{\"notification-type\":\"invite-notification\"}",
-            "{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}"),
         )
         abc = yield notifications.notificationObjectWithUID("abc")
         self.assertEquals(
-            json.loads((yield abc.xmldata())),
+            (yield abc.notificationData()),
             json.loads("{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}"),
         )
 
@@ -461,8 +469,8 @@ class CommonTests(CommonCommonTests):
         self.notifierFactory.reset()
         yield notifications.writeNotificationObject(
             "abc",
-            "{\"notification-type\":\"invite-notification\"}",
-            "{\"notification-type\":\"invite-notification\"}",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
         )
 
         # notify is called prior to commit
@@ -505,13 +513,13 @@ class CommonTests(CommonCommonTests):
         )
         yield notifications.writeNotificationObject(
             "abc",
-            "{\"notification-type\":\"invite-notification\"}",
-            "{\"notification-type\":\"invite-notification\"}",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
         )
         yield notifications.writeNotificationObject(
             "def",
-            "{\"notification-type\":\"invite-notification\"}",
-            "{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}"),
         )
 
         yield self.commit()

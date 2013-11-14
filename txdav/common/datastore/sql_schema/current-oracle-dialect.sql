@@ -57,7 +57,7 @@ create table NOTIFICATION (
     "RESOURCE_ID" integer primary key,
     "NOTIFICATION_HOME_RESOURCE_ID" integer not null references NOTIFICATION_HOME,
     "NOTIFICATION_UID" nvarchar2(255),
-    "XML_TYPE" nvarchar2(255),
+    "NOTIFICATION_TYPE" nvarchar2(255),
     "XML_DATA" nclob,
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',

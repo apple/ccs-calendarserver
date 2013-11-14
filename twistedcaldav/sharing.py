@@ -48,8 +48,6 @@ from twistedcaldav.linkresource import LinkFollowerMixIn
 
 from pycalendar.datetime import DateTime
 
-import json
-
 
 # FIXME: Get rid of these imports
 from twistedcaldav.directory.util import TRANSACTION_KEY
@@ -735,11 +733,11 @@ class SharedResourceMixin(object):
         state = notificationState if notificationState else invitation.status()
         summary = invitation.summary() if displayName is None else displayName
 
-        xmltype = {
+        notificationtype = {
             "notification-type": "invite-notification",
             "shared-type": self.sharedResourceType(),
         }
-        xmldata = {
+        notificationdata = {
             "notification-type": "invite-notification",
             "shared-type": self.sharedResourceType(),
             "dtstamp": DateTime.getNowUTC().getText(),
@@ -752,13 +750,10 @@ class SharedResourceMixin(object):
             "summary": summary,
         }
         if self.isCalendarCollection():
-            xmldata["supported-components"] = self._newStoreObject.getSupportedComponents()
-
-        xmltype = json.dumps(xmltype)
-        xmldata = json.dumps(xmldata)
+            notificationdata["supported-components"] = self._newStoreObject.getSupportedComponents()
 
         # Add to collections
-        yield notifications.writeNotificationObject(invitation.uid(), xmltype, xmldata)
+        yield notifications.writeNotificationObject(invitation.uid(), notificationtype, notificationdata)
 
 
     @inlineCallbacks
@@ -1348,11 +1343,11 @@ class SharedHomeMixin(LinkFollowerMixIn):
         # Generate invite XML
         notificationUID = "%s-reply" % (replytoUID,)
 
-        xmltype = {
+        notificationtype = {
             "notification-type": "invite-reply",
         }
 
-        xmldata = {
+        notificationdata = {
             "notification-type": "invite-reply",
             "shared-type": sharedResource.sharedResourceType(),
             "dtstamp": DateTime.getNowUTC().getText(),
@@ -1364,11 +1359,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
             "summary": displayname if displayname is not None else "",
         }
 
-        xmltype = json.dumps(xmltype)
-        xmldata = json.dumps(xmldata)
-
         # Add to collections
-        yield notifications.writeNotificationObject(notificationUID, xmltype, xmldata)
+        yield notifications.writeNotificationObject(notificationUID, notificationtype, notificationdata)
 
 
     def _handleInviteReply(self, request, invitereplydoc):

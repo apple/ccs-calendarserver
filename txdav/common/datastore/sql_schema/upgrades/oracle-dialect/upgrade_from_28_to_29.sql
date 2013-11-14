@@ -23,5 +23,10 @@
 alter table NOTIFICATION_HOME
  add ("DATAVERSION" integer default 0 not null);
 
+alter table NOTIFICATION
+  rename column XML_TYPE to NOTIFICATION_TYPE;
+alter table NOTIFICATION
+  rename column XML_DATA to NOTIFICATION_DATA;
+
 -- Now update the version
 update CALENDARSERVER set VALUE = '29' where NAME = 'VERSION';

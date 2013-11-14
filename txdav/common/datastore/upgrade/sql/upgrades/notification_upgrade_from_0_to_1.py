@@ -27,7 +27,6 @@ from txdav.xml import element
 from txdav.xml.parser import WebDAVDocument
 from twistedcaldav.sharing import invitationBindStatusFromXMLMap, \
     invitationBindModeFromXMLMap
-import json
 
 """
 Data upgrade from database version 0 to 1
@@ -79,7 +78,7 @@ def updateNotification(txn, notification):
     """
 
     # Convert the type value to JSON
-    xmltype = WebDAVDocument.fromString(notification._xmlType).root_element
+    xmltype = WebDAVDocument.fromString(notification.notificationType()).root_element
     shared_type = "calendar"
     if xmltype.children[0].qname() == customxml.InviteNotification.qname():
         jsontype = {"notification-type": "invite-notification"}
@@ -90,7 +89,7 @@ def updateNotification(txn, notification):
         jsontype = {"notification-type": "invite-reply"}
 
     # Convert the data value to JSON
-    xmldata = (yield notification.xmldata())
+    xmldata = (yield notification.notificationData())
     xmldata = WebDAVDocument.fromString(xmldata).root_element
 
     def _extract_UID(uri):
@@ -163,6 +162,4 @@ def updateNotification(txn, notification):
             "summary": summary,
         }
 
-    jsontype = json.dumps(jsontype)
-    jsondata = json.dumps(jsondata)
     yield notification.setData(notification.uid(), jsontype, jsondata)

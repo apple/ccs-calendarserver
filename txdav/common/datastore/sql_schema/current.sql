@@ -117,8 +117,8 @@ create table NOTIFICATION (
   RESOURCE_ID                   integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   NOTIFICATION_HOME_RESOURCE_ID integer      not null references NOTIFICATION_HOME,
   NOTIFICATION_UID              varchar(255) not null,
-  XML_TYPE                      varchar(255) not null,
-  XML_DATA                      text         not null,
+  NOTIFICATION_TYPE             varchar(255) not null,
+  NOTIFICATION_DATA             text         not null,
   MD5                           char(32)     not null,
   CREATED                       timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),

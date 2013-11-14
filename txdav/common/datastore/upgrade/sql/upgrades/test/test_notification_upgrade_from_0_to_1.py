@@ -23,8 +23,6 @@ from txdav.common.datastore.sql_tables import _BIND_STATUS_INVITED, \
     _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, _BIND_MODE_READ
 from txdav.common.datastore.upgrade.sql.upgrades.notification_upgrade_from_0_to_1 import doUpgrade
 
-import json
-
 """
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
 """
@@ -170,9 +168,9 @@ class Upgrade_from_0_to_1(CommonStoreTests):
             ),
         )
 
-        for uid, xmltype, _ignore_jtype, xmldata, _ignore_jdata in data:
+        for uid, notificationtype, _ignore_jtype, notificationdata, _ignore_jdata in data:
             notifications = yield self.transactionUnderTest().notificationsWithUID("user01")
-            yield notifications.writeNotificationObject(uid, xmltype, xmldata)
+            yield notifications.writeNotificationObject(uid, notificationtype, notificationdata)
 
         # Force data version to previous
         nh = notifications._homeSchema
@@ -188,9 +186,9 @@ class Upgrade_from_0_to_1(CommonStoreTests):
         version = (yield notifications.dataVersion())
         self.assertEqual(version, 1)
 
-        for uid, _ignore_xmltype, jtype, _ignore_xmldata, jdata in data:
+        for uid, _ignore_notificationtype, jtype, _ignore_notificationdata, jdata in data:
             notification = (yield notifications.notificationObjectWithUID(uid))
             self.assertTrue(notification is not None, msg="Failed {uid}".format(uid=uid))
-            self.assertEqual(json.loads(notification.xmlType()), jtype, msg="Failed {uid}".format(uid=uid))
-            data = (yield notification.xmldata())
-            self.assertEqual(json.loads(data), jdata, msg="Failed {uid}".format(uid=uid))
+            self.assertEqual(notification.notificationType(), jtype, msg="Failed {uid}".format(uid=uid))
+            data = (yield notification.notificationData())
+            self.assertEqual(data, jdata, msg="Failed {uid}".format(uid=uid))
