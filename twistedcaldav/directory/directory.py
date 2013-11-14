@@ -1531,17 +1531,17 @@ class DirectoryRecord(object):
         if "PARTSTAT" not in params:
             params["PARTSTAT"] = "NEEDS-ACTION"
         if "CN"not in params:
-            if self.fullName():
-                params["CN"] = self.fullName()
+            if self.fullName:
+                params["CN"] = self.fullName
         if "EMAIL" not in params:
-            if self.emailAddresses():
-                params["EMAIL"] = self.emailAddresses()[0]
+            if self.emailAddresses:
+                params["EMAIL"] = list(self.emailAddresses)[0]
         if "CUTYPE" not in params:
             cuType = self.getCUType()
             if cuType is not "INDIVIDUAL":
                 params["CUTYPE"] = cuType
 
-        return Property("ATTENDEE", "urn:uuid:" + self.uid(), params=params)
+        return Property("ATTENDEE", "urn:uuid:" + self.uid, params=params)
 
 
 

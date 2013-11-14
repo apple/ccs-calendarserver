@@ -15,6 +15,7 @@
 ##
 
 
+
 from twext.who.groups import schedulePolledGroupCachingUpdate
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.filepath import FilePath
@@ -29,9 +30,7 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile, dirTest
 from txdav.common.datastore.test.util import buildStore
-
 import cPickle as pickle
-import uuid
 
 def StubCheckSACL(cls, username, service):
     services = {
@@ -1094,14 +1093,37 @@ class GUIDTests(TestCase):
 
 
 class DirectoryRecordTests(TestCase):
-    """
-    Test L{DirectoryRecord} apis.
-    """
 
+    @inlineCallbacks
     def setUp(self):
-        self.service = DirectoryService()
-        self.service.setRealm("test")
-        self.service.baseGUID = "0E8E6EC2-8E52-4FF3-8F62-6F398B08A498"
+        super(DirectoryRecordTests, self).setUp()
+
+        self.directoryFixture.addDirectoryService(XMLDirectoryService(
+            {
+                'xmlFile' : xmlFile,
+                'augmentService' :
+                    augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
+            }
+        ))
+        calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB("proxies.sqlite")
+
+        # Set up a principals hierarchy for each service we're testing with
+        self.principalRootResources = {}
+        name = self.directoryService.__class__.__name__
+        url = "/" + name + "/"
+
+        provisioningResource = DirectoryPrincipalProvisioningResource(url, self.directoryService)
+
+        self.site.resource.putChild(name, provisioningResource)
+
+        self.principalRootResources[self.directoryService.__class__.__name__] = provisioningResource
+
+        yield XMLCalendarUserProxyLoader(proxiesFile.path).updateProxyDB()
+
+
+    def tearDown(self):
+        """ Empty the proxy db between tests """
+        return calendaruserproxy.ProxyDBService.clean() #@UndefinedVariable
 
 
     def test_cacheToken(self):
@@ -1110,8 +1132,9 @@ class DirectoryRecordTests(TestCase):
         as attributes on the record change.
         """
 
-        record1 = DirectoryRecord(self.service, "users", str(uuid.uuid4()), shortNames=("testing1",))
-        record2 = DirectoryRecord(self.service, "users", str(uuid.uuid4()), shortNames=("testing2",))
+        records = list((yield self.directoryService.listRecords("users")))
+        record1 = records[0]
+        record2 = records[1]
         self.assertNotEquals(record1.cacheToken(), record2.cacheToken())
 
         cache1 = record1.cacheToken()
@@ -1121,3 +1144,61 @@ class DirectoryRecordTests(TestCase):
         cache1 = record1.cacheToken()
         record1.enabledForCalendaring = True
         self.assertNotEquals(cache1, record1.cacheToken())
+
+
+    @inlineCallbacks
+    def test_attendee(self):
+        """
+        check that attendee property is correct
+        """
+        for recordType in self.directoryService.recordTypes():
+            records = yield self.directoryService.listRecords(recordType)
+            for record in records:
+                record.attendee()
+
+        record = yield self.directoryService.recordWithShortName("users", "user01")
+        attendee = record.attendee(params={"PARTSTAT": "ACCEPTED"})
+        self.assertEquals(attendee.name(), "ATTENDEE")
+        self.assertEquals(attendee.value(), "urn:uuid:user01")
+        self.assertEquals(attendee.parameterNames(), set(['PARTSTAT', 'EMAIL', 'CN']))
+        self.assertEquals(attendee.parameterValue("CN"), "c4ca4238a0b923820dcc509a6f75849bc4c User 01")
+        self.assertEquals(attendee.parameterValue("EMAIL"), "c4ca4238a0@example.com")
+        self.assertEquals(attendee.parameterValue("PARTSTAT"), "ACCEPTED")
+
+        record = yield self.directoryService.recordWithShortName("users", "user02")
+        attendee = record.attendee(params={"MEMBER": "urn:uuid:group02"})
+        self.assertEquals(attendee.name(), "ATTENDEE")
+        self.assertEquals(attendee.value(), "urn:uuid:user02")
+        self.assertEquals(attendee.parameterNames(), set(['MEMBER', 'PARTSTAT', 'EMAIL', 'CN']))
+        self.assertEquals(attendee.parameterValue("CN"), "c81e728d9d4c2f636f067f89cc14862cc81 User 02")
+        self.assertEquals(attendee.parameterValue("EMAIL"), "c81e728d9d@example.com")
+        self.assertEquals(attendee.parameterValue("PARTSTAT"), "NEEDS-ACTION")
+        self.assertEquals(attendee.parameterValue("MEMBER"), "urn:uuid:group02")
+
+        record = yield self.directoryService.recordWithShortName("groups", "managers")
+        attendee = record.attendee()
+        self.assertEquals(attendee.name(), "ATTENDEE")
+        self.assertEquals(attendee.value(), "urn:uuid:9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1")
+        self.assertEquals(attendee.parameterNames(), set(['CUTYPE', 'PARTSTAT', 'CN']))
+        self.assertEquals(attendee.parameterValue("CN"), "Managers")
+        self.assertEquals(attendee.parameterValue("PARTSTAT"), "NEEDS-ACTION")
+        self.assertEquals(attendee.parameterValue("CUTYPE"), "GROUP")
+
+        record = yield self.directoryService.recordWithShortName("locations", "mercury")
+        attendee = record.attendee()
+        self.assertEquals(attendee.name(), "ATTENDEE")
+        self.assertEquals(attendee.value(), "urn:uuid:mercury")
+        self.assertEquals(attendee.parameterNames(), set(['CUTYPE', 'PARTSTAT', 'EMAIL', 'CN']))
+        self.assertEquals(attendee.parameterValue("CN"), "Mercury Seven")
+        self.assertEquals(attendee.parameterValue("EMAIL"), "mercury@example.com")
+        self.assertEquals(attendee.parameterValue("PARTSTAT"), "NEEDS-ACTION")
+        self.assertEquals(attendee.parameterValue("CUTYPE"), "ROOM")
+
+        record = yield self.directoryService.recordWithShortName("resources", "ftlcpu")
+        attendee = record.attendee()
+        self.assertEquals(attendee.name(), "ATTENDEE")
+        self.assertEquals(attendee.value(), "urn:uuid:ftlcpu")
+        self.assertEquals(attendee.parameterNames(), set(['CUTYPE', 'PARTSTAT', 'EMAIL', 'CN']))
+        self.assertEquals(attendee.parameterValue("CN"), "Faster-Than-Light Microprocessor")
+        self.assertEquals(attendee.parameterValue("PARTSTAT"), "NEEDS-ACTION")
+        self.assertEquals(attendee.parameterValue("CUTYPE"), "RESOURCE")
