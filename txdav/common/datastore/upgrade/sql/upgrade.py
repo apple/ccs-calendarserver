@@ -414,6 +414,34 @@ class UpgradeDatabaseCalendarDataStep(_UpgradeDatabaseDataStep):
 
 
 
+class UpgradeDatabaseNotificationDataStep(_UpgradeDatabaseDataStep):
+    """
+    Checks and upgrades the database data. This assumes there are a bunch of
+    upgrade python modules that we can execute against the database to
+    accomplish the upgrade.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+    """
+
+    def __init__(self, sqlStore, **kwargs):
+        """
+        Initialize the service.
+
+        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
+        @param service:  Wrapped service. Can be C{None} when doing unit tests.
+        """
+        super(UpgradeDatabaseNotificationDataStep, self).__init__(sqlStore, **kwargs)
+
+        self.versionKey = "NOTIFICATION-DATAVERSION"
+        self.versionDescriptor = "notification data"
+        self.upgradeFilePrefix = "notification_"
+        self.upgradeFileSuffix = ".py"
+        self.defaultKeyValue = 0
+
+
+
 class UpgradeDatabaseOtherStep(UpgradeDatabaseCoreStep):
     """
     Do any other upgrade behaviors once all the schema, data, file migration upgraders

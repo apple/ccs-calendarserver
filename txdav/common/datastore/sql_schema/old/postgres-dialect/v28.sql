@@ -109,8 +109,7 @@ create table CALENDAR_METADATA (
 
 create table NOTIFICATION_HOME (
   RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID   varchar(255) not null unique,                                -- implicit index
-  DATAVERSION integer      default 0 not null
+  OWNER_UID   varchar(255) not null unique                                 -- implicit index
 );
 
 create table NOTIFICATION (
@@ -700,7 +699,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '29');
+insert into CALENDARSERVER values ('VERSION', '28');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
-insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

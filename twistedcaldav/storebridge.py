@@ -70,10 +70,10 @@ from txdav.common.icommondatastore import NoSuchObjectResourceError, \
     UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove, \
     InvalidComponentForStoreError
 from txdav.idav import PropertyChangeNotAllowedError
-from txdav.xml import element as davxml
+from txdav.xml import element as davxml, element
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 
-from urlparse import urlsplit
+from urlparse import urlsplit, urljoin
 import hashlib
 import time
 import uuid
@@ -84,6 +84,9 @@ from twistedcaldav.instance import InvalidOverriddenInstanceError, \
     TooManyInstancesError
 from twistedcaldav.util import bestAcceptType
 import collections
+from twistedcaldav.sharing import invitationBindStatusToXMLMap, \
+    invitationBindModeToXMLMap
+import json
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -3717,7 +3720,16 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             qname = prop.qname()
 
         if qname == customxml.NotificationType.qname():
-            returnValue(self._newStoreObject.xmlType())
+            jsontype = self._newStoreObject.xmlType()
+            jsontype = json.loads(jsontype)
+            if jsontype["notification-type"] == "invite-notification":
+                typeAttr = {"shared-type": jsontype["shared-type"]}
+                xmltype = customxml.InviteNotification(**typeAttr)
+            elif jsontype["notification-type"] == "invite-reply":
+                xmltype = customxml.InviteReply()
+            else:
+                raise HTTPError(responsecode.INTERNAL_SERVER_ERROR)
+            returnValue(customxml.NotificationType(xmltype))
 
         returnValue((yield super(StoreNotificationObjectFile, self).readProperty(prop, request)))
 
@@ -3730,9 +3742,97 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         return succeed(self._newStoreObject.size())
 
 
+    @inlineCallbacks
     def text(self, ignored=None):
         assert ignored is None, "This is a notification object, not a notification"
-        return self._newStoreObject.xmldata()
+        jsondata = (yield self._newStoreObject.xmldata())
+        jsondata = json.loads(jsondata)
+        if jsondata["notification-type"] == "invite-notification":
+            ownerPrincipal = self.principalForUID(jsondata["owner"])
+            ownerCN = ownerPrincipal.displayName()
+            ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
+
+            # FIXME:  use urn:uuid always?
+            if jsondata["shared-type"] == "calendar":
+                owner = ownerPrincipal.principalURL()
+            else:
+                owner = "urn:uuid:" + ownerPrincipal.principalUID()
+
+            shareePrincipal = self.principalForUID(jsondata["sharee"])
+
+            if "supported-components" in jsondata:
+                comps = jsondata["supported-components"]
+                if comps:
+                    comps = comps.split(",")
+                else:
+                    comps = ical.allowedStoreComponents
+                supported = caldavxml.SupportedCalendarComponentSet(
+                    *[caldavxml.CalendarComponent(name=item) for item in comps]
+                )
+            else:
+                supported = None
+
+            typeAttr = {"shared-type": jsondata["shared-type"]}
+            xmldata = customxml.Notification(
+                customxml.DTStamp.fromString(jsondata["dtstamp"]),
+                customxml.InviteNotification(
+                    customxml.UID.fromString(jsondata["uid"]),
+                    element.HRef.fromString("urn:uuid:" + jsondata["sharee"]),
+                    invitationBindStatusToXMLMap[jsondata["status"]](),
+                    customxml.InviteAccess(invitationBindModeToXMLMap[jsondata["access"]]()),
+                    customxml.HostURL(
+                        element.HRef.fromString(urljoin(ownerHomeURL, jsondata["name"])),
+                    ),
+                    customxml.Organizer(
+                        element.HRef.fromString(owner),
+                        customxml.CommonName.fromString(ownerCN),
+                    ),
+                    customxml.InviteSummary.fromString(jsondata["summary"]),
+                    supported,
+                    **typeAttr
+                ),
+            )
+        elif jsondata["notification-type"] == "invite-reply":
+            ownerPrincipal = self.principalForUID(jsondata["owner"])
+            ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
+
+            shareePrincipal = self.principalForUID(jsondata["sharee"])
+
+            # FIXME:  use urn:uuid always?
+            if jsondata["shared-type"] == "calendar":
+                # Prefer mailto:, otherwise use principal URL
+                for cua in shareePrincipal.calendarUserAddresses():
+                    if cua.startswith("mailto:"):
+                        break
+                else:
+                    cua = shareePrincipal.principalURL()
+            else:
+                cua = "urn:uuid:" + shareePrincipal.principalUID()
+
+            commonName = shareePrincipal.displayName()
+            record = shareePrincipal.record
+
+            xmldata = customxml.Notification(
+                customxml.DTStamp.fromString(jsondata["dtstamp"]),
+                customxml.InviteReply(
+                    *(
+                        (
+                            element.HRef.fromString(cua),
+                            invitationBindStatusToXMLMap[jsondata["status"]](),
+                            customxml.HostURL(
+                                element.HRef.fromString(urljoin(ownerHomeURL, jsondata["name"])),
+                            ),
+                            customxml.InReplyTo.fromString(jsondata["in-reply-to"]),
+                        ) + ((customxml.InviteSummary.fromString(jsondata["summary"]),) if jsondata["summary"] else ())
+                          + ((customxml.CommonName.fromString(commonName),) if commonName else ())
+                          + ((customxml.FirstNameProperty(record.firstName),) if record.firstName else ())
+                          + ((customxml.LastNameProperty(record.lastName),) if record.lastName else ())
+                    )
+                ),
+            )
+        else:
+            raise HTTPError(responsecode.INTERNAL_SERVER_ERROR)
+        returnValue(xmldata.toxml())
 
 
     @requiresPermissions(davxml.Read())

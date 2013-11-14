@@ -48,12 +48,13 @@ from txdav.caldav.icalendarstore import (
     ICalendar, ICalendarTransaction,
     ComponentUpdateState)
 
-from twistedcaldav.customxml import InviteNotification, InviteSummary
 from txdav.common.datastore.test.util import transactionClean
 from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.ical import Component
 from twistedcaldav.config import config
 from calendarserver.push.util import PushPriority
+
+import json
 
 
 storePath = FilePath(__file__).parent().child("calendar_store")
@@ -374,9 +375,11 @@ class CommonTests(CommonCommonTests):
     def notificationUnderTest(self):
         txn = self.transactionUnderTest()
         notifications = yield txn.notificationsWithUID("home1")
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
+        yield notifications.writeNotificationObject(
+            "abc",
+            "{\"notification-type\":\"invite-notification\"}",
+            "{\"notification-type\":\"invite-notification\"}"
+        )
         notificationObject = yield notifications.notificationObjectWithUID("abc")
         returnValue(notificationObject)
 
@@ -399,10 +402,9 @@ class CommonTests(CommonCommonTests):
         """
         txn = self.transactionUnderTest()
         coll = yield txn.notificationsWithUID("home1")
-        invite1 = InviteNotification()
-        yield coll.writeNotificationObject("1", invite1, invite1.toxml())
+        yield coll.writeNotificationObject("1", "{\"notification-type\":\"invite-notification\"}", "{\"notification-type\":\"invite-notification\"}")
         st = yield coll.syncToken()
-        yield coll.writeNotificationObject("2", invite1, invite1.toxml())
+        yield coll.writeNotificationObject("2", "{\"notification-type\":\"invite-notification\"}", "{\"notification-type\":\"invite-notification\"}")
         rev = self.token2revision(st)
         yield coll.removeNotificationObjectWithUID("1")
         st2 = yield coll.syncToken()
@@ -424,14 +426,21 @@ class CommonTests(CommonCommonTests):
         notifications = yield self.transactionUnderTest().notificationsWithUID(
             "home1"
         )
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
-        inviteNotification2 = InviteNotification(InviteSummary("a summary"))
         yield notifications.writeNotificationObject(
-            "abc", inviteNotification, inviteNotification2.toxml())
+            "abc",
+            "{\"notification-type\":\"invite-notification\"}",
+            "{\"notification-type\":\"invite-notification\"}",
+        )
+        yield notifications.writeNotificationObject(
+            "abc",
+            "{\"notification-type\":\"invite-notification\"}",
+            "{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}",
+        )
         abc = yield notifications.notificationObjectWithUID("abc")
-        self.assertEquals((yield abc.xmldata()), inviteNotification2.toxml())
+        self.assertEquals(
+            json.loads((yield abc.xmldata())),
+            json.loads("{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}"),
+        )
 
 
     @inlineCallbacks
@@ -450,9 +459,11 @@ class CommonTests(CommonCommonTests):
             "home1"
         )
         self.notifierFactory.reset()
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
+        yield notifications.writeNotificationObject(
+            "abc",
+            "{\"notification-type\":\"invite-notification\"}",
+            "{\"notification-type\":\"invite-notification\"}",
+        )
 
         # notify is called prior to commit
         self.assertEquals(
@@ -492,12 +503,16 @@ class CommonTests(CommonCommonTests):
         notifications = yield self.transactionUnderTest().notificationsWithUID(
             "home1"
         )
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
-        inviteNotification2 = InviteNotification(InviteSummary("a summary"))
         yield notifications.writeNotificationObject(
-            "def", inviteNotification, inviteNotification2.toxml())
+            "abc",
+            "{\"notification-type\":\"invite-notification\"}",
+            "{\"notification-type\":\"invite-notification\"}",
+        )
+        yield notifications.writeNotificationObject(
+            "def",
+            "{\"notification-type\":\"invite-notification\"}",
+            "{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}",
+        )
 
         yield self.commit()
 

@@ -1509,7 +1509,7 @@ class NotificationCollection(CommonHomeChild):
         self._cachedObjectResources[name] = objectResource
 
         # Update database
-        self.retrieveOldIndex().addOrUpdateRecord(NotificationRecord(uid, name, xmltype.name))
+        self.retrieveOldIndex().addOrUpdateRecord(NotificationRecord(uid, name, xmltype))
 
         self.notifyChanged()
 
@@ -1576,7 +1576,7 @@ class NotificationObject(CommonObjectResource):
 
         rname = uid + ".xml"
         self._parentCollection.retrieveOldIndex().addOrUpdateRecord(
-            NotificationRecord(uid, rname, xmltype.name)
+            NotificationRecord(uid, rname, xmltype)
         )
 
         self._xmldata = xmldata

@@ -48,6 +48,8 @@ from twistedcaldav.linkresource import LinkFollowerMixIn
 
 from pycalendar.datetime import DateTime
 
+import json
+
 
 # FIXME: Get rid of these imports
 from twistedcaldav.directory.util import TRANSACTION_KEY
@@ -706,18 +708,15 @@ class SharedResourceMixin(object):
     def sendInviteNotification(self, invitation, request, notificationState=None, displayName=None):
 
         ownerPrincipal = (yield self.ownerPrincipal(request))
-        # FIXME:  use urn:uuid in all cases
-        if self.isCalendarCollection():
-            owner = ownerPrincipal.principalURL()
-        else:
-            owner = "urn:uuid:" + ownerPrincipal.principalUID()
-        ownerCN = ownerPrincipal.displayName()
-        hosturl = (yield self.canonicalURL(request))
 
         # Locate notifications collection for user
         sharee = self.principalForUID(invitation.shareeUID())
         if sharee is None:
             raise ValueError("sharee is None but principalUID was valid before")
+
+        hosturl = self._newStoreObject.name()
+        if self.sharedResourceType() == "group":
+            hosturl = self._newStoreObject.parentCollection().name() + "/" + hosturl
 
         # We need to look up the resource so that the response cache notifier is properly initialized
         notificationResource = (yield request.locateResource(sharee.notificationURL()))
@@ -733,31 +732,30 @@ class SharedResourceMixin(object):
         '''
 
         # Generate invite XML
-        userid = "urn:uuid:" + invitation.shareeUID()
         state = notificationState if notificationState else invitation.status()
         summary = invitation.summary() if displayName is None else displayName
 
-        typeAttr = {'shared-type': self.sharedResourceType()}
-        xmltype = customxml.InviteNotification(**typeAttr)
-        xmldata = customxml.Notification(
-            customxml.DTStamp.fromString(DateTime.getNowUTC().getText()),
-            customxml.InviteNotification(
-                customxml.UID.fromString(invitation.uid()),
-                element.HRef.fromString(userid),
-                invitationBindStatusToXMLMap[state](),
-                customxml.InviteAccess(invitationBindModeToXMLMap[invitation.mode()]()),
-                customxml.HostURL(
-                    element.HRef.fromString(hosturl),
-                ),
-                customxml.Organizer(
-                    element.HRef.fromString(owner),
-                    customxml.CommonName.fromString(ownerCN),
-                ),
-                customxml.InviteSummary.fromString(summary),
-                self.getSupportedComponentSet() if self.isCalendarCollection() else None,
-                **typeAttr
-            ),
-        ).toxml()
+        xmltype = {
+            "notification-type": "invite-notification",
+            "shared-type": self.sharedResourceType(),
+        }
+        xmldata = {
+            "notification-type": "invite-notification",
+            "shared-type": self.sharedResourceType(),
+            "dtstamp": DateTime.getNowUTC().getText(),
+            "owner": ownerPrincipal.principalUID(),
+            "sharee": invitation.shareeUID(),
+            "uid": invitation.uid(),
+            "status": state,
+            "access": invitation.mode(),
+            "name": hosturl,
+            "summary": summary,
+        }
+        if self.isCalendarCollection():
+            xmldata["supported-components"] = self._newStoreObject.getSupportedComponents()
+
+        xmltype = json.dumps(xmltype)
+        xmldata = json.dumps(xmldata)
 
         # Add to collections
         yield notifications.writeNotificationObject(invitation.uid(), xmltype, xmldata)
@@ -1333,52 +1331,41 @@ class SharedHomeMixin(LinkFollowerMixIn):
     def sendReply(self, request, shareePrincipal, sharedResource, state, hostUrl, replytoUID, displayname=None):
 
         # Locate notifications collection for owner
-        owner = (yield sharedResource.ownerPrincipal(request))
-        if owner is None:
+        ownerPrincipal = (yield sharedResource.ownerPrincipal(request))
+        if ownerPrincipal is None:
             # FIXME: have to return here rather than raise to allow removal of a share for a sharer
             # whose principal is no longer valid yet still exists in the store. Really we need to get rid of
             # locateResource calls and just do everything via store objects.
             returnValue(None)
 
-        notificationResource = (yield request.locateResource(owner.notificationURL()))
+        hosturl = sharedResource._newStoreObject.name()
+        if sharedResource.sharedResourceType() == "group":
+            hosturl = sharedResource._newStoreObject.parentCollection().name() + "/" + hosturl
+
+        notificationResource = (yield request.locateResource(ownerPrincipal.notificationURL()))
         notifications = notificationResource._newStoreNotifications
 
         # Generate invite XML
         notificationUID = "%s-reply" % (replytoUID,)
-        xmltype = customxml.InviteReply()
 
-        # FIXME:  use urn:uuid in all cases
-        if self._newStoreHome and self._newStoreHome._homeType == EADDRESSBOOKTYPE:
-            cua = "urn:uuid:" + shareePrincipal.principalUID()
-        else:
-            # Prefer mailto:, otherwise use principal URL
-            for cua in shareePrincipal.calendarUserAddresses():
-                if cua.startswith("mailto:"):
-                    break
-            else:
-                cua = shareePrincipal.principalURL()
+        xmltype = {
+            "notification-type": "invite-reply",
+        }
 
-        commonName = shareePrincipal.displayName()
-        record = shareePrincipal.record
+        xmldata = {
+            "notification-type": "invite-reply",
+            "shared-type": sharedResource.sharedResourceType(),
+            "dtstamp": DateTime.getNowUTC().getText(),
+            "owner": ownerPrincipal.principalUID(),
+            "sharee": shareePrincipal.principalUID(),
+            "status": state,
+            "name": hosturl,
+            "in-reply-to": replytoUID,
+            "summary": displayname if displayname is not None else "",
+        }
 
-        xmldata = customxml.Notification(
-            customxml.DTStamp.fromString(DateTime.getNowUTC().getText()),
-            customxml.InviteReply(
-                *(
-                    (
-                        element.HRef.fromString(cua),
-                        invitationBindStatusToXMLMap[state](),
-                        customxml.HostURL(
-                            element.HRef.fromString(hostUrl),
-                        ),
-                        customxml.InReplyTo.fromString(replytoUID),
-                    ) + ((customxml.InviteSummary.fromString(displayname),) if displayname is not None else ())
-                      + ((customxml.CommonName.fromString(commonName),) if commonName is not None else ())
-                      + ((customxml.FirstNameProperty(record.firstName),) if record.firstName is not None else ())
-                      + ((customxml.LastNameProperty(record.lastName),) if record.lastName is not None else ())
-                )
-            ),
-        ).toxml()
+        xmltype = json.dumps(xmltype)
+        xmldata = json.dumps(xmldata)
 
         # Add to collections
         yield notifications.writeNotificationObject(notificationUID, xmltype, xmldata)

@@ -49,8 +49,7 @@ create table CALENDAR_METADATA (
 
 create table NOTIFICATION_HOME (
     "RESOURCE_ID" integer primary key,
-    "OWNER_UID" nvarchar2(255) unique,
-    "DATAVERSION" integer default 0 not null
+    "OWNER_UID" nvarchar2(255) unique
 );
 
 create table NOTIFICATION (
@@ -368,10 +367,9 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '29');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '28');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
-insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
 create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
     DEFAULT_EVENTS
 );

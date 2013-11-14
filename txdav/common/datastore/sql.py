@@ -50,7 +50,6 @@ from twisted.python.modules import getModule
 from twisted.python.util import FancyEqMixin
 
 from twistedcaldav.config import config
-from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, pyCalendarTodatetime
 
 from txdav.base.datastore.util import QueryCacher
@@ -72,7 +71,6 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
-from txdav.xml.parser import WebDAVDocument
 from txdav.idav import ChangeCategory
 
 from uuid import uuid4, UUID
@@ -637,6 +635,14 @@ class CommonStoreTransaction(object):
         Implement notificationsWithUID.
         """
         return NotificationCollection.notificationsWithUID(self, uid, create)
+
+
+    @memoizedKey("rid", "_notificationHomes")
+    def notificationsWithResourceID(self, rid):
+        """
+        Implement notificationsWithResourceID.
+        """
+        return NotificationCollection.notificationsWithResourceID(self, rid)
 
 
     @classproperty
@@ -4914,6 +4920,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         self._txn = txn
         self._uid = uid
         self._resourceID = resourceID
+        self._dataVersion = None
         self._notifications = {}
         self._notificationNames = None
         self._syncTokenRevision = None
@@ -4925,6 +4932,10 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
     _resourceIDFromUIDQuery = Select(
         [_homeSchema.RESOURCE_ID], From=_homeSchema,
         Where=_homeSchema.OWNER_UID == Parameter("uid"))
+
+    _UIDFromResourceIDQuery = Select(
+        [_homeSchema.OWNER_UID], From=_homeSchema,
+        Where=_homeSchema.RESOURCE_ID == Parameter("rid"))
 
     _provisionNewNotificationsQuery = Insert(
         {_homeSchema.OWNER_UID: Parameter("uid")},
@@ -4984,6 +4995,19 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         returnValue(collection)
 
 
+    @classmethod
+    @inlineCallbacks
+    def notificationsWithResourceID(cls, txn, rid):
+        rows = yield cls._UIDFromResourceIDQuery.on(txn, rid=rid)
+
+        if rows:
+            uid = rows[0][0]
+            result = (yield cls.notificationsWithUID(txn, uid, create=False))
+            returnValue(result)
+        else:
+            returnValue(None)
+
+
     @inlineCallbacks
     def _loadPropertyStore(self):
         self._propertyStore = yield PropertyStore.load(
@@ -5007,6 +5031,23 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         @rtype: C{int}
         """
         return self._resourceID
+
+
+    @classproperty
+    def _dataVersionQuery(cls): #@NoSelf
+        nh = cls._homeSchema
+        return Select(
+            [nh.DATAVERSION], From=nh,
+            Where=nh.RESOURCE_ID == Parameter("resourceID")
+        )
+
+
+    @inlineCallbacks
+    def dataVersion(self):
+        if self._dataVersion is None:
+            self._dataVersion = (yield self._dataVersionQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
+        returnValue(self._dataVersion)
 
 
     def name(self):
@@ -5233,6 +5274,11 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
 class NotificationObject(FancyEqMixin, object):
+    """
+    This used to store XML data and an XML element for the type. But we are now switching it
+    to use JSON internally. The app layer will convert that to XML and fill in the "blanks" as
+    needed for the app.
+    """
     log = Logger()
 
     implements(INotificationObject)
@@ -5266,12 +5312,12 @@ class NotificationObject(FancyEqMixin, object):
         DAL query to load all columns by home ID.
         """
         obj = cls._objectSchema
-        return Select([obj.RESOURCE_ID, obj.NOTIFICATION_UID, obj.MD5,
-                       Len(obj.XML_DATA), obj.XML_TYPE, obj.CREATED,
-                       obj.MODIFIED],
-                      From=obj,
-                      Where=(obj.NOTIFICATION_HOME_RESOURCE_ID == Parameter(
-                          "homeID")))
+        return Select(
+            [obj.RESOURCE_ID, obj.NOTIFICATION_UID, obj.MD5,
+             Len(obj.XML_DATA), obj.XML_TYPE, obj.CREATED, obj.MODIFIED],
+            From=obj,
+            Where=(obj.NOTIFICATION_HOME_RESOURCE_ID == Parameter("homeID"))
+        )
 
 
     @classmethod
@@ -5434,20 +5480,20 @@ class NotificationObject(FancyEqMixin, object):
         Set the object resource data and update and cached metadata.
         """
 
-        self._xmlType = NotificationType(xmltype)
+        self._xmlType = xmltype
         self._md5 = hashlib.md5(xmldata).hexdigest()
         self._size = len(xmldata)
         if inserting:
             rows = yield self._newNotificationQuery.on(
                 self._txn, homeID=self._home._resourceID, uid=uid,
-                xmlType=self._xmlType.toxml(), xmlData=xmldata, md5=self._md5
+                xmlType=self._xmlType, xmlData=xmldata, md5=self._md5
             )
             self._resourceID, self._created, self._modified = rows[0]
             self._loadPropertyStore()
         else:
             rows = yield self._updateNotificationQuery.on(
                 self._txn, homeID=self._home._resourceID, uid=uid,
-                xmlType=self._xmlType.toxml(), xmlData=xmldata, md5=self._md5
+                xmlType=self._xmlType, xmlData=xmldata, md5=self._md5
             )
             self._modified = rows[0][0]
         self._objectText = xmldata
@@ -5482,11 +5528,6 @@ class NotificationObject(FancyEqMixin, object):
 
 
     def xmlType(self):
-        # NB This is the NotificationType property element
-        if isinstance(self._xmlType, str):
-            # Convert into NotificationType property element
-            self._xmlType = WebDAVDocument.fromString(self._xmlType).root_element
-
         return self._xmlType
 
 
