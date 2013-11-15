@@ -2,7 +2,7 @@
 <!DOCTYPE timezones SYSTEM "timezones.dtd">
 
 <timezones>
-  <dtstamp>2013-10-01T01:19:11Z</dtstamp>
+  <dtstamp>2013-11-15T16:10:31Z</dtstamp>
   <timezone>
     <tzid>Africa/Abidjan</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
@@ -78,8 +78,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/Casablanca</tzid>
-    <dtstamp>2013-07-11T02:11:45Z</dtstamp>
-    <md5>b4e345b053c4699911078dcd16854bab</md5>
+    <dtstamp>2013-11-15T16:10:31Z</dtstamp>
+    <md5>4f58dbcb4f7e6dfa7af3d710aeff97b4</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ceuta</tzid>
@@ -113,8 +113,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/El_Aaiun</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>494500808e8542fd83e4706654c43545</md5>
+    <dtstamp>2013-11-15T16:10:31Z</dtstamp>
+    <md5>7933d45461e9f988ebfc9d062ce894e4</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Freetown</tzid>
@@ -264,9 +264,9 @@
   </timezone>
   <timezone>
     <tzid>Africa/Tripoli</tzid>
-    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <dtstamp>2013-11-15T16:10:31Z</dtstamp>
     <alias>Libya</alias>
-    <md5>f59e5f16eec995c112b8b27580922fdd</md5>
+    <md5>6e8040bfd898654905bfd0a49c64e365</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Tunis</tzid>
@@ -570,8 +570,8 @@
   </timezone>
   <timezone>
     <tzid>America/Eirunepe</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>d3c4df84162ebac445e1c2dcdb81f3b2</md5>
+    <dtstamp>2013-11-15T16:10:31Z</dtstamp>
+    <md5>cc34b66260adda629311a54df088470b</md5>
   </timezone>
   <timezone>
     <tzid>America/El_Salvador</tzid>
@@ -964,8 +964,8 @@
   </timezone>
   <timezone>
     <tzid>America/Porto_Acre</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>ce88b8461b7217e1d9ec8f4dfac34670</md5>
+    <dtstamp>2013-11-15T16:10:31Z</dtstamp>
+    <md5>b2b04e3c9c1dab12a3764b99dd8536fc</md5>
   </timezone>
   <timezone>
     <tzid>America/Porto_Velho</tzid>
@@ -1006,10 +1006,10 @@
   </timezone>
   <timezone>
     <tzid>America/Rio_Branco</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2013-11-15T16:10:31Z</dtstamp>
     <alias>America/Porto_Acre</alias>
     <alias>Brazil/Acre</alias>
-    <md5>c41ff8b67906037ce014d42019e5831f</md5>
+    <md5>51273c4521cd00a8ecdcff336f0c9503</md5>
   </timezone>
   <timezone>
     <tzid>America/Rosario</tzid>
@@ -1885,8 +1885,8 @@
   </timezone>
   <timezone>
     <tzid>Brazil/Acre</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>b034140cdfc442b0f989f6a6dd6ec620</md5>
+    <dtstamp>2013-11-15T16:10:31Z</dtstamp>
+    <md5>ad33124888f5c5dd9bed9317ef0bb953</md5>
   </timezone>
   <timezone>
     <tzid>Brazil/DeNoronha</tzid>
@@ -2641,8 +2641,8 @@
   </timezone>
   <timezone>
     <tzid>Libya</tzid>
-    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
-    <md5>f514b497bd861c14aa21612f9101c50c</md5>
+    <dtstamp>2013-11-15T16:10:31Z</dtstamp>
+    <md5>e6ac54ea0ab33dd6fd125a71fc34cf46</md5>
   </timezone>
   <timezone>
     <tzid>MET</tzid>
