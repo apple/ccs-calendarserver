@@ -32,7 +32,7 @@ from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.xml import ParseError
 from twext.who.xml import DirectoryService, DirectoryRecord
 
-from twext.who.test import test_directory
+from twext.who.test import test_index
 
 
 
@@ -51,7 +51,7 @@ class BaseTest(unittest.TestCase):
 
 class DirectoryServiceBaseTest(
     BaseTest,
-    test_directory.BaseDirectoryServiceTest,
+    test_index.BaseDirectoryServiceTest,
 ):
     def test_repr(self):
         service = self.service()
@@ -756,7 +756,7 @@ class DirectoryServiceMutableTest(BaseTest):
 
 
 
-class DirectoryRecordTest(BaseTest, test_directory.BaseDirectoryRecordTest):
+class DirectoryRecordTest(BaseTest, test_index.BaseDirectoryRecordTest):
     @inlineCallbacks
     def test_members(self):
         service = self.service()
