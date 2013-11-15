@@ -86,7 +86,7 @@ class StoreCalendarObjectResource(object):
                 try:
                     yield self.lock.acquire()
                 except MemcacheLockTimeoutError:
-                    raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (self.uri,)))
+                    raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Resource: %s currently in use on the server." % (self.uri,)))
 
             # Lets use a deferred for this and loop a few times if we cannot reserve so that we give
             # time to whoever has the reservation to finish and release it.
@@ -110,7 +110,7 @@ class StoreCalendarObjectResource(object):
                 if self.lock:
                     # Can release immediately as nothing happened
                     yield self.lock.release()
-                raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use in calendar." % (self.uri,)))
+                raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Resource: %s currently in use in calendar." % (self.uri,)))
 
         @inlineCallbacks
         def unreserve(self):

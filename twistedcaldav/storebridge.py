@@ -2564,7 +2564,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
         except MemcacheLockTimeoutError:
             raise HTTPError(StatusResponse(
-                CONFLICT,
+                SERVICE_UNAVAILABLE,
                 "Resource: %s currently in use on the server." % (where,))
             )
 
@@ -3180,7 +3180,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             self._initializeWithObject(None)
 
         except MemcacheLockTimeoutError:
-            raise HTTPError(StatusResponse(CONFLICT, "Resource: %s currently in use on the server." % (where,)))
+            raise HTTPError(StatusResponse(SERVICE_UNAVAILABLE, "Resource: %s currently in use on the server." % (where,)))
         except NoSuchObjectResourceError:
             raise HTTPError(NOT_FOUND)
 
