@@ -179,17 +179,17 @@ class GroupAttendeeReconciliationWork(WorkItem, fromTable(schema.GROUP_ATTENDEE_
 
             # remove attendee or update MEMBER attribute for non-primary attendees in this group,
             for attendeeProp in oldAttendeeProps:
-                memberParam = attendeeProp.getParameter("MEMBER")
-                if memberParam:
-                    if groupUUID in memberParam.getValues():
+                if attendeeProp.hasParameter("MEMBER"):
+                    parameterValues = attendeeProp.parameterValues("MEMBER")
+                    if groupUUID in parameterValues:
                         if attendeeProp.value() not in individualUUIDs:
-                            valueCount = memberParam.removeValue(groupUUID)
-                            if valueCount == 0:
+                            attendeeProp.removeParameterValue("MEMBER", groupUUID)
+                            if not attendeeProp.parameterValues("MEMBER"):
                                 component.removeProperty(attendeeProp)
                             changed = True
                     else:
                         if attendeeProp.value() in individualUUIDs:
-                            memberParam.addValue(groupUUID)
+                            attendeeProp.setParameter("MEMBER", parameterValues + [groupUUID, ])
                             changed = True
 
         # replace old with new
