@@ -263,7 +263,7 @@ class GroupCacher(object):
         members = list(members)
         members.sort(cmp=lambda x, y: cmp(x.guid, y.guid))
         for member in members:
-            membershipHashContent.update(member.guid)
+            membershipHashContent.update(str(member.guid))
         membershipHash = membershipHashContent.hexdigest()
         groupID, cachedName, cachedMembershipHash = (yield #@UnusedVariable
             txn.groupByGUID(groupGUID))
