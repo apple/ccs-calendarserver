@@ -19,7 +19,7 @@ limitations under the License.
   <!ELEMENT record (
   		uid,
   		enable,
-  		(server-id, partition-id?)?,
+  		server-id?,
   		enable-calendar?,
   		enable-addressbook?,
   		enable-login?,
@@ -32,7 +32,6 @@ limitations under the License.
   <!ELEMENT uid                (#PCDATA)>
   <!ELEMENT enable             (#PCDATA)>
   <!ELEMENT server-id          (#PCDATA)>
-  <!ELEMENT partition-id       (#PCDATA)>
   <!ELEMENT enable-calendar    (#PCDATA)>
   <!ELEMENT enable-addressbook (#PCDATA)>
   <!ELEMENT enable-login       (#PCDATA)>

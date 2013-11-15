@@ -16,7 +16,7 @@
 
 import twistedcaldav.test.util
 from twisted.trial.unittest import SkipTest
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twistedcaldav.dateops import parseSQLTimestampToPyCalendar, \
     parseSQLDateToPyCalendar, pyCalendarTodatetime, \
@@ -24,7 +24,7 @@ from twistedcaldav.dateops import parseSQLTimestampToPyCalendar, \
 
 import datetime
 import dateutil
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.timezone import Timezone
 from twistedcaldav.timezones import TimezoneCache
 
 class Dateops(twistedcaldav.test.util.TestCase):
@@ -43,10 +43,10 @@ class Dateops(twistedcaldav.test.util.TestCase):
         """
 
         data = (
-            (PyCalendarDateTime(2012, 1, 1), PyCalendarDateTime(2012, 1, 1, 0, 0, 0)),
-            (PyCalendarDateTime(2012, 1, 1, 10, 0, 0), PyCalendarDateTime(2012, 1, 1, 10, 0, 0)),
-            (PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)), PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-            (PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(tzid="America/New_York")), PyCalendarDateTime(2012, 1, 1, 17, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+            (DateTime(2012, 1, 1), DateTime(2012, 1, 1, 0, 0, 0)),
+            (DateTime(2012, 1, 1, 10, 0, 0), DateTime(2012, 1, 1, 10, 0, 0)),
+            (DateTime(2012, 1, 1, 11, 0, 0, tzid=Timezone(utc=True)), DateTime(2012, 1, 1, 11, 0, 0, tzid=Timezone(utc=True))),
+            (DateTime(2012, 1, 1, 12, 0, 0, tzid=Timezone(tzid="America/New_York")), DateTime(2012, 1, 1, 17, 0, 0, tzid=Timezone(utc=True))),
         )
 
         for value, result in data:
@@ -59,10 +59,10 @@ class Dateops(twistedcaldav.test.util.TestCase):
         """
 
         data = (
-            (PyCalendarDateTime(2012, 1, 1), PyCalendarDateTime(2012, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-            (PyCalendarDateTime(2012, 1, 1, 10, 0, 0), PyCalendarDateTime(2012, 1, 1, 10, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-            (PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)), PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-            (PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(tzid="America/New_York")), PyCalendarDateTime(2012, 1, 1, 17, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+            (DateTime(2012, 1, 1), DateTime(2012, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))),
+            (DateTime(2012, 1, 1, 10, 0, 0), DateTime(2012, 1, 1, 10, 0, 0, tzid=Timezone(utc=True))),
+            (DateTime(2012, 1, 1, 11, 0, 0, tzid=Timezone(utc=True)), DateTime(2012, 1, 1, 11, 0, 0, tzid=Timezone(utc=True))),
+            (DateTime(2012, 1, 1, 12, 0, 0, tzid=Timezone(tzid="America/New_York")), DateTime(2012, 1, 1, 17, 0, 0, tzid=Timezone(utc=True))),
         )
 
         for value, result in data:
@@ -75,10 +75,10 @@ class Dateops(twistedcaldav.test.util.TestCase):
         """
 
         data = (
-            (PyCalendarDateTime(2012, 1, 1), PyCalendarDateTime(2012, 1, 1)),
-            (PyCalendarDateTime(2012, 1, 1, 10, 0, 0), PyCalendarDateTime(2012, 1, 1, 10, 0, 0)),
-            (PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)), PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-            (PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(tzid="America/New_York")), PyCalendarDateTime(2012, 1, 1, 17, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+            (DateTime(2012, 1, 1), DateTime(2012, 1, 1)),
+            (DateTime(2012, 1, 1, 10, 0, 0), DateTime(2012, 1, 1, 10, 0, 0)),
+            (DateTime(2012, 1, 1, 11, 0, 0, tzid=Timezone(utc=True)), DateTime(2012, 1, 1, 11, 0, 0, tzid=Timezone(utc=True))),
+            (DateTime(2012, 1, 1, 12, 0, 0, tzid=Timezone(tzid="America/New_York")), DateTime(2012, 1, 1, 17, 0, 0, tzid=Timezone(utc=True))),
         )
 
         for value, result in data:
@@ -107,132 +107,132 @@ class Dateops(twistedcaldav.test.util.TestCase):
             # Timed
             (
                 "Start within, end within - overlap",
-                PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 1, 11, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 1, 12, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 1, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 0, 0, 0, tzid=Timezone(utc=True)),
                 True,
             ),
             (
                 "Start before, end before - no overlap",
-                PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 3, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 1, 11, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 1, 12, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 3, 0, 0, 0, tzid=Timezone(utc=True)),
                 False,
             ),
             (
                 "Start before, end right before - no overlap",
-                PyCalendarDateTime(2012, 1, 1, 23, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 3, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 1, 23, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 3, 0, 0, 0, tzid=Timezone(utc=True)),
                 False,
             ),
             (
                 "Start before, end within - overlap",
-                PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 3, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 1, 11, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 11, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 3, 0, 0, 0, tzid=Timezone(utc=True)),
                 True,
             ),
             (
                 "Start after, end after - no overlap",
-                PyCalendarDateTime(2012, 1, 2, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 2, 11, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 1, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 0, 0, 0, tzid=Timezone(utc=True)),
                 False,
             ),
             (
                 "Start right after, end after - no overlap",
-                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 2, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 1, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 1, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 0, 0, 0, tzid=Timezone(utc=True)),
                 False,
             ),
             (
                 "Start within, end after - overlap",
-                PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 1, 12, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 1, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 0, 0, 0, tzid=Timezone(utc=True)),
                 True,
             ),
             (
                 "Start before, end after - overlap",
-                PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 3, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 3, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 1, 11, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 3, 11, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 2, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 3, 0, 0, 0, tzid=Timezone(utc=True)),
                 True,
             ),
 
             # All day
             (
                 "All day: Start within, end within - overlap",
-                PyCalendarDateTime(2012, 1, 9),
-                PyCalendarDateTime(2012, 1, 10),
-                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 9),
+                DateTime(2012, 1, 10),
+                DateTime(2012, 1, 8, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 15, 0, 0, 0, tzid=Timezone(utc=True)),
                 True,
             ),
             (
                 "All day: Start before, end before - no overlap",
-                PyCalendarDateTime(2012, 1, 1),
-                PyCalendarDateTime(2012, 1, 2),
-                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 1),
+                DateTime(2012, 1, 2),
+                DateTime(2012, 1, 8, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 15, 0, 0, 0, tzid=Timezone(utc=True)),
                 False,
             ),
             (
                 "All day: Start before, end right before - no overlap",
-                PyCalendarDateTime(2012, 1, 7),
-                PyCalendarDateTime(2012, 1, 8),
-                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 7),
+                DateTime(2012, 1, 8),
+                DateTime(2012, 1, 8, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 15, 0, 0, 0, tzid=Timezone(utc=True)),
                 False,
             ),
             (
                 "All day: Start before, end within - overlap",
-                PyCalendarDateTime(2012, 1, 7),
-                PyCalendarDateTime(2012, 1, 9),
-                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 7),
+                DateTime(2012, 1, 9),
+                DateTime(2012, 1, 8, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 15, 0, 0, 0, tzid=Timezone(utc=True)),
                 True,
             ),
             (
                 "All day: Start after, end after - no overlap",
-                PyCalendarDateTime(2012, 1, 16),
-                PyCalendarDateTime(2012, 1, 17),
-                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 16),
+                DateTime(2012, 1, 17),
+                DateTime(2012, 1, 8, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 15, 0, 0, 0, tzid=Timezone(utc=True)),
                 False,
             ),
             (
                 "All day: Start right after, end after - no overlap",
-                PyCalendarDateTime(2012, 1, 15),
-                PyCalendarDateTime(2012, 1, 16),
-                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 15),
+                DateTime(2012, 1, 16),
+                DateTime(2012, 1, 8, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 15, 0, 0, 0, tzid=Timezone(utc=True)),
                 False,
             ),
             (
                 "All day: Start within, end after - overlap",
-                PyCalendarDateTime(2012, 1, 14),
-                PyCalendarDateTime(2012, 1, 16),
-                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 14),
+                DateTime(2012, 1, 16),
+                DateTime(2012, 1, 8, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 15, 0, 0, 0, tzid=Timezone(utc=True)),
                 True,
             ),
             (
                 "All day: Start before, end after - overlap",
-                PyCalendarDateTime(2012, 1, 7),
-                PyCalendarDateTime(2012, 1, 16),
-                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2012, 1, 7),
+                DateTime(2012, 1, 16),
+                DateTime(2012, 1, 8, 0, 0, 0, tzid=Timezone(utc=True)),
+                DateTime(2012, 1, 15, 0, 0, 0, tzid=Timezone(utc=True)),
                 True,
             ),
         )
@@ -254,8 +254,8 @@ class Dateops(twistedcaldav.test.util.TestCase):
         dateops.pyCalendarTodatetime
         """
         tests = (
-            (PyCalendarDateTime(2012, 4, 4, 12, 34, 56), datetime.datetime(2012, 4, 4, 12, 34, 56, tzinfo=dateutil.tz.tzutc())),
-            (PyCalendarDateTime(2012, 12, 31), datetime.date(2012, 12, 31)),
+            (DateTime(2012, 4, 4, 12, 34, 56), datetime.datetime(2012, 4, 4, 12, 34, 56, tzinfo=dateutil.tz.tzutc())),
+            (DateTime(2012, 12, 31), datetime.date(2012, 12, 31)),
         )
 
         for pycal, result in tests:
@@ -267,8 +267,8 @@ class Dateops(twistedcaldav.test.util.TestCase):
         dateops.parseSQLTimestampToPyCalendar
         """
         tests = (
-            ("2012-04-04 12:34:56", PyCalendarDateTime(2012, 4, 4, 12, 34, 56)),
-            ("2012-12-31 01:01:01", PyCalendarDateTime(2012, 12, 31, 1, 1, 1)),
+            ("2012-04-04 12:34:56", DateTime(2012, 4, 4, 12, 34, 56)),
+            ("2012-12-31 01:01:01", DateTime(2012, 12, 31, 1, 1, 1)),
         )
 
         for sqlStr, result in tests:
@@ -281,8 +281,8 @@ class Dateops(twistedcaldav.test.util.TestCase):
         """
 
         tests = (
-            ("2012-04-04", PyCalendarDateTime(2012, 4, 4)),
-            ("2012-12-31 00:00:00", PyCalendarDateTime(2012, 12, 31)),
+            ("2012-04-04", DateTime(2012, 4, 4)),
+            ("2012-12-31 00:00:00", DateTime(2012, 12, 31)),
         )
 
         for sqlStr, result in tests:

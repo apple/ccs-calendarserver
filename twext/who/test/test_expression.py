@@ -26,29 +26,31 @@ from twext.who.expression import MatchExpression, MatchType, MatchFlags
 
 
 class MatchExpressionTest(unittest.TestCase):
-    def test_repr(self):
+    def test_repr_name(self):
         self.assertEquals(
-            "<MatchExpression: 'full names' equals 'Wilfredo Sanchez'>",
+            "<MatchExpression: u'full names' equals u'Wilfredo Sanchez'>",
             repr(MatchExpression(
                 FieldName.fullNames,
-                "Wilfredo Sanchez",
+                u"Wilfredo Sanchez",
             )),
         )
 
+    def test_repr_type(self):
         self.assertEquals(
-            "<MatchExpression: 'full names' contains 'Sanchez'>",
+            "<MatchExpression: u'full names' contains u'Sanchez'>",
             repr(MatchExpression(
                 FieldName.fullNames,
-                "Sanchez",
+                u"Sanchez",
                 matchType=MatchType.contains,
             )),
         )
 
+    def test_repr_flags(self):
         self.assertEquals(
-            "<MatchExpression: 'full names' starts with 'Wilfredo' (not)>",
+            "<MatchExpression: u'full names' starts with u'Wilfredo' (not)>",
             repr(MatchExpression(
                 FieldName.fullNames,
-                "Wilfredo",
+                u"Wilfredo",
                 matchType=MatchType.startsWith,
                 flags=MatchFlags.NOT,
             )),

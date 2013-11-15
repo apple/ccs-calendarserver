@@ -47,7 +47,7 @@ from twext.web2.stream import readStream
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
 
-from twistedcaldav import caldavxml, customxml
+from twistedcaldav import caldavxml, customxml, ical
 from twistedcaldav.config import config
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
@@ -89,10 +89,12 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
     InvalidResourceMove, InvalidComponentForStoreError
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
-from pycalendar.timezone import PyCalendarTimezone
-from pycalendar.value import PyCalendarValue
+from txdav.idav import ChangeCategory
+
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
+from pycalendar.timezone import Timezone
+from pycalendar.value import Value
 
 from zope.interface.declarations import implements
 
@@ -406,6 +408,26 @@ class CalendarHome(CommonHome):
 
     _cacher = Memcacher("SQL.calhome", pickle=True, key_normalization=False)
 
+    _componentCalendarName = {
+        "VEVENT": "calendar",
+        "VTODO": "tasks",
+        "VJOURNAL": "journals",
+        "VAVAILABILITY": "available",
+        "VPOLL": "polls",
+    }
+
+    _componentDefaultColumn = {
+        "VEVENT": schema.CALENDAR_HOME_METADATA.DEFAULT_EVENTS,
+        "VTODO": schema.CALENDAR_HOME_METADATA.DEFAULT_TASKS,
+        "VPOLL": schema.CALENDAR_HOME_METADATA.DEFAULT_POLLS,
+    }
+
+    _componentDefaultAttribute = {
+        "VEVENT": "_default_events",
+        "VTODO": "_default_tasks",
+        "VPOLL": "_default_polls",
+    }
+
     def __init__(self, transaction, ownerUID):
 
         self._childClass = Calendar
@@ -422,9 +444,8 @@ class CalendarHome(CommonHome):
 
         # Common behavior is to have created and modified
 
-        return (
-            cls._homeMetaDataSchema.DEFAULT_EVENTS,
-            cls._homeMetaDataSchema.DEFAULT_TASKS,
+        default_collections = tuple([cls._componentDefaultColumn[name] for name in sorted(cls._componentDefaultColumn.keys())])
+        return default_collections + (
             cls._homeMetaDataSchema.ALARM_VEVENT_TIMED,
             cls._homeMetaDataSchema.ALARM_VEVENT_ALLDAY,
             cls._homeMetaDataSchema.ALARM_VTODO_TIMED,
@@ -445,9 +466,8 @@ class CalendarHome(CommonHome):
 
         # Common behavior is to have created and modified
 
-        return (
-            "_default_events",
-            "_default_tasks",
+        default_attributes = tuple([cls._componentDefaultAttribute[name] for name in sorted(cls._componentDefaultAttribute.keys())])
+        return default_attributes + (
             "_alarm_vevent_timed",
             "_alarm_vevent_allday",
             "_alarm_vtodo_timed",
@@ -624,22 +644,18 @@ class CalendarHome(CommonHome):
     @inlineCallbacks
     def createdHome(self):
 
-        # Default calendar
-        defaultCal = yield self.createCalendarWithName("calendar")
-
         # Check whether components type must be separate
         if config.RestrictCalendarsToOneComponentType:
-            yield defaultCal.setSupportedComponents("VEVENT")
-            yield self.setDefaultCalendar(defaultCal, False)
-
-            # Default tasks
-            defaultTasks = yield self.createCalendarWithName("tasks")
-            yield defaultTasks.setSupportedComponents("VTODO")
-            yield defaultTasks.setUsedForFreeBusy(False)
-            yield self.setDefaultCalendar(defaultTasks, True)
+            for name in ical.allowedStoreComponents:
+                cal = yield self.createCalendarWithName(self._componentCalendarName[name])
+                yield cal.setSupportedComponents(name)
+                if name not in ("VEVENT", "VAVAILABILITY",):
+                    yield cal.setUsedForFreeBusy(False)
+                yield self.setDefaultCalendar(cal, name)
         else:
-            yield self.setDefaultCalendar(defaultCal, False)
-            yield self.setDefaultCalendar(defaultCal, True)
+            cal = yield self.createCalendarWithName("calendar")
+            for name in ical.allowedStoreComponents:
+                yield self.setDefaultCalendar(cal, name)
 
         inbox = yield self.createCalendarWithName("inbox")
         yield inbox.setUsedForFreeBusy(False)
@@ -693,54 +709,12 @@ class CalendarHome(CommonHome):
                     newcal = yield self.createCalendarWithName(newname)
                     yield newcal.setSupportedComponents(support_component)
 
-            yield _requireCalendarWithType("VEVENT", "calendar")
-            yield _requireCalendarWithType("VTODO", "tasks")
+            for name in ical.allowedStoreComponents:
+                yield _requireCalendarWithType(name, self._componentCalendarName[name])
 
 
     @inlineCallbacks
-    def pickNewDefaultCalendar(self, tasks=False):
-        """
-        First see if default provisioned calendar exists in the calendar home and pick that. Otherwise
-        pick another from the calendar home.
-        """
-
-        componentType = "VTODO" if tasks else "VEVENT"
-        test_name = "tasks" if tasks else "calendar"
-
-        defaultCalendar = (yield self.calendarWithName(test_name))
-        if defaultCalendar is None or not defaultCalendar.owned():
-
-            @inlineCallbacks
-            def _findDefault():
-                for calendarName in (yield self.listCalendars()):
-                    calendar = (yield self.calendarWithName(calendarName))
-                    if calendar.isInbox():
-                        continue
-                    if not calendar.owned():
-                        continue
-                    if not calendar.isSupportedComponent(componentType):
-                        continue
-                    break
-                else:
-                    calendar = None
-                returnValue(calendar)
-
-            defaultCalendar = yield _findDefault()
-            if defaultCalendar is None:
-                # Create a default and try and get its name again
-                yield self.ensureDefaultCalendarsExist()
-                defaultCalendar = yield _findDefault()
-                if defaultCalendar is None:
-                    # Failed to even create a default - bad news...
-                    raise RuntimeError("No valid calendars to use as a default %s calendar." % (componentType,))
-
-        yield self.setDefaultCalendar(defaultCalendar, tasks)
-
-        returnValue(defaultCalendar)
-
-
-    @inlineCallbacks
-    def setDefaultCalendar(self, calendar, tasks=False):
+    def setDefaultCalendar(self, calendar, componentType):
         """
         Set the default calendar for a particular type of component.
 
@@ -749,10 +723,15 @@ class CalendarHome(CommonHome):
         @param tasks: C{True} for VTODO, C{False} for VEVENT
         @type componentType: C{bool}
         """
+
+        # We only support VEVENT and VTOTO right now
+        componentType = componentType.upper()
+        if componentType not in self._componentDefaultAttribute:
+            returnValue(None)
+
         chm = self._homeMetaDataSchema
-        componentType = "VTODO" if tasks else "VEVENT"
-        attribute_to_test = "_default_tasks" if tasks else "_default_events"
-        column_to_set = chm.DEFAULT_TASKS if tasks else chm.DEFAULT_EVENTS
+        attribute_to_test = self._componentDefaultAttribute[componentType]
+        column_to_set = self._componentDefaultColumn[componentType]
 
         # Check validity of the default
         if calendar.isInbox():
@@ -794,8 +773,13 @@ class CalendarHome(CommonHome):
         @rtype: L{Calendar} or C{None}
         """
 
+        # We only support VEVENT and VTOTO right now
+        componentType = componentType.upper()
+        if componentType not in self._componentDefaultAttribute:
+            returnValue(None)
+
         # Check any default calendar property first - this will create if none exists
-        attribute_to_test = "_default_tasks" if componentType == "VTODO" else "_default_events"
+        attribute_to_test = self._componentDefaultAttribute[componentType]
         defaultID = getattr(self, attribute_to_test)
         if defaultID:
             default = (yield self.childWithID(defaultID))
@@ -816,7 +800,8 @@ class CalendarHome(CommonHome):
 
             # Try to find a calendar supporting the required component type. If there are multiple, pick
             # the one with the oldest created timestamp as that will likely be the initial provision.
-            for calendarName in (yield self.listCalendars()):
+            existing_names = (yield self.listCalendars())
+            for calendarName in existing_names:
                 calendar = (yield self.calendarWithName(calendarName))
                 if calendar.isInbox():
                     continue
@@ -832,12 +817,15 @@ class CalendarHome(CommonHome):
                 if not create:
                     returnValue(None)
                 else:
-                    new_name = "%ss" % (componentType.lower()[1:],)
+                    # Try a default name mapping first, else use a UUID
+                    new_name = self._componentCalendarName[componentType]
+                    if new_name in existing_names:
+                        new_name = str(uuid.uuid4())
                     default = yield self.createCalendarWithName(new_name)
-                    yield default.setSupportedComponents(componentType.upper())
+                    yield default.setSupportedComponents(componentType)
 
             # Update the metadata
-            yield self.setDefaultCalendar(default, componentType == "VTODO")
+            yield self.setDefaultCalendar(default, componentType)
 
         returnValue(default)
 
@@ -847,7 +835,10 @@ class CalendarHome(CommonHome):
         Is the supplied calendar one of the possible default calendars.
         """
         # Not allowed to delete the default calendar
-        return calendar._resourceID in (self._default_events, self._default_tasks)
+        for attr in self._componentDefaultAttribute.values():
+            if calendar._resourceID == getattr(self, attr):
+                return True
+        return False
 
     ALARM_DETAILS = {
         (True, True): (_homeMetaDataSchema.ALARM_VEVENT_TIMED, "_alarm_vevent_timed"),
@@ -1736,20 +1727,23 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         NB Do this before implicit scheduling as we don't want old clients to trigger scheduling when
         the X- property is missing.
+
+        We now only preserve the "X-CALENDARSERVER-ATTENDEE-COMMENT" property. We will now allow clients
+        to delete the "X-CALENDARSERVER-PRIVATE-COMMENT" and treat that as a removal of the attendee
+        comment (which will trigger scheduling with the organizer to remove the comment on the organizer's
+        side).
         """
         if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
             old_has_private_comments = not inserting and self.hasPrivateComment
             new_has_private_comments = component.hasPropertyInAnyComponent((
-                "X-CALENDARSERVER-PRIVATE-COMMENT",
                 "X-CALENDARSERVER-ATTENDEE-COMMENT",
             ))
 
             if old_has_private_comments and not new_has_private_comments:
                 # Transfer old comments to new calendar
-                log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
+                log.debug("Organizer private comment properties were entirely removed by the client. Restoring existing properties.")
                 old_calendar = (yield self.componentForUser())
                 component.transferProperties(old_calendar, (
-                    "X-CALENDARSERVER-PRIVATE-COMMENT",
                     "X-CALENDARSERVER-ATTENDEE-COMMENT",
                 ))
 
@@ -2200,7 +2194,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         else:
             yield self._calendar._updateRevision(self._name)
 
-        yield self._calendar.notifyChanged()
+        # Determine change category
+        category = ChangeCategory.default
+        if internal_state == ComponentUpdateState.INBOX:
+            category = ChangeCategory.inbox
+        elif internal_state == ComponentUpdateState.ORGANIZER_ITIP_UPDATE:
+            category = ChangeCategory.organizerITIPUpdate
+        elif (internal_state == ComponentUpdateState.ATTENDEE_ITIP_UPDATE and
+            hasattr(self._txn, "doing_attende_refresh")):
+            category = ChangeCategory.attendeeITIPUpdate
+
+        yield self._calendar.notifyChanged(category=category)
 
         # Finally check if a split is needed
         if internal_state not in (ComponentUpdateState.SPLIT_OWNER, ComponentUpdateState.SPLIT_ATTENDEE,) and schedule_state == "organizer":
@@ -2248,7 +2252,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 # When there is no master we have a set of overridden components -
                 #   index them all.
                 # When there is one instance - index it.
-                expand = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+                expand = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
                 doInstanceIndexing = True
             else:
 
@@ -2260,8 +2264,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 # by default.  This is a caching parameter which affects the size of the index;
                 # it does not affect search results beyond this period, but it may affect
                 # performance of such a search.
-                expand = (PyCalendarDateTime.getToday() +
-                          PyCalendarDuration(days=config.FreeBusyIndexExpandAheadDays))
+                expand = (DateTime.getToday() +
+                          Duration(days=config.FreeBusyIndexExpandAheadDays))
 
                 if expand_until and expand_until > expand:
                     expand = expand_until
@@ -2278,12 +2282,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 # occurrences into some obscenely far-in-the-future date, so we cap the caching
                 # period.  Searches beyond this period will always be relatively expensive for
                 # resources with occurrences beyond this period.
-                if expand > (PyCalendarDateTime.getToday() +
-                             PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)):
+                if expand > (DateTime.getToday() +
+                             Duration(days=config.FreeBusyIndexExpandMaxDays)):
                     raise IndexedSearchException
 
             if config.FreeBusyIndexLowerLimitDays:
-                truncateLowerLimit = PyCalendarDateTime.getToday()
+                truncateLowerLimit = DateTime.getToday()
                 truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
             else:
                 truncateLowerLimit = None
@@ -2310,7 +2314,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if not doInstanceIndexing:
                 instances = None
                 recurrenceLowerLimit = None
-                recurrenceLimit = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+                recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
 
         co = schema.CALENDAR_OBJECT
         tr = schema.TIME_RANGE
@@ -2429,7 +2433,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         @param instances: the set of instances to add
         @type instances: L{InstanceList}
         @param truncateLowerLimit: the lower limit for instances
-        @type truncateLowerLimit: L{PyCalendarDateTime}
+        @type truncateLowerLimit: L{DateTime}
         @param isInboxItem: indicates if an inbox item
         @type isInboxItem: C{bool}
         @param txn: transaction to use
@@ -2458,8 +2462,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # For truncated items we insert a tomb stone lower bound so that a time-range
         # query with just an end bound will match
         if lowerLimitApplied or instances.lowerLimit and len(instances.instances) == 0:
-            start = PyCalendarDateTime(1901, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-            end = PyCalendarDateTime(1901, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            start = DateTime(1901, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+            end = DateTime(1901, 1, 1, 1, 0, 0, tzid=Timezone(utc=True))
             yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", isInboxItem, txn)
 
         # Special - for unbounded recurrence we insert a value for "infinity"
@@ -2467,8 +2471,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # We also need to add the "infinity" value if the event was bounded but
         # starts after the future expansion cut-off limit.
         if component.isRecurringUnbounded() or instances.limit and len(instances.instances) == 0:
-            start = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-            end = PyCalendarDateTime(2100, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            start = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+            end = DateTime(2100, 1, 1, 1, 0, 0, tzid=Timezone(utc=True))
             yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", isInboxItem, txn)
 
 
@@ -2655,7 +2659,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         Get the RECURRANCE_MIN, RECURRANCE_MAX value from the database. Occasionally we might need to do an
         update to time-range data via a separate transaction, so we allow that to be passed in.
 
-        @return: L{PyCalendarDateTime} result
+        @return: L{DateTime} result
         """
         # Setup appropriate txn
         txn = txn if txn is not None else self._txn
@@ -4277,7 +4281,7 @@ class ManagedAttachment(Attachment):
         """
         Return an iCalendar ATTACH property for this attachment.
         """
-        attach = Property("ATTACH", "", valuetype=PyCalendarValue.VALUETYPE_URI)
+        attach = Property("ATTACH", "", valuetype=Value.VALUETYPE_URI)
         location = (yield self.updateProperty(attach))
         returnValue((attach, location,))
 

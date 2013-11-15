@@ -41,6 +41,7 @@ class ResourcesTestCase(TestCase):
 #    def test_loadConfig(self):
 #        directory = getDirectory()
 
+
     def test_recordInPrimaryDirectory(self):
         directory = getDirectory()
 
@@ -48,12 +49,14 @@ class ResourcesTestCase(TestCase):
         record = directory.recordWithUID("user01")
         self.assertNotEquals(record, None)
 
+
     def test_recordInSupplementalDirectory(self):
         directory = getDirectory()
 
         # Look up a resource, which comes out of locations/resources service
         record = directory.recordWithUID("resource01")
         self.assertNotEquals(record, None)
+
 
     def test_augments(self):
         directory = getDirectory()

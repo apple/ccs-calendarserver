@@ -42,7 +42,7 @@ from txdav.common.datastore.test.util import deriveQuota
 from txdav.caldav.datastore.test.common import (
     CommonTests, test_event_text, event1modified_text)
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -68,7 +68,7 @@ def setUpCalendarStore(test):
     storePath.copyTo(calendarPath)
 
     # Set year values to current year
-    nowYear = PyCalendarDateTime.getToday().getYear()
+    nowYear = DateTime.getToday().getYear()
     for home in calendarPath.child("ho").child("me").children():
         if not home.basename().startswith("."):
             for calendar in home.children():

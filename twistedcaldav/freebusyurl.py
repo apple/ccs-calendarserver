@@ -47,8 +47,8 @@ from txdav.caldav.datastore.scheduling.caldav.delivery import ScheduleViaCalDAV
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
 from txdav.caldav.datastore.scheduling.scheduler import Scheduler
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
 
 log = Logger()
 
@@ -189,15 +189,15 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         # Start/end/duration must be valid iCalendar DATE-TIME UTC or DURATION values
         try:
             if self.start:
-                self.start = PyCalendarDateTime.parseText(self.start)
+                self.start = DateTime.parseText(self.start)
                 if not self.start.utc():
                     raise ValueError()
             if self.end:
-                self.end = PyCalendarDateTime.parseText(self.end)
+                self.end = DateTime.parseText(self.end)
                 if not self.end.utc():
                     raise ValueError()
             if self.duration:
-                self.duration = PyCalendarDuration.parseText(self.duration)
+                self.duration = Duration.parseText(self.duration)
         except ValueError:
             raise HTTPError(ErrorResponse(
                 responsecode.BAD_REQUEST,
@@ -225,12 +225,12 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
 
         # Now fill in the missing pieces
         if self.start is None:
-            self.start = PyCalendarDateTime.getNowUTC()
+            self.start = DateTime.getNowUTC()
             self.start.setHHMMSS(0, 0, 0)
         if self.duration:
             self.end = self.start + self.duration
         if self.end is None:
-            self.end = self.start + PyCalendarDuration(days=config.FreeBusyURL.TimePeriod)
+            self.end = self.start + Duration(days=config.FreeBusyURL.TimePeriod)
 
         # End > start
         if self.end <= self.start:

@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 from twisted.trial import unittest
 from twistedcaldav.stdconfig import config
 from twistedcaldav.ical import Component
@@ -31,7 +31,7 @@ class ICalSplitter (unittest.TestCase):
 
         self.subs = {}
 
-        self.now = PyCalendarDateTime.getNowUTC()
+        self.now = DateTime.getNowUTC()
         self.now.setHHMMSS(0, 0, 0)
 
         self.subs["now"] = self.now

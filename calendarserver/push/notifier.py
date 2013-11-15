@@ -19,7 +19,7 @@ Notification framework for Calendar Server
 """
 
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import Delete, Select, Parameter
 from twext.enterprise.queue import WorkItem
 from twext.python.log import Logger
 
@@ -32,8 +32,11 @@ from zope.interface.declarations import implements
 
 import datetime
 
+from calendarserver.push.util import PushPriority
 
 log = Logger()
+
+
 
 
 class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
@@ -43,14 +46,35 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
     @inlineCallbacks
     def doWork(self):
 
-        # Delete all other work items with the same pushID
-        yield Delete(From=self.table,
-                     Where=self.table.PUSH_ID == self.pushID
-                    ).on(self.transaction)
+        # Find all work items with the same push ID and find the highest
+        # priority.  Delete matching work items.
+        results = (yield Select([self.table.WORK_ID, self.table.PRIORITY],
+            From=self.table, Where=self.table.PUSH_ID == self.pushID).on(
+            self.transaction))
+
+        maxPriority = self.priority
+
+        # If there are other enqueued work items for this push ID, find the
+        # highest priority one and use that value
+        if results:
+            workIDs = []
+            for workID, priority in results:
+                if priority > maxPriority:
+                    maxPriority = priority
+                workIDs.append(workID)
+
+            # Delete the work items we selected
+            yield Delete(From=self.table,
+                         Where=self.table.WORK_ID.In(
+                            Parameter("workIDs", len(workIDs)))
+                        ).on(self.transaction, workIDs=workIDs)
 
         pushDistributor = self.transaction._pushDistributor
         if pushDistributor is not None:
-            yield pushDistributor.enqueue(self.transaction, self.pushID)
+            # Convert the integer priority value back into a constant
+            priority = PushPriority.lookupByValue(maxPriority)
+            yield pushDistributor.enqueue(self.transaction, self.pushID,
+                priority=priority)
 
 
 
@@ -84,13 +108,15 @@ class Notifier(object):
 
 
     @inlineCallbacks
-    def notify(self, txn):
+    def notify(self, txn, priority=PushPriority.high):
         """
         Send the notification. For a home object we just push using the home id. For a home
         child we push both the owner home id and the owned home child id.
 
         @param txn: The transaction to create the work item with
         @type txn: L{CommonStoreTransaction}
+        @param priority: the priority level
+        @type priority: L{PushPriority}
         """
         # Push ids from the store objects are a tuple of (prefix, name,) and we need to compose that
         # into a single token.
@@ -102,10 +128,13 @@ class Notifier(object):
 
         for prefix, id in ids:
             if self._notify:
-                self.log.debug("Notifications are enabled: %s %s/%s" % (self._storeObject, prefix, id,))
-                yield self._notifierFactory.send(prefix, id, txn)
+                self.log.debug("Notifications are enabled: %s %s/%s priority=%d" %
+                    (self._storeObject, prefix, id, priority.value))
+                yield self._notifierFactory.send(prefix, id, txn,
+                    priority=priority)
             else:
-                self.log.debug("Skipping notification for: %s %s/%s" % (self._storeObject, prefix, id,))
+                self.log.debug("Skipping notification for: %s %s/%s" %
+                    (self._storeObject, prefix, id,))
 
 
     def clone(self, storeObject):
@@ -150,12 +179,14 @@ class NotifierFactory(object):
 
 
     @inlineCallbacks
-    def send(self, prefix, id, txn):
+    def send(self, prefix, id, txn, priority=PushPriority.high):
         """
         Enqueue a push notification work item on the provided transaction.
         """
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.coalesceSeconds)
-        yield txn.enqueue(PushNotificationWork, pushID=self.pushKeyForId(prefix, id), notBefore=notBefore)
+        yield txn.enqueue(PushNotificationWork,
+            pushID=self.pushKeyForId(prefix, id), notBefore=notBefore,
+            priority=priority.value)
 
 
     def newNotifier(self, storeObject):
@@ -212,7 +243,7 @@ class PushDistributor(object):
 
 
     @inlineCallbacks
-    def enqueue(self, transaction, pushKey):
+    def enqueue(self, transaction, pushKey, priority=PushPriority.high):
         """
         Pass along enqueued pushKey to any observers
 
@@ -221,6 +252,10 @@ class PushDistributor(object):
 
         @param pushKey: the push key to distribute to the observers
         @type pushKey: C{str}
+
+        @param priority: the priority level
+        @type priority: L{PushPriority}
         """
         for observer in self.observers:
-            yield observer.enqueue(transaction, pushKey)
+            yield observer.enqueue(transaction, pushKey,
+                dataChangedTimestamp=None, priority=priority)

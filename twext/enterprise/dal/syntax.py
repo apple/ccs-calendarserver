@@ -1686,6 +1686,7 @@ class Lock(_LockingStatement):
             SQLFragment(' in %s mode' % (self.mode,)))
 
 
+
 class DatabaseLock(_LockingStatement):
     """
     An SQL exclusive session level advisory lock
@@ -1706,6 +1707,7 @@ class DatabaseLock(_LockingStatement):
         return succeed(None)
 
 
+
 class DatabaseUnlock(_LockingStatement):
     """
     An SQL exclusive session level advisory lock
@@ -1724,6 +1726,7 @@ class DatabaseUnlock(_LockingStatement):
             return super(DatabaseUnlock, self).on(txn, *a, **kw)
 
         return succeed(None)
+
 
 
 class Savepoint(_LockingStatement):
@@ -1816,21 +1819,15 @@ class SQLFragment(object):
         params = []
         for parameter in self.parameters:
             if isinstance(parameter, Parameter):
-                if parameter.name not in kw:
-                    # TODO UNIT TEST
-                    raise DALError("Missing parameter: {p!r} fragment={f!r}, kw={kw!r}".format(p=parameter.name,
-                        f=self.text, kw=kw))
-                parameterValue = kw[parameter.name]
-
                 if parameter.count is not None:
-                    if parameter.count != len(parameterValue):
+                    if parameter.count != len(kw[parameter.name]):
                         raise DALError("Number of place holders does not match number of items to bind")
-                    for item in parameterValue:
+                    for item in kw[parameter.name]:
                         params.append(item)
                 else:
-                    params.append(parameterValue)
+                    params.append(kw[parameter.name])
             else:
-                params.append(parameterValue)
+                params.append(parameter)
         return SQLFragment(self.text, params)
 
 

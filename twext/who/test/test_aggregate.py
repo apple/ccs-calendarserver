@@ -26,7 +26,8 @@ from twext.who.aggregate import DirectoryService
 from twext.who.util import ConstantsContainer
 
 from twext.who.test import test_directory, test_xml
-from twext.who.test.test_xml import QueryMixIn, xmlService, TestService as XMLTestService
+from twext.who.test.test_xml import QueryMixIn, xmlService
+from twext.who.test.test_xml import TestService as XMLTestService
 
 
 
@@ -48,7 +49,7 @@ class BaseTest(object):
         class TestService(DirectoryService, QueryMixIn):
             pass
 
-        return TestService("xyzzy", services)
+        return TestService(u"xyzzy", services)
 
 
     def xmlService(self, xmlData=None, serviceClass=None):
@@ -59,7 +60,7 @@ class BaseTest(object):
 class DirectoryServiceBaseTest(BaseTest, test_xml.DirectoryServiceBaseTest):
     def test_repr(self):
         service = self.service()
-        self.assertEquals(repr(service), "<TestService 'xyzzy'>")
+        self.assertEquals(repr(service), "<TestService u'xyzzy'>")
 
 
 
@@ -68,7 +69,10 @@ class DirectoryServiceQueryTest(BaseTest, test_xml.DirectoryServiceQueryTest):
 
 
 
-class DirectoryServiceImmutableTest(BaseTest, test_directory.DirectoryServiceImmutableTest):
+class DirectoryServiceImmutableTest(
+    BaseTest,
+    test_directory.BaseDirectoryServiceImmutableTest,
+):
     pass
 
 
@@ -81,24 +85,39 @@ class AggregatedBaseTest(BaseTest):
         class GroupsDirectoryService(XMLTestService):
             recordType = ConstantsContainer((XMLTestService.recordType.group,))
 
-        usersService  = self.xmlService(testXMLConfigUsers, UsersDirectoryService)
-        groupsService = self.xmlService(testXMLConfigGroups, GroupsDirectoryService)
+        usersService = self.xmlService(
+            testXMLConfigUsers,
+            UsersDirectoryService
+        )
+        groupsService = self.xmlService(
+            testXMLConfigGroups,
+            GroupsDirectoryService
+        )
 
         return BaseTest.service(self, (usersService, groupsService))
 
 
 
-class DirectoryServiceAggregatedBaseTest(AggregatedBaseTest, DirectoryServiceBaseTest):
+class DirectoryServiceAggregatedBaseTest(
+    AggregatedBaseTest,
+    DirectoryServiceBaseTest,
+):
     pass
 
 
 
-class DirectoryServiceAggregatedQueryTest(AggregatedBaseTest, test_xml.DirectoryServiceQueryTest):
+class DirectoryServiceAggregatedQueryTest(
+    AggregatedBaseTest,
+    test_xml.DirectoryServiceQueryTest,
+):
     pass
 
 
 
-class DirectoryServiceAggregatedImmutableTest(AggregatedBaseTest, test_directory.DirectoryServiceImmutableTest):
+class DirectoryServiceAggregatedImmutableTest(
+    AggregatedBaseTest,
+    test_directory.BaseDirectoryServiceImmutableTest,
+):
     pass
 
 

@@ -17,7 +17,7 @@
 from twistedcaldav import caldavxml
 from twistedcaldav.query import calendarqueryfilter
 import twistedcaldav.test.util
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.timezone import Timezone
 from twistedcaldav.query.calendarquery import sqlcalendarquery
 
 class Tests(twistedcaldav.test.util.TestCase):
@@ -36,7 +36,7 @@ class Tests(twistedcaldav.test.util.TestCase):
             )
         )
         filter = calendarqueryfilter.Filter(filter)
-        filter.child.settzinfo(PyCalendarTimezone(tzid="America/New_York"))
+        filter.child.settzinfo(Timezone(tzid="America/New_York"))
 
         sql, args = sqlcalendarquery(filter)
         self.assertTrue(sql.find("RESOURCE") != -1)
@@ -60,7 +60,7 @@ class Tests(twistedcaldav.test.util.TestCase):
             )
         )
         filter = calendarqueryfilter.Filter(filter)
-        filter.child.settzinfo(PyCalendarTimezone(tzid="America/New_York"))
+        filter.child.settzinfo(Timezone(tzid="America/New_York"))
 
         sql, args = sqlcalendarquery(filter)
         self.assertTrue(sql.find("RESOURCE") != -1)
@@ -88,7 +88,7 @@ class Tests(twistedcaldav.test.util.TestCase):
             )
         )
         filter = calendarqueryfilter.Filter(filter)
-        filter.child.settzinfo(PyCalendarTimezone(tzid="America/New_York"))
+        filter.child.settzinfo(Timezone(tzid="America/New_York"))
 
         sql, args = sqlcalendarquery(filter)
         self.assertTrue(sql.find("RESOURCE") != -1)
@@ -119,7 +119,7 @@ class Tests(twistedcaldav.test.util.TestCase):
             )
         )
         filter = calendarqueryfilter.Filter(filter)
-        filter.child.settzinfo(PyCalendarTimezone(tzid="America/New_York"))
+        filter.child.settzinfo(Timezone(tzid="America/New_York"))
 
         sql, args = sqlcalendarquery(filter)
         self.assertTrue(sql.find("RESOURCE") != -1)

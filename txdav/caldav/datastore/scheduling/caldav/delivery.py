@@ -26,8 +26,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser, \
-    PartitionedCalendarUser, OtherServerCalendarUser
+from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser, OtherServerCalendarUser
 from txdav.caldav.datastore.scheduling.delivery import DeliveryService
 from txdav.caldav.datastore.scheduling.freebusy import processAvailabilityFreeBusy, \
     generateFreeBusyInfo, buildFreeBusyResult
@@ -99,7 +98,7 @@ class ScheduleViaCalDAV(DeliveryService):
         uid = self.scheduler.calendar.resourceUID()
 
         organizerPrincipal = None
-        if type(self.scheduler.organizer) in (LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,):
+        if type(self.scheduler.organizer) in (LocalCalendarUser, OtherServerCalendarUser,):
             organizerPrincipal = self.scheduler.organizer.principal.uid
 
         for recipient in self.recipients:

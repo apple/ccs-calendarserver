@@ -27,8 +27,8 @@ Tests for txdav.caldav.datastore.postgres, mostly based on
 L{txdav.caldav.datastore.test.common}.
 """
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
@@ -42,7 +42,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList, \
 from twisted.internet.task import deferLater
 from twisted.trial import unittest
 
-from twistedcaldav import caldavxml
+from twistedcaldav import caldavxml, ical
 from twistedcaldav.caldavxml import CalendarDescription
 from twistedcaldav.config import config
 from twistedcaldav.dateops import datetimeMktime
@@ -78,7 +78,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
-        self.nowYear = {"now": PyCalendarDateTime.getToday().getYear()}
+        self.nowYear = {"now": DateTime.getToday().getYear()}
 
 
     @inlineCallbacks
@@ -474,14 +474,14 @@ END:VCALENDAR
             )
 
         supported_components = set()
-        self.assertEqual(len(toCalendars), 4)
+        self.assertEqual(len(toCalendars), 2 + len(ical.allowedStoreComponents))
         for calendar in toCalendars:
             if calendar.name() == "inbox":
                 continue
             result = yield calendar.getSupportedComponents()
             supported_components.add(result)
 
-        self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
+        self.assertEqual(supported_components, set(ical.allowedStoreComponents))
 
 
     @inlineCallbacks
@@ -509,7 +509,7 @@ END:VCALENDAR
             result = yield calendar.getSupportedComponents()
             supported_components.add(result)
 
-        self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
+        self.assertEqual(supported_components, set(ical.allowedStoreComponents))
 
 
     def test_calendarHomeVersion(self):
@@ -1124,7 +1124,7 @@ END:VCALENDAR
             result = yield calendar.getSupportedComponents()
             supported_components.add(result)
 
-        self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
+        self.assertEqual(supported_components, set(ical.allowedStoreComponents))
 
 
     @inlineCallbacks
@@ -1190,7 +1190,7 @@ END:VCALENDAR
         self.assertEqual(home._default_events, None)
         self.assertEqual(home._default_tasks, None)
         calendar1 = yield home.calendarWithName("calendar_1")
-        yield home.setDefaultCalendar(calendar1, False)
+        yield home.setDefaultCalendar(calendar1, "VEVENT")
         self.assertEqual(home._default_events, calendar1._resourceID)
         self.assertEqual(home._default_tasks, None)
         yield self.commit()
@@ -1198,7 +1198,7 @@ END:VCALENDAR
         home = yield self.homeUnderTest(name="home_defaults")
         calendar1 = yield home.calendarWithName("calendar_1")
         calendar2 = yield home.calendarWithName("calendar_1-vtodo")
-        yield self.failUnlessFailure(home.setDefaultCalendar(calendar2, False), InvalidDefaultCalendar)
+        yield self.failUnlessFailure(home.setDefaultCalendar(calendar2, "VEVENT"), InvalidDefaultCalendar)
         self.assertEqual(home._default_events, calendar1._resourceID)
         self.assertEqual(home._default_tasks, None)
         yield self.commit()
@@ -1206,20 +1206,20 @@ END:VCALENDAR
         home = yield self.homeUnderTest(name="home_defaults")
         calendar1 = yield home.calendarWithName("calendar_1")
         calendar2 = yield home.calendarWithName("calendar_1-vtodo")
-        yield home.setDefaultCalendar(calendar2, True)
+        yield home.setDefaultCalendar(calendar2, "VTODO")
         self.assertEqual(home._default_events, calendar1._resourceID)
         self.assertEqual(home._default_tasks, calendar2._resourceID)
         yield self.commit()
 
         home = yield self.homeUnderTest(name="home_defaults")
         calendar1 = yield home.calendarWithName("inbox")
-        yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, False), InvalidDefaultCalendar)
+        yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, "VEVENT"), InvalidDefaultCalendar)
         yield self.commit()
 
         home = yield self.homeUnderTest(name="home_defaults")
         home_other = yield self.homeUnderTest(name="home_splits")
         calendar1 = yield home_other.calendarWithName("calendar_1")
-        yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, False), InvalidDefaultCalendar)
+        yield self.failUnlessFailure(home.setDefaultCalendar(calendar1, "VEVENT"), InvalidDefaultCalendar)
         yield self.commit()
 
 
@@ -1377,38 +1377,38 @@ END:VCALENDAR
         self.assertEqual(rmax.getYear(), nowYear + 1)
 
         # Fully within range
-        testMin = PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-        testMax = PyCalendarDateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Upper bound exceeded
-        testMin = PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-        testMax = PyCalendarDateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower bound exceeded
-        testMin = PyCalendarDateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-        testMax = PyCalendarDateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower and upper bounds exceeded
-        testMin = PyCalendarDateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-        testMax = PyCalendarDateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower none within range
         testMin = None
-        testMax = PyCalendarDateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Lower none and upper bounds exceeded
         testMin = None
-        testMax = PyCalendarDateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         result = yield index.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
@@ -2154,7 +2154,7 @@ class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
 
         self.subs = {}
 
-        self.now = PyCalendarDateTime.getNowUTC()
+        self.now = DateTime.getNowUTC()
         self.now.setHHMMSS(0, 0, 0)
 
         self.subs["now"] = self.now

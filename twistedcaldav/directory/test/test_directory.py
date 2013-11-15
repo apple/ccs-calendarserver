@@ -935,6 +935,7 @@ class GroupMembershipTests (TestCase):
 
         groupCacher = StubGroupCacher()
 
+
         def decorateTransaction(txn):
             txn._groupCacher = groupCacher
 
@@ -1093,6 +1094,9 @@ class GUIDTests(TestCase):
 
 
 class DirectoryRecordTests(TestCase):
+    """
+    Test L{DirectoryRecord} apis.
+    """
 
     @inlineCallbacks
     def setUp(self):
@@ -1154,51 +1158,51 @@ class DirectoryRecordTests(TestCase):
         for recordType in self.directoryService.recordTypes():
             records = yield self.directoryService.listRecords(recordType)
             for record in records:
-                record.attendee()
+                self.assertTrue(set(['PARTSTAT', 'CN']).issubset(record.attendee().parameterNames()))
 
         record = yield self.directoryService.recordWithShortName("users", "user01")
         attendee = record.attendee(params={"PARTSTAT": "ACCEPTED"})
         self.assertEquals(attendee.name(), "ATTENDEE")
         self.assertEquals(attendee.value(), "urn:uuid:user01")
-        self.assertEquals(attendee.parameterNames(), set(['PARTSTAT', 'EMAIL', 'CN']))
-        self.assertEquals(attendee.parameterValue("CN"), "c4ca4238a0b923820dcc509a6f75849bc4c User 01")
-        self.assertEquals(attendee.parameterValue("EMAIL"), "c4ca4238a0@example.com")
-        self.assertEquals(attendee.parameterValue("PARTSTAT"), "ACCEPTED")
+        self.assertEquals(set(attendee.parameterNames()), set(['PARTSTAT', 'EMAIL', 'CN']))
+        self.assertEquals(set(attendee.parameterValues("CN")), set(["c4ca4238a0b923820dcc509a6f75849bc4c User 01"]))
+        self.assertEquals(set(attendee.parameterValues("EMAIL")), set(["c4ca4238a0@example.com"]))
+        self.assertEquals(set(attendee.parameterValues("PARTSTAT")), set(["ACCEPTED"]))
 
         record = yield self.directoryService.recordWithShortName("users", "user02")
-        attendee = record.attendee(params={"MEMBER": "urn:uuid:group02"})
+        attendee = record.attendee(params={"MEMBER": ["urn:uuid:group01", "urn:uuid:group02"]})
         self.assertEquals(attendee.name(), "ATTENDEE")
         self.assertEquals(attendee.value(), "urn:uuid:user02")
-        self.assertEquals(attendee.parameterNames(), set(['MEMBER', 'PARTSTAT', 'EMAIL', 'CN']))
-        self.assertEquals(attendee.parameterValue("CN"), "c81e728d9d4c2f636f067f89cc14862cc81 User 02")
-        self.assertEquals(attendee.parameterValue("EMAIL"), "c81e728d9d@example.com")
-        self.assertEquals(attendee.parameterValue("PARTSTAT"), "NEEDS-ACTION")
-        self.assertEquals(attendee.parameterValue("MEMBER"), "urn:uuid:group02")
+        self.assertEquals(set(attendee.parameterNames()), set(['MEMBER', 'PARTSTAT', 'EMAIL', 'CN']))
+        self.assertEquals(set(attendee.parameterValues("CN")), set(["c81e728d9d4c2f636f067f89cc14862cc81 User 02"]))
+        self.assertEquals(set(attendee.parameterValues("EMAIL")), set(["c81e728d9d@example.com"]))
+        self.assertEquals(set(attendee.parameterValues("PARTSTAT")), set(["NEEDS-ACTION"]))
+        self.assertEquals(set(attendee.parameterValues("MEMBER")), set(["urn:uuid:group01", "urn:uuid:group02"]))
 
         record = yield self.directoryService.recordWithShortName("groups", "managers")
         attendee = record.attendee()
         self.assertEquals(attendee.name(), "ATTENDEE")
         self.assertEquals(attendee.value(), "urn:uuid:9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1")
-        self.assertEquals(attendee.parameterNames(), set(['CUTYPE', 'PARTSTAT', 'CN']))
-        self.assertEquals(attendee.parameterValue("CN"), "Managers")
-        self.assertEquals(attendee.parameterValue("PARTSTAT"), "NEEDS-ACTION")
-        self.assertEquals(attendee.parameterValue("CUTYPE"), "GROUP")
+        self.assertEquals(set(attendee.parameterNames()), set(['CUTYPE', 'PARTSTAT', 'CN']))
+        self.assertEquals(set(attendee.parameterValues("CN")), set(["Managers"]))
+        self.assertEquals(set(attendee.parameterValues("PARTSTAT")), set(["NEEDS-ACTION"]))
+        self.assertEquals(set(attendee.parameterValues("CUTYPE")), set(["GROUP"]))
 
         record = yield self.directoryService.recordWithShortName("locations", "mercury")
         attendee = record.attendee()
         self.assertEquals(attendee.name(), "ATTENDEE")
         self.assertEquals(attendee.value(), "urn:uuid:mercury")
-        self.assertEquals(attendee.parameterNames(), set(['CUTYPE', 'PARTSTAT', 'EMAIL', 'CN']))
-        self.assertEquals(attendee.parameterValue("CN"), "Mercury Seven")
-        self.assertEquals(attendee.parameterValue("EMAIL"), "mercury@example.com")
-        self.assertEquals(attendee.parameterValue("PARTSTAT"), "NEEDS-ACTION")
-        self.assertEquals(attendee.parameterValue("CUTYPE"), "ROOM")
+        self.assertEquals(set(attendee.parameterNames()), set(['CUTYPE', 'PARTSTAT', 'EMAIL', 'CN']))
+        self.assertEquals(set(attendee.parameterValues("CN")), set(["Mercury Seven"]))
+        self.assertEquals(set(attendee.parameterValues("EMAIL")), set(["mercury@example.com"]))
+        self.assertEquals(set(attendee.parameterValues("PARTSTAT")), set(["NEEDS-ACTION"]))
+        self.assertEquals(set(attendee.parameterValues("CUTYPE")), set(["ROOM"]))
 
         record = yield self.directoryService.recordWithShortName("resources", "ftlcpu")
         attendee = record.attendee()
         self.assertEquals(attendee.name(), "ATTENDEE")
         self.assertEquals(attendee.value(), "urn:uuid:ftlcpu")
-        self.assertEquals(attendee.parameterNames(), set(['CUTYPE', 'PARTSTAT', 'EMAIL', 'CN']))
-        self.assertEquals(attendee.parameterValue("CN"), "Faster-Than-Light Microprocessor")
-        self.assertEquals(attendee.parameterValue("PARTSTAT"), "NEEDS-ACTION")
-        self.assertEquals(attendee.parameterValue("CUTYPE"), "RESOURCE")
+        self.assertEquals(set(attendee.parameterNames()), set(['CUTYPE', 'PARTSTAT', 'EMAIL', 'CN']))
+        self.assertEquals(set(attendee.parameterValues("CN")), set(["Faster-Than-Light Microprocessor"]))
+        self.assertEquals(set(attendee.parameterValues("PARTSTAT")), set(["NEEDS-ACTION"]))
+        self.assertEquals(set(attendee.parameterValues("CUTYPE")), set(["RESOURCE"]))

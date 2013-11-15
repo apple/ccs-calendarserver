@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twext.python.clsprop import classproperty
 
@@ -45,7 +45,7 @@ class SchedulerFreeBusyRequest(CommonCommonTests, TestCase):
         self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
-        self.now = PyCalendarDateTime.getNowUTC()
+        self.now = DateTime.getNowUTC()
         self.now.setHHMMSS(0, 0, 0)
 
         self.now_12H = self.now.duplicate()
@@ -170,9 +170,9 @@ END:VCALENDAR
         scheduler = CalDAVScheduler(self.transactionUnderTest(), "user01")
         result = (yield scheduler.doSchedulingViaPOST("mailto:user01@example.com", ["mailto:user01@example.com", ], Component.fromString(data_request)))
         self.assertEqual(len(result.responses), 1)
-        self.assertEqual(str(result.responses[0].children[0].children[0]), "mailto:user01@example.com")
-        self.assertTrue(str(result.responses[0].children[1]).startswith("2"))
-        self.assertEqual(normalizeiCalendarText(str(result.responses[0].children[2].children[0])), data_reply.replace("\n", "\r\n"))
+        self.assertEqual(str(result.responses[0].recipient.children[0]), "mailto:user01@example.com")
+        self.assertTrue(str(result.responses[0].reqstatus).startswith("2"))
+        self.assertEqual(normalizeiCalendarText(str(result.responses[0].calendar)), data_reply.replace("\n", "\r\n"))
 
 
     @inlineCallbacks
@@ -227,9 +227,9 @@ END:VCALENDAR
         scheduler = CalDAVScheduler(self.transactionUnderTest(), "user01")
         result = (yield scheduler.doSchedulingViaPOST("mailto:user01@example.com", ["mailto:user01@example.com", ], Component.fromString(data_request)))
         self.assertEqual(len(result.responses), 1)
-        self.assertEqual(str(result.responses[0].children[0].children[0]), "mailto:user01@example.com")
-        self.assertTrue(str(result.responses[0].children[1]).startswith("2"))
-        self.assertEqual(normalizeiCalendarText(str(result.responses[0].children[2].children[0])), data_reply.replace("\n", "\r\n"))
+        self.assertEqual(str(result.responses[0].recipient.children[0]), "mailto:user01@example.com")
+        self.assertTrue(str(result.responses[0].reqstatus).startswith("2"))
+        self.assertEqual(normalizeiCalendarText(str(result.responses[0].calendar)), data_reply.replace("\n", "\r\n"))
 
 
     @inlineCallbacks
@@ -294,6 +294,6 @@ END:VCALENDAR
         scheduler = CalDAVScheduler(self.transactionUnderTest(), "user01")
         result = (yield scheduler.doSchedulingViaPOST("mailto:user01@example.com", ["mailto:user01@example.com", ], Component.fromString(data_request)))
         self.assertEqual(len(result.responses), 1)
-        self.assertEqual(str(result.responses[0].children[0].children[0]), "mailto:user01@example.com")
-        self.assertTrue(str(result.responses[0].children[1]).startswith("2"))
-        self.assertEqual(normalizeiCalendarText(str(result.responses[0].children[2].children[0])), data_reply.replace("\n", "\r\n"))
+        self.assertEqual(str(result.responses[0].recipient.children[0]), "mailto:user01@example.com")
+        self.assertTrue(str(result.responses[0].reqstatus).startswith("2"))
+        self.assertEqual(normalizeiCalendarText(str(result.responses[0].calendar)), data_reply.replace("\n", "\r\n"))

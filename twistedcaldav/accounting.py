@@ -42,6 +42,8 @@ def accountingEnabled(category, principal):
         accountingEnabledForPrincipal(principal)
     )
 
+
+
 def accountingEnabledForCategory(category):
     """
     Determine if accounting is enabled for the given category.
@@ -50,6 +52,8 @@ def accountingEnabledForCategory(category):
     if AccountingCategories is None:
         return False
     return AccountingCategories.get(category, False)
+
+
 
 def accountingEnabledForPrincipal(principal):
     """
@@ -69,6 +73,8 @@ def accountingEnabledForPrincipal(principal):
 
     return False
 
+
+
 def emitAccounting(category, principal, data, tag=None):
     """
     Write the supplied data to the appropriate location for the given
@@ -80,7 +86,7 @@ def emitAccounting(category, principal, data, tag=None):
     @type category: C{tuple}
     @param data: data to write.
     @type data: C{str}
-    """    
+    """
     if isinstance(principal, str):
         principalLogPath = principal
     elif accountingEnabled(category, principal):
@@ -107,7 +113,7 @@ def emitAccounting(category, principal, data, tag=None):
             logDirectory,
             datetime.datetime.now().isoformat()
         )
-    
+
         if not os.path.isdir(os.path.join(logRoot, logDirectory)):
             os.makedirs(os.path.join(logRoot, logDirectory))
             logFilename = "%s-01" % (logFilename,)
@@ -128,7 +134,7 @@ def emitAccounting(category, principal, data, tag=None):
                     log.error("Too many %s accounting files for %s" % (category, principal))
                     return None
                 index += 1
-    
+
         #
         # Now write out the data to the log file
         #
@@ -137,7 +143,7 @@ def emitAccounting(category, principal, data, tag=None):
             logFile.write(data)
         finally:
             logFile.close()
-            
+
         return logFilename
 
     except OSError, e:

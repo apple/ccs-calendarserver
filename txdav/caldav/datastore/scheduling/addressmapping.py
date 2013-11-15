@@ -53,7 +53,7 @@ class ScheduleAddressMapper(object):
     @inlineCallbacks
     def getCalendarUser(self, cuaddr, principal):
 
-        # If we have a principal always treat the user as local or partitioned
+        # If we have a principal always treat the user as local
         if principal:
             returnValue(calendarUserFromPrincipal(cuaddr, principal))
 

@@ -346,6 +346,7 @@ class LoadSimulator(object):
         if 'serverStats' in config:
             if config['serverStats']['enabled']:
                 serverStats = config['serverStats']
+                serverStats['server'] = config['server'] if 'server' in config else ''
 
         observers = []
         if 'observers' in config:
@@ -483,7 +484,7 @@ class LoadSimulator(object):
         """
 
         if self.serverStats is not None:
-            _ignore_scheme, hostname, _ignore_path, _ignore_query, _ignore_fragment = urlsplit(self.server)
+            _ignore_scheme, hostname, _ignore_path, _ignore_query, _ignore_fragment = urlsplit(self.serverStats["server"])
             data = self.readStatsSock((hostname.split(":")[0], self.serverStats["Port"],), True)
             if "Failed" not in data:
                 data = data["5 Minutes"]

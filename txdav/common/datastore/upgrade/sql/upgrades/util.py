@@ -129,17 +129,21 @@ def updateAddressBookDataVersion(store, version):
 
 
 @inlineCallbacks
-def doToEachHomeNotAtVersion(store, homeSchema, version, doIt, logStr):
+def doToEachHomeNotAtVersion(store, homeSchema, version, doIt, logStr, filterOwnerUID=None):
     """
     Do something to each home whose version column indicates it is older
-    than the specified version. Do this in batches as there may be a lot of work to do.
+    than the specified version. Do this in batches as there may be a lot of work to do. Also,
+    allow the GUID to be filtered to support a parallel mode of operation.
     """
 
     txn = store.newTransaction("updateDataVersion")
+    where = homeSchema.DATAVERSION < version
+    if filterOwnerUID:
+        where = where.And(homeSchema.OWNER_UID.StartsWith(filterOwnerUID))
     total = (yield Select(
         [Count(homeSchema.RESOURCE_ID), ],
         From=homeSchema,
-        Where=homeSchema.DATAVERSION < version,
+        Where=where,
     ).on(txn))[0][0]
     yield txn.commit()
     count = 0
@@ -154,7 +158,7 @@ def doToEachHomeNotAtVersion(store, homeSchema, version, doIt, logStr):
             rows = yield Select(
                 [homeSchema.RESOURCE_ID, homeSchema.OWNER_UID, ],
                 From=homeSchema,
-                Where=homeSchema.DATAVERSION < version,
+                Where=where,
                 OrderBy=homeSchema.OWNER_UID,
                 Limit=1,
             ).on(txn)

@@ -60,7 +60,6 @@ def bootstrapFromRun():
     noConfigOption = [
         "calendarserver_bootstrap_database",
         "calendarserver_load_augmentdb",
-        "calendarserver_make_partition",
         "calendarserver_manage_augments",
         "calendarserver_manage_postgres",
         "calendarserver_manage_timezones",

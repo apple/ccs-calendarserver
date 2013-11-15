@@ -1,0 +1,310 @@
+@CHARSET "UTF-8";
+
+html,body {
+	font: 80% "Trebuchet MS", sans-serif;
+}
+
+/* Main Panel settings */
+#main-panel {
+	position: absolute;
+	left: 0px;
+	top: 0px;
+	right: 0px;
+	bottom: 0px;
+}
+
+/* Title Text */
+#title {
+	font: 14pt "Trebuchet MS", sans-serif;
+	position: absolute;
+	margin-top: 5px;
+	margin-left: 20px;
+	height: 32px;
+	left: 0px;
+	top: 0px;
+}
+
+#loading {
+	font: 14pt "Trebuchet MS", sans-serif;
+	position: absolute;
+	margin-top: 5px;
+	margin-right: 20px;
+	height: 20px;
+	width: 180px;
+	right: 0px;
+	top: 0px;
+}
+
+#progressbar {
+	position: absolute;
+	width: 100px;
+	height: 20px;
+	top: 0px;
+	right: 0px;
+}
+
+/* Sidebar Panel */
+#sidepanel {
+	position: absolute;
+	width: 210px;
+	left: 5px;
+	top: 32px;
+	bottom: 0px;
+	border-right-style:solid;
+	border-width: 1px;
+	border-color:#ccc;
+}
+
+#sidebar {
+	position: absolute;
+	left: 0px;
+	right: 2px;
+	top: 0px;
+	bottom: 20px;
+}
+
+.sidebar-title {
+	position: relative;
+	font: 12pt "Trebuchet MS", sans-serif;
+}
+
+#sidebar-new-poll-count, #sidebar-vote-poll-count {
+	position: absolute;
+	background-color:#3366ff;
+	font: 8pt "Trebuchet MS", sans-serif;
+	color:#fff;
+	text-align: center;
+	border:2px solid;
+	border-color: #fff;
+	border-radius: 30px;
+	right: 10px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+}
+
+/* Refresh Button */
+#refresh {
+	position: absolute;
+	right: 5px;
+	bottom: 4px;
+}
+
+/* Detail Panel */
+#detail {
+	position: absolute;
+	left: 220px;
+	right: 5px;
+	top: 32px;
+	bottom: 0px;
+}
+
+#detail-nocontent {
+	position: absolute;
+	left: 50px;
+	top: 50px;
+	font-size: 2.0em;
+}
+
+#editpoll-description {
+	position: absolute;
+	left: 4px;
+	right: 0px;
+	top: 0px;
+	height: 32px;
+}
+
+#editpoll-title-edit-panel {
+	float: left;
+	font-size: 1.5em;
+}
+
+#editpoll-title-panel {
+	float: left;
+	font-size: 1.5em;
+}
+
+#editpoll-organizer-panel {
+	position: relative;
+	float: left;
+	left: 20px;
+	font-size: 1.5em;
+}
+
+#editpoll-status-panel {
+	position: relative;
+	float: left;
+	left: 40px;
+	font-size: 1.5em;
+}
+
+#editpoll-title, #editpoll-organizer, #editpoll-status {
+	font-weight: bold;
+}
+
+#editpoll-details {
+	position: absolute;
+	left: 0px;
+	right: 0px;
+	top: 28px;
+}
+
+#sidebar-owned, #editpoll-tabs {
+	margin-bottom: 4px;
+}
+
+#editpoll-delete {
+	position: relative;
+	left: 10px;
+}
+
+#editpoll-autofill {
+	position: relative;
+	left: 50px;
+}
+
+.event,.voter {
+	position: relative;
+	background-color:#eee;
+	box-shadow: 5px 5px 2px #888;
+	margin: 8px;
+	padding: 4px;
+}
+
+.edit-datetime {
+	margin: 4px;
+}
+
+.edit-datetime label, .edit-voter label {
+	display: inline-block;
+	width: 40px;
+}
+
+.voter-address {
+	width: 250px;
+}
+
+.input-remove {
+	position: absolute;
+	right: 4px;
+	bottom: 4px;
+}
+
+.active-voter {
+	font-weight:bold;
+}
+
+#editpoll-resulttable {
+	font: 11pt "Trebuchet MS", sans-serif;
+	border-collapse:collapse;
+	border: 1px solid #ccc;
+}
+
+#editpoll-resulttable thead, #editpoll-resulttable tfoot {
+	text-align:right;	
+}
+
+#editpoll-resulttable td {
+	border: 1px solid #ccc;	
+	padding: 4px;	
+}
+
+#editpoll-resulttable tfoot {
+	border: 2px solid;	
+}
+
+.response-btns, .response-btns label {
+	height: 24px;	
+}
+
+#winner-text {
+	position: relative;
+}
+
+#winner-icon-left {
+	position: absolute;
+	left: 0px;
+	top: 50%;
+	margin-top: -8px;
+}
+
+#winner-icon-right {
+	position: absolute;
+	right: 0px;
+	top: 50%;
+	margin-top: -8px;
+}
+
+.center-td {
+	text-align:center;	
+}
+
+.poll-winner-td {
+	background-color:#D9D9D9;	
+}
+
+.best-td {
+	background-color:#CCCCFF;	
+}
+
+.ok-td {
+	background-color:#CCE6CC;	
+}
+
+.maybe-td {
+	background-color:#FFFFCC;	
+}
+
+.no-td {
+	background-color:#FFCCCC;	
+}
+
+.no-response-td {
+	background-color:white;	
+}
+
+.no-close .ui-dialog-titlebar-close {
+  display: none;
+}
+
+#hover-grid {
+	position: relative;
+	width: 100%;
+	margin: 10px;
+	border-collapse:collapse;
+	border: 1px solid #ccc;
+}
+
+#hover-grid tr {
+	position: relative;
+	height: 30px;
+}
+
+#hover-grid td {
+	border: 1px solid #ccc;
+	padding: 4px;
+}
+
+#hover-grid .hover-grid-td-time {
+	width: 70px;
+	text-align: right;
+}
+
+.hover-event {
+	position: absolute;
+	font: 8pt "Trebuchet MS", sans-serif;
+	left: 81px;
+	width: 250px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-left: 5px;
+	padding-right: 5px;
+}
+
+#response-key {
+	position: relative;
+	width: 100px;
+	top: 20px;
+}
+

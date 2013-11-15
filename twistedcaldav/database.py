@@ -44,20 +44,23 @@ class ConnectionClosingThreadPool(ThreadPool):
     """
     A ThreadPool that closes connections for each worker thread
     """
-    
+
     def _worker(self):
         log.debug("Starting ADBAPI thread: %s" % (thread.get_ident(),))
         ThreadPool._worker(self)
         self._closeConnection()
 
+
     def _closeConnection(self):
-        
+
         tid = thread.get_ident()
         log.debug("Closing ADBAPI thread: %s" % (tid,))
 
         conn = self.pool.connections.get(tid)
         self.pool._close(conn)
         del self.pool.connections[tid]
+
+
 
 class AbstractADBAPIDatabase(object):
     """
@@ -66,7 +69,7 @@ class AbstractADBAPIDatabase(object):
 
     def __init__(self, dbID, dbapiName, dbapiArgs, persistent, **kwargs):
         """
-        
+
         @param persistent: C{True} if the data in the DB must be perserved during upgrades,
             C{False} if the DB data can be re-created from an external source.
         @type persistent: bool
@@ -77,11 +80,13 @@ class AbstractADBAPIDatabase(object):
         self.dbapikwargs = kwargs
 
         self.persistent = persistent
-        
+
         self.initialized = False
+
 
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.pool)
+
 
     @inlineCallbacks
     def open(self):
@@ -92,7 +97,7 @@ class AbstractADBAPIDatabase(object):
         if not self.initialized:
 
             self.pool = ConnectionPool(self.dbapiName, *self.dbapiArgs, **self.dbapikwargs)
-            
+
             # sqlite3 is not thread safe which means we have to close the sqlite3 connections in the same thread that
             # opened them. We need a special thread pool class that has a thread worker function that does a close
             # when a thread is closed.
@@ -126,7 +131,7 @@ class AbstractADBAPIDatabase(object):
                         elif version != self._db_version():
                             log.error("Database %s has different schema (v.%s vs. v.%s)"
                                       % (self.dbID, version, self._db_version()))
-                            
+
                             # Upgrade the DB
                             yield self._db_upgrade(version)
 
@@ -139,8 +144,9 @@ class AbstractADBAPIDatabase(object):
                 self.pool = None
                 raise
 
+
     def close(self):
-        
+
         if self.initialized:
             try:
                 self.pool.close()
@@ -149,9 +155,10 @@ class AbstractADBAPIDatabase(object):
             self.pool = None
             self.initialized = False
 
+
     @inlineCallbacks
     def clean(self):
-        
+
         # Re-try at least once
         for _ignore in (0, 1):
             if not self.initialized:
@@ -165,14 +172,15 @@ class AbstractADBAPIDatabase(object):
             else:
                 break
 
+
     @inlineCallbacks
     def execute(self, sql, *query_params):
-        
+
         # Re-try at least once
         for _ignore in (0, 1):
             if not self.initialized:
                 yield self.open()
-    
+
             try:
                 yield self._db_execute(sql, *query_params)
             except Exception, e:
@@ -181,14 +189,15 @@ class AbstractADBAPIDatabase(object):
             else:
                 break
 
+
     @inlineCallbacks
     def executescript(self, script):
-        
+
         # Re-try at least once
         for _ignore in (0, 1):
             if not self.initialized:
                 yield self.open()
-    
+
             try:
                 yield self._db_execute_script(script)
             except Exception, e:
@@ -197,14 +206,15 @@ class AbstractADBAPIDatabase(object):
             else:
                 break
 
+
     @inlineCallbacks
     def query(self, sql, *query_params):
-        
+
         # Re-try at least once
         for _ignore in (0, 1):
             if not self.initialized:
                 yield self.open()
-    
+
             try:
                 result = (yield self._db_all_values_for_sql(sql, *query_params))
             except Exception, e:
@@ -215,14 +225,15 @@ class AbstractADBAPIDatabase(object):
 
         returnValue(result)
 
+
     @inlineCallbacks
     def queryList(self, sql, *query_params):
-        
+
         # Re-try at least once
         for _ignore in (0, 1):
             if not self.initialized:
                 yield self.open()
-            
+
             try:
                 result = (yield self._db_values_for_sql(sql, *query_params))
             except Exception, e:
@@ -233,14 +244,15 @@ class AbstractADBAPIDatabase(object):
 
         returnValue(result)
 
+
     @inlineCallbacks
     def queryOne(self, sql, *query_params):
-        
+
         # Re-try at least once
         for _ignore in (0, 1):
             if not self.initialized:
                 yield self.open()
-    
+
             try:
                 result = (yield self._db_value_for_sql(sql, *query_params))
             except Exception, e:
@@ -251,20 +263,24 @@ class AbstractADBAPIDatabase(object):
 
         returnValue(result)
 
+
     def _db_version(self):
         """
         @return: the schema version assigned to this DB.
         """
         raise NotImplementedError
-        
+
+
     def _db_type(self):
         """
         @return: the collection type assigned to this DB.
         """
         raise NotImplementedError
-        
+
+
     def _test_schema_table(self):
         return self._test_table("CALDAV")
+
 
     @inlineCallbacks
     def _db_init(self):
@@ -275,11 +291,11 @@ class AbstractADBAPIDatabase(object):
 
         # TODO we need an exclusive lock of some kind here to prevent a race condition
         # in which multiple processes try to create the tables.
-        
 
         yield self._db_init_schema_table()
         yield self._db_init_data_tables()
         yield self._db_recreate()
+
 
     @inlineCallbacks
     def _db_init_schema_table(self):
@@ -310,11 +326,13 @@ class AbstractADBAPIDatabase(object):
             """, (self._db_type(),)
         )
 
+
     def _db_init_data_tables(self):
         """
         Initialise the underlying database tables.
         """
         raise NotImplementedError
+
 
     def _db_empty_data_tables(self):
         """
@@ -323,7 +341,8 @@ class AbstractADBAPIDatabase(object):
 
         # Implementations can override this to re-create data
         pass
-        
+
+
     def _db_recreate(self):
         """
         Recreate the database tables.
@@ -332,12 +351,13 @@ class AbstractADBAPIDatabase(object):
         # Implementations can override this to re-create data
         pass
 
+
     @inlineCallbacks
     def _db_upgrade(self, old_version):
         """
         Upgrade the database tables.
         """
-        
+
         if self.persistent:
             yield self._db_upgrade_data_tables(old_version)
             yield self._db_upgrade_schema()
@@ -346,7 +366,8 @@ class AbstractADBAPIDatabase(object):
             # DB upgrades they SHOULD override this method and handle those for better performance.
             yield self._db_remove()
             yield self._db_init()
-    
+
+
     def _db_upgrade_data_tables(self, old_version):
         """
         Upgrade the data from an older version of the DB.
@@ -372,11 +393,13 @@ class AbstractADBAPIDatabase(object):
         yield self._db_remove_data_tables()
         yield self._db_remove_schema()
 
+
     def _db_remove_data_tables(self):
         """
         Remove all the data from an older version of the DB.
         """
         raise NotImplementedError("Each database must remove its own tables.")
+
 
     @inlineCallbacks
     def _db_remove_schema(self):
@@ -384,6 +407,7 @@ class AbstractADBAPIDatabase(object):
         Remove the stored schema version table.
         """
         yield self._db_execute("drop table if exists CALDAV")
+
 
     @inlineCallbacks
     def _db_all_values_for_sql(self, sql, *query_params):
@@ -395,10 +419,11 @@ class AbstractADBAPIDatabase(object):
             resulting from executing C{sql} with C{query_params}.
         @raise AssertionError: if the query yields multiple columns.
         """
-        
+
         sql = self._prepare_statement(sql)
         results = (yield self.pool.runQuery(sql, *query_params))
         returnValue(tuple(results))
+
 
     @inlineCallbacks
     def _db_values_for_sql(self, sql, *query_params):
@@ -411,10 +436,11 @@ class AbstractADBAPIDatabase(object):
             resulting from executing C{sql} with C{query_params}.
         @raise AssertionError: if the query yields multiple columns.
         """
-        
+
         sql = self._prepare_statement(sql)
         results = (yield self.pool.runQuery(sql, *query_params))
         returnValue(tuple([row[0] for row in results]))
+
 
     @inlineCallbacks
     def _db_value_for_sql(self, sql, *query_params):
@@ -433,6 +459,7 @@ class AbstractADBAPIDatabase(object):
             value = row
         returnValue(value)
 
+
     def _db_execute(self, sql, *query_params):
         """
         Execute an SQL operation that returns None.
@@ -442,7 +469,7 @@ class AbstractADBAPIDatabase(object):
         @return: an iterable of tuples for each row resulting from executing
             C{sql} with C{query_params}.
         """
-        
+
         sql = self._prepare_statement(sql)
         return self.pool.runOperation(sql, *query_params)
 
@@ -450,37 +477,43 @@ class AbstractADBAPIDatabase(object):
     Since different databases support different types of columns and modifiers on those we need to
     have an "abstract" way of specifying columns in our code and then map the abstract specifiers to
     the underlying DB's allowed types.
-    
+
     Types we can use are:
-    
+
     integer
     text
     text(n)
     date
     serial
-    
+
     The " unique" modifier can be appended to any of those.
     """
     def _map_column_types(self, type):
         raise NotImplementedError
-        
+
+
     def _create_table(self, name, columns, ifnotexists=False):
         raise NotImplementedError
+
 
     def _test_table(self, name):
         raise NotImplementedError
 
+
     def _create_index(self, name, ontable, columns, ifnotexists=False):
         raise NotImplementedError
 
+
     def _prepare_statement(self, sql):
         raise NotImplementedError
-        
+
+
+
 class ADBAPISqliteMixin(object):
 
     @classmethod
     def _map_column_types(self, coltype):
-        
+
         result = ""
         splits = coltype.split()
         if splits[0] == "integer":
@@ -493,15 +526,16 @@ class ADBAPISqliteMixin(object):
             result = "date"
         elif splits[0] == "serial":
             result = "integer primary key autoincrement"
-        
+
         if len(splits) > 1 and splits[1] == "unique":
             result += " unique"
-        
+
         return result
+
 
     @inlineCallbacks
     def _create_table(self, name, columns, ifnotexists=False):
-        
+
         colDefs = ["%s %s" % (colname, self._map_column_types(coltype)) for colname, coltype in columns]
         statement = "create table %s%s (%s)" % (
             "if not exists " if ifnotexists else "",
@@ -509,6 +543,7 @@ class ADBAPISqliteMixin(object):
             ", ".join(colDefs),
         )
         yield self._db_execute(statement)
+
 
     @inlineCallbacks
     def _test_table(self, name):
@@ -518,9 +553,10 @@ class ADBAPISqliteMixin(object):
         """ % (name,)))
         returnValue(result)
 
+
     @inlineCallbacks
     def _create_index(self, name, ontable, columns, ifnotexists=False):
-        
+
         statement = "create index %s%s on %s (%s)" % (
             "if not exists " if ifnotexists else "",
             name,
@@ -528,6 +564,7 @@ class ADBAPISqliteMixin(object):
             ", ".join(columns),
         )
         yield self._db_execute(statement)
+
 
     def _prepare_statement(self, sql):
         # We are going to use the sqlite syntax of :1, :2 etc for our
@@ -537,10 +574,10 @@ class ADBAPISqliteMixin(object):
 if pgdb:
 
     class ADBAPIPostgreSQLMixin(object):
-        
+
         @classmethod
         def _map_column_types(self, coltype):
-            
+
             result = ""
             splits = coltype.split()
             if splits[0] == "integer":
@@ -553,32 +590,34 @@ if pgdb:
                 result = "date"
             elif splits[0] == "serial":
                 result = "serial"
-            
+
             if len(splits) > 1 and splits[1] == "unique":
                 result += " unique"
-            
+
             return result
-    
+
+
         @inlineCallbacks
         def _create_table(self, name, columns, ifnotexists=False):
-            
+
             colDefs = ["%s %s" % (colname, self._map_column_types(coltype)) for colname, coltype in columns]
             statement = "create table %s (%s)" % (
                 name,
                 ", ".join(colDefs),
             )
-            
+
             try:
                 yield self._db_execute(statement)
             except pgdb.DatabaseError:
-                
+
                 if not ifnotexists:
                     raise
-                
+
                 result = (yield self._test_table(name))
                 if not result:
-                    raise 
-    
+                    raise
+
+
         @inlineCallbacks
         def _test_table(self, name):
             result = (yield self._db_value_for_sql("""
@@ -586,27 +625,29 @@ if pgdb:
              where tablename = '%s'
             """ % (name.lower(),)))
             returnValue(result)
-    
+
+
         @inlineCallbacks
         def _create_index(self, name, ontable, columns, ifnotexists=False):
-            
+
             statement = "create index %s on %s (%s)" % (
                 name,
                 ontable,
                 ", ".join(columns),
             )
-            
+
             try:
                 yield self._db_execute(statement)
             except pgdb.DatabaseError:
-                
+
                 if not ifnotexists:
                     raise
-                
+
                 result = (yield self._test_table(name))
                 if not result:
-                    raise 
-    
+                    raise
+
+
         @inlineCallbacks
         def _db_init_schema_table(self):
             """
@@ -614,7 +655,7 @@ if pgdb:
             @param db_filename: the file name of the index database.
             @param q:           a database cursor to use.
             """
-    
+
             #
             # CALDAV table keeps track of our schema version and type
             #
@@ -623,7 +664,7 @@ if pgdb:
                     ("KEY", "text unique"),
                     ("VALUE", "text unique"),
                 ), True)
-    
+
                 yield self._db_execute(
                     """
                     insert into CALDAV (KEY, VALUE)
@@ -638,7 +679,8 @@ if pgdb:
                 )
             except pgdb.DatabaseError:
                 pass
-    
+
+
         def _prepare_statement(self, sql):
             # Convert :1, :2 etc format into %s
             ctr = 1
@@ -649,6 +691,6 @@ if pgdb:
 
 else:
     class ADBAPIPostgreSQLMixin(object):
-        
+
         def __init__(self):
             raise ConfigurationError("PostgreSQL module not available.")

@@ -601,7 +601,6 @@ class DirectoryPrincipalDetailElement(Element):
         record = self.resource.record
         return tag.fillSlots(
             hostedAt=str(record.serverURI()),
-            partition=str(record.effectivePartitionID()),
         )
 
 
@@ -1064,14 +1063,6 @@ class DirectoryPrincipalResource (
 
     def server(self):
         return self.record.server()
-
-
-    def partitionURI(self):
-        return self.record.partitionURI()
-
-
-    def locallyHosted(self):
-        return self.record.locallyHosted()
 
 
     def thisServer(self):

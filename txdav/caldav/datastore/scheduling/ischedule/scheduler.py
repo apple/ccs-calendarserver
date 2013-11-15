@@ -23,7 +23,7 @@ from twisted.internet.abstract import isIPAddress
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.config import config
-from twistedcaldav.ical import normalizeCUAddress, Component
+from twistedcaldav.ical import normalizeCUAddress
 
 from txdav.caldav.datastore.scheduling import addressmapping
 from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser
@@ -119,6 +119,9 @@ class IScheduleResponseQueue (ScheduleResponseQueue):
 
 
 class IScheduleScheduler(RemoteScheduler):
+    """
+    Handles iSchedule and podding requests.
+    """
 
     scheduleResponse = IScheduleResponseQueue
 
@@ -138,8 +141,13 @@ class IScheduleScheduler(RemoteScheduler):
         "max-recipients": (ischedule_namespace, "max-recipients"),
     }
 
+    def __init__(self, txn, originator_uid, logItems=None, noAttendeeRefresh=False, podding=False):
+        super(IScheduleScheduler, self).__init__(txn, originator_uid, logItems=logItems, noAttendeeRefresh=noAttendeeRefresh)
+        self._podding = podding
+
+
     @inlineCallbacks
-    def doSchedulingViaPOST(self, remoteAddr, headers, body, originator, recipients):
+    def doSchedulingViaPOST(self, remoteAddr, headers, body, calendar, originator, recipients):
         """
         Carry out iSchedule specific processing.
         """
@@ -148,7 +156,7 @@ class IScheduleScheduler(RemoteScheduler):
         self.headers = headers
         self.verified = False
 
-        if config.Scheduling.iSchedule.DKIM.Enabled:
+        if not self._podding and config.Scheduling.iSchedule.DKIM.Enabled:
             verifier = DKIMVerifier(self.headers, body, protocol_debug=config.Scheduling.iSchedule.DKIM.ProtocolDebug)
             try:
                 yield verifier.verify()
@@ -172,13 +180,16 @@ class IScheduleScheduler(RemoteScheduler):
                     msg,
                 ))
 
-        calendar = Component.fromString(body)
-
-        if self.headers.getRawHeaders('x-calendarserver-itip-refreshonly', ("F"))[0] == "T":
+        if self._podding and self.headers.getRawHeaders('x-calendarserver-itip-refreshonly', ("F"))[0] == "T":
             self.txn.doing_attendee_refresh = 1
 
         # Normalize recipient addresses
-        recipients = [normalizeCUAddress(recipient, normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress) for recipient in recipients]
+        results = []
+        for recipient in recipients:
+            normalized = normalizeCUAddress(recipient, normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress)
+            self.recipientsNormalizationMap[normalized] = recipient
+            results.append(normalized)
+        recipients = results
 
         result = (yield super(IScheduleScheduler, self).doSchedulingViaPOST(originator, recipients, calendar))
         returnValue(result)
@@ -218,7 +229,7 @@ class IScheduleScheduler(RemoteScheduler):
         originatorPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.originator)
         localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
         if originatorPrincipal or localUser:
-            if originatorPrincipal.locallyHosted():
+            if originatorPrincipal.thisServer():
                 log.error("Cannot use originator that is on this server: %s" % (self.originator,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
@@ -296,23 +307,17 @@ class IScheduleScheduler(RemoteScheduler):
 
     def _validAlternateServer(self, principal):
         """
-        Check the validity of the partitioned host.
+        Check the validity of the podded host.
         """
 
-        # Extract expected host/port. This will be the partitionURI, or if no partitions,
-        # the serverURI
-        expected_uri = principal.partitionURI()
-        if expected_uri is None:
-            expected_uri = principal.serverURI()
+        # Extract expected host/port. This will be the serverURI.
+        expected_uri = principal.serverURI()
         expected_uri = urlparse.urlparse(expected_uri)
 
         # Get the request IP and map to hostname.
         clientip = self.remoteAddr.host
 
-        # Check against this server (or any of its partitions). We need this because an external iTIP message
-        # may be addressed to users on different partitions, and the node receiving the iTIP message will need to
-        # forward it to the partition nodes, thus the client ip seen by the partitions will in fact be the initial
-        # receiving node.
+        # Check against this server.
         matched = False
         if Servers.getThisServer().checkThisIP(clientip):
             matched = True
@@ -364,7 +369,7 @@ class IScheduleScheduler(RemoteScheduler):
         if organizer:
             organizerPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(organizer)
             if organizerPrincipal:
-                if organizerPrincipal.locallyHosted():
+                if organizerPrincipal.thisServer():
                     log.error("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
@@ -372,7 +377,7 @@ class IScheduleScheduler(RemoteScheduler):
                         "Organizer is not local to server",
                     ))
                 else:
-                    # Check that the origin server is the correct partition
+                    # Check that the origin server is the correct pod
                     self.organizer = calendarUserFromPrincipal(organizer, organizerPrincipal)
                     self._validAlternateServer(self.organizer.principal)
             else:
@@ -405,7 +410,7 @@ class IScheduleScheduler(RemoteScheduler):
         # Attendee cannot be local.
         attendeePrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.attendee)
         if attendeePrincipal:
-            if attendeePrincipal.locallyHosted():
+            if attendeePrincipal.thisServer():
                 log.error("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,

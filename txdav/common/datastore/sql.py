@@ -27,7 +27,7 @@ __all__ = [
 
 from cStringIO import StringIO
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twext.enterprise.dal.syntax import (
     Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction,
@@ -68,11 +68,12 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
-    InvalidIMIPTokenValues, TooManyObjectResourcesError, NotFoundError
+    InvalidIMIPTokenValues, TooManyObjectResourcesError
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.xml.parser import WebDAVDocument
+from txdav.idav import ChangeCategory
 
 from uuid import uuid4, UUID
 
@@ -80,7 +81,6 @@ from zope.interface import implements, directlyProvides
 
 import sys
 import time
-import datetime
 
 current_sql_schema = getModule(__name__).filePath.sibling("sql_schema").child("current.sql").getContent()
 
@@ -869,431 +869,6 @@ class CommonStoreTransaction(object):
 
     # End of IMIP
 
-    # Groups
-
-    @classproperty
-    def _addGroupQuery(cls): #@NoSelf
-        gr = schema.GROUPS
-        return Insert({gr.NAME: Parameter("name"),
-                       gr.GROUP_GUID: Parameter("groupGUID"),
-                       gr.MEMBERSHIP_HASH: Parameter("membershipHash")},
-                       Return=gr.GROUP_ID)
-
-
-    @classproperty
-    def _updateGroupQuery(cls): #@NoSelf
-        gr = schema.GROUPS
-        return Update({gr.MEMBERSHIP_HASH: Parameter("membershipHash"),
-            gr.NAME: Parameter("name"), gr.MODIFIED: Parameter("timestamp")},
-            Where=(gr.GROUP_GUID == Parameter("groupGUID")))
-
-
-    @classproperty
-    def _groupByGUID(cls): #@NoSelf
-        gr = schema.GROUPS
-        return Select([gr.GROUP_ID, gr.NAME, gr.MEMBERSHIP_HASH], From=gr,
-                Where=(
-                    gr.GROUP_GUID == Parameter("groupGUID")
-                )
-            )
-
-
-    @classproperty
-    def _groupByID(cls): #@NoSelf
-        gr = schema.GROUPS
-        return Select([gr.GROUP_GUID, gr.NAME, gr.MEMBERSHIP_HASH], From=gr,
-                Where=(
-                    gr.GROUP_ID == Parameter("groupID")
-                )
-            )
-
-
-    @classproperty
-    def _deleteGroup(cls): #@NoSelf
-        gr = schema.GROUPS
-        return Delete(From=gr,
-              Where=(gr.GROUP_ID == Parameter("groupID")))
-
-
-    def addGroup(self, groupGUID, name, membershipHash):
-        return self._addGroupQuery.on(self, name=name,
-            groupGUID=groupGUID, membershipHash=membershipHash)
-
-
-    def updateGroup(self, groupGUID, name, membershipHash):
-        timestamp = datetime.datetime.utcnow()
-        return self._updateGroupQuery.on(self, name=name,
-            groupGUID=groupGUID, timestamp=timestamp,
-            membershipHash=membershipHash)
-
-
-    @inlineCallbacks
-    def groupByGUID(self, groupGUID):
-        results = (yield self._groupByGUID.on(self, groupGUID=groupGUID))
-        if results:
-            returnValue(results[0])
-        else:
-            savepoint = SavepointAction("groupByGUID")
-            yield savepoint.acquire(self)
-            try:
-                yield self.addGroup(groupGUID, "", "")
-            except Exception:
-                yield savepoint.rollback(self)
-                results = (yield self._groupByGUID.on(self,
-                    groupGUID=groupGUID))
-                if results:
-                    returnValue(results[0])
-                else:
-                    raise
-            else:
-                yield savepoint.release(self)
-                results = (yield self._groupByGUID.on(self,
-                    groupGUID=groupGUID))
-                if results:
-                    returnValue(results[0])
-                else:
-                    raise
-
-
-    @inlineCallbacks
-    def groupByID(self, groupID):
-        try:
-            results = (yield self._groupByID.on(self, groupID=groupID))[0]
-            returnValue(results)
-        except IndexError:
-            raise NotFoundError
-
-
-    def deleteGroup(self, groupID):
-        return self._deleteGroup.on(self, groupID=groupID)
-
-    # End of Groups
-
-
-    # Group Members
-
-    @classproperty
-    def _addMemberToGroupQuery(cls): #@NoSelf
-        gm = schema.GROUP_MEMBERSHIP
-        return Insert({gm.GROUP_ID: Parameter("groupID"),
-                       gm.MEMBER_GUID: Parameter("memberGUID")})
-    @classproperty
-    def _removeMemberFromGroupQuery(cls): #@NoSelf
-        gm = schema.GROUP_MEMBERSHIP
-        return Delete(From=gm,
-            Where=(gm.GROUP_ID == Parameter("groupID")).And(
-                   gm.MEMBER_GUID == Parameter("memberGUID")))
-
-    @classproperty
-    def _selectGroupMembersQuery(cls): #@NoSelf
-        gm = schema.GROUP_MEMBERSHIP
-        return Select([gm.MEMBER_GUID], From=gm,
-                Where=(
-                    gm.GROUP_ID == Parameter("groupID")
-                )
-            )
-
-    def addMemberToGroup(self, memberGUID, groupID):
-        return self._addMemberToGroupQuery.on(self,
-            groupID=groupID, memberGUID=memberGUID)
-
-    def removeMemberFromGroup(self, memberGUID, groupID):
-        return self._removeMemberFromGroupQuery.on(self,
-            groupID=groupID, memberGUID=memberGUID)
-
-    @inlineCallbacks
-    def membersOfGroup(self, groupID):
-        """
-        Returns the cached set of GUIDs for members of the given groupID.
-        Sub-groups are not returned in the results but their members are.
-
-        @param groupID: the group ID
-        @type groupID: C{int}
-        @return: the set of member GUIDs
-        @rtype: a Deferred which fires with a set() of C{str} GUIDs
-        """
-        members = set()
-        results = (yield self._selectGroupMembersQuery.on(self,
-            groupID=groupID))
-        for row in results:
-            members.add(row[0])
-        returnValue(members)
-
-    # End of Group Members
-
-    # Delegates
-
-    @classproperty
-    def _addDelegateQuery(cls): #@NoSelf
-        de = schema.DELEGATES
-        return Insert({de.DELEGATOR: Parameter("delegator"),
-                       de.DELEGATE: Parameter("delegate"),
-                       de.READ_WRITE: Parameter("readWrite"),
-                       })
-
-
-    @classproperty
-    def _addDelegateGroupQuery(cls): #@NoSelf
-        ds = schema.DELEGATE_GROUPS
-        return Insert({ds.DELEGATOR: Parameter("delegator"),
-                       ds.GROUP_ID: Parameter("groupID"),
-                       ds.READ_WRITE: Parameter("readWrite"),
-                       })
-
-
-    @classproperty
-    def _removeDelegateQuery(cls): #@NoSelf
-        de = schema.DELEGATES
-        return Delete(From=de,
-            Where=(de.DELEGATOR == Parameter("delegator")).And(
-                   de.DELEGATE == Parameter("delegate")).And(
-                   de.READ_WRITE == Parameter("readWrite"))
-            )
-
-
-    @classproperty
-    def _removeDelegateGroupQuery(cls): #@NoSelf
-        ds = schema.DELEGATE_GROUPS
-        return Delete(From=ds,
-            Where=(ds.DELEGATOR == Parameter("delegator")).And(
-                   ds.GROUP_ID == Parameter("groupID")).And(
-                   ds.READ_WRITE == Parameter("readWrite"))
-            )
-
-
-    @classproperty
-    def _selectDelegatesQuery(cls): #@NoSelf
-        de = schema.DELEGATES
-        return Select([de.DELEGATE], From=de,
-                Where=(de.DELEGATOR == Parameter("delegator")).And(
-                    de.READ_WRITE == Parameter("readWrite"))
-                )
-
-
-    @classproperty
-    def _selectDelegateGroupsQuery(cls): #@NoSelf
-        ds = schema.DELEGATE_GROUPS
-        return Select([ds.GROUP_ID], From=ds,
-                Where=(
-                    ds.DELEGATOR == Parameter("delegator")).And(
-                    ds.READ_WRITE == Parameter("readWrite"))
-                )
-
-
-    @classproperty
-    def _selectDirectDelegatorsQuery(cls): #@NoSelf
-        de = schema.DELEGATES
-        return Select([de.DELEGATOR], From=de,
-                Where=(
-                    de.DELEGATE == Parameter("delegate")).And(
-                    de.READ_WRITE == Parameter("readWrite"))
-                )
-
-
-    @classproperty
-    def _selectIndirectDelegatorsQuery(cls): #@NoSelf
-        dg = schema.DELEGATE_GROUPS
-        gm = schema.GROUP_MEMBERSHIP
-
-        return Select(
-            [dg.DELEGATOR],
-            From=dg,
-            Where=(
-                dg.GROUP_ID.In(
-                    Select(
-                        [gm.GROUP_ID],
-                        From=gm,
-                        Where=(gm.MEMBER_GUID == Parameter("delegate"))
-                    )
-                ).And(
-                    dg.READ_WRITE == Parameter("readWrite")
-                )
-            )
-        )
-
-
-    @classproperty
-    def _selectIndirectDelegatesQuery(cls): #@NoSelf
-        dg = schema.DELEGATE_GROUPS
-        gm = schema.GROUP_MEMBERSHIP
-
-        return Select(
-            [gm.MEMBER_GUID],
-            From=gm,
-            Where=(
-                gm.GROUP_ID.In(
-                    Select(
-                        [dg.GROUP_ID],
-                        From=dg,
-                        Where=(dg.DELEGATOR == Parameter("delegator")).And(
-                            dg.READ_WRITE == Parameter("readWrite"))
-                    )
-                )
-            )
-        )
-
-
-    def addDelegate(self, delegator, delegate, readWrite):
-        """
-        Adds a row to the DELEGATES table.  The delegate should not be a
-        group.  To delegate to a group, call addDelegateGroup() instead.
-
-        @param delegator: the GUID of the delegator
-        @type delegator: C{str} in normalized form (lowercase, no dashes)
-        @param delegate: the GUID of the delegate
-        @type delegate: C{str} in normalized form (lowercase, no dashes)
-        @param readWrite: grant read and write access if True, otherwise
-            read-only access
-        @type readWrite: C{boolean}
-        """
-        return self._addDelegateQuery.on(self, delegator=delegator,
-            delegate=delegate, readWrite=1 if readWrite else 0)
-
-
-    def addDelegateGroup(self, delegator, delegateGroupID, readWrite):
-        """
-        Adds a row to the DELEGATE_GROUPS table.  The delegate should be a
-        group.  To delegate to a person, call addDelegate() instead.
-
-        @param delegator: the GUID of the delegator
-        @type delegator: C{str} in normalized form (lowercase, no dashes)
-        @param delegateGroupID: the GROUP_ID of the delegate group
-        @type delegateGroupID: C{int}
-        @param readWrite: grant read and write access if True, otherwise
-            read-only access
-        @type readWrite: C{boolean}
-        """
-        return self._addDelegateGroupQuery.on(self, delegator=delegator,
-            groupID=delegateGroupID, readWrite=1 if readWrite else 0)
-
-
-    def removeDelegate(self, delegator, delegate, readWrite):
-        """
-        Removes a row from the DELEGATES table.  The delegate should not be a
-        group.  To remove a delegate group, call removeDelegateGroup() instead.
-
-        @param delegator: the GUID of the delegator
-        @type delegator: C{str} in normalized form (lowercase, no dashes)
-        @param delegate: the GUID of the delegate
-        @type delegate: C{str} in normalized form (lowercase, no dashes)
-        @param readWrite: remove read and write access if True, otherwise
-            read-only access
-        @type readWrite: C{boolean}
-        """
-        return self._removeDelegateQuery.on(self, delegator=delegator,
-            delegate=delegate, readWrite=1 if readWrite else 0)
-
-
-    def removeDelegateGroup(self, delegator, delegateGroupID, readWrite):
-        """
-        Removes a row from the DELEGATE_GROUPS table.  The delegate should be a
-        group.  To remove a delegate person, call removeDelegate() instead.
-
-        @param delegator: the GUID of the delegator
-        @type delegator: C{str} in normalized form (lowercase, no dashes)
-        @param delegateGroupID: the GROUP_ID of the delegate group
-        @type delegateGroupID: C{int}
-        @param readWrite: remove read and write access if True, otherwise
-            read-only access
-        @type readWrite: C{boolean}
-        """
-        return self._removeDelegateGroupQuery.on(self, delegator=delegator,
-            groupID=delegateGroupID, readWrite=1 if readWrite else 0)
-
-
-    @inlineCallbacks
-    def delegates(self, delegator, readWrite):
-        """
-        Returns the GUIDs of all delegates for the given delegator.  If
-        delegate access was granted to any groups, those groups' members
-        (flattened) will be included. No GUIDs of the groups themselves
-        will be returned.
-
-        @param delegator: the GUID of the delegator
-        @type delegator: C{str} in normalized form (lowercase, no dashes)
-        @param readWrite: the access-type to check for; read and write
-            access if True, otherwise read-only access
-        @type readWrite: C{boolean}
-        @returns: the GUIDs of the delegates (for the specified access
-            type)
-        @rtype: a Deferred resulting in a set
-        """
-        delegates = set()
-
-        # First get the direct delegates
-        results = (yield self._selectDelegatesQuery.on(self,
-            delegator=delegator, readWrite=1 if readWrite else 0))
-        for row in results:
-            delegates.add(row[0])
-
-        # Finally get those who are in groups which have been delegated to
-        results = (yield self._selectIndirectDelegatesQuery.on(self,
-            delegator=delegator, readWrite=1 if readWrite else 0))
-        for row in results:
-            delegates.add(row[0])
-
-        returnValue(delegates)
-
-
-    @inlineCallbacks
-    def delegators(self, delegate, readWrite):
-        """
-        Returns the GUIDs of all delegators which have granted access to
-        the given delegate, either directly or indirectly via groups.
-
-        @param delegate: the GUID of the delegate
-        @type delegate: C{str} in normalized form (lowercase, no dashes)
-        @param readWrite: the access-type to check for; read and write
-            access if True, otherwise read-only access
-        @type readWrite: C{boolean}
-        @returns: the GUIDs of the delegators (for the specified access
-            type)
-        @rtype: a Deferred resulting in a set
-        """
-        delegators = set()
-
-        # First get the direct delegators
-        results = (yield self._selectDirectDelegatorsQuery.on(self,
-            delegate=delegate, readWrite=1 if readWrite else 0))
-        for row in results:
-            delegators.add(row[0])
-
-        # Finally get those who have delegated to groups the delegate
-        # is a member of
-        results = (yield self._selectIndirectDelegatorsQuery.on(self,
-            delegate=delegate, readWrite=1 if readWrite else 0))
-        for row in results:
-            delegators.add(row[0])
-
-        returnValue(delegators)
-
-
-    @inlineCallbacks
-    def allGroupDelegates(self):
-        """
-        Return the GUIDs of all groups which have been delegated to.  Useful
-        for obtaining the set of groups which need to be synchronized from
-        the directory.
-
-        @returns: the GUIDs of all delegated-to groups
-        @rtype: a Deferred resulting in a set
-        """
-        gr = schema.GROUPS
-        dg = schema.DELEGATE_GROUPS
-
-        results = (yield Select(
-            [gr.GROUP_GUID],
-            From=gr,
-            Where=(gr.GROUP_ID.In(Select([dg.GROUP_ID], From=dg, Where=None)))
-        ).on(self))
-        delegates = set()
-        for row in results:
-            delegates.add(row[0])
-
-        returnValue(delegates)
-
-    # End of Delegates
-
 
     def preCommit(self, operation):
         """
@@ -1532,7 +1107,7 @@ class CommonStoreTransaction(object):
     def eventsOlderThan(self, cutoff, batchSize=None):
         """
         Return up to the oldest batchSize events which exist completely earlier
-        than "cutoff" (PyCalendarDateTime)
+        than "cutoff" (DateTime)
 
         Returns a deferred to a list of (uid, calendarName, eventName, maxDate)
         tuples.
@@ -1540,7 +1115,7 @@ class CommonStoreTransaction(object):
 
         # Make sure cut off is after any lower limit truncation in the DB
         if config.FreeBusyIndexLowerLimitDays:
-            truncateLowerLimit = PyCalendarDateTime.getToday()
+            truncateLowerLimit = DateTime.getToday()
             truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
             if cutoff < truncateLowerLimit:
                 raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))
@@ -1558,7 +1133,7 @@ class CommonStoreTransaction(object):
 
         # Make sure cut off is after any lower limit truncation in the DB
         if config.FreeBusyIndexLowerLimitDays:
-            truncateLowerLimit = PyCalendarDateTime.getToday()
+            truncateLowerLimit = DateTime.getToday()
             truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
             if cutoff < truncateLowerLimit:
                 raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))
@@ -1870,6 +1445,7 @@ class CommonHome(object):
         self._txn = transaction
         self._ownerUID = ownerUID
         self._resourceID = None
+        self._dataVersion = None
         self._childrenLoaded = False
         self._children = {}
         self._notifiers = None
@@ -2113,6 +1689,23 @@ class CommonHome(object):
         if queryCacher is not None:
             cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
             yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+
+
+    @classproperty
+    def _dataVersionQuery(cls): #@NoSelf
+        ch = cls._homeSchema
+        return Select(
+            [ch.DATAVERSION], From=ch,
+            Where=ch.RESOURCE_ID == Parameter("resourceID")
+        )
+
+
+    @inlineCallbacks
+    def dataVersion(self):
+        if self._dataVersion is None:
+            self._dataVersion = (yield self._dataVersionQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
+        returnValue(self._dataVersion)
 
 
     def name(self):
@@ -2644,7 +2237,7 @@ class CommonHome(object):
 
 
     @inlineCallbacks
-    def notifyChanged(self):
+    def notifyChanged(self, category=ChangeCategory.default):
         """
         Send notifications, change sync token and bump last modified because
         the resource has changed.  We ensure we only do this once per object
@@ -2668,7 +2261,7 @@ class CommonHome(object):
             # push notifiers add their work items immediately
             notifier = self._notifiers.get("push", None)
             if notifier:
-                yield notifier.notify(self._txn)
+                yield notifier.notify(self._txn, priority=category.value)
 
 
     @classproperty
@@ -4705,11 +4298,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         return self.ownerHome().notifierID()
 
 
-    def notifyChanged(self):
+    def notifyChanged(self, category=ChangeCategory.default):
         """
         Send notifications when a child resource is changed.
         """
-        return self._notifyChanged(property_change=False)
+        return self._notifyChanged(property_change=False, category=category)
 
 
     def notifyPropertyChanged(self):
@@ -4720,7 +4313,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @inlineCallbacks
-    def _notifyChanged(self, property_change=False):
+    def _notifyChanged(self, property_change=False,
+            category=ChangeCategory.default):
         """
         Send notifications, change sync token and bump last modified because
         the resource has changed.  We ensure we only do this once per object
@@ -4756,7 +4350,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             # push notifiers add their work items immediately
             notifier = self._notifiers.get("push", None)
             if notifier:
-                yield notifier.notify(self._txn)
+                yield notifier.notify(self._txn, priority=category.value)
 
 
     @classproperty
@@ -5570,7 +5164,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     @inlineCallbacks
-    def notifyChanged(self):
+    def notifyChanged(self, category=ChangeCategory.default):
         """
         Send notifications, change sync token and bump last modified because
         the resource has changed.  We ensure we only do this once per object
@@ -5589,7 +5183,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             # push notifiers add their work items immediately
             notifier = self._notifiers.get("push", None)
             if notifier:
-                yield notifier.notify(self._txn)
+                yield notifier.notify(self._txn, priority=category.value)
 
         returnValue(None)
 

@@ -32,20 +32,20 @@ class IDirectoryService(Interface):
     realmName = Attribute("The name of the authentication realm this service represents.")
     guid = Attribute("A GUID for this service.")
 
-    def recordTypes():
+    def recordTypes(): #@NoSelf
         """
         @return: a sequence of strings denoting the record types that
             are kept in the directory.  For example: C{["users",
             "groups", "resources"]}.
         """
 
-    def listRecords(recordType):
+    def listRecords(recordType): #@NoSelf
         """
         @param type: the type of records to retrieve.
         @return: an iterable of records of the given type.
         """
 
-    def recordWithShortName(recordType, shortName):
+    def recordWithShortName(recordType, shortName): #@NoSelf
         """
         @param recordType: the type of the record to look up.
         @param shortName: the short name of the record to look up.
@@ -53,21 +53,21 @@ class IDirectoryService(Interface):
             C{None} if no such record exists.
         """
 
-    def recordWithUID(uid):
+    def recordWithUID(uid): #@NoSelf
         """
         @param uid: the UID of the record to look up.
         @return: an L{IDirectoryRecord} with the given UID, or C{None}
             if no such record exists.
         """
 
-    def recordWithGUID(guid):
+    def recordWithGUID(guid): #@NoSelf
         """
         @param guid: the GUID of the record to look up.
         @return: an L{IDirectoryRecord} with the given GUID, or
             C{None} if no such record exists.
         """
 
-    def recordWithCalendarUserAddress(address):
+    def recordWithCalendarUserAddress(address): #@NoSelf
         """
         @param address: the calendar user address of the record to look up.
         @type address: C{str}
@@ -81,7 +81,7 @@ class IDirectoryService(Interface):
             directory service may not be aware of these addresses.
         """
 
-    def recordWithCachedGroupsAlias(recordType, alias):
+    def recordWithCachedGroupsAlias(recordType, alias): #@NoSelf
         """
         @param recordType: the type of the record to look up.
         @param alias: the cached-groups alias of the record to look up.
@@ -91,14 +91,13 @@ class IDirectoryService(Interface):
             alias, or C{None} if no such record is found.
         """
 
-
-    def recordsMatchingFields(fields):
+    def recordsMatchingFields(fields): #@NoSelf
         """
         @return: a deferred sequence of L{IDirectoryRecord}s which
             match the given fields.
         """
 
-    def recordsMatchingTokens(tokens, context=None):
+    def recordsMatchingTokens(tokens, context=None): #@NoSelf
         """
         @param tokens: The tokens to search on
         @type tokens: C{list} of C{str} (utf-8 bytes)
@@ -119,31 +118,31 @@ class IDirectoryService(Interface):
             "attendee", only users, groups, and resources are considered.
         """
 
-
-    def setRealm(realmName):
+    def setRealm(realmName): #@NoSelf
         """
         Set a new realm name for this (and nested services if any)
 
         @param realmName: the realm name this service should use.
         """
 
+
+
 class IDirectoryRecord(Interface):
     """
     Directory Record
     """
-    service               = Attribute("The L{IDirectoryService} this record exists in.")
-    recordType            = Attribute("The type of this record.")
-    guid                  = Attribute("The GUID of this record.")
-    uid                   = Attribute("The UID of this record.")
-    enabled               = Attribute("Determines whether this record should allow a principal to be created.")
-    serverID              = Attribute("Identifies the server that actually hosts data for the record.")
-    partitionID           = Attribute("Identifies the partition node that actually hosts data for the record.")
-    shortNames            = Attribute("The names for this record.")
-    authIDs               = Attribute("Alternative security identities for this record.")
-    fullName              = Attribute("The full name of this record.")
-    firstName             = Attribute("The first name of this record.")
-    lastName              = Attribute("The last name of this record.")
-    emailAddresses        = Attribute("The email addresses of this record.")
+    service = Attribute("The L{IDirectoryService} this record exists in.")
+    recordType = Attribute("The type of this record.")
+    guid = Attribute("The GUID of this record.")
+    uid = Attribute("The UID of this record.")
+    enabled = Attribute("Determines whether this record should allow a principal to be created.")
+    serverID = Attribute("Identifies the server that actually hosts data for the record.")
+    shortNames = Attribute("The names for this record.")
+    authIDs = Attribute("Alternative security identities for this record.")
+    fullName = Attribute("The full name of this record.")
+    firstName = Attribute("The first name of this record.")
+    lastName = Attribute("The last name of this record.")
+    emailAddresses = Attribute("The email addresses of this record.")
     enabledForCalendaring = Attribute("Determines whether this record creates a principal with a calendar home.")
     enabledForAddressBooks = Attribute("Determines whether this record creates a principal with an address book home.")
     calendarUserAddresses = Attribute(
@@ -159,19 +158,19 @@ class IDirectoryRecord(Interface):
         """
     )
 
-    def members():
+    def members(): #@NoSelf
         """
         @return: an iterable of L{IDirectoryRecord}s for the members of this
             (group) record.
         """
 
-    def groups():
+    def groups(): #@NoSelf
         """
         @return: an iterable of L{IDirectoryRecord}s for the groups this
             record is a member of.
         """
 
-    def verifyCredentials(credentials):
+    def verifyCredentials(credentials): #@NoSelf
         """
         Verify that the given credentials can authenticate the principal
         represented by this record.

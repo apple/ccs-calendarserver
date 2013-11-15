@@ -29,11 +29,11 @@ from twext.who.util import uniqueResult, describe
 
 
 class Tools(Names):
-    hammer      = NamedConstant()
+    hammer = NamedConstant()
     screwdriver = NamedConstant()
 
-    hammer.description      = "nail pounder"
-    screwdriver.description = "screw twister"
+    hammer.description = u"nail pounder"
+    screwdriver.description = u"screw twister"
 
 
 
@@ -48,9 +48,9 @@ class Switches(Flags):
     g = FlagConstant()
     b = FlagConstant()
 
-    r.description = "red"
-    g.description = "green"
-    b.description = "blue"
+    r.description = u"red"
+    g.description = u"green"
+    b.description = u"blue"
 
     black = FlagConstant()
 
@@ -82,7 +82,11 @@ class ConstantsContainerTest(unittest.TestCase):
         )
 
     def test_lookupByName(self):
-        constants = set((Instruments.hammer, Tools.screwdriver, Instruments.chisel))
+        constants = set((
+            Instruments.hammer,
+            Tools.screwdriver,
+            Instruments.chisel,
+        ))
         container = ConstantsContainer(constants)
 
         self.assertEquals(
@@ -108,13 +112,13 @@ class ConstantsContainerTest(unittest.TestCase):
 class UtilTest(unittest.TestCase):
     def test_uniqueResult(self):
         self.assertEquals(1, uniqueResult((1,)))
-        self.assertRaises(DirectoryServiceError, uniqueResult, (1,2,3))
+        self.assertRaises(DirectoryServiceError, uniqueResult, (1, 2, 3))
 
     def test_describe(self):
-        self.assertEquals("nail pounder", describe(Tools.hammer))
-        self.assertEquals("hammer", describe(Instruments.hammer))
+        self.assertEquals(u"nail pounder", describe(Tools.hammer))
+        self.assertEquals(u"hammer", describe(Instruments.hammer))
 
     def test_describeFlags(self):
-        self.assertEquals("blue", describe(Switches.b))
-        self.assertEquals("red|green", describe(Switches.r|Switches.g))
-        self.assertEquals("blue|black", describe(Switches.b|Switches.black))
+        self.assertEquals(u"blue", describe(Switches.b))
+        self.assertEquals(u"red|green", describe(Switches.r | Switches.g))
+        self.assertEquals(u"blue|black", describe(Switches.b | Switches.black))

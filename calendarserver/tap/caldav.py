@@ -401,6 +401,14 @@ class CalDAVOptions (Options):
         print("Reading configuration from file: %s" % (self["config"],))
 
         config.load(self["config"])
+
+        for path in config.getProvider().importedFiles:
+            print("Imported configuration from file: '%s'" % (path,))
+        for path in config.getProvider().includedFiles:
+            print("Adding configuration from file: '%s'" % (path,))
+        for path in config.getProvider().missingFiles:
+            print("Missing configuration file: '%s'" % (path,))
+
         config.updateDefaults(self.overrides)
 
 
@@ -1431,7 +1439,9 @@ class CalDAVServiceMaker (object):
 
                 # Conditionally stop after upgrade at this point
                 pps.addStep(
-                    QuitAfterUpgradeStep(config.StopAfterUpgradeTriggerFile)
+                    QuitAfterUpgradeStep(
+                        config.StopAfterUpgradeTriggerFile or config.UpgradeHomePrefix
+                    )
                 )
 
                 pps.addStep(

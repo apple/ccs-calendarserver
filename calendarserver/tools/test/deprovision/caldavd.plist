@@ -191,7 +191,6 @@
         Augments for the directory service records to add calendar specific attributes.
 
         A variety of augment services are available for use.
-        When using a partitioned server, a service that can be accessed from each host will be needed.
       -->
 
     <!-- XML File Augment Service -->

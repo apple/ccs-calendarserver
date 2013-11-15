@@ -19,16 +19,18 @@ import os
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
-from txdav.xml import element as davxml
 from twext.web2.dav.util import davXMLFromStream, joinURL
+from twext.web2.http_headers import Headers, MimeType
 
 from twistedcaldav import carddavxml
 from twistedcaldav import vcard
-
 from twistedcaldav.config import config
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
+
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks, returnValue
+
+from txdav.xml import element as davxml
 
 class AddressBookMultiget (StoreTestCase):
     """
@@ -214,7 +216,13 @@ class AddressBookMultiget (StoreTestCase):
             '''
             if data:
                 for filename, icaldata in data.iteritems():
-                    request = SimpleStoreRequest(self, "PUT", joinURL(addressbook_uri, filename + ".vcf"), authid="wsanchez")
+                    request = SimpleStoreRequest(
+                        self,
+                        "PUT",
+                        joinURL(addressbook_uri, filename + ".vcf"),
+                        headers=Headers({"content-type": MimeType.fromString("text/vcard")}),
+                        authid="wsanchez"
+                    )
                     request.stream = MemoryStream(icaldata)
                     yield self.send(request)
             else:
@@ -222,7 +230,13 @@ class AddressBookMultiget (StoreTestCase):
                 for child in FilePath(self.vcards_dir).children():
                     if os.path.splitext(child.basename())[1] != ".vcf":
                         continue
-                    request = SimpleStoreRequest(self, "PUT", joinURL(addressbook_uri, child.basename()), authid="wsanchez")
+                    request = SimpleStoreRequest(
+                        self,
+                        "PUT",
+                        joinURL(addressbook_uri, child.basename()),
+                        headers=Headers({"content-type": MimeType.fromString("text/vcard")}),
+                        authid="wsanchez"
+                    )
                     request.stream = MemoryStream(child.getContent())
                     yield self.send(request)
 

@@ -30,6 +30,7 @@ create table CALENDAR_HOME_METADATA (
     "QUOTA_USED_BYTES" integer default 0 not null,
     "DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
     "DEFAULT_TASKS" integer default null references CALENDAR on delete set null,
+    "DEFAULT_POLLS" integer default null references CALENDAR on delete set null,
     "ALARM_VEVENT_TIMED" nclob default null,
     "ALARM_VEVENT_ALLDAY" nclob default null,
     "ALARM_VTODO_TIMED" nclob default null,
@@ -346,12 +347,59 @@ create table IMIP_REPLY_WORK (
 create table PUSH_NOTIFICATION_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "PUSH_ID" nvarchar2(255)
+    "PUSH_ID" nvarchar2(255),
+    "PRIORITY" integer not null
 );
 
 create table GROUP_CACHER_POLLING_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+);
+
+create table GROUP_REFRESH_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "GROUP_GUID" nvarchar2(255)
+);
+
+create table GROUP_ATTENDEE_RECONCILIATION_ (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "RESOURCE_ID" integer,
+    "GROUP_ID" integer
+);
+
+create table GROUPS (
+    "GROUP_ID" integer primary key,
+    "NAME" nvarchar2(255),
+    "GROUP_GUID" nvarchar2(255),
+    "MEMBERSHIP_HASH" nvarchar2(255),
+    "EXTANT" integer default 1,
+    "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+);
+
+create table GROUP_MEMBERSHIP (
+    "GROUP_ID" integer,
+    "MEMBER_GUID" nvarchar2(255)
+);
+
+create table GROUP_ATTENDEE (
+    "GROUP_ID" integer,
+    "RESOURCE_ID" integer,
+    "MEMBERSHIP_HASH" nvarchar2(255)
+);
+
+create table DELEGATES (
+    "DELEGATOR" nvarchar2(255),
+    "DELEGATE" nvarchar2(255),
+    "READ_WRITE" integer not null
+);
+
+create table DELEGATE_GROUPS (
+    "DELEGATOR" nvarchar2(255),
+    "GROUP_ID" integer not null,
+    "READ_WRITE" integer not null
 );
 
 create table CALENDAR_OBJECT_SPLITTER_WORK (
@@ -365,7 +413,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '25');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '29');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
@@ -374,6 +422,10 @@ create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
 
 create index CALENDAR_HOME_METADAT_d55e5548 on CALENDAR_HOME_METADATA (
     DEFAULT_TASKS
+);
+
+create index CALENDAR_HOME_METADAT_910264ce on CALENDAR_HOME_METADATA (
+    DEFAULT_POLLS
 );
 
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
@@ -447,9 +499,11 @@ create index CALENDAR_OBJECT_REVIS_3a3956c4 on CALENDAR_OBJECT_REVISIONS (
     CALENDAR_RESOURCE_ID
 );
 
-create index CALENDAR_OBJECT_REVIS_2643d556 on CALENDAR_OBJECT_REVISIONS (
+create index CALENDAR_OBJECT_REVIS_6d9d929c on CALENDAR_OBJECT_REVISIONS (
     CALENDAR_RESOURCE_ID,
-    RESOURCE_NAME
+    RESOURCE_NAME,
+    DELETED,
+    REVISION
 );
 
 create index CALENDAR_OBJECT_REVIS_265c8acf on CALENDAR_OBJECT_REVISIONS (
@@ -483,6 +537,18 @@ create index APN_SUBSCRIPTIONS_RES_9610d78e on APN_SUBSCRIPTIONS (
 
 create index IMIP_TOKENS_TOKEN_e94b918f on IMIP_TOKENS (
     TOKEN
+);
+
+create index GROUPS_GROUP_GUID_ebf7a1d4 on GROUPS (
+    GROUP_GUID
+);
+
+create index GROUP_MEMBERSHIP_GROU_9560a5e6 on GROUP_MEMBERSHIP (
+    GROUP_ID
+);
+
+create index GROUP_MEMBERSHIP_MEMB_0ca508e8 on GROUP_MEMBERSHIP (
+    MEMBER_GUID
 );
 
 create index CALENDAR_OBJECT_SPLIT_af71dcda on CALENDAR_OBJECT_SPLITTER_WORK (
