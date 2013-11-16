@@ -19,11 +19,12 @@ Group membership caching implementation tests
 """
 
 from twext.who.groups import GroupCacher, _expandedMembers
-from twext.who.test.test_xml import xmlService
 from twext.who.idirectory import RecordType
+from twext.who.test.test_xml import xmlService
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.test.util import StoreTestCase
 from txdav.common.icommondatastore import NotFoundError
+from uuid import UUID
 
 class GroupCacherTest(StoreTestCase):
 
@@ -73,19 +74,19 @@ class GroupCacherTest(StoreTestCase):
         yield self.groupCacher.refreshGroup(txn, record.guid)
 
         groupID, name, membershipHash = (yield txn.groupByGUID(record.guid))
-        self.assertEquals(membershipHash, "e90052eb63d47f32d5b03df0073f7854")
+        self.assertEquals(membershipHash, "4b0e162f2937f0f3daa6d10e5a6a6c33")
 
         groupGUID, name, membershipHash = (yield txn.groupByID(groupID))
         self.assertEquals(groupGUID, record.guid)
         self.assertEquals(name, "Top Group 1")
-        self.assertEquals(membershipHash, "e90052eb63d47f32d5b03df0073f7854")
+        self.assertEquals(membershipHash, "4b0e162f2937f0f3daa6d10e5a6a6c33")
 
         members = (yield txn.membersOfGroup(groupID))
         self.assertEquals(
-            set(["9064df911dbc4e079c2b6839b0953876",
-                 "4ad155cbae9b475f986ce08a7537893e",
-                 "3bdcb95484d54f6d8035eac19a6d6e1f",
-                 "7d45cb10479e456bb54d528958c5734b"]),
+            set([UUID("9064df911dbc4e079c2b6839b0953876"),
+                 UUID("4ad155cbae9b475f986ce08a7537893e"),
+                 UUID("3bdcb95484d54f6d8035eac19a6d6e1f"),
+                 UUID("7d45cb10479e456bb54d528958c5734b")]),
             members
         )
 
@@ -108,9 +109,9 @@ class GroupCacherTest(StoreTestCase):
         txn = store.newTransaction()
 
         # Refresh the group so it's assigned a group_id
-        guid = "49b350c69611477b94d95516b13856ab"
+        guid = UUID("49b350c69611477b94d95516b13856ab")
         yield self.groupCacher.refreshGroup(txn, guid)
-        groupID, name, membershipHash = (yield txn.groupByGUID(guid))
+        groupID, name, membershipHash = (yield txn.groupByGUID(guid)) #@UnusedVariable
 
         # Remove two members, and add one member
         newSet = set()
@@ -146,10 +147,10 @@ class GroupCacherTest(StoreTestCase):
         # Non-existent groupID
         self.failUnlessFailure(txn.groupByID(42), NotFoundError)
 
-        guid = "49b350c69611477b94d95516b13856ab"
-        hash = "e90052eb63d47f32d5b03df0073f7854"
+        guid = UUID("49b350c69611477b94d95516b13856ab")
+        hash = "4b0e162f2937f0f3daa6d10e5a6a6c33"
         yield self.groupCacher.refreshGroup(txn, guid)
-        groupID, name, membershipHash = (yield txn.groupByGUID(guid))
+        groupID, name, membershipHash = (yield txn.groupByGUID(guid)) #@UnusedVariable
         results = (yield txn.groupByID(groupID))
         self.assertEquals([guid, "Top Group 1", hash], results)
 

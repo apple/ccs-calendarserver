@@ -22,10 +22,11 @@ from twext.who.delegates import (
     addDelegate, removeDelegate, delegatesOf, delegatedTo, allGroupDelegates
 )
 from twext.who.groups import GroupCacher
+from twext.who.idirectory import RecordType
 from twext.who.test.test_xml import xmlService
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.test.util import StoreTestCase
-from twext.who.idirectory import RecordType
+from uuid import UUID
 
 class DelegationTest(StoreTestCase):
 
@@ -112,11 +113,11 @@ class DelegationTest(StoreTestCase):
         groups = (yield allGroupDelegates(txn))
         self.assertEquals(
             set([
-                "49b350c69611477b94d95516b13856ab",
-                "86144f73345a409782f1b782672087c7"
+                UUID("49b350c69611477b94d95516b13856ab"),
+                UUID("86144f73345a409782f1b782672087c7")
                 ]), set(groups))
 
-        # Delegate to a user who is already indirectly delegated-to 
+        # Delegate to a user who is already indirectly delegated-to
         yield addDelegate(txn, delegator, delegate1, True)
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(set(["sagen", "cdaboo", "glyph"]),
@@ -128,8 +129,8 @@ class DelegationTest(StoreTestCase):
             record = (yield self.xmlService.recordWithShortName(RecordType.user,
                 name))
             newSet.add(record.guid)
-        groupID, name, membershipHash = (yield txn.groupByGUID(group1.guid))
-        numAdded, numRemoved = (yield self.groupCacher.synchronizeMembers(txn,
+        groupID, name, membershipHash = (yield txn.groupByGUID(group1.guid)) #@UnusedVariable
+        numAdded, numRemoved = (yield self.groupCacher.synchronizeMembers(txn, #@UnusedVariable
             groupID, newSet))
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(set(["sagen", "cdaboo", "glyph", "dre"]),

@@ -961,6 +961,8 @@ class CommonStoreTransaction(object):
     def groupByID(self, groupID):
         try:
             results = (yield self._groupByID.on(self, groupID=groupID))[0]
+            if results:
+                results = [UUID("urn:uuid:" + results[0])] + results[1:]
             returnValue(results)
         except IndexError:
             raise NotFoundError
@@ -979,6 +981,7 @@ class CommonStoreTransaction(object):
         gm = schema.GROUP_MEMBERSHIP
         return Insert({gm.GROUP_ID: Parameter("groupID"),
                        gm.MEMBER_GUID: Parameter("memberGUID")})
+
 
     @classproperty
     def _removeMemberFromGroupQuery(cls): #@NoSelf
@@ -1023,7 +1026,7 @@ class CommonStoreTransaction(object):
         results = (yield self._selectGroupMembersQuery.on(self,
             groupID=groupID))
         for row in results:
-            members.add(row[0])
+            members.add(UUID("urn:uuid:" + row[0]))
         returnValue(members)
 
     # End of Group Members
@@ -1189,7 +1192,7 @@ class CommonStoreTransaction(object):
         @type readWrite: C{boolean}
         """
         return self._removeDelegateQuery.on(self, delegator=str(delegator),
-            delegate=delegate, readWrite=1 if readWrite else 0)
+            delegate=str(delegate), readWrite=1 if readWrite else 0)
 
 
     def removeDelegateGroup(self, delegator, delegateGroupID, readWrite):
@@ -1232,13 +1235,13 @@ class CommonStoreTransaction(object):
         results = (yield self._selectDelegatesQuery.on(self,
             delegator=str(delegator), readWrite=1 if readWrite else 0))
         for row in results:
-            delegates.add(row[0])
+            delegates.add(UUID("urn:uuid:" + row[0]))
 
         # Finally get those who are in groups which have been delegated to
         results = (yield self._selectIndirectDelegatesQuery.on(self,
             delegator=str(delegator), readWrite=1 if readWrite else 0))
         for row in results:
-            delegates.add(row[0])
+            delegates.add(UUID("urn:uuid:" + row[0]))
 
         returnValue(delegates)
 
@@ -1262,16 +1265,16 @@ class CommonStoreTransaction(object):
 
         # First get the direct delegators
         results = (yield self._selectDirectDelegatorsQuery.on(self,
-            delegate=delegate, readWrite=1 if readWrite else 0))
+            delegate=str(delegate), readWrite=1 if readWrite else 0))
         for row in results:
-            delegators.add(row[0])
+            delegators.add(UUID("urn:uuid:" + row[0]))
 
         # Finally get those who have delegated to groups the delegate
         # is a member of
         results = (yield self._selectIndirectDelegatorsQuery.on(self,
-            delegate=delegate, readWrite=1 if readWrite else 0))
+            delegate=str(delegate), readWrite=1 if readWrite else 0))
         for row in results:
-            delegators.add(row[0])
+            delegators.add(UUID("urn:uuid:" + row[0]))
 
         returnValue(delegators)
 
@@ -1296,7 +1299,7 @@ class CommonStoreTransaction(object):
         ).on(self))
         delegates = set()
         for row in results:
-            delegates.add(row[0])
+            delegates.add(UUID("urn:uuid:" + row[0]))
 
         returnValue(delegates)
 
