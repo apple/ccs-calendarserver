@@ -859,8 +859,12 @@ class CalDAVResource (
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
 
-        if self.isShareeResource():
-            parent = (yield self.locateParent(request, self._share_url))
+        if hasattr(self, "_newStoreObject"):
+            if not hasattr(self._newStoreObject, "ownerHome"):
+                home = self._newStoreObject.parentCollection().ownerHome()
+            else:
+                home = self._newStoreObject.ownerHome()
+            returnValue(element.HRef(self.principalForUID(home.uid()).principalURL()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
@@ -875,8 +879,12 @@ class CalDAVResource (
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        if self.isShareeResource():
-            parent = (yield self.locateParent(request, self._share_url))
+        if hasattr(self, "_newStoreObject"):
+            if not hasattr(self._newStoreObject, "ownerHome"):
+                home = self._newStoreObject.parentCollection().ownerHome()
+            else:
+                home = self._newStoreObject.ownerHome()
+            returnValue(self.principalForUID(home.uid()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):

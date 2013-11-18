@@ -169,6 +169,7 @@ insert into CALENDAR_BIND_MODE values (0, 'own'  );
 insert into CALENDAR_BIND_MODE values (1, 'read' );
 insert into CALENDAR_BIND_MODE values (2, 'write');
 insert into CALENDAR_BIND_MODE values (3, 'direct');
+insert into CALENDAR_BIND_MODE values (4, 'indirect');
 
 -- Enumeration of statuses
 

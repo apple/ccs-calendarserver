@@ -174,6 +174,7 @@ _BIND_MODE_OWN = _bindMode('own')
 _BIND_MODE_READ = _bindMode('read')
 _BIND_MODE_WRITE = _bindMode('write')
 _BIND_MODE_DIRECT = _bindMode('direct')
+_BIND_MODE_INDIRECT = _bindMode('indirect')
 
 
 _addressBookObjectKind = _schemaConstants(

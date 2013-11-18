@@ -3110,8 +3110,8 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         call super and provision group share
         """
         abObjectResource = yield super(AddressBookCollectionResource, self).makeChild(name)
-        if abObjectResource.exists() and abObjectResource._newStoreObject.shareUID() is not None:
-            abObjectResource = yield self.parentResource().provisionShare(abObjectResource)
+        #if abObjectResource.exists() and abObjectResource._newStoreObject.shareUID() is not None:
+        #    abObjectResource = yield self.parentResource().provisionShare(abObjectResource)
         returnValue(abObjectResource)
 
 

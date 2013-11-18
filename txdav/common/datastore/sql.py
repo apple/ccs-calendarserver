@@ -64,7 +64,8 @@ from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 from txdav.common.datastore.common import HomeChildBase
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID, \
-    _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_DELETED
+    _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_DELETED, \
+    _BIND_MODE_INDIRECT
 from txdav.common.datastore.sql_tables import schema, splitSQLString
 from txdav.common.icommondatastore import ConcurrentModification
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
@@ -1516,10 +1517,13 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _resourceIDFromOwnerQuery(cls): #@NoSelf
+    def _homeColumnsFromOwnerQuery(cls): #@NoSelf
         home = cls._homeSchema
-        return Select([home.RESOURCE_ID],
-                      From=home, Where=home.OWNER_UID == Parameter("ownerUID"))
+        return Select(
+            cls.homeColumns(),
+            From=home,
+            Where=home.OWNER_UID == Parameter("ownerUID")
+        )
 
 
     @classproperty
@@ -1536,6 +1540,34 @@ class CommonHome(SharingHomeMixIn):
         return Select(cls.metadataColumns(),
                       From=metadata,
                       Where=metadata.RESOURCE_ID == Parameter("resourceID"))
+
+
+    @classmethod
+    def homeColumns(cls):
+        """
+        Return a list of column names to retrieve when doing an ownerUID->home lookup.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            cls._homeSchema.RESOURCE_ID,
+            cls._homeSchema.OWNER_UID,
+        )
+
+
+    @classmethod
+    def homeAttributes(cls):
+        """
+        Return a list of attributes names to map L{homeColumns} to.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            "_resourceID",
+            "_ownerUID",
+        )
 
 
     @classmethod
@@ -1579,13 +1611,14 @@ class CommonHome(SharingHomeMixIn):
         """
         result = yield self._cacher.get(self._ownerUID)
         if result is None:
-            result = yield self._resourceIDFromOwnerQuery.on(
+            result = yield self._homeColumnsFromOwnerQuery.on(
                 self._txn, ownerUID=self._ownerUID)
             if result and not no_cache:
                 yield self._cacher.set(self._ownerUID, result)
 
         if result:
-            self._resourceID = result[0][0]
+            for attr, value in zip(self.homeAttributes(), result[0]):
+                setattr(self, attr, value)
 
             queryCacher = self._txn._queryCacher
             if queryCacher:
@@ -2929,6 +2962,26 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
+    def indirectShareWithUser(self, shareeUID):
+        """
+        Create a indirect share with the specified user. An indirect share is one created as a
+        side-effect of some other object being shared.
+
+        NB no invitations are used with indirect sharing.
+
+        @param shareeUID: UID of the sharee
+        @type shareeUID: C{str}
+        """
+
+        # Ignore if it already exists
+        shareeView = yield self.shareeView(shareeUID)
+        if shareeView is None:
+            shareeView = yield self.createShare(shareeUID=shareeUID, mode=_BIND_MODE_INDIRECT)
+            yield shareeView.newShare()
+        returnValue(shareeView)
+
+
+    @inlineCallbacks
     def uninviteUserFromShare(self, shareeUID):
         """
         Remove a user from a share. Make sure a notification is sent as well.
@@ -2942,10 +2995,11 @@ class SharingMixIn(object):
         if shareeView is not None:
             # If current user state is accepted then we send an invite with the new state, otherwise
             # we cancel any existing invites for the user
-            if shareeView.shareStatus() != _BIND_STATUS_ACCEPTED:
-                yield self._removeInviteNotification(shareeView)
-            else:
-                yield self._sendInviteNotification(shareeView, notificationState=_BIND_STATUS_DELETED)
+            if shareeView.useInvite():
+                if shareeView.shareStatus() != _BIND_STATUS_ACCEPTED:
+                    yield self._removeInviteNotification(shareeView)
+                else:
+                    yield self._sendInviteNotification(shareeView, notificationState=_BIND_STATUS_DELETED)
 
             # Remove the bind
             yield self.removeShare(shareeView)
@@ -2957,7 +3011,7 @@ class SharingMixIn(object):
         This share is being accepted.
         """
 
-        if self.shareStatus() != _BIND_STATUS_ACCEPTED:
+        if self.useInvite() and self.shareStatus() != _BIND_STATUS_ACCEPTED:
             ownerView = yield self.ownerView()
             yield ownerView.updateShare(self, status=_BIND_STATUS_ACCEPTED)
             yield self.newShare(displayname=summary)
@@ -2970,7 +3024,7 @@ class SharingMixIn(object):
         This share is being declined.
         """
 
-        if self.shareStatus() != _BIND_STATUS_DECLINED:
+        if self.useInvite() and self.shareStatus() != _BIND_STATUS_DECLINED:
             ownerView = yield self.ownerView()
             yield ownerView.updateShare(self, status=_BIND_STATUS_DECLINED)
             yield self._sendReplyNotification(ownerView)
@@ -2983,10 +3037,10 @@ class SharingMixIn(object):
         """
 
         ownerView = yield self.ownerView()
-        if self.direct():
-            yield ownerView.removeShare(self)
-        else:
+        if self.useInvite():
             yield self.declineShare()
+        else:
+            yield ownerView.removeShare(self)
 
 
     def newShare(self, displayname=None):
@@ -3004,8 +3058,8 @@ class SharingMixIn(object):
         """
         invitations = yield self.sharingInvites()
 
-        # remove direct shares as those are not "real" invitations
-        invitations = filter(lambda x: x.mode != _BIND_MODE_DIRECT, invitations)
+        # remove direct/indirect shares as those are not "real" invitations
+        invitations = filter(lambda x: x.mode not in (_BIND_MODE_DIRECT, _BIND_MODE_INDIRECT), invitations)
         invitations.sort(key=lambda invitation: invitation.shareeUID)
         returnValue(invitations)
 
@@ -3191,7 +3245,7 @@ class SharingMixIn(object):
         yield self.shareWith(
             shareeHome,
             mode=mode,
-            status=_BIND_STATUS_INVITED if mode != _BIND_MODE_DIRECT else _BIND_STATUS_ACCEPTED,
+            status=_BIND_STATUS_INVITED if mode not in (_BIND_MODE_DIRECT, _BIND_MODE_INDIRECT) else _BIND_STATUS_ACCEPTED,
             summary=summary,
         )
         shareeView = yield self.shareeView(shareeUID)
@@ -3228,10 +3282,11 @@ class SharingMixIn(object):
 
         #remove None parameters, and substitute None for empty string
         bind = self._bindSchema
-        columnMap = dict([(k, v if v != "" else None)
-                          for k, v in {bind.BIND_MODE:mode,
-                            bind.BIND_STATUS:status,
-                            bind.MESSAGE:summary}.iteritems() if v is not None])
+        columnMap = dict([(k, v if v != "" else None) for k, v in {
+            bind.BIND_MODE:mode,
+            bind.BIND_STATUS:status,
+            bind.MESSAGE:summary
+        }.iteritems() if v is not None])
 
         if len(columnMap):
 
@@ -3240,7 +3295,7 @@ class SharingMixIn(object):
                 resourceID=self._resourceID, homeID=shareeView._home._resourceID
             )
 
-            #update affected attributes
+            # Update affected attributes
             if mode is not None:
                 shareeView._bindMode = columnMap[bind.BIND_MODE]
 
@@ -3359,7 +3414,8 @@ class SharingMixIn(object):
 
         bind = self._bindSchema
         yield self._updateBindColumnsQuery(
-            {bind.BIND_REVISION : Parameter("revision"), }).on(
+            {bind.BIND_REVISION : Parameter("revision"), }
+        ).on(
             self._txn,
             revision=self._bindRevision,
             resourceID=self._resourceID,
@@ -3440,6 +3496,24 @@ class SharingMixIn(object):
         @return: a boolean indicating whether it's direct.
         """
         return self._bindMode == _BIND_MODE_DIRECT
+
+
+    def indirect(self):
+        """
+        Is this an "indirect" share?
+
+        @return: a boolean indicating whether it's indirect.
+        """
+        return self._bindMode == _BIND_MODE_INDIRECT
+
+
+    def useInvite(self):
+        """
+        Does this type of share use invitations?
+
+        @return: a boolean indicating whether invitations are used.
+        """
+        return self._bindMode not in (_BIND_MODE_DIRECT, _BIND_MODE_INDIRECT)
 
 
     def shareUID(self):
@@ -3670,7 +3744,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         # FIXME: tests don't cover this as directly as they should.
         rows = yield cls._acceptedBindForHomeID.on(
-                home._txn, homeID=home._resourceID
+            home._txn, homeID=home._resourceID
         )
         names = [row[3] for row in rows]
         returnValue(names)
