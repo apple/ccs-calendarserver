@@ -304,7 +304,7 @@ DEFAULT_CONFIG = {
                                     # the master process, rather than having
                                     # each client make its connections directly.
 
-    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
+    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility
                                    # tools from running if the database needs a schema
                                    # upgrade.
     "StopAfterUpgradeTriggerFile" : "stop_after_upgrade",   # if this file exists in ConfigRoot, stop
