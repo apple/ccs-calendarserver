@@ -952,13 +952,13 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _defer1():
-            yield cal1.shareWith(shareeHome=sharerHome1, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, message="Shared Wiki Calendar")
+            yield cal1.shareWith(shareeHome=sharerHome1, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, summary="Shared Wiki Calendar")
             yield txn1.commit()
         d1 = _defer1()
 
         @inlineCallbacks
         def _defer2():
-            yield cal2.shareWith(shareeHome=sharerHome2, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, message="Shared Wiki Calendar")
+            yield cal2.shareWith(shareeHome=sharerHome2, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, summary="Shared Wiki Calendar")
             yield txn2.commit()
         d2 = _defer2()
 

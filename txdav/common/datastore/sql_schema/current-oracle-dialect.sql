@@ -101,6 +101,7 @@ insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('invited', 0);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('accepted', 1);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('declined', 2);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('invalid', 3);
+insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('deleted', 4);
 create table CALENDAR_TRANSP (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique

@@ -277,7 +277,7 @@ class _CommonHomeChildCollectionMixin(object):
 
     def owner_url(self):
         if self.isShareeResource():
-            return joinURL(self._share.url(), "/")
+            return joinURL(self._share_url, "/")
         else:
             return self.url()
 
@@ -1642,23 +1642,23 @@ class CalendarObjectDropbox(_GetChildHelper):
         for invite in invites:
 
             # Only want accepted invites
-            if invite.status() != _BIND_STATUS_ACCEPTED:
+            if invite.status != _BIND_STATUS_ACCEPTED:
                 continue
 
             userprivs = [
             ]
-            if invite.mode() in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
+            if invite.mode in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Read()))
                 userprivs.append(davxml.Privilege(davxml.ReadACL()))
                 userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
-            if invite.mode() in (_BIND_MODE_READ,):
+            if invite.mode in (_BIND_MODE_READ,):
                 userprivs.append(davxml.Privilege(davxml.WriteProperties()))
-            if invite.mode() in (_BIND_MODE_WRITE,):
+            if invite.mode in (_BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Write()))
             proxyprivs = list(userprivs)
             proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
 
-            principal = self.principalForUID(invite.shareeUID())
+            principal = self.principalForUID(invite.shareeUID)
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -1953,10 +1953,10 @@ class AttachmentsChildCollection(_GetChildHelper):
             access control mechanism has dictate the home should no longer have
             any access at all.
         """
-        if invite.mode() in (_BIND_MODE_DIRECT,):
-            ownerUID = invite.ownerUID()
+        if invite.mode in (_BIND_MODE_DIRECT,):
+            ownerUID = invite.ownerUID
             owner = self.principalForUID(ownerUID)
-            shareeUID = invite.shareeUID()
+            shareeUID = invite.shareeUID
             if owner.record.recordType == WikiDirectoryService.recordType_wikis:
                 # Access level comes from what the wiki has granted to the
                 # sharee
@@ -1972,9 +1972,9 @@ class AttachmentsChildCollection(_GetChildHelper):
                     returnValue(None)
             else:
                 returnValue("original")
-        elif invite.mode() in (_BIND_MODE_READ,):
+        elif invite.mode in (_BIND_MODE_READ,):
             returnValue("read-only")
-        elif invite.mode() in (_BIND_MODE_WRITE,):
+        elif invite.mode in (_BIND_MODE_WRITE,):
             returnValue("read-write")
         returnValue("original")
 
@@ -1987,7 +1987,7 @@ class AttachmentsChildCollection(_GetChildHelper):
         for invite in invites:
 
             # Only want accepted invites
-            if invite.status() != _BIND_STATUS_ACCEPTED:
+            if invite.status != _BIND_STATUS_ACCEPTED:
                 continue
 
             privileges = [
@@ -1999,7 +1999,7 @@ class AttachmentsChildCollection(_GetChildHelper):
             if access in ("read-only", "read-write",):
                 userprivs.extend(privileges)
 
-            principal = self.principalForUID(invite.shareeUID())
+            principal = self.principalForUID(invite.shareeUID)
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -3771,7 +3771,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                     invitationBindStatusToXMLMap[jsondata["status"]](),
                     customxml.InviteAccess(invitationBindModeToXMLMap[jsondata["access"]]()),
                     customxml.HostURL(
-                        element.HRef.fromString(urljoin(ownerHomeURL, jsondata["name"])),
+                        element.HRef.fromString(urljoin(ownerHomeURL, jsondata["ownerName"])),
                     ),
                     customxml.Organizer(
                         element.HRef.fromString(owner),
@@ -3802,22 +3802,21 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             commonName = shareePrincipal.displayName()
             record = shareePrincipal.record
 
+            typeAttr = {"shared-type": jsondata["shared-type"]}
             xmldata = customxml.Notification(
                 customxml.DTStamp.fromString(jsondata["dtstamp"]),
                 customxml.InviteReply(
-                    *(
-                        (
-                            element.HRef.fromString(cua),
-                            invitationBindStatusToXMLMap[jsondata["status"]](),
-                            customxml.HostURL(
-                                element.HRef.fromString(urljoin(ownerHomeURL, jsondata["name"])),
-                            ),
-                            customxml.InReplyTo.fromString(jsondata["in-reply-to"]),
-                        ) + ((customxml.InviteSummary.fromString(jsondata["summary"]),) if jsondata["summary"] else ())
-                          + ((customxml.CommonName.fromString(commonName),) if commonName else ())
-                          + ((customxml.FirstNameProperty(record.firstName),) if record.firstName else ())
-                          + ((customxml.LastNameProperty(record.lastName),) if record.lastName else ())
-                    )
+                    element.HRef.fromString(cua),
+                    invitationBindStatusToXMLMap[jsondata["status"]](),
+                    customxml.HostURL(
+                        element.HRef.fromString(urljoin(ownerHomeURL, jsondata["ownerName"])),
+                    ),
+                    customxml.InReplyTo.fromString(jsondata["in-reply-to"]),
+                    customxml.InviteSummary.fromString(jsondata["summary"]) if jsondata["summary"] else None,
+                    customxml.CommonName.fromString(commonName) if commonName else None,
+                    customxml.FirstNameProperty(record.firstName) if record.firstName else None,
+                    customxml.LastNameProperty(record.lastName) if record.lastName else None,
+                    #**typeAttr
                 ),
             )
         else:

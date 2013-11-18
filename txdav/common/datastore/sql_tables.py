@@ -142,6 +142,7 @@ _BIND_STATUS_INVITED = _bindStatus('invited')
 _BIND_STATUS_ACCEPTED = _bindStatus('accepted')
 _BIND_STATUS_DECLINED = _bindStatus('declined')
 _BIND_STATUS_INVALID = _bindStatus('invalid')
+_BIND_STATUS_DELETED = _bindStatus('deleted')
 
 
 _transpValues = _schemaConstants(

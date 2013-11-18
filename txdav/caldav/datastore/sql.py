@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.xml import element
 
 
 """
@@ -395,6 +396,8 @@ class CalendarStoreFeatures(object):
 class CalendarHome(CommonHome):
 
     implements(ICalendarHome)
+
+    _homeType = ECALENDARTYPE
 
     # structured tables.  (new, preferred)
     _homeSchema = schema.CALENDAR_HOME
@@ -1243,6 +1246,44 @@ class Calendar(CommonHomeChild):
                 PropertyName.fromElement(caldavxml.SupportedCalendarComponentSet),
             ),
         )
+
+
+    def sharedResourceType(self):
+        """
+        The sharing resource type
+        """
+        return "calendar"
+
+
+    @inlineCallbacks
+    def newShare(self, displayname=None):
+        """
+        Override in derived classes to do any specific operations needed when a share
+        is first accepted.
+        """
+
+        # For a direct share we will copy any displayname and calendar-color over using the owners view
+        if self.direct():
+            ownerView = yield self.ownerView()
+            try:
+                displayname = ownerView.properties()[PropertyName.fromElement(element.DisplayName)]
+                self.properties()[PropertyName.fromElement(element.DisplayName)] = displayname
+            except KeyError:
+                pass
+            try:
+                color = ownerView.properties()[PropertyName.fromElement(customxml.CalendarColor)]
+                self.properties()[PropertyName.fromElement(customxml.CalendarColor)] = color
+            except KeyError:
+                pass
+        elif displayname:
+            self.properties()[PropertyName.fromElement(element.DisplayName)] = element.DisplayName.fromString(displayname)
+
+        # Calendars always start out transparent and with empty default alarms
+        yield self.setUsedForFreeBusy(False)
+        yield self.setDefaultAlarm("empty", True, True)
+        yield self.setDefaultAlarm("empty", True, False)
+        yield self.setDefaultAlarm("empty", False, True)
+        yield self.setDefaultAlarm("empty", False, False)
 
 
     # FIXME: this is DAV-ish.  Data store calendar objects don't have

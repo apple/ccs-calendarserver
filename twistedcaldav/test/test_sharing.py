@@ -52,8 +52,7 @@ def normalize(x):
 
 
 class FakeHome(object):
-    def removeShareByUID(self, request, uid):
-        pass
+    pass
 
 
 

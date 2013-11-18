@@ -691,7 +691,7 @@ class CalDAVResource (
 
         elif qname == customxml.SharedURL.qname():
             if self.isShareeResource():
-                returnValue(customxml.SharedURL(element.HRef.fromString(self._share.url())))
+                returnValue(customxml.SharedURL(element.HRef.fromString(self._share_url)))
             else:
                 returnValue(None)
 
@@ -860,7 +860,7 @@ class CalDAVResource (
         """
 
         if self.isShareeResource():
-            parent = (yield self.locateParent(request, self._share.url()))
+            parent = (yield self.locateParent(request, self._share_url))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
@@ -876,7 +876,7 @@ class CalDAVResource (
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
         if self.isShareeResource():
-            parent = (yield self.locateParent(request, self._share.url()))
+            parent = (yield self.locateParent(request, self._share_url))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
@@ -1251,13 +1251,13 @@ class CalDAVResource (
         sharedParent = None
         if self.isShareeResource():
             # A sharee collection's quota root is the resource owner's root
-            sharedParent = (yield request.locateResource(parentForURL(self._share.url())))
+            sharedParent = (yield request.locateResource(parentForURL(self._share_url)))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if isCalendarCollectionResource(parent) or isAddressBookCollectionResource(parent):
                 if parent.isShareeResource():
                     # A sharee collection's quota root is the resource owner's root
-                    sharedParent = (yield request.locateResource(parentForURL(parent._share.url())))
+                    sharedParent = (yield request.locateResource(parentForURL(parent._share_url)))
 
         if sharedParent:
             result = (yield sharedParent.quotaRootResource(request))
@@ -2542,6 +2542,11 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         return config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.exists()
 
 
+    def _otherPrincipalHomeURL(self, otherUID):
+        ownerPrincipal = self.principalForUID(otherUID)
+        return ownerPrincipal.calendarHomeURLs()[0]
+
+
     @inlineCallbacks
     def makeRegularChild(self, name):
         newCalendar = yield self._newStoreHome.calendarWithName(name)
@@ -2792,6 +2797,11 @@ class AddressBookHomeResource (CommonHomeResource):
 
     def canShare(self):
         return config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.exists()
+
+
+    def _otherPrincipalHomeURL(self, otherUID):
+        ownerPrincipal = self.principalForUID(otherUID)
+        return ownerPrincipal.addressBookHomeURLs()[0]
 
 
     @inlineCallbacks

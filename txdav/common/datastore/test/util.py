@@ -707,6 +707,35 @@ class CommonCommonTests(object):
                      .calendarObjectWithName(name)))
 
 
+    def addressbookHomeUnderTest(self, txn=None, name="home1"):
+        """
+        Get the addressbook home detailed by C{requirements['home1']}.
+        """
+        if txn is None:
+            txn = self.transactionUnderTest()
+        return txn.addressbookHomeWithUID(name)
+
+
+    @inlineCallbacks
+    def addressbookUnderTest(self, txn=None, name="addressbook", home="home1"):
+        """
+        Get the addressbook detailed by C{requirements['home1']['addressbook']}.
+        """
+        returnValue((yield
+            (yield self.addressbookHomeUnderTest(txn=txn, name=home)).addressbookWithName(name))
+        )
+
+
+    @inlineCallbacks
+    def addressbookObjectUnderTest(self, txn=None, name="1.vcf", addressbook_name="addressbook", home="home1"):
+        """
+        Get the addressbook detailed by
+        C{requirements['home1']['addressbook']['1.vcf']}.
+        """
+        returnValue((yield (yield self.addressbookUnderTest(txn=txn, name=addressbook_name, home=home))
+                    .addressbookObjectWithName(name)))
+
+
 
 class StubNotifierFactory(object):
     """

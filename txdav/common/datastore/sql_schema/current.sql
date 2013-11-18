@@ -181,6 +181,7 @@ insert into CALENDAR_BIND_STATUS values (0, 'invited' );
 insert into CALENDAR_BIND_STATUS values (1, 'accepted');
 insert into CALENDAR_BIND_STATUS values (2, 'declined');
 insert into CALENDAR_BIND_STATUS values (3, 'invalid');
+insert into CALENDAR_BIND_STATUS values (4, 'deleted');
 
 
 -- Enumeration of transparency
@@ -700,7 +701,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '29');
+insert into CALENDARSERVER values ('VERSION', '30');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
