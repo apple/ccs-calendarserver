@@ -55,7 +55,91 @@ class FieldName(Names):
 
 class DirectoryService(BaseDirectoryService):
     """
-    XML directory service.
+    Generic (and abstract) in-memory-indexed directory service.
+
+    This class implements the record access API in L{BaseDirectoryService} by
+    caching all records in an in-memory dictionary.
+
+    Each indexed field has a top-level key in the index and in turn contains
+    a dictionary in which keys are field values, and values are directory
+    records which have a matching field value for the cooresponding key:
+
+        {
+            <FieldName1>: {
+                <value1a>: set([<record1a1>, ...]),
+                ...
+            },
+            ...
+        }
+
+    Here is an example index for a service with a three user records and one
+    group record:
+
+        {
+            <FieldName=uid>: {
+                u'__calendar-dev__': set([
+                    <DirectoryRecord (group)calendar-dev>
+                ]),
+                u'__dre__': set([
+                    <DirectoryRecord (user)dre>
+                ]),
+                u'__sagen__': set([
+                    <DirectoryRecord (user)sagen>
+                ]),
+                u'__wsanchez__': set([
+                    <DirectoryRecord (user)wsanchez>
+                ])
+            },
+            <FieldName=recordType>: {
+                <RecordType=group>: set([
+                    <DirectoryRecord (group)calendar-dev>,
+                ]),
+                <RecordType=user>: set([
+                    <DirectoryRecord (user)sagen>,
+                    <DirectoryRecord (user)wsanchez>
+                ])
+            },
+            <FieldName=shortNames>: {
+                u'calendar-dev': set([<DirectoryRecord (group)calendar-dev>]),
+                u'dre': set([<DirectoryRecord (user)dre>]),
+                u'sagen': set([<DirectoryRecord (user)sagen>]),
+                u'wilfredo_sanchez': set([<DirectoryRecord (user)wsanchez>]),
+                u'wsanchez': set([<DirectoryRecord (user)wsanchez>])
+            },
+            <FieldName=emailAddresses>: {
+                'dev@bitbucket.calendarserver.org': set([
+                    <DirectoryRecord (group)calendar-dev>
+                ]),
+                'dre@bitbucket.calendarserver.org': set([
+                    <DirectoryRecord (user)dre>
+                ]),
+                'sagen@bitbucket.calendarserver.org': set([
+                    <DirectoryRecord (user)sagen>
+                ]),
+                'shared@example.com': set([
+                    <DirectoryRecord (user)sagen>,
+                    <DirectoryRecord (user)dre>
+                ]),
+                'wsanchez@bitbucket.calendarserver.org': set([
+                    <DirectoryRecord (user)wsanchez>
+                ]),
+                'wsanchez@devnull.twistedmatrix.com': set([
+                    <DirectoryRecord (user)wsanchez>
+                ])
+            },
+            <FieldName=memberUIDs>: {
+                u'__sagen__': set([<DirectoryRecord (group)calendar-dev>]),
+                u'__wsanchez__': set([<DirectoryRecord (group)calendar-dev>])
+            },
+        }
+
+    The field names that are indexed are determined by the C{indexedFields}
+    attribute of the service.
+
+    A subclass must override L{loadRecords}, which populates the index.
+
+    @cvar indexedFields: an iterable of field names (C{NamedConstant})
+        which are indexed.
     """
 
     fieldName = ConstantsContainer(chain(
@@ -82,7 +166,7 @@ class DirectoryService(BaseDirectoryService):
     @property
     def index(self):
         """
-        Call L{loadRecords}C{()} and return the index.
+        Call L{loadRecords} and return the index.
         """
         self.loadRecords()
         return self._index
@@ -101,7 +185,9 @@ class DirectoryService(BaseDirectoryService):
 
     def loadRecords(self):
         """
-        Load records.
+        Load records.  This must be implemented by subclasses.
+
+        The implementation should set the index with current data.
         """
         raise NotImplementedError("Subclasses must implement loadRecords().")
 
@@ -223,6 +309,10 @@ class DirectoryService(BaseDirectoryService):
 
 
     def recordsFromNonCompoundExpression(self, expression, records=None):
+        """
+        This implementation can handle L{MatchExpression} expressions; other
+        expressions are passed up to the superclass.
+        """
         if isinstance(expression, MatchExpression):
             if expression.fieldName in self.indexedFields:
                 return self.indexedRecordsFromMatchExpression(

@@ -41,7 +41,7 @@ from twext.who.util import uniqueResult, describe
 @implementer(IDirectoryService)
 class DirectoryService(object):
     """
-    Generic implementation of L{IDirectoryService}.
+    Generic (and abstract) implementation of L{IDirectoryService}.
 
     Most of the C{recordsWith*} methods call L{recordsWithFieldValue}, which in
     turn calls L{recordsFromExpression} with a corresponding
