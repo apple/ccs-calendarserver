@@ -25,6 +25,12 @@ from twext.who.test import test_directory
 
 
 
+class NoLoadDirectoryService(DirectoryService):
+    def loadRecords(self):
+        pass
+
+
+
 class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
     """
     Tests for indexed directory services.
@@ -57,7 +63,7 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
             def loadRecords(self):
                 self.index = self.indexToLoad
 
-        service = TestService("")
+        service = TestService(u"")
 
         for index in ({}, {}, {}):
             service.indexToLoad = index
@@ -68,22 +74,26 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
         """
         Setting the index and getting it gives us back the same value.
         """
-        class TestService(DirectoryService):
-            def loadRecords(self):
-                pass
-
-        service = TestService("")
+        service = NoLoadDirectoryService(u"")
 
         for index in ({}, {}, {}):
             service.index = index
             self.assertIdentical(service.index, index)
 
 
+    def test_loadRecords(self):
+        """
+        L{DirectoryService.loadRecords} raises C{NotImplementedError}.
+        """
+        service = self.service()
+        self.assertRaises(NotImplementedError, service.loadRecords)
+
+
     def test_flush(self):
         """
         C{flush} sets the index to C{None}.
         """
-        service = self.service()
+        service = NoLoadDirectoryService(u"")
         service._index = {}
         service.flush()
         self.assertIdentical(service._index, None)

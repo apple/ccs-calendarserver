@@ -78,7 +78,10 @@ class BaseDirectoryServiceTest(ServiceMixIn):
         C{repr} returns the expected string.
         """
         service = self.service()
-        self.assertEquals(repr(service), "<DirectoryService u'xyzzy'>")
+        self.assertEquals(
+            repr(service),
+            "<{0} u'xyzzy'>".format(self.serviceClass.__name__)
+        )
 
 
     def test_recordTypes(self):
