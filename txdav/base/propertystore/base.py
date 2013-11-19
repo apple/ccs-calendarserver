@@ -214,7 +214,13 @@ class AbstractPropertyStore(DictMixin, object):
 
     def __delitem__(self, key):
         # Handle per-user behavior
-        if self.isGlobalProperty(key):
+        if self.isShadowableProperty(key):
+            try:
+                self._delitem_uid(key, self._perUser)
+            except KeyError:
+                # It is OK for shadowable delete to fail
+                pass
+        elif self.isGlobalProperty(key):
             self._delitem_uid(key, self._defaultUser)
         else:
             self._delitem_uid(key, self._perUser)
