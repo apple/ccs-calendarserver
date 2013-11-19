@@ -62,7 +62,7 @@ class DirectoryService(BaseDirectoryService):
 
     Each indexed field has a top-level key in the index and in turn contains
     a dictionary in which keys are field values, and values are directory
-    records which have a matching field value for the cooresponding key:
+    records which have a matching field value for the cooresponding key::
 
         {
             <FieldName1>: {
@@ -73,7 +73,7 @@ class DirectoryService(BaseDirectoryService):
         }
 
     Here is an example index for a service with a three user records and one
-    group record:
+    group record::
 
         {
             <FieldName=uid>: {
