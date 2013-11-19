@@ -51,34 +51,22 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
         Index starts as C{None}.
         """
         service = self.service()
-        self.assertIdentical(service._index, None)
+        self.assertTrue(emptyIndex(service._index))
 
 
     def test_index_get(self):
         """
-        Getting the C{index} property calls C{loadRecords} and returns the
-        index set by C{loadRecords}.
+        Getting the C{index} property calls C{loadRecords}.
         """
         class TestService(DirectoryService):
+            loaded = False
+
             def loadRecords(self):
-                self.index = self.indexToLoad
+                self.loaded = True
 
         service = TestService(u"")
-
-        for index in ({}, {}, {}):
-            service.indexToLoad = index
-            self.assertIdentical(service.index, index)
-
-
-    def test_index_set(self):
-        """
-        Setting the index and getting it gives us back the same value.
-        """
-        service = NoLoadDirectoryService(u"")
-
-        for index in ({}, {}, {}):
-            service.index = index
-            self.assertIdentical(service.index, index)
+        service.index
+        self.assertTrue(service.loaded)
 
 
     def test_loadRecords(self):
@@ -96,7 +84,7 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
         service = NoLoadDirectoryService(u"")
         service._index = {}
         service.flush()
-        self.assertIdentical(service._index, None)
+        self.assertTrue(emptyIndex(service._index))
 
 
     def _noop(self):
@@ -157,3 +145,24 @@ class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
 
     test_members_group = _noop
     test_memberships = _noop
+
+
+
+def emptyIndex(index):
+    """
+    Determine whether an index is empty.
+
+    @param index: An index.
+    @type index: L{dict}
+
+    @return: true if C{index} is empty, otherwise false.
+    """
+    if not index:
+        return True
+
+    for fieldName, fieldIndex in index.iteritems():
+        for fieldValue, records in fieldIndex:
+            if records:
+                return False
+
+    return True

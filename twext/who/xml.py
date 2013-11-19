@@ -242,7 +242,7 @@ class DirectoryService(BaseDirectoryService):
         if not realmName:
             raise ParseError("No realm name.")
 
-        unknownRecordTypes   = set()
+        unknownRecordTypes = set()
         unknownFieldElements = set()
 
         records = set()
@@ -259,31 +259,16 @@ class DirectoryService(BaseDirectoryService):
         # Store results
         #
 
-        index = {}
-
-        for fieldName in self.indexedFields:
-            index[fieldName] = {}
-
-        for record in records:
-            for fieldName in self.indexedFields:
-                values = record.fields.get(fieldName, None)
-
-                if values is not None:
-                    if not BaseFieldName.isMultiValue(fieldName):
-                        values = (values,)
-
-                    for value in values:
-                        index[fieldName].setdefault(value, set()).add(record)
+        self.flush()
+        self.indexRecords(records)
 
         self._realmName = realmName
 
-        self._unknownRecordTypes   = unknownRecordTypes
+        self._unknownRecordTypes = unknownRecordTypes
         self._unknownFieldElements = unknownFieldElements
 
         self._cacheTag = cacheTag
         self._lastRefresh = now
-
-        self.index = index
 
         return etree
 
@@ -348,11 +333,11 @@ class DirectoryService(BaseDirectoryService):
     def flush(self):
         BaseDirectoryService.flush(self)
 
-        self._realmName            = None
-        self._unknownRecordTypes   = None
+        self._realmName = None
+        self._unknownRecordTypes = None
         self._unknownFieldElements = None
-        self._cacheTag             = None
-        self._lastRefresh          = 0
+        self._cacheTag = None
+        self._lastRefresh = 0
 
 
     def updateRecords(self, records, create=False):

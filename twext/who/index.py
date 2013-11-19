@@ -172,32 +172,60 @@ class DirectoryService(BaseDirectoryService):
         return self._index
 
 
-    @index.setter
-    def index(self, value):
-        """
-        Sets the index.
-
-        @param index: An index.
-        @type index: L{dict}
-        """
-        self._index = value
-
-
     def loadRecords(self):
         """
-        Load records.  This must be implemented by subclasses.
+        Load records.  This method is called by the L{index} property and
+        provides a hook into which the index can be updated.
 
-        The implementation should set the index property with current index
-        data.
+        This method must be implemented by subclasses.
+
+        An example implementation::
+
+            def loadRecords(self):
+                self.flush()
+                while True:
+                    records = readSomeRecordsFromMyBackEnd()
+                    if not records:
+                        break
+                    self.indexRecords(records)
         """
         raise NotImplementedError("Subclasses must implement loadRecords().")
+
+
+    def indexRecords(self, records):
+        """
+        Add some records to the index.
+
+        @param records: The records to index.
+        @type records: iterable of L{DirectoryRecord}
+        """
+        index = self._index
+
+        for fieldName in self.indexedFields:
+            index.setdefault(fieldName, {})
+
+        for record in records:
+            for fieldName in self.indexedFields:
+                values = record.fields.get(fieldName, None)
+
+                if values is not None:
+                    if not BaseFieldName.isMultiValue(fieldName):
+                        values = (values,)
+
+                    for value in values:
+                        index[fieldName].setdefault(value, set()).add(record)
 
 
     def flush(self):
         """
         Flush the index.
         """
-        self._index = None
+        index = {}
+
+        for fieldName in self.indexedFields:
+            index.setdefault(fieldName, {})
+
+        self._index = index
 
 
     def indexedRecordsFromMatchExpression(self, expression, records=None):
