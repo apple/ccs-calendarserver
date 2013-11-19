@@ -30,12 +30,18 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
     """
     Tests for indexed directory services.
     """
+
+
+
+class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
+    """
+    Tests for L{DirectoryService}.
+    """
     serviceClass = DirectoryService
     directoryRecordClass = DirectoryRecord
 
 
 
-class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
     def _noop(self):
         """
         Does nothing for this class.
@@ -58,15 +64,17 @@ class BaseDirectoryServiceImmutableTest(
     """
     Tests for immutable indexed directory services.
     """
-    serviceClass = DirectoryService
-    directoryRecordClass = DirectoryRecord
 
 
 
 class DirectoryServiceImmutableTest(
     unittest.TestCase, BaseDirectoryServiceImmutableTest
 ):
-    pass
+    """
+    Tests for immutable L{DirectoryService}.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
 
 
 
@@ -74,12 +82,16 @@ class BaseDirectoryRecordTest(test_directory.BaseDirectoryRecordTest):
     """
     Tests for indexed directory records.
     """
-    serviceClass = DirectoryService
-    directoryRecordClass = DirectoryRecord
 
 
 
 class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
+    """
+    Tests for L{DirectoryRecord}.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
     def _noop(self):
         """
         Does nothing for this class.

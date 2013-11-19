@@ -22,7 +22,7 @@ from twisted.python.components import proxyForInterface
 from twisted.trial import unittest
 
 from twext.who.idirectory import IDirectoryService, DirectoryConfigurationError
-from twext.who.aggregate import DirectoryService
+from twext.who.aggregate import DirectoryService, DirectoryRecord
 from twext.who.util import ConstantsContainer
 
 from twext.who.test import test_directory, test_xml
@@ -57,7 +57,10 @@ class BaseTest(object):
 
 
 
-class DirectoryServiceBaseTest(BaseTest, test_xml.DirectoryServiceBaseTest):
+class DirectoryServiceTest(BaseTest, test_xml.DirectoryServiceTest):
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
     def test_repr(self):
         service = self.service()
         self.assertEquals(repr(service), "<TestService u'xyzzy'>")
@@ -73,7 +76,8 @@ class DirectoryServiceImmutableTest(
     BaseTest,
     test_directory.BaseDirectoryServiceImmutableTest,
 ):
-    pass
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
 
 
 
@@ -100,7 +104,7 @@ class AggregatedBaseTest(BaseTest):
 
 class DirectoryServiceAggregatedBaseTest(
     AggregatedBaseTest,
-    DirectoryServiceBaseTest,
+    DirectoryServiceTest,
 ):
     pass
 

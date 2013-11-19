@@ -54,10 +54,6 @@ class BaseDirectoryServiceTest(ServiceMixIn):
     """
     Tests for directory services.
     """
-    serviceClass = DirectoryService
-    directoryRecordClass = DirectoryRecord
-
-
     def test_interface(self):
         """
         Service instance conforms to L{IDirectoryService}.
@@ -208,6 +204,12 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
 
 class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
+    """
+    Tests for L{DirectoryService}.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
     @inlineCallbacks
     def test_recordsFromExpression_single(self):
         """
@@ -405,9 +407,6 @@ class BaseDirectoryServiceImmutableTest(ServiceMixIn):
     """
     Tests for immutable directory services.
     """
-    serviceClass = DirectoryService
-    directoryRecordClass = DirectoryRecord
-
 
     def test_updateRecordsNotAllowed(self):
         """
@@ -448,7 +447,11 @@ class DirectoryServiceImmutableTest(
     unittest.TestCase,
     BaseDirectoryServiceImmutableTest,
 ):
-    pass
+    """
+    Tests for immutable L{DirectoryService}.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
 
 
 
@@ -456,9 +459,6 @@ class BaseDirectoryRecordTest(ServiceMixIn):
     """
     Tests for directory records.
     """
-    serviceClass = DirectoryService
-    directoryRecordClass = DirectoryRecord
-
 
     fields_wsanchez = {
         FieldName.uid: u"UID:wsanchez",
@@ -730,6 +730,12 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
 
 class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
+    """
+    Tests for L{DirectoryRecord}.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
     def test_members_group(self):
         staff = self.makeRecord(self.fields_staff)
 
@@ -745,7 +751,7 @@ class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
 
 class StubDirectoryService(DirectoryService):
     """
-    Stubn directory service with some built-in records and an implementation
+    Stub directory service with some built-in records and an implementation
     of C{recordsFromNonCompoundExpression}.
     """
 
