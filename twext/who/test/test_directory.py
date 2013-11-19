@@ -25,7 +25,6 @@ from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
 from twisted.python.constants import Names, NamedConstant
 from twisted.trial import unittest
-from twisted.trial.unittest import SkipTest
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.defer import succeed
 
@@ -46,7 +45,7 @@ class ServiceMixIn(object):
 
     def service(self):
         if not hasattr(self, "_service"):
-            self._service = DirectoryService(self.realmName)
+            self._service = self.serviceClass(self.realmName)
         return self._service
 
 
@@ -55,6 +54,9 @@ class BaseDirectoryServiceTest(ServiceMixIn):
     """
     Tests for directory services.
     """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
 
     def test_interface(self):
         """
@@ -130,7 +132,7 @@ class BaseDirectoryServiceTest(ServiceMixIn):
         """
         service = self.service()
 
-        wsanchez = DirectoryRecord(
+        wsanchez = self.directoryRecordClass(
             service,
             {
                 service.fieldName.recordType: service.recordType.user,
@@ -403,6 +405,9 @@ class BaseDirectoryServiceImmutableTest(ServiceMixIn):
     """
     Tests for immutable directory services.
     """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
 
     def test_updateRecordsNotAllowed(self):
         """
@@ -410,7 +415,7 @@ class BaseDirectoryServiceImmutableTest(ServiceMixIn):
         """
         service = self.service()
 
-        newRecord = DirectoryRecord(
+        newRecord = self.directoryRecordClass(
             service,
             fields={
                 service.fieldName.uid: u"__plugh__",
@@ -451,6 +456,9 @@ class BaseDirectoryRecordTest(ServiceMixIn):
     """
     Tests for directory records.
     """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
 
     fields_wsanchez = {
         FieldName.uid: u"UID:wsanchez",
@@ -695,15 +703,15 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
     def test_members_group(self):
         """
-        Group members.
+        Group members for group records.
         """
-        raise SkipTest("Subclasses should implement this test.")
+        raise NotImplementedError("Subclasses should implement this test.")
 
 
     @inlineCallbacks
     def test_members_nonGroup(self):
         """
-        Non-groups have no members.
+        Group members for non-group records.  Non-groups have no members.
         """
         wsanchez = self.makeRecord(self.fields_wsanchez)
 
@@ -713,11 +721,11 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         )
 
 
-    def test_groups(self):
+    def test_memberships(self):
         """
         Group memberships.
         """
-        raise SkipTest("Subclasses should implement this test.")
+        raise NotImplementedError("Subclasses should implement this test.")
 
 
 
@@ -728,7 +736,7 @@ class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
         self.assertFailure(staff.members(), NotImplementedError)
 
 
-    def test_groups(self):
+    def test_memberships(self):
         wsanchez = self.makeRecord(self.fields_wsanchez)
 
         self.assertFailure(wsanchez.groups(), NotImplementedError)

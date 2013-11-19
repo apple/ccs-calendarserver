@@ -130,10 +130,10 @@ class DirectoryService(BaseDirectoryService):
             <FieldName=memberUIDs>: {
                 u'__sagen__': set([<DirectoryRecord (group)calendar-dev>]),
                 u'__wsanchez__': set([<DirectoryRecord (group)calendar-dev>])
-            },
+            }
         }
 
-    The field names that are indexed are determined by the C{indexedFields}
+    The field names that are indexed are defined by the C{indexedFields}
     attribute of the service.
 
     A subclass must override L{loadRecords}, which populates the index.
@@ -187,7 +187,8 @@ class DirectoryService(BaseDirectoryService):
         """
         Load records.  This must be implemented by subclasses.
 
-        The implementation should set the index with current data.
+        The implementation should set the index property with current index
+        data.
         """
         raise NotImplementedError("Subclasses must implement loadRecords().")
 

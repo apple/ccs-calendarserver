@@ -20,6 +20,8 @@ Indexed directory service base implementation tests.
 
 from twisted.trial import unittest
 
+from twext.who.directory import DirectoryService, DirectoryRecord
+
 from twext.who.test import test_directory
 
 
@@ -28,14 +30,19 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
     """
     Tests for indexed directory services.
     """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
 
 
 
 class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
     def _noop(self):
         """
-        Does nothing.
+        Does nothing for this class.
         """
+        if self.__class__ is not DirectoryServiceTest:
+            raise NotImplementedError("Subclasses should implement this test.")
+
 
     test_recordWithUID = _noop
     test_recordWithGUID = _noop
@@ -51,6 +58,8 @@ class BaseDirectoryServiceImmutableTest(
     """
     Tests for immutable indexed directory services.
     """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
 
 
 
@@ -65,8 +74,19 @@ class BaseDirectoryRecordTest(test_directory.BaseDirectoryRecordTest):
     """
     Tests for indexed directory records.
     """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
 
 
 
 class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
-    pass
+    def _noop(self):
+        """
+        Does nothing for this class.
+        """
+        if self.__class__ is not DirectoryRecordTest:
+            raise NotImplementedError("Subclasses should implement this test.")
+
+
+    test_members_group = _noop
+    test_memberships = _noop

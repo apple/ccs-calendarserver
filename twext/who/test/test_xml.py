@@ -699,7 +699,7 @@ class DirectoryServiceMutableTest(BaseTest):
         newRecord = DirectoryRecord(
             service,
             fields={
-                service.fieldName.uid:        u"__plugh__",
+                service.fieldName.uid: u"__plugh__",
                 service.fieldName.recordType: service.recordType.user,
                 service.fieldName.shortNames: (u"plugh",),
             }
@@ -723,7 +723,7 @@ class DirectoryServiceMutableTest(BaseTest):
         newRecord = DirectoryRecord(
             service,
             fields={
-                service.fieldName.uid:        u"__plugh__",
+                service.fieldName.uid: u"__plugh__",
                 service.fieldName.recordType: service.recordType.user,
                 service.fieldName.shortNames: (u"plugh",),
             }
@@ -758,7 +758,7 @@ class DirectoryServiceMutableTest(BaseTest):
 
 class DirectoryRecordTest(BaseTest, test_index.BaseDirectoryRecordTest):
     @inlineCallbacks
-    def test_members(self):
+    def test_members_group(self):
         service = self.service()
 
         record = (yield service.recordWithUID(u"__wsanchez__"))
@@ -790,7 +790,7 @@ class DirectoryRecordTest(BaseTest, test_index.BaseDirectoryRecordTest):
         )
 
     @inlineCallbacks
-    def test_groups(self):
+    def test_memberships(self):
         service = self.service()
 
         record = (yield service.recordWithUID(u"__wsanchez__"))
