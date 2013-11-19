@@ -77,6 +77,15 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
         self.assertRaises(NotImplementedError, service.loadRecords)
 
 
+    def test_indexRecords(self):
+        """
+        L{DirectoryService.indexRecords} populates the index.
+        """
+        raise NotImplementedError()
+
+    test_indexRecords.todo = "Unimplemented"
+
+
     def test_flush(self):
         """
         C{flush} sets the index to C{None}.
@@ -85,6 +94,35 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
         service._index = {}
         service.flush()
         self.assertTrue(emptyIndex(service._index))
+
+    test_flush.todo = "Redo this"
+
+
+    def test_indexedRecordsFromMatchExpression(self):
+        """
+        L{DirectoryService.indexedRecordsFromMatchExpression} ...
+        """
+        raise NotImplementedError()
+
+    test_indexedRecordsFromMatchExpression.todo = "Unimplemented"
+
+
+    def test_unIndexedRecordsFromMatchExpression(self):
+        """
+        L{DirectoryService.unIndexedRecordsFromMatchExpression} ...
+        """
+        raise NotImplementedError()
+
+    test_unIndexedRecordsFromMatchExpression.todo = "Unimplemented"
+
+
+    def test_recordsFromNonCompoundExpression(self):
+        """
+        L{DirectoryService.recordsFromNonCompoundExpression} ...
+        """
+        raise NotImplementedError()
+
+    test_recordsFromNonCompoundExpression.todo = "Unimplemented"
 
 
     def _noop(self):
@@ -135,12 +173,11 @@ class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
     serviceClass = DirectoryService
     directoryRecordClass = DirectoryRecord
 
+
     def _noop(self):
         """
-        Does nothing for this class.
+        Does nothing.
         """
-        if self.__class__ is not DirectoryRecordTest:
-            raise NotImplementedError("Subclasses should implement this test.")
 
 
     test_members_group = _noop
