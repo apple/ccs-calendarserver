@@ -36,6 +36,54 @@ from twext.who.directory import DirectoryService, DirectoryRecord
 
 
 
+class StubDirectoryService(DirectoryService):
+    """
+    Stub directory service with some built-in records and an implementation
+    of C{recordsFromNonCompoundExpression}.
+    """
+
+    def __init__(self, realmName):
+        DirectoryService.__init__(self, realmName)
+
+        self.records = RecordStorage(self, DirectoryRecord)
+
+
+    def recordsFromExpression(self, expression):
+        self.seenExpressions = []
+
+        return DirectoryService.recordsFromExpression(self, expression)
+
+
+    def recordsFromNonCompoundExpression(self, expression, records=None):
+        """
+        This implementation handles three expressions:
+
+        The expression C{u"None"} will match no records.
+
+        The expressions C{u"twistedmatrix.com"} and C{u"calendarserver.org"}
+        will match records that have an email address ending with the
+        given expression.
+        """
+        self.seenExpressions.append(expression)
+
+        if expression == u"None":
+            return succeed([])
+
+        if expression in (u"twistedmatrix.com", u"calendarserver.org"):
+            result = []
+            for record in self.records:
+                for email in record.emailAddresses:
+                    if email.endswith(expression):
+                        result.append(record)
+                        break
+            return succeed(result)
+
+        return DirectoryService.recordsFromNonCompoundExpression(
+            self, expression, records=records
+        )
+
+
+
 class ServiceMixIn(object):
     """
     MixIn that sets up a service appropriate for testing.
@@ -216,7 +264,7 @@ class DirectoryServiceRecordsFromExpressionTest(
     """
     Tests for L{DirectoryService.recordsFromExpression}.
     """
-    serviceClass = DirectoryService
+    serviceClass = StubDirectoryService
     directoryRecordClass = DirectoryRecord
 
     @inlineCallbacks
@@ -773,62 +821,6 @@ class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
 
         self.assertFailure(wsanchez.groups(), NotImplementedError)
 
-
-
-class RFNCEMixIn(object):
-    """
-    Mixin class that implements C{recordsFromNonCompoundExpression}.
-
-    This class also sets a C{seenExpressions} attribute to C{[]} when
-    C{recordsFromExpression} is called and appends the expressions seen when
-    C{recordsFromNonCompoundExpression} is subsequently called to that list.
-    """
-
-    def recordsFromExpression(self, expression):
-        self.seenExpressions = []
-
-        return DirectoryService.recordsFromExpression(self, expression)
-
-
-    def recordsFromNonCompoundExpression(self, expression, records=None):
-        """
-        This implementation handles three expressions:
-
-        The expression C{u"None"} will match no records.
-
-        The expressions C{u"twistedmatrix.com"} and C{u"calendarserver.org"}
-        will match records that have an email address ending with the
-        given expression.
-        """
-        self.seenExpressions.append(expression)
-
-        if expression == u"None":
-            return succeed([])
-
-        if expression in (u"twistedmatrix.com", u"calendarserver.org"):
-            result = []
-            for record in self.records:
-                for email in record.emailAddresses:
-                    if email.endswith(expression):
-                        result.append(record)
-                        break
-            return succeed(result)
-
-        return DirectoryService.recordsFromNonCompoundExpression(
-            self, expression, records=records
-        )
-
-
-class StubDirectoryService(RFNCEMixIn, DirectoryService):
-    """
-    Stub directory service with some built-in records and an implementation
-    of C{recordsFromNonCompoundExpression}.
-    """
-
-    def __init__(self):
-        DirectoryService.__init__(self, u"Stub")
-
-        self.records = RecordStorage(self, DirectoryRecord)
 
 
 class RecordStorage(object):
