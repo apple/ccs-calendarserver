@@ -205,7 +205,7 @@ class DirectoryService(BaseDirectoryService):
         Finds records in the internal indexes matching a single expression.
 
         @param expression: An expression.
-        @type expression: L{object}
+        @type expression: L{MatchExpression}
 
         @param records: a set of records to limit the search to. C{None} if
             the whole directory should be searched.
@@ -260,7 +260,7 @@ class DirectoryService(BaseDirectoryService):
         Finds records not in the internal indexes matching a single expression.
 
         @param expression: An expression.
-        @type expression: L{object}
+        @type expression: L{MatchExpression}
 
         @param records: a set of records to limit the search to. C{None} if
             the whole directory should be searched.
