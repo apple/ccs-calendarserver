@@ -77,7 +77,7 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
     def test_repr(self):
         """
-        C{repr} returns the expected string.
+        L{DirectoryService.repr} returns the expected string.
         """
         service = self.service()
         self.assertEquals(
@@ -88,9 +88,9 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
     def test_recordTypes(self):
         """
-        C{recordTypes} returns the supported set of record types.
-        For L{DirectoryService}, that's the set of constants in the
-        C{recordType} attribute.
+        L{DirectoryService.recordTypes} returns the supported set of record
+        types. For L{DirectoryService}, that's the set of constants in the
+        L{DirectoryService.recordType} attribute.
         """
         service = self.service()
         self.assertEquals(
@@ -101,8 +101,8 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
     def test_recordsFromNonCompoundExpression_unknownExpression(self):
         """
-        C{recordsFromNonCompoundExpression} with an unknown expression type
-        fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordsFromNonCompoundExpression} with an unknown
+        expression type fails with L{QueryNotSupportedError}.
         """
         service = self.service()
         self.assertFailure(
@@ -114,8 +114,8 @@ class BaseDirectoryServiceTest(ServiceMixIn):
     @inlineCallbacks
     def test_recordsFromNonCompoundExpression_emptyRecords(self):
         """
-        C{recordsFromNonCompoundExpression} with an unknown expression type
-        and an empty C{records} set returns an empty result.
+        L{DirectoryService.recordsFromNonCompoundExpression} with an unknown
+        expression type and an empty C{records} set returns an empty result.
         """
         service = self.service()
         result = (
@@ -128,8 +128,9 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
     def test_recordsFromNonCompoundExpression_nonEmptyRecords(self):
         """
-        C{recordsFromNonCompoundExpression} with an unknown expression type
-        and a non-empty C{records} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordsFromNonCompoundExpression} with an unknown
+        expression type and a non-empty C{records} fails with
+        L{QueryNotSupportedError}.
         """
         service = self.service()
 
@@ -152,8 +153,8 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
     def test_recordsFromExpression_unknownExpression(self):
         """
-        C{recordsFromExpression} with an unknown expression type fails with
-        L{QueryNotSupportedError}.
+        L{DirectoryService.recordsFromExpression} with an unknown expression
+        type fails with L{QueryNotSupportedError}.
         """
         service = self.service()
         result = yield(service.recordsFromExpression(object()))
@@ -163,8 +164,8 @@ class BaseDirectoryServiceTest(ServiceMixIn):
     @inlineCallbacks
     def test_recordsFromExpression_emptyExpression(self):
         """
-        C{recordsFromExpression} with an unknown expression type and an empty
-        L{CompoundExpression} returns an empty result.
+        L{DirectoryService.recordsFromExpression} with an unknown expression
+        type and an empty L{CompoundExpression} returns an empty result.
         """
         service = self.service()
 
@@ -208,9 +209,12 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
 
 
-class DirectoryServiceRecordsFromExpressionTest(unittest.TestCase):
+class DirectoryServiceRecordsFromExpressionTest(
+    unittest.TestCase,
+    ServiceMixIn
+):
     """
-    Tests for L{DirectoryService}.
+    Tests for L{DirectoryService.recordsFromExpression}.
     """
     serviceClass = DirectoryService
     directoryRecordClass = DirectoryRecord
@@ -218,9 +222,9 @@ class DirectoryServiceRecordsFromExpressionTest(unittest.TestCase):
     @inlineCallbacks
     def test_recordsFromExpression_single(self):
         """
-        C{recordsFromExpression} handles a single expression
+        L{DirectoryService.recordsFromExpression} handles a single expression.
         """
-        service = StubDirectoryService()
+        service = self.service()
 
         result = yield service.recordsFromExpression("twistedmatrix.com")
 
@@ -238,10 +242,10 @@ class DirectoryServiceRecordsFromExpressionTest(unittest.TestCase):
     @inlineCallbacks
     def test_recordsFromExpression_OR(self):
         """
-        C{recordsFromExpression} handles a L{CompoundExpression} with
-        L{Operand.OR}.
+        L{DirectoryService.recordsFromExpression} handles a
+        L{CompoundExpression} with L{Operand.OR}.
         """
-        service = StubDirectoryService()
+        service = self.service()
 
         result = yield service.recordsFromExpression(
             CompoundExpression(
@@ -270,10 +274,10 @@ class DirectoryServiceRecordsFromExpressionTest(unittest.TestCase):
     @inlineCallbacks
     def test_recordsFromExpression_AND(self):
         """
-        C{recordsFromExpression} handles a L{CompoundExpression} with
-        L{Operand.AND}.
+        L{DirectoryService.recordsFromExpression} handles a
+        L{CompoundExpression} with L{Operand.AND}.
         """
-        service = StubDirectoryService()
+        service = self.service()
 
         result = yield service.recordsFromExpression(
             CompoundExpression(
@@ -297,11 +301,11 @@ class DirectoryServiceRecordsFromExpressionTest(unittest.TestCase):
     @inlineCallbacks
     def test_recordsFromExpression_AND_optimized(self):
         """
-        C{recordsFromExpression} handles a L{CompoundExpression} with
-        L{Operand.AND}, and when one of the expression matches no records, the
-        subsequent expressions are skipped.
+        L{DirectoryService.recordsFromExpression} handles a
+        L{CompoundExpression} with L{Operand.AND}, and when one of the
+        expression matches no records, the subsequent expressions are skipped.
         """
-        service = StubDirectoryService()
+        service = self.service()
 
         result = yield service.recordsFromExpression(
             CompoundExpression(
@@ -327,10 +331,11 @@ class DirectoryServiceRecordsFromExpressionTest(unittest.TestCase):
 
     def test_recordsFromExpression_unknownOperand(self):
         """
-        C{recordsFromExpression} fails with L{QueryNotSupportedError} when
-        given a L{CompoundExpression} with an unknown operand.
+        L{DirectoryService.recordsFromExpression} fails with
+        L{QueryNotSupportedError} when given a L{CompoundExpression} with an
+        unknown operand.
         """
-        service = StubDirectoryService()
+        service = self.service()
 
         results = service.recordsFromExpression(
             CompoundExpression(
@@ -359,7 +364,7 @@ class DirectoryServiceConvenienceTest(
 
     def test_recordWithUID(self):
         """
-        C{recordWithUID} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordWithUID} fails with L{QueryNotSupportedError}.
         """
         service = self.service()
 
@@ -371,7 +376,8 @@ class DirectoryServiceConvenienceTest(
 
     def test_recordWithGUID(self):
         """
-        C{recordWithGUID} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordWithGUID} fails with
+        L{QueryNotSupportedError}.
         """
         service = self.service()
 
@@ -383,7 +389,8 @@ class DirectoryServiceConvenienceTest(
 
     def test_recordsWithRecordType(self):
         """
-        C{recordsWithRecordType} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordsWithRecordType} fails with
+        L{QueryNotSupportedError}.
         """
         service = self.service()
 
@@ -396,7 +403,8 @@ class DirectoryServiceConvenienceTest(
 
     def test_recordWithShortName(self):
         """
-        C{recordWithShortName} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordWithShortName} fails with
+        L{QueryNotSupportedError}.
         """
         service = self.service()
 
@@ -409,7 +417,8 @@ class DirectoryServiceConvenienceTest(
 
     def test_recordsWithEmailAddress(self):
         """
-        C{recordsWithEmailAddress} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordsWithEmailAddress} fails with
+        L{QueryNotSupportedError}.
         """
         service = self.service()
 
@@ -634,7 +643,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
     def test_repr(self):
         """
-        C{repr} returns the expected string.
+        L{DirectoryRecord.repr} returns the expected string.
         """
         wsanchez = self.makeRecord(self.fields_wsanchez)
 
@@ -697,7 +706,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
     def test_description(self):
         """
-        C{description} returns the expected string.
+        L{DirectoryRecord.description} returns the expected string.
         """
         sagen = self.makeRecord(self.fields_sagen)
 
