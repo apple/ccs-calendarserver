@@ -20,8 +20,7 @@ Indexed directory service base implementation tests.
 
 from twisted.trial import unittest
 
-from twext.who.directory import DirectoryService, DirectoryRecord
-
+from twext.who.index import DirectoryService, DirectoryRecord
 from twext.who.test import test_directory
 
 
@@ -41,13 +40,59 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
     directoryRecordClass = DirectoryRecord
 
 
+    def test_init_noIndex(self):
+        """
+        Index starts as C{None}.
+        """
+        service = self.service()
+        self.assertIdentical(service._index, None)
+
+
+    def test_index_get(self):
+        """
+        Getting the C{index} property calls C{loadRecords} and returns the
+        index set by C{loadRecords}.
+        """
+        class TestService(DirectoryService):
+            def loadRecords(self):
+                self.index = self.indexToLoad
+
+        service = TestService("")
+
+        for index in ({}, {}, {}):
+            service.indexToLoad = index
+            self.assertIdentical(service.index, index)
+
+
+    def test_index_set(self):
+        """
+        Setting the index and getting it gives us back the same value.
+        """
+        class TestService(DirectoryService):
+            def loadRecords(self):
+                pass
+
+        service = TestService("")
+
+        for index in ({}, {}, {}):
+            service.index = index
+            self.assertIdentical(service.index, index)
+
+
+    def test_flush(self):
+        """
+        C{flush} sets the index to C{None}.
+        """
+        service = self.service()
+        service._index = {}
+        service.flush()
+        self.assertIdentical(service._index, None)
+
 
     def _noop(self):
         """
-        Does nothing for this class.
+        Does nothing.
         """
-        if self.__class__ is not DirectoryServiceTest:
-            raise NotImplementedError("Subclasses should implement this test.")
 
 
     test_recordWithUID = _noop

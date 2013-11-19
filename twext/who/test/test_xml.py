@@ -31,7 +31,6 @@ from twext.who.expression import CompoundExpression, Operand
 from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.xml import ParseError
 from twext.who.xml import DirectoryService, DirectoryRecord
-
 from twext.who.test import test_index
 
 

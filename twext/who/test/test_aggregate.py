@@ -24,7 +24,6 @@ from twisted.trial import unittest
 from twext.who.idirectory import IDirectoryService, DirectoryConfigurationError
 from twext.who.aggregate import DirectoryService, DirectoryRecord
 from twext.who.util import ConstantsContainer
-
 from twext.who.test import test_directory, test_xml
 from twext.who.test.test_xml import QueryMixIn, xmlService
 from twext.who.test.test_xml import TestService as XMLTestService
