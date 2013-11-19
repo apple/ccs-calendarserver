@@ -40,6 +40,7 @@ class ServiceMixIn(object):
     """
     MixIn that sets up a service appropriate for testing.
     """
+
     realmName = u"xyzzy"
 
 
@@ -54,6 +55,7 @@ class BaseDirectoryServiceTest(ServiceMixIn):
     """
     Tests for directory services.
     """
+
     def test_interface(self):
         """
         Service instance conforms to L{IDirectoryService}.
@@ -206,7 +208,7 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
 
 
-class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
+class DirectoryServiceRecordsFromExpressionTest(unittest.TestCase):
     """
     Tests for L{DirectoryService}.
     """
@@ -341,6 +343,18 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
         )
 
         self.assertFailure(results, QueryNotSupportedError)
+
+
+
+class DirectoryServiceConvenienceTest(
+    unittest.TestCase,
+    BaseDirectoryServiceTest
+):
+    """
+    Tests for L{DirectoryService} convenience methods.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
 
 
     def test_recordWithUID(self):
@@ -752,122 +766,14 @@ class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
 
 
 
-class StubDirectoryService(DirectoryService):
+class RFNCEMixIn(object):
     """
-    Stub directory service with some built-in records and an implementation
-    of C{recordsFromNonCompoundExpression}.
+    Mixin class that implements C{recordsFromNonCompoundExpression}.
+
+    This class also sets a C{seenExpressions} attribute to C{[]} when
+    C{recordsFromExpression} is called and appends the expressions seen when
+    C{recordsFromNonCompoundExpression} is subsequently called to that list.
     """
-
-    def __init__(self):
-        DirectoryService.__init__(self, u"Stub")
-
-        self.records = []
-        self._addRecords()
-
-
-    def _addRecords(self):
-        """
-        Add a known set of records to this service.
-        """
-        self._addUser(
-            shortNames=[u"wsanchez", u"wilfredo_sanchez"],
-            fullNames=[u"Wilfredo S\xe1nchez Vega"],
-            emailAddresses=[
-                u"wsanchez@bitbucket.calendarserver.org",
-                u"wsanchez@devnull.twistedmatrix.com",
-            ],
-        )
-
-        self._addUser(
-            shortNames=[u"glyph"],
-            fullNames=[u"Glyph Lefkowitz"],
-            emailAddresses=[
-                u"glyph@bitbucket.calendarserver.org",
-                u"glyph@devnull.twistedmatrix.com",
-            ],
-        )
-
-        self._addUser(
-            shortNames=[u"sagen"],
-            fullNames=[u"Morgen Sagen"],
-            emailAddresses=[
-                u"sagen@bitbucket.calendarserver.org",
-                u"shared@example.com",
-            ],
-        )
-
-        self._addUser(
-            shortNames=[u"cdaboo"],
-            fullNames=[u"Cyrus Daboo"],
-            emailAddresses=[
-                u"cdaboo@bitbucket.calendarserver.org",
-            ],
-        )
-
-        self._addUser(
-            shortNames=[u"dre"],
-            fullNames=[u"Andre LaBranche"],
-            emailAddresses=[
-                u"dre@bitbucket.calendarserver.org",
-                u"shared@example.com",
-            ],
-        )
-
-        self._addUser(
-            shortNames=[u"exarkun"],
-            fullNames=[u"Jean-Paul Calderone"],
-            emailAddresses=[
-                u"exarkun@devnull.twistedmatrix.com",
-            ],
-        )
-
-        self._addUser(
-            shortNames=[u"dreid"],
-            fullNames=[u"David Reid"],
-            emailAddresses=[
-                u"dreid@devnull.twistedmatrix.com",
-            ],
-        )
-
-        self._addUser(
-            shortNames=[u"joe"],
-            fullNames=[u"Joe Schmoe"],
-            emailAddresses=[
-                u"joe@example.com",
-            ],
-        )
-
-        self._addUser(
-            shortNames=[u"alyssa"],
-            fullNames=[u"Alyssa P. Hacker"],
-            emailAddresses=[
-                u"alyssa@example.com",
-            ],
-        )
-
-
-    def _addUser(self, shortNames, fullNames, emailAddresses=[]):
-        """
-        Add a user record with the given field information.
-
-        @param shortNames: Record short names.
-        @type shortNames: L{list} of L{unicode}s
-
-        @param fullNames: Record full names.
-        @type fullNames: L{list} of L{unicode}s
-
-        @param emailAddresses: Record email addresses.
-        @type emailAddresses: L{list} of L{unicode}s
-        """
-        self.records.append(DirectoryRecord(self, {
-            self.fieldName.recordType: self.recordType.user,
-            self.fieldName.uid: u"__{0}__".format(shortNames[0]),
-            self.fieldName.shortNames: shortNames,
-            self.fieldName.fullNames: fullNames,
-            self.fieldName.password: u"".join(reversed(shortNames[0])),
-            self.fieldName.emailAddresses: emailAddresses,
-        }))
-
 
     def recordsFromExpression(self, expression):
         self.seenExpressions = []
@@ -876,6 +782,15 @@ class StubDirectoryService(DirectoryService):
 
 
     def recordsFromNonCompoundExpression(self, expression, records=None):
+        """
+        This implementation handles three expressions:
+
+        The expression C{u"None"} will match no records.
+
+        The expressions C{u"twistedmatrix.com"} and C{u"calendarserver.org"}
+        will match records that have an email address ending with the
+        given expression.
+        """
         self.seenExpressions.append(expression)
 
         if expression == u"None":
@@ -893,6 +808,142 @@ class StubDirectoryService(DirectoryService):
         return DirectoryService.recordsFromNonCompoundExpression(
             self, expression, records=records
         )
+
+
+class StubDirectoryService(RFNCEMixIn, DirectoryService):
+    """
+    Stub directory service with some built-in records and an implementation
+    of C{recordsFromNonCompoundExpression}.
+    """
+
+    def __init__(self):
+        DirectoryService.__init__(self, u"Stub")
+
+        self.records = RecordStorage(self, DirectoryRecord)
+
+
+class RecordStorage(object):
+    """
+    Container for directory records.
+    """
+    def __init__(self, service, recordClass):
+        self.service = service
+        self.recordClass = recordClass
+        self.records = []
+
+        self.addDefaultRecords()
+
+
+    def addDefaultRecords(self):
+        """
+        Add a known set of records to this service.
+        """
+        self.addUser(
+            shortNames=[u"wsanchez", u"wilfredo_sanchez"],
+            fullNames=[u"Wilfredo S\xe1nchez Vega"],
+            emailAddresses=[
+                u"wsanchez@bitbucket.calendarserver.org",
+                u"wsanchez@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"glyph"],
+            fullNames=[u"Glyph Lefkowitz"],
+            emailAddresses=[
+                u"glyph@bitbucket.calendarserver.org",
+                u"glyph@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"sagen"],
+            fullNames=[u"Morgen Sagen"],
+            emailAddresses=[
+                u"sagen@bitbucket.calendarserver.org",
+                u"shared@example.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"cdaboo"],
+            fullNames=[u"Cyrus Daboo"],
+            emailAddresses=[
+                u"cdaboo@bitbucket.calendarserver.org",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"dre"],
+            fullNames=[u"Andre LaBranche"],
+            emailAddresses=[
+                u"dre@bitbucket.calendarserver.org",
+                u"shared@example.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"exarkun"],
+            fullNames=[u"Jean-Paul Calderone"],
+            emailAddresses=[
+                u"exarkun@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"dreid"],
+            fullNames=[u"David Reid"],
+            emailAddresses=[
+                u"dreid@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"joe"],
+            fullNames=[u"Joe Schmoe"],
+            emailAddresses=[
+                u"joe@example.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"alyssa"],
+            fullNames=[u"Alyssa P. Hacker"],
+            emailAddresses=[
+                u"alyssa@example.com",
+            ],
+        )
+
+
+    def addUser(self, shortNames, fullNames, emailAddresses=[]):
+        """
+        Add a user record with the given field information.
+
+        @param shortNames: Record short names.
+        @type shortNames: L{list} of L{unicode}s
+
+        @param fullNames: Record full names.
+        @type fullNames: L{list} of L{unicode}s
+
+        @param emailAddresses: Record email addresses.
+        @type emailAddresses: L{list} of L{unicode}s
+        """
+        service = self.service
+        fieldName = service.fieldName
+        recordType = service.recordType
+        self.records.append(self.recordClass(self.service, {
+            fieldName.recordType: recordType.user,
+            fieldName.uid: u"__{0}__".format(shortNames[0]),
+            fieldName.shortNames: shortNames,
+            fieldName.fullNames: fullNames,
+            fieldName.password: u"".join(reversed(shortNames[0])),
+            fieldName.emailAddresses: emailAddresses,
+        }))
+
+
+    def __iter__(self):
+        return iter(self.records)
+
 
 
 class WackyOperand(Names):
