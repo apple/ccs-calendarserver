@@ -20,8 +20,10 @@ Indexed directory service base implementation tests.
 
 from twisted.trial import unittest
 
+from twext.who.idirectory import FieldName as BaseFieldName
 from twext.who.index import DirectoryService, DirectoryRecord
 from twext.who.test import test_directory
+from twext.who.test.test_directory import RecordStorage
 
 
 
@@ -31,10 +33,76 @@ class NoLoadDirectoryService(DirectoryService):
 
 
 
+# class StubDirectoryService(DirectoryService):
+#     """
+#     Stub directory service with some built-in records and an implementation
+#     of C{recordsFromNonCompoundExpression}.
+#     """
+
+#     def __init__(self):
+#         DirectoryService.__init__(self, u"Stub")
+
+#         self.records = RecordStorage(self, DirectoryRecord)
+
+
+
 class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
     """
     Tests for indexed directory services.
     """
+    def test_indexRecords_positive(self):
+        """
+        L{DirectoryService.indexRecords} ensures all record data is in the
+        index.
+        """
+        service = NoLoadDirectoryService(u"")
+        records = RecordStorage(service, DirectoryRecord)
+
+        service.indexRecords(records)
+        index = service.index
+
+        # Verify that the fields that should be indexed are, in fact, indexed
+        # for each record.
+        for record in records:
+            for fieldName in service.indexedFields:
+                values = record.fields.get(fieldName, None)
+
+                if values is None:
+                    continue
+
+                if not BaseFieldName.isMultiValue(fieldName):
+                    values = (values,)
+
+                for value in values:
+                    self.assertIn(fieldName, index)
+                    self.assertIn(value, index[fieldName])
+
+                    indexedRecords = index[fieldName][value]
+                    self.assertIn(record, indexedRecords)
+
+
+    def test_indexRecords_negative(self):
+        """
+        L{DirectoryService.indexRecords} does not have extra data in the index.
+        """
+        service = NoLoadDirectoryService(u"")
+        records = RecordStorage(service, DirectoryRecord)
+
+        service.indexRecords(records)
+        index = service.index
+
+        # Verify that all data in the index cooresponds to the records passed
+        # in.
+        for fieldName, fieldIndex in index.iteritems():
+            for fieldValue, records in fieldIndex.iteritems():
+                for record in records:
+                    self.assertIn(fieldName, record.fields)
+                    values = record.fields[fieldName]
+
+                    if not BaseFieldName.isMultiValue(fieldName):
+                        values = (values,)
+
+                    self.assertIn(fieldValue, values)
 
 
 
@@ -75,15 +143,6 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
         """
         service = self.service()
         self.assertRaises(NotImplementedError, service.loadRecords)
-
-
-    def test_indexRecords(self):
-        """
-        L{DirectoryService.indexRecords} populates the index.
-        """
-        raise NotImplementedError()
-
-    test_indexRecords.todo = "Unimplemented"
 
 
     def test_flush(self):
@@ -198,8 +257,8 @@ def emptyIndex(index):
         return True
 
     for fieldName, fieldIndex in index.iteritems():
-        for fieldValue, records in fieldIndex:
-            if records:
+        for fieldValue, records in fieldIndex.iteritems():
+            for record in records:
                 return False
 
     return True
