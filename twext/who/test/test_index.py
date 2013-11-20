@@ -111,6 +111,22 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
                     self.assertIn(fieldValue, values)
 
 
+    def test_flush(self):
+        """
+        C{flush} empties the index.
+        """
+        service = self.service(
+            subClass=noLoadDirectoryService(self.serviceClass)
+        )
+
+        records = RecordStorage(service, DirectoryRecord)
+        service.indexRecords(records)
+
+        self.assertFalse(emptyIndex(service.index))  # Test the test
+        service.flush()
+        self.assertTrue(emptyIndex(service.index))
+
+
 
 class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
     """
@@ -149,20 +165,6 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
         """
         service = self.service()
         self.assertRaises(NotImplementedError, service.loadRecords)
-
-
-    def test_flush(self):
-        """
-        C{flush} sets the index to C{None}.
-        """
-        service = self.service(
-            subClass=noLoadDirectoryService(self.serviceClass)
-        )
-        service._index = {}
-        service.flush()
-        self.assertTrue(emptyIndex(service._index))
-
-    test_flush.todo = "Redo this"
 
 
     def test_indexedRecordsFromMatchExpression(self):
