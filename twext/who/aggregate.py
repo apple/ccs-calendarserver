@@ -68,6 +68,10 @@ class DirectoryService(BaseDirectoryService):
         return self._services
 
 
+    def loadRecords(self):
+        pass
+
+
     @property
     def recordType(self):
         if not hasattr(self, "_recordType"):
