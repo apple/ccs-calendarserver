@@ -220,13 +220,97 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
         self.assertFailure(result, NotImplementedError)
 
 
-    def test_unIndexedRecordsFromMatchExpression(self):
-        """
-        L{DirectoryService.unIndexedRecordsFromMatchExpression} ...
-        """
-        raise NotImplementedError()
+    @inlineCallbacks
+    def _test_unIndexedRecordsFromMatchExpression(
+        self,
+        inOut, matchType,
+        fieldName=BaseFieldName.fullNames,
+    ):
+        service = self.noLoadServicePopulated()
 
-    test_unIndexedRecordsFromMatchExpression.todo = "Unimplemented"
+        for subString, uids in (inOut):
+            records = yield service.unIndexedRecordsFromMatchExpression(
+                MatchExpression(
+                    fieldName, subString,
+                    matchType
+                )
+            )
+            self.assertEquals(
+                set((record.uid for record in records)),
+                set(uids)
+            )
+
+
+    def test_unIndexedRecordsFromMatchExpression_startsWith(self):
+        """
+        L{DirectoryService.unIndexedRecordsFromMatchExpression} with a
+        startsWith expression.
+        """
+        return self._test_unIndexedRecordsFromMatchExpression(
+            (
+                (u"Wilfredo", (u"__wsanchez__",)),    # Duplicates
+                (u"A", (u"__alyssa__", u"__dre__")),  # Multiple
+                (u"Andre", (u"__dre__",)),            # Single
+            ),
+            MatchType.startsWith
+        )
+
+
+    def test_unIndexedRecordsFromMatchExpression_contains(self):
+        """
+        L{DirectoryService.unIndexedRecordsFromMatchExpression} with a contains
+        expression.
+        """
+        return self._test_unIndexedRecordsFromMatchExpression(
+            (
+                (u"Sanchez", (u"__wsanchez__",)),     # Duplicates
+                (u"A", (u"__alyssa__", u"__dre__")),  # Multiple
+                (u"LaBra", (u"__dre__",)),            # Single
+            ),
+            MatchType.contains
+        )
+
+
+    def test_unIndexedRecordsFromMatchExpression_equals(self):
+        """
+        L{DirectoryService.unIndexedRecordsFromMatchExpression} with an equals
+        expression.
+        """
+        return self._test_unIndexedRecordsFromMatchExpression(
+            (
+                (u"Wilfredo Sanchez", (u"__wsanchez__",)),  # MultiValue
+                (u"Andre LaBranche", (u"__dre__",)),        # Single value
+            ),
+            MatchType.equals
+        )
+
+
+    def test_unIndexedRecordsFromMatchExpression_indexed(self):
+        """
+        L{DirectoryService.unIndexedRecordsFromMatchExpression} with an
+        indexed field name.
+        """
+        self._test_unIndexedRecordsFromMatchExpression(
+            (
+                (u"wsanchez", (u"__wsanchez__",)),
+            ),
+            MatchType.equals,
+            fieldName=BaseFieldName.shortNames
+        )
+
+
+    def test_unIndexedRecordsFromMatchExpression_notMatchExpression(self):
+        """
+        L{DirectoryService.unIndexedRecordsFromMatchExpression} with a
+        non-match expression.
+        """
+        result = self._test_unIndexedRecordsFromMatchExpression(
+            (
+                (u"zehcnasw", (u"__wsanchez__",)),
+            ),
+            "Not a match type we know about"
+        )
+        self.assertFailure(result, NotImplementedError)
 
 
     def test_recordsFromNonCompoundExpression(self):

@@ -841,7 +841,11 @@ class RecordStorage(object):
         """
         self.addUser(
             shortNames=[u"wsanchez", u"wilfredo_sanchez"],
-            fullNames=[u"Wilfredo S\xe1nchez Vega"],
+            fullNames=[
+                u"Wilfredo S\xe1nchez Vega",
+                u"Wilfredo Sanchez Vega",
+                u"Wilfredo Sanchez",
+            ],
             emailAddresses=[
                 u"wsanchez@bitbucket.calendarserver.org",
                 u"wsanchez@devnull.twistedmatrix.com",
