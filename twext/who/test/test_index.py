@@ -53,22 +53,28 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
     Tests for indexed directory services.
     """
 
+    def noLoadServicePopulated(self):
+        service = self.service(
+            subClass=noLoadDirectoryService(self.serviceClass)
+        )
+
+        records = RecordStorage(service, DirectoryRecord)
+        service.indexRecords(records)
+        service.records = records
+
+        return service
+
     def test_indexRecords_positive(self):
         """
         L{DirectoryService.indexRecords} ensures all record data is in the
         index.
         """
-        service = self.service(
-            subClass=noLoadDirectoryService(self.serviceClass)
-        )
-        records = RecordStorage(service, DirectoryRecord)
-
-        service.indexRecords(records)
+        service = self.noLoadServicePopulated()
         index = service.index
 
         # Verify that the fields that should be indexed are, in fact, indexed
         # for each record.
-        for record in records:
+        for record in service.records:
             for fieldName in service.indexedFields:
                 values = record.fields.get(fieldName, None)
 
@@ -90,12 +96,7 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
         """
         L{DirectoryService.indexRecords} does not have extra data in the index.
         """
-        service = self.service(
-            subClass=noLoadDirectoryService(self.serviceClass)
-        )
-        records = RecordStorage(service, DirectoryRecord)
-
-        service.indexRecords(records)
+        service = self.noLoadServicePopulated()
         index = service.index
 
         # Verify that all data in the index cooresponds to the records passed
@@ -116,12 +117,7 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
         """
         C{flush} empties the index.
         """
-        service = self.service(
-            subClass=noLoadDirectoryService(self.serviceClass)
-        )
-
-        records = RecordStorage(service, DirectoryRecord)
-        service.indexRecords(records)
+        service = self.noLoadServicePopulated()
 
         self.assertFalse(emptyIndex(service.index))  # Test the test
         service.flush()
@@ -132,12 +128,7 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
         """
         L{DirectoryService.indexedRecordsFromMatchExpression} ...
         """
-        service = self.service(
-            subClass=noLoadDirectoryService(self.serviceClass)
-        )
-
-        records = RecordStorage(service, DirectoryRecord)
-        service.indexRecords(records)
+        # service = self.noLoadServicePopulated()
 
         raise NotImplementedError()
 
