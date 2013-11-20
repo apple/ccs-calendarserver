@@ -52,6 +52,7 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
     """
     Tests for indexed directory services.
     """
+
     def test_indexRecords_positive(self):
         """
         L{DirectoryService.indexRecords} ensures all record data is in the
@@ -127,6 +128,58 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
         self.assertTrue(emptyIndex(service.index))
 
 
+    def test_indexedRecordsFromMatchExpression_startsWith(self):
+        """
+        L{DirectoryService.indexedRecordsFromMatchExpression} ...
+        """
+        service = self.service(
+            subClass=noLoadDirectoryService(self.serviceClass)
+        )
+
+        records = RecordStorage(service, DirectoryRecord)
+        service.indexRecords(records)
+
+        raise NotImplementedError()
+
+    test_indexedRecordsFromMatchExpression_startsWith.todo = "Unimplemented"
+
+
+    def test_indexedRecordsFromMatchExpression_contains(self):
+        """
+        L{DirectoryService.indexedRecordsFromMatchExpression} ...
+        """
+        raise NotImplementedError()
+
+    test_indexedRecordsFromMatchExpression_contains.todo = "Unimplemented"
+
+
+    def test_indexedRecordsFromMatchExpression_equals(self):
+        """
+        L{DirectoryService.indexedRecordsFromMatchExpression} ...
+        """
+        raise NotImplementedError()
+
+    test_indexedRecordsFromMatchExpression_equals.todo = "Unimplemented"
+
+
+    def test_unIndexedRecordsFromMatchExpression(self):
+        """
+        L{DirectoryService.unIndexedRecordsFromMatchExpression} ...
+        """
+        raise NotImplementedError()
+
+    test_unIndexedRecordsFromMatchExpression.todo = "Unimplemented"
+
+
+    def test_recordsFromNonCompoundExpression(self):
+        """
+        L{DirectoryService.recordsFromNonCompoundExpression} ...
+        """
+        raise NotImplementedError()
+
+    test_recordsFromNonCompoundExpression.todo = "Unimplemented"
+
+
 
 class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
     """
@@ -165,33 +218,6 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
         """
         service = self.service()
         self.assertRaises(NotImplementedError, service.loadRecords)
-
-
-    def test_indexedRecordsFromMatchExpression(self):
-        """
-        L{DirectoryService.indexedRecordsFromMatchExpression} ...
-        """
-        raise NotImplementedError()
-
-    test_indexedRecordsFromMatchExpression.todo = "Unimplemented"
-
-
-    def test_unIndexedRecordsFromMatchExpression(self):
-        """
-        L{DirectoryService.unIndexedRecordsFromMatchExpression} ...
-        """
-        raise NotImplementedError()
-
-    test_unIndexedRecordsFromMatchExpression.todo = "Unimplemented"
-
-
-    def test_recordsFromNonCompoundExpression(self):
-        """
-        L{DirectoryService.recordsFromNonCompoundExpression} ...
-        """
-        raise NotImplementedError()
-
-    test_recordsFromNonCompoundExpression.todo = "Unimplemented"
 
 
     def _noop(self):

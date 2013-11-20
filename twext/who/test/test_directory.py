@@ -93,11 +93,9 @@ class ServiceMixIn(object):
 
 
     def service(self, subClass=None):
-        if not hasattr(self, "_service"):
-            if subClass is None:
-                subClass = self.serviceClass
-            self._service = subClass(self.realmName)
-        return self._service
+        if subClass is None:
+            subClass = self.serviceClass
+        return subClass(self.realmName)
 
 
 
