@@ -19,9 +19,10 @@ Indexed directory service base implementation tests.
 """
 
 from twisted.trial import unittest
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.who.idirectory import FieldName as BaseFieldName
+from twext.who.idirectory import QueryNotSupportedError
 from twext.who.expression import MatchExpression, MatchType
 from twext.who.index import DirectoryService, DirectoryRecord
 from twext.who.test import test_directory
@@ -30,24 +31,35 @@ from twext.who.test.test_directory import RecordStorage
 
 
 def noLoadDirectoryService(superClass):
+    """
+    Creates an indexed directory service that has a no-op implementation of
+    L{DirectoryService.loadRecords}.
+
+    @param superClass: The superclass of the new service.
+    @type superClass: subclass of L{DirectoryService}
+
+    @return: A new directory service class.
+    @rtype: subclass of C{superClass}
+    """
+    assert issubclass(superClass, DirectoryService)
+
     class NoLoadDirectoryService(superClass):
         def loadRecords(self):
             pass
 
+        def indexedRecordsFromMatchExpression(self, *args, **kwargs):
+            self._calledIndexed = True
+            return superClass.indexedRecordsFromMatchExpression(
+                self, *args, **kwargs
+            )
+
+        def unIndexedRecordsFromMatchExpression(self, *args, **kwargs):
+            self._calledUnindexed = True
+            return superClass.unIndexedRecordsFromMatchExpression(
+                self, *args, **kwargs
+            )
+
     return NoLoadDirectoryService
-
-
-# class StubDirectoryService(DirectoryService):
-#     """
-#     Stub directory service with some built-in records and an implementation
-#     of C{recordsFromNonCompoundExpression}.
-#     """
-
-#     def __init__(self):
-#         DirectoryService.__init__(self, u"Stub")
-
-#         self.records = RecordStorage(self, DirectoryRecord)
-
 
 
 class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
@@ -128,9 +140,7 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
 
     @inlineCallbacks
     def _test_indexedRecordsFromMatchExpression(
-        self,
-        inOut, matchType,
-        fieldName=BaseFieldName.shortNames,
+        self, inOut, matchType, fieldName=BaseFieldName.shortNames,
     ):
         service = self.noLoadServicePopulated()
 
@@ -222,9 +232,7 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
 
     @inlineCallbacks
     def _test_unIndexedRecordsFromMatchExpression(
-        self,
-        inOut, matchType,
-        fieldName=BaseFieldName.fullNames,
+        self, inOut, matchType, fieldName=BaseFieldName.fullNames,
     ):
         service = self.noLoadServicePopulated()
 
@@ -313,13 +321,49 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
         self.assertFailure(result, NotImplementedError)
 
 
-    def test_recordsFromNonCompoundExpression(self):
-        """
-        L{DirectoryService.recordsFromNonCompoundExpression} ...
-        """
-        raise NotImplementedError()
+    @inlineCallbacks
+    def _test_recordsFromNonCompoundExpression(self, expression):
+        service = self.noLoadServicePopulated()
+        yield service.recordsFromNonCompoundExpression(expression)
+        returnValue(service)
 
-    test_recordsFromNonCompoundExpression.todo = "Unimplemented"
+
+    @inlineCallbacks
+    def test_recordsFromNonCompoundExpression_match_indexed(self):
+        """
+        L{DirectoryService.recordsFromNonCompoundExpression} with a
+        L{MatchExpression} for an indexed field calls
+        L{DirectoryRecord.indexedRecordsFromMatchExpression}.
+        """
+        service = yield self._test_recordsFromNonCompoundExpression(
+            MatchExpression(BaseFieldName.shortNames, u"...")
+        )
+        self.assertTrue(getattr(service, "_calledIndexed", False))
+        self.assertFalse(getattr(service, "_calledUnindexed", False))
+
+
+    @inlineCallbacks
+    def test_recordsFromNonCompoundExpression_match_unindexed(self):
+        """
+        L{DirectoryService.recordsFromNonCompoundExpression} with a
+        L{MatchExpression} for an unindexed field calls
+        L{DirectoryRecord.unIndexedRecordsFromMatchExpression}.
+        """
+        service = yield self._test_recordsFromNonCompoundExpression(
+            MatchExpression(BaseFieldName.password, u"...")
+        )
+        self.assertFalse(getattr(service, "_calledIndexed", False))
+        self.assertTrue(getattr(service, "_calledUnindexed", False))
+
+
+    def test_recordsFromNonCompoundExpression_unknown(self):
+        """
+        L{DirectoryService.recordsFromNonCompoundExpression} with a
+        an unknown expression calls superclass, which will result in a
+        L{QueryNotSupportedError}.
+        """
+        result = self._test_recordsFromNonCompoundExpression(object())
+        self.assertFailure(result, QueryNotSupportedError)
 
 
 
