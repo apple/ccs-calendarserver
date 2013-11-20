@@ -36,8 +36,12 @@ from twext.who.test import test_index
 
 
 class BaseTest(object):
-    def service(self, xmlData=None):
-        return xmlService(self.mktemp(), xmlData)
+    def service(self, subClass=None, xmlData=None):
+        return xmlService(
+            self.mktemp(),
+            xmlData=xmlData,
+            serviceClass=subClass
+        )
 
 
     def assertRecords(self, records, uids):
@@ -842,7 +846,13 @@ def xmlService(tmp, xmlData=None, serviceClass=None):
     filePath = FilePath(tmp)
     filePath.setContent(xmlData)
 
-    return serviceClass(filePath)
+    try:
+        return serviceClass(filePath)
+    except Exception as e:
+        raise AssertionError(
+            "Unable to instantiate XML service {0}: {1}"
+            .format(serviceClass, e)
+        )
 
 
 

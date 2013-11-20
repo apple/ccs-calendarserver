@@ -92,9 +92,11 @@ class ServiceMixIn(object):
     realmName = u"xyzzy"
 
 
-    def service(self):
+    def service(self, subClass=None):
         if not hasattr(self, "_service"):
-            self._service = self.serviceClass(self.realmName)
+            if subClass is None:
+                subClass = self.serviceClass
+            self._service = subClass(self.realmName)
         return self._service
 
 

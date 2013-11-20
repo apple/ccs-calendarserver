@@ -27,10 +27,12 @@ from twext.who.test.test_directory import RecordStorage
 
 
 
-class NoLoadDirectoryService(DirectoryService):
-    def loadRecords(self):
-        pass
+def noLoadDirectoryService(superClass):
+    class NoLoadDirectoryService(superClass):
+        def loadRecords(self):
+            pass
 
+    return NoLoadDirectoryService
 
 
 # class StubDirectoryService(DirectoryService):
@@ -55,7 +57,9 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
         L{DirectoryService.indexRecords} ensures all record data is in the
         index.
         """
-        service = NoLoadDirectoryService(u"")
+        service = self.service(
+            subClass=noLoadDirectoryService(self.serviceClass)
+        )
         records = RecordStorage(service, DirectoryRecord)
 
         service.indexRecords(records)
@@ -85,7 +89,9 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
         """
         L{DirectoryService.indexRecords} does not have extra data in the index.
         """
-        service = NoLoadDirectoryService(u"")
+        service = self.service(
+            subClass=noLoadDirectoryService(self.serviceClass)
+        )
         records = RecordStorage(service, DirectoryRecord)
 
         service.indexRecords(records)
@@ -149,7 +155,9 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
         """
         C{flush} sets the index to C{None}.
         """
-        service = NoLoadDirectoryService(u"")
+        service = self.service(
+            subClass=noLoadDirectoryService(self.serviceClass)
+        )
         service._index = {}
         service.flush()
         self.assertTrue(emptyIndex(service._index))
