@@ -30,8 +30,8 @@ from twisted.internet.defer import gatherResults, FirstError
 
 from twext.who.idirectory import DirectoryConfigurationError
 from twext.who.idirectory import IDirectoryService
-from twext.who.index import DirectoryService as BaseDirectoryService
-from twext.who.index import DirectoryRecord
+from twext.who.directory import DirectoryService as BaseDirectoryService
+from twext.who.directory import DirectoryRecord
 from twext.who.util import ConstantsContainer
 
 
@@ -66,10 +66,6 @@ class DirectoryService(BaseDirectoryService):
     @property
     def services(self):
         return self._services
-
-
-    def loadRecords(self):
-        pass
 
 
     @property

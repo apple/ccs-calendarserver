@@ -52,22 +52,7 @@ class BaseTest(object):
 
 
 
-class DirectoryServiceTest(
-    unittest.TestCase,
-    BaseTest,
-    test_index.BaseDirectoryServiceTest,
-):
-    serviceClass = DirectoryService
-    directoryRecordClass = DirectoryRecord
-
-    def test_repr(self):
-        service = self.service()
-
-        self.assertEquals(repr(service), "<TestService (not loaded)>")
-        service.loadRecords()
-        self.assertEquals(repr(service), "<TestService u'xyzzy'>")
-
-
+class DirectoryServiceConvenienceTestMixIn(BaseTest):
     @inlineCallbacks
     def test_recordWithUID(self):
         service = self.service()
@@ -180,6 +165,23 @@ class DirectoryServiceTest(
             )
         )
         self.assertRecords(records, (u"__sagen__", u"__dre__"))
+
+
+
+class DirectoryServiceTest(
+    unittest.TestCase,
+    DirectoryServiceConvenienceTestMixIn,
+    test_index.BaseDirectoryServiceTest,
+):
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
+    def test_repr(self):
+        service = self.service()
+
+        self.assertEquals(repr(service), "<TestService (not loaded)>")
+        service.loadRecords()
+        self.assertEquals(repr(service), "<TestService u'xyzzy'>")
 
 
 

@@ -25,13 +25,15 @@ from twext.who.idirectory import IDirectoryService, DirectoryConfigurationError
 from twext.who.aggregate import DirectoryService, DirectoryRecord
 from twext.who.util import ConstantsContainer
 from twext.who.test import test_directory, test_xml
-from twext.who.test.test_xml import QueryMixIn, xmlService
-from twext.who.test.test_xml import TestService as XMLTestService
-
+from twext.who.test.test_xml import (
+    QueryMixIn, xmlService,
+    TestService as XMLTestService,
+    DirectoryServiceConvenienceTestMixIn
+)
 
 
 class BaseTest(object):
-    def service(self, subClass=None, services=None):
+    def service(self, services=None):
         if services is None:
             services = (self.xmlService(),)
 
@@ -45,10 +47,7 @@ class BaseTest(object):
             for s in services
         ))
 
-        if subClass is None:
-            subClass = DirectoryService
-
-        class TestService(subClass, QueryMixIn):
+        class TestService(DirectoryService, QueryMixIn):
             pass
 
         return TestService(u"xyzzy", services)
@@ -63,7 +62,12 @@ class BaseTest(object):
 
 
 
-class DirectoryServiceTest(BaseTest, test_xml.DirectoryServiceTest):
+class DirectoryServiceTest(
+    unittest.TestCase,
+    BaseTest,
+    DirectoryServiceConvenienceTestMixIn,
+    test_directory.BaseDirectoryServiceTest
+):
     serviceClass = DirectoryService
     directoryRecordClass = DirectoryRecord
 
@@ -88,7 +92,7 @@ class DirectoryServiceImmutableTest(
 
 
 class AggregatedBaseTest(BaseTest):
-    def service(self, subClass=None):
+    def service(self):
         class UsersDirectoryService(XMLTestService):
             recordType = ConstantsContainer((XMLTestService.recordType.user,))
 
@@ -106,7 +110,6 @@ class AggregatedBaseTest(BaseTest):
 
         return BaseTest.service(
             self,
-            subClass=None,
             services=(usersService, groupsService)
         )
 
