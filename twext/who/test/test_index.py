@@ -19,8 +19,10 @@ Indexed directory service base implementation tests.
 """
 
 from twisted.trial import unittest
+from twisted.internet.defer import inlineCallbacks
 
 from twext.who.idirectory import FieldName as BaseFieldName
+from twext.who.expression import MatchExpression, MatchType
 from twext.who.index import DirectoryService, DirectoryRecord
 from twext.who.test import test_directory
 from twext.who.test.test_directory import RecordStorage
@@ -124,33 +126,65 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
         self.assertTrue(emptyIndex(service.index))
 
 
+    @inlineCallbacks
+    def _test_indexedRecordsFromMatchExpression(self, inOut, matchType):
+        service = self.noLoadServicePopulated()
+
+        for subString, uids in (inOut):
+            records = yield service.indexedRecordsFromMatchExpression(
+                MatchExpression(
+                    service.fieldName.shortNames, subString,
+                    matchType
+                )
+            )
+            self.assertEquals(
+                set((record.uid for record in records)),
+                set(uids)
+            )
+
+
     def test_indexedRecordsFromMatchExpression_startsWith(self):
         """
-        L{DirectoryService.indexedRecordsFromMatchExpression} ...
+        L{DirectoryService.indexedRecordsFromMatchExpression} with a startsWith
+        expression.
         """
-        # service = self.noLoadServicePopulated()
-
-        raise NotImplementedError()
-
-    test_indexedRecordsFromMatchExpression_startsWith.todo = "Unimplemented"
+        return self._test_indexedRecordsFromMatchExpression(
+            (
+                (u"w", (u"__wsanchez__",)),           # Duplicates
+                (u"dr", (u"__dre__", u"__dreid__")),  # Multiple
+                (u"sage", (u"__sagen__",)),           # Single
+            ),
+            MatchType.startsWith
+        )
 
 
     def test_indexedRecordsFromMatchExpression_contains(self):
         """
-        L{DirectoryService.indexedRecordsFromMatchExpression} ...
+        L{DirectoryService.indexedRecordsFromMatchExpression} with a contains
+        expression.
         """
-        raise NotImplementedError()
-
-    test_indexedRecordsFromMatchExpression_contains.todo = "Unimplemented"
+        return self._test_indexedRecordsFromMatchExpression(
+            (
+                (u"sanch", (u"__wsanchez__",)),       # Duplicates
+                (u"dr", (u"__dre__", u"__dreid__")),  # Multiple
+                (u"agen", (u"__sagen__",)),           # Single
+            ),
+            MatchType.contains
+        )
 
 
     def test_indexedRecordsFromMatchExpression_equals(self):
         """
-        L{DirectoryService.indexedRecordsFromMatchExpression} ...
+        L{DirectoryService.indexedRecordsFromMatchExpression} with an equals
+        expression.
         """
-        raise NotImplementedError()
-
-    test_indexedRecordsFromMatchExpression_equals.todo = "Unimplemented"
+        return self._test_indexedRecordsFromMatchExpression(
+            (
+                (u"wsanchez", (u"__wsanchez__",)),  # MultiValue
+                (u"dre", (u"__dre__",)),            # Single value
+            ),
+            MatchType.equals
+        )
 
 
     def test_unIndexedRecordsFromMatchExpression(self):
