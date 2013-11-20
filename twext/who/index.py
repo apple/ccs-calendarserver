@@ -30,7 +30,7 @@ from twisted.python.constants import Names, NamedConstant
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.who.util import ConstantsContainer
-from twext.who.util import describe, uniqueResult
+from twext.who.util import uniqueResult
 from twext.who.idirectory import FieldName as BaseFieldName
 from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.directory import DirectoryService as BaseDirectoryService
@@ -245,7 +245,15 @@ class DirectoryService(BaseDirectoryService):
         predicate = MatchFlags.predicator(expression.flags)
         normalize = MatchFlags.normalizer(expression.flags)
 
-        fieldIndex = self.index[expression.fieldName]
+        try:
+            fieldIndex = self.index[expression.fieldName]
+        except KeyError:
+            raise TypeError(
+                "indexedRecordsFromMatchExpression() was passed an "
+                "expression with an unindexed field: {0!r}"
+                .format(expression.fieldName)
+            )
+
         matchValue = normalize(expression.fieldValue)
         matchType  = expression.matchType
 
@@ -269,7 +277,7 @@ class DirectoryService(BaseDirectoryService):
                 )
         else:
             raise NotImplementedError(
-                "Unknown match type: {0}".format(describe(matchType))
+                "Unknown match type: {0!r}".format(matchType)
             )
 
         matchingRecords = set()
@@ -313,7 +321,7 @@ class DirectoryService(BaseDirectoryService):
             match = lambda fieldValue: predicate(fieldValue == matchValue)
         else:
             raise NotImplementedError(
-                "Unknown match type: {0}".format(describe(matchType))
+                "Unknown match type: {0!r}".format(matchType)
             )
 
         result = set()

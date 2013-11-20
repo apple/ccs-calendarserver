@@ -127,13 +127,17 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
 
 
     @inlineCallbacks
-    def _test_indexedRecordsFromMatchExpression(self, inOut, matchType):
+    def _test_indexedRecordsFromMatchExpression(
+        self,
+        inOut, matchType,
+        fieldName=BaseFieldName.shortNames,
+    ):
         service = self.noLoadServicePopulated()
 
         for subString, uids in (inOut):
             records = yield service.indexedRecordsFromMatchExpression(
                 MatchExpression(
-                    service.fieldName.shortNames, subString,
+                    fieldName, subString,
                     matchType
                 )
             )
@@ -185,6 +189,35 @@ class BaseDirectoryServiceTest(test_directory.BaseDirectoryServiceTest):
             ),
             MatchType.equals
         )
+
+
+    def test_indexedRecordsFromMatchExpression_notIndexed(self):
+        """
+        L{DirectoryService.indexedRecordsFromMatchExpression} with an
+        unindexed field name.
+        """
+        result = self._test_indexedRecordsFromMatchExpression(
+            (
+                (u"zehcnasw", (u"__wsanchez__",)),
+            ),
+            MatchType.equals,
+            fieldName=BaseFieldName.password
+        )
+        self.assertFailure(result, TypeError)
+
+
+    def test_indexedRecordsFromMatchExpression_notMatchExpression(self):
+        """
+        L{DirectoryService.indexedRecordsFromMatchExpression} with a
+        non-match expression.
+        """
+        result = self._test_indexedRecordsFromMatchExpression(
+            (
+                (u"zehcnasw", (u"__wsanchez__",)),
+            ),
+            "Not a match type we know about"
+        )
+        self.assertFailure(result, NotImplementedError)
 
 
     def test_unIndexedRecordsFromMatchExpression(self):
