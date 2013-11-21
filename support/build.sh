@@ -882,7 +882,7 @@ dependencies () {
     "${pypi}/p/${n}/${p}.tar.gz";
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
-      "${svn_uri_base}/CalDAVTester/trunk" HEAD;
+      "${svn_uri_base}/CalDAVTester/trunk" 11892;
 
   local v="3.0.1";
   local n="epydoc";
