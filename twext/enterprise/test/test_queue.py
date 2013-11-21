@@ -36,6 +36,7 @@ from twext.enterprise.queue import (
 )
 
 from twisted.trial.unittest import TestCase
+from twisted.python.failure import Failure
 from twisted.internet.defer import (
     Deferred, inlineCallbacks, gatherResults, passthru#, returnValue
 )
@@ -55,6 +56,8 @@ from zope.interface.verify import verifyObject
 from twisted.test.proto_helpers import StringTransport, MemoryReactor
 from twext.enterprise.fixtures import SteppablePoolHelper
 from twisted.internet.defer import returnValue
+from twext.enterprise.queue import LocalQueuer
+from twext.enterprise.fixtures import ConnectionPoolHelper
 
 from twext.enterprise.queue import _BaseQueuer, NonPerformingQueuer
 import twext.enterprise.queue
@@ -67,7 +70,7 @@ class Clock(_Clock):
 
     def callLater(self, _seconds, _f, *args, **kw):
         if _seconds < 0:
-            raise ValueError("%s<0: "%(_seconds,))
+            raise ValueError("%s<0: " % (_seconds,))
         return super(Clock, self).callLater(_seconds, _f, *args, **kw)
 
 
@@ -267,6 +270,56 @@ class WorkerConnectionPoolTests(TestCase):
 
 
 
+class WorkProposalTests(TestCase):
+    """
+    Tests for L{WorkProposal}.
+    """
+
+    def test_whenProposedSuccess(self):
+        """
+        The L{Deferred} returned by L{WorkProposal.whenProposed} fires when the
+        SQL sent to the database has completed.
+        """
+        cph = ConnectionPoolHelper()
+        cph.setUp(test=self)
+        cph.pauseHolders()
+        lq = LocalQueuer(cph.createTransaction)
+        enqTxn = cph.createTransaction()
+        wp = lq.enqueueWork(enqTxn, DummyWorkItem, a=3, b=4)
+        d = wp.whenProposed()
+        r = cph.resultOf(d)
+        self.assertEquals(r, [])
+        cph.flushHolders()
+        self.assertEquals(len(r), 1)
+
+
+    def test_whenProposedFailure(self):
+        """
+        The L{Deferred} returned by L{WorkProposal.whenProposed} fails with an
+        errback when the SQL executed to create the WorkItem row fails.
+        """
+        cph = ConnectionPoolHelper()
+        cph.setUp(self)
+        cph.pauseHolders()
+        firstConnection = cph.factory.willConnectTo()
+        enqTxn = cph.createTransaction()
+        # Execute some SQL on the connection before enqueueing the work-item so
+        # that we don't get the initial-statement.
+        enqTxn.execSQL("some sql")
+        lq = LocalQueuer(cph.createTransaction)
+        cph.flushHolders()
+        cph.pauseHolders()
+        wp = lq.enqueueWork(enqTxn, DummyWorkItem, a=3, b=4)
+        firstConnection.executeWillFail(lambda: RuntimeError("foo"))
+        d = wp.whenProposed()
+        r = cph.resultOf(d)
+        self.assertEquals(r, [])
+        cph.flushHolders()
+        self.assertEquals(len(r), 1)
+        self.assertIsInstance(r[0], Failure)
+
+
+
 class PeerConnectionPoolUnitTests(TestCase):
     """
     L{PeerConnectionPool} has many internal components.
@@ -393,7 +446,8 @@ class PeerConnectionPoolUnitTests(TestCase):
             # Next, create one that's actually far enough into the past to run.
             yield DummyWorkItem.create(
                 txn, a=3, b=4, notBefore=(
-                    # Schedule it in the past so that it should have already run.
+                    # Schedule it in the past so that it should have already
+                    # run.
                     fakeNow - datetime.timedelta(
                         seconds=qpool.queueProcessTimeout + 20
                     )
@@ -619,6 +673,7 @@ class Connection(object):
         self.receiver, self.sender = self.sender, self.receiver
         return result
 
+
     def flush(self, turns=10):
         """
         Keep relaying data until there's no more.
@@ -718,7 +773,7 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         def op2(txn):
             return Select([schema.DUMMY_WORK_DONE.WORK_ID,
                            schema.DUMMY_WORK_DONE.A_PLUS_B],
-                           From=schema.DUMMY_WORK_DONE).on(txn)
+                          From=schema.DUMMY_WORK_DONE).on(txn)
         rows = yield inTransaction(self.store.newTransaction, op2)
         self.assertEquals(rows, [[4321, 7]])
 
@@ -729,7 +784,7 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         When a L{WorkItem} is concurrently deleted by another transaction, it
         should I{not} perform its work.
         """
-        # Provide access to a method called 'concurrently' everything using 
+        # Provide access to a method called 'concurrently' everything using
         original = self.store.newTransaction
         def decorate(*a, **k):
             result = original(*a, **k)
@@ -746,13 +801,13 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         # Sanity check on the concurrent deletion.
         def op2(txn):
             return Select([schema.DUMMY_WORK_ITEM.WORK_ID],
-                           From=schema.DUMMY_WORK_ITEM).on(txn)
+                          From=schema.DUMMY_WORK_ITEM).on(txn)
         rows = yield inTransaction(self.store.newTransaction, op2)
         self.assertEquals(rows, [])
         def op3(txn):
             return Select([schema.DUMMY_WORK_DONE.WORK_ID,
                            schema.DUMMY_WORK_DONE.A_PLUS_B],
-                           From=schema.DUMMY_WORK_DONE).on(txn)
+                          From=schema.DUMMY_WORK_DONE).on(txn)
         rows = yield inTransaction(self.store.newTransaction, op3)
         self.assertEquals(rows, [])
 
@@ -763,8 +818,11 @@ class DummyProposal(object):
     def __init__(self, *ignored):
         pass
 
+
     def _start(self):
         pass
+
+
 
 class BaseQueuerTests(TestCase):
 
@@ -772,8 +830,10 @@ class BaseQueuerTests(TestCase):
         self.proposal = None
         self.patch(twext.enterprise.queue, "WorkProposal", DummyProposal)
 
+
     def _proposalCallback(self, proposal):
         self.proposal = proposal
+
 
     def test_proposalCallbacks(self):
         queuer = _BaseQueuer()
@@ -781,6 +841,7 @@ class BaseQueuerTests(TestCase):
         self.assertEqual(self.proposal, None)
         queuer.enqueueWork(None, None)
         self.assertNotEqual(self.proposal, None)
+
 
 
 class NonPerformingQueuerTests(TestCase):
@@ -791,5 +852,3 @@ class NonPerformingQueuerTests(TestCase):
         performer = queuer.choosePerformer()
         result = (yield performer.performWork(None, None))
         self.assertEquals(result, None)
-
-
