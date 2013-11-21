@@ -895,9 +895,10 @@
     <key>EnableWebAdmin</key>
     <true/>
 
-    <!-- Support for Content-Encoding compression options as specified in RFC2616 Section 3.5 -->
+    <!-- Support for Content-Encoding compression -->
     <key>ResponseCompression</key>
-    <false/>
+    <false/>  <!-- Off for testing, as debugging is easier that way. -->
+
     
     <!-- The retry-after value (in seconds) to return with a 503 error. -->
     <key>HTTPRetryAfter</key>
