@@ -882,7 +882,8 @@ DEFAULT_CONFIG = {
 
     # Support for Content-Encoding compression options as specified in
     # RFC2616 Section 3.5
-    "ResponseCompression": True,
+    # Defaults off, because it weakens TLS (CRIME attack).
+    "ResponseCompression": False,
 
     # The retry-after value (in seconds) to return with a 503 error
     "HTTPRetryAfter": 180,
