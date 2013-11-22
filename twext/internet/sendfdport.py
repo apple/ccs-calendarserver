@@ -115,12 +115,13 @@ class _SubprocessSocket(FileDescriptor, object):
     @type dispatcher: L{InheritedSocketDispatcher}
     """
 
-    def __init__(self, dispatcher, skt, status):
+    def __init__(self, dispatcher, inSkt, outSkt, status):
         FileDescriptor.__init__(self, dispatcher.reactor)
         self.status = status
         self.dispatcher = dispatcher
-        self.skt = skt          # XXX needs to be set non-blocking by somebody
-        self.fileno = skt.fileno
+        self.inSkt = inSkt
+        self.outSkt = outSkt   # XXX needs to be set non-blocking by somebody
+        self.fileno = outSkt.fileno
         self.outgoingSocketQueue = []
         self.pendingCloseSocketQueue = []
 
@@ -138,7 +139,7 @@ class _SubprocessSocket(FileDescriptor, object):
         Receive a status / health message and record it.
         """
         try:
-            data, _ignore_flags, _ignore_ancillary = recvmsg(self.skt.fileno())
+            data, _ignore_flags, _ignore_ancillary = recvmsg(self.outSkt.fileno())
         except SocketError, se:
             if se.errno not in (EAGAIN, ENOBUFS):
                 raise
@@ -155,7 +156,7 @@ class _SubprocessSocket(FileDescriptor, object):
         while self.outgoingSocketQueue:
             skt, desc = self.outgoingSocketQueue.pop(0)
             try:
-                sendfd(self.skt.fileno(), skt.fileno(), desc)
+                sendfd(self.outSkt.fileno(), skt.fileno(), desc)
             except SocketError, se:
                 if se.errno in (EAGAIN, ENOBUFS):
                     self.outgoingSocketQueue.insert(0, (skt, desc))
@@ -341,11 +342,24 @@ class InheritedSocketDispatcher(object):
         i, o = socketpair()
         i.setblocking(False)
         o.setblocking(False)
-        a = _SubprocessSocket(self, o, self.statusWatcher.initialStatus())
+        a = _SubprocessSocket(self, i, o, self.statusWatcher.initialStatus())
         self._subprocessSockets.append(a)
         if self._isDispatching:
             a.startReading()
         return i
+
+
+    def removeSocket(self, skt):
+        """
+        Removes a previously added socket from the pool of sockets being used
+        for transmitting file descriptors to child processes.
+        """
+        for a in self._subprocessSockets:
+            if a.inSkt == skt:
+                self._subprocessSockets.remove(a)
+                break
+        else:
+            raise ValueError("Unknown socket: {0}".format(skt))
 
 
 
