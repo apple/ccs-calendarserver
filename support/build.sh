@@ -779,10 +779,10 @@ dependencies () {
 
   # Maintenance note: next time the Twisted dependency gets updated, check out
   # twext/patches.py.
-  local v="12.3.0";
+  local v="13.2.0";
   local n="Twisted";
   local p="${n}-${v}";
-  py_dependency -v 12.2 -m "6e289825f3bf5591cfd670874cc0862d" \
+  py_dependency -v 13.2 -m "83fe6c0c911cc1602dbffb036be0ba79" \
     "${n}" "twisted" "${p}" \
     "${pypi}/T/${n}/${p}.tar.bz2";
 
