@@ -94,8 +94,8 @@ class _SubprocessSocket(FileDescriptor, object):
     A socket in the master process pointing at a file descriptor that can be
     used to transmit sockets to a subprocess.
 
-    @ivar skt: the UNIX socket used as the sendmsg() transport.
-    @type skt: L{socket.socket}
+    @ivar outSocket: the UNIX socket used as the sendmsg() transport.
+    @type outSocket: L{socket.socket}
 
     @ivar outgoingSocketQueue: an outgoing queue of sockets to send to the
         subprocess, along with their descriptions (strings describing their
@@ -115,13 +115,13 @@ class _SubprocessSocket(FileDescriptor, object):
     @type dispatcher: L{InheritedSocketDispatcher}
     """
 
-    def __init__(self, dispatcher, inSkt, outSkt, status):
+    def __init__(self, dispatcher, inSocket, outSocket, status):
         FileDescriptor.__init__(self, dispatcher.reactor)
         self.status = status
         self.dispatcher = dispatcher
-        self.inSkt = inSkt
-        self.outSkt = outSkt   # XXX needs to be set non-blocking by somebody
-        self.fileno = outSkt.fileno
+        self.inSocket = inSocket
+        self.outSocket = outSocket   # XXX needs to be set non-blocking by somebody
+        #self.fileno = outSocket.fileno
         self.outgoingSocketQueue = []
         self.pendingCloseSocketQueue = []
 
@@ -139,7 +139,7 @@ class _SubprocessSocket(FileDescriptor, object):
         Receive a status / health message and record it.
         """
         try:
-            data, _ignore_flags, _ignore_ancillary = recvmsg(self.outSkt.fileno())
+            data, _ignore_flags, _ignore_ancillary = recvmsg(self.outSocket.fileno())
         except SocketError, se:
             if se.errno not in (EAGAIN, ENOBUFS):
                 raise
@@ -156,7 +156,7 @@ class _SubprocessSocket(FileDescriptor, object):
         while self.outgoingSocketQueue:
             skt, desc = self.outgoingSocketQueue.pop(0)
             try:
-                sendfd(self.outSkt.fileno(), skt.fileno(), desc)
+                sendfd(self.outSocket.fileno(), skt.fileno(), desc)
             except SocketError, se:
                 if se.errno in (EAGAIN, ENOBUFS):
                     self.outgoingSocketQueue.insert(0, (skt, desc))
@@ -355,7 +355,7 @@ class InheritedSocketDispatcher(object):
         for transmitting file descriptors to child processes.
         """
         for a in self._subprocessSockets:
-            if a.inSkt == skt:
+            if a.inSocket == skt:
                 self._subprocessSockets.remove(a)
                 break
         else:
