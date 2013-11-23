@@ -25,11 +25,13 @@ from zope.interface import implementer
 
 from twisted.python.sendmsg import getsockfam
 from twisted.python.usage import Options, UsageError
+from twisted.python.reflect import namedClass
 from twisted.application.service import MultiService, Service
 from twisted.application.service import IServiceMaker
 from twisted.application.internet import TCPServer
 from twisted.protocols.policies import WrappingFactory, ProtocolWrapper
 
+from twisted.internet.protocol import ServerFactory
 from twisted.internet.protocol import ProcessProtocol
 from twext.internet.sendfdport import InheritingProtocolFactory
 from twext.internet.sendfdport import InheritedSocketDispatcher
@@ -165,6 +167,7 @@ class ChildOptions (Options):
 
             if fd < 0:
                 raise ValueError("must be >=0")
+
         except ValueError as e:
             raise UsageError(
                 "Invalid file descriptor {0!r}: {1}".format(value, e)
@@ -173,16 +176,30 @@ class ChildOptions (Options):
         self["inherited-fd"] = fd
 
 
+    def opt_protocol(self, value):
+        """
+        Protocol
+        """
+        try:
+            protocol = namedClass(value)
+        except (ValueError, AttributeError):
+            raise UsageError("Unknown protocol: {0}".format(value))
+
+        self["protocol"] = protocol
+
+
     def postOptions(self):
-        if "inherited-fd" not in self:
-            raise UsageError("inherited-fd paramater is required")
+        for parameter in ("inherited-fd", "protocol"):
+            if parameter not in self:
+                raise UsageError("{0} parameter is required".format(parameter))
 
 
 
 @implementer(IServiceMaker)
 class ChildServiceMaker(object):
     def makeService(self, options):
-        service = ChildService(options["inherited-fd"], self.protocolFactory)
+        factory = ServerFactory.forProtocol(options["protocol"])
+        service = ChildService(options["inherited-fd"], factory)
         return service
 
 
