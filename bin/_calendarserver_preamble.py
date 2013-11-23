@@ -64,6 +64,7 @@ def bootstrapFromRun():
         "calendarserver_manage_postgres",
         "calendarserver_manage_timezones",
         "icalendar_split",
+        "twistd", "trial",
     ]
 
     if split(sys.argv[0])[-1] not in noConfigOption:
