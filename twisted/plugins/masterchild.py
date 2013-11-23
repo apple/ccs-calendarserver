@@ -15,9 +15,11 @@
 ##
 
 from zope.interface import implementer
-from twisted.python import reflect
+
+from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
+
 from twext.application.masterchild import MasterOptions, ChildOptions
 
 
@@ -33,7 +35,7 @@ class ServiceMaker(object):
 
     def makeService(self, options):
         if self._serviceMaker is None:
-            self._serviceMaker = reflect.namedClass(self.serviceMakerClass)()
+            self._serviceMaker = namedClass(self.serviceMakerClass)()
 
         return self._serviceMaker.makeService(options)
 
