@@ -57,7 +57,7 @@ class SpawningInheritingProtocolFactory(InheritingProtocolFactory):
 
 
     def sendSocket(self, socketObject):
-        self.spawningService.socketWillArrive()
+        self.spawningService.socketWillArriveForProtocol(self.description)
         super(SpawningInheritingProtocolFactory, self).sendSocket(socketObject)
 
 
@@ -79,9 +79,8 @@ class MasterServiceMaker(object):
         spawningService.setServiceParent(service)
 
         # TCP Service
-        description = bytes(childProtocol)  # UserInfo sent to the dispatcher
         tcpFactory = SpawningInheritingProtocolFactory(
-            dispatcher, spawningService, description
+            dispatcher, spawningService, childProtocol
         )
         tcpService = TCPServer(port, tcpFactory)
 
@@ -98,14 +97,16 @@ Child = namedtuple("Child", ("transport", "protocol"))
 class ChildSpawningService(Service, object):
     log = Logger()
 
-    def __init__(self, dispatcher, protocolName, maxProcessCount=8):
+    pluginName = b"child"
+
+
+    def __init__(self, dispatcher, maxProcessCount=8):
         """
         @param protocol: The name of the protocol for the child to use
             to handle connections.
         @type protocol: L{str} naming an L{IProtocol} implementer.
         """
         self.dispatcher = dispatcher
-        self.protocolName = protocolName
         self.maxProcessCount = maxProcessCount
 
 
@@ -119,17 +120,17 @@ class ChildSpawningService(Service, object):
         del(self.children)
 
 
-    def socketWillArrive(self):
+    def socketWillArriveForProtocol(self, protocolName):
         """
         This method is where this service makes sure that there are
         sufficient child processes available to handle additional
         connections.
         """
         if len(self.children) == 0:
-            self.spawnChild()
+            self.spawnChild(protocolName)
 
 
-    def spawnChild(self):
+    def spawnChild(self, protocolName):
         """
         Spawn a child process to handle connections.
         """
@@ -143,13 +144,18 @@ class ChildSpawningService(Service, object):
         arguments = (
             sys.executable, b"-c",
             b"from twisted.scripts.twistd import run; run()",
-            b"--inherited-fd", b"3",
-            b"--protocol", self.protocolName,
+            b"--pidfile", b"/dev/null",
+            b"--logfile", b"-",
+            self.pluginName,
+            b"--inherited-fd=3",
+            b"--protocol", protocolName,
         )
 
         transport = reactor.spawnProcess(
             processProtocol,
-            sys.executable, arguments, env={},
+            sys.executable, arguments, env={
+                b"PYTHONPATH": b":".join(sys.path),
+            },
             childFDs={0: b"w", 1: b"r", 2: b"r", 3: inheritedFD}
         )
 
@@ -158,7 +164,7 @@ class ChildSpawningService(Service, object):
         self.log.info(
             u"Spawned child process ({child.transport.pid}) "
             u"for protocol {protocol!r}: {arguments}",
-            child=child, protocol=self.protocolName, arguments=arguments,
+            child=child, protocol=protocolName, arguments=arguments,
         )
 
         self.children.add(child)
@@ -223,7 +229,11 @@ class ChildProcessProtocol(ProcessProtocol, object):
 
 
 
-class ChildOptions (Options):
+class ChildOptions(Options):
+    """
+    Options for a child process.
+    """
+
     def opt_inherited_fd(self, value):
         """
         Inherited file descriptor
@@ -365,6 +375,13 @@ class StatusWatcher(object):
                 ackedCount=0,
             )
         )
+
+
+    @staticmethod
+    def statusesChanged(statuses):
+        # FIXME: THis isn't in IStatusWatcher, but is called by
+        # InheritedSocketDispatcher.
+        pass
 
 
 
