@@ -3116,23 +3116,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     @inlineCallbacks
-    def storeRemove(self, request):
-        """
-        handle remove of partially shared addressbook, else call super
-        """
-        if self.isShareeResource() and self._newStoreObject.shareUID() is None:
-            log.debug("Removing shared collection %s" % (self,))
-            for childname in (yield self.listChildren()):
-                child = (yield request.locateChildResource(self, childname))
-                if child.isShareeResource():
-                    yield child.storeRemove(request)
-
-            returnValue(NO_CONTENT)
-
-        returnValue((yield super(AddressBookCollectionResource, self).storeRemove(request)))
-
-
-    @inlineCallbacks
     def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses, format):
         """
         bulk create allowing groups to contain member UIDs added during the same bulk create

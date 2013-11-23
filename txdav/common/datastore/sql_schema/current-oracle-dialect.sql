@@ -58,7 +58,7 @@ create table NOTIFICATION (
     "NOTIFICATION_HOME_RESOURCE_ID" integer not null references NOTIFICATION_HOME,
     "NOTIFICATION_UID" nvarchar2(255),
     "NOTIFICATION_TYPE" nvarchar2(255),
-    "XML_DATA" nclob,
+    "NOTIFICATION_DATA" nclob,
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
@@ -92,6 +92,7 @@ insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('own', 0);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('read', 1);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('write', 2);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('direct', 3);
+insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('indirect', 4);
 create table CALENDAR_BIND_STATUS (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique

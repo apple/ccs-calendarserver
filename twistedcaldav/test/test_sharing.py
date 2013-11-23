@@ -19,7 +19,7 @@ from twext.web2.dav.util import allDataFromStream
 from twext.web2.http_headers import MimeType
 from twext.web2.iweb import IResponse
 
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import customxml
 from twistedcaldav import sharing
@@ -104,6 +104,10 @@ class FakePrincipal(DirectoryCalendarPrincipalResource):
         returnValue(b)
 
 
+    def calendarHomeURLs(self):
+        return (self.homepath,)
+
+
     def principalURL(self):
         return self.path
 
@@ -139,22 +143,6 @@ class SharingTests(StoreTestCase):
             """
             self.patch(CalDAVResource, c.__name__, c)
             return c
-
-        @patched
-        def sendInviteNotification(resourceSelf, record, request):
-            """
-            For testing purposes, sending an invite notification succeeds
-            without doing anything.
-            """
-            return succeed(True)
-
-        @patched
-        def removeInviteNotification(resourceSelf, record, request):
-            """
-            For testing purposes, removing an invite notification succeeds
-            without doing anything.
-            """
-            return succeed(True)
 
         @patched
         def principalForCalendarUserAddress(resourceSelf, cuaddr):

@@ -171,6 +171,7 @@ class PushNotificationWorkTests(StoreTestCase):
             [("/CalDAV/localhost/bar/", PushPriority.high)])
 
 
+
 class NotifierFactory(StoreTestCase):
 
     requirements = {
@@ -223,27 +224,27 @@ class NotifierFactory(StoreTestCase):
     def test_shareWithNotifier(self):
 
         calendar = yield self.calendarUnderTest()
-        home2 = yield self.homeUnderTest(name="home2")
-        yield calendar.shareWith(home2, _BIND_MODE_WRITE)
+        yield calendar.inviteUserToShare("home2", _BIND_MODE_WRITE, "")
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
                 ("/CalDAV/example.com/home1/", PushPriority.high),
                 ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
                 ("/CalDAV/example.com/home2/", PushPriority.high),
+                ("/CalDAV/example.com/home2/notification/", PushPriority.high),
             ])
         )
         yield self.commit()
 
         calendar = yield self.calendarUnderTest()
-        home2 = yield self.homeUnderTest(name="home2")
-        yield calendar.unshareWith(home2)
+        yield calendar.uninviteUserFromShare("home2")
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
                 ("/CalDAV/example.com/home1/", PushPriority.high),
                 ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
                 ("/CalDAV/example.com/home2/", PushPriority.high),
+                ("/CalDAV/example.com/home2/notification/", PushPriority.high),
             ])
         )
         yield self.commit()
@@ -253,8 +254,9 @@ class NotifierFactory(StoreTestCase):
     def test_sharedCalendarNotifier(self):
 
         calendar = yield self.calendarUnderTest()
-        home2 = yield self.homeUnderTest(name="home2")
-        shareName = yield calendar.shareWith(home2, _BIND_MODE_WRITE)
+        shareeView = yield calendar.inviteUserToShare("home2", _BIND_MODE_WRITE, "")
+        yield shareeView.acceptShare("")
+        shareName = shareeView.name()
         yield self.commit()
         self.notifierFactory.reset()
 

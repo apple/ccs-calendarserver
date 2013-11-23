@@ -34,7 +34,8 @@ from twext.web2.dav.util import allDataFromStream, joinURL
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_STATUS_INVITED, \
     _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, \
-    _BIND_STATUS_INVALID, _ABO_KIND_GROUP, _BIND_STATUS_DELETED
+    _BIND_STATUS_INVALID, _ABO_KIND_GROUP, _BIND_STATUS_DELETED, \
+    _BIND_MODE_DIRECT, _BIND_MODE_INDIRECT
 from txdav.xml import element
 
 from twisted.internet.defer import succeed, inlineCallbacks, DeferredList, \
@@ -235,7 +236,8 @@ class SharedResourceMixin(object):
         return (
             hasattr(self, "_newStoreObject") and
             hasattr(self._newStoreObject, "owned") and
-            not self._newStoreObject.owned()
+            not self._newStoreObject.owned() and
+            getattr(self._newStoreObject, "_bindMode", None) is not None
         )
 
 
@@ -764,12 +766,13 @@ invitationBindModeToXMLMap = {
 }
 invitationBindModeFromXMLMap = dict((v, k) for k, v in invitationBindModeToXMLMap.iteritems())
 
-invitationAccessToBindModeMap = {
-    "own": _BIND_MODE_OWN,
-    "read-only": _BIND_MODE_READ,
-    "read-write": _BIND_MODE_WRITE,
-    }
-invitationAccessFromBindModeMap = dict((v, k) for k, v in invitationAccessToBindModeMap.iteritems())
+invitationAccessFromBindModeMap = {
+    _BIND_MODE_OWN: "own",
+    _BIND_MODE_READ: "read-only",
+    _BIND_MODE_WRITE: "read-write",
+    _BIND_MODE_DIRECT: "read-write",
+    _BIND_MODE_INDIRECT: "read-write",
+}
 
 
 class SharedHomeMixin(LinkFollowerMixIn):
@@ -804,7 +807,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         shareeView = yield self._newStoreHome.acceptShare(inviteUID, summary)
 
         # Return the URL of the shared collection
-        sharedAsURL = joinURL(self.url(), shareeView.name())
+        sharedAsURL = joinURL(self.url(), shareeView.shareName())
         returnValue(XMLResponse(
             code=responsecode.OK,
             element=customxml.SharedAs(

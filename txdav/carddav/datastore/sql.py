@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # #
+from txdav.xml import element
 
 """
 SQL backend for CardDAV storage.
@@ -41,8 +42,8 @@ from twisted.python import hashlib
 from twistedcaldav import carddavxml, customxml
 from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher
-from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError, \
-    vCardProductID, Property
+from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError, Property, \
+    vCardProductID
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.sql import PropertyStore
@@ -55,7 +56,8 @@ from txdav.common.datastore.sql_legacy import PostgresLegacyABIndexEmulator
 from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
     _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema, \
     _BIND_MODE_OWN, _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, \
-    _BIND_STATUS_DECLINED, _BIND_STATUS_INVITED, _BIND_MODE_READ
+    _BIND_STATUS_INVITED, _BIND_MODE_READ, _BIND_MODE_INDIRECT, \
+    _BIND_STATUS_DECLINED
 from txdav.common.icommondatastore import InternalDataStoreError, \
     InvalidUIDError, UIDExistsError, ObjectResourceTooBigError, \
     InvalidObjectResourceError, InvalidComponentForStoreError, \
@@ -141,8 +143,7 @@ class AddressBookHome(CommonHome):
 
         result = yield super(AddressBookHome, self).initFromStore(no_cache)
         if result is not None:
-
-            # created owned address book
+            # Created owned address book
             addressbook = AddressBook(
                 home=self,
                 name="addressbook",
@@ -151,6 +152,12 @@ class AddressBookHome(CommonHome):
                 status=_BIND_STATUS_ACCEPTED,
             )
             yield addressbook._loadPropertyStore()
+
+            # Extra check for shared
+            invites = yield addressbook.sharingInvites()
+            if len(invites) != 0:
+                addressbook._bindMessage = "shared"
+
             self._addressbook = addressbook
 
         returnValue(result)
@@ -191,6 +198,22 @@ class AddressBookHome(CommonHome):
     @inlineCallbacks
     def createdHome(self):
         yield self.addressbook()._initSyncToken()
+
+
+    @inlineCallbacks
+    def anyObjectWithShareUID(self, shareUID):
+        """
+        Retrieve the child accepted or otherwise with the given bind identifier contained in this
+        home.
+
+        @param name: a string.
+        @return: an L{ICalendar} or C{None} if no such child exists.
+        """
+        result = yield super(AddressBookHome, self).anyObjectWithShareUID(shareUID)
+        if result is None:
+            result = yield AddressBookObject.objectWithBindName(self, shareUID, accepted=None)
+
+        returnValue(result)
 
 
     @inlineCallbacks
@@ -323,6 +346,31 @@ class AddressBookSharingMixIn(SharingMixIn):
         return "addressbook"
 
 
+    @inlineCallbacks
+    def deleteShare(self):
+        """
+        This share is being deleted - decline and decline shared groups too.
+        """
+
+        ownerView = yield self.ownerView()
+        if self.direct():
+            yield ownerView.removeShare(self)
+        else:
+            if self.fullyShared():
+                yield self.declineShare()
+            else:
+                # Decline each shared group
+                acceptedGroupIDs = yield self.acceptedGroupIDs()
+                if acceptedGroupIDs:
+                    rows = (yield self._objectResourceNamesWithResourceIDsQuery(acceptedGroupIDs).on(
+                        self._txn, resourceIDs=acceptedGroupIDs
+                    ))
+                    groupNames = sorted([row[0] for row in rows])
+                    for group in groupNames:
+                        groupObject = yield self.objectResourceWithName(group)
+                        yield groupObject.declineShare()
+
+
     def newShareName(self):
         """
         For shared address books the resource name of a share is the ownerUID of the owner's resource.
@@ -330,155 +378,49 @@ class AddressBookSharingMixIn(SharingMixIn):
         return self.ownerHome().uid()
 
 
-#    @inlineCallbacks
-#    def updateShare(self, shareeView, mode=None, status=None, summary=None):
-#        """
-#        Update share mode, status, and message for a home child shared with
-#        this (owned) L{CommonHomeChild}.
-#
-#        @param shareeView: The sharee home child that shares this.
-#        @type shareeView: L{CommonHomeChild}
-#
-#        @param mode: The sharing mode; L{_BIND_MODE_READ} or
-#            L{_BIND_MODE_WRITE} or None to not update
-#        @type mode: L{str}
-#
-#        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
-#            L{_BIND_STATUS_ACCEPTED} or L{_BIND_STATUS_DECLINED} or
-#            L{_BIND_STATUS_INVALID}  or None to not update
-#        @type status: L{str}
-#
-#        @param summary: The proposed message to go along with the share, which
-#            will be used as the default display name, or None to not update
-#        @type summary: L{str}
-#
-#        @return: the name of the shared item in the sharee's home.
-#        @rtype: a L{Deferred} which fires with a L{str}
-#        """
-#        # TODO: raise a nice exception if shareeView is not, in fact, a shared
-#        # version of this same L{CommonHomeChild}
-#
-#        # remove None parameters, and substitute None for empty string
-#        bind = self._bindSchema
-#        columnMap = dict([(k, v if v != "" else None)
-#                          for k, v in {bind.BIND_MODE:mode,
-#                            bind.BIND_STATUS:status,
-#                            bind.MESSAGE:summary}.iteritems() if v is not None])
-#
-#        if len(columnMap):
-#
-#            # count accepted
-#            if status is not None:
-#                previouslyAcceptedBindCount = 1 if not shareeView.indirect() else 0
-#                previouslyAcceptedBindCount += len((yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
-#                        self._txn, homeID=shareeView.viewerHome()._resourceID, addressbookID=shareeView._resourceID
-#                )))
-#
-#            yield self._updateBindColumnsQuery(columnMap).on(
-#                self._txn,
-#                resourceID=self._resourceID, homeID=shareeView.viewerHome()._resourceID
-#            )
-#
-#            # update affected attributes
-#            if mode is not None:
-#                shareeView._bindMode = columnMap[bind.BIND_MODE]
-#
-#            if status is not None:
-#                shareeView._bindStatus = columnMap[bind.BIND_STATUS]
-#                if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
-#                    if 0 == previouslyAcceptedBindCount:
-#                        yield shareeView._initSyncToken()
-#                        yield shareeView._initBindRevision()
-#                        shareeView.viewerHome()._children[shareeView._name] = shareeView
-#                        shareeView.viewerHome()._children[shareeView._resourceID] = shareeView
-#                elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
-#                    if 1 == previouslyAcceptedBindCount:
-#                        yield shareeView._deletedSyncToken(sharedRemoval=True)
-#                        shareeView.viewerHome()._children.pop(shareeView._name, None)
-#                        shareeView.viewerHome()._children.pop(shareeView._resourceID, None)
-#
-#            if summary is not None:
-#                shareeView._bindMessage = columnMap[bind.MESSAGE]
-#
-#            queryCacher = self._txn._queryCacher
-#            if queryCacher:
-#                cacheKey = queryCacher.keyForObjectWithName(shareeView._home._resourceID, shareeView._name)
-#                yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-#                cacheKey = queryCacher.keyForObjectWithResourceID(shareeView._home._resourceID, shareeView._resourceID)
-#                yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-#
-#            # Must send notification to ensure cache invalidation occurs
-#            yield self.notifyPropertyChanged()
+    @inlineCallbacks
+    def newShare(self, displayname=None):
+        """
+        Override in derived classes to do any specific operations needed when a share
+        is first accepted.
+        """
+
+        # For a direct share we will copy any displayname over using the owners view
+        if self.direct():
+            ownerView = yield self.ownerView()
+            try:
+                displayname = ownerView.properties()[PropertyName.fromElement(element.DisplayName)]
+                self.properties()[PropertyName.fromElement(element.DisplayName)] = displayname
+            except KeyError:
+                pass
 
 
-#    @inlineCallbacks
-#    def unshareWith(self, shareeHome):
-#        """
-#        Remove the shared version of this (owned) L{CommonHomeChild} from the
-#        referenced L{CommonHome}.
-#
-#        @see: L{CommonHomeChild.shareWith}
-#
-#        @param shareeHome: The home with which this L{CommonHomeChild} was
-#            previously shared.
-#
-#        @return: a L{Deferred} which will fire with the previous shareUID
-#        """
-#        sharedAddressBook = yield shareeHome.addressbookWithName(self.name())
-#        if sharedAddressBook:
-#
-#            acceptedBindCount = 1 if not sharedAddressBook.indirect() else 0
-#            acceptedBindCount += len((yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
-#                    self._txn, homeID=shareeHome._resourceID, addressbookID=sharedAddressBook._resourceID
-#            )))
-#            if acceptedBindCount == 1:
-#                yield sharedAddressBook._deletedSyncToken(sharedRemoval=True)
-#                shareeHome._children.pop(self.name(), None)
-#                shareeHome._children.pop(sharedAddressBook._resourceID, None)
-#            elif sharedAddressBook.indirect():
-#                # FIXME: remove objects for this group only using self.removeObjectResource
-#                self._objectNames = None
-#
-#            # Must send notification to ensure cache invalidation occurs
-#            yield self.notifyPropertyChanged()
-#
-#        # delete binds including invites
-#        deletedBindNameRows = yield self._deleteBindForResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
-#             homeID=shareeHome._resourceID
-#        )
-#        if deletedBindNameRows:
-#            deletedBindName = deletedBindNameRows[0][0]
-#            queryCacher = self._txn._queryCacher
-#            if queryCacher:
-#                cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, self.name())
-#                queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-#        else:
-#            deletedBindName = None
-#
-#        self._initIsShared()
-#        returnValue(deletedBindName)
+    def fullyShared(self):
+        return not self.owned() and not self.indirect() and self.accepted()
 
 
-#    @inlineCallbacks
-#    def _isSharedOrInvited(self):
-#        """
-#        return True if this L{AddressBook} is shared or invited
-#        """
-#        sharedRows = []
-#        if self.owned():
-#            bind = self._bindSchema
-#            sharedRows = yield self._bindFor(
-#                (bind.RESOURCE_ID == Parameter("resourceID"))).on(
-#                self._txn, resourceID=self._resourceID,
-#            )
-#
-#        returnValue(bool(sharedRows))
-#
-#
-#    @inlineCallbacks
-#    def _initIsShared(self):
-#        isShared = yield self._isSharedOrInvited()
-#        self.setShared(isShared)
+    @inlineCallbacks
+    def _previousAcceptCount(self):
+        previouslyAcceptedBindCount = 1 if self.fullyShared() else 0
+        previouslyAcceptedBindCount += len((yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
+            self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
+        )))
+        returnValue(previouslyAcceptedBindCount)
+
+
+    @inlineCallbacks
+    def _changedStatus(self, previouslyAcceptedCount):
+        if self._bindStatus == _BIND_STATUS_ACCEPTED:
+            if 0 == previouslyAcceptedCount:
+                yield self._initSyncToken()
+                yield self._initBindRevision()
+                self._home._children[self._name] = self
+                self._home._children[self._resourceID] = self
+        elif self._bindStatus == _BIND_STATUS_DECLINED:
+            if 1 == previouslyAcceptedCount:
+                yield self._deletedSyncToken(sharedRemoval=True)
+                self._home._children.pop(self._name, None)
+                self._home._children.pop(self._resourceID, None)
 
 
 
@@ -512,7 +454,8 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
 
 
     def setCreated(self, newValue):
-        self.ownerHome()._created = newValue
+        if newValue is not None:
+            self.ownerHome()._created = newValue
 
 
     def getModified(self):
@@ -520,19 +463,11 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
 
 
     def setModified(self, newValue):
-        self.ownerHome()._modified = newValue
+        if newValue is not None:
+            self.ownerHome()._modified = newValue
 
     _created = property(getCreated, setCreated,)
     _modified = property(getModified, setModified,)
-
-    ownerAddressBookHome = CommonHomeChild.ownerHome
-    viewerAddressBookHome = CommonHomeChild.viewerHome
-    addressbookObjects = CommonHomeChild.objectResources
-    listAddressBookObjects = CommonHomeChild.listObjectResources
-    addressbookObjectWithName = CommonHomeChild.objectResourceWithName
-    addressbookObjectWithUID = CommonHomeChild.objectResourceWithUID
-    createAddressBookObjectWithName = CommonHomeChild.createObjectResourceWithName
-    addressbookObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
 
 
     @inlineCallbacks
@@ -618,44 +553,44 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
 
     @inlineCallbacks
     def listObjectResources(self):
-        # Check for non-group shared
-        if self.owned() or not self.indirect():
-            result = yield super(AddressBook, self).listObjectResources()
-            returnValue(result)
-
-        # Group shared
         if self._objectNames is None:
-            acceptedGroupIDs = yield self.acceptedGroupIDs()
-            allowedObjectIDs = yield self.expandGroupIDs(self._txn, acceptedGroupIDs)
-            rows = (yield self._objectResourceNamesWithResourceIDsQuery(allowedObjectIDs).on(
-                self._txn, resourceIDs=allowedObjectIDs
-            ))
-            objectNames = [row[0] for row in rows]
+            # Check for non-group shared
+            if self.owned() or self.fullyShared():
+                yield super(AddressBook, self).listObjectResources()
 
-            # account for fully-shared address book group
-            if not self.indirect():
-                if not self._groupForSharedAddressBookName() in objectNames:
-                    objectNames.append(self._groupForSharedAddressBookName())
-            self._objectNames = sorted(objectNames)
+            # Group shared
+            else:
+                acceptedGroupIDs = yield self.acceptedGroupIDs()
+                allowedObjectIDs = yield self.expandGroupIDs(self._txn, acceptedGroupIDs)
+                rows = (yield self._objectResourceNamesWithResourceIDsQuery(allowedObjectIDs).on(
+                    self._txn, resourceIDs=allowedObjectIDs
+                ))
+                self._objectNames = sorted([row[0] for row in rows])
+
+            # Account for fully-shared address book group
+            if self.fullyShared():
+                if not self._groupForSharedAddressBookName() in self._objectNames:
+                    self._objectNames.append(self._groupForSharedAddressBookName())
 
         returnValue(self._objectNames)
 
 
     @inlineCallbacks
     def countObjectResources(self):
-        # Check for non-group shared
-        if self.owned() or not self.indirect():
-            result = yield super(AddressBook, self).countObjectResources()
-            returnValue(result)
-
-        # Group shared
         if self._objectNames is None:
-            acceptedGroupIDs = yield self.acceptedGroupIDs()
-            count = len((yield self.expandGroupIDs(self._txn, acceptedGroupIDs)))
+            # Check for non-group shared
+            if self.owned() or self.fullyShared():
+                count = yield super(AddressBook, self).countObjectResources()
 
-            # account for fully-shared address book group
-            if not self.indirect():
+            # Group shared
+            else:
+                acceptedGroupIDs = yield self.acceptedGroupIDs()
+                count = len((yield self.expandGroupIDs(self._txn, acceptedGroupIDs)))
+
+            # Account for fully-shared address book group
+            if self.fullyShared():
                 count += 1
+
             returnValue(count)
 
         returnValue(len(self._objectNames))
@@ -696,7 +631,7 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
     @inlineCallbacks
     def _groupForSharedAddressBookComponent(self):
 
-        n = self.name()
+        n = self.viewerHome().uid()
         fn = n
         uid = self._groupForSharedAddressBookUID()
 
@@ -708,14 +643,18 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
         component = VCard.fromString(
             """BEGIN:VCARD
 VERSION:3.0
-PRODID:%s
-UID:%s
-FN:%s
-N:%s;;;;
+PRODID:{prodid}
+UID:{uid}
+FN:{fn}
+N:{n};;;;
 X-ADDRESSBOOKSERVER-KIND:group
 END:VCARD
-""".replace("\n", "\r\n") % (vCardProductID, uid, n, fn,)
-        )
+""".replace("\n", "\r\n").format(
+            prodid=vCardProductID,
+            uid=uid,
+            fn=fn,
+            n=n,
+        ))
 
         # then get member UIDs
         abo = schema.ADDRESSBOOK_OBJECT
@@ -754,37 +693,24 @@ END:VCARD
 
         @return: an iterable of C{str}s.
         """
-        names = yield super(AddressBook, cls).listObjects(home)
-        names.insert(0, home.addressbook().name())
-        returnValue(names)
 
-#    @classmethod
-#    @inlineCallbacks
-#    def listObjects(cls, home):
-#        """
-#        Retrieve the names of the children with invitations in the given home.
-#
-#        @return: an iterable of C{str}s.
-#        """
-#        names = set([home.addressbook().name()])
-#
-#        rows = yield cls._acceptedBindForHomeID.on(
-#            home._txn, homeID=home._resourceID
-#        )
-#        for row in rows:
-#            bindMode, homeID, resourceID, name, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount] #@UnusedVariable
-#            ownerHome = yield home._txn.homeWithResourceID(home._homeType, resourceID, create=True)
-#            names |= set([ownerHome.uid()])
-#
-#        groupRows = yield AddressBookObject._acceptedBindForHomeID.on(
-#            home._txn, homeID=home._resourceID
-#        )
-#        for groupRow in groupRows:
-#            bindMode, homeID, resourceID, name, bindStatus, bindRevision, bindMessage = groupRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
-#            ownerAddressBookID = yield AddressBookObject.ownerAddressBookIDFromGroupID(home._txn, resourceID)
-#            ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerAddressBookID, create=True)
-#            names |= set([ownerHome.uid()])
-#        returnValue(tuple(names))
+        # Default address book
+        names = set([home.addressbook().name()])
+
+        # Fully shared address books
+        names |= set((yield super(AddressBook, cls).listObjects(home)))
+
+        # Group shared
+        groupRows = yield AddressBookObject._acceptedBindForHomeID.on(
+            home._txn, homeID=home._resourceID
+        )
+        for groupRow in groupRows:
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
+            ownerAddressBookID = yield AddressBookObject.ownerAddressBookIDFromGroupID(home._txn, resourceID)
+            ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerAddressBookID, create=True)
+            names |= set([ownerHome.uid()])
+
+        returnValue(tuple(names))
 
 
     @classmethod
@@ -798,91 +724,76 @@ END:VCARD
         optimization for Depth:1 operations on the home.
         """
 
-        results = yield super(AddressBook, cls).loadAllObjects(home)
-        results.insert(0, home.addressbook())
+        results = [home.addressbook()]
+        ownerHomeToDataRowMap = {}
+
+        # Load from the main table first
+        dataRows = yield cls._childrenAndMetadataForHomeID.on(
+            home._txn, homeID=home._resourceID
+        )
+        # get ownerHomeIDs
+        for dataRow in dataRows:
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = dataRow[:cls.bindColumnCount] #@UnusedVariable
+            ownerHome = yield home.ownerHomeWithChildID(resourceID)
+            ownerHomeToDataRowMap[ownerHome] = dataRow
+
+        # now get group rows:
+        groupBindRows = yield AddressBookObject._childrenAndMetadataForHomeID.on(
+            home._txn, homeID=home._resourceID
+        )
+        for groupBindRow in groupBindRows:
+            bindMode, homeID, resourceID, name, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
+            ownerAddressBookID = yield AddressBookObject.ownerAddressBookIDFromGroupID(home._txn, resourceID)
+            ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
+            if ownerHome not in ownerHomeToDataRowMap:
+                groupBindRow[0] = _BIND_MODE_INDIRECT
+                groupBindRow[3] = None  # bindName
+                groupBindRow[4] = None  # bindStatus
+                groupBindRow[6] = None  # bindMessage
+                ownerHomeToDataRowMap[ownerHome] = groupBindRow
+
+        if ownerHomeToDataRowMap:
+            # Get property stores for all these child resources (if any found)
+            addressbookPropertyStoreIDs = [ownerHome._addressbookPropertyStoreID for ownerHome in ownerHomeToDataRowMap]
+            propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
+                home.uid(), home._txn, addressbookPropertyStoreIDs
+            )
+
+            addressbookResourceIDs = [ownerHome.addressbook()._resourceID for ownerHome in ownerHomeToDataRowMap]
+            revisions = yield cls._revisionsForResourceIDs(addressbookResourceIDs).on(home._txn, resourceIDs=addressbookResourceIDs)
+            revisions = dict(revisions)
+
+            # Create the actual objects merging in properties
+            for ownerHome, dataRow in ownerHomeToDataRowMap.iteritems():
+                bindMode, homeID, resourceID, name, bindStatus, bindRevision, bindMessage = dataRow[:cls.bindColumnCount] #@UnusedVariable
+                additionalBind = dataRow[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
+                metadata = dataRow[cls.bindColumnCount + len(cls.additionalBindColumns()):]
+
+                child = cls(
+                    home=home,
+                    name=ownerHome.uid(),
+                    resourceID=ownerHome._resourceID,
+                    mode=bindMode,
+                    status=bindStatus,
+                    revision=bindRevision,
+                    message=bindMessage,
+                    ownerHome=ownerHome,
+                )
+
+                for attr, value in zip(cls.additionalBindAttributes(), additionalBind):
+                    setattr(child, attr, value)
+                for attr, value in zip(cls.metadataAttributes(), metadata):
+                    setattr(child, attr, value)
+                child._syncTokenRevision = revisions[child._resourceID]
+                propstore = propertyStores.get(ownerHome._addressbookPropertyStoreID, None)
+                # We have to re-adjust the property store object to account for possible shared
+                # collections as previously we loaded them all as if they were owned
+                if propstore:
+                    propstore._setDefaultUserUID(ownerHome.uid())
+                yield child._loadPropertyStore(propstore)
+                results.append(child)
+
         returnValue(results)
-
-
-#    @classmethod
-#    @inlineCallbacks
-#    def loadAllObjects(cls, home):
-#        """
-#        Load all L{CommonHomeChild} instances which are children of a given
-#        L{CommonHome} and return a L{Deferred} firing a list of them.  This must
-#        create the child classes and initialize them using "batched" SQL
-#        operations to keep this constant wrt the number of children.  This is an
-#        optimization for Depth:1 operations on the home.
-#        """
-#        results = [home.addressbook()]
-#        ownerHomeToDataRowMap = {}
-#
-#        # Load from the main table first
-#        dataRows = yield cls._childrenAndMetadataForHomeID.on(
-#            home._txn, homeID=home._resourceID
-#        )
-#        # get ownerHomeIDs
-#        for dataRow in dataRows:
-#            bindMode, homeID, resourceID, name, bindStatus, bindRevision, bindMessage = dataRow[:cls.bindColumnCount] #@UnusedVariable
-#            ownerHome = yield home.ownerHomeWithChildID(resourceID)
-#            ownerHomeToDataRowMap[ownerHome] = dataRow
-#
-#        # now get group rows:
-#        groupBindRows = yield AddressBookObject._childrenAndMetadataForHomeID.on(
-#            home._txn, homeID=home._resourceID
-#        )
-#        for groupBindRow in groupBindRows:
-#            bindMode, homeID, resourceID, name, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
-#            ownerAddressBookID = yield AddressBookObject.ownerAddressBookIDFromGroupID(home._txn, resourceID)
-#            ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
-#            if ownerHome not in ownerHomeToDataRowMap:
-#                groupBindRow[0] = _BIND_MODE_WRITE
-#                groupBindRow[3] = None  # name
-#                groupBindRow[4] = None  # bindStatus
-#                groupBindRow[6] = None  # bindMessage
-#                ownerHomeToDataRowMap[ownerHome] = groupBindRow
-#
-#        if ownerHomeToDataRowMap:
-#            # Get property stores for all these child resources (if any found)
-#            addressbookPropertyStoreIDs = [ownerHome._addressbookPropertyStoreID for ownerHome in ownerHomeToDataRowMap]
-#            propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
-#                home.uid(), home._txn, addressbookPropertyStoreIDs
-#            )
-#
-#            addressbookResourceIDs = [ownerHome.addressbook()._resourceID for ownerHome in ownerHomeToDataRowMap]
-#            revisions = yield cls._revisionsForResourceIDs(addressbookResourceIDs).on(home._txn, resourceIDs=addressbookResourceIDs)
-#            revisions = dict(revisions)
-#
-#            # Create the actual objects merging in properties
-#            for ownerHome, dataRow in ownerHomeToDataRowMap.iteritems():
-#                bindMode, homeID, resourceID, name, bindStatus, bindRevision, bindMessage = dataRow[:cls.bindColumnCount] #@UnusedVariable
-#                additionalBind = dataRow[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
-#                metadata = dataRow[cls.bindColumnCount + len(cls.additionalBindColumns()):]
-#
-#                child = cls(
-#                    home=home,
-#                    name=name,
-#                    resourceID=ownerHome._resourceID,
-#                    mode=bindMode,
-#                    status=bindStatus,
-#                    revision=bindRevision,
-#                    message=bindMessage,
-#                    ownerHome=ownerHome,
-#                )
-#
-#                for attr, value in zip(cls.additionalBindAttributes(), additionalBind):
-#                    setattr(child, attr, value)
-#                for attr, value in zip(cls.metadataAttributes(), metadata):
-#                    setattr(child, attr, value)
-#                child._syncTokenRevision = revisions[child._resourceID]
-#                propstore = propertyStores.get(ownerHome._addressbookPropertyStoreID, None)
-#                # We have to re-adjust the property store object to account for possible shared
-#                # collections as previously we loaded them all as if they were owned
-#                if propstore:
-#                    propstore._setDefaultUserUID(ownerHome.uid())
-#                yield child._loadPropertyStore(propstore)
-#                results.append(child)
-#
-#        returnValue(results)
 
 
     @classmethod
@@ -899,94 +810,18 @@ END:VCARD
         @return: an L{CommonHomeChild} or C{None} if no such child exists.
         """
 
+        # Try owned address book first
         if name == home.addressbook().name():
             returnValue(home.addressbook())
 
+        # Try fully shared next
         result = yield super(AddressBook, cls).objectWithName(home, name, accepted)
+
+        # Look for indirect shares
+        if result is None:
+            result = yield cls._indirectObjectWithNameOrID(home, name=name, accepted=accepted)
+
         returnValue(result)
-
-
-#    @classmethod
-#    @inlineCallbacks
-#    def objectWithName(cls, home, name, accepted=True):
-#        """
-#        Retrieve the child with the given C{name} contained in the given
-#        C{home}.
-#
-#        @param home: a L{CommonHome}.
-#
-#        @param name: a string; the name of the L{CommonHomeChild} to retrieve.
-#
-#        @return: an L{CommonHomeChild} or C{None} if no such child
-#            exists.
-#        """
-#        if accepted and name == home.addressbook().name():
-#            returnValue(home.addressbook())
-#        # shared address books only from this point on
-#
-#        rows = None
-#        queryCacher = home._txn._queryCacher
-#        ownerHome = None
-#
-#        if queryCacher:
-#            # Retrieve data from cache
-#            cacheKey = queryCacher.keyForObjectWithName(home._resourceID, name)
-#            rows = yield queryCacher.get(cacheKey)
-#
-#        if not rows:
-#            # name must be a home uid
-#            ownerHome = yield home._txn.addressbookHomeWithUID(name)
-#            if ownerHome:
-#                # see if address book resource id in bind table
-#                ownerAddressBook = ownerHome.addressbook()
-#                bindRows = yield cls._bindForResourceIDAndHomeID.on(
-#                    home._txn, resourceID=ownerAddressBook._resourceID, homeID=home._resourceID
-#                )
-#                if bindRows:
-#                    bindRows[0].insert(cls.bindColumnCount, ownerAddressBook._resourceID)
-#                    bindRows[0].insert(cls.bindColumnCount + 1, bindRows[0][4])  # cachedStatus = bindStatus
-#                    rows = bindRows
-#                else:
-#                    groupBindRows = yield AddressBookObject._bindForHomeIDAndAddressBookID.on(
-#                            home._txn, homeID=home._resourceID, addressbookID=ownerAddressBook._resourceID
-#                    )
-#                    for groupBindRow in groupBindRows:
-#                        groupBindRow.insert(AddressBookObject.bindColumnCount, ownerAddressBook._resourceID)
-#                        groupBindRow.insert(AddressBookObject.bindColumnCount + 1, groupBindRow[4])
-#                        groupBindRow[0] = _BIND_MODE_WRITE
-#                        groupBindRow[3] = ownerHome.uid()  # bindName
-#                        groupBindRow[4] = None  # bindStatus
-#                        groupBindRow[6] = None  # bindMessage
-#                        rows = [groupBindRow]
-#                        break
-#
-#            if rows and queryCacher:
-#                # Cache the result
-#                queryCacher.setAfterCommit(home._txn, cacheKey, rows)
-#
-#        if not rows:
-#            returnValue(None)
-#
-#        row = rows[0]
-#        bindMode, homeID, resourceID, name, bindStatus, bindRevision, bindMessage, ownerAddressBookID, cachedBindStatus = row[:cls.bindColumnCount + 2] #@UnusedVariable
-#
-#        # if wrong status, exit here.  Item is in queryCache
-#        if accepted is not None and (cachedBindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
-#            returnValue(None)
-#
-#        ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
-#        child = cls(
-#                home=home,
-#                name=name,
-#                resourceID=ownerAddressBookID,
-#                mode=bindMode,
-#                status=bindStatus,
-#                revision=bindRevision,
-#                message=bindMessage,
-#                ownerHome=ownerHome,
-#            )
-#        yield child.initFromStore()
-#        returnValue(child)
 
 
     @classmethod
@@ -1001,62 +836,86 @@ END:VCARD
         @return: an L{CommonHomeChild} or C{None} if no such child
             exists.
         """
+
+        # Try owned address book first
         if home._resourceID == resourceID:
             returnValue(home.addressbook())
 
+        # Try fully shared next
         result = yield super(AddressBook, cls).objectWithID(home, resourceID, accepted)
+
+        # Look for indirect shares
+        if result is None:
+            result = yield cls._indirectObjectWithNameOrID(home, resourceID=resourceID, accepted=accepted)
+
         returnValue(result)
 
 
-#    @classmethod
-#    @inlineCallbacks
-#    def objectWithID(cls, home, resourceID, accepted=True):
-#        """
-#        Retrieve the child with the given C{resourceID} contained in the given
-#        C{home}.
-#
-#        @param home: a L{CommonHome}.
-#        @param resourceID: a string.
-#        @return: an L{CommonHomeChild} or C{None} if no such child
-#            exists.
-#        """
-#        if home._resourceID == resourceID:
-#            returnValue(home.addressbook())
-#
-#        bindRows = yield cls._bindForResourceIDAndHomeID.on(
-#            home._txn, resourceID=resourceID, homeID=home._resourceID
-#        )
-#        if bindRows:
-#            bindRow = bindRows[0]
-#            bindMode, homeID, resourceID, name, bindStatus, bindRevision, bindMessage = bindRow[:cls.bindColumnCount] #@UnusedVariable
-#
-#            if accepted is not None and (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
-#                returnValue(None)
-#
-#            ownerHome = yield home.ownerHomeWithChildID(resourceID)
-#            if bindStatus == _BIND_STATUS_ACCEPTED:
-#                returnValue((yield home.childWithName(ownerHome.uid())))
-#            else:
-#                returnValue((yield cls.objectWithName(home, ownerHome.uid(), accepted=False)))
-#
-#        groupBindRows = yield AddressBookObject._bindForHomeIDAndAddressBookID.on(
-#                    home._txn, homeID=home._resourceID, addressbookID=resourceID
-#        )
-#        if groupBindRows:
-#            groupBindRow = groupBindRows[0]
-#            bindMode, homeID, resourceID, name, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
-#
-#            if accepted is not None and (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
-#                returnValue(None)
-#
-#            ownerAddressBookID = yield AddressBookObject.ownerAddressBookIDFromGroupID(home._txn, resourceID)
-#            ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
-#            if bindStatus == _BIND_STATUS_ACCEPTED:
-#                returnValue((yield home.childWithName(ownerHome.uid())))
-#            else:
-#                returnValue((yield cls.objectWithName(home, ownerHome.uid(), accepted=False)))
-#
-#        returnValue(None)
+    @classmethod
+    @inlineCallbacks
+    def _indirectObjectWithNameOrID(cls, home, name=None, resourceID=None, accepted=True):
+        # replaces objectWithName()
+        """
+        Synthesize and indirect child for matching name or id based on whether shared groups exist.
+
+        @param home: a L{CommonHome}.
+
+        @param name: a string; the name of the L{CommonHomeChild} to retrieve.
+
+        @return: an L{CommonHomeChild} or C{None} if no such child
+            exists.
+        """
+        rows = None
+        ownerHome = None
+
+        # TODO: add queryCacher support
+
+        if rows is None:
+            # No cached copy
+            if name:
+                ownerHome = yield home._txn.addressbookHomeWithUID(name)
+                if ownerHome is None:
+                    returnValue(None)
+                resourceID = ownerHome.addressbook()._resourceID
+            rows = yield AddressBookObject._bindForHomeIDAndAddressBookID.on(
+                home._txn, homeID=home._resourceID, addressbookID=resourceID
+            )
+
+        if not rows:
+            returnValue(None)
+
+        groupID = None
+        overallBindStatus = _BIND_STATUS_INVITED
+        minBindRevision = None
+        for row in rows:
+            bindMode, homeID, resourceGroupID, name, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount] #@UnusedVariable
+            if groupID is None:
+                groupID = resourceGroupID
+            minBindRevision = min(minBindRevision, bindRevision) if minBindRevision is not None else bindRevision
+            if bindStatus == _BIND_STATUS_ACCEPTED:
+                overallBindStatus = _BIND_STATUS_ACCEPTED
+
+        if accepted is not None and (overallBindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
+            returnValue(None)
+        additionalBind = row[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
+
+        if ownerHome is None:
+            ownerAddressBookID = yield AddressBookObject.ownerAddressBookIDFromGroupID(home._txn, groupID)
+            ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
+
+        child = cls(
+            home=home,
+            name=ownerHome.uid(),
+            resourceID=resourceID,
+            mode=_BIND_MODE_INDIRECT,
+            status=overallBindStatus,
+            revision=minBindRevision,
+            message="",
+            ownerHome=ownerHome,
+            ownerName=ownerHome.uid()
+        )
+        yield child.initFromStore(additionalBind)
+        returnValue(child)
 
 
     @classmethod
@@ -1181,15 +1040,15 @@ END:VCARD
         ids = set([row[1] for row in rows])
 
         # Everything is read-write
-        if self.owned() or self._bindMode == _BIND_MODE_WRITE:
+        if self.owned() or self.fullyShared() and self._bindMode == _BIND_MODE_WRITE:
             returnValue(tuple(readOnlyIDs), tuple(ids))
 
         # Fully shared but mode is read-only
-        if self._bindMode == _BIND_MODE_READ:
+        if self.fullyShared() and self._bindMode == _BIND_MODE_READ:
             ids |= set([self._resourceID, ])
             readOnlyIDs = set(ids)
 
-        # Look for shared groups and for those that tare read-write, transfer their object ids
+        # Look for shared groups and for those that are read-write, transfer their object ids
         # to the read-write set
         groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
             self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
@@ -1229,33 +1088,330 @@ END:VCARD
         readOnlyIDs, readWriteIDs = yield self.accessControlObjectIDs()
         returnValue((readOnlyIDs + readWriteIDs))
 
+    # Convenient names for some methods
+    ownerAddressBookHome = CommonHomeChild.ownerHome
+    viewerAddressBookHome = CommonHomeChild.viewerHome
+    addressbookObjects = CommonHomeChild.objectResources
+    listAddressBookObjects = listObjectResources
+    countAddressBookObjects = countObjectResources
+    addressbookObjectWithName = CommonHomeChild.objectResourceWithName
+    addressbookObjectWithUID = CommonHomeChild.objectResourceWithUID
+    createAddressBookObjectWithName = CommonHomeChild.createObjectResourceWithName
+    addressbookObjectsSinceToken = CommonHomeChild.objectResourcesSinceToken
+
 
 
 class AddressBookObjectSharingMixIn(SharingMixIn):
     """
-        Sharing code for AddressBookObject
+    Sharing code for AddressBookObject
     """
 
-#    @inlineCallbacks
-#    def _isSharedOrInvited(self):
-#        """
-#        return True if this L{AddressBook} is shared or invited
-#        """
-#        sharedRows = []
-#        if self.owned():
-#            bind = self._bindSchema
-#            sharedRows = yield self._bindFor(
-#                (bind.RESOURCE_ID == Parameter("resourceID"))).on(
-#                self._txn, resourceID=self._resourceID,
-#            )
-#
-#        returnValue(bool(sharedRows))
-#
-#
-#    @inlineCallbacks
-#    def _initIsShared(self):
-#        isShared = yield self._isSharedOrInvited()
-#        self.setShared(isShared)
+    def sharedResourceType(self):
+        """
+        The sharing resource type
+        """
+        return "group"
+
+
+    #
+    # Lower level API
+    #
+
+    @inlineCallbacks
+    def ownerView(self):
+        """
+        Return the owner resource counterpart of this shared resource.
+        """
+        # Get the child of the owner home that has the same resource id as the owned one
+        ownerView = yield self.ownerHome().addressbook().objectResourceWithID(self.id())
+        returnValue(ownerView)
+
+
+    @inlineCallbacks
+    def shareeView(self, shareeUID):
+        """
+        Return the shared resource counterpart of this owned resource for the specified sharee.
+        """
+
+        # Get the shared address book, then the child within
+        shareeAdbk = yield self.addressbook().shareeView(shareeUID)
+        shareeView = (yield shareeAdbk.objectResourceWithID(self.id())) if shareeAdbk is not None else None
+        returnValue(shareeView if shareeView is not None and shareeView.shareMode() is not None else None)
+
+
+    @inlineCallbacks
+    def shareWith(self, shareeHome, mode, status=None, summary=None):
+        """
+        Share this (owned) L{AddressBookObject} with another home.
+
+        @param shareeHome: The home of the sharee.
+        @type shareeHome: L{CommonHome}
+
+        @param mode: The sharing mode; L{_BIND_MODE_READ} or
+            L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
+        @type mode: L{str}
+
+        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
+            L{_BIND_STATUS_ACCEPTED}
+        @type mode: L{str}
+
+        @param summary: The proposed message to go along with the share, which
+            will be used as the default display name.
+        @type summary: L{str}
+
+        @return: the name of the shared group in the sharee home.
+        @rtype: L{str}
+        """
+
+        if status is None:
+            status = _BIND_STATUS_ACCEPTED
+
+        @inlineCallbacks
+        def doInsert(subt):
+            newName = self.newShareName()
+            yield self._bindInsertQuery.on(
+                subt,
+                homeID=shareeHome._resourceID,
+                resourceID=self._resourceID,
+                name=newName,
+                mode=mode,
+                bindStatus=status,
+                message=summary
+            )
+            returnValue(newName)
+        try:
+            bindName = yield self._txn.subtransaction(doInsert)
+        except AllRetriesFailed:
+            group = yield self.shareeView(shareeHome.uid())
+            yield self.updateShare(
+                group, mode=mode, status=status,
+                summary=summary
+            )
+            bindName = group.name()
+        else:
+            if status == _BIND_STATUS_ACCEPTED:
+                shareeView = yield shareeHome.anyObjectWithShareUID(bindName)
+                yield shareeView.addressbook()._initSyncToken()
+                yield shareeView._initBindRevision()
+
+        queryCacher = self._txn._queryCacher
+        if queryCacher:
+            cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, self.addressbook().name())
+            queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+
+        yield self.setShared(True)
+
+        # Must send notification to ensure cache invalidation occurs
+        yield self.notifyChanged()
+
+        returnValue(bindName)
+
+
+    @inlineCallbacks
+    def createShare(self, shareeUID, mode, summary=None):
+        """
+        Create a new shared resource. If the mode is direct, the share is created in accepted state,
+        otherwise the share is created in invited state.
+        """
+
+        if self._kind == _ABO_KIND_GROUP:
+            shareeView = yield super(AddressBookObjectSharingMixIn, self).createShare(shareeUID, mode, summary)
+            returnValue(shareeView)
+        else:
+            returnValue(None)
+
+
+    @inlineCallbacks
+    def unshare(self):
+        """
+        Unshares a group, regardless of which "direction" it was shared.
+        """
+        if self._kind == _ABO_KIND_GROUP:
+            yield super(AddressBookObjectSharingMixIn, self).unshare()
+
+
+    @inlineCallbacks
+    def updateShare(self, shareeView, mode=None, status=None, summary=None):
+        """
+        Update share mode, status, and message for a home child shared with
+        this (owned) L{CommonHomeChild}.
+
+        @param shareeView: The sharee home child that shares this.
+        @type shareeView: L{CommonHomeChild}
+
+        @param mode: The sharing mode; L{_BIND_MODE_READ} or
+            L{_BIND_MODE_WRITE} or None to not update
+        @type mode: L{str}
+
+        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
+            L{_BIND_STATUS_ACCEPTED} or L{_BIND_STATUS_DECLINED} or
+            L{_BIND_STATUS_INVALID}  or None to not update
+        @type status: L{str}
+
+        @param summary: The proposed message to go along with the share, which
+            will be used as the default display name, or None to not update
+        @type summary: L{str}
+
+        @return: the name of the shared item in the sharee's home.
+        @rtype: a L{Deferred} which fires with a L{str}
+        """
+        # TODO: raise a nice exception if shareeView is not, in fact, a shared
+        # version of this same L{CommonHomeChild}
+
+        # remove None parameters, and substitute None for empty string
+        bind = self._bindSchema
+        columnMap = dict([(k, v if v != "" else None) for k, v in {
+            bind.BIND_MODE:mode,
+            bind.BIND_STATUS:status,
+            bind.MESSAGE:summary
+        }.iteritems() if v is not None])
+
+        if len(columnMap):
+
+            # count accepted
+            if status is not None:
+                previouslyAcceptedBindCount = 1 if self.addressbook().fullyShared() else 0
+                previouslyAcceptedBindCount += len((
+                    yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
+                        self._txn, homeID=shareeView.viewerHome()._resourceID, addressbookID=self.addressbook()._resourceID
+                    )
+                ))
+
+            yield self._updateBindColumnsQuery(columnMap).on(
+                self._txn,
+                resourceID=self._resourceID,
+                homeID=shareeView.addressbook().viewerHome()._resourceID
+            )
+
+            # update affected attributes
+            if mode is not None:
+                shareeView._bindMode = columnMap[bind.BIND_MODE]
+
+            if status is not None:
+                shareeView._bindStatus = columnMap[bind.BIND_STATUS]
+                if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
+                    if 0 == previouslyAcceptedBindCount:
+                        yield shareeView.addressbook()._initSyncToken()
+                        yield shareeView._initBindRevision()
+                        shareeView.viewerHome()._children[shareeView.addressbook().name()] = shareeView.addressbook()
+                        shareeView.viewerHome()._children[shareeView.addressbook().id()] = shareeView.addressbook()
+                elif shareeView._bindStatus != _BIND_STATUS_INVITED:
+                    if 1 == previouslyAcceptedBindCount:
+                        yield shareeView.addressbook()._deletedSyncToken(sharedRemoval=True)
+                        shareeView.viewerHome()._children.pop(shareeView.addressbook().name(), None)
+                        shareeView.viewerHome()._children.pop(shareeView.addressbook().id(), None)
+
+            if summary is not None:
+                shareeView._bindMessage = columnMap[bind.MESSAGE]
+
+            # Must send notification to ensure cache invalidation occurs
+            yield self.notifyChanged()
+
+
+    @inlineCallbacks
+    def removeShare(self, shareeView):
+        """
+        Remove the shared version of this (owned) L{CommonHomeChild} from the
+        referenced L{CommonHome}.
+
+        @see: L{CommonHomeChild.shareWith}
+
+        @param shareeHome: The home with which this L{CommonHomeChild} was
+            previously shared.
+
+        @return: a L{Deferred} which will fire with the previously-used name.
+        """
+
+        shareeHome = shareeView.addressbook().viewerHome()
+        sharedAddressBook = yield shareeHome.addressbookWithName(self.addressbook().name())
+
+        if sharedAddressBook:
+
+            acceptedBindCount = 1 if sharedAddressBook.fullyShared() else 0
+            acceptedBindCount += len((
+                yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
+                    self._txn, homeID=shareeHome._resourceID, addressbookID=sharedAddressBook._resourceID
+                )
+            ))
+
+            if acceptedBindCount == 1:
+                yield sharedAddressBook._deletedSyncToken(sharedRemoval=True)
+                shareeHome._children.pop(shareeView.addressbook().name(), None)
+                shareeHome._children.pop(shareeView.addressbook().id(), None)
+
+            # Must send notification to ensure cache invalidation occurs
+            yield self.notifyChanged()
+
+        # Must send notification to ensure cache invalidation occurs
+        yield self.notifyChanged()
+
+        # delete binds including invites
+        yield self._deleteBindForResourceIDAndHomeID.on(
+            self._txn,
+            resourceID=self._resourceID,
+            homeID=shareeHome._resourceID,
+        )
+
+        queryCacher = self._txn._queryCacher
+        if queryCacher:
+            cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, self.addressbook().name())
+            queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+
+
+    @inlineCallbacks
+    def sharingInvites(self):
+        """
+        Retrieve the list of all L{SharingInvitation} for this L{CommonHomeChild}, irrespective of mode.
+
+        @return: L{SharingInvitation} objects
+        @rtype: a L{Deferred} which fires with a L{list} of L{SharingInvitation}s.
+        """
+        if not self.owned() or self._kind != _ABO_KIND_GROUP:
+            returnValue([])
+
+        # Get all binds
+        acceptedRows = yield self._sharedInvitationBindForResourceID.on(
+            self._txn, resourceID=self._resourceID, homeID=self.addressbook()._home._resourceID
+        )
+
+        result = []
+        for homeUID, homeRID, resourceID, resourceName, bindMode, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
+            invite = SharingInvitation(
+                resourceName,
+                self.addressbook()._home.name(),
+                self.addressbook()._home.id(),
+                homeUID,
+                homeRID,
+                bindMode,
+                bindStatus,
+                bindMessage,
+            )
+            result.append(invite)
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def _initBindRevision(self):
+        # FIXME: not sure about all this revision stuff
+        yield self.addressbook()._initBindRevision()
+
+        bind = self._bindSchema
+        yield self._updateBindColumnsQuery(
+            {bind.BIND_REVISION : Parameter("revision"), }
+        ).on(
+            self._txn,
+            revision=self.addressbook()._bindRevision,
+            resourceID=self._resourceID,
+            homeID=self.viewerHome()._resourceID,
+        )
+        yield self.invalidateQueryCache()
+
+
+    def shareUID(self):
+        """
+        @see: L{ICalendar.shareUID}
+        """
+        return self._bindName if self._bindName else self._name
 
 
 
@@ -1325,10 +1481,10 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             yield self.unshare() # storebridge should already have done this
         else:
             # handled in storebridge as unshare, should not be here.  assert instead?
-            if self.isGroupForSharedAddressBook() or self.shareUID():
+            if self.isGroupForSharedAddressBook() or self._bindMode is not None:
                 raise HTTPError(FORBIDDEN)
 
-        if not self.owned() and self.addressbook().indirect():
+        if not self.owned() and not self.addressbook().fullyShared():
             readWriteObjectIDs = []
             readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
             if readWriteGroupIDs:
@@ -1372,17 +1528,16 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
     @inlineCallbacks
     def readWriteAccess(self):
         assert not self.owned(), "Don't call items in owned address book"
-        yield None
 
-        #shared address book group is always read-only
+        # Shared address book group always read-only
         if self.isGroupForSharedAddressBook():
             returnValue(False)
 
-        # if fully shared and rw, must be RW since sharing group read-only has no affect
-        if not self.addressbook().indirect() and self.addressbook().shareMode() == _BIND_MODE_WRITE:
+        # If fully shared and rw, must be RW since sharing group read-only has no affect
+        if self.addressbook().fullyShared() and self.addressbook().shareMode() == _BIND_MODE_WRITE:
             returnValue(True)
 
-        #otherwise, must be in a read-write group
+        # Otherwise, must be in a read-write group
         readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
         readWriteIDs = yield self.addressbook().expandGroupIDs(self._txn, readWriteGroupIDs)
         returnValue(self._resourceID in readWriteIDs)
@@ -1420,6 +1575,38 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             Where=obj.RESOURCE_ID == Parameter("resourceID"),)
 
 
+    @classmethod
+    @inlineCallbacks
+    def objectWithBindName(cls, home, name, accepted):
+        """
+        Retrieve the objectResource with the given bind name C{name} contained in the given
+        C{home}.
+
+        @param home: a L{CommonHome}.
+
+        @param name: a string; the name of the L{CommonHomeChild} to retrieve.
+
+        @return: an L{ObjectResource} or C{None} if no such resource exists.
+        """
+
+        groupBindRows = yield cls._bindForNameAndHomeID.on(
+            home._txn, name=name, homeID=home._resourceID
+        )
+        if groupBindRows:
+            groupBindRow = groupBindRows[0]
+            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
+
+            if accepted is not None and (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
+                returnValue(None)
+
+            ownerAddressBookID = yield cls.ownerAddressBookIDFromGroupID(home._txn, resourceID)
+            ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
+            addressbook = yield home.anyObjectWithShareUID(ownerHome.uid())
+            returnValue((yield addressbook.objectResourceWithID(resourceID)))
+
+        returnValue(None)
+
+
     @inlineCallbacks
     def initFromStore(self):
         """
@@ -1431,11 +1618,31 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         @return: L{self} if object exists in the DB, else C{None}
         """
         abo = None
-        if self.owned() or not self.addressbook().indirect():  # owned or fully shared
+        if self.owned() or self.addressbook().fullyShared():  # owned or fully shared
             abo = yield super(AddressBookObject, self).initFromStore()
+
+            # Might be special group
+            if abo is None and self.addressbook().fullyShared():
+                rows = None
+                if self._name:
+                    if self._name == self.addressbook()._groupForSharedAddressBookName():
+                        rows = [self.addressbook()._groupForSharedAddressBookRow()]
+                elif self._uid:
+                    if self._uid == (yield self.addressbook()._groupForSharedAddressBookUID()):
+                        rows = [self.addressbook()._groupForSharedAddressBookRow()]
+                elif self._resourceID:
+                    if self.isGroupForSharedAddressBook():
+                        rows = [self.addressbook()._groupForSharedAddressBookRow()]
+
+                if rows:
+                    self._initFromRow(tuple(rows[0]))
+                    yield self._loadPropertyStore()
+                    abo = self
+
         else:
             acceptedGroupIDs = yield self.addressbook().acceptedGroupIDs()
             allowedObjectIDs = yield self.addressbook().expandGroupIDs(self._txn, acceptedGroupIDs)
+            rows = None
             if self._name:
                 if allowedObjectIDs:
                     rows = (yield self._allColumnsWithResourceIDsAndName(allowedObjectIDs).on(
@@ -1475,8 +1682,10 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                     self._bindStatus = bindStatus
                     self._bindMessage = bindMessage
                     self._bindName = bindName
-
-                #yield self._initIsShared()
+                else:
+                    invites = yield self.sharingInvites()
+                    if len(invites):
+                        self._bindMessage = "shared"
 
             returnValue(self)
         else:
@@ -1532,8 +1741,10 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParent(cls, addressbook):
-        if addressbook.owned() or not addressbook.indirect():
+        if addressbook.owned() or addressbook.fullyShared():
             rows = yield super(AddressBookObject, cls)._allColumnsWithParent(addressbook)
+            if addressbook.fullyShared():
+                rows.append(addressbook._groupForSharedAddressBookRow())
         else:
             acceptedGroupIDs = yield addressbook.acceptedGroupIDs()
             allowedObjectIDs = yield addressbook.expandGroupIDs(addressbook._txn, acceptedGroupIDs)
@@ -1555,8 +1766,10 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
     @inlineCallbacks
     def _allColumnsWithParentAndNames(cls, addressbook, names):
 
-        if addressbook.owned() or not addressbook.indirect():
+        if addressbook.owned() or addressbook.fullyShared():
             rows = yield super(AddressBookObject, cls)._allColumnsWithParentAndNames(addressbook, names)
+            if addressbook.fullyShared() and addressbook._groupForSharedAddressBookName() in names:
+                rows.append(addressbook._groupForSharedAddressBookRow())
         else:
             acceptedGroupIDs = yield addressbook.acceptedGroupIDs()
             allowedObjectIDs = yield addressbook.expandGroupIDs(addressbook._txn, acceptedGroupIDs)
@@ -1649,7 +1862,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                 raise InvalidUIDError("Cannot change the UID in an existing resource.")
         else:
             # for partially shared addressbooks, cannot use name that already exists in owner
-            if not self.owned() and self.addressbook().indirect():
+            if not self.owned() and not self.addressbook().fullyShared():
                 nameElsewhere = (yield self.ownerHome().addressbook().addressbookObjectWithName(self.name()))
                 if nameElsewhere is not None:
                     raise ObjectResourceNameAlreadyExistsError(self.name() + ' in use by owning addressbook.')
@@ -1680,7 +1893,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             if self._kind == _ABO_KIND_GROUP:  # optimization
                 invites = yield self.sharingInvites()
                 for invite in invites:
-                    shareeHome = (yield self._txn.homeWithResourceID(self.addressbook()._home._homeType, invite.shareeHomeID()))
+                    shareeHome = (yield self._txn.homeWithResourceID(self.addressbook()._home._homeType, invite.shareeHomeID))
                     yield self._changeAddressBookRevision(shareeHome.addressbook(), inserting)
                     # one is enough because all have the same resourceID
                     break
@@ -1784,7 +1997,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             foundUIDs.append(self._uid) # circular self reference is OK
             missingUIDs = set(memberUIDs) - set(foundUIDs)
 
-            if not self.owned() and self.addressbook().indirect():
+            if not self.owned() and not self.addressbook().fullyShared():
                 # in partially shared addressbook, all members UIDs must be inside the shared groups
                 # except during bulk operations, when other UIDs added are OK
                 coaddedUIDs = set() if self._options.get("coaddedUIDs") is None else self._options["coaddedUIDs"]
@@ -1851,7 +2064,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             ).on(self._txn)
             groupIDs = set([groupIDRow[0] for groupIDRow in groupIDRows])
 
-            if not self.owned() and self.addressbook().indirect():
+            if not self.owned() and not self.addressbook().fullyShared():
                 readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
                 assert readWriteGroupIDs, "no access"
                 groupIDs |= set(readWriteGroupIDs)
@@ -2017,31 +2230,12 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         pass
 
 
-    def sharedResourceType(self):
-        """
-        The sharing resource type
-        """
-        return "group"
-
-
     # IDataStoreObject
     def contentType(self):
         """
         The content type of Addressbook objects is text/vcard.
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
-
-
-    def owned(self):
-        return self.addressbook().owned()
-
-
-    def ownerHome(self):
-        return self.addressbook().ownerHome()
-
-
-    def viewerHome(self):
-        return self.addressbook().viewerHome()
 
 
     @classmethod
@@ -2076,6 +2270,13 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         return self.addressbook().notifyChanged()
 
 
+    def notifyPropertyChanged(self):
+        """
+        Send notifications when properties on this object change.
+        """
+        return self.addressbook().notifyPropertyChanged()
+
+
     @classproperty
     def _addressbookIDForResourceID(cls): #@NoSelf
         obj = cls._objectSchema
@@ -2090,281 +2291,6 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
     def ownerAddressBookIDFromGroupID(cls, txn, resourceID):
         ownerAddressBookIDRows = yield cls._addressbookIDForResourceID.on(txn, resourceID=resourceID)
         returnValue(ownerAddressBookIDRows[0][0])
-
-
-    @inlineCallbacks
-    def sharingInvites(self):
-        """
-        Retrieve the list of all L{SharingInvitation} for this L{CommonHomeChild}, irrespective of mode.
-
-        @return: L{SharingInvitation} objects
-        @rtype: a L{Deferred} which fires with a L{list} of L{SharingInvitation}s.
-        """
-        if not self.owned():
-            returnValue([])
-
-        # get all accepted binds
-        acceptedRows = yield self._sharedInvitationBindForResourceID.on(
-            self._txn, resourceID=self._resourceID, homeID=self.addressbook()._home._resourceID
-        )
-
-        result = []
-        for homeUID, homeRID, resourceID, resourceName, bindMode, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
-            invite = SharingInvitation(
-                resourceName,
-                self.addressbook()._home.name(),
-                self.addressbook()._home._resourceID,
-                homeUID,
-                homeRID,
-                resourceID,
-                self.addressbook().name(),
-                bindMode,
-                bindStatus,
-                bindMessage,
-            )
-            result.append(invite)
-        returnValue(result)
-
-
-    @inlineCallbacks
-    def unshare(self):
-        """
-        Unshares a group, regardless of which "direction" it was shared.
-        """
-        if self._kind == _ABO_KIND_GROUP:
-            if self.owned():
-                # This collection may be shared to others
-                invites = yield self.sharingInvites()
-                for invite in invites:
-                    shareeHome = (yield self._txn.homeWithResourceID(self.addressbook()._home._homeType, invite.shareeHomeID()))
-                    (yield self.unshareWith(shareeHome))
-            else:
-                # This collection is shared to me
-                ownerAddressBook = self.addressbook().ownerHome().addressbook()
-                ownerGroup = yield ownerAddressBook.objectResourceWithID(self._resourceID)
-                if ownerGroup:
-                    yield ownerGroup.unshareWith(self._home)
-
-
-    @inlineCallbacks
-    def unshareWith(self, shareeHome):
-        """
-        Remove the shared version of this (owned) L{CommonHomeChild} from the
-        referenced L{CommonHome}.
-
-        @see: L{CommonHomeChild.shareWith}
-
-        @param shareeHome: The home with which this L{CommonHomeChild} was
-            previously shared.
-
-        @return: a L{Deferred} which will fire with the previously-used name.
-        """
-        sharedAddressBook = yield shareeHome.addressbookWithName(self.addressbook().name())
-
-        if sharedAddressBook:
-
-            acceptedBindCount = 1 if not sharedAddressBook.indirect() else 0
-            acceptedBindCount += len((
-                yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
-                    self._txn, homeID=shareeHome._resourceID, addressbookID=sharedAddressBook._resourceID
-                )
-            ))
-
-            if acceptedBindCount == 1:
-                yield sharedAddressBook._deletedSyncToken(sharedRemoval=True)
-                shareeHome._children.pop(self.addressbook().name(), None)
-                shareeHome._children.pop(self.addressbook()._resourceID, None)
-
-            # Must send notification to ensure cache invalidation occurs
-            yield self.notifyChanged()
-
-        # delete binds including invites
-        deletedBindNameRows = yield self._deleteBindForResourceIDAndHomeID.on(
-            self._txn, resourceID=self._resourceID,
-             homeID=shareeHome._resourceID
-        )
-        if deletedBindNameRows:
-            deletedBindName = deletedBindNameRows[0][0]
-            queryCacher = self._txn._queryCacher
-            if queryCacher:
-                cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, self.addressbook().name())
-                queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-        else:
-            deletedBindName = None
-
-        #yield self._initIsShared()
-        returnValue(deletedBindName)
-
-
-    @inlineCallbacks
-    def shareWith(self, shareeHome, mode, status=None, summary=None):
-        """
-        Share this (owned) L{AddressBookObject} with another home.
-
-        @param shareeHome: The home of the sharee.
-        @type shareeHome: L{CommonHome}
-
-        @param mode: The sharing mode; L{_BIND_MODE_READ} or
-            L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
-        @type mode: L{str}
-
-        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
-            L{_BIND_STATUS_ACCEPTED}
-        @type mode: L{str}
-
-        @param summary: The proposed message to go along with the share, which
-            will be used as the default display name.
-        @type summary: L{str}
-
-        @return: the name of the shared group in the sharee home.
-        @rtype: L{str}
-        """
-
-        if status is None:
-            status = _BIND_STATUS_ACCEPTED
-
-        @inlineCallbacks
-        def doInsert(subt):
-            newName = self.newShareName()
-            yield self._bindInsertQuery.on(
-                subt, homeID=shareeHome._resourceID,
-                resourceID=self._resourceID, name=newName,
-                mode=mode, bindStatus=status, message=summary
-            )
-            returnValue(newName)
-        try:
-            bindName = yield self._txn.subtransaction(doInsert)
-        except AllRetriesFailed:
-            # FIXME: catch more specific exception
-            groupBindRows = yield self._bindForResourceIDAndHomeID.on(
-                self._txn, resourceID=self._resourceID, homeID=shareeHome._resourceID
-            )
-            groupBindRow = groupBindRows[0]
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = groupBindRow[:self.bindColumnCount] #@UnusedVariable
-            if bindStatus == _BIND_STATUS_ACCEPTED:
-                group = yield shareeHome.objectWithShareUID(bindName)
-            else:
-                group = yield shareeHome.invitedObjectWithShareUID(bindName)
-            bindName = yield self.updateShare(
-                group, mode=mode, status=status,
-                summary=summary
-            )
-        else:
-            if status == _BIND_STATUS_ACCEPTED:
-                shareeView = yield shareeHome.objectWithShareUID(bindName)
-                yield shareeView.addressbook()._initSyncToken()
-                yield shareeView._initBindRevision()
-
-        queryCacher = self._txn._queryCacher
-        if queryCacher:
-            cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, self.addressbook().name())
-            queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-
-        # Must send notification to ensure cache invalidation occurs
-        yield self.notifyChanged()
-        self.setShared(True)
-        returnValue(bindName)
-
-
-    @inlineCallbacks
-    def _initBindRevision(self):
-        yield self.addressbook()._initBindRevision()
-
-        bind = self._bindSchema
-        yield self._updateBindColumnsQuery(
-            {bind.BIND_REVISION : Parameter("revision"), }).on(
-            self._txn,
-            revision=self.addressbook()._bindRevision,
-            resourceID=self._resourceID,
-            homeID=self.viewerHome()._resourceID,
-        )
-        yield self.invalidateQueryCache()
-
-
-    @inlineCallbacks
-    def updateShare(self, shareeView, mode=None, status=None, summary=None):
-        """
-        Update share mode, status, and message for a home child shared with
-        this (owned) L{CommonHomeChild}.
-
-        @param shareeView: The sharee home child that shares this.
-        @type shareeView: L{CommonHomeChild}
-
-        @param mode: The sharing mode; L{_BIND_MODE_READ} or
-            L{_BIND_MODE_WRITE} or None to not update
-        @type mode: L{str}
-
-        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
-            L{_BIND_STATUS_ACCEPTED} or L{_BIND_STATUS_DECLINED} or
-            L{_BIND_STATUS_INVALID}  or None to not update
-        @type status: L{str}
-
-        @param summary: The proposed message to go along with the share, which
-            will be used as the default display name, or None to not update
-        @type summary: L{str}
-
-        @return: the name of the shared item in the sharee's home.
-        @rtype: a L{Deferred} which fires with a L{str}
-        """
-        # TODO: raise a nice exception if shareeView is not, in fact, a shared
-        # version of this same L{CommonHomeChild}
-
-        # remove None parameters, and substitute None for empty string
-        bind = self._bindSchema
-        columnMap = dict([(k, v if v != "" else None)
-                          for k, v in {bind.BIND_MODE:mode,
-                            bind.BIND_STATUS:status,
-                            bind.MESSAGE:summary}.iteritems() if v is not None])
-
-        if len(columnMap):
-
-            # count accepted
-            if status is not None:
-                previouslyAcceptedBindCount = 1 if not self.addressbook().indirect() else 0
-                previouslyAcceptedBindCount += len((
-                    yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
-                        self._txn, homeID=shareeView.viewerHome()._resourceID, addressbookID=self.addressbook()._resourceID
-                    )
-                ))
-
-            bindNameRows = yield self._updateBindColumnsQuery(columnMap).on(
-                self._txn,
-                resourceID=self._resourceID, homeID=shareeView.viewerHome()._resourceID
-            )
-
-            # update affected attributes
-            if mode is not None:
-                shareeView._bindMode = columnMap[bind.BIND_MODE]
-
-            if status is not None:
-                shareeView._bindStatus = columnMap[bind.BIND_STATUS]
-                if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
-                    if 0 == previouslyAcceptedBindCount:
-                        yield shareeView.addressbook()._initSyncToken()
-                        yield shareeView._initBindRevision()
-                        shareeView.viewerHome()._children[self.addressbook().name()] = shareeView.addressbook()
-                        shareeView.viewerHome()._children[shareeView._resourceID] = shareeView.addressbook()
-                elif shareeView._bindStatus != _BIND_STATUS_INVITED:
-                    if 1 == previouslyAcceptedBindCount:
-                        yield shareeView.addressbook()._deletedSyncToken(sharedRemoval=True)
-                        shareeView.viewerHome()._children.pop(self.addressbook().name(), None)
-                        shareeView.viewerHome()._children.pop(shareeView._resourceID, None)
-
-            if summary is not None:
-                shareeView._bindMessage = columnMap[bind.MESSAGE]
-
-            # safer to just invalidate in all cases rather than calculate when to invalidate
-            queryCacher = self._txn._queryCacher
-            if queryCacher:
-                cacheKey = queryCacher.keyForObjectWithName(shareeView.viewerHome()._resourceID, self.addressbook().name())
-                queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-
-            shareeView._name = bindNameRows[0][0]
-
-            # Must send notification to ensure cache invalidation occurs
-            yield self.notifyChanged()
-
-        returnValue(shareeView._name)
 
 
     @classproperty
