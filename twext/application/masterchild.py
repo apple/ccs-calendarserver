@@ -243,7 +243,7 @@ class ReportingProtocolWrapper(ProtocolWrapper, object):
 
 
 
-class ReportingWrapperFactory(WrappingFactory):
+class ReportingWrapperFactory(WrappingFactory, object):
     protocol = ReportingProtocolWrapper
 
     def __init__(self, wrappedFactory, fd, createTransport):
