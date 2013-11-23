@@ -213,10 +213,13 @@ www_get () {
   if "${force_setup}" || [ ! -d "${path}" ]; then
     local ext="$(echo "${url}" | sed 's|^.*\.\([^.]*\)$|\1|')";
 
+    untar () { tar -xvf -; }
+    unzipstream () { tmp="$(mktemp -t foo)"; cat > "${tmp}"; unzip "${tmp}"; rm "${tmp}"; }
     case "${ext}" in
-      gz|tgz) decompress="gzip -d -c"; ;;
-      bz2)    decompress="bzip2 -d -c"; ;;
-      tar)    decompress="cat"; ;;
+      gz|tgz) decompress="gzip -d -c"; unpack="untar"; ;;
+      bz2)    decompress="bzip2 -d -c"; unpack="untar"; ;;
+      tar)    decompress="untar"; unpack="untar"; ;;
+      zip)    decompress="cat"; unpack="unzipstream"; ;;
       *)
         echo "Error in www_get of URL ${url}: Unknown extension ${ext}";
         exit 1;
@@ -228,7 +231,7 @@ www_get () {
     if [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
       mkdir -p "${cache_deps}";
 
-      local cache_basename="${name}-$(echo "${url}" | hash)-$(basename "${url}")";
+      local cache_basename="$(echo ${name} | tr '[ ]' '_')-$(echo "${url}" | hash)-$(basename "${url}")";
       local cache_file="${cache_deps}/${cache_basename}";
 
       check_hash () {
@@ -327,7 +330,7 @@ www_get () {
 
     rm -rf "${path}";
     cd "$(dirname "${path}")";
-    get | ${decompress} | tar -xvf -;
+    get | ${decompress} | ${unpack};
     apply_patches "${name}" "${path}";
     cd /;
   fi;
@@ -670,12 +673,12 @@ dependencies () {
   if type -P memcached > /dev/null; then
     using_system "memcached";
   else
-    local le="libevent-2.0.17-stable";
-    local mc="memcached-1.4.13";
-    c_dependency -m "dad64aaaaff16b5fbec25160c06fee9a" \
+    local le="libevent-2.0.21-stable";
+    local mc="memcached-1.4.15";
+    c_dependency -m "b2405cc9ebf264aa47ff615d9de527a2" \
       "libevent" "${le}" \
       "https://github.com/downloads/libevent/libevent/${le}.tar.gz";
-    c_dependency -m "6d18c6d25da945442fcc1187b3b63b7f" \
+    c_dependency -m "36ea966f5a29655be1746bf4949f7f69" \
       "memcached" "${mc}" \
       "http://memcached.googlecode.com/files/${mc}.tar.gz";
   fi;
@@ -683,8 +686,9 @@ dependencies () {
   if type -P postgres > /dev/null; then
     using_system "Postgres";
   else
-    local pgv="9.2.4";
-    local pg="postgresql-${pgv}";
+    local v="9.3.1";
+    local n="postgresql";
+    local p="${n}-${v}";
 
     if type -P dtrace > /dev/null; then
       local enable_dtrace="--enable-dtrace";
@@ -692,9 +696,9 @@ dependencies () {
       local enable_dtrace="";
     fi;
 
-    c_dependency -m "52df0a9e288f02d7e6e0af89ed4dcfc6" \
-      "PostgreSQL" "${pg}" \
-      "ftp://ftp5.us.postgresql.org/pub/PostgreSQL/source/v${pgv}/${pg}.tar.gz" \
+    c_dependency -m "c003d871f712d4d3895956b028a96e74" \
+      "PostgreSQL" "${p}" \
+      "http://ftp.postgresql.org/pub/source/v${v}/${p}.tar.bz2" \
       --with-python ${enable_dtrace};
     :;
   fi;
@@ -702,9 +706,12 @@ dependencies () {
   if find_header ldap.h; then
     using_system "OpenLDAP";
   else
-    c_dependency -m "ec63f9c2add59f323a0459128846905b" \
-      "OpenLDAP" "openldap-2.4.25" \
-      "http://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-2.4.25.tgz" \
+    local v="2.4.38";
+    local n="openldap";
+    local p="${n}-${v}";
+    c_dependency -m "39831848c731bcaef235a04e0d14412f" \
+      "OpenLDAP" "${p}" \
+      "http://www.openldap.org/software/download/OpenLDAP/${n}-release/${p}.tgz" \
       --disable-bdb --disable-hdb;
   fi;
 
@@ -726,21 +733,21 @@ dependencies () {
 
   # Sourceforge mirror hostname.
   local sf="superb-sea2.dl.sourceforge.net";
-  local st="setuptools-0.6c11";
+  local st="setuptools-1.4";
   local pypi="http://pypi.python.org/packages/source";
 
   py_dependency -m "7df2a529a074f613b509fb44feefe74e" \
     "setuptools" "setuptools" "${st}" \
     "$pypi/s/setuptools/${st}.tar.gz";
 
-  local v="4.0.3";
+  local v="4.0.5";
   local n="zope.interface";
   local p="${n}-${v}";
-  py_dependency -v 4 -m "1ddd308f2c83703accd1696158c300eb" \
+  py_dependency -v 4 -m "caf26025ae1b02da124a58340e423dfe" \
     "Zope Interface" "${n}" "${p}" \
-    "http://pypi.python.org/packages/source/z/${n}/${p}.tar.gz";
+    "http://pypi.python.org/packages/source/z/${n}/${p}.zip";
 
-  local v="0.10";
+  local v="0.13.1";
   local n="pyOpenSSL";
   local p="${n}-${v}";
   py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
@@ -754,7 +761,7 @@ dependencies () {
       "${svn_uri_base}/${n}/trunk";
   fi;
 
-  local v="0.6.1";
+  local v="0.7.2";
   local n="xattr";
   local p="${n}-${v}";
   py_dependency -v 0.5 -r 1038 \
@@ -762,10 +769,10 @@ dependencies () {
     "http://svn.red-bean.com/bob/${n}/releases/${p}/";
 
   if [ -n "${ORACLE_HOME:-}" ]; then
-    local v="5.1";
+    local v="5.1.2";
     local n="cx_Oracle";
     local p="${n}-${v}";
-    py_dependency -v "${v}" -m "d2697493a40c9d46c9b7c1c210b61671" \
+    py_dependency -v "${v}" -m "462f309e00f7bff7100e2077fc43172c" \
       "${n}" "${n}" "${p}" \
       "http://${sf}/project/cx-oracle/${v}/${p}.tar.gz";
   fi;
@@ -793,17 +800,17 @@ dependencies () {
     "${n}" "dateutil" "${p}" \
     "http://www.labix.org/download/${n}/${p}.tar.gz";
 
-  local v="0.6.1";
+  local v="1.2.0";
   local n="psutil";
   local p="${n}-${v}";
-  py_dependency -m "3cfcbfb8525f6e4c70110e44a85e907e" \
+  py_dependency -m "f8ae906249e65db21f17d873ae07e584" \
     "${n}" "${n}" "${p}" \
-    "http://${n}.googlecode.com/files/${p}.tar.gz";
+    "${pypi}/p/${n}/${p}.tar.gz";
 
-  local v="2.3.13";
+  local v="2.4.13";
   local n="python-ldap";
   local p="${n}-${v}";
-  py_dependency -v "${v}" -m "895223d32fa10bbc29aa349bfad59175" \
+  py_dependency -v "${v}" -m "74b7b50267761540451eade44b2049ee" \
     "Python-LDAP" "ldap" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
@@ -840,44 +847,45 @@ dependencies () {
     "${svn_uri_base}/CalDAVClientLibrary/trunk";
 
   # Can't add "-v 2011g" to args because the version check expects numbers.
+  local v="2013.8";
   local n="pytz";
-  local p="${n}-2011n";
+  local p="${n}-${v}";
   py_dependency -m "75ffdc113a4bcca8096ab953df746391" \
     "${n}" "${n}" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
-  local v="2.5";
+  local v="2.6.1";
   local n="pycrypto";
   local p="${n}-${v}";
-  py_dependency -v "${v}" -m "783e45d4a1a309e03ab378b00f97b291" \
+  py_dependency -v "${v}" -m "55a61a054aa66812daf5161a0d5d7eda" \
     "PyCrypto" "${n}" "${p}" \
     "http://ftp.dlitz.net/pub/dlitz/crypto/${n}/${p}.tar.gz";
 
-  local v="0.1.2";
+  local v="0.1.7";
   local n="pyasn1";
   local p="${n}-${v}";
-  py_dependency -v "${v}" -m "a7c67f5880a16a347a4d3ce445862a47" \
+  py_dependency -v "${v}" -m "2cbd80fcd4c7b1c82180d3d76fee18c8" \
     "${n}" "${n}" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
-  local v="1.1.6";
+  local v="1.1.8";
   local n="setproctitle";
   local p="${n}-${v}";
-  py_dependency -v "1.0" -m "1e42e43b440214b971f4b33c21eac369" \
+  py_dependency -v "1.0" -m "728f4c8c6031bbe56083a48594027edd" \
     "${n}" "${n}" "${p}" \
     "${pypi}/s/${n}/${p}.tar.gz";
 
-  local v="0.6";
+  local v="0.8";
   local n="cffi";
   local p="${n}-${v}";
-  py_dependency -v "0.6" -m "5be33b1ab0247a984d42b27344519337" \
+  py_dependency -v "0.6" -m "e61deb0515311bb42d5d58b9403bc923" \
     "${n}" "${n}" "${p}" \
     "${pypi}/c/${n}/${p}.tar.gz";
 
-  local v="2.09.1";
+  local v="2.10";
   local n="pycparser";
   local p="${n}-${v}";
-  py_dependency -v "0.6" -m "74aa075fc28b7c24a4426574d1ac91e0" \
+  py_dependency -v "0.6" -m "d87aed98c8a9f386aa56d365fe4d515f" \
     "${n}" "${n}" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
@@ -898,10 +906,10 @@ dependencies () {
     "${n}" "${n}" "${p}" \
     "https://pypi.python.org/packages/source/N/${n}/${p}.tar.gz";
 
-  local v="0.4";
+  local v="0.5b1";
   local n="pydoctor";
   local p="${n}-${v}";
-  py_dependency -o -m "b7564e12b5d35d4cb529a2c220b25d3a" \
+  py_dependency -o -m "c4fb33672f37624116cc7a0606f74f28" \
     "${n}" "${n}" "${p}" \
     "https://pypi.python.org/packages/source/p/${n}/${p}.tar.gz";
 
