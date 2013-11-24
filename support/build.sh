@@ -747,10 +747,10 @@ dependencies () {
     "Zope Interface" "${n}" "${p}" \
     "http://pypi.python.org/packages/source/z/${n}/${p}.zip";
 
-  local v="0.13.1";
+  local v="0.12";
   local n="pyOpenSSL";
   local p="${n}-${v}";
-  py_dependency -v 0.13 -m "e27a3b76734c39ea03952ca94cc56715" \
+  py_dependency -v 0.12 -m "60a7bbb6160950823eddcbba2cbcb0d6" \
     "${n}" "OpenSSL" "${p}" \
     "http://pypi.python.org/packages/source/p/${n}/${p}.tar.gz";
 
