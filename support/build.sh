@@ -736,7 +736,7 @@ dependencies () {
   local st="setuptools-1.4";
   local pypi="http://pypi.python.org/packages/source";
 
-  py_dependency -m "7df2a529a074f613b509fb44feefe74e" \
+  py_dependency -v 1 -m "5710464bc5a61d75f5087f15ce63cfe0" \
     "setuptools" "setuptools" "${st}" \
     "$pypi/s/setuptools/${st}.tar.gz";
 
@@ -750,7 +750,7 @@ dependencies () {
   local v="0.13.1";
   local n="pyOpenSSL";
   local p="${n}-${v}";
-  py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
+  py_dependency -v 0.13 -m "e27a3b76734c39ea03952ca94cc56715" \
     "${n}" "OpenSSL" "${p}" \
     "http://pypi.python.org/packages/source/p/${n}/${p}.tar.gz";
 
@@ -764,9 +764,9 @@ dependencies () {
   local v="0.7.2";
   local n="xattr";
   local p="${n}-${v}";
-  py_dependency -v 0.5 -r 1038 \
-    "${n}" "${n}" "${n}" \
-    "http://svn.red-bean.com/bob/${n}/releases/${p}/";
+  py_dependency -v 0.7 -m "7a57fb9b6cb8bb4cbe28cdf500b86c8e" \
+    "${n}" "${n}" "${p}" \
+    "https://pypi.python.org/packages/source/x/${n}/${n}-${v}.tar.gz";
 
   if [ -n "${ORACLE_HOME:-}" ]; then
     local v="5.1.2";
@@ -850,7 +850,7 @@ dependencies () {
   local v="2013.8";
   local n="pytz";
   local p="${n}-${v}";
-  py_dependency -m "75ffdc113a4bcca8096ab953df746391" \
+  py_dependency -m "37750ca749ed3a52523b9682b0b7e381" \
     "${n}" "${n}" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
