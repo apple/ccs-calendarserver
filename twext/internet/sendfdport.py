@@ -121,7 +121,7 @@ class _SubprocessSocket(FileDescriptor, object):
         self.dispatcher = dispatcher
         self.inSocket = inSocket
         self.outSocket = outSocket   # XXX needs to be set non-blocking by somebody
-        #self.fileno = outSocket.fileno
+        self.fileno = outSocket.fileno
         self.outgoingSocketQueue = []
         self.pendingCloseSocketQueue = []
 
