@@ -40,11 +40,67 @@ conditional_set () {
   fi;
 }
 
+# Checks for presence of a C header, optionally with a version comparison.
+# With only a header file name, try to include it, returning nonzero if absent.
+# With 3 params, also attempt a version check, returning nonzero if too old.
+# Param 2 is a minimum acceptable version number
+# Param 3 is a #define from the source that holds the installed version number
+# Examples:
+#   Assert that ldap.h is present
+#     find_header "ldap.h"
+#   Assert that ldap.h is present with a version >= 20344
+#     find_header "ldap.h" 20344 "LDAP_VENDOR_VERSION"
 find_header () {
-  local sysheader="$1"; shift;
-  echo "#include <${sysheader}>" | cc -x c -c - -o /dev/null 2> /dev/null;
-  return "$?";
-}
+  ARGS="$@";
+  ret=1;  # default to a failed check, forcing a fetch of the depencency
+  i=0;
+  for a in $ARGS; do
+    [ $i -eq 0 ] && local sysheader="$1";
+    [ $i -eq 1 ] && local minver="$2";
+    [ $i -eq 2 ] && local def="$3";
+    i=$(($i+1));
+  done;
+  [ ! $sysheader ] && return 1;
+  # Check for presence of a header. We use the "-c" cc option because we don't
+  # need to emit a file; cc exits nonzero if it can't find the header
+  if [ $# -lt 2 ]; then
+    echo "#include <${sysheader}>" | cc -x c -c - -o /dev/null 2> /dev/null;
+    return "$?";
+  # Check for presence of a header of specified version
+  else
+    found='';
+    local aout=$(mktemp -t ccXXXXXX); # compiled executable file path
+    local prog=$(mktemp -t ccXXXXXX); # C source file path
+    cat <<DOC > ${prog}
+#include <${sysheader}>
+#include <stdio.h>
+#define STR(x)   #x
+#define SHOW_DEFINE(x) printf("%s", STR(x))
+int main()
+{
+    if (${def})
+    {
+        SHOW_DEFINE(${def});
+        return 0;
+    };
+    return 1;
+};
+DOC
+    cc -x c -o ${aout} ${prog} &> /dev/null;
+    if [ $? -eq 0 ] && [ -e ${aout} ] ; then
+      found=$(${aout});
+    fi;
+    if [ $? -eq 0 ] && [ ! -z ${found} ] ; then
+      cmp_version $minver $found;
+      ret=$?;
+    else
+      ret=1;   #cc exited nonzero or didn't emit a file
+    fi;
+    rm -f "${aout}";
+    rm -f "${prog}";
+  fi;
+  return $ret;
+};
 
 # Initialize all the global state required to use this library.
 init_build () {
@@ -703,7 +759,7 @@ dependencies () {
     :;
   fi;
 
-  if find_header ldap.h; then
+  if find_header ldap.h 20428 LDAP_VENDOR_VERSION; then
     using_system "OpenLDAP";
   else
     local v="2.4.38";
