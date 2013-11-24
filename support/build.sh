@@ -677,7 +677,7 @@ dependencies () {
     local mc="memcached-1.4.15";
     c_dependency -m "b2405cc9ebf264aa47ff615d9de527a2" \
       "libevent" "${le}" \
-      "https://github.com/downloads/libevent/libevent/${le}.tar.gz";
+      "http://github.com/downloads/libevent/libevent/${le}.tar.gz";
     c_dependency -m "36ea966f5a29655be1746bf4949f7f69" \
       "memcached" "${mc}" \
       "http://memcached.googlecode.com/files/${mc}.tar.gz";
@@ -766,7 +766,7 @@ dependencies () {
   local p="${n}-${v}";
   py_dependency -v 0.7 -m "7a57fb9b6cb8bb4cbe28cdf500b86c8e" \
     "${n}" "${n}" "${p}" \
-    "https://pypi.python.org/packages/source/x/${n}/${n}-${v}.tar.gz";
+    "${pypi}/x/${n}/${n}-${v}.tar.gz";
 
   if [ -n "${ORACLE_HOME:-}" ]; then
     local v="5.1.2";
@@ -897,21 +897,21 @@ dependencies () {
   local p="${n}-${v}";
   py_dependency -o -m "36407974bd5da2af00bf90ca27feeb44" \
     "Epydoc" "${n}" "${p}" \
-    "https://pypi.python.org/packages/source/e/${n}/${p}.tar.gz";
+    "${pypi}/e/${n}/${p}.tar.gz";
 
   local v="0.10.0";
   local n="Nevow";
   local p="${n}-${v}";
   py_dependency -o -m "66dda2ad88f42dea05911add15f4d1b2" \
     "${n}" "${n}" "${p}" \
-    "https://pypi.python.org/packages/source/N/${n}/${p}.tar.gz";
+    "${pypi}/N/${n}/${p}.tar.gz";
 
   local v="0.5b1";
   local n="pydoctor";
   local p="${n}-${v}";
   py_dependency -o -m "c4fb33672f37624116cc7a0606f74f28" \
     "${n}" "${n}" "${p}" \
-    "https://pypi.python.org/packages/source/p/${n}/${p}.tar.gz";
+    "{$pypi}/p/${n}/${p}.tar.gz";
 
   if "${do_setup}"; then
     cd "${caldav}";
