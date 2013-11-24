@@ -214,7 +214,7 @@ www_get () {
     local ext="$(echo "${url}" | sed 's|^.*\.\([^.]*\)$|\1|')";
 
     untar () { tar -xvf -; }
-    unzipstream () { tmp="$(mktemp -t foo)"; cat > "${tmp}"; unzip "${tmp}"; rm "${tmp}"; }
+    unzipstream () { tmp="$(mktemp -t ccsXXXXX)"; cat > "${tmp}"; unzip "${tmp}"; rm "${tmp}"; }
     case "${ext}" in
       gz|tgz) decompress="gzip -d -c"; unpack="untar"; ;;
       bz2)    decompress="bzip2 -d -c"; unpack="untar"; ;;
