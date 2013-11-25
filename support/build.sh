@@ -817,10 +817,10 @@ dependencies () {
       "${svn_uri_base}/${n}/trunk";
   fi;
 
-  local v="0.7.2";
+  local v="0.6.4";
   local n="xattr";
   local p="${n}-${v}";
-  py_dependency -v 0.7 -m "7a57fb9b6cb8bb4cbe28cdf500b86c8e" \
+  py_dependency -v 0.6 -m "1bef31afb7038800f8d5cfa2f4562b37" \
     "${n}" "${n}" "${p}" \
     "${pypi}/x/${n}/${n}-${v}.tar.gz";
 
