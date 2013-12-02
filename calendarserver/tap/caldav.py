@@ -72,8 +72,7 @@ from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
     UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
-    UpgradeAcquireLockStep, UpgradeReleaseLockStep
-)
+    UpgradeAcquireLockStep, UpgradeReleaseLockStep, UpgradeDatabaseNotificationDataStep)
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
 from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
@@ -1415,6 +1414,12 @@ class CalDAVServiceMaker (object):
 
                 pps.addStep(
                     UpgradeDatabaseCalendarDataStep(
+                        store, uid=overrideUID, gid=overrideGID
+                    )
+                )
+
+                pps.addStep(
+                    UpgradeDatabaseNotificationDataStep(
                         store, uid=overrideUID, gid=overrideGID
                     )
                 )

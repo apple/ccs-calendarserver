@@ -639,8 +639,9 @@ class DTStamp (WebDAVTextElement):
     name = "dtstamp"
 
     def __init__(self, *children):
-        super(DTStamp, self).__init__(children)
-        self.children = (PCDATAElement(DateTime.getNowUTC().getText()),)
+        super(DTStamp, self).__init__(*children)
+        if not self.children:
+            self.children = (PCDATAElement(DateTime.getNowUTC().getText()),)
 
 
 

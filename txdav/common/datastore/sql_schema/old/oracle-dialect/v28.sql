@@ -49,16 +49,15 @@ create table CALENDAR_METADATA (
 
 create table NOTIFICATION_HOME (
     "RESOURCE_ID" integer primary key,
-    "OWNER_UID" nvarchar2(255) unique,
-    "DATAVERSION" integer default 0 not null
+    "OWNER_UID" nvarchar2(255) unique
 );
 
 create table NOTIFICATION (
     "RESOURCE_ID" integer primary key,
     "NOTIFICATION_HOME_RESOURCE_ID" integer not null references NOTIFICATION_HOME,
     "NOTIFICATION_UID" nvarchar2(255),
-    "NOTIFICATION_TYPE" nvarchar2(255),
-    "NOTIFICATION_DATA" nclob,
+    "XML_TYPE" nvarchar2(255),
+    "XML_DATA" nclob,
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
@@ -92,7 +91,6 @@ insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('own', 0);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('read', 1);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('write', 2);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('direct', 3);
-insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('indirect', 4);
 create table CALENDAR_BIND_STATUS (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -102,7 +100,6 @@ insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('invited', 0);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('accepted', 1);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('declined', 2);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('invalid', 3);
-insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('deleted', 4);
 create table CALENDAR_TRANSP (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -370,10 +367,9 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '29');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '28');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
-insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
 create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
     DEFAULT_EVENTS
 );

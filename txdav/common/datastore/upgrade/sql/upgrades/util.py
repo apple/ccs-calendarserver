@@ -128,6 +128,11 @@ def updateAddressBookDataVersion(store, version):
 
 
 
+def updateNotificationDataVersion(store, version):
+    return _updateDataVersion(store, "NOTIFICATION-DATAVERSION", version)
+
+
+
 @inlineCallbacks
 def doToEachHomeNotAtVersion(store, homeSchema, version, doIt, logStr, filterOwnerUID=None):
     """

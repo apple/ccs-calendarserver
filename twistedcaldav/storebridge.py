@@ -70,10 +70,10 @@ from txdav.common.icommondatastore import NoSuchObjectResourceError, \
     UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove, \
     InvalidComponentForStoreError
 from txdav.idav import PropertyChangeNotAllowedError
-from txdav.xml import element as davxml
+from txdav.xml import element as davxml, element
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 
-from urlparse import urlsplit
+from urlparse import urlsplit, urljoin
 import hashlib
 import time
 import uuid
@@ -84,6 +84,8 @@ from twistedcaldav.instance import InvalidOverriddenInstanceError, \
     TooManyInstancesError
 from twistedcaldav.util import bestAcceptType
 import collections
+from twistedcaldav.sharing import invitationBindStatusToXMLMap, \
+    invitationBindModeToXMLMap
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -275,7 +277,7 @@ class _CommonHomeChildCollectionMixin(object):
 
     def owner_url(self):
         if self.isShareeResource():
-            return joinURL(self._share.url(), "/")
+            return joinURL(self._share_url, "/")
         else:
             return self.url()
 
@@ -1640,23 +1642,23 @@ class CalendarObjectDropbox(_GetChildHelper):
         for invite in invites:
 
             # Only want accepted invites
-            if invite.status() != _BIND_STATUS_ACCEPTED:
+            if invite.status != _BIND_STATUS_ACCEPTED:
                 continue
 
             userprivs = [
             ]
-            if invite.mode() in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
+            if invite.mode in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Read()))
                 userprivs.append(davxml.Privilege(davxml.ReadACL()))
                 userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
-            if invite.mode() in (_BIND_MODE_READ,):
+            if invite.mode in (_BIND_MODE_READ,):
                 userprivs.append(davxml.Privilege(davxml.WriteProperties()))
-            if invite.mode() in (_BIND_MODE_WRITE,):
+            if invite.mode in (_BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Write()))
             proxyprivs = list(userprivs)
             proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
 
-            principal = self.principalForUID(invite.shareeUID())
+            principal = self.principalForUID(invite.shareeUID)
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -1951,10 +1953,10 @@ class AttachmentsChildCollection(_GetChildHelper):
             access control mechanism has dictate the home should no longer have
             any access at all.
         """
-        if invite.mode() in (_BIND_MODE_DIRECT,):
-            ownerUID = invite.ownerUID()
+        if invite.mode in (_BIND_MODE_DIRECT,):
+            ownerUID = invite.ownerUID
             owner = self.principalForUID(ownerUID)
-            shareeUID = invite.shareeUID()
+            shareeUID = invite.shareeUID
             if owner.record.recordType == WikiDirectoryService.recordType_wikis:
                 # Access level comes from what the wiki has granted to the
                 # sharee
@@ -1970,9 +1972,9 @@ class AttachmentsChildCollection(_GetChildHelper):
                     returnValue(None)
             else:
                 returnValue("original")
-        elif invite.mode() in (_BIND_MODE_READ,):
+        elif invite.mode in (_BIND_MODE_READ,):
             returnValue("read-only")
-        elif invite.mode() in (_BIND_MODE_WRITE,):
+        elif invite.mode in (_BIND_MODE_WRITE,):
             returnValue("read-write")
         returnValue("original")
 
@@ -1985,7 +1987,7 @@ class AttachmentsChildCollection(_GetChildHelper):
         for invite in invites:
 
             # Only want accepted invites
-            if invite.status() != _BIND_STATUS_ACCEPTED:
+            if invite.status != _BIND_STATUS_ACCEPTED:
                 continue
 
             privileges = [
@@ -1997,7 +1999,7 @@ class AttachmentsChildCollection(_GetChildHelper):
             if access in ("read-only", "read-write",):
                 userprivs.extend(privileges)
 
-            principal = self.principalForUID(invite.shareeUID())
+            principal = self.principalForUID(invite.shareeUID)
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -3108,26 +3110,9 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         call super and provision group share
         """
         abObjectResource = yield super(AddressBookCollectionResource, self).makeChild(name)
-        if abObjectResource.exists() and abObjectResource._newStoreObject.shareUID() is not None:
-            abObjectResource = yield self.parentResource().provisionShare(abObjectResource)
+        #if abObjectResource.exists() and abObjectResource._newStoreObject.shareUID() is not None:
+        #    abObjectResource = yield self.parentResource().provisionShare(abObjectResource)
         returnValue(abObjectResource)
-
-
-    @inlineCallbacks
-    def storeRemove(self, request):
-        """
-        handle remove of partially shared addressbook, else call super
-        """
-        if self.isShareeResource() and self._newStoreObject.shareUID() is None:
-            log.debug("Removing shared collection %s" % (self,))
-            for childname in (yield self.listChildren()):
-                child = (yield request.locateChildResource(self, childname))
-                if child.isShareeResource():
-                    yield child.storeRemove(request)
-
-            returnValue(NO_CONTENT)
-
-        returnValue((yield super(AddressBookCollectionResource, self).storeRemove(request)))
 
 
     @inlineCallbacks
@@ -3666,13 +3651,6 @@ class StoreNotificationCollectionResource(_NotificationChildHelper, Notification
         )
 
 
-    def addNotification(self, request, uid, xmltype, xmldata):
-        return maybeDeferred(
-            self._newStoreNotifications.writeNotificationObject,
-            uid, xmltype, xmldata
-        )
-
-
     def deleteNotification(self, request, record):
         return maybeDeferred(
             self._newStoreNotifications.removeNotificationObjectWithName,
@@ -3717,7 +3695,15 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             qname = prop.qname()
 
         if qname == customxml.NotificationType.qname():
-            returnValue(self._newStoreObject.xmlType())
+            jsontype = self._newStoreObject.notificationType()
+            if jsontype["notification-type"] == "invite-notification":
+                typeAttr = {"shared-type": jsontype["shared-type"]}
+                xmltype = customxml.InviteNotification(**typeAttr)
+            elif jsontype["notification-type"] == "invite-reply":
+                xmltype = customxml.InviteReply()
+            else:
+                raise HTTPError(responsecode.INTERNAL_SERVER_ERROR)
+            returnValue(customxml.NotificationType(xmltype))
 
         returnValue((yield super(StoreNotificationObjectFile, self).readProperty(prop, request)))
 
@@ -3730,9 +3716,95 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         return succeed(self._newStoreObject.size())
 
 
+    @inlineCallbacks
     def text(self, ignored=None):
         assert ignored is None, "This is a notification object, not a notification"
-        return self._newStoreObject.xmldata()
+        jsondata = (yield self._newStoreObject.notificationData())
+        if jsondata["notification-type"] == "invite-notification":
+            ownerPrincipal = self.principalForUID(jsondata["owner"])
+            ownerCN = ownerPrincipal.displayName()
+            ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
+
+            # FIXME:  use urn:uuid always?
+            if jsondata["shared-type"] == "calendar":
+                owner = ownerPrincipal.principalURL()
+            else:
+                owner = "urn:uuid:" + ownerPrincipal.principalUID()
+
+            shareePrincipal = self.principalForUID(jsondata["sharee"])
+
+            if "supported-components" in jsondata:
+                comps = jsondata["supported-components"]
+                if comps:
+                    comps = comps.split(",")
+                else:
+                    comps = ical.allowedStoreComponents
+                supported = caldavxml.SupportedCalendarComponentSet(
+                    *[caldavxml.CalendarComponent(name=item) for item in comps]
+                )
+            else:
+                supported = None
+
+            typeAttr = {"shared-type": jsondata["shared-type"]}
+            xmldata = customxml.Notification(
+                customxml.DTStamp.fromString(jsondata["dtstamp"]),
+                customxml.InviteNotification(
+                    customxml.UID.fromString(jsondata["uid"]),
+                    element.HRef.fromString("urn:uuid:" + jsondata["sharee"]),
+                    invitationBindStatusToXMLMap[jsondata["status"]](),
+                    customxml.InviteAccess(invitationBindModeToXMLMap[jsondata["access"]]()),
+                    customxml.HostURL(
+                        element.HRef.fromString(urljoin(ownerHomeURL, jsondata["ownerName"])),
+                    ),
+                    customxml.Organizer(
+                        element.HRef.fromString(owner),
+                        customxml.CommonName.fromString(ownerCN),
+                    ),
+                    customxml.InviteSummary.fromString(jsondata["summary"]),
+                    supported,
+                    **typeAttr
+                ),
+            )
+        elif jsondata["notification-type"] == "invite-reply":
+            ownerPrincipal = self.principalForUID(jsondata["owner"])
+            ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
+
+            shareePrincipal = self.principalForUID(jsondata["sharee"])
+
+            # FIXME:  use urn:uuid always?
+            if jsondata["shared-type"] == "calendar":
+                # Prefer mailto:, otherwise use principal URL
+                for cua in shareePrincipal.calendarUserAddresses():
+                    if cua.startswith("mailto:"):
+                        break
+                else:
+                    cua = shareePrincipal.principalURL()
+            else:
+                cua = "urn:uuid:" + shareePrincipal.principalUID()
+
+            commonName = shareePrincipal.displayName()
+            record = shareePrincipal.record
+
+            typeAttr = {"shared-type": jsondata["shared-type"]}
+            xmldata = customxml.Notification(
+                customxml.DTStamp.fromString(jsondata["dtstamp"]),
+                customxml.InviteReply(
+                    element.HRef.fromString(cua),
+                    invitationBindStatusToXMLMap[jsondata["status"]](),
+                    customxml.HostURL(
+                        element.HRef.fromString(urljoin(ownerHomeURL, jsondata["ownerName"])),
+                    ),
+                    customxml.InReplyTo.fromString(jsondata["in-reply-to"]),
+                    customxml.InviteSummary.fromString(jsondata["summary"]) if jsondata["summary"] else None,
+                    customxml.CommonName.fromString(commonName) if commonName else None,
+                    customxml.FirstNameProperty(record.firstName) if record.firstName else None,
+                    customxml.LastNameProperty(record.lastName) if record.lastName else None,
+                    #**typeAttr
+                ),
+            )
+        else:
+            raise HTTPError(responsecode.INTERNAL_SERVER_ERROR)
+        returnValue(xmldata.toxml())
 
 
     @requiresPermissions(davxml.Read())
