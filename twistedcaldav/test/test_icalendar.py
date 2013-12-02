@@ -21,7 +21,7 @@ import itertools
 from twisted.trial.unittest import SkipTest
 
 from twistedcaldav.ical import Component, Property, InvalidICalendarDataError, \
-    normalizeCUAddress
+    normalizeCUAddress, normalize_iCalStr
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 import twistedcaldav.test.util
 
@@ -1150,6 +1150,82 @@ END:VCALENDAR
             component = Component.fromString(original)
             component.setParameterToValueForPropertyWithValue(*args)
             self.assertEqual(result, str(component).replace("\r", ""))
+
+
+    def test_parameter_multi_values(self):
+        caldata = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;MEMBER="urn:uuid:group01","urn:uuid:group02";PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        caldata2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;MEMBER="urn:uuid:group01","urn:uuid:group02","urn:uuid:group03";PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        caldata3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;MEMBER="urn:uuid:group01";PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(caldata)
+        attendee = component.masterComponent().getAttendeeProperty(["mailto:user02@example.com", ])
+        self.assertTrue(attendee is not None)
+
+        # Single value retrieved as multi-value
+        partstat = attendee.parameterValues("PARTSTAT")
+        self.assertEqual(partstat, ["NEEDS-ACTION"])
+
+        # Multi-value retrieved as single-value
+        member = attendee.parameterValue("MEMBER")
+        self.assertEqual(member, "urn:uuid:group01")
+
+        # Multi-value retrieved as multi-value
+        members = attendee.parameterValues("MEMBER")
+        self.assertEqual(members, ["urn:uuid:group01", "urn:uuid:group02"])
+
+        # Multi-value add a new value
+        members = attendee.parameterValues("MEMBER")
+        members.append("urn:uuid:group03")
+        attendee.setParameter("MEMBER", members)
+        members = attendee.parameterValues("MEMBER")
+        self.assertEqual(members, ["urn:uuid:group01", "urn:uuid:group02", "urn:uuid:group03"])
+        self.assertEqual(normalize_iCalStr(str(component)), normalize_iCalStr(caldata2))
+
+        # Multi-value back to one
+        members = attendee.parameterValues("MEMBER")
+        del members[1:]
+        attendee.setParameter("MEMBER", members)
+        members = attendee.parameterValues("MEMBER")
+        self.assertEqual(members, ["urn:uuid:group01"])
+        self.assertEqual(normalize_iCalStr(str(component)), normalize_iCalStr(caldata3))
 
 
     def test_add_property_with_valuetype(self):

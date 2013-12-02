@@ -25,7 +25,6 @@ from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
 from twisted.python.constants import Names, NamedConstant
 from twisted.trial import unittest
-from twisted.trial.unittest import SkipTest
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.defer import succeed
 
@@ -36,17 +35,67 @@ from twext.who.expression import CompoundExpression, Operand
 from twext.who.directory import DirectoryService, DirectoryRecord
 
 
+
+class StubDirectoryService(DirectoryService):
+    """
+    Stub directory service with some built-in records and an implementation
+    of C{recordsFromNonCompoundExpression}.
+    """
+
+    def __init__(self, realmName):
+        DirectoryService.__init__(self, realmName)
+
+        self.records = RecordStorage(self, DirectoryRecord)
+
+
+    def recordsFromExpression(self, expression):
+        self.seenExpressions = []
+
+        return DirectoryService.recordsFromExpression(self, expression)
+
+
+    def recordsFromNonCompoundExpression(self, expression, records=None):
+        """
+        This implementation handles three expressions:
+
+        The expression C{u"None"} will match no records.
+
+        The expressions C{u"twistedmatrix.com"} and C{u"calendarserver.org"}
+        will match records that have an email address ending with the
+        given expression.
+        """
+        self.seenExpressions.append(expression)
+
+        if expression == u"None":
+            return succeed([])
+
+        if expression in (u"twistedmatrix.com", u"calendarserver.org"):
+            result = []
+            for record in self.records:
+                for email in record.emailAddresses:
+                    if email.endswith(expression):
+                        result.append(record)
+                        break
+            return succeed(result)
+
+        return DirectoryService.recordsFromNonCompoundExpression(
+            self, expression, records=records
+        )
+
+
+
 class ServiceMixIn(object):
     """
     MixIn that sets up a service appropriate for testing.
     """
+
     realmName = u"xyzzy"
 
 
-    def service(self):
-        if not hasattr(self, "_service"):
-            self._service = DirectoryService(self.realmName)
-        return self._service
+    def service(self, subClass=None):
+        if subClass is None:
+            subClass = self.serviceClass
+        return subClass(self.realmName)
 
 
 
@@ -76,17 +125,20 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
     def test_repr(self):
         """
-        C{repr} returns the expected string.
+        L{DirectoryService.repr} returns the expected string.
         """
         service = self.service()
-        self.assertEquals(repr(service), "<DirectoryService u'xyzzy'>")
+        self.assertEquals(
+            repr(service),
+            "<{0} u'xyzzy'>".format(self.serviceClass.__name__)
+        )
 
 
     def test_recordTypes(self):
         """
-        C{recordTypes} returns the supported set of record types.
-        For L{DirectoryService}, that's the set of constants in the
-        C{recordType} attribute.
+        L{DirectoryService.recordTypes} returns the supported set of record
+        types. For L{DirectoryService}, that's the set of constants in the
+        L{DirectoryService.recordType} attribute.
         """
         service = self.service()
         self.assertEquals(
@@ -97,8 +149,8 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
     def test_recordsFromNonCompoundExpression_unknownExpression(self):
         """
-        C{recordsFromNonCompoundExpression} with an unknown expression type
-        fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordsFromNonCompoundExpression} with an unknown
+        expression type fails with L{QueryNotSupportedError}.
         """
         service = self.service()
         self.assertFailure(
@@ -110,8 +162,8 @@ class BaseDirectoryServiceTest(ServiceMixIn):
     @inlineCallbacks
     def test_recordsFromNonCompoundExpression_emptyRecords(self):
         """
-        C{recordsFromNonCompoundExpression} with an unknown expression type
-        and an empty C{records} set returns an empty result.
+        L{DirectoryService.recordsFromNonCompoundExpression} with an unknown
+        expression type and an empty C{records} set returns an empty result.
         """
         service = self.service()
         result = (
@@ -124,12 +176,13 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
     def test_recordsFromNonCompoundExpression_nonEmptyRecords(self):
         """
-        C{recordsFromNonCompoundExpression} with an unknown expression type
-        and a non-empty C{records} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordsFromNonCompoundExpression} with an unknown
+        expression type and a non-empty C{records} fails with
+        L{QueryNotSupportedError}.
         """
         service = self.service()
 
-        wsanchez = DirectoryRecord(
+        wsanchez = self.directoryRecordClass(
             service,
             {
                 service.fieldName.recordType: service.recordType.user,
@@ -148,8 +201,8 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
     def test_recordsFromExpression_unknownExpression(self):
         """
-        C{recordsFromExpression} with an unknown expression type fails with
-        L{QueryNotSupportedError}.
+        L{DirectoryService.recordsFromExpression} with an unknown expression
+        type fails with L{QueryNotSupportedError}.
         """
         service = self.service()
         result = yield(service.recordsFromExpression(object()))
@@ -159,8 +212,8 @@ class BaseDirectoryServiceTest(ServiceMixIn):
     @inlineCallbacks
     def test_recordsFromExpression_emptyExpression(self):
         """
-        C{recordsFromExpression} with an unknown expression type and an empty
-        L{CompoundExpression} returns an empty result.
+        L{DirectoryService.recordsFromExpression} with an unknown expression
+        type and an empty L{CompoundExpression} returns an empty result.
         """
         service = self.service()
 
@@ -204,13 +257,22 @@ class BaseDirectoryServiceTest(ServiceMixIn):
 
 
 
-class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
+class DirectoryServiceRecordsFromExpressionTest(
+    unittest.TestCase,
+    ServiceMixIn
+):
+    """
+    Tests for L{DirectoryService.recordsFromExpression}.
+    """
+    serviceClass = StubDirectoryService
+    directoryRecordClass = DirectoryRecord
+
     @inlineCallbacks
     def test_recordsFromExpression_single(self):
         """
-        C{recordsFromExpression} handles a single expression
+        L{DirectoryService.recordsFromExpression} handles a single expression.
         """
-        service = StubDirectoryService()
+        service = self.service()
 
         result = yield service.recordsFromExpression("twistedmatrix.com")
 
@@ -228,10 +290,10 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
     @inlineCallbacks
     def test_recordsFromExpression_OR(self):
         """
-        C{recordsFromExpression} handles a L{CompoundExpression} with
-        L{Operand.OR}.
+        L{DirectoryService.recordsFromExpression} handles a
+        L{CompoundExpression} with L{Operand.OR}.
         """
-        service = StubDirectoryService()
+        service = self.service()
 
         result = yield service.recordsFromExpression(
             CompoundExpression(
@@ -260,10 +322,10 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
     @inlineCallbacks
     def test_recordsFromExpression_AND(self):
         """
-        C{recordsFromExpression} handles a L{CompoundExpression} with
-        L{Operand.AND}.
+        L{DirectoryService.recordsFromExpression} handles a
+        L{CompoundExpression} with L{Operand.AND}.
         """
-        service = StubDirectoryService()
+        service = self.service()
 
         result = yield service.recordsFromExpression(
             CompoundExpression(
@@ -287,11 +349,11 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
     @inlineCallbacks
     def test_recordsFromExpression_AND_optimized(self):
         """
-        C{recordsFromExpression} handles a L{CompoundExpression} with
-        L{Operand.AND}, and when one of the expression matches no records, the
-        subsequent expressions are skipped.
+        L{DirectoryService.recordsFromExpression} handles a
+        L{CompoundExpression} with L{Operand.AND}, and when one of the
+        expression matches no records, the subsequent expressions are skipped.
         """
-        service = StubDirectoryService()
+        service = self.service()
 
         result = yield service.recordsFromExpression(
             CompoundExpression(
@@ -317,10 +379,11 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
     def test_recordsFromExpression_unknownOperand(self):
         """
-        C{recordsFromExpression} fails with L{QueryNotSupportedError} when
-        given a L{CompoundExpression} with an unknown operand.
+        L{DirectoryService.recordsFromExpression} fails with
+        L{QueryNotSupportedError} when given a L{CompoundExpression} with an
+        unknown operand.
         """
-        service = StubDirectoryService()
+        service = self.service()
 
         results = service.recordsFromExpression(
             CompoundExpression(
@@ -335,9 +398,21 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
         self.assertFailure(results, QueryNotSupportedError)
 
 
+
+class DirectoryServiceConvenienceTest(
+    unittest.TestCase,
+    BaseDirectoryServiceTest
+):
+    """
+    Tests for L{DirectoryService} convenience methods.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
+
     def test_recordWithUID(self):
         """
-        C{recordWithUID} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordWithUID} fails with L{QueryNotSupportedError}.
         """
         service = self.service()
 
@@ -349,7 +424,8 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
     def test_recordWithGUID(self):
         """
-        C{recordWithGUID} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordWithGUID} fails with
+        L{QueryNotSupportedError}.
         """
         service = self.service()
 
@@ -361,7 +437,8 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
     def test_recordsWithRecordType(self):
         """
-        C{recordsWithRecordType} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordsWithRecordType} fails with
+        L{QueryNotSupportedError}.
         """
         service = self.service()
 
@@ -374,7 +451,8 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
     def test_recordWithShortName(self):
         """
-        C{recordWithShortName} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordWithShortName} fails with
+        L{QueryNotSupportedError}.
         """
         service = self.service()
 
@@ -387,7 +465,8 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
     def test_recordsWithEmailAddress(self):
         """
-        C{recordsWithEmailAddress} fails with L{QueryNotSupportedError}.
+        L{DirectoryService.recordsWithEmailAddress} fails with
+        L{QueryNotSupportedError}.
         """
         service = self.service()
 
@@ -400,7 +479,7 @@ class DirectoryServiceTest(unittest.TestCase, BaseDirectoryServiceTest):
 
 class BaseDirectoryServiceImmutableTest(ServiceMixIn):
     """
-    Immutable directory record tests.
+    Tests for immutable directory services.
     """
 
     def test_updateRecordsNotAllowed(self):
@@ -409,7 +488,7 @@ class BaseDirectoryServiceImmutableTest(ServiceMixIn):
         """
         service = self.service()
 
-        newRecord = DirectoryRecord(
+        newRecord = self.directoryRecordClass(
             service,
             fields={
                 service.fieldName.uid: u"__plugh__",
@@ -442,11 +521,19 @@ class DirectoryServiceImmutableTest(
     unittest.TestCase,
     BaseDirectoryServiceImmutableTest,
 ):
-    pass
+    """
+    Tests for immutable L{DirectoryService}.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
 
 
 
 class BaseDirectoryRecordTest(ServiceMixIn):
+    """
+    Tests for directory records.
+    """
+
     fields_wsanchez = {
         FieldName.uid: u"UID:wsanchez",
         FieldName.recordType: RecordType.user,
@@ -604,7 +691,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
     def test_repr(self):
         """
-        C{repr} returns the expected string.
+        L{DirectoryRecord.repr} returns the expected string.
         """
         wsanchez = self.makeRecord(self.fields_wsanchez)
 
@@ -667,7 +754,7 @@ class BaseDirectoryRecordTest(ServiceMixIn):
 
     def test_description(self):
         """
-        C{description} returns the expected string.
+        L{DirectoryRecord.description} returns the expected string.
         """
         sagen = self.makeRecord(self.fields_sagen)
 
@@ -685,18 +772,20 @@ class BaseDirectoryRecordTest(ServiceMixIn):
             sagen.description()
         )
 
+    test_description.todo = "Intermittent order issues"
+
 
     def test_members_group(self):
         """
-        Group members.
+        Group members for group records.
         """
-        raise SkipTest("Subclasses should implement this test.")
+        raise NotImplementedError("Subclasses should implement this test.")
 
 
     @inlineCallbacks
     def test_members_nonGroup(self):
         """
-        Non-groups have no members.
+        Group members for non-group records.  Non-groups have no members.
         """
         wsanchez = self.makeRecord(self.fields_wsanchez)
 
@@ -706,55 +795,64 @@ class BaseDirectoryRecordTest(ServiceMixIn):
         )
 
 
-    def test_groups(self):
+    def test_memberships(self):
         """
         Group memberships.
         """
-        raise SkipTest("Subclasses should implement this test.")
+        raise NotImplementedError("Subclasses should implement this test.")
 
 
 
 class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
+    """
+    Tests for L{DirectoryRecord}.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
     def test_members_group(self):
         staff = self.makeRecord(self.fields_staff)
 
         self.assertFailure(staff.members(), NotImplementedError)
 
 
-    def test_groups(self):
+    def test_memberships(self):
         wsanchez = self.makeRecord(self.fields_wsanchez)
 
         self.assertFailure(wsanchez.groups(), NotImplementedError)
 
 
 
-class StubDirectoryService(DirectoryService):
+class RecordStorage(object):
     """
-    Stubn directory service with some built-in records and an implementation
-    of C{recordsFromNonCompoundExpression}.
+    Container for directory records.
     """
-
-    def __init__(self):
-        DirectoryService.__init__(self, u"Stub")
-
+    def __init__(self, service, recordClass):
+        self.service = service
+        self.recordClass = recordClass
         self.records = []
-        self._addRecords()
+
+        self.addDefaultRecords()
 
 
-    def _addRecords(self):
+    def addDefaultRecords(self):
         """
         Add a known set of records to this service.
         """
-        self._addUser(
+        self.addUser(
             shortNames=[u"wsanchez", u"wilfredo_sanchez"],
-            fullNames=[u"Wilfredo S\xe1nchez Vega"],
+            fullNames=[
+                u"Wilfredo S\xe1nchez Vega",
+                u"Wilfredo Sanchez Vega",
+                u"Wilfredo Sanchez",
+            ],
             emailAddresses=[
                 u"wsanchez@bitbucket.calendarserver.org",
                 u"wsanchez@devnull.twistedmatrix.com",
             ],
         )
 
-        self._addUser(
+        self.addUser(
             shortNames=[u"glyph"],
             fullNames=[u"Glyph Lefkowitz"],
             emailAddresses=[
@@ -763,7 +861,7 @@ class StubDirectoryService(DirectoryService):
             ],
         )
 
-        self._addUser(
+        self.addUser(
             shortNames=[u"sagen"],
             fullNames=[u"Morgen Sagen"],
             emailAddresses=[
@@ -772,7 +870,7 @@ class StubDirectoryService(DirectoryService):
             ],
         )
 
-        self._addUser(
+        self.addUser(
             shortNames=[u"cdaboo"],
             fullNames=[u"Cyrus Daboo"],
             emailAddresses=[
@@ -780,7 +878,7 @@ class StubDirectoryService(DirectoryService):
             ],
         )
 
-        self._addUser(
+        self.addUser(
             shortNames=[u"dre"],
             fullNames=[u"Andre LaBranche"],
             emailAddresses=[
@@ -789,7 +887,7 @@ class StubDirectoryService(DirectoryService):
             ],
         )
 
-        self._addUser(
+        self.addUser(
             shortNames=[u"exarkun"],
             fullNames=[u"Jean-Paul Calderone"],
             emailAddresses=[
@@ -797,7 +895,7 @@ class StubDirectoryService(DirectoryService):
             ],
         )
 
-        self._addUser(
+        self.addUser(
             shortNames=[u"dreid"],
             fullNames=[u"David Reid"],
             emailAddresses=[
@@ -805,7 +903,7 @@ class StubDirectoryService(DirectoryService):
             ],
         )
 
-        self._addUser(
+        self.addUser(
             shortNames=[u"joe"],
             fullNames=[u"Joe Schmoe"],
             emailAddresses=[
@@ -813,7 +911,7 @@ class StubDirectoryService(DirectoryService):
             ],
         )
 
-        self._addUser(
+        self.addUser(
             shortNames=[u"alyssa"],
             fullNames=[u"Alyssa P. Hacker"],
             emailAddresses=[
@@ -822,7 +920,7 @@ class StubDirectoryService(DirectoryService):
         )
 
 
-    def _addUser(self, shortNames, fullNames, emailAddresses=[]):
+    def addUser(self, shortNames, fullNames, emailAddresses=[]):
         """
         Add a user record with the given field information.
 
@@ -835,40 +933,22 @@ class StubDirectoryService(DirectoryService):
         @param emailAddresses: Record email addresses.
         @type emailAddresses: L{list} of L{unicode}s
         """
-        self.records.append(DirectoryRecord(self, {
-            self.fieldName.recordType: self.recordType.user,
-            self.fieldName.uid: u"__{0}__".format(shortNames[0]),
-            self.fieldName.shortNames: shortNames,
-            self.fieldName.fullNames: fullNames,
-            self.fieldName.password: u"".join(reversed(shortNames[0])),
-            self.fieldName.emailAddresses: emailAddresses,
+        service = self.service
+        fieldName = service.fieldName
+        recordType = service.recordType
+        self.records.append(self.recordClass(self.service, {
+            fieldName.recordType: recordType.user,
+            fieldName.uid: u"__{0}__".format(shortNames[0]),
+            fieldName.shortNames: shortNames,
+            fieldName.fullNames: fullNames,
+            fieldName.password: u"".join(reversed(shortNames[0])),
+            fieldName.emailAddresses: emailAddresses,
         }))
 
 
-    def recordsFromExpression(self, expression):
-        self.seenExpressions = []
+    def __iter__(self):
+        return iter(self.records)
 
-        return DirectoryService.recordsFromExpression(self, expression)
-
-
-    def recordsFromNonCompoundExpression(self, expression, records=None):
-        self.seenExpressions.append(expression)
-
-        if expression == u"None":
-            return succeed([])
-
-        if expression in (u"twistedmatrix.com", u"calendarserver.org"):
-            result = []
-            for record in self.records:
-                for email in record.emailAddresses:
-                    if email.endswith(expression):
-                        result.append(record)
-                        break
-            return succeed(result)
-
-        return DirectoryService.recordsFromNonCompoundExpression(
-            self, expression, records=records
-        )
 
 
 class WackyOperand(Names):

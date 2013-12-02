@@ -304,7 +304,7 @@ DEFAULT_CONFIG = {
                                     # the master process, rather than having
                                     # each client make its connections directly.
 
-    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
+    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility
                                    # tools from running if the database needs a schema
                                    # upgrade.
     "StopAfterUpgradeTriggerFile" : "stop_after_upgrade",   # if this file exists in ConfigRoot, stop
@@ -892,7 +892,8 @@ DEFAULT_CONFIG = {
 
     # Support for Content-Encoding compression options as specified in
     # RFC2616 Section 3.5
-    "ResponseCompression": True,
+    # Defaults off, because it weakens TLS (CRIME attack).
+    "ResponseCompression": False,
 
     # The retry-after value (in seconds) to return with a 503 error
     "HTTPRetryAfter": 180,

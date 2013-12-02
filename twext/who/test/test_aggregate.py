@@ -22,13 +22,14 @@ from twisted.python.components import proxyForInterface
 from twisted.trial import unittest
 
 from twext.who.idirectory import IDirectoryService, DirectoryConfigurationError
-from twext.who.aggregate import DirectoryService
+from twext.who.aggregate import DirectoryService, DirectoryRecord
 from twext.who.util import ConstantsContainer
-
 from twext.who.test import test_directory, test_xml
-from twext.who.test.test_xml import QueryMixIn, xmlService
-from twext.who.test.test_xml import TestService as XMLTestService
-
+from twext.who.test.test_xml import (
+    QueryMixIn, xmlService,
+    TestService as XMLTestService,
+    DirectoryServiceConvenienceTestMixIn
+)
 
 
 class BaseTest(object):
@@ -53,11 +54,23 @@ class BaseTest(object):
 
 
     def xmlService(self, xmlData=None, serviceClass=None):
-        return xmlService(self.mktemp(), xmlData, serviceClass)
+        return xmlService(
+            self.mktemp(),
+            xmlData=xmlData,
+            serviceClass=serviceClass
+        )
 
 
 
-class DirectoryServiceBaseTest(BaseTest, test_xml.DirectoryServiceBaseTest):
+class DirectoryServiceTest(
+    unittest.TestCase,
+    BaseTest,
+    DirectoryServiceConvenienceTestMixIn,
+    test_directory.BaseDirectoryServiceTest
+):
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
     def test_repr(self):
         service = self.service()
         self.assertEquals(repr(service), "<TestService u'xyzzy'>")
@@ -73,7 +86,8 @@ class DirectoryServiceImmutableTest(
     BaseTest,
     test_directory.BaseDirectoryServiceImmutableTest,
 ):
-    pass
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
 
 
 
@@ -86,21 +100,24 @@ class AggregatedBaseTest(BaseTest):
             recordType = ConstantsContainer((XMLTestService.recordType.group,))
 
         usersService = self.xmlService(
-            testXMLConfigUsers,
-            UsersDirectoryService
+            xmlData=testXMLConfigUsers,
+            serviceClass=UsersDirectoryService
         )
         groupsService = self.xmlService(
-            testXMLConfigGroups,
-            GroupsDirectoryService
+            xmlData=testXMLConfigGroups,
+            serviceClass=GroupsDirectoryService
         )
 
-        return BaseTest.service(self, (usersService, groupsService))
+        return BaseTest.service(
+            self,
+            services=(usersService, groupsService)
+        )
 
 
 
 class DirectoryServiceAggregatedBaseTest(
     AggregatedBaseTest,
-    DirectoryServiceBaseTest,
+    DirectoryServiceTest,
 ):
     pass
 
@@ -126,8 +143,8 @@ class DirectoryServiceTests(BaseTest, unittest.TestCase):
     def test_conflictingRecordTypes(self):
         self.assertRaises(
             DirectoryConfigurationError,
-            BaseTest.service, self,
-            (self.xmlService(), self.xmlService(testXMLConfigUsers)),
+            self.service,
+            services=(self.xmlService(), self.xmlService(testXMLConfigUsers)),
         )
 
 

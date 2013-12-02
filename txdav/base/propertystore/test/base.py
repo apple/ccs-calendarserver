@@ -206,6 +206,41 @@ class PropertyStoreTest(NonePropertyStoreTest):
 
 
     @inlineCallbacks
+    def test_peruserShadow_delete(self):
+        """
+        Delete a shadowable property that has not been overridden by the sharee.
+        """
+
+        name = propertyName("shadow")
+
+        self.propertyStore1.setSpecialProperties((name,), ())
+        self.propertyStore2.setSpecialProperties((name,), ())
+
+        value1 = propertyValue("Hello, World1!")
+
+        self.propertyStore1[name] = value1
+        yield self._changed(self.propertyStore1)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), value1)
+        self.failUnless(name in self.propertyStore1)
+        self.failUnless(name in self.propertyStore2)
+
+        del self.propertyStore2[name]
+        yield self._changed(self.propertyStore2)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), value1)
+        self.failUnless(name in self.propertyStore1)
+        self.failUnless(name in self.propertyStore2)
+
+        del self.propertyStore1[name]
+        yield self._changed(self.propertyStore1)
+        self.assertEquals(self.propertyStore1.get(name, None), None)
+        self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.failIf(name in self.propertyStore1)
+        self.failIf(name in self.propertyStore2)
+
+
+    @inlineCallbacks
     def test_peruser_global(self):
 
         name = propertyName("global")

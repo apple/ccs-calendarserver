@@ -21,7 +21,7 @@ set -u;
 
 wd="$(cd "$(dirname "$0")" && pwd -L)";
 
-. "${wd}/support/build.sh";
+#. "${wd}/support/build.sh";
 
 do_setup="false";
 do_get="false";
@@ -74,9 +74,6 @@ shift $((${OPTIND} - 1));
 
 export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 
-dependencies;
-trial="$(type -p trial)";
-
 if [ $# -gt 0 ]; then
   test_modules="$@";
   flaky=true;
@@ -88,7 +85,7 @@ fi;
 find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
 
 mkdir -p "${wd}/data";
-cd "${wd}" && "${python}" "${trial}" --temp-directory="${wd}/data/trial" --rterrors ${reactor} ${random} ${until_fail} ${no_colour} ${coverage} ${numjobs} ${test_modules};
+cd "${wd}" && "${wd}/bin/trial" --temp-directory="${wd}/data/trial" --rterrors ${reactor} ${random} ${until_fail} ${no_colour} ${coverage} ${numjobs} ${test_modules};
 
 if ${flaky}; then
   echo "";

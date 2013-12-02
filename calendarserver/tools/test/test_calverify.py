@@ -511,7 +511,7 @@ class CalVerifyDataTests(StoreTestCase):
         """
 
         sync_token_old = (yield (yield self.calendarUnderTest()).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": True,
@@ -555,7 +555,7 @@ class CalVerifyDataTests(StoreTestCase):
         """
 
         sync_token_old = (yield (yield self.calendarUnderTest()).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": True,
@@ -627,7 +627,7 @@ class CalVerifyDataTests(StoreTestCase):
         """
 
         sync_token_old = (yield (yield self.calendarUnderTest()).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -667,7 +667,7 @@ class CalVerifyDataTests(StoreTestCase):
         """
 
         sync_token_old = (yield (yield self.calendarUnderTest()).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1418,7 +1418,7 @@ END:VCALENDAR
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_old2 = (yield (yield self.calendarUnderTest(home=self.uuid2, name="calendar")).syncToken())
         sync_token_old3 = (yield (yield self.calendarUnderTest(home=self.uuid3, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1485,7 +1485,7 @@ END:VCALENDAR
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_old2 = (yield (yield self.calendarUnderTest(home=self.uuid2, name="calendar")).syncToken())
         sync_token_old3 = (yield (yield self.calendarUnderTest(home=self.uuid3, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1576,7 +1576,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_old3, sync_token_new3)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
         yield calverify.doAction()
@@ -1694,7 +1694,7 @@ END:VCALENDAR
 
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1745,7 +1745,7 @@ END:VCALENDAR
 
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1803,7 +1803,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
         yield calverify.doAction()
@@ -1921,7 +1921,7 @@ END:VCALENDAR
 
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1970,7 +1970,7 @@ END:VCALENDAR
 
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -2021,7 +2021,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         options["uuid"] = CalVerifyMismatchTestsBase.uuidl1
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2430,7 +2430,7 @@ END:VCALENDAR
 
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -2592,7 +2592,7 @@ END:VCALENDAR
         """
 
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -2639,7 +2639,7 @@ END:VCALENDAR
         """
 
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -2678,7 +2678,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         options["uuid"] = self.uuidl1
         calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2698,7 +2698,7 @@ END:VCALENDAR
         """
 
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -2737,7 +2737,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         options["uuid"] = self.uuidl1
         calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2757,7 +2757,7 @@ END:VCALENDAR
         """
 
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -2796,7 +2796,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         options["uuid"] = self.uuidl1
         calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)

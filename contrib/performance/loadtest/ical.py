@@ -1199,7 +1199,7 @@ class BaseAppleClient(BaseClient):
         connect(GAIEndpoint(self.reactor, host, port), factory)
 
 
-    def _receivedPush(self, inboundID, dataChangedTimestamp):
+    def _receivedPush(self, inboundID, dataChangedTimestamp, priority=5):
         for href, id in self.ampPushKeys.iteritems():
             if inboundID == id:
                 self._checkCalendarsForEvents(href, push=True)

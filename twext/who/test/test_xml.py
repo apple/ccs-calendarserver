@@ -31,14 +31,17 @@ from twext.who.expression import CompoundExpression, Operand
 from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.xml import ParseError
 from twext.who.xml import DirectoryService, DirectoryRecord
-
-from twext.who.test import test_directory
-
+from twext.who.test import test_index
 
 
-class BaseTest(unittest.TestCase):
-    def service(self, xmlData=None):
-        return xmlService(self.mktemp(), xmlData)
+
+class BaseTest(object):
+    def service(self, subClass=None, xmlData=None):
+        return xmlService(
+            self.mktemp(),
+            xmlData=xmlData,
+            serviceClass=subClass
+        )
 
 
     def assertRecords(self, records, uids):
@@ -49,18 +52,7 @@ class BaseTest(unittest.TestCase):
 
 
 
-class DirectoryServiceBaseTest(
-    BaseTest,
-    test_directory.BaseDirectoryServiceTest,
-):
-    def test_repr(self):
-        service = self.service()
-
-        self.assertEquals(repr(service), "<TestService (not loaded)>")
-        service.loadRecords()
-        self.assertEquals(repr(service), "<TestService u'xyzzy'>")
-
-
+class DirectoryServiceConvenienceTestMixIn(BaseTest):
     @inlineCallbacks
     def test_recordWithUID(self):
         service = self.service()
@@ -176,7 +168,24 @@ class DirectoryServiceBaseTest(
 
 
 
-class DirectoryServiceRealmTest(BaseTest):
+class DirectoryServiceTest(
+    unittest.TestCase,
+    DirectoryServiceConvenienceTestMixIn,
+    test_index.BaseDirectoryServiceTest,
+):
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
+    def test_repr(self):
+        service = self.service()
+
+        self.assertEquals(repr(service), "<TestService (not loaded)>")
+        service.loadRecords()
+        self.assertEquals(repr(service), "<TestService u'xyzzy'>")
+
+
+
+class DirectoryServiceRealmTest(unittest.TestCase, BaseTest):
     def test_realmNameImmutable(self):
         def setRealmName():
             service = self.service()
@@ -186,7 +195,7 @@ class DirectoryServiceRealmTest(BaseTest):
 
 
 
-class DirectoryServiceParsingTest(BaseTest):
+class DirectoryServiceParsingTest(unittest.TestCase, BaseTest):
     def test_reloadInterval(self):
         service = self.service()
 
@@ -232,7 +241,7 @@ class DirectoryServiceParsingTest(BaseTest):
         except ParseError as e:
             self.assertTrue(str(e).startswith("Incorrect root element"), e)
         else:
-            raise AssertionError
+            raise AssertionError("Expected ParseError")
 
 
     def test_noRealmName(self):
@@ -250,7 +259,7 @@ class DirectoryServiceParsingTest(BaseTest):
         except ParseError as e:
             self.assertTrue(str(e).startswith("No realm name"), e)
         else:
-            raise AssertionError
+            raise AssertionError("Expected ParseError")
 
 
     def test_unknownFieldElementsClean(self):
@@ -301,7 +310,7 @@ class DirectoryServiceParsingTest(BaseTest):
 
 
 
-class DirectoryServiceQueryTest(BaseTest):
+class DirectoryServiceQueryTest(unittest.TestCase, BaseTest):
     @inlineCallbacks
     def test_queryAnd(self):
         service = self.service()
@@ -663,7 +672,7 @@ class DirectoryServiceQueryTest(BaseTest):
 
 
 
-class DirectoryServiceMutableTest(BaseTest):
+class DirectoryServiceMutableTest(unittest.TestCase, BaseTest):
     @inlineCallbacks
     def test_updateRecord(self):
         service = self.service()
@@ -699,7 +708,7 @@ class DirectoryServiceMutableTest(BaseTest):
         newRecord = DirectoryRecord(
             service,
             fields={
-                service.fieldName.uid:        u"__plugh__",
+                service.fieldName.uid: u"__plugh__",
                 service.fieldName.recordType: service.recordType.user,
                 service.fieldName.shortNames: (u"plugh",),
             }
@@ -723,7 +732,7 @@ class DirectoryServiceMutableTest(BaseTest):
         newRecord = DirectoryRecord(
             service,
             fields={
-                service.fieldName.uid:        u"__plugh__",
+                service.fieldName.uid: u"__plugh__",
                 service.fieldName.recordType: service.recordType.user,
                 service.fieldName.shortNames: (u"plugh",),
             }
@@ -756,9 +765,16 @@ class DirectoryServiceMutableTest(BaseTest):
 
 
 
-class DirectoryRecordTest(BaseTest, test_directory.BaseDirectoryRecordTest):
+class DirectoryRecordTest(
+    unittest.TestCase,
+    BaseTest,
+    test_index.BaseDirectoryRecordTest
+):
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
     @inlineCallbacks
-    def test_members(self):
+    def test_members_group(self):
         service = self.service()
 
         record = (yield service.recordWithUID(u"__wsanchez__"))
@@ -790,7 +806,7 @@ class DirectoryRecordTest(BaseTest, test_directory.BaseDirectoryRecordTest):
         )
 
     @inlineCallbacks
-    def test_groups(self):
+    def test_memberships(self):
         service = self.service()
 
         record = (yield service.recordWithUID(u"__wsanchez__"))
@@ -832,7 +848,13 @@ def xmlService(tmp, xmlData=None, serviceClass=None):
     filePath = FilePath(tmp)
     filePath.setContent(xmlData)
 
-    return serviceClass(filePath)
+    try:
+        return serviceClass(filePath)
+    except Exception as e:
+        raise AssertionError(
+            "Unable to instantiate XML service {0}: {1}"
+            .format(serviceClass, e)
+        )
 
 
 
