@@ -2242,7 +2242,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         elif internal_state == ComponentUpdateState.ORGANIZER_ITIP_UPDATE:
             category = ChangeCategory.organizerITIPUpdate
         elif (internal_state == ComponentUpdateState.ATTENDEE_ITIP_UPDATE and
-            hasattr(self._txn, "doing_attende_refresh")):
+            hasattr(self._txn, "doing_attendee_refresh")):
             category = ChangeCategory.attendeeITIPUpdate
 
         yield self._calendar.notifyChanged(category=category)
