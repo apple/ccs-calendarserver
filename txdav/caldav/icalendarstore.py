@@ -740,6 +740,13 @@ class ShareeAllowedError(CommonStoreError):
 
 
 
+class DuplicatePrivateCommentsError(CommonStoreError):
+    """
+    Calendar data cannot contain duplicate private comment properties.
+    """
+
+
+
 class InvalidPerUserDataMerge(CommonStoreError):
     """
     Per-user data merge failed.

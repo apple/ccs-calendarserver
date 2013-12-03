@@ -73,7 +73,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
     ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
     InvalidDefaultCalendar, \
-    InvalidAttachmentOperation
+    InvalidAttachmentOperation, DuplicatePrivateCommentsError
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -1789,6 +1789,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 ))
 
             self.hasPrivateComment = new_has_private_comments
+
+            # Some clients appear to be buggy and are duplicating the "X-CALENDARSERVER-ATTENDEE-COMMENT" comment. We want
+            # to raise an error to prevent that so the client bugs can be tracked down.
+
+            # Look for properties with duplicate "X-CALENDARSERVER-ATTENDEE-REF" values in the same component
+            if component.hasDuplicatePrivateComments(doFix=config.RemoveDuplicatePrivateComments):
+                raise DuplicatePrivateCommentsError("Duplicate X-CALENDARSERVER-ATTENDEE-COMMENT properties present.")
 
 
     @inlineCallbacks
