@@ -64,6 +64,7 @@ from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
+from txdav.idav import ChangeCategory
 
 import datetime
 
@@ -911,6 +912,32 @@ END:VCALENDAR
         # Recheck it
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_removeNotifyCategoryInbox(self):
+        """
+        Inbox object removal should be categorized as ChangeCategory.inbox
+        """
+        home = yield self.homeUnderTest()
+        inbox = yield home.createCalendarWithName("inbox")
+        component = VComponent.fromString(test_event_text)
+        inboxItem = yield inbox.createCalendarObjectWithName("inbox.ics", component)
+        self.assertEquals(ChangeCategory.inbox, inboxItem.removeNotifyCategory())
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_removeNotifyCategoryNonInbox(self):
+        """
+        Non-Inbox object removal should be categorized as ChangeCategory.default
+        """
+        home = yield self.homeUnderTest()
+        nonInbox = yield home.createCalendarWithName("noninbox")
+        component = VComponent.fromString(test_event_text)
+        nonInboxItem = yield nonInbox.createCalendarObjectWithName("inbox.ics", component)
+        self.assertEquals(ChangeCategory.default, nonInboxItem.removeNotifyCategory())
         yield self.commit()
 
 

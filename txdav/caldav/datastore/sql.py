@@ -2688,6 +2688,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield scheduler.doImplicitScheduling()
 
 
+    def removeNotifyCategory(self):
+        """
+        Indicates what category to use when determining the priority of push
+        notifications when this object is removed.
+
+        @returns: The "inbox" category if this object is in the inbox, otherwise
+            the "default" category
+        @rtype: L{ChangeCategory}
+        """
+        return (ChangeCategory.inbox if self._calendar.isInbox() else
+                ChangeCategory.default)
+
+
     @classproperty
     def _recurrenceMinMaxByIDQuery(cls): #@NoSelf
         """

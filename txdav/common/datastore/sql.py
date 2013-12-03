@@ -4322,7 +4322,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         if self._objectNames and child.name() in self._objectNames:
             self._objectNames.remove(child.name())
         yield self._deleteRevision(child.name())
-        yield self.notifyChanged()
+        yield self.notifyChanged(category=child.removeNotifyCategory())
 
 
     @classproperty
@@ -5063,6 +5063,18 @@ class CommonObjectResource(FancyEqMixin, object):
         self._modified = None
         self._notificationData = None
 
+
+    def removeNotifyCategory(self):
+        """
+        Indicates what category to use when determining the priority of push
+        notifications when this object is removed.
+
+        @returns: The "default" category (but should be overridden to return
+            values such as "inbox")
+        @rtype: L{ChangeCategory}
+        """
+        return ChangeCategory.default
+        
 
     def uid(self):
         return self._uid
