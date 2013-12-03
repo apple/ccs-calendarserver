@@ -931,10 +931,10 @@ dependencies () {
     "${n}" "${n}" "${p}" \
     "${pypi}/s/${n}/${p}.tar.gz";
 
-  local v="0.8";
+  local v="0.6";
   local n="cffi";
   local p="${n}-${v}";
-  py_dependency -v "0.6" -m "e61deb0515311bb42d5d58b9403bc923" \
+  py_dependency -v "0.6" -m "5be33b1ab0247a984d42b27344519337" \
     "${n}" "${n}" "${p}" \
     "${pypi}/c/${n}/${p}.tar.gz";
 
