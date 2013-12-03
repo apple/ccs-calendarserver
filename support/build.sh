@@ -16,6 +16,9 @@
 # limitations under the License.
 ##
 
+set -e
+set -u
+
 . "${wd}/support/py.sh";
 
 echo_header () {
@@ -51,55 +54,33 @@ conditional_set () {
 #   Assert that ldap.h is present with a version >= 20344
 #     find_header "ldap.h" 20344 "LDAP_VENDOR_VERSION"
 find_header () {
-  ARGS="$@";
-  ret=1;  # default to a failed check, forcing a fetch of the depencency
-  i=0;
-  for a in $ARGS; do
-    [ $i -eq 0 ] && local sysheader="$1";
-    [ $i -eq 1 ] && local minver="$2";
-    [ $i -eq 2 ] && local def="$3";
-    i=$(($i+1));
-  done;
-  [ ! $sysheader ] && return 1;
+  sys_header="$1"; shift;
+  if [ $# -ge 1 ]; then
+        min_version="$1"; shift;
+      version_macro="$1"; shift;
+  fi;
+
+  # No min_version given:
   # Check for presence of a header. We use the "-c" cc option because we don't
   # need to emit a file; cc exits nonzero if it can't find the header
-  if [ $# -lt 2 ]; then
-    echo "#include <${sysheader}>" | cc -x c -c - -o /dev/null 2> /dev/null;
+  if [ -z "${min_version:-}" ]; then
+    echo "#include <${sys_header}>" | cc -x c -c - -o /dev/null 2> /dev/null;
     return "$?";
-  # Check for presence of a header of specified version
-  else
-    found='';
-    local aout=$(mktemp -t ccXXXXXX); # compiled executable file path
-    local prog=$(mktemp -t ccXXXXXX); # C source file path
-    cat <<DOC > ${prog}
-#include <${sysheader}>
-#include <stdio.h>
-#define STR(x)   #x
-#define SHOW_DEFINE(x) printf("%s", STR(x))
-int main()
-{
-    if (${def})
-    {
-        SHOW_DEFINE(${def});
-        return 0;
-    };
-    return 1;
-};
-DOC
-    cc -x c -o ${aout} ${prog} &> /dev/null;
-    if [ $? -eq 0 ] && [ -e ${aout} ] ; then
-      found=$(${aout});
-    fi;
-    if [ $? -eq 0 ] && [ ! -z ${found} ] ; then
-      cmp_version $minver $found;
-      ret=$?;
-    else
-      ret=1;   #cc exited nonzero or didn't emit a file
-    fi;
-    rm -f "${aout}";
-    rm -f "${prog}";
   fi;
-  return $ret;
+
+  # Check for presence of a header of specified version
+  found_version="$(printf "#include <${sys_header}>\n${version_macro}\n" | cc -x c -E - | tail -1)";
+
+  if [ "${found_version}" == "${version_macro}" ]; then
+    # Macro was not replaced
+    return 1;
+  fi;
+
+  if cmp_version "${min_version}" "${found_version}"; then
+    return 0;
+  else
+    return 1;
+  fi;
 };
 
 # Initialize all the global state required to use this library.
