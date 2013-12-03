@@ -84,8 +84,6 @@ else
   flaky=true;
 fi;
 
-# Print environment
-env
 
 ##
 # Clean up

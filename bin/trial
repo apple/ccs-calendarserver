@@ -16,7 +16,10 @@
 # limitations under the License.
 ##
 
+from __future__ import print_function
+
 import sys
+import os
 
 #PYTHONPATH
 
@@ -28,6 +31,9 @@ if __name__ == "__main__":
             import _calendarserver_preamble
         except ImportError:
             sys.exc_clear()
+
+    for name, value in os.environ.items():
+        print("{0}={1}".format(name, value))
 
     from twisted.scripts.trial import run
     run()
