@@ -130,7 +130,7 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
         databaseName=config.Postgres.DatabaseName,
         clusterName=config.Postgres.ClusterName,
         logFile=config.Postgres.LogFile,
-        socketDir=config.RunRoot,
+        socketDir=config.Postgres.SocketDirectory,
         listenAddresses=config.Postgres.ListenAddresses,
         sharedBuffers=config.Postgres.SharedBuffers,
         maxConnections=config.Postgres.MaxConnections,
