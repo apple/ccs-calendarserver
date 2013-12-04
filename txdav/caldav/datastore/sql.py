@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.xml import element
 
 
 """
@@ -89,6 +88,7 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
     InvalidResourceMove, InvalidComponentForStoreError
+from txdav.xml import element
 
 from txdav.idav import ChangeCategory
 

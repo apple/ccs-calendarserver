@@ -5074,7 +5074,7 @@ class CommonObjectResource(FancyEqMixin, object):
         @rtype: L{ChangeCategory}
         """
         return ChangeCategory.default
-        
+
 
     def uid(self):
         return self._uid
