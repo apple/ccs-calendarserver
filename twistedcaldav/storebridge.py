@@ -17,7 +17,9 @@
 
 from pycalendar.datetime import DateTime
 
+from twext.enterprise.locking import LockTimeout
 from twext.python.log import Logger
+from twext.web2 import responsecode, http_headers, http
 from twext.web2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError, \
@@ -26,6 +28,7 @@ from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, davXML
 from twext.web2.filter.location import addLocation
 from twext.web2.http import HTTPError, StatusResponse, Response
 from twext.web2.http_headers import ETag, MimeType, MimeDisposition
+from twext.web2.iweb import IResponse
 from twext.web2.responsecode import \
     FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED, \
     BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE
@@ -41,14 +44,20 @@ from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance, \
     MaxInstances, NoUIDConflict
 from twistedcaldav.carddavxml import carddav_namespace, NoUIDConflict as NovCardUIDConflict
 from twistedcaldav.config import config
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
     InvalidICalendarDataError, iCalendarProductID, Component
+from twistedcaldav.instance import InvalidOverriddenInstanceError, \
+    TooManyInstancesError
 from twistedcaldav.memcachelock import MemcacheLockTimeoutError
 from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
     DefaultAlarmPropertyMixin
 from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
+from twistedcaldav.sharing import invitationBindStatusToXMLMap, \
+    invitationBindModeToXMLMap
+from twistedcaldav.util import bestAcceptType
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
 from txdav.base.propertystore.base import PropertyName
@@ -74,19 +83,10 @@ from txdav.xml import element as davxml, element
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 
 from urlparse import urlsplit, urljoin
+import collections
 import hashlib
 import time
 import uuid
-from twext.web2 import responsecode, http_headers, http
-from twext.web2.iweb import IResponse
-from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.instance import InvalidOverriddenInstanceError, \
-    TooManyInstancesError
-from twistedcaldav.util import bestAcceptType
-import collections
-from twistedcaldav.sharing import invitationBindStatusToXMLMap, \
-    invitationBindModeToXMLMap
-
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
 L{txdav.carddav.iaddressbookstore} and those in L{twistedcaldav}.
@@ -2291,10 +2291,52 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         returnValue(response)
 
     # The following are used to map store exceptions into HTTP error responses
-    StoreExceptionsStatusErrors = set()
     StoreExceptionsErrors = {}
-    StoreMoveExceptionsStatusErrors = set()
     StoreMoveExceptionsErrors = {}
+    StoreRemoveExceptionsErrors = {}
+
+    @classmethod
+    def _storeExceptionStatus(cls, err, arg):
+        """
+        Raise a status error.
+
+        @param err: the actual exception that caused the error
+        @type err: L{Exception}
+        @param arg: description of error or C{None}
+        @type arg: C{str} or C{None}
+        """
+        raise HTTPError(StatusResponse(responsecode.FORBIDDEN, arg if arg is not None else str(err)))
+
+
+    @classmethod
+    def _storeExceptionError(cls, err, arg):
+        """
+        Raise a DAV:error error with the supplied error element.
+
+        @param err: the actual exception that caused the error
+        @type err: L{Exception}
+        @param arg: the error element
+        @type arg: C{tuple}
+        """
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            arg,
+            str(err),
+        ))
+
+
+    @classmethod
+    def _storeExceptionUnavailable(cls, err, arg):
+        """
+        Raise a service unavailable error.
+
+        @param err: the actual exception that caused the error
+        @type err: L{Exception}
+        @param arg: description of error or C{None}
+        @type arg: C{str} or C{None}
+        """
+        raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, arg if arg is not None else str(err)))
+
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
@@ -2387,15 +2429,9 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             # Grab the current exception state here so we can use it in a re-raise - we need this because
             # an inlineCallback might be called and that raises an exception when it returns, wiping out the
             # original exception "context".
-            if type(err) in self.StoreMoveExceptionsStatusErrors:
-                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
-
-            elif type(err) in self.StoreMoveExceptionsErrors:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    self.StoreMoveExceptionsErrors[type(err)],
-                    str(err),
-                ))
+            if type(err) in self.StoreMoveExceptionsErrors:
+                error, arg = self.StoreMoveExceptionsErrors[type(err)]
+                error(err, arg)
             else:
                 # Return the original failure (exception) state
                 raise
@@ -2438,15 +2474,9 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         # Map store exception to HTTP errors
         except Exception as err:
-            if type(err) in self.StoreExceptionsStatusErrors:
-                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
-
-            elif type(err) in self.StoreExceptionsErrors:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    self.StoreExceptionsErrors[type(err)],
-                    str(err),
-                ))
+            if type(err) in self.StoreExceptionsErrors:
+                error, arg = self.StoreExceptionsErrors[type(err)]
+                error(err, arg)
             else:
                 raise
 
@@ -2490,6 +2520,14 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             yield self._newStoreObject.remove()
         except NoSuchObjectResourceError:
             raise HTTPError(NOT_FOUND)
+
+        # Map store exception to HTTP errors
+        except Exception as err:
+            if type(err) in self.StoreExceptionsErrors:
+                error, arg = self.StoreExceptionsErrors[type(err)]
+                error(err, arg)
+            else:
+                raise
 
         # Re-initialize to get stuff setup again now we have no object
         self._initializeWithObject(None, self._newStoreParent)
@@ -2624,41 +2662,41 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         else:
             return False
 
-    StoreExceptionsStatusErrors = set((
-        ObjectResourceNameNotAllowedError,
-        ObjectResourceNameAlreadyExistsError,
-    ))
-
     StoreExceptionsErrors = {
-        TooManyObjectResourcesError: customxml.MaxResources(),
-        ObjectResourceTooBigError: (caldav_namespace, "max-resource-size"),
-        InvalidObjectResourceError: (caldav_namespace, "valid-calendar-data"),
-        InvalidComponentForStoreError: (caldav_namespace, "valid-calendar-object-resource"),
-        InvalidComponentTypeError: (caldav_namespace, "supported-component"),
-        TooManyAttendeesError: MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),
-        InvalidCalendarAccessError: (calendarserver_namespace, "valid-access-restriction"),
-        ValidOrganizerError: (calendarserver_namespace, "valid-organizer"),
-        UIDExistsError: NoUIDConflict(),
-        UIDExistsElsewhereError: (caldav_namespace, "unique-scheduling-object-resource"),
-        InvalidUIDError: NoUIDConflict(),
-        InvalidPerUserDataMerge: (caldav_namespace, "valid-calendar-data"),
-        AttendeeAllowedError: (caldav_namespace, "attendee-allowed"),
-        InvalidOverriddenInstanceError: (caldav_namespace, "valid-calendar-data"),
-        TooManyInstancesError: MaxInstances.fromString(str(config.MaxAllowedInstances)),
-        AttachmentStoreValidManagedID: (caldav_namespace, "valid-managed-id"),
-        ShareeAllowedError: (calendarserver_namespace, "sharee-privilege-needed",),
-        DuplicatePrivateCommentsError: (calendarserver_namespace, "no-duplicate-private-comments",),
+        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
+        ObjectResourceTooBigError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "max-resource-size"),),
+        InvalidObjectResourceError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
+        InvalidComponentForStoreError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-object-resource"),),
+        InvalidComponentTypeError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "supported-component"),),
+        TooManyAttendeesError: (_CommonObjectResource._storeExceptionError, MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),),
+        InvalidCalendarAccessError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-access-restriction"),),
+        ValidOrganizerError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-organizer"),),
+        UIDExistsError: (_CommonObjectResource._storeExceptionError, NoUIDConflict(),),
+        UIDExistsElsewhereError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "unique-scheduling-object-resource"),),
+        InvalidUIDError: (_CommonObjectResource._storeExceptionError, NoUIDConflict(),),
+        InvalidPerUserDataMerge: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
+        AttendeeAllowedError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "attendee-allowed"),),
+        InvalidOverriddenInstanceError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
+        TooManyInstancesError: (_CommonObjectResource._storeExceptionError, MaxInstances.fromString(str(config.MaxAllowedInstances)),),
+        AttachmentStoreValidManagedID: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-managed-id"),),
+        ShareeAllowedError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "sharee-privilege-needed",),),
+        DuplicatePrivateCommentsError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "no-duplicate-private-comments",),),
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
     }
 
-    StoreMoveExceptionsStatusErrors = set((
-        ObjectResourceNameNotAllowedError,
-        ObjectResourceNameAlreadyExistsError,
-    ))
-
     StoreMoveExceptionsErrors = {
-        TooManyObjectResourcesError: customxml.MaxResources(),
-        InvalidResourceMove: (calendarserver_namespace, "valid-move"),
-        InvalidComponentTypeError: (caldav_namespace, "supported-component"),
+        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
+        InvalidResourceMove: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-move"),),
+        InvalidComponentTypeError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "supported-component"),),
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
+    }
+
+    StoreRemoveExceptionsErrors = {
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
     }
 
     StoreAttachmentValidErrors = set((
@@ -2667,8 +2705,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
     ))
 
     StoreAttachmentExceptionsErrors = {
-        AttachmentStoreValidManagedID: (caldav_namespace, "valid-managed-id-parameter",),
-        AttachmentRemoveFailed: (caldav_namespace, "valid-attachment-remove",),
+        AttachmentStoreValidManagedID: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-managed-id-parameter",),),
+        AttachmentRemoveFailed: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-attachment-remove",),),
     }
 
 
@@ -2982,28 +3020,15 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         except Exception as err:
 
             if type(err) in self.StoreAttachmentValidErrors:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    (caldav_namespace, valid_preconditions[action],),
-                    str(err),
-                ))
+                self._storeExceptionError(err, (caldav_namespace, valid_preconditions[action],))
 
             elif type(err) in self.StoreAttachmentExceptionsErrors:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    self.StoreAttachmentExceptionsErrors[type(err)],
-                    str(err),
-                ))
-
-            elif type(err) in self.StoreExceptionsStatusErrors:
-                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
+                error, arg = self.StoreAttachmentExceptionsErrors[type(err)]
+                error(err, arg)
 
             elif type(err) in self.StoreExceptionsErrors:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    self.StoreExceptionsErrors[type(err)],
-                    str(err),
-                ))
+                error, arg = self.StoreExceptionsErrors[type(err)]
+                error(err, arg)
 
             else:
                 raise
@@ -3301,29 +3326,29 @@ class AddressBookObjectResource(_CommonObjectResource):
 
     vCard = _CommonObjectResource.component
 
-    StoreExceptionsStatusErrors = set((
-        ObjectResourceNameNotAllowedError,
-        ObjectResourceNameAlreadyExistsError,
-    ))
-
     StoreExceptionsErrors = {
-        TooManyObjectResourcesError: customxml.MaxResources(),
-        ObjectResourceTooBigError: (carddav_namespace, "max-resource-size"),
-        InvalidObjectResourceError: (carddav_namespace, "valid-address-data"),
-        InvalidComponentForStoreError: (carddav_namespace, "valid-addressbook-object-resource"),
-        UIDExistsError: NovCardUIDConflict(),
-        InvalidUIDError: NovCardUIDConflict(),
-        InvalidPerUserDataMerge: (carddav_namespace, "valid-address-data"),
+        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
+        ObjectResourceTooBigError: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "max-resource-size"),),
+        InvalidObjectResourceError: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "valid-address-data"),),
+        InvalidComponentForStoreError: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "valid-addressbook-object-resource"),),
+        UIDExistsError: (_CommonObjectResource._storeExceptionError, NovCardUIDConflict(),),
+        InvalidUIDError: (_CommonObjectResource._storeExceptionError, NovCardUIDConflict(),),
+        InvalidPerUserDataMerge: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "valid-address-data"),),
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
     }
 
-    StoreMoveExceptionsStatusErrors = set((
-        ObjectResourceNameNotAllowedError,
-        ObjectResourceNameAlreadyExistsError,
-    ))
-
     StoreMoveExceptionsErrors = {
-        TooManyObjectResourcesError: customxml.MaxResources(),
-        InvalidResourceMove: (calendarserver_namespace, "valid-move"),
+        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
+        InvalidResourceMove: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-move"),),
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
+    }
+
+    StoreRemoveExceptionsErrors = {
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
     }
 
 

@@ -22,7 +22,7 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 
 from twext.enterprise.fixtures import buildConnectionPool
-from twext.enterprise.locking import NamedLock
+from twext.enterprise.locking import NamedLock, LockTimeout
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.locking import LockSchema
 
@@ -76,3 +76,17 @@ class TestLocking(TestCase):
         txn2 = self.pool.connection()
         rows = yield Select(From=LockSchema.NAMED_LOCK).on(txn2)
         self.assertEquals(rows, [])
+
+
+    @inlineCallbacks
+    def test_timeout(self):
+        """
+        Trying to acquire second lock times out.
+        """
+        txn1 = self.pool.connection()
+        yield NamedLock.acquire(txn1, u"a test lock")
+
+        txn2 = self.pool.connection()
+        yield self.assertFailure(NamedLock.acquire(txn2, u"a test lock"), LockTimeout)
+        yield txn2.abort()
+        self.flushLoggedErrors()
