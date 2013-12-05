@@ -580,6 +580,14 @@ class CalendarHome(CommonHome):
         returnValue(self._cachedCalendarResourcesForUID[uid])
 
 
+    def removedCalendarResource(self, uid):
+        """
+        Clean-up cache when resource is removed.
+        """
+        if hasattr(self, "_cachedCalendarResourcesForUID") and uid in self._cachedCalendarResourcesForUID:
+            del self._cachedCalendarResourcesForUID[uid]
+
+
     @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
         """
@@ -1067,6 +1075,12 @@ class Calendar(CommonHomeChild):
         # Note: create triggers a notification when the component is set, so we
         # don't need to call notify() here like we do for object removal.
         returnValue(objectResource)
+
+
+    @inlineCallbacks
+    def removedObjectResource(self, child):
+        yield super(Calendar, self).removedObjectResource(child)
+        self.viewerHome().removedCalendarResource(child.uid())
 
 
     def calendarObjectsInTimeRange(self, start, end, timeZone):
