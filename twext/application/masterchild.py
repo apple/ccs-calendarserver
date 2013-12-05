@@ -15,8 +15,18 @@
 ##
 
 """
-Application container
+Application container for a service consisting of a master process that
+accepts connections and dispatches them via inherited file descriptors to
+child processes.
 """
+
+__all__ = [
+    "MasterOptions",
+    "MasterServiceMaker",
+    "ChildOptions",
+    "ChildServiceMaker",
+]
+
 
 import sys
 from collections import namedtuple
@@ -46,6 +56,44 @@ class MasterOptions(Options):
     Options for a master process.
     """
 
+    def opt_protocol(self, value):
+        """
+        Protocol
+        """
+        try:
+            protocol = namedClass(value)
+        except (ValueError, AttributeError):
+            raise UsageError("Unknown protocol: {0}".format(value))
+
+        self["protocol"] = protocol
+
+
+    def opt_port(self, value):
+        """
+        Inherited file descriptor
+        """
+        try:
+            try:
+                port = int(value)
+            except ValueError:
+                raise ValueError("not an integer")
+
+            if port < 0:
+                raise ValueError("must be >=0")
+
+        except ValueError as e:
+            raise UsageError(
+                "Invalid port number {0!r}: {1}".format(value, e)
+            )
+
+        self["port"] = port
+
+
+    def postOptions(self):
+        for parameter in ("protocol", "port"):
+            if parameter not in self:
+                raise UsageError("{0} parameter is required".format(parameter))
+
 
 
 class SpawningInheritingProtocolFactory(InheritingProtocolFactory):
@@ -67,8 +115,8 @@ class MasterServiceMaker(object):
     def makeService(self, options):
         service = MultiService()
 
-        port = 8000
-        childProtocol = "twext.protocols.echo.EchoProtocol"
+        port = options["port"]
+        childProtocol = options["protocol"]
 
         # Dispatcher
         statusWatcher = StatusWatcher()
@@ -234,6 +282,18 @@ class ChildOptions(Options):
     Options for a child process.
     """
 
+    def opt_protocol(self, value):
+        """
+        Protocol
+        """
+        try:
+            protocol = namedClass(value)
+        except (ValueError, AttributeError):
+            raise UsageError("Unknown protocol: {0}".format(value))
+
+        self["protocol"] = protocol
+
+
     def opt_inherited_fd(self, value):
         """
         Inherited file descriptor
@@ -255,20 +315,8 @@ class ChildOptions(Options):
         self["inherited-fd"] = fd
 
 
-    def opt_protocol(self, value):
-        """
-        Protocol
-        """
-        try:
-            protocol = namedClass(value)
-        except (ValueError, AttributeError):
-            raise UsageError("Unknown protocol: {0}".format(value))
-
-        self["protocol"] = protocol
-
-
     def postOptions(self):
-        for parameter in ("inherited-fd", "protocol"):
+        for parameter in ("protocol", "inherited-fd"):
             if parameter not in self:
                 raise UsageError("{0} parameter is required".format(parameter))
 
