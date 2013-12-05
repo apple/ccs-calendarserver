@@ -96,6 +96,10 @@ class MasterOptions(Options):
 
 
 class SpawningInheritingProtocolFactory(InheritingProtocolFactory):
+    """
+    Protocol factory for a spawning service.
+    """
+
     def __init__(self, dispatcher, spawningService, description):
         super(SpawningInheritingProtocolFactory, self).__init__(
             dispatcher, description
@@ -111,6 +115,10 @@ class SpawningInheritingProtocolFactory(InheritingProtocolFactory):
 
 @implementer(IServiceMaker)
 class MasterServiceMaker(object):
+    """
+    Master process service maker.
+    """
+
     def makeService(self, options):
         service = MultiService()
 
@@ -138,6 +146,10 @@ class MasterServiceMaker(object):
 
 
 class ChildProcess(object):
+    """
+    Child process.
+    """
+
     def __init__(self, transport, protocol):
         self.transport = transport
         self.protocol = protocol
@@ -145,6 +157,10 @@ class ChildProcess(object):
 
 
 class ChildSpawningService(Service, object):
+    """
+    Service that spawns children as necessary.
+    """
+
     log = Logger()
 
     pluginName = b"child"
@@ -258,7 +274,12 @@ class ChildSpawningService(Service, object):
 
 
 class ChildProcessProtocol(ProcessProtocol, object):
+    """
+    Process protocol for child processes.
+    """
+
     log = Logger()
+
 
     def __init__(self, service, inheritedSocket):
         self.service = service
@@ -326,6 +347,10 @@ class ChildOptions(Options):
 
 @implementer(IServiceMaker)
 class ChildServiceMaker(object):
+    """
+    Child process service maker.
+    """
+
     def makeService(self, options):
         factory = ServerFactory.forProtocol(options["protocol"])
         service = ChildService(options["inherited-fd"], factory)
@@ -334,6 +359,10 @@ class ChildServiceMaker(object):
 
 
 class ChildService(Service, object):
+    """
+    Service for child processes.
+    """
+
     def __init__(self, fd, protocolFactory):
         self.fd = fd
         self.protocolFactory = protocolFactory
