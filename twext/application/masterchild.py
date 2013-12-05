@@ -29,7 +29,6 @@ __all__ = [
 
 
 import sys
-from collections import namedtuple
 
 from zope.interface import implementer
 
@@ -138,7 +137,10 @@ class MasterServiceMaker(object):
 
 
 
-Child = namedtuple("Child", ("transport", "protocol"))
+class ChildProcess(object):
+    def __init__(self, transport, protocol):
+        self.transport = transport
+        self.protocol = protocol
 
 
 
@@ -207,7 +209,7 @@ class ChildSpawningService(Service, object):
             childFDs={0: b"w", 1: b"r", 2: b"r", 3: inheritedFD}
         )
 
-        child = Child(transport, processProtocol)
+        child = ChildProcess(transport, processProtocol)
 
         self.log.info(
             u"Spawned child process ({child.transport.pid}) "
@@ -433,4 +435,7 @@ class StatusWatcher(object):
 
 
 
-Status = namedtuple("Status", ("sentCount", "ackedCount"))
+class Status(object):
+    def __init__(self, sentCount, ackedCount):
+        self.sentCount = sentCount
+        self.ackedCount = ackedCount
