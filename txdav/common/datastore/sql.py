@@ -5597,6 +5597,8 @@ class NotificationObject(FancyEqMixin, object):
                 child._notificationType = json.loads(child._notificationType)
             except ValueError:
                 pass
+            if isinstance(child._notificationType, unicode):
+                child._notificationType = child._notificationType.encode("utf-8")
             child._loadPropertyStore(
                 props=propertyStores.get(child._resourceID, None)
             )
@@ -5645,6 +5647,8 @@ class NotificationObject(FancyEqMixin, object):
                 self._notificationType = json.loads(self._notificationType)
             except ValueError:
                 pass
+            if isinstance(self._notificationType, unicode):
+                self._notificationType = self._notificationType.encode("utf-8")
             self._loadPropertyStore()
             returnValue(self)
         else:
@@ -5758,6 +5762,8 @@ class NotificationObject(FancyEqMixin, object):
                 self._notificationData = json.loads(self._notificationData)
             except ValueError:
                 pass
+            if isinstance(self._notificationData, unicode):
+                self._notificationData = self._notificationData.encode("utf-8")
         returnValue(self._notificationData)
 
 
