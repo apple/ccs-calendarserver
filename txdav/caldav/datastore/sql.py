@@ -75,7 +75,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     InvalidAttachmentOperation, DuplicatePrivateCommentsError
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
-    CommonObjectResource, ECALENDARTYPE
+    CommonObjectResource, ECALENDARTYPE, CommonHomeExternal
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator, \
     PostgresLegacyInboxIndexEmulator
 from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
@@ -433,6 +433,7 @@ class CalendarHome(CommonHome):
 
     def __init__(self, transaction, ownerUID):
 
+        self._externalClass = CalendarHomeExternal
         self._childClass = Calendar
         super(CalendarHome, self).__init__(transaction, ownerUID)
 
@@ -937,6 +938,127 @@ class CalendarHome(CommonHome):
 
 
 CalendarHome._register(ECALENDARTYPE)
+
+
+
+class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
+
+    def __init__(self, transaction, ownerUID, resourceID):
+
+        CalendarHome.__init__(self, transaction, ownerUID)
+        CommonHomeExternal.__init__(self, transaction, ownerUID, resourceID)
+
+
+    def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, mode):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def getCalendarResourcesForUID(self, uid):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def calendarObjectWithDropboxID(self, dropboxID):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def getAllDropboxIDs(self):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def getAllAttachmentNames(self):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def getAllManagedIDs(self):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def createdHome(self):
+        """
+        No children - make this a no-op.
+        """
+        return succeed(None)
+
+
+    def splitCalendars(self):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def ensureDefaultCalendarsExist(self):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def setDefaultCalendar(self, calendar, componentType):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def defaultCalendar(self, componentType, create=True):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def isDefaultCalendar(self, calendar):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def getDefaultAlarm(self, vevent, timed):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def setDefaultAlarm(self, alarm, vevent, timed):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def getAvailability(self):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def setAvailability(self, availability):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
 
 
 

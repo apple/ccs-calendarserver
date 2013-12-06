@@ -14,9 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from collections import namedtuple
-from txdav.xml import element
-from txdav.base.propertystore.base import PropertyName
 
 """
 SQL data store.
@@ -57,31 +54,37 @@ from twistedcaldav.dateops import datetimeMktime, pyCalendarTodatetime
 
 from txdav.base.datastore.util import QueryCacher
 from txdav.base.datastore.util import normalizeUUIDOrNot
+from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
 from txdav.base.propertystore.sql import PropertyStore
 from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 from txdav.common.datastore.common import HomeChildBase
+from txdav.common.datastore.podding.conduit import PoddingConduit
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID, \
     _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_DELETED, \
-    _BIND_MODE_INDIRECT
+    _BIND_MODE_INDIRECT, _HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL
 from txdav.common.datastore.sql_tables import schema, splitSQLString
-from txdav.common.icommondatastore import ConcurrentModification
+from txdav.common.icommondatastore import ConcurrentModification, \
+    RecordNotAllowedError, ExternalShareFailed
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
     InvalidIMIPTokenValues, TooManyObjectResourcesError
-from txdav.common.idirectoryservice import IStoreDirectoryService
+from txdav.common.idirectoryservice import IStoreDirectoryService, \
+    DirectoryRecordNotFoundError
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.idav import ChangeCategory
+from txdav.xml import element
 
 from uuid import uuid4, UUID
 
 from zope.interface import implements, directlyProvides
 
+from collections import namedtuple
 import json
 import sys
 import time
@@ -187,6 +190,8 @@ class CommonDataStore(Service, object):
                 cacheExpireSeconds=cacheExpireSeconds)
         else:
             self.queryCacher = None
+
+        self.conduit = PoddingConduit(self)
 
         # Always import these here to trigger proper "registration" of the calendar and address book
         # home classes
@@ -1469,6 +1474,76 @@ class SharingHomeMixIn(object):
         returnValue(shareeView)
 
 
+    #
+    # External (cross-pod) sharing - entry point is the sharee's home collection.
+    #
+    @inlineCallbacks
+    def processExternalInvite(self, ownerUID, ownerRID, ownerName, shareUID, bindMode, summary, supported_components=None):
+        """
+        External invite received.
+        """
+
+        # Get the owner home - create external one if not present
+        ownerHome = yield self._txn.homeWithUID(self._homeType, ownerUID, create=True)
+        if ownerHome is None or not ownerHome.external():
+            raise ExternalShareFailed("Invalid owner UID: {}".format(ownerUID))
+
+        # Try to find owner calendar via its external id
+        ownerView = yield ownerHome.childWithExternalID(ownerRID)
+        if ownerView is None:
+            ownerView = yield ownerHome.createChildWithName(ownerName, externalID=ownerRID)
+            if supported_components is not None and hasattr(ownerView, "setSupportedComponents"):
+                yield ownerView.setSupportedComponents(supported_components)
+
+        # Now carry out the share operation
+        yield ownerView.inviteUserToShare(self.uid(), bindMode, summary, shareName=shareUID)
+
+
+    @inlineCallbacks
+    def processExternalUninvite(self, ownerUID, ownerRID, shareUID):
+        """
+        External invite received.
+        """
+
+        # Get the owner home
+        ownerHome = yield self._txn.homeWithUID(self._homeType, ownerUID)
+        if ownerHome is None or not ownerHome.external():
+            raise ExternalShareFailed("Invalid owner UID: {}".format(ownerUID))
+
+        # Try to find owner calendar via its external id
+        ownerView = yield ownerHome.childWithExternalID(ownerRID)
+        if ownerView is None:
+            raise ExternalShareFailed("Invalid share ID: {}".format(shareUID))
+
+        # Now carry out the share operation
+        yield ownerView.uninviteUserFromShare(self.uid())
+
+
+    @inlineCallbacks
+    def processExternalReply(self, ownerUID, shareeUID, shareUID, bindStatus, summary=None):
+        """
+        External invite received.
+        """
+
+        # Make sure the shareeUID and shareUID match
+
+        # Get the owner home - create external one if not present
+        shareeHome = yield self._txn.homeWithUID(self._homeType, shareeUID)
+        if shareeHome is None or not shareeHome.external():
+            raise ExternalShareFailed("Invalid sharee UID: {}".format(shareeUID))
+
+        # Try to find owner calendar via its external id
+        shareeView = yield shareeHome.anyObjectWithShareUID(shareUID)
+        if shareeView is None:
+            raise ExternalShareFailed("Invalid share UID: {}".format(shareUID))
+
+        # Now carry out the share operation
+        if bindStatus == _BIND_STATUS_ACCEPTED:
+            yield shareeHome.acceptShare(shareUID, summary)
+        elif bindStatus == _BIND_STATUS_DECLINED:
+            yield shareeHome.declineShare(shareUID)
+
+
 
 class CommonHome(SharingHomeMixIn):
     log = Logger()
@@ -1477,6 +1552,7 @@ class CommonHome(SharingHomeMixIn):
     _homeType = None
     _homeTable = None
     _homeMetaDataTable = None
+    _externalClass = None
     _childClass = None
     _childTable = None
     _notifierPrefix = None
@@ -1490,6 +1566,7 @@ class CommonHome(SharingHomeMixIn):
         self._txn = transaction
         self._ownerUID = ownerUID
         self._resourceID = None
+        self._status = _HOME_STATUS_NORMAL
         self._dataVersion = None
         self._childrenLoaded = False
         self._children = {}
@@ -1553,6 +1630,7 @@ class CommonHome(SharingHomeMixIn):
         return (
             cls._homeSchema.RESOURCE_ID,
             cls._homeSchema.OWNER_UID,
+            cls._homeSchema.STATUS,
         )
 
 
@@ -1567,6 +1645,7 @@ class CommonHome(SharingHomeMixIn):
         return (
             "_resourceID",
             "_ownerUID",
+            "_status",
         )
 
 
@@ -1611,37 +1690,51 @@ class CommonHome(SharingHomeMixIn):
         """
         result = yield self._cacher.get(self._ownerUID)
         if result is None:
-            result = yield self._homeColumnsFromOwnerQuery.on(
-                self._txn, ownerUID=self._ownerUID)
-            if result and not no_cache:
-                yield self._cacher.set(self._ownerUID, result)
+            result = yield self._homeColumnsFromOwnerQuery.on(self._txn, ownerUID=self._ownerUID)
+            if result:
+                result = result[0]
+                if not no_cache:
+                    yield self._cacher.set(self._ownerUID, result)
 
         if result:
-            for attr, value in zip(self.homeAttributes(), result[0]):
+            for attr, value in zip(self.homeAttributes(), result):
                 setattr(self, attr, value)
 
-            queryCacher = self._txn._queryCacher
-            if queryCacher:
-                # Get cached copy
-                cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
-                data = yield queryCacher.get(cacheKey)
+            # STOP! If the status is external we need to convert this object to a CommonHomeExternal class which will
+            # have the right behavior for non-hosted external users.
+            if self._status == _HOME_STATUS_EXTERNAL:
+                actualHome = self._externalClass(self._txn, self._ownerUID, self._resourceID)
             else:
-                data = None
-            if data is None:
-                # Don't have a cached copy
-                data = (yield self._metaDataQuery.on(
-                    self._txn, resourceID=self._resourceID))[0]
-                if queryCacher:
-                    # Cache the data
-                    yield queryCacher.setAfterCommit(self._txn, cacheKey, data)
-
-            for attr, value in zip(self.metadataAttributes(), data):
-                setattr(self, attr, value)
-
-            yield self._loadPropertyStore()
-            returnValue(self)
+                actualHome = self
+            yield actualHome.initMetaDataFromStore()
+            yield actualHome._loadPropertyStore()
+            returnValue(actualHome)
         else:
             returnValue(None)
+
+
+    @inlineCallbacks
+    def initMetaDataFromStore(self):
+        """
+        Load up the metadata and property store
+        """
+
+        queryCacher = self._txn._queryCacher
+        if queryCacher:
+            # Get cached copy
+            cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
+            data = yield queryCacher.get(cacheKey)
+        else:
+            data = None
+        if data is None:
+            # Don't have a cached copy
+            data = (yield self._metaDataQuery.on(self._txn, resourceID=self._resourceID))[0]
+            if queryCacher:
+                # Cache the data
+                yield queryCacher.setAfterCommit(self._txn, cacheKey, data)
+
+        for attr, value in zip(self.metadataAttributes(), data):
+            setattr(self, attr, value)
 
 
     @classmethod
@@ -1673,6 +1766,13 @@ class CommonHome(SharingHomeMixIn):
             if not create:
                 returnValue(None)
 
+            # Determine if the user is local or external
+            record = txn.directoryService().recordWithUID(uid)
+            if record is None:
+                raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {uid}".format(uid=uid))
+
+            state = _HOME_STATUS_NORMAL if record.thisServer() else _HOME_STATUS_EXTERNAL
+
             # Use savepoint so we can do a partial rollback if there is a race condition
             # where this row has already been inserted
             savepoint = SavepointAction("homeWithUID")
@@ -1684,11 +1784,12 @@ class CommonHome(SharingHomeMixIn):
                 resourceid = (yield Insert(
                     {
                         cls._homeSchema.OWNER_UID: uid,
+                        cls._homeSchema.STATUS: state,
                         cls._homeSchema.DATAVERSION: cls._dataVersionValue,
                     },
-                    Return=cls._homeSchema.RESOURCE_ID).on(txn))[0][0]
-                yield Insert(
-                    {cls._homeMetaDataSchema.RESOURCE_ID: resourceid}).on(txn)
+                    Return=cls._homeSchema.RESOURCE_ID
+                ).on(txn))[0][0]
+                yield Insert({cls._homeMetaDataSchema.RESOURCE_ID: resourceid}).on(txn)
             except Exception:  # FIXME: Really want to trap the pg.DatabaseError but in a non-DB specific manner
                 yield savepoint.rollback(txn)
 
@@ -1726,7 +1827,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     def __repr__(self):
-        return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
+        return "<%s: %s, %s>" % (self.__class__.__name__, self._resourceID, self._ownerUID)
 
 
     def id(self):
@@ -1746,6 +1847,15 @@ class CommonHome(SharingHomeMixIn):
         @return: a string.
         """
         return self._ownerUID
+
+
+    def external(self):
+        """
+        Is this an external home.
+
+        @return: a string.
+        """
+        return False
 
 
     def transaction(self):
@@ -1865,6 +1975,17 @@ class CommonHome(SharingHomeMixIn):
         return self._childClass.objectWithID(self, resourceID)
 
 
+    def childWithExternalID(self, externalID):
+        """
+        Retrieve the child with the given C{externalID} contained in this
+        home.
+
+        @param name: a string.
+        @return: an L{ICalendar} or C{None} if no such child exists.
+        """
+        return self._childClass.objectWithExternalID(self, externalID)
+
+
     def allChildWithID(self, resourceID):
         """
         Retrieve the child with the given C{resourceID} contained in this
@@ -1877,12 +1998,11 @@ class CommonHome(SharingHomeMixIn):
 
 
     @inlineCallbacks
-    def createChildWithName(self, name):
+    def createChildWithName(self, name, externalID=None):
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
 
-        yield self._childClass.create(self, name)
-        child = (yield self.childWithName(name))
+        child = yield self._childClass.create(self, name, externalID=externalID)
         returnValue(child)
 
 
@@ -2413,6 +2533,165 @@ class CommonHome(SharingHomeMixIn):
 
 
 
+class CommonHomeExternal(CommonHome):
+    """
+    A CommonHome for a user not hosted on this system, but on another pod. This is needed to provide a
+    "reference" to the external user so we can share with them. Actual operations to list child resources, etc
+    are all stubbed out since no data for the user is actually hosted in this store.
+    """
+
+    def __init__(self, transaction, ownerUID, resourceID):
+        super(CommonHomeExternal, self).__init__(transaction, ownerUID)
+        self._resourceID = resourceID
+        self._status = _HOME_STATUS_EXTERNAL
+
+
+    def initFromStore(self, no_cache=False):
+        """
+        Never called - this should be done by CommonHome.initFromStore only.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def external(self):
+        """
+        Is this an external home.
+
+        @return: a string.
+        """
+        return True
+
+
+    def children(self):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def loadChildren(self):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def listChildren(self):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def objectWithShareUID(self, shareUID):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def invitedObjectWithShareUID(self, shareUID):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    @memoizedKey("name", "_children")
+    @inlineCallbacks
+    def createChildWithName(self, name, externalID=None):
+        """
+        No real children - only external ones.
+        """
+        if externalID is None:
+            raise AssertionError("CommonHomeExternal: not supported")
+        child = yield super(CommonHomeExternal, self).createChildWithName(name, externalID)
+        returnValue(child)
+
+
+    def removeChildWithName(self, name):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def syncToken(self):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def resourceNamesSinceRevision(self, revision, depth):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    @inlineCallbacks
+    def _loadPropertyStore(self):
+        """
+        No property store - stub to a NonePropertyStore.
+        """
+        props = yield PropertyStore.load(
+            self.uid(),
+            self.uid(),
+            self._txn,
+            self._resourceID,
+            notifyCallback=self.notifyChanged
+        )
+        self._propertyStore = props
+
+
+    def properties(self):
+        return self._propertyStore
+
+
+    def objectResourcesWithUID(self, uid, ignore_children=[], allowShared=True):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def objectResourceWithID(self, rid):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+    def notifyChanged(self):
+        """
+        Notifications are not handled for external homes - make this a no-op.
+        """
+        return succeed(None)
+
+
+    def bumpModified(self):
+        """
+        No changes recorded for external homes - make this a no-op.
+        """
+        return succeed(None)
+
+
+    def removeUnacceptedShares(self):
+        """
+        No children.
+        """
+        raise AssertionError("CommonHomeExternal: not supported")
+
+
+#    def ownerHomeAndChildNameForChildID(self, resourceID):
+#        """
+#        No children.
+#        """
+#        raise AssertionError("CommonHomeExternal: not supported")
+
+
+
 class _SharedSyncLogic(object):
     """
     Logic for maintaining sync-token shared between notification collections and
@@ -2791,6 +3070,7 @@ class SharingMixIn(object):
         return Insert({
             bind.HOME_RESOURCE_ID: Parameter("homeID"),
             bind.RESOURCE_ID: Parameter("resourceID"),
+            bind.EXTERNAL_ID: Parameter("externalID"),
             bind.RESOURCE_NAME: Parameter("name"),
             bind.BIND_MODE: Parameter("mode"),
             bind.BIND_STATUS: Parameter("bindStatus"),
@@ -2872,8 +3152,18 @@ class SharingMixIn(object):
         """
         bind = cls._bindSchema
         return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                               )
+                            .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
+
+
+    @classproperty
+    def _bindForExternalIDAndHomeID(cls): #@NoSelf
+        """
+        DAL query that looks up home bind rows by home child
+        resource ID and home resource ID.
+        """
+        bind = cls._bindSchema
+        return cls._bindFor((bind.EXTERNAL_ID == Parameter("externalID"))
+                            .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
 
 
     @classproperty
@@ -2884,15 +3174,14 @@ class SharingMixIn(object):
         """
         bind = cls._bindSchema
         return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
-                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                               )
+                            .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
 
 
     #
     # Higher level API
     #
     @inlineCallbacks
-    def inviteUserToShare(self, shareeUID, mode, summary):
+    def inviteUserToShare(self, shareeUID, mode, summary, shareName=None):
         """
         Invite a user to share this collection - either create the share if it does not exist, or
         update the existing share with new values. Make sure a notification is sent as well.
@@ -2911,15 +3200,19 @@ class SharingMixIn(object):
             status = _BIND_STATUS_INVITED if shareeView.shareStatus() in (_BIND_STATUS_DECLINED, _BIND_STATUS_INVALID) else None
             yield self.updateShare(shareeView, mode=mode, status=status, summary=summary)
         else:
-            shareeView = yield self.createShare(shareeUID=shareeUID, mode=mode, summary=summary)
+            shareeView = yield self.createShare(shareeUID=shareeUID, mode=mode, summary=summary, shareName=shareName)
 
-        # Send invite notification
-        yield self._sendInviteNotification(shareeView)
+        # Check for external
+        if shareeView.viewerHome().external():
+            yield self._sendExternalInvite(shareeView)
+        else:
+            # Send invite notification
+            yield self._sendInviteNotification(shareeView)
         returnValue(shareeView)
 
 
     @inlineCallbacks
-    def directShareWithUser(self, shareeUID):
+    def directShareWithUser(self, shareeUID, shareName=None):
         """
         Create a direct share with the specified user. Note it is currently up to the app layer
         to enforce access control - this is not ideal as we really should have control of that in
@@ -2934,7 +3227,7 @@ class SharingMixIn(object):
         # Ignore if it already exists
         shareeView = yield self.shareeView(shareeUID)
         if shareeView is None:
-            shareeView = yield self.createShare(shareeUID=shareeUID, mode=_BIND_MODE_DIRECT)
+            shareeView = yield self.createShare(shareeUID=shareeUID, mode=_BIND_MODE_DIRECT, shareName=shareName)
             yield shareeView.newShare()
         returnValue(shareeView)
 
@@ -2951,13 +3244,16 @@ class SharingMixIn(object):
 
         shareeView = yield self.shareeView(shareeUID)
         if shareeView is not None:
-            # If current user state is accepted then we send an invite with the new state, otherwise
-            # we cancel any existing invites for the user
-            if not shareeView.direct():
-                if shareeView.shareStatus() != _BIND_STATUS_ACCEPTED:
-                    yield self._removeInviteNotification(shareeView)
-                else:
-                    yield self._sendInviteNotification(shareeView, notificationState=_BIND_STATUS_DELETED)
+            if shareeView.viewerHome().external():
+                yield self._sendExternalUninvite(shareeView)
+            else:
+                # If current user state is accepted then we send an invite with the new state, otherwise
+                # we cancel any existing invites for the user
+                if not shareeView.direct():
+                    if shareeView.shareStatus() != _BIND_STATUS_ACCEPTED:
+                        yield self._removeInviteNotification(shareeView)
+                    else:
+                        yield self._sendInviteNotification(shareeView, notificationState=_BIND_STATUS_DELETED)
 
             # Remove the bind
             yield self.removeShare(shareeView)
@@ -2970,10 +3266,13 @@ class SharingMixIn(object):
         """
 
         if not self.direct() and self.shareStatus() != _BIND_STATUS_ACCEPTED:
+            if self.external():
+                yield self._replyExternalInvite(_BIND_STATUS_ACCEPTED, summary)
             ownerView = yield self.ownerView()
             yield ownerView.updateShare(self, status=_BIND_STATUS_ACCEPTED)
             yield self.newShare(displayname=summary)
-            yield self._sendReplyNotification(ownerView, summary)
+            if not ownerView.external():
+                yield self._sendReplyNotification(ownerView, summary)
 
 
     @inlineCallbacks
@@ -2983,9 +3282,12 @@ class SharingMixIn(object):
         """
 
         if not self.direct() and self.shareStatus() != _BIND_STATUS_DECLINED:
+            if self.external():
+                yield self._replyExternalInvite(_BIND_STATUS_DECLINED)
             ownerView = yield self.ownerView()
             yield ownerView.updateShare(self, status=_BIND_STATUS_DECLINED)
-            yield self._sendReplyNotification(ownerView)
+            if not ownerView.external():
+                yield self._sendReplyNotification(ownerView)
 
 
     @inlineCallbacks
@@ -3100,9 +3402,55 @@ class SharingMixIn(object):
 
 
     #
+    # External/cross-pod API
+    #
+    @inlineCallbacks
+    def _sendExternalInvite(self, shareeView):
+
+        yield self._txn.store().conduit.send_shareinvite(
+            self._txn,
+            shareeView.ownerHome()._homeType,
+            shareeView.ownerHome().uid(),
+            self.id(),
+            self.shareName(),
+            shareeView.viewerHome().uid(),
+            shareeView.shareUID(),
+            shareeView.shareMode(),
+            shareeView.shareMessage(),
+            supported_components=self.getSupportedComponents() if hasattr(self, "getSupportedComponents") else None,
+        )
+
+
+    @inlineCallbacks
+    def _sendExternalUninvite(self, shareeView):
+
+        yield self._txn.store().conduit.send_shareuninvite(
+            self._txn,
+            shareeView.ownerHome()._homeType,
+            shareeView.ownerHome().uid(),
+            self.id(),
+            shareeView.viewerHome().uid(),
+            shareeView.shareUID(),
+        )
+
+
+    @inlineCallbacks
+    def _replyExternalInvite(self, status, summary=None):
+
+        yield self._txn.store().conduit.send_sharereply(
+            self._txn,
+            self.viewerHome()._homeType,
+            self.ownerHome().uid(),
+            self.viewerHome().uid(),
+            self.shareName(),
+            status,
+            summary,
+        )
+
+
+    #
     # Lower level API
     #
-
     @inlineCallbacks
     def ownerView(self):
         """
@@ -3126,7 +3474,7 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
-    def shareWith(self, shareeHome, mode, status=None, summary=None):
+    def shareWith(self, shareeHome, mode, status=None, summary=None, shareName=None):
         """
         Share this (owned) L{CommonHomeChild} with another home.
 
@@ -3154,11 +3502,12 @@ class SharingMixIn(object):
 
         @inlineCallbacks
         def doInsert(subt):
-            newName = self.newShareName()
+            newName = shareName if shareName is not None else self.newShareName()
             yield self._bindInsertQuery.on(
                 subt,
                 homeID=shareeHome._resourceID,
                 resourceID=self._resourceID,
+                externalID=None,
                 name=newName,
                 mode=mode,
                 bindStatus=status,
@@ -3192,7 +3541,7 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
-    def createShare(self, shareeUID, mode, summary=None):
+    def createShare(self, shareeUID, mode, summary=None, shareName=None):
         """
         Create a new shared resource. If the mode is direct, the share is created in accepted state,
         otherwise the share is created in invited state.
@@ -3204,6 +3553,7 @@ class SharingMixIn(object):
             mode=mode,
             status=_BIND_STATUS_INVITED if mode != _BIND_MODE_DIRECT else _BIND_STATUS_ACCEPTED,
             summary=summary,
+            shareName=shareName,
         )
         shareeView = yield self.shareeView(shareeUID)
         returnValue(shareeView)
@@ -3267,12 +3617,7 @@ class SharingMixIn(object):
             if summary is not None:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
 
-            queryCacher = self._txn._queryCacher
-            if queryCacher:
-                cacheKey = queryCacher.keyForObjectWithName(shareeView._home._resourceID, shareeView._name)
-                yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-                cacheKey = queryCacher.keyForObjectWithResourceID(shareeView._home._resourceID, shareeView._resourceID)
-                yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+            yield shareeView.invalidateQueryCache()
 
             # Must send notification to ensure cache invalidation occurs
             yield self.notifyPropertyChanged()
@@ -3326,12 +3671,7 @@ class SharingMixIn(object):
             homeID=shareeHome._resourceID,
         )
 
-        queryCacher = self._txn._queryCacher
-        if queryCacher:
-            cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, shareeView._name)
-            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-            cacheKey = queryCacher.keyForObjectWithResourceID(shareeHome._resourceID, shareeView._resourceID)
-            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+        yield shareeView.invalidateQueryCache()
 
 
     @inlineCallbacks
@@ -3574,13 +3914,14 @@ class SharingMixIn(object):
             cls._bindSchema.BIND_MODE,
             cls._bindSchema.HOME_RESOURCE_ID,
             cls._bindSchema.RESOURCE_ID,
+            cls._bindSchema.EXTERNAL_ID,
             cls._bindSchema.RESOURCE_NAME,
             cls._bindSchema.BIND_STATUS,
             cls._bindSchema.BIND_REVISION,
             cls._bindSchema.MESSAGE
         )
 
-    bindColumnCount = 7
+    bindColumnCount = 8
 
     @classmethod
     def additionalBindColumns(cls):
@@ -3640,6 +3981,7 @@ class SharingMixIn(object):
             yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForHomeChildMetaData(self._resourceID))
             yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForObjectWithName(self._home._resourceID, self._name))
             yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForObjectWithResourceID(self._home._resourceID, self._resourceID))
+            yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForObjectWithExternalID(self._home._resourceID, self._externalID))
 
 
 
@@ -3665,11 +4007,12 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     _objectSchema = None
 
 
-    def __init__(self, home, name, resourceID, mode, status, revision=0, message=None, ownerHome=None, ownerName=None):
+    def __init__(self, home, name, resourceID, mode, status, revision=0, message=None, ownerHome=None, ownerName=None, externalID=None):
 
         self._home = home
         self._name = name
         self._resourceID = resourceID
+        self._externalID = externalID
         self._bindMode = mode
         self._bindStatus = status
         self._bindRevision = revision
@@ -3752,7 +4095,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         # Create the actual objects merging in properties
         for dataRow in dataRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindRevision, bindMessage = dataRow[:cls.bindColumnCount] #@UnusedVariable
+            bindMode, homeID, resourceID, externalID, bindName, bindStatus, bindRevision, bindMessage = dataRow[:cls.bindColumnCount] #@UnusedVariable
             additionalBind = dataRow[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
             metadata = dataRow[cls.bindColumnCount + len(cls.additionalBindColumns()):]
 
@@ -3773,6 +4116,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 message=bindMessage,
                 ownerHome=ownerHome,
                 ownerName=ownerName,
+                externalID=externalID,
             )
             for attr, value in zip(cls.additionalBindAttributes(), additionalBind):
                 setattr(child, attr, value)
@@ -3800,8 +4144,13 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classmethod
+    def objectWithExternalID(cls, home, externalID, accepted=True):
+        return cls._objectWithNameOrID(home, externalID=externalID, accepted=accepted)
+
+
+    @classmethod
     @inlineCallbacks
-    def _objectWithNameOrID(cls, home, name=None, resourceID=None, accepted=True):
+    def _objectWithNameOrID(cls, home, name=None, resourceID=None, externalID=None, accepted=True):
         # replaces objectWithName()
         """
         Retrieve the child with the given C{name} or C{resourceID} contained in the given
@@ -3821,27 +4170,32 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             # Retrieve data from cache
             if name:
                 cacheKey = queryCacher.keyForObjectWithName(home._resourceID, name)
-            else:
+            elif resourceID:
                 cacheKey = queryCacher.keyForObjectWithResourceID(home._resourceID, resourceID)
+            elif externalID:
+                cacheKey = queryCacher.keyForObjectWithExternalID(home._resourceID, externalID)
             rows = yield queryCacher.get(cacheKey)
 
         if rows is None:
             # No cached copy
             if name:
                 rows = yield cls._bindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
-            else:
+            elif resourceID:
                 rows = yield cls._bindForResourceIDAndHomeID.on(home._txn, resourceID=resourceID, homeID=home._resourceID)
+            elif resourceID:
+                rows = yield cls._bindForExternalIDAndHomeID.on(home._txn, externalID=externalID, homeID=home._resourceID)
 
         if not rows:
             returnValue(None)
 
         row = rows[0]
-        bindMode, homeID, resourceID, name, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount] #@UnusedVariable
+        bindMode, homeID, resourceID, externalID, name, bindStatus, bindRevision, bindMessage = row[:cls.bindColumnCount] #@UnusedVariable
 
         if queryCacher:
             # Cache the result
             queryCacher.setAfterCommit(home._txn, queryCacher.keyForObjectWithName(home._resourceID, name), rows)
             queryCacher.setAfterCommit(home._txn, queryCacher.keyForObjectWithResourceID(home._resourceID, resourceID), rows)
+            queryCacher.setAfterCommit(home._txn, queryCacher.keyForObjectWithExternalID(home._resourceID, externalID), rows)
 
         if accepted is not None and (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
             returnValue(None)
@@ -3862,7 +4216,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             revision=bindRevision,
             message=bindMessage,
             ownerHome=ownerHome,
-            ownerName=ownerName
+            ownerName=ownerName,
+            externalID=externalID,
         )
         yield child.initFromStore(additionalBind)
         returnValue(child)
@@ -3892,35 +4247,28 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
     @classmethod
     @inlineCallbacks
-    def create(cls, home, name):
+    def create(cls, home, name, externalID=None):
 
-        if (yield cls._bindForNameAndHomeID.on(home._txn,
-            name=name, homeID=home._resourceID)):
+        if (yield cls._bindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)):
             raise HomeChildNameAlreadyExistsError(name)
 
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
 
         # Create this object
-        resourceID = (
-            yield cls._insertHomeChild.on(home._txn))[0][0]
+        resourceID = (yield cls._insertHomeChild.on(home._txn))[0][0]
 
         # Initialize this object
-        _created, _modified = (
-            yield cls._insertHomeChildMetaData.on(home._txn,
-                                                  resourceID=resourceID))[0]
+        _created, _modified = (yield cls._insertHomeChildMetaData.on(home._txn, resourceID=resourceID))[0]
         # Bind table needs entry
         yield cls._bindInsertQuery.on(
-            home._txn, homeID=home._resourceID, resourceID=resourceID,
+            home._txn, homeID=home._resourceID, resourceID=resourceID, externalID=externalID,
             name=name, mode=_BIND_MODE_OWN, bindStatus=_BIND_STATUS_ACCEPTED,
             message=None,
         )
 
         # Initialize other state
-        child = cls(home, name, resourceID, _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED)
-        child._created = _created
-        child._modified = _modified
-        yield child._loadPropertyStore()
+        child = yield cls.objectWithID(home, resourceID)
 
         yield child._initSyncToken()
 
@@ -3981,6 +4329,15 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         return self._resourceID
 
 
+    def external(self):
+        """
+        Is this an external home.
+
+        @return: a string.
+        """
+        return self.ownerHome().external()
+
+
     @property
     def _txn(self):
         return self._home._txn
@@ -4030,12 +4387,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         oldName = self._name
 
-        queryCacher = self._home._txn._queryCacher
-        if queryCacher:
-            cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, oldName)
-            yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
-            cacheKey = queryCacher.keyForObjectWithResourceID(self._home._resourceID, self._resourceID)
-            yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
+        yield self.invalidateQueryCache()
 
         yield self._renameQuery.on(self._txn, name=name,
                                    resourceID=self._resourceID,
@@ -4065,16 +4417,10 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         # Do before setting _resourceID making changes
         yield self.notifyPropertyChanged()
 
-        queryCacher = self._home._txn._queryCacher
-        if queryCacher:
-            cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, self._name)
-            yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
-            cacheKey = queryCacher.keyForObjectWithResourceID(self._home._resourceID, self._resourceID)
-            yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
+        yield self.invalidateQueryCache()
 
         yield self._deletedSyncToken()
-        yield self._deleteQuery.on(self._txn, NoSuchHomeChildError,
-                                   resourceID=self._resourceID)
+        yield self._deleteQuery.on(self._txn, NoSuchHomeChildError, resourceID=self._resourceID)
         yield self.properties()._removeResource()
 
         # Set to non-existent state
@@ -5193,6 +5539,15 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             resourceID = rows[0][0]
             created = False
         elif create:
+            # Determine if the user is local or external
+            record = txn.directoryService().recordWithUID(uid)
+            if record is None:
+                raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {uid}".format(uid=uid))
+
+            state = _HOME_STATUS_NORMAL if record.thisServer() else _HOME_STATUS_EXTERNAL
+            if state == _HOME_STATUS_EXTERNAL:
+                raise RecordNotAllowedError("Cannot store notifications for external user: {uid}".format(uid=uid))
+
             # Use savepoint so we can do a partial rollback if there is a race
             # condition where this row has already been inserted
             savepoint = SavepointAction("notificationsWithUID")
@@ -5597,6 +5952,8 @@ class NotificationObject(FancyEqMixin, object):
                 child._notificationType = json.loads(child._notificationType)
             except ValueError:
                 pass
+            if isinstance(child._notificationType, unicode):
+                child._notificationType = child._notificationType.encode("utf-8")
             child._loadPropertyStore(
                 props=propertyStores.get(child._resourceID, None)
             )
@@ -5645,6 +6002,8 @@ class NotificationObject(FancyEqMixin, object):
                 self._notificationType = json.loads(self._notificationType)
             except ValueError:
                 pass
+            if isinstance(self._notificationType, unicode):
+                self._notificationType = self._notificationType.encode("utf-8")
             self._loadPropertyStore()
             returnValue(self)
         else:
@@ -5758,6 +6117,8 @@ class NotificationObject(FancyEqMixin, object):
                 self._notificationData = json.loads(self._notificationData)
             except ValueError:
                 pass
+            if isinstance(self._notificationData, unicode):
+                self._notificationData = self._notificationData.encode("utf-8")
         returnValue(self._notificationData)
 
 

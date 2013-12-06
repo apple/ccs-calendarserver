@@ -51,6 +51,13 @@ class CommonStoreError(RuntimeError):
 
 
 
+class RecordNotAllowedError(CommonStoreError):
+    """
+    User not allowed.
+    """
+
+
+
 class NameNotAllowedError(CommonStoreError):
     """
     Attempt to create an object with a name that is not allowed.
@@ -202,6 +209,13 @@ class AllRetriesFailed(CommonStoreError):
     """
     In a re-tried subtransaction, all attempts failed to produce useful
     progress.  Other exceptions will be logged.
+    """
+
+
+
+class ExternalShareFailed(CommonStoreError):
+    """
+    An external sharee operation failed.
     """
 
 

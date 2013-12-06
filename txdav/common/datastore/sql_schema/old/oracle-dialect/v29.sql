@@ -18,17 +18,9 @@ create table NAMED_LOCK (
 create table CALENDAR_HOME (
     "RESOURCE_ID" integer primary key,
     "OWNER_UID" nvarchar2(255) unique,
-    "STATUS" integer default 0 not null,
     "DATAVERSION" integer default 0 not null
 );
 
-create table HOME_STATUS (
-    "ID" integer primary key,
-    "DESCRIPTION" nvarchar2(16) unique
-);
-
-insert into HOME_STATUS (DESCRIPTION, ID) values ('normal', 0);
-insert into HOME_STATUS (DESCRIPTION, ID) values ('external', 1);
 create table CALENDAR (
     "RESOURCE_ID" integer primary key
 );
@@ -58,7 +50,6 @@ create table CALENDAR_METADATA (
 create table NOTIFICATION_HOME (
     "RESOURCE_ID" integer primary key,
     "OWNER_UID" nvarchar2(255) unique,
-    "STATUS" integer default 0 not null,
     "DATAVERSION" integer default 0 not null
 );
 
@@ -219,7 +210,6 @@ create table ADDRESSBOOK_HOME (
     "RESOURCE_ID" integer primary key,
     "ADDRESSBOOK_PROPERTY_STORE_ID" integer not null,
     "OWNER_UID" nvarchar2(255) unique,
-    "STATUS" integer default 0 not null,
     "DATAVERSION" integer default 0 not null
 );
 
@@ -380,7 +370,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '30');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '29');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');

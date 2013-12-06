@@ -43,6 +43,13 @@
     <array>
     </array>
 
+	<!--  Work Queue -->
+	<key>WorkQueue</key>
+	<dict>
+		<key>ampPort</key>
+		<integer>7655</integer>
+	</dict>
+
     <!-- Server root -->
     <key>ServerRoot</key>
     <string>./data/podB</string>
