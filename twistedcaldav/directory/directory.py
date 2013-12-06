@@ -238,7 +238,13 @@ class DirectoryService(object):
                 else:
                     record = self.recordWithShortName(parts[2], parts[3])
 
-        return record if record and record.enabledForCalendaring else None
+        if record:
+            if record.enabledForCalendaring or (
+                config.Scheduling.Options.AllowGroupAsAttendee and
+                record.recordType == record.service.recordType_groups):
+                return record
+
+        return None
 
 
     def recordWithCachedGroupsAlias(self, recordType, alias): #@UnusedVariable
@@ -1141,8 +1147,11 @@ class DirectoryRecord(object):
 
         @see: L{IDirectoryRecord.calendarUserAddresses}.
         """
-        if not self.enabledForCalendaring:
+        if not self.enabledForCalendaring and (
+            not config.Scheduling.Options.AllowGroupAsAttendee and
+            self.recordType != self.service.recordType_groups):
             return frozenset()
+
         cuas = set(
             ["mailto:%s" % (emailAddress,)
              for emailAddress in self.emailAddresses]

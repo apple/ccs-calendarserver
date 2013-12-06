@@ -723,6 +723,7 @@ DEFAULT_CONFIG = {
             "AllowResourceAsOrganizer"            : False, # Allow resources to be Organizers
             "AllowLocationWithoutOrganizer"       : True, # Allow locations to have events without an Organizer
             "AllowResourceWithoutOrganizer"       : True, # Allow resources to have events without an Organizer
+            "AllowGroupAsAttendee"                : False, # Allow groups to be Attendees
             "TrackUnscheduledLocationData"        : True, # Track who the last modifier of an unscheduled location event is
             "TrackUnscheduledResourceData"        : True, # Track who the last modifier of an unscheduled resource event is
             "LimitFreeBusyAttendees"              : 30, # Maximum number of attendees to request freebusy for
@@ -1141,7 +1142,7 @@ RELATIVE_PATHS = [
 ]
 
 
-def _updateDataStore(configDict, reloading=False):
+def _updateDataStore(configDict, reloading=False): #@UnusedVariable
     """
     Post-update configuration hook for making all configured paths relative to
     their respective root directories rather than the current working directory.
@@ -1190,7 +1191,7 @@ def _updateDataStore(configDict, reloading=False):
 
 
 
-def _updateHostName(configDict, reloading=False):
+def _updateHostName(configDict, reloading=False): #@UnusedVariable
     if not configDict.ServerHostName:
         hostname = getfqdn()
         if not hostname:
@@ -1199,7 +1200,7 @@ def _updateHostName(configDict, reloading=False):
 
 
 
-def _updateMultiProcess(configDict, reloading=False):
+def _updateMultiProcess(configDict, reloading=False): #@UnusedVariable
     """
     Dynamically compute ProcessCount if it's set to 0.  Always compute
     MaxConnections and SharedBuffers based on ProcessCount, ExtraConnections,
@@ -1232,7 +1233,7 @@ def _updateMultiProcess(configDict, reloading=False):
 
 
 
-def _preUpdateDirectoryService(configDict, items, reloading=False):
+def _preUpdateDirectoryService(configDict, items, reloading=False): #@UnusedVariable
     # Special handling for directory services configs
     dsType = items.get("DirectoryService", {}).get("type", None)
     if dsType is None:
@@ -1254,7 +1255,7 @@ def _preUpdateDirectoryService(configDict, items, reloading=False):
 
 
 
-def _postUpdateDirectoryService(configDict, reloading=False):
+def _postUpdateDirectoryService(configDict, reloading=False): #@UnusedVariable
     if configDict.DirectoryService.type in DEFAULT_SERVICE_PARAMS:
         for param in tuple(configDict.DirectoryService.params):
             if param not in DEFAULT_SERVICE_PARAMS[configDict.DirectoryService.type]:
@@ -1262,7 +1263,7 @@ def _postUpdateDirectoryService(configDict, reloading=False):
 
 
 
-def _preUpdateResourceService(configDict, items, reloading=False):
+def _preUpdateResourceService(configDict, items, reloading=False): #@UnusedVariable
     # Special handling for directory services configs
     dsType = items.get("ResourceService", {}).get("type", None)
     if dsType is None:
@@ -1284,7 +1285,7 @@ def _preUpdateResourceService(configDict, items, reloading=False):
 
 
 
-def _postUpdateResourceService(configDict, reloading=False):
+def _postUpdateResourceService(configDict, reloading=False): #@UnusedVariable
     if configDict.ResourceService.type in DEFAULT_RESOURCE_PARAMS:
         for param in tuple(configDict.ResourceService.params):
             if param not in DEFAULT_RESOURCE_PARAMS[configDict.ResourceService.type]:
@@ -1292,7 +1293,7 @@ def _postUpdateResourceService(configDict, reloading=False):
 
 
 
-def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items, reloading=False):
+def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items, reloading=False): #@UnusedVariable
     #
     # Special handling for directory address book configs
     #
@@ -1322,7 +1323,7 @@ def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items, rel
 
 
 
-def _postUpdateAugmentService(configDict, reloading=False):
+def _postUpdateAugmentService(configDict, reloading=False): #@UnusedVariable
     if configDict.AugmentService.type in DEFAULT_AUGMENT_PARAMS:
         for param in tuple(configDict.AugmentService.params):
             if param not in DEFAULT_AUGMENT_PARAMS[configDict.AugmentService.type]:
@@ -1331,7 +1332,7 @@ def _postUpdateAugmentService(configDict, reloading=False):
 
 
 
-def _postUpdateProxyDBService(configDict, reloading=False):
+def _postUpdateProxyDBService(configDict, reloading=False): #@UnusedVariable
     if configDict.ProxyDBService.type in DEFAULT_PROXYDB_PARAMS:
         for param in tuple(configDict.ProxyDBService.params):
             if param not in DEFAULT_PROXYDB_PARAMS[configDict.ProxyDBService.type]:
@@ -1340,7 +1341,7 @@ def _postUpdateProxyDBService(configDict, reloading=False):
 
 
 
-def _updateACLs(configDict, reloading=False):
+def _updateACLs(configDict, reloading=False): #@UnusedVariable
     #
     # Base resource ACLs
     #
@@ -1426,7 +1427,7 @@ def _updateACLs(configDict, reloading=False):
 
 
 
-def _updateRejectClients(configDict, reloading=False):
+def _updateRejectClients(configDict, reloading=False): #@UnusedVariable
     #
     # Compile RejectClients expressions for speed
     #
@@ -1437,7 +1438,7 @@ def _updateRejectClients(configDict, reloading=False):
 
 
 
-def _updateLogLevels(configDict, reloading=False):
+def _updateLogLevels(configDict, reloading=False): #@UnusedVariable
     log.publisher.levels.clearLogLevels()
 
     try:
@@ -1514,7 +1515,7 @@ def _updateNotifications(configDict, reloading=False):
 
 
 
-def _updateICalendar(configDict, reloading=False):
+def _updateICalendar(configDict, reloading=False): #@UnusedVariable
     """
     Updated support iCalendar components.
     """
@@ -1557,7 +1558,7 @@ def _updateScheduling(configDict, reloading=False):
 
 
 
-def _updateServers(configDict, reloading=False):
+def _updateServers(configDict, reloading=False): #@UnusedVariable
     from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
     if configDict.Servers.Enabled:
         Servers.load()
@@ -1569,7 +1570,7 @@ def _updateServers(configDict, reloading=False):
 
 
 
-def _updateCompliance(configDict, reloading=False):
+def _updateCompliance(configDict, reloading=False): #@UnusedVariable
 
     if configDict.EnableCalDAV:
         if configDict.Scheduling.CalDAV.OldDraftCompatibility:

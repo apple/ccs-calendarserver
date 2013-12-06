@@ -73,7 +73,7 @@ class GroupCacherTest(StoreTestCase):
         record = yield self.xmlService.recordWithUID("__top_group_1__")
         yield self.groupCacher.refreshGroup(txn, record.guid)
 
-        groupID, name, membershipHash = (yield txn.groupByGUID(record.guid))
+        groupID, name, membershipHash = (yield txn.groupByGUID(record.guid)) #@UnusedVariable
         self.assertEquals(membershipHash, "4b0e162f2937f0f3daa6d10e5a6a6c33")
 
         groupGUID, name, membershipHash = (yield txn.groupByID(groupID))
@@ -232,3 +232,132 @@ testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
 
 </directory>
 """
+
+
+
+from twisted.trial import unittest
+from twistedcaldav.config import config
+from twistedcaldav.ical import Component, normalize_iCalStr
+
+from txdav.caldav.datastore.test.util import buildCalendarStore
+from txdav.common.datastore.test.util import populateCalendarsFrom, \
+    CommonCommonTests
+
+import os
+from calendarserver.tap.util import directoryFromConfig
+
+class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
+    """
+    CalendarObject splitting tests
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        config.Scheduling.Options.AllowGroupAsAttendee = True
+
+        yield super(GroupAttendeeReconciliation, self).setUp()
+        self.patch(config.DirectoryService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "accounts", "accounts.xml"
+            )
+        )
+        self.patch(config.ResourceService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "accounts", "resources.xml"
+            )
+        )
+        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory, directoryFromConfig(config))
+        yield self.populate()
+
+        self.paths = {}
+
+
+    def storeUnderTest(self):
+        """
+        Create and return a L{CalendarStore} for testing.
+        """
+        return self._sqlCalendarStore
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
+        self.notifierFactory.reset()
+
+    requirements = {
+        "user01" : {
+            "calendar" : {}
+        },
+    }
+
+    @inlineCallbacks
+    def test_groupAttendeeReconciliation(self):
+        """
+        Test that (manual) splitting of calendar objects works.
+        """
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+
+        data_put = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:US/Eastern
+BEGIN:DAYLIGHT
+DTSTART:20000404T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20001026T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:MAILTO:group01@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=Group 01;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:group01
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        vcalendar = Component.fromString(data_put)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", vcalendar)
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        vcalendar = yield cobj.component()
+        print("normalize_iCalStr(vcalendar)=%s" % (normalize_iCalStr(vcalendar),))
+        print("normalize_iCalStr(data_get)=%s" % (normalize_iCalStr(data_get),))
+        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get))

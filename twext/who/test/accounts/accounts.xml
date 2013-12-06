@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+
+<accounts realm="Test Realm">
+  <user>
+    <uid>admin</uid>
+    <guid>admin</guid>
+    <password>admin</password>
+    <name>Super User</name>
+    <first-name>Super</first-name>
+    <last-name>User</last-name>
+  </user>
+  <user>
+    <uid>apprentice</uid>
+    <guid>apprentice</guid>
+    <password>apprentice</password>
+    <name>Apprentice Super User</name>
+    <first-name>Apprentice</first-name>
+    <last-name>Super User</last-name>
+  </user>
+  <user>
+    <uid>wsanchez</uid>
+    <guid>wsanchez</guid>
+    <email-address>wsanchez@example.com</email-address>
+    <password>test</password>
+    <name>Wilfredo Sanchez Vega</name>
+    <first-name>Wilfredo</first-name>
+    <last-name>Sanchez Vega</last-name>
+  </user>
+  <user>
+    <uid>cdaboo</uid>
+    <guid>cdaboo</guid>
+    <email-address>cdaboo@example.com</email-address>
+    <password>test</password>
+    <name>Cyrus Daboo</name>
+    <first-name>Cyrus</first-name>
+    <last-name>Daboo</last-name>
+  </user>
+  <user>
+    <uid>sagen</uid>
+    <guid>sagen</guid>
+    <email-address>sagen@example.com</email-address>
+    <password>test</password>
+    <name>Morgen Sagen</name>
+    <first-name>Morgen</first-name>
+    <last-name>Sagen</last-name>
+  </user>
+  <user>
+    <uid>dre</uid>
+    <guid>andre</guid>
+    <email-address>dre@example.com</email-address>
+    <password>test</password>
+    <name>Andre LaBranche</name>
+    <first-name>Andre</first-name>
+    <last-name>LaBranche</last-name>
+  </user>
+  <user>
+    <uid>glyph</uid>
+    <guid>glyph</guid>
+    <email-address>glyph@example.com</email-address>
+    <password>test</password>
+    <name>Glyph Lefkowitz</name>
+    <first-name>Glyph</first-name>
+    <last-name>Lefkowitz</last-name>
+  </user>
+  <user>
+    <uid>i18nuser</uid>
+    <guid>i18nuser</guid>
+    <email-address>i18nuser@example.com</email-address>
+    <password>i18nuser</password>
+    <name>まだ</name>
+    <first-name>ま</first-name>
+    <last-name>だ</last-name>
+  </user>
+  <user repeat="101">
+    <uid>user%02d</uid>
+    <uid>User %02d</uid>
+    <guid>user%02d</guid>
+    <password>user%02d</password>
+    <name>User %02d</name>
+    <first-name>User</first-name>
+    <last-name>%02d</last-name>
+    <email-address>user%02d@example.com</email-address>
+  </user>
+  <user repeat="10">
+    <uid>public%02d</uid>
+    <guid>public%02d</guid>
+    <password>public%02d</password>
+    <name>Public %02d</name>
+    <first-name>Public</first-name>
+    <last-name>%02d</last-name>
+  </user>
+  <group>
+    <uid>group01</uid>
+    <guid>group01</guid>
+    <password>group01</password>
+    <name>Group 01</name>
+    <email-address>group01@example.com</email-address>
+    <members>
+      <member type="users">user01</member>
+    </members>
+  </group>
+  <group>
+    <uid>group02</uid>
+    <guid>group02</guid>
+    <password>group02</password>
+    <name>Group 02</name>
+    <members>
+      <member type="users">user06</member>
+      <member type="users">user07</member>
+    </members>
+  </group>
+  <group>
+    <uid>group03</uid>
+    <guid>group03</guid>
+    <password>group03</password>
+    <name>Group 03</name>
+    <members>
+      <member type="users">user08</member>
+      <member type="users">user09</member>
+    </members>
+  </group>
+  <group>
+    <uid>group04</uid>
+    <guid>group04</guid>
+    <password>group04</password>
+    <name>Group 04</name>
+    <members>
+      <member type="groups">group02</member>
+      <member type="groups">group03</member>
+      <member type="users">user10</member>
+    </members>
+  </group>
+  <group> <!-- delegategroup -->
+    <uid>group05</uid>
+    <guid>group05</guid>
+    <password>group05</password>
+    <name>Group 05</name>
+    <members>
+      <member type="groups">group06</member>
+      <member type="users">user20</member>
+    </members>
+  </group>
+  <group> <!-- delegatesubgroup -->
+    <uid>group06</uid>
+    <guid>group06</guid>
+    <password>group06</password>
+    <name>Group 06</name>
+    <members>
+      <member type="users">user21</member>
+    </members>
+  </group>
+  <group> <!-- readonlydelegategroup -->
+    <uid>group07</uid>
+    <guid>group07</guid>
+    <password>group07</password>
+    <name>Group 07</name>
+    <members>
+      <member type="users">user22</member>
+      <member type="users">user23</member>
+      <member type="users">user24</member>
+    </members>
+  </group>
+  <group>
+    <uid>disabledgroup</uid>
+    <guid>disabledgroup</guid>
+    <password>disabledgroup</password>
+    <name>Disabled Group</name>
+    <members>
+      <member type="users">user01</member>
+    </members>
+  </group>
+</accounts>

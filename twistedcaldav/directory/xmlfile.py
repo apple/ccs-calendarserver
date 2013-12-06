@@ -251,8 +251,12 @@ class XMLDirectoryService(DirectoryService):
         cua = normalizeCUAddr(cua)
         for recordType in self.recordTypes():
             record = self._lookupInIndex(recordType, self.INDEX_TYPE_CUA, cua)
-            if record and record.enabledForCalendaring:
-                return record
+            if record:
+                if record.enabledForCalendaring or (
+                    config.Scheduling.Options.AllowGroupAsAttendee and
+                    recordType == record.service.recordType_groups):
+                    return record
+
         return None
 
 
@@ -436,9 +440,9 @@ class XMLDirectoryService(DirectoryService):
             os.chown(self.xmlFile.path, uid, gid)
 
 
-    def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
+    def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(), #@UnusedVariable
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        uid=None, password=None, **kwargs):
+        uid=None, password=None, **kwargs):  #@UnusedVariable
         """
         Create and persist a record using the provided information.  In this
         XML-based implementation, the xml accounts are read in and converted
@@ -482,7 +486,7 @@ class XMLDirectoryService(DirectoryService):
         return self.recordWithGUID(guid)
 
 
-    def destroyRecord(self, recordType, guid=None):
+    def destroyRecord(self, recordType, guid=None): #@UnusedVariable
         """
         Remove the record matching guid.  In this XML-based implementation,
         the xml accounts are read in and those not matching the given guid are
@@ -506,9 +510,9 @@ class XMLDirectoryService(DirectoryService):
         self._forceReload()
 
 
-    def updateRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
+    def updateRecord(self, recordType, guid=None, shortNames=(), authIDs=set(), #@UnusedVariable
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
-        uid=None, password=None, **kwargs):
+        uid=None, password=None, **kwargs): #@UnusedVariable
         """
         Update the record matching guid.  In this XML-based implementation,
         the xml accounts are read in and converted to elementtree elements.

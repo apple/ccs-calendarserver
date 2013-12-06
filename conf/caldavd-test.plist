@@ -771,6 +771,8 @@
         <false/>
         <key>AllowResourceAsOrganizer</key>
         <false/>
+        <key>AllowGroupAsAttendee</key>
+        <true/>
         <key>AttendeeRefreshBatch</key>
         <integer>0</integer>
         <key>AttendeeRefreshCountLimit</key>
