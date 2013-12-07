@@ -25,7 +25,7 @@ from twext.enterprise.queue import WorkItem, PeerConnectionPool
 from twext.who.delegates import allGroupDelegates
 from twext.who.idirectory import RecordType
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twistedcaldav.ical import ignoredComponents
+from txdav.caldav.datastore.util import normalizationLookup
 from txdav.common.datastore.sql_tables import schema
 import datetime
 import hashlib
@@ -133,6 +133,23 @@ class GroupAttendeeReconciliationWork(WorkItem, fromTable(schema.GROUP_ATTENDEE_
             )
         ).on(self.transaction)
 
+        # get calendar Object
+        calObject = schema.CALENDAR_OBJECT
+        rows = yield Select(
+                [calObject.CALENDAR_RESOURCE_ID, ],
+                From=calObject,
+                Where=calObject.RESOURCE_ID == self.eventID,
+        ).on(self.transaction)
+
+        calendarID = rows[0][0]
+        calendarHome = (yield self.Calendar._ownerHomeWithResourceID.on(
+            self.transaction, resourceID=calendarID)
+        )[0][0]
+
+        calendar = yield calendarHome.childWithID(calendarID)
+        calendarObject = yield calendar.objectResourceWithID(self.eventID)
+        changed = False
+
         # get group individual UIDs
         groupMemember = schema.GROUP_MEMBERSHIP
         rows = yield Select(
@@ -142,60 +159,11 @@ class GroupAttendeeReconciliationWork(WorkItem, fromTable(schema.GROUP_ATTENDEE_
         ).on(self.transaction)
         individualGUIDs = [row[0] for row in rows]
 
-        # get calendar Object
-        calObject = schema.CALENDAR_OBJECT
-        rows = yield Select(
-                [calObject.CALENDAR_RESOURCE_ID, ],
-                From=calObject,
-                Where=calObject.RESOURCE_ID == self.eventID,
-        ).on(self.transaction)
+        component = yield calendarObject.component()
+        changed = component.expandGroupAttendee(self.groupGUID, individualGUIDs, normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
 
-        calendarID = row[0][0]
-        calendarHome = (yield self.Calendar._ownerHomeWithResourceID.on(
-            self.transaction, resourceID=calendarID)
-        )[0][0]
-
-        calendar = yield calendarHome.childWithID(calendarID)
-        calendarObject = yield calendar.objectResourceWithID(self.eventID)
-        changed = False
-
-        individualUUIDs = set(["urn:uuid:" + individualGUID for individualGUID in individualGUIDs])
-        groupUUID = "urn:uuid:" + self.groupGUID()
-        vcalendar = yield calendarObject.component()
-        for component in vcalendar.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
-
-            oldAttendeeProps = component.getAttendees()
-            oldAttendeeUUIDs = set([attendeeProp.value() for attendeeProp in oldAttendeeProps])
-
-            # add new member attendees
-            for individualUUID in individualUUIDs - oldAttendeeUUIDs:
-                individualGUID = individualUUID[len("urn:uuid:"):]
-                directoryRecord = self.transaction.directoryService().recordWithUID(individualGUID)
-                newAttendeeProp = directoryRecord.attendee(params={"MEMBER": groupUUID})
-                component.addProperty(newAttendeeProp)
-                changed = True
-
-            # remove attendee or update MEMBER attribute for non-primary attendees in this group,
-            for attendeeProp in oldAttendeeProps:
-                if attendeeProp.hasParameter("MEMBER"):
-                    parameterValues = attendeeProp.parameterValues("MEMBER")
-                    if groupUUID in parameterValues:
-                        if attendeeProp.value() not in individualUUIDs:
-                            attendeeProp.removeParameterValue("MEMBER", groupUUID)
-                            if not attendeeProp.parameterValues("MEMBER"):
-                                component.removeProperty(attendeeProp)
-                            changed = True
-                    else:
-                        if attendeeProp.value() in individualUUIDs:
-                            attendeeProp.setParameter("MEMBER", parameterValues + [groupUUID, ])
-                            changed = True
-
-        # replace old with new
         if changed:
-            # TODO:  call calendarObject._setComponentInternal( vcalendar, mode ) instead?
-            yield calendarObject.setComponent(vcalendar)
+            yield calendarObject.setComponent(component)
 
 
 

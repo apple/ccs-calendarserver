@@ -103,7 +103,7 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting, mi
 def normalizationLookup(cuaddr, recordFunction, config):
     """
     Lookup function to be passed to ical.normalizeCalendarUserAddresses.
-    Returns a tuple of (Full name, guid, and calendar user address list)
+    Returns a tuple of (Full name, guid, cutype and calendar user address list)
     for the given cuaddr.  The recordFunction is called to retrieve the
     record for the cuaddr.
     """
@@ -114,7 +114,7 @@ def normalizationLookup(cuaddr, recordFunction, config):
         record = None
 
     if record is None:
-        return (None, None, None)
+        return (None, None, None, None)
     else:
         # RFC5545 syntax does not allow backslash escaping in
         # parameter values. A double-quote is thus not allowed
@@ -124,6 +124,7 @@ def normalizationLookup(cuaddr, recordFunction, config):
         return (
             record.fullName.replace('"', "'"),
             record.uid,
+            record.getCUType(),
             record.calendarUserAddresses,
         )
 

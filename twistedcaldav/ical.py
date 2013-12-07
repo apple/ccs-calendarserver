@@ -3251,7 +3251,7 @@ END:VCALENDAR
                 # Check that we can lookup this calendar user address - if not
                 # we cannot do anything with it
                 cuaddr = normalizeCUAddr(prop.value())
-                name, guid, cuaddrs = lookupFunction(cuaddr, principalFunction, config)
+                name, guid, cutype, cuaddrs = lookupFunction(cuaddr, principalFunction, config)
                 if guid is None:
                     continue
 
@@ -3262,8 +3262,6 @@ END:VCALENDAR
 
                 # Get any CN parameter
                 oldCN = prop.parameterValue("CN")
-
-                cutype = prop.parameterValue("CUTYPE")
 
                 if toUUID:
                     # Always re-write value to urn:uuid
@@ -3343,9 +3341,54 @@ END:VCALENDAR
                     else:
                         prop.removeParameter("EMAIL")
 
+                if cutype == "INDIVIDUAL":
+                    cutype = None
+
+                if cutype != prop.parameterValue("CUTYPE"):
+                    if cutype:
+                        prop.setParameter("CUTYPE", cutype)
+                    else:
+                        prop.removeParameter("CUTYPE")
+
             # For VPOLL also do immediate children
             if component.name() == "VPOLL":
                 component.normalizeCalendarUserAddresses(lookupFunction, principalFunction, toUUID)
+
+
+    def expandGroupAttendee(self, groupGUID, individualGUIDs, lookupFunction, principalFunction):
+
+        individualUUIDs = set(["urn:uuid:" + individualGUID for individualGUID in individualGUIDs])
+        groupUUID = "urn:uuid:" + groupGUID
+        changed = False
+        for component in self.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
+
+            oldAttendeeProps = component.properties("ATTENDEE")
+            oldAttendeeUUIDs = set([attendeeProp.value() for attendeeProp in oldAttendeeProps])
+
+            # add new member attendees
+            for individualUUID in individualUUIDs - oldAttendeeUUIDs:
+                directoryRecord = lookupFunction(individualUUID, principalFunction, config)
+                newAttendeeProp = directoryRecord.attendee(params={"MEMBER": groupUUID})
+                component.addProperty(newAttendeeProp)
+                changed = True
+
+            # remove attendee or update MEMBER attribute for non-primary attendees in this group,
+            for attendeeProp in oldAttendeeProps:
+                if attendeeProp.hasParameter("MEMBER"):
+                    parameterValues = attendeeProp.parameterValues("MEMBER")
+                    if groupUUID in parameterValues:
+                        if attendeeProp.value() not in individualUUIDs:
+                            attendeeProp.removeParameterValue("MEMBER", groupUUID)
+                            if not attendeeProp.parameterValues("MEMBER"):
+                                component.removeProperty(attendeeProp)
+                            changed = True
+                    else:
+                        if attendeeProp.value() in individualUUIDs:
+                            attendeeProp.setParameter("MEMBER", parameterValues + [groupUUID, ])
+                            changed = True
+        return changed
 
 
     def allPerUserUIDs(self):

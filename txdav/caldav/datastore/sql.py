@@ -1582,12 +1582,15 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if not self.calendar().isSupportedComponent(component.mainType()):
                 raise InvalidComponentTypeError("Invalid component type %s for calendar: %s" % (component.mainType(), self.calendar(),))
 
-            # Valid attendee list size check
-            yield self.validAttendeeListSizeCheck(component, inserting)
-
             # Normalize the calendar user addresses once we know we have valid
             # calendar data
             component.normalizeCalendarUserAddresses(normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
+
+            # Expand groups
+            yield self.expandGroupAttendees(component)
+
+            # Valid attendee list size check
+            yield self.validAttendeeListSizeCheck(component, inserting)
 
         # Possible timezone stripping
         if config.EnableTimezonesByReference:
@@ -1601,7 +1604,39 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             self.validAccess(component, inserting, internal_state)
 
 
-    def validCalendarDataCheck(self, component, inserting):
+    @inlineCallbacks
+    def expandGroupAttendees(self, component):
+        """
+        Expand group attendees
+        """
+
+        if not config.Scheduling.Options.AllowGroupAsAttendee:
+            return
+
+        attendeeProps = component.getAllAttendeeProperties()
+        groupGUIDs = [
+            attendeeProp.value()[len("urn:uuid:"):] for attendeeProp in attendeeProps
+            if attendeeProp.parameterValue("CUTYPE") == "GROUP"
+        ]
+
+        # FIXME: need to add event to Group resource ID here
+        #        need get get members here because they may not be cached yet
+
+        for groupGUID in groupGUIDs:
+            groupID, name, membershipHash = yield self._txn.groupByGUID(groupGUID)
+
+            groupMemember = schema.GROUP_MEMBERSHIP
+            rows = yield Select(
+                    [groupMemember.MEMBER_GUID, ],
+                    From=groupMemember,
+                    Where=groupMemember.GROUP_ID == groupID,
+            ).on(self._txn)
+            individualGUIDs = [row[0] for row in rows]
+
+            component.expandGroupAttendee(groupGUID, individualGUIDs, normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
+
+
+    def validCalendarDataCheck(self, component, inserting): #@UnusedVariable
         """
         Check that the calendar data is valid iCalendar.
         @return:         tuple: (True/False if the calendar data is valid,
