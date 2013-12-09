@@ -248,7 +248,7 @@ from calendarserver.tap.util import directoryFromConfig
 
 class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
     """
-    CalendarObject splitting tests
+    GroupAttendeeReconciliation tests
     """
 
     @inlineCallbacks
@@ -291,9 +291,61 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
     }
 
     @inlineCallbacks
-    def test_groupAttendeeReconciliation(self):
+    def test_simplePUT(self):
         """
-        Test that (manual) splitting of calendar objects works.
+        Test that group attendee is expanded on PUT
+        """
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+
+        data_put_2 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+SUMMARY:event 2
+UID:event2@ninevah.local
+ORGANIZER:MAILTO:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:MAILTO:group02@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event2@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:uuid:user01
+ATTENDEE;CN=Group 02;CUTYPE=GROUP;EMAIL=group02@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:group02
+ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:uuid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user06
+ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:uuid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user07
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+SUMMARY:event 2
+END:VEVENT
+END:VCALENDAR
+"""
+
+        vcalendar2 = Component.fromString(data_put_2)
+        cobj2 = yield calendar.createCalendarObjectWithName("data2.ics", vcalendar2)
+        yield self.commit()
+
+        cobj2 = yield self.calendarObjectUnderTest(name="data2.ics", calendar_name="calendar", home="user01")
+        vcalendar2 = yield cobj2.component()
+        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_2))
+
+
+    @inlineCallbacks
+    def test_primaryAttendeeInGroupPUT(self):
+        """
+        Test that primary attendee also in group remains primary
         """
         calendar = yield self.calendarUnderTest(name="calendar", home="user01")
 
@@ -332,56 +384,10 @@ SUMMARY:event 1
 END:VEVENT
 END:VCALENDAR
 """
-
-        data_put_2 = """BEGIN:VCALENDAR
-CALSCALE:GREGORIAN
-PRODID:-//Example Inc.//Example Calendar//EN
-VERSION:2.0
-BEGIN:VEVENT
-DTSTAMP:20051222T205953Z
-CREATED:20060101T150000Z
-DTSTART;TZID=US/Eastern:20140101T100000
-DURATION:PT1H
-SUMMARY:event 2
-UID:event2@ninevah.local
-ORGANIZER:MAILTO:user01@example.com
-ATTENDEE:mailto:user01@example.com
-ATTENDEE:mailto:user02@example.com
-ATTENDEE:MAILTO:group02@example.com
-END:VEVENT
-END:VCALENDAR"""
-
-        data_get_2 = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//Example Inc.//Example Calendar//EN
-BEGIN:VEVENT
-UID:event2@ninevah.local
-DTSTART;TZID=US/Eastern:20140101T100000
-DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
-ATTENDEE;CN=Group 02;CUTYPE=GROUP;EMAIL=group02@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:group02
-ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:uuid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user06
-ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:uuid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user07
-CREATED:20060101T150000Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
-SUMMARY:event 2
-END:VEVENT
-END:VCALENDAR
-"""
-
         vcalendar1 = Component.fromString(data_put_1)
         cobj1 = yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
-
-        vcalendar2 = Component.fromString(data_put_2)
-        cobj2 = yield calendar.createCalendarObjectWithName("data2.ics", vcalendar2)
         yield self.commit()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         vcalendar1 = yield cobj1.component()
         self.assertEqual(normalize_iCalStr(vcalendar1), normalize_iCalStr(data_get_1))
-
-        cobj2 = yield self.calendarObjectUnderTest(name="data2.ics", calendar_name="calendar", home="user01")
-        vcalendar2 = yield cobj2.component()
-        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_2))
