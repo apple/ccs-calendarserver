@@ -18,7 +18,7 @@
 Group membership caching implementation tests
 """
 
-from twext.who.groups import GroupCacher, _expandedMembers
+from twext.who.groups import GroupCacher, expandedMembers
 from twext.who.idirectory import RecordType
 from twext.who.test.test_xml import xmlService
 from twisted.internet.defer import inlineCallbacks
@@ -43,20 +43,20 @@ class GroupCacherTest(StoreTestCase):
     @inlineCallbacks
     def test_expandedMembers(self):
         """
-        Verify _expandedMembers() returns a "flattened" set of records
+        Verify expandedMembers() returns a "flattened" set of records
         belonging to a group (and does not return sub-groups themselves,
         only their members)
         """
         record = yield self.xmlService.recordWithUID("__top_group_1__")
         memberUIDs = set()
-        for member in (yield _expandedMembers(record)):
+        for member in (yield expandedMembers(record)):
             memberUIDs.add(member.uid)
         self.assertEquals(memberUIDs, set(["__cdaboo__",
             "__glyph__", "__sagen__", "__wsanchez__"]))
 
         # Non group records return an empty set() of members
         record = yield self.xmlService.recordWithUID("__sagen__")
-        members = yield _expandedMembers(record)
+        members = yield expandedMembers(record)
         self.assertEquals(0, len(list(members)))
 
 
@@ -301,24 +301,6 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
 CALSCALE:GREGORIAN
 PRODID:-//Example Inc.//Example Calendar//EN
 VERSION:2.0
-BEGIN:VTIMEZONE
-LAST-MODIFIED:20040110T032845Z
-TZID:US/Eastern
-BEGIN:DAYLIGHT
-DTSTART:20000404T020000
-RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
-TZNAME:EDT
-TZOFFSETFROM:-0500
-TZOFFSETTO:-0400
-END:DAYLIGHT
-BEGIN:STANDARD
-DTSTART:20001026T020000
-RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
-TZNAME:EST
-TZOFFSETFROM:-0400
-TZOFFSETTO:-0500
-END:STANDARD
-END:VTIMEZONE
 BEGIN:VEVENT
 DTSTAMP:20051222T205953Z
 CREATED:20060101T150000Z
@@ -329,7 +311,7 @@ UID:event1@ninevah.local
 ORGANIZER:MAILTO:user01@example.com
 ATTENDEE:mailto:user01@example.com
 ATTENDEE:mailto:user02@example.com
-ATTENDEE:MAILTO:group01@example.com
+ATTENDEE:MAILTO:group02@example.com
 END:VEVENT
 END:VCALENDAR"""
 
@@ -343,7 +325,9 @@ DTSTART;TZID=US/Eastern:20140101T100000
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:uuid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
-ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:group01
+ATTENDEE;CN=Group 02;CUTYPE=GROUP;EMAIL=group02@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:group02
+ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:uuid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user06
+ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:uuid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user07
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
 SUMMARY:event 1
@@ -358,6 +342,4 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         vcalendar = yield cobj.component()
-        print("normalize_iCalStr(vcalendar)=%s" % (normalize_iCalStr(vcalendar),))
-        print("normalize_iCalStr(data_get)=%s" % (normalize_iCalStr(data_get),))
         self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get))

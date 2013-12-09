@@ -43,6 +43,7 @@ from twext.python.log import Logger
 from twext.python.vcomponent import VComponent
 from twext.web2.http_headers import MimeType, generateContentType
 from twext.web2.stream import readStream
+from twext.who.groups import expandedMembers
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
@@ -87,7 +88,7 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     InvalidObjectResourceError, ObjectResourceNameAlreadyExistsError, \
     ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
-    InvalidResourceMove, InvalidComponentForStoreError
+    InvalidResourceMove, InvalidComponentForStoreError, AllRetriesFailed
 
 from txdav.idav import ChangeCategory
 
@@ -1614,26 +1615,36 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             return
 
         attendeeProps = component.getAllAttendeeProperties()
-        groupGUIDs = [
+        groupGUIDs = set([
             attendeeProp.value()[len("urn:uuid:"):] for attendeeProp in attendeeProps
             if attendeeProp.parameterValue("CUTYPE") == "GROUP"
-        ]
-
-        # FIXME: need to add event to Group resource ID here
-        #        need get get members here because they may not be cached yet
+        ])
 
         for groupGUID in groupGUIDs:
+
+            groupRecord = yield self.directoryService().recordWithGUID(groupGUID)
+            members = yield expandedMembers(groupRecord)
+            membershipHashContent = hashlib.md5()
+            members = yield expandedMembers(groupRecord)
+            individualGUIDs = sorted([member.guid for member in members])
+            for individualGUID in individualGUIDs:
+                membershipHashContent.update(str(individualGUID))
+            membershipHash = membershipHashContent.hexdigest()
+
+            # associate group ID with self
             groupID, name, membershipHash = yield self._txn.groupByGUID(groupGUID)
+            try:
+                groupAttendee = schema.GROUP_ATTENDEE
+                yield Insert({
+                    groupAttendee.RESOURCE_ID: self._resourceID,
+                    groupAttendee.GROUP_ID: groupID,
+                    groupAttendee.MEMBERSHIP_HASH: membershipHash,
+                })
+            except AllRetriesFailed:
+                pass
 
-            groupMemember = schema.GROUP_MEMBERSHIP
-            rows = yield Select(
-                    [groupMemember.MEMBER_GUID, ],
-                    From=groupMemember,
-                    Where=groupMemember.GROUP_ID == groupID,
-            ).on(self._txn)
-            individualGUIDs = [row[0] for row in rows]
-
-            component.expandGroupAttendee(groupGUID, individualGUIDs, normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
+            # get members
+            component.expandGroupAttendee(groupGUID, individualGUIDs, self.directoryService().recordWithCalendarUserAddress)
 
 
     def validCalendarDataCheck(self, component, inserting): #@UnusedVariable

@@ -25,7 +25,6 @@ from twext.enterprise.queue import WorkItem, PeerConnectionPool
 from twext.who.delegates import allGroupDelegates
 from twext.who.idirectory import RecordType
 from twisted.internet.defer import inlineCallbacks, returnValue
-from txdav.caldav.datastore.util import normalizationLookup
 from txdav.common.datastore.sql_tables import schema
 import datetime
 import hashlib
@@ -160,7 +159,7 @@ class GroupAttendeeReconciliationWork(WorkItem, fromTable(schema.GROUP_ATTENDEE_
         individualGUIDs = [row[0] for row in rows]
 
         component = yield calendarObject.component()
-        changed = component.expandGroupAttendee(self.groupGUID, individualGUIDs, normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
+        changed = component.expandGroupAttendee(self.groupGUID, individualGUIDs, self.directoryService().recordWithCalendarUserAddress)
 
         if changed:
             yield calendarObject.setComponent(component)
@@ -168,7 +167,7 @@ class GroupAttendeeReconciliationWork(WorkItem, fromTable(schema.GROUP_ATTENDEE_
 
 
 @inlineCallbacks
-def _expandedMembers(record, members=None, records=None):
+def expandedMembers(record, members=None, records=None):
     """
     Return the expanded set of member records.  Intermediate groups are not returned
     in the results, but their members are.
@@ -184,7 +183,7 @@ def _expandedMembers(record, members=None, records=None):
             if member not in records:
                 if member.recordType != RecordType.group:
                     members.add(member)
-                yield _expandedMembers(member, members, records)
+                yield expandedMembers(member, members, records)
 
     returnValue(members)
 
@@ -227,7 +226,7 @@ class GroupCacher(object):
         # and updates the GROUP_MEMBERSHIP table
         record = (yield self.directory.recordWithGUID(groupGUID))
         membershipHashContent = hashlib.md5()
-        members = (yield _expandedMembers(record))
+        members = (yield expandedMembers(record))
         members = list(members)
         members.sort(cmp=lambda x, y: cmp(x.guid, y.guid))
         for member in members:
@@ -282,7 +281,7 @@ class GroupCacher(object):
         returnValue(members)
 
 
-    # @inlineCallbacks
+    @inlineCallbacks
     def scheduleEventReconciliations(self, txn, groupID, groupGUID):
         """
         Find all events who have this groupID as an attendee and create

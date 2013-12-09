@@ -122,6 +122,7 @@ limitations under the License.
     <guid>group02</guid>
     <password>group02</password>
     <name>Group 02</name>
+    <email-address>group02@example.com</email-address>
     <members>
       <member type="users">user06</member>
       <member type="users">user07</member>

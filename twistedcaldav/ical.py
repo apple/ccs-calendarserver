@@ -3355,7 +3355,7 @@ END:VCALENDAR
                 component.normalizeCalendarUserAddresses(lookupFunction, principalFunction, toUUID)
 
 
-    def expandGroupAttendee(self, groupGUID, individualGUIDs, lookupFunction, principalFunction):
+    def expandGroupAttendee(self, groupGUID, individualGUIDs, principalFunction):
 
         individualUUIDs = set(["urn:uuid:" + individualGUID for individualGUID in individualGUIDs])
         groupUUID = "urn:uuid:" + groupGUID
@@ -3369,7 +3369,7 @@ END:VCALENDAR
 
             # add new member attendees
             for individualUUID in individualUUIDs - oldAttendeeUUIDs:
-                directoryRecord = lookupFunction(individualUUID, principalFunction, config)
+                directoryRecord = principalFunction(individualUUID)
                 newAttendeeProp = directoryRecord.attendee(params={"MEMBER": groupUUID})
                 component.addProperty(newAttendeeProp)
                 changed = True
