@@ -1623,28 +1623,29 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         for groupGUID in groupGUIDs:
 
             groupRecord = yield self.directoryService().recordWithGUID(groupGUID)
-            members = yield expandedMembers(groupRecord)
-            membershipHashContent = hashlib.md5()
-            members = yield expandedMembers(groupRecord)
-            individualGUIDs = sorted([member.guid for member in members])
-            for individualGUID in individualGUIDs:
-                membershipHashContent.update(str(individualGUID))
-            membershipHash = membershipHashContent.hexdigest()
+            if groupRecord:
+                members = yield expandedMembers(groupRecord)
+                membershipHashContent = hashlib.md5()
+                members = yield expandedMembers(groupRecord)
+                individualGUIDs = sorted([member.guid for member in members])
+                for individualGUID in individualGUIDs:
+                    membershipHashContent.update(str(individualGUID))
+                membershipHash = membershipHashContent.hexdigest()
 
-            # associate group ID with self
-            groupID, name, membershipHash = yield self._txn.groupByGUID(groupGUID)
-            try:
-                groupAttendee = schema.GROUP_ATTENDEE
-                yield Insert({
-                    groupAttendee.RESOURCE_ID: self._resourceID,
-                    groupAttendee.GROUP_ID: groupID,
-                    groupAttendee.MEMBERSHIP_HASH: membershipHash,
-                })
-            except AllRetriesFailed:
-                pass
+                # associate group ID with self
+                groupID, name, membershipHash = yield self._txn.groupByGUID(groupGUID)
+                try:
+                    groupAttendee = schema.GROUP_ATTENDEE
+                    yield Insert({
+                        groupAttendee.RESOURCE_ID: self._resourceID,
+                        groupAttendee.GROUP_ID: groupID,
+                        groupAttendee.MEMBERSHIP_HASH: membershipHash,
+                    })
+                except AllRetriesFailed:
+                    pass
 
-            # get members
-            component.expandGroupAttendee(groupGUID, individualGUIDs, self.directoryService().recordWithCalendarUserAddress)
+                # get members
+                component.expandGroupAttendee(groupGUID, individualGUIDs, self.directoryService().recordWithCalendarUserAddress)
 
 
     def validCalendarDataCheck(self, component, inserting): #@UnusedVariable

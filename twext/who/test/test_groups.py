@@ -343,6 +343,56 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_unknownPUT(self):
+        """
+        Test that group attendee is expanded on PUT
+        """
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+
+        data_put_2 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+SUMMARY:event 2
+UID:event2@ninevah.local
+ORGANIZER:MAILTO:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;CUTYPE=GROUP:urn:uuid:groupUnknown
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event2@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:uuid:user01
+ATTENDEE;CUTYPE=GROUP;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:groupUnknown
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+SUMMARY:event 2
+END:VEVENT
+END:VCALENDAR
+"""
+
+        vcalendar2 = Component.fromString(data_put_2)
+        cobj2 = yield calendar.createCalendarObjectWithName("data2.ics", vcalendar2)
+        yield self.commit()
+
+        cobj2 = yield self.calendarObjectUnderTest(name="data2.ics", calendar_name="calendar", home="user01")
+        vcalendar2 = yield cobj2.component()
+        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_2))
+
+
+    @inlineCallbacks
     def test_primaryAttendeeInGroupPUT(self):
         """
         Test that primary attendee also in group remains primary
