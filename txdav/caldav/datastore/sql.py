@@ -1627,9 +1627,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 members = yield expandedMembers(groupRecord)
                 membershipHashContent = hashlib.md5()
                 members = yield expandedMembers(groupRecord)
-                individualGUIDs = sorted([member.guid for member in members])
-                for individualGUID in individualGUIDs:
-                    membershipHashContent.update(str(individualGUID))
+                memberGUIDs = sorted([member.guid for member in members])
+                for memberGUID in memberGUIDs:
+                    membershipHashContent.update(str(memberGUID))
                 membershipHash = membershipHashContent.hexdigest()
 
                 # associate group ID with self
@@ -1645,7 +1645,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     pass
 
                 # get members
-                component.expandGroupAttendee(groupGUID, individualGUIDs, self.directoryService().recordWithCalendarUserAddress)
+                component.expandGroupAttendee(groupGUID, memberGUIDs, self.directoryService().recordWithCalendarUserAddress)
 
 
     def validCalendarDataCheck(self, component, inserting): #@UnusedVariable

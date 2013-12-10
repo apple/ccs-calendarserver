@@ -156,10 +156,10 @@ class GroupAttendeeReconciliationWork(WorkItem, fromTable(schema.GROUP_ATTENDEE_
                 From=groupMemember,
                 Where=groupMemember.GROUP_ID == self.groupID,
         ).on(self.transaction)
-        individualGUIDs = [row[0] for row in rows]
+        memberGUIDs = [row[0] for row in rows]
 
         component = yield calendarObject.component()
-        changed = component.expandGroupAttendee(self.groupGUID, individualGUIDs, self.directoryService().recordWithCalendarUserAddress)
+        changed = component.expandGroupAttendee(self.groupGUID, memberGUIDs, self.directoryService().recordWithCalendarUserAddress)
 
         if changed:
             yield calendarObject.setComponent(component)
@@ -181,7 +181,8 @@ def expandedMembers(record, members=None, records=None):
         records.add(record)
         for member in (yield record.members()):
             if member not in records:
-                if member.recordType != RecordType.group:
+                #TODO:  HACK for old-style XML. FIX
+                if member.recordType != RecordType.group and str(member.recordType) != "groups":
                     members.add(member)
                 yield expandedMembers(member, members, records)
 

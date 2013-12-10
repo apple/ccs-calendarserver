@@ -18,13 +18,20 @@
 Group membership caching implementation tests
 """
 
+from calendarserver.tap.util import directoryFromConfig
 from twext.who.groups import GroupCacher, expandedMembers
 from twext.who.idirectory import RecordType
 from twext.who.test.test_xml import xmlService
 from twisted.internet.defer import inlineCallbacks
+from twisted.trial import unittest
+from twistedcaldav.config import config
+from twistedcaldav.ical import Component, normalize_iCalStr
 from twistedcaldav.test.util import StoreTestCase
+from txdav.caldav.datastore.test.util import buildCalendarStore, \
+    populateCalendarsFrom, CommonCommonTests
 from txdav.common.icommondatastore import NotFoundError
 from uuid import UUID
+import os
 
 class GroupCacherTest(StoreTestCase):
 
@@ -234,18 +241,6 @@ testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
 """
 
 
-
-from twisted.trial import unittest
-from twistedcaldav.config import config
-from twistedcaldav.ical import Component, normalize_iCalStr
-
-from txdav.caldav.datastore.test.util import buildCalendarStore
-from txdav.common.datastore.test.util import populateCalendarsFrom, \
-    CommonCommonTests
-
-import os
-from calendarserver.tap.util import directoryFromConfig
-
 class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
     """
     GroupAttendeeReconciliation tests
@@ -253,9 +248,11 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
-        config.Scheduling.Options.AllowGroupAsAttendee = True
+        self.patch(config.Scheduling.Options, "AllowGroupAsAttendee", "True")
 
         yield super(GroupAttendeeReconciliation, self).setUp()
+        self.xmlService = xmlService(self.mktemp(), xmlData=testXMLConfig)
+
         self.patch(config.DirectoryService.params, "xmlFile",
             os.path.join(
                 os.path.dirname(__file__), "accounts", "accounts.xml"
@@ -297,7 +294,7 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
         """
         calendar = yield self.calendarUnderTest(name="calendar", home="user01")
 
-        data_put_2 = """BEGIN:VCALENDAR
+        data_put_1 = """BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
 PRODID:-//Example Inc.//Example Calendar//EN
 VERSION:2.0
@@ -306,20 +303,20 @@ DTSTAMP:20051222T205953Z
 CREATED:20060101T150000Z
 DTSTART;TZID=US/Eastern:20140101T100000
 DURATION:PT1H
-SUMMARY:event 2
-UID:event2@ninevah.local
+SUMMARY:event 1
+UID:event1@ninevah.local
 ORGANIZER:MAILTO:user01@example.com
 ATTENDEE:mailto:user01@example.com
 ATTENDEE:MAILTO:group02@example.com
 END:VEVENT
 END:VCALENDAR"""
 
-        data_get_2 = """BEGIN:VCALENDAR
+        data_get_1 = """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
 PRODID:-//Example Inc.//Example Calendar//EN
 BEGIN:VEVENT
-UID:event2@ninevah.local
+UID:event1@ninevah.local
 DTSTART;TZID=US/Eastern:20140101T100000
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:uuid:user01
@@ -328,28 +325,28 @@ ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:uuid:group02";PARTSTAT=
 ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:uuid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user07
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
-SUMMARY:event 2
+SUMMARY:event 1
 END:VEVENT
 END:VCALENDAR
 """
 
-        vcalendar2 = Component.fromString(data_put_2)
-        cobj2 = yield calendar.createCalendarObjectWithName("data2.ics", vcalendar2)
+        vcalendar1 = Component.fromString(data_put_1)
+        cobj1 = yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
         yield self.commit()
 
-        cobj2 = yield self.calendarObjectUnderTest(name="data2.ics", calendar_name="calendar", home="user01")
-        vcalendar2 = yield cobj2.component()
-        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_2))
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        vcalendar2 = yield cobj1.component()
+        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_1))
 
 
     @inlineCallbacks
     def test_unknownPUT(self):
         """
-        Test that group attendee is expanded on PUT
+        Test unknown group with CUTYPE=GROUP handled
         """
         calendar = yield self.calendarUnderTest(name="calendar", home="user01")
 
-        data_put_2 = """BEGIN:VCALENDAR
+        data_put_1 = """BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
 PRODID:-//Example Inc.//Example Calendar//EN
 VERSION:2.0
@@ -358,38 +355,38 @@ DTSTAMP:20051222T205953Z
 CREATED:20060101T150000Z
 DTSTART;TZID=US/Eastern:20140101T100000
 DURATION:PT1H
-SUMMARY:event 2
-UID:event2@ninevah.local
+SUMMARY:event 1
+UID:event1@ninevah.local
 ORGANIZER:MAILTO:user01@example.com
 ATTENDEE:mailto:user01@example.com
 ATTENDEE;CUTYPE=GROUP:urn:uuid:groupUnknown
 END:VEVENT
 END:VCALENDAR"""
 
-        data_get_2 = """BEGIN:VCALENDAR
+        data_get_1 = """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
 PRODID:-//Example Inc.//Example Calendar//EN
 BEGIN:VEVENT
-UID:event2@ninevah.local
+UID:event1@ninevah.local
 DTSTART;TZID=US/Eastern:20140101T100000
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:uuid:user01
 ATTENDEE;CUTYPE=GROUP;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:groupUnknown
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
-SUMMARY:event 2
+SUMMARY:event 1
 END:VEVENT
 END:VCALENDAR
 """
 
-        vcalendar2 = Component.fromString(data_put_2)
-        cobj2 = yield calendar.createCalendarObjectWithName("data2.ics", vcalendar2)
+        vcalendar1 = Component.fromString(data_put_1)
+        cobj1 = yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
         yield self.commit()
 
-        cobj2 = yield self.calendarObjectUnderTest(name="data2.ics", calendar_name="calendar", home="user01")
-        vcalendar2 = yield cobj2.component()
-        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_2))
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        vcalendar2 = yield cobj1.component()
+        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_1))
 
 
     @inlineCallbacks
@@ -441,3 +438,115 @@ END:VCALENDAR
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         vcalendar1 = yield cobj1.component()
         self.assertEqual(normalize_iCalStr(vcalendar1), normalize_iCalStr(data_get_1))
+
+
+    @inlineCallbacks
+    def test_nestedPUT(self):
+        """
+        Test that nested groups are expanded expanded on PUT
+        """
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+
+        data_put_1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:urn:uuid:group04
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:uuid:user01
+ATTENDEE;CN=Group 04;CUTYPE=GROUP;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:group04
+ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:uuid:group04";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user06
+ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:uuid:group04";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user07
+ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:uuid:group04";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user08
+ATTENDEE;CN=User 09;EMAIL=user09@example.com;MEMBER="urn:uuid:group04";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user09
+ATTENDEE;CN=User 10;EMAIL=user10@example.com;MEMBER="urn:uuid:group04";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user10
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        vcalendar1 = Component.fromString(data_put_1)
+        cobj1 = yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
+        yield self.commit()
+
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        vcalendar2 = yield cobj1.component()
+        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_1))
+
+
+    @inlineCallbacks
+    def test_twoGroupPUT(self):
+        """
+        Test that expanded users in two primary groups have groups in MEMBERS param
+        """
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+
+        data_put_1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:MAILTO:group02@example.com
+ATTENDEE:urn:uuid:group04
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:uuid:user01
+ATTENDEE;CN=Group 02;CUTYPE=GROUP;EMAIL=group02@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:group02
+ATTENDEE;CN=Group 04;CUTYPE=GROUP;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:group04
+ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:uuid:group04","urn:uuid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user06
+ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:uuid:group04","urn:uuid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user07
+ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:uuid:group04";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user08
+ATTENDEE;CN=User 09;EMAIL=user09@example.com;MEMBER="urn:uuid:group04";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user09
+ATTENDEE;CN=User 10;EMAIL=user10@example.com;MEMBER="urn:uuid:group04";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user10
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        vcalendar1 = Component.fromString(data_put_1)
+        cobj1 = yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
+        yield self.commit()
+
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        vcalendar2 = yield cobj1.component()
+        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_1))
