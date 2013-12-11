@@ -331,7 +331,7 @@ END:VCALENDAR
 """
 
         vcalendar1 = Component.fromString(data_put_1)
-        cobj1 = yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
         yield self.commit()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
@@ -381,7 +381,7 @@ END:VCALENDAR
 """
 
         vcalendar1 = Component.fromString(data_put_1)
-        cobj1 = yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
         yield self.commit()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
@@ -432,7 +432,7 @@ END:VEVENT
 END:VCALENDAR
 """
         vcalendar1 = Component.fromString(data_put_1)
-        cobj1 = yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
         yield self.commit()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
@@ -487,7 +487,7 @@ END:VCALENDAR
 """
 
         vcalendar1 = Component.fromString(data_put_1)
-        cobj1 = yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
         yield self.commit()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
@@ -544,7 +544,7 @@ END:VCALENDAR
 """
 
         vcalendar1 = Component.fromString(data_put_1)
-        cobj1 = yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
         yield self.commit()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")

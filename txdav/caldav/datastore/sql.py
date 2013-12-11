@@ -1625,9 +1625,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             groupRecord = yield self.directoryService().recordWithGUID(groupGUID)
             if groupRecord:
                 members = yield expandedMembers(groupRecord)
-                membershipHashContent = hashlib.md5()
-                members = yield expandedMembers(groupRecord)
                 memberGUIDs = sorted([member.guid for member in members])
+
+                membershipHashContent = hashlib.md5()
                 for memberGUID in memberGUIDs:
                     membershipHashContent.update(str(memberGUID))
                 membershipHash = membershipHashContent.hexdigest()

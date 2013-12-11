@@ -319,7 +319,24 @@ class GroupCacher(object):
         delegatedGUIDs = set((yield allGroupDelegates(txn)))
         self.log.info("There are %d group delegates" % (len(delegatedGUIDs),))
 
-        # TODO: Retrieve the set of attendee group guids
         attendeeGroupGUIDs = set()
+        
+        # get all groups from events
+        groupAttendee = schema.GROUP_ATTENDEE
+        rows = yield Select(
+            [groupAttendee.GROUP_ID, ],
+            From=groupAttendee,
+        ).on(txn)
+        groupIDs = set([row[0] for row in rows])
+
+        # get groupGUIDs
+        if groupIDs:
+            gr = schema.GROUPS
+            rows = yield Select(
+                [gr.GROUP_GUID, ],
+                From=gr,
+                Where=gr.GROUP_ID.In(groupIDs)
+            ).on(txn)
+            attendeeGroupGUIDs = set([row[0] for row in rows])
 
         returnValue(delegatedGUIDs.union(attendeeGroupGUIDs))
