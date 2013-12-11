@@ -86,7 +86,8 @@ class ExternalHome(CommonCommonTests, twext.web2.dav.test.util.TestCase):
             home = yield self.transactionUnderTest().calendarHomeWithUID("puser{:02d}".format(i), create=True)
             self.assertTrue(home is not None)
             self.assertEqual(home._status, _HOME_STATUS_EXTERNAL)
-            self.assertRaises(AssertionError, home.childWithName, "calendar")
+            calendar = yield home.childWithName("calendar")
+            self.assertTrue(calendar is None)
 
 
     @inlineCallbacks

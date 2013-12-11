@@ -1703,7 +1703,7 @@ END:VCALENDAR
         L{ICalendarStore.withEachCalendarHomeDo} executes its C{action}
         argument repeatedly with all homes that have been created.
         """
-        additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
+        additionalUIDs = set('user01 home2 home3 uid1'.split())
         txn = self.transactionUnderTest()
         for name in additionalUIDs:
             yield txn.calendarHomeWithUID(name, create=True)

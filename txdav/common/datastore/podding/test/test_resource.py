@@ -25,12 +25,13 @@ from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.common.datastore.podding.resource import ConduitResource
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 import json
+from txdav.common.datastore.podding.conduit import PoddingConduit
 
 class ConduitPOST (CommonCommonTests, twext.web2.dav.test.util.TestCase):
 
-    class FakeConduit(object):
+    class FakeConduit(PoddingConduit):
 
-        def recv_fake(self, j):
+        def recv_fake(self, txn, j):
             return succeed({
                 "result": "ok",
                 "back2u": j["echo"],
@@ -214,7 +215,8 @@ class ConduitPOST (CommonCommonTests, twext.web2.dav.test.util.TestCase):
         Cross-pod request fails when conduit does not support the action.
         """
 
-        self.patch(self.storeUnderTest(), "conduit", self.FakeConduit())
+        store = self.storeUnderTest()
+        self.patch(store, "conduit", self.FakeConduit(store))
 
         request = SimpleRequest(
             self.site,
@@ -242,7 +244,8 @@ class ConduitPOST (CommonCommonTests, twext.web2.dav.test.util.TestCase):
         Cross-pod request works when conduit does support the action.
         """
 
-        self.patch(self.storeUnderTest(), "conduit", self.FakeConduit())
+        store = self.storeUnderTest()
+        self.patch(store, "conduit", self.FakeConduit(store))
 
         request = SimpleRequest(
             self.site,

@@ -213,9 +213,25 @@ class AllRetriesFailed(CommonStoreError):
 
 
 
+class ShareNotAllowed(CommonStoreError):
+    """
+    An operation on a shared resource is not allowed.
+    """
+
+
+
 class ExternalShareFailed(CommonStoreError):
     """
     An external sharee operation failed.
+    """
+
+
+
+class NonExistentExternalShare(CommonStoreError):
+    """
+    An external sharee operation failed because the share does not exist on the
+    other pod. The caller of the external request receiving this exception should
+    remove the local external share to "heal" this mismatch.
     """
 
 

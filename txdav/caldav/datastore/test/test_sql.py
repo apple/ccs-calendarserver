@@ -1542,8 +1542,8 @@ END:VCALENDAR
 
         # Tests on inbox - resources with properties
         txn = self.transactionUnderTest()
-        yield txn.homeWithUID(ECALENDARTYPE, "byNameTest", create=True)
-        inbox = yield self.calendarUnderTest(txn=txn, name="inbox", home="byNameTest")
+        yield txn.homeWithUID(ECALENDARTYPE, "user01", create=True)
+        inbox = yield self.calendarUnderTest(txn=txn, name="inbox", home="user01")
         caldata = """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -1574,7 +1574,7 @@ END:VCALENDAR
         yield _createInboxItem("4.ics", "p4")
         yield self.commit()
 
-        inbox = yield self.calendarUnderTest(name="inbox", home="byNameTest")
+        inbox = yield self.calendarUnderTest(name="inbox", home="user01")
         yield _tests(inbox)
 
         resources = yield inbox.objectResourcesWithNames(("1.ics",))

@@ -73,7 +73,7 @@ class ConduitRequest(object):
         except Exception as e:
             # Request failed
             log.error("Could not do cross-pod request : {request} {ex}", request=self, ex=e)
-            raise ValueError("Failed cross-pod request: {}".format(response.code))
+            raise ValueError("Failed cross-pod request: {}".format(e))
 
         returnValue(data)
 

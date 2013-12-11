@@ -143,7 +143,17 @@ class HomeMigrationTests(TestCase):
             self.filesPath, {"push": StubNotifierFactory()}, TestStoreDirectoryService(), True, True
         )
         self.sqlStore = yield theStoreBuilder.buildStore(
-            self, StubNotifierFactory()
+            self,
+            StubNotifierFactory(),
+            homes=(
+                "home1",
+                "home2",
+                "home3",
+                "home_defaults",
+                "home_no_splits",
+                "home_splits",
+                "home_splits_shared",
+            )
         )
         self.upgrader = UpgradeToDatabaseStep(self.fileStore, self.sqlStore)
 

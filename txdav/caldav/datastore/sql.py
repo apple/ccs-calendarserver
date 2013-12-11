@@ -75,7 +75,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     InvalidAttachmentOperation, DuplicatePrivateCommentsError
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
-    CommonObjectResource, ECALENDARTYPE, CommonHomeExternal
+    CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator, \
     PostgresLegacyInboxIndexEmulator
 from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
@@ -430,13 +430,6 @@ class CalendarHome(CommonHome):
         "VTODO": "_default_tasks",
         "VPOLL": "_default_polls",
     }
-
-    def __init__(self, transaction, ownerUID):
-
-        self._externalClass = CalendarHomeExternal
-        self._childClass = Calendar
-        super(CalendarHome, self).__init__(transaction, ownerUID)
-
 
     @classmethod
     def metadataColumns(cls):
@@ -938,127 +931,6 @@ class CalendarHome(CommonHome):
 
 
 CalendarHome._register(ECALENDARTYPE)
-
-
-
-class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
-
-    def __init__(self, transaction, ownerUID, resourceID):
-
-        CalendarHome.__init__(self, transaction, ownerUID)
-        CommonHomeExternal.__init__(self, transaction, ownerUID, resourceID)
-
-
-    def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, mode):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def getCalendarResourcesForUID(self, uid):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def calendarObjectWithDropboxID(self, dropboxID):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def getAllDropboxIDs(self):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def getAllAttachmentNames(self):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def getAllManagedIDs(self):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def createdHome(self):
-        """
-        No children - make this a no-op.
-        """
-        return succeed(None)
-
-
-    def splitCalendars(self):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def ensureDefaultCalendarsExist(self):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def setDefaultCalendar(self, calendar, componentType):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def defaultCalendar(self, componentType, create=True):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def isDefaultCalendar(self, calendar):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def getDefaultAlarm(self, vevent, timed):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def setDefaultAlarm(self, alarm, vevent, timed):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def getAvailability(self):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def setAvailability(self, availability):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
 
 
 
@@ -1662,23 +1534,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         self._cachedComponent = None
         self._cachedCommponentPerUser = {}
 
-    _allColumns = [
-        _objectSchema.RESOURCE_ID,
-        _objectSchema.RESOURCE_NAME,
-        _objectSchema.UID,
-        _objectSchema.MD5,
-        Len(_objectSchema.TEXT),
-        _objectSchema.ATTACHMENTS_MODE,
-        _objectSchema.DROPBOX_ID,
-        _objectSchema.ACCESS,
-        _objectSchema.SCHEDULE_OBJECT,
-        _objectSchema.SCHEDULE_TAG,
-        _objectSchema.SCHEDULE_ETAGS,
-        _objectSchema.PRIVATE_COMMENTS,
-        _objectSchema.CREATED,
-        _objectSchema.MODIFIED
-    ]
-
 
     @classmethod
     @inlineCallbacks
@@ -1691,7 +1546,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
-        objectResource = cls(parent, name, None, None, options=options)
+        c = cls._externalClass if parent.external() else cls
+        objectResource = c(parent, name, None, None, options=options)
         yield objectResource._setComponentInternal(component, inserting=True, internal_state=internal_state, split_details=split_details)
         yield objectResource._loadPropertyStore(created=True)
 
@@ -1701,25 +1557,49 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue(objectResource)
 
 
-    def _initFromRow(self, row):
+    @classmethod
+    def _allColumns(cls): #@NoSelf
         """
-        Given a select result using the columns from L{_allColumns}, initialize
-        the calendar object resource state.
+        Full set of columns in the object table that need to be loaded to
+        initialize the object resource state.
         """
-        (self._resourceID,
-         self._name,
-         self._uid,
-         self._md5,
-         self._size,
-         self._attachment,
-         self._dropboxID,
-         self._access,
-         self._schedule_object,
-         self._schedule_tag,
-         self._schedule_etags,
-         self._private_comments,
-         self._created,
-         self._modified,) = tuple(row)
+        obj = cls._objectSchema
+        return [
+            obj.RESOURCE_ID,
+            obj.RESOURCE_NAME,
+            obj.UID,
+            obj.MD5,
+            Len(obj.TEXT),
+            obj.ATTACHMENTS_MODE,
+            obj.DROPBOX_ID,
+            obj.ACCESS,
+            obj.SCHEDULE_OBJECT,
+            obj.SCHEDULE_TAG,
+            obj.SCHEDULE_ETAGS,
+            obj.PRIVATE_COMMENTS,
+            obj.CREATED,
+            obj.MODIFIED
+        ]
+
+
+    @classmethod
+    def _rowAttributes(cls): #@NoSelf
+        return (
+            "_resourceID",
+            "_name",
+            "_uid",
+            "_md5",
+            "_size",
+            "_attachment",
+            "_dropboxID",
+            "_access",
+            "_schedule_object",
+            "_schedule_tag",
+            "_schedule_etags",
+            "_private_comments",
+            "_created",
+            "_modified",
+         )
 
 
     @property
@@ -4499,4 +4379,10 @@ class ManagedAttachment(Attachment):
 
         returnValue(location)
 
+# Hook-up class relationships at the end after they have all been defined
+from txdav.caldav.datastore.sql_external import CalendarHomeExternal, CalendarExternal, CalendarObjectExternal
+CalendarHome._externalClass = CalendarHomeExternal
+CalendarHome._childClass = Calendar
+Calendar._externalClass = CalendarExternal
 Calendar._objectResourceClass = CalendarObject
+CalendarObject._externalClass = CalendarObjectExternal

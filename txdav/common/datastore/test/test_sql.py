@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.caldav.datastore.test.util import buildDirectoryRecord
 
 """
 Tests for L{txdav.common.datastore.sql}.
@@ -34,6 +35,11 @@ from txdav.common.icommondatastore import AllRetriesFailed
 from twext.enterprise.dal.syntax import Insert
 from txdav.common.datastore.sql import fixUUIDNormalization
 
+from uuid import UUID
+exampleUID = UUID("a" * 32)
+denormalizedUID = str(exampleUID)
+normalizedUID = denormalizedUID.upper()
+
 class CommonSQLStoreTests(CommonCommonTests, TestCase):
     """
     Tests for shared functionality in L{txdav.common.datastore.sql}.
@@ -46,6 +52,9 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         yield super(CommonSQLStoreTests, self).setUp()
         self._sqlStore = yield buildStore(self, self.notifierFactory)
+        self._sqlStore.directoryService().addRecord(buildDirectoryRecord(denormalizedUID))
+        self._sqlStore.directoryService().addRecord(buildDirectoryRecord(normalizedUID))
+        self._sqlStore.directoryService().addRecord(buildDirectoryRecord("uid"))
 
 
     def storeUnderTest(self):
@@ -421,10 +430,3 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         yield fixUUIDNormalization(self.storeUnderTest())
         self.assertEqual((yield self.allHomeUIDs(schema.ADDRESSBOOK_HOME)),
                          [[normalizedUID]])
-
-
-
-from uuid import UUID
-exampleUID = UUID("a" * 32)
-denormalizedUID = str(exampleUID)
-normalizedUID = denormalizedUID.upper()

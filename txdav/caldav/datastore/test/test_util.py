@@ -323,7 +323,12 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(HomeMigrationTests, self).setUp()
-        self.theStore = yield buildCalendarStore(self, self.notifierFactory, homes=("conflict1", "conflict2",))
+        self.theStore = yield buildCalendarStore(self, self.notifierFactory, homes=(
+            "conflict1",
+            "conflict2",
+            "empty_home",
+            "non_empty_home",
+        ))
 
 
     def storeUnderTest(self):

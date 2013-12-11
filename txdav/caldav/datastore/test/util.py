@@ -62,16 +62,12 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
         calendarUserAddresses,
         cutype="INDIVIDUAL",
         thisServer=True,
+        server=None,
     ):
 
-        super(TestCalendarStoreDirectoryRecord, self).__init__(uid, shortNames, fullName)
-        self.uid = uid
-        self.shortNames = shortNames
-        self.fullName = fullName
-        self.displayName = self.fullName if self.fullName else self.shortNames[0]
+        super(TestCalendarStoreDirectoryRecord, self).__init__(uid, shortNames, fullName, thisServer, server)
         self.calendarUserAddresses = calendarUserAddresses
         self.cutype = cutype
-        self._thisServer = thisServer
 
 
     def canonicalCalendarUserAddress(self):
@@ -88,10 +84,6 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
             elif candidate.startswith("mailto:"):
                 cua = candidate
         return cua
-
-
-    def thisServer(self):
-        return self._thisServer
 
 
     def calendarsEnabled(self):
@@ -148,12 +140,19 @@ def buildDirectory(homes=None):
     homes.update((
         "home1",
         "home2",
-        "Home_attachments",
+        "home3",
+        "home_attachments",
         "home_bad",
         "home_defaults",
         "home_no_splits",
+        "home_provision1",
+        "home_provision2",
         "home_splits",
         "home_splits_shared",
+        "uid1",
+        "uid2",
+        "new-home",
+        "xyzzy",
     ))
     for uid in homes:
         directory.addRecord(buildDirectoryRecord(uid))

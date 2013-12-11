@@ -41,7 +41,7 @@ from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE, CommonObjectResource
 from txdav.common.datastore.sql_tables import  _ABO_KIND_PERSON, _ABO_KIND_GROUP, schema
-from txdav.common.datastore.test.util import buildStore
+from txdav.common.datastore.test.util import buildStore, cleanStore
 
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
@@ -55,7 +55,22 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(AddressBookSQLStorageTests, self).setUp()
-        self._sqlStore = yield buildStore(self, self.notifierFactory)
+        self._sqlStore = yield buildStore(
+            self,
+            self.notifierFactory,
+            homes=(
+                "home1",
+                "home2",
+                "home3",
+                "home_bad",
+                "home_empty",
+                "homeNew",
+                "new-home",
+                "uid1",
+                "uid2",
+                "xyzzy",
+            )
+        )
         yield self.populate()
 
 
@@ -288,7 +303,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         Test that two concurrent attempts to PUT different address book object resources to the
         same address book home does not cause a deadlock.
         """
-        addressbookStore = yield buildStore(self, self.notifierFactory)
+        addressbookStore = self._sqlStore
 
         # Provision the home and addressbook now
         txn = addressbookStore.newTransaction()
@@ -394,7 +409,7 @@ END:VCARD
         """
         Test that kind property UID is stored correctly in database
         """
-        addressbookStore = yield buildStore(self, self.notifierFactory)
+        addressbookStore = self._sqlStore
 
         # Provision the home and addressbook, one user and one group
         txn = addressbookStore.newTransaction()
@@ -440,7 +455,7 @@ END:VCARD
         """
         Test that kind property vCard is stored correctly in database
         """
-        addressbookStore = yield buildStore(self, self.notifierFactory)
+        addressbookStore = self._sqlStore
 
         # Provision the home and addressbook, one user and one group
         txn = addressbookStore.newTransaction()
@@ -531,7 +546,8 @@ END:VCARD
         """
         Test that kind property vCard is stored correctly in database
         """
-        addressbookStore = yield buildStore(self, self.notifierFactory)
+        addressbookStore = self._sqlStore
+        cleanStore(self, addressbookStore)
 
         # Provision the home and addressbook, one user and one group
         txn = addressbookStore.newTransaction()

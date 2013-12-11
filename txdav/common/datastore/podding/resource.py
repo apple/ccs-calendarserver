@@ -32,6 +32,7 @@ from twistedcaldav.scheduling_store.caldav.resource import \
 
 from txdav.xml import element as davxml
 from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
+from txdav.common.datastore.podding.conduit import FailedCrossPodRequestError
 
 __all__ = [
     "ConduitResource",
@@ -138,35 +139,13 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
             self.log.error("Invalid JSON data in request: {ex}\n{body}", ex=e, body=body)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid JSON data in request: {}\n{}".format(e, body)))
 
-        # Must have a dict with an "action" key
+        # Get the conduit to process the data
         try:
-            action = j["action"]
-        except (KeyError, TypeError) as e:
-            self.log.error("JSON data must have an object as its root with an 'action' attribute: {ex}\n{json}", ex=e, json=j)
-            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "JSON data must have an object as its root with an 'action' attribute: {}\n{}".format(e, j,)))
-
-        if action == "ping":
-            result = {"result": "ok"}
-            response = JSONResponse(responsecode.OK, result)
-            returnValue(response)
-
-        method = "recv_{}".format(action)
-        if not hasattr(self.store.conduit, method):
-            self.log.error("Unsupported action: {action}", action=action)
-            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Unsupported action: {}".format(action)))
-
-        # Need a transaction to work with
-        txn = self.store.newTransaction(repr(request))
-
-        # Do the POST processing treating this as a non-local schedule
-        try:
-            result = (yield getattr(self.store.conduit, method)(txn, j))
+            result = yield self.store.conduit.processRequest(j)
+        except FailedCrossPodRequestError as e:
+            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
         except Exception as e:
-            yield txn.abort()
-            self.log.error("Failed action: {action}, {ex}", action=action, ex=e)
-            raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, "Failed action: {}, {}".format(action, e)))
-
-        yield txn.commit()
+            raise HTTPError(StatusResponse(responsecode.INTERNAL_SERVER_ERROR, str(e)))
 
         response = JSONResponse(responsecode.OK, result)
         returnValue(response)
