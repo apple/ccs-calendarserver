@@ -26,13 +26,13 @@ from twisted.internet.base import DelayedCall
 from twisted.internet.defer import succeed, fail, inlineCallbacks, returnValue
 from twisted.internet.protocol import ProcessProtocol
 
-from twext.python.memcacheclient import ClientFactory
 from twext.python.filepath import CachingFilePath as FilePath
 import twext.web2.dav.test.util
 from txdav.xml import element as davxml, element
 from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import memcacher
+from twistedcaldav.memcacheclient import ClientFactory
 from twistedcaldav.bind import doBind
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
