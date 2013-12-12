@@ -83,9 +83,13 @@ from twisted.python.log import msg as twistedLogMessage
 from twisted.python.log import addObserver, removeObserver
 from twisted.python.log import ILogObserver as ILegacyLogObserver
 
+
+
 OBSERVER_REMOVED = (
     "Temporarily removing observer {observer} due to exception: {e}"
 )
+
+
 
 #
 # Log level definitions
@@ -125,9 +129,10 @@ class LogLevel(Names):
        etc.
     """
     debug = NamedConstant()
-    info  = NamedConstant()
-    warn  = NamedConstant()
+    info = NamedConstant()
+    warn = NamedConstant()
     error = NamedConstant()
+    critical = NamedConstant()
 
     @classmethod
     def levelWithName(cls, name):
@@ -166,10 +171,10 @@ LogLevel._levelPriorities = dict(
 #
 pythonLogLevelMapping = {
     LogLevel.debug: logging.DEBUG,
-    LogLevel.info:  logging.INFO,
-    LogLevel.warn:  logging.WARNING,
+    LogLevel.info: logging.INFO,
+    LogLevel.warn: logging.WARNING,
     LogLevel.error: logging.ERROR,
-    # LogLevel.critical: logging.CRITICAL,
+    LogLevel.critical: logging.CRITICAL,
 }
 
 
@@ -563,9 +568,9 @@ class PredicateResult(Names):
     """
     Predicate results.
     """
-    yes   = NamedConstant() # Log this
-    no    = NamedConstant() # Don't log this
-    maybe = NamedConstant() # No opinion
+    yes = NamedConstant()    # Log this
+    no = NamedConstant()     # Don't log this
+    maybe = NamedConstant()  # No opinion
 
 
 
