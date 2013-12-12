@@ -105,7 +105,7 @@ class MasterOptions(Options):
                 "Invalid port number {0}: {1}".format(port, e)
             )
 
-        protocols = self.setdefault("protocol", [])
+        protocols = self.setdefault("protocols", [])
 
         for (otherProtocol, otherPort) in protocols:
             # FIXME: Raise here because we don't properly handle multiple
@@ -126,8 +126,8 @@ class MasterOptions(Options):
 
 
     def postOptions(self):
-        for parameter in ("protocol",):
-            if parameter not in self:
+        for (parameter, key) in [("protocol", "protocols")]:
+            if key not in self:
                 raise UsageError("{0} parameter is required".format(parameter))
 
 
@@ -298,7 +298,7 @@ class MasterServiceMaker(object):
     def makeService(self, options):
         service = MasterService()
 
-        for protocol, port in options["protocol"]:
+        for protocol, port in options["protocols"]:
             service.addProtocol(protocol, port)
 
         return service
@@ -618,23 +618,16 @@ class ChildStatus(FancyStrMixin, object):
     """
 
     showAttributes = (
-        "started",
         "acknowledged",
         "unacknowledged",
         "unclosed",
     )
 
 
-    def __init__(
-        self, started=0,
-        acknowledged=0, unacknowledged=0,
-        abandoned=0, unclosed=0
-    ):
+    def __init__(self, acknowledged=0, unacknowledged=0, unclosed=0):
         """
         Create a L{ConnectionStatus} with a number of sent connections and a
         number of un-acknowledged connections.
-
-        @param started: The number of times this worker has been started.
 
         @param acknowledged: the number of connections which we know the
             subprocess to be presently processing; i.e. those which have been
@@ -647,7 +640,6 @@ class ChildStatus(FancyStrMixin, object):
         @param unclosed: The number of sockets which have been sent to the
             subprocess but not yet closed.
         """
-        self.started = started
         self.acknowledged = acknowledged
         self.unacknowledged = unacknowledged
         self.unclosed = unclosed
