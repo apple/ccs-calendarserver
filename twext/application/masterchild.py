@@ -59,8 +59,6 @@ from twext.internet.sendfdport import InheritedSocketDispatcher
 from twext.internet.sendfdport import IStatusWatcher
 from twext.internet.sendfdport import InheritedPort
 
-log = Logger()
-
 
 
 class MasterOptions(Options):
@@ -200,22 +198,16 @@ class MasterService(MultiService, object):
 
     @staticmethod
     def initialStatus():
-        log.info("Status: init")
-
         return ChildStatus()
 
 
     @staticmethod
     def newConnectionStatus(previousStatus):
-        log.info("Status: {0} new".format(previousStatus))
-
         return previousStatus + ChildStatus(unacknowledged=1)
 
 
     @staticmethod
     def statusFromMessage(previousStatus, message):
-        log.info("Status: {0} {1!r}".format(previousStatus, message))
-
         if message == "-":
             # A connection has gone away in a subprocess; we should start
             # accepting connections again if we paused (see
@@ -229,7 +221,26 @@ class MasterService(MultiService, object):
             # way of knowing whether the acknowledged connections were acted
             # upon or dropped, so we have to treat that number with a healthy
             # amount of skepticism.)
-            return previousStatus.restarted()
+
+            # Do some sanity checks... no attempt to fix, but log critically
+            # if there are unexpected connection counts, as that means we
+            # don't know what's going on with our connection management.
+
+            def checkForWeirdness(what, expected):
+                n = getattr(previousStatus, what)
+                if n != expected:
+                    # Upgrade to critical when logging is updated
+                    MasterService.log.critical(
+                        "New process has {count} {type} connections, "
+                        "expected {expected}."
+                        .format(count=n, type=what, expected=expected)
+                    )
+
+            checkForWeirdness("acknowledged", 0)
+            checkForWeirdness("unacknowledged", 1)
+            checkForWeirdness("unclosed", 1)
+
+            return previousStatus
 
         elif message == "+":
             # Acknowledges that the subprocess has taken on the work.
@@ -244,8 +255,6 @@ class MasterService(MultiService, object):
 
     @staticmethod
     def closeCountFromStatus(previousStatus):
-        log.info("Status: {0} close".format(previousStatus))
-
         toClose = previousStatus.unclosed
         return (toClose, previousStatus - ChildStatus(unclosed=toClose))
 
@@ -542,7 +551,10 @@ class ChildService(Service, object):
     def stopService(self):
         factory = self.wrappedProtocolFactory
 
+        # Halt connection inflow
         factory.inheritedPort.stopReading()
+
+        # Wait for existing connections to close
         factory.allConnectionsClosed()
 
         return super(ChildService, self).stopService()
@@ -573,7 +585,6 @@ class ReportingProtocolWrapper(ProtocolWrapper, object):
 
 
     def connectionLost(self, reason):
-        self.log.info("CONNECTION LOST")
         self.factory.inheritedPort.reportStatus("-")
         return super(ReportingProtocolWrapper, self).connectionLost(reason)
 
@@ -595,19 +606,23 @@ class ChildStatus(FancyStrMixin, object):
     """
 
     showAttributes = (
+        "started",
         "acknowledged",
         "unacknowledged",
-        "started",
-        "abandoned",
         "unclosed",
     )
 
 
-    def __init__(self, acknowledged=0, unacknowledged=0, started=0,
-                 abandoned=0, unclosed=0):
+    def __init__(
+        self, started=0,
+        acknowledged=0, unacknowledged=0,
+        abandoned=0, unclosed=0
+    ):
         """
         Create a L{ConnectionStatus} with a number of sent connections and a
         number of un-acknowledged connections.
+
+        @param started: The number of times this worker has been started.
 
         @param acknowledged: the number of connections which we know the
             subprocess to be presently processing; i.e. those which have been
@@ -617,19 +632,12 @@ class ChildStatus(FancyStrMixin, object):
             the subprocess which have never received a status response (a
             "C{+}" status message).
 
-        @param abandoned: The number of connections which have been sent to
-            this worker, but were not acknowledged at the moment that the
-            worker restarted.
-
-        @param started: The number of times this worker has been started.
-
         @param unclosed: The number of sockets which have been sent to the
             subprocess but not yet closed.
         """
+        self.started = started
         self.acknowledged = acknowledged
         self.unacknowledged = unacknowledged
-        self.started = started
-        self.abandoned = abandoned
         self.unclosed = unclosed
 
 
@@ -638,14 +646,6 @@ class ChildStatus(FancyStrMixin, object):
         The current effective load.
         """
         return self.acknowledged + self.unacknowledged
-
-
-    def restarted(self):
-        """
-        The L{ChildStatus} derived from the current status of a process and
-        the fact that it just restarted.
-        """
-        return self.__class__(0, 0, self.started + 1, self.unacknowledged)
 
 
     def _tuplify(self):
@@ -681,8 +681,4 @@ class ChildStatus(FancyStrMixin, object):
         if not isinstance(other, ChildStatus):
             return NotImplemented
 
-        a = self._tuplify()
-        b = other._tuplify()
-        difference = [a1 - b1 for (a1, b1) in zip(a, b)]
-
-        return self + self.__class__(*difference)
+        return self + self.__class__(*[-x for x in other._tuplify()])
