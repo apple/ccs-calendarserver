@@ -289,6 +289,12 @@ class MasterServiceMaker(object):
     log = Logger()
 
 
+    def __init__(self):
+        self.tapname = "master"
+        self.description = self.__class__.__doc__
+        self.options = MasterOptions
+
+
     def makeService(self, options):
         service = MasterService()
 
@@ -515,6 +521,12 @@ class ChildServiceMaker(object):
     """
     Child process service maker.
     """
+
+    def __init__(self):
+        self.tapname = "child"
+        self.description = self.__class__.__doc__
+        self.options = ChildOptions
+
 
     def makeService(self, options):
         factory = ServerFactory.forProtocol(options["protocol"])

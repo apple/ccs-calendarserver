@@ -20,39 +20,66 @@ from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
 
-from twext.application.masterchild import MasterOptions, ChildOptions
 
 
 @implementer(IPlugin, IServiceMaker)
-class ServiceMaker(object):
-    def __init__(self, name, description, options, serviceMakerClass):
-        self.tapname = name
-        self.description = description
-        self.options = options
-        self.serviceMakerClass = serviceMakerClass
-        self._serviceMaker = None
+class ServiceMakerWrapper(object):
+    """
+    ServiceMaker that instantiates and wraps a ServiceMaker, given a class name
+    and arguments.
+    """
+
+    def __init__(self, className, *args, **kwargs):
+        """
+        @param className: The fully qualified name of the
+            L{IServiceMaker}-providing class to instiantiate.
+        @type className: L{str}
+
+        @param args: Sequential arguments to pass to the class's constructor.
+        @type args: arguments L{list}
+
+        @param kwargs: Keyword arguments to pass to the class's constructor.
+        @type args: arguments L{dict}
+        """
+        self.className = className
+        self.args = args
+        self.kwargs = kwargs
+
+
+    @property
+    def wrappedServiceMaker(self):
+        if not hasattr(self, "_wrappedServiceMaker"):
+            makerClass = namedClass(self.className)
+            maker = makerClass(*self.args, **self.kwargs)
+            self._wrappedServiceMaker = maker
+
+        return self._wrappedServiceMaker
+
+
+    @property
+    def tapname(self):
+        return self.wrappedServiceMaker.tapname
+
+
+    @property
+    def description(self):
+        return self.wrappedServiceMaker.description
+
+
+    @property
+    def options(self):
+        return self.wrappedServiceMaker.options
 
 
     def makeService(self, options):
-        if self._serviceMaker is None:
-            self._serviceMaker = namedClass(self.serviceMakerClass)()
-
-        return self._serviceMaker.makeService(options)
+        return self.wrappedServiceMaker.makeService(options)
 
 
 
-masterServiceMaker = ServiceMaker(
-    "master",
-    "Master process application container",
-    MasterOptions,
+masterServiceMaker = ServiceMakerWrapper(
     "twext.application.masterchild.MasterServiceMaker"
 )
 
-
-
-childServiceMaker = ServiceMaker(
-    "child",
-    "Child process application container",
-    ChildOptions,
+childServiceMaker = ServiceMakerWrapper(
     "twext.application.masterchild.ChildServiceMaker"
 )
