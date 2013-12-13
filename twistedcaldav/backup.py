@@ -24,7 +24,7 @@ import shutil
 import fnmatch
 import commands
 
-from twext.python.plistlib import readPlist
+from plistlib import readPlist
 
 VERBOSE = os.environ.get('VERBOSE', False)
 FUNCLOG = os.environ.get('FUNCLOG', False)

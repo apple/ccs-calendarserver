@@ -30,7 +30,7 @@ import cStringIO
 import socket
 
 from calendarserver.tap.util import getRootResource
-from twext.python.plistlib import readPlistFromString, writePlistToString
+from plistlib import readPlistFromString, writePlistToString
 from twisted.application.internet import StreamServerEndpointService
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.cred.credentials import IUsernameHashedPassword

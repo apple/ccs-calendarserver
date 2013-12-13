@@ -26,7 +26,7 @@ try:
 except ImportError:
     sys.exc_clear()
 
-from twext.python.plistlib import readPlist
+from plistlib import readPlist
 
 try:
     import opendirectory

@@ -16,7 +16,7 @@
 
 import socket
 
-from twext.python.plistlib import writePlist #@UnresolvedImport
+from plistlib import writePlist #@UnresolvedImport
 from twext.python.log import LogLevel
 from twext.python.test.test_log import defaultLogLevel, logLevelForNamespace
 

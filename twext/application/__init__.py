@@ -15,5 +15,5 @@
 ##
 
 """
-TAP files
+Extensions to twisted.application.
 """

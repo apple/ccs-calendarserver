@@ -17,7 +17,7 @@ from __future__ import print_function
 
 import os
 import sys
-from twext.python.plistlib import readPlistFromString
+from plistlib import readPlistFromString
 import xml
 
 from twext.python.filepath import CachingFilePath as FilePath

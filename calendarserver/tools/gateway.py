@@ -22,7 +22,7 @@ import os
 import sys
 import xml
 
-from twext.python.plistlib import readPlistFromString, writePlistToString
+from plistlib import readPlistFromString, writePlistToString
 
 from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.directory.directory import DirectoryError

@@ -22,7 +22,7 @@ from socket import getfqdn, gethostbyname
 
 from twisted.python.runtime import platform
 
-from twext.python.plistlib import PlistParser #@UnresolvedImport
+from plistlib import PlistParser #@UnresolvedImport
 from twext.python.log import Logger, InvalidLogLevelError, LogLevel
 from twext.web2.dav.resource import TwistedACLInheritable
 
