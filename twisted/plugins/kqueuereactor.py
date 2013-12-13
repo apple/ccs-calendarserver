@@ -14,8 +14,6 @@
 # limitations under the License.
 ##
 
-__import__("twext")
-
 from twisted.application.reactors import Reactor
 
 caldav_kqueue = Reactor(
