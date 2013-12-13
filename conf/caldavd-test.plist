@@ -284,29 +284,20 @@
                     <string>mail</string>
                     <string>mailAlias</string>
                 </array>
-                <key>firstName</key>
-                <string></string>
-                <key>lastName</key>
-                <string></string>
             </dict>
           </dict>
           <key>locations</key>
           <dict>
             <key>rdn</key>
             <string>ou=locations</string>
+            <key>associatedAddressAttr</key>
+            <string></string>
             <key>mapping</key>
             <dict>
                 <key>recordName</key>
                 <string>cn</string>
                 <key>fullName</key>
                 <string>cn</string>
-                <key>emailAddresses</key>
-                <array>
-                </array>
-                <key>firstName</key>
-                <string></string>
-                <key>lastName</key>
-                <string></string>
             </dict>
           </dict>
           <key>resources</key>
@@ -319,13 +310,22 @@
                 <string>cn</string>
                 <key>fullName</key>
                 <string>cn</string>
-                <key>emailAddresses</key>
-                <array>
-                </array>
-                <key>firstName</key>
-                <string></string>
-                <key>lastName</key>
-                <string></string>
+            </dict>
+          </dict>
+          <key>addresses</key>
+          <dict>
+            <key>rdn</key>
+            <string>ou=buildings</string>
+            <key>geoAttr</key>
+            <string></string>
+            <key>streetAddressAttr</key>
+            <string></string>
+            <key>mapping</key>
+            <dict>
+                <key>recordName</key>
+                <string>cn</string>
+                <key>fullName</key>
+                <string>cn</string>
             </dict>
           </dict>
         </dict>

@@ -541,8 +541,6 @@ else:
                             "recordName": "cn",
                             "fullName" : "cn",
                             "emailAddresses" : ["mail", "emailAliases"],
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
                         },
                     },
                     "locations": {
@@ -552,12 +550,11 @@ else:
                         "filter": "(objectClass=apple-resource)", # additional filter for this type
                         "calendarEnabledAttr" : "", # attribute controlling calendaring
                         "calendarEnabledValue" : "yes", # "True" value of above attribute
+                        "associatedAddressAttr" : "assocAddr",
                         "mapping": { # maps internal record names to LDAP
                             "recordName": "cn",
                             "fullName" : "cn",
                             "emailAddresses" : "", # old style, single string
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
                         },
                     },
                     "resources": {
@@ -571,8 +568,15 @@ else:
                             "recordName": "cn",
                             "fullName" : "cn",
                             "emailAddresses" : [], # new style, array
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                        },
+                    },
+                    "addresses": {
+                        "rdn": "cn=Buildings",
+                        "geoAttr" : "coordinates",
+                        "streetAddressAttr" : "postal",
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
                         },
                     },
                 },
@@ -1513,6 +1517,39 @@ else:
             record = self.service._ldapResultToRecord(dn, attrs,
                 self.service.recordType_users)
             self.assertEquals(record.guid, guid.upper())
+
+            # Location with associated Address
+
+            dn = "cn=odtestlocation,cn=locations,dc=example,dc=com"
+            guid = "D3094652-344B-4633-8DB8-09639FA00FB6"
+            attrs = {
+                "apple-generateduid": [guid],
+                "cn": ["odtestlocation"],
+                "assocAddr" : ["6C6CD280-E6E3-11DF-9492-0800200C9A66"],
+            }
+            record = self.service._ldapResultToRecord(dn, attrs,
+                self.service.recordType_locations)
+            self.assertEquals(record.extras, {
+                "associatedAddress": "6C6CD280-E6E3-11DF-9492-0800200C9A66"
+            })
+           
+            # Address with street and geo
+
+            dn = "cn=odtestaddress,cn=buildings,dc=example,dc=com"
+            guid = "6C6CD280-E6E3-11DF-9492-0800200C9A66"
+            attrs = {
+                "apple-generateduid": [guid],
+                "cn": ["odtestaddress"],
+                "coordinates" : ["geo:1,2"],
+                "postal" : ["1 Infinite Loop, Cupertino, CA"],
+            }
+            record = self.service._ldapResultToRecord(dn, attrs,
+                self.service.recordType_addresses)
+            self.assertEquals(record.extras, {
+                "geo": "geo:1,2",
+                "streetAddress" : "1 Infinite Loop, Cupertino, CA",
+            })
+           
 
         def test_listRecords(self):
             """
