@@ -80,7 +80,7 @@ if [ $# -gt 0 ]; then
   test_modules="$@";
   flaky=true;
 else
-  test_modules="calendarserver twistedcaldav twext txdav contrib ${m_twisted}";
+  test_modules="calendarserver twistedcaldav txdav contrib ${m_twisted}";
   flaky=true;
 fi;
 

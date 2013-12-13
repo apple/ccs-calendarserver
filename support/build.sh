@@ -509,9 +509,7 @@ py_dependency () {
                           # already has it?
   local  inplace="";      # Do development in-place; don't run setup.py to
                           # build, and instead add the source directory plus the
-                          # given relative path directly to sys.path.  twisted
-                          # and pycalendar are developed often enough that this is
-                          # convenient.
+                          # given relative path directly to sys.path.
   local skip_egg="false"; # Skip even the 'egg_info' step, because nothing needs
                           # to be built.
   local revision="0";     # Revision (if svn)
@@ -777,6 +775,20 @@ dependencies () {
     "setuptools" "setuptools" "${st}" \
     "$pypi/s/setuptools/${st}.tar.gz";
 
+  local v="0.6";
+  local n="cffi";
+  local p="${n}-${v}";
+  py_dependency -v "0.6" -m "5be33b1ab0247a984d42b27344519337" \
+    "${n}" "${n}" "${p}" \
+    "${pypi}/c/${n}/${p}.tar.gz";
+
+  local v="2.10";
+  local n="pycparser";
+  local p="${n}-${v}";
+  py_dependency -v "0.6" -m "d87aed98c8a9f386aa56d365fe4d515f" \
+    "${n}" "${n}" "${p}" \
+    "${pypi}/p/${n}/${p}.tar.gz";
+
   local v="4.0.5";
   local n="zope.interface";
   local p="${n}-${v}";
@@ -793,8 +805,10 @@ dependencies () {
 
   local n="PyKerberos";
   if type -P krb5-config > /dev/null; then
-    py_dependency -r 9409 \
-      "${n}" "kerberos" "${n}" \
+    local v="9409";
+    local p="${n}-${v}";
+    py_dependency -r "${v}" \
+      "${n}" "kerberos" "${p}" \
       "${svn_uri_base}/${n}/trunk";
   fi;
 
@@ -821,12 +835,40 @@ dependencies () {
     "${n}" "pgdb" "${p}" \
     "${pypi}/P/${n}/${p}.tgz";
 
+  local v="0.1.2";
+  local n="sqlparse";
+  local p="${n}-${v}";
+  py_dependency -v "${v}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
+    "SQLParse" "${n}" "${p}" \
+    "http://python-sqlparse.googlecode.com/files/${p}.tar.gz";
+
+  local v="2.6.1";
+  local n="pycrypto";
+  local p="${n}-${v}";
+  py_dependency -v "${v}" -m "55a61a054aa66812daf5161a0d5d7eda" \
+    "PyCrypto" "${n}" "${p}" \
+    "http://ftp.dlitz.net/pub/dlitz/crypto/${n}/${p}.tar.gz";
+
+  local v="0.1.7";
+  local n="pyasn1";
+  local p="${n}-${v}";
+  py_dependency -v "${v}" -m "2cbd80fcd4c7b1c82180d3d76fee18c8" \
+    "${n}" "${n}" "${p}" \
+    "${pypi}/p/${n}/${p}.tar.gz";
+
   local v="13.2.0";
   local n="Twisted";
   local p="${n}-${v}";
   py_dependency -v 13.2 -m "83fe6c0c911cc1602dbffb036be0ba79" \
     "${n}" "twisted" "${p}" \
     "${pypi}/T/${n}/${p}.tar.bz2";
+
+  local v="12078";
+  local n="twext";
+  local p="${n}-${v}";
+  py_dependency -fe -r "${v}" \
+    "${n}" "${n}" "${p}" \
+    "${svn_uri_base}/${n}/trunk";
 
   local v="1.5";
   local n="python-dateutil";
@@ -849,22 +891,25 @@ dependencies () {
     "Python-LDAP" "ldap" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
-  # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 11947 \
-    "PyCalendar" "pycalendar" "pycalendar" \
-    "${svn_uri_base}/PyCalendar/trunk";
+  local v="11947";
+  local n="PyCalendar";
+  local p="${n}-${v}";
+  py_dependency -fe -i "src" -r "${v}" \
+    "${n}" "pycalendar" "${p}" \
+    "${svn_uri_base}/${n}/trunk";
+
+  # Can't add "-v 2011g" to args because the version check expects numbers.
+  local v="2013.8";
+  local n="pytz";
+  local p="${n}-${v}";
+  py_dependency -m "37750ca749ed3a52523b9682b0b7e381" \
+    "${n}" "${n}" "${p}" \
+    "${pypi}/p/${n}/${p}.tar.gz";
 
   #
   # Tool dependencies.  The code itself doesn't depend on these, but
   # they are useful to developers.
   #
-
-  local v="0.1.2";
-  local n="sqlparse";
-  local p="${n}-${v}";
-  py_dependency -v "${v}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
-    "SQLParse" "${n}" "${p}" \
-    "http://python-sqlparse.googlecode.com/files/${p}.tar.gz";
 
   if type -P pyflakes > /dev/null; then
     using_system "PyFlakes";
@@ -877,31 +922,12 @@ dependencies () {
       "${pypi}/p/${n}/${p}.tar.gz";
   fi;
  
-  py_dependency -o -r HEAD \
-    "CalDAVClientLibrary" "caldavclientlibrary" "CalDAVClientLibrary" \
-    "${svn_uri_base}/CalDAVClientLibrary/trunk";
-
-  # Can't add "-v 2011g" to args because the version check expects numbers.
-  local v="2013.8";
-  local n="pytz";
+  local v="12068";
+  local n="CalDAVClientLibrary";
   local p="${n}-${v}";
-  py_dependency -m "37750ca749ed3a52523b9682b0b7e381" \
-    "${n}" "${n}" "${p}" \
-    "${pypi}/p/${n}/${p}.tar.gz";
-
-  local v="2.6.1";
-  local n="pycrypto";
-  local p="${n}-${v}";
-  py_dependency -v "${v}" -m "55a61a054aa66812daf5161a0d5d7eda" \
-    "PyCrypto" "${n}" "${p}" \
-    "http://ftp.dlitz.net/pub/dlitz/crypto/${n}/${p}.tar.gz";
-
-  local v="0.1.7";
-  local n="pyasn1";
-  local p="${n}-${v}";
-  py_dependency -v "${v}" -m "2cbd80fcd4c7b1c82180d3d76fee18c8" \
-    "${n}" "${n}" "${p}" \
-    "${pypi}/p/${n}/${p}.tar.gz";
+  py_dependency -o -r "${v}" \
+    "${n}" "caldavclientlibrary" "${p}" \
+    "${svn_uri_base}/${n}/trunk";
 
   local v="1.1.8";
   local n="setproctitle";
@@ -909,20 +935,6 @@ dependencies () {
   py_dependency -v "1.0" -m "728f4c8c6031bbe56083a48594027edd" \
     "${n}" "${n}" "${p}" \
     "${pypi}/s/${n}/${p}.tar.gz";
-
-  local v="0.6";
-  local n="cffi";
-  local p="${n}-${v}";
-  py_dependency -v "0.6" -m "5be33b1ab0247a984d42b27344519337" \
-    "${n}" "${n}" "${p}" \
-    "${pypi}/c/${n}/${p}.tar.gz";
-
-  local v="2.10";
-  local n="pycparser";
-  local p="${n}-${v}";
-  py_dependency -v "0.6" -m "d87aed98c8a9f386aa56d365fe4d515f" \
-    "${n}" "${n}" "${p}" \
-    "${pypi}/p/${n}/${p}.tar.gz";
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
       "${svn_uri_base}/CalDAVTester/trunk" HEAD;

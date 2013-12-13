@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from __future__ import print_function
 
 import sys
@@ -26,18 +27,18 @@ from version import version
 
 
 
-def find_modules():
+def find_packages():
     modules = [
         "twisted.plugins",
     ]
 
-    for root, dirs, files in os.walk("."):
-        excludes = [
-            ".svn",
-            "_trial_temp",
-            "build",
-        ]
+    excludes = [
+        ".svn",
+        "_trial_temp",
+        "build",
+    ]
 
+    for root, dirs, files in os.walk("."):
         if root == ".":
             excludes.append("data")
 
@@ -50,6 +51,7 @@ def find_modules():
 
     return modules
 
+
 #
 # Options
 #
@@ -60,6 +62,7 @@ Calendar and Contacts Server, implementing the CalDAV and CardDAV protocols.
 """
 
 classifiers = None
+
 
 #
 # Write version file
@@ -75,16 +78,14 @@ version_file = file(os.path.join("calendarserver", "version.py"), "w")
 version_file.write('version = "{version}"\n'.format(version=version_string))
 version_file.close()
 
+
 #
 # Set up Extension modules that need to be built
 #
 
 from distutils.core import Extension
 
-extensions = [
-    Extension("twext.python.sendmsg",
-              sources=["twext/python/sendmsg.c"])
-]
+extensions = []
 
 if sys.platform == "darwin":
     extensions.append(
@@ -94,10 +95,6 @@ if sys.platform == "darwin":
             sources=["calendarserver/platform/darwin/_sacl.c"]
         )
     )
-
-    from twext.python import launchd
-    extensions.append(launchd.ffi.verifier.get_extension())
-
 
 
 #
@@ -112,13 +109,13 @@ def doSetup():
         version=version_string,
         description=description,
         long_description=long_description,
-        url=None,
+        url="http://www.calendarserver.org/",
         classifiers=classifiers,
         author="Apple Inc.",
         author_email=None,
-        license=None,
+        license="Apache License, Version 2.0",
         platforms=["all"],
-        packages=find_modules(),
+        packages=find_packages(),
         package_data={
             "twistedcaldav": [
                 "*.html",
@@ -235,7 +232,6 @@ def doSetup():
             newScript = open(scriptPath, "w")
             newScript.write("\n".join(script))
             newScript.close()
-
 
 
 if __name__ == "__main__":
