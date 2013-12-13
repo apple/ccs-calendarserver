@@ -17,7 +17,3 @@
 """
 Extensions to the Twisted Framework.
 """
-
-from twext import patches
-patches
-del(patches)
