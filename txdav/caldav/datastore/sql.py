@@ -1516,6 +1516,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     implements(ICalendarObject)
 
     _objectSchema = schema.CALENDAR_OBJECT
+    _componentClass = VComponent
 
     def __init__(self, calendar, name, uid, resourceID=None, options=None):
 
@@ -1539,7 +1540,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     @inlineCallbacks
     def _createInternal(cls, parent, name, component, internal_state, options=None, split_details=None):
 
-        child = (yield cls.objectWithName(parent, name, None))
+        child = (yield cls.objectWithName(parent, name))
         if child:
             raise ObjectResourceNameAlreadyExistsError(name)
 

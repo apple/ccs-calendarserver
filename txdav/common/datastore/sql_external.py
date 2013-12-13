@@ -225,16 +225,6 @@ class CommonHomeChildExternal(CommonHomeChild):
 
 
     @inlineCallbacks
-    def objectResources(self):
-        raise NotImplementedError("TODO: external resource")
-
-
-    @inlineCallbacks
-    def objectResourcesWithNames(self, names):
-        raise NotImplementedError("TODO: external resource")
-
-
-    @inlineCallbacks
     def listObjectResources(self):
         if self._objectNames is None:
             try:
@@ -256,18 +246,6 @@ class CommonHomeChildExternal(CommonHomeChild):
                 raise ExternalShareFailed("External share does not exist")
             returnValue(count)
         returnValue(len(self._objectNames))
-
-
-    def objectResourceWithName(self, name):
-        raise NotImplementedError("TODO: external resource")
-
-
-    def objectResourceWithUID(self, uid):
-        raise NotImplementedError("TODO: external resource")
-
-
-    def objectResourceWithID(self, resourceID):
-        raise NotImplementedError("TODO: external resource")
 
 
     @inlineCallbacks
@@ -314,11 +292,21 @@ class CommonHomeChildExternal(CommonHomeChild):
 
     @inlineCallbacks
     def createObjectResourceWithName(self, name, component, options=None):
+        """
+        Actually I think we can defer this to the object resource class's .create()
+        """
         raise NotImplementedError("TODO: external resource")
 
 
     @inlineCallbacks
     def moveObjectResource(self, child, newparent, newname=None):
+        """
+        The base class does an optimization to avoid removing/re-creating
+        the actual object resource data. That might not always be possible
+        with external shares if the shared resource is moved to a collection
+        that is not shared or shared by someone else on a different (third)
+        pod. The best bet here is to treat the move as a delete/create.
+        """
         raise NotImplementedError("TODO: external resource")
 
 
@@ -351,4 +339,81 @@ class CommonObjectResourceExternal(CommonObjectResource):
     A CommonObjectResource for a resource not hosted on this system, but on another pod. This will forward
     specific apis to the other pod using cross-pod requests.
     """
-    pass
+
+    @classmethod
+    @inlineCallbacks
+    def loadAllObjects(cls, parent):
+        mapping_list = yield parent._txn.store().conduit.send_loadallobjects(parent, None)
+
+        results = []
+        if mapping_list:
+            for mapping in mapping_list:
+                child = yield cls.makeClass(parent, cls.internalize(mapping))
+                results.append(child)
+        returnValue(results)
+
+
+    @classmethod
+    @inlineCallbacks
+    def loadAllObjectsWithNames(cls, parent, names):
+        mapping_list = yield parent._txn.store().conduit.send_loadallobjectswithnames(parent, None, names)
+
+        results = []
+        if mapping_list:
+            for mapping in mapping_list:
+                child = yield cls.makeClass(parent, cls.internalize(mapping))
+                results.append(child)
+        returnValue(results)
+
+
+    @classmethod
+    @inlineCallbacks
+    def objectWith(cls, parent, name=None, uid=None, resourceID=None):
+        mapping = yield parent._txn.store().conduit.send_objectwith(parent, None, name, uid, resourceID)
+
+        if mapping:
+            child = yield cls.makeClass(parent, cls.internalize(mapping))
+            returnValue(child)
+        else:
+            returnValue(None)
+
+
+    @classmethod
+    @inlineCallbacks
+    def create(cls, parent, name, component, options=None):
+        mapping = yield parent._txn.store().conduit.send_create(parent, None, name, component, options=options)
+
+        if mapping:
+            child = yield cls.makeClass(parent, cls.internalize(mapping))
+            returnValue(child)
+        else:
+            returnValue(None)
+
+
+    @inlineCallbacks
+    def setComponent(self, component, inserting=False, options=None):
+        changed = yield self._txn.store().conduit.send_setcomponent(self.parentCollection(), self, str(component), inserting, options)
+        self._cachedComponent = None
+        returnValue(changed)
+
+
+    @inlineCallbacks
+    def component(self):
+        if self._cachedComponent is None:
+            text = yield self._txn.store().conduit.send_component(self.parentCollection(), self)
+            self._cachedComponent = self._componentClass.fromString(text)
+
+        returnValue(self._cachedComponent)
+
+
+    @inlineCallbacks
+    def moveTo(self, destination, name=None):
+        """
+        Probably OK to leave this to the base implementation which calls up to the parent after some validation.
+        """
+        raise NotImplementedError
+
+
+    @inlineCallbacks
+    def remove(self):
+        yield self._txn.store().conduit.send_remove(self.parentCollection(), self)

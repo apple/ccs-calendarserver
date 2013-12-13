@@ -21,6 +21,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.podding.request import ConduitRequest
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 from txdav.common.icommondatastore import ExternalShareFailed
+from twisted.python.reflect import namedClass
 
 
 __all__ = [
@@ -375,18 +376,18 @@ class PoddingConduit(object):
     # Sharer data access related apis
     #
 
-    def _send(self, action, shareeView):
+    def _send(self, action, parent, child=None):
         """
-        Base behavior for an operation on a sharee resource.
+        Base behavior for an operation on a L{CommonHomeChild}.
 
         @param shareeView: sharee resource being operated on.
         @type shareeView: L{CommonHomeChildExternal}
         """
 
-        homeType = shareeView.ownerHome()._homeType
-        ownerUID = shareeView.ownerHome().uid()
-        ownerID = shareeView.external_id()
-        shareeUID = shareeView.viewerHome().uid()
+        homeType = parent.ownerHome()._homeType
+        ownerUID = parent.ownerHome().uid()
+        ownerID = parent.external_id()
+        shareeUID = parent.viewerHome().uid()
 
         _ignore_sender, recipient = self.validRequst(shareeUID, ownerUID)
 
@@ -397,6 +398,8 @@ class PoddingConduit(object):
             "owner_id": ownerID,
             "sharee": shareeUID,
         }
+        if child is not None:
+            result["resource_id"] = child.id()
         return result, recipient
 
 
@@ -421,7 +424,15 @@ class PoddingConduit(object):
         if ownerHomeChild is None:
             FailedCrossPodRequestError("Invalid owner shared resource specified")
 
-        returnValue((ownerHome, ownerHomeChild))
+        resourceID = message.get("resource_id", None)
+        if resourceID is not None:
+            objectResource = yield ownerHomeChild.objectResourceWithID(resourceID)
+            if objectResource is None:
+                FailedCrossPodRequestError("Invalid owner shared object resource specified")
+        else:
+            objectResource = None
+
+        returnValue((ownerHome, ownerHomeChild, objectResource,))
 
 
     #
@@ -430,7 +441,7 @@ class PoddingConduit(object):
     #
 
     @inlineCallbacks
-    def _simple_send(self, actionName, shareeView, args=None, kwargs=None):
+    def _simple_send(self, actionName, shareeView, objectResource=None, args=None, kwargs=None):
         """
         A simple send operation that returns a value.
 
@@ -438,23 +449,28 @@ class PoddingConduit(object):
         @type actionName: C{str}
         @param shareeView: sharee resource being operated on.
         @type shareeView: L{CommonHomeChildExternal}
+        @param objectResource: the resource being operated on, or C{None} for classmethod.
+        @type objectResource: L{CommonObjectResourceExternal}
         @param args: list of optional arguments.
         @type args: C{list}
         @param kwargs: optional keyword arguments.
         @type kwargs: C{dict}
         """
 
-        action, recipient = self._send(actionName, shareeView)
+        action, recipient = self._send(actionName, shareeView, objectResource)
         if args is not None:
             action["arguments"] = args
         if kwargs is not None:
             action["keywords"] = kwargs
         result = yield self.sendRequest(shareeView._txn, recipient, action)
-        returnValue(result["value"])
+        if result["result"] == "ok":
+            returnValue(result["value"])
+        elif result["result"] == "exception":
+            raise namedClass(result["class"])(result["message"])
 
 
     @inlineCallbacks
-    def _simple_recv(self, txn, actionName, message, method):
+    def _simple_recv(self, txn, actionName, message, method, onHomeChild=True, transform=None):
         """
         A simple recv operation that returns a value. We also look for an optional set of arguments/keywords
         and include those only if present.
@@ -465,25 +481,76 @@ class PoddingConduit(object):
         @type message: C{dict}
         @param method: name of the method to execute on the shared resource to get the result.
         @type method: C{str}
+        @param transform: method to call on returned JSON value to convert it to something useful.
+        @type transform: C{callable}
         """
 
-        _ignore_ownerHome, ownerHomeChild = yield self._recv(txn, message, actionName)
-        value = yield getattr(ownerHomeChild, method)(*message.get("arguments", ()), **message.get("keywords", {}))
+        _ignore_ownerHome, ownerHomeChild, objectResource = yield self._recv(txn, message, actionName)
+        try:
+            if onHomeChild:
+                # Operate on the L{CommonHomeChild}
+                value = yield getattr(ownerHomeChild, method)(*message.get("arguments", ()), **message.get("keywords", {}))
+            else:
+                # Operate on the L{CommonObjectResource}
+                if objectResource is not None:
+                    value = yield getattr(objectResource, method)(*message.get("arguments", ()), **message.get("keywords", {}))
+                else:
+                    # classmethod call
+                    value = yield getattr(ownerHomeChild._objectResourceClass, method)(ownerHomeChild, *message.get("arguments", ()), **message.get("keywords", {}))
+        except Exception as e:
+            returnValue({
+                "result": "exception",
+                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                "message": str(e),
+            })
+        if transform is not None:
+            value = transform(value, ownerHomeChild, objectResource)
+
         returnValue({
             "result": "ok",
             "value": value,
         })
 
 
+    @staticmethod
+    def _transform_string(value, ownerHomeChild, objectResource):
+        return str(value)
+
+
+    @staticmethod
+    def _transform_externalize(value, ownerHomeChild, objectResource):
+        if isinstance(value, ownerHomeChild._objectResourceClass):
+            value = value.externalize()
+        elif value is not None:
+            value = [v.externalize() for v in value]
+        return value
+
+
     @classmethod
-    def _make_simple_action(cls, action, method):
-        setattr(cls, "send_{}".format(action), lambda self, shareeView, *args, **kwargs: self._simple_send(action, shareeView, args, kwargs))
+    def _make_simple_homechild_action(cls, action, method):
+        setattr(cls, "send_{}".format(action), lambda self, shareeView, *args, **kwargs: self._simple_send(action, shareeView, args=args, kwargs=kwargs))
         setattr(cls, "recv_{}".format(action), lambda self, txn, message: self._simple_recv(txn, action, message, method))
 
 
-PoddingConduit._make_simple_action("countobjects", "countObjectResources")
-PoddingConduit._make_simple_action("listobjects", "listObjectResources")
-PoddingConduit._make_simple_action("synctoken", "syncToken")
-PoddingConduit._make_simple_action("resourcenamessincerevision", "resourceNamesSinceRevision")
-PoddingConduit._make_simple_action("resourceuidforname", "resourceUIDForName")
-PoddingConduit._make_simple_action("resourcenameforuid", "resourceNameForUID")
+    @classmethod
+    def _make_simple_object_action(cls, action, method, transform_result=None):
+        setattr(cls, "send_{}".format(action), lambda self, shareeView, objectResource, *args, **kwargs: self._simple_send(action, shareeView, objectResource, args=args, kwargs=kwargs))
+        setattr(cls, "recv_{}".format(action), lambda self, txn, message: self._simple_recv(txn, action, message, method, onHomeChild=False, transform=transform_result))
+
+
+# Calls on L{CommonHomeChild} objects
+PoddingConduit._make_simple_homechild_action("countobjects", "countObjectResources")
+PoddingConduit._make_simple_homechild_action("listobjects", "listObjectResources")
+PoddingConduit._make_simple_homechild_action("synctoken", "syncToken")
+PoddingConduit._make_simple_homechild_action("resourcenamessincerevision", "resourceNamesSinceRevision")
+PoddingConduit._make_simple_homechild_action("resourceuidforname", "resourceUIDForName")
+PoddingConduit._make_simple_homechild_action("resourcenameforuid", "resourceNameForUID")
+
+# Calls on L{CommonObjectResource} objects
+PoddingConduit._make_simple_object_action("loadallobjects", "loadAllObjects", transform_result=PoddingConduit._transform_externalize)
+PoddingConduit._make_simple_object_action("loadallobjectswithnames", "loadAllObjectsWithNames", transform_result=PoddingConduit._transform_externalize)
+PoddingConduit._make_simple_object_action("objectwith", "objectWith", transform_result=PoddingConduit._transform_externalize)
+PoddingConduit._make_simple_object_action("create", "create", transform_result=PoddingConduit._transform_externalize)
+PoddingConduit._make_simple_object_action("setcomponent", "setComponentText")
+PoddingConduit._make_simple_object_action("component", "component", transform_result=PoddingConduit._transform_string)
+PoddingConduit._make_simple_object_action("remove", "remove")

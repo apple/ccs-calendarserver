@@ -1443,6 +1443,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
     _objectSchema = schema.ADDRESSBOOK_OBJECT
     _bindSchema = schema.SHARED_GROUP_BIND
 
+    _componentClass = VCard
+
     # used by CommonHomeChild._childrenAndMetadataForHomeID() only
     # _homeChildSchema = schema.ADDRESSBOOK_OBJECT
     # _homeChildMetaDataSchema = schema.ADDRESSBOOK_OBJECT
@@ -1576,10 +1578,6 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
 
         self._kind = None
         self._ownerAddressBookResourceID = None
-        # _self._component is the cached, current component
-        # super._objectText now contains the text as read of the database only,
-        #     not including group member text
-        self._component = None
         self._bindMode = None
         self._bindStatus = None
         self._bindMessage = None
@@ -1676,7 +1674,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         yield super(AddressBookObject, self).remove()
         self._kind = None
         self._ownerAddressBookResourceID = None
-        self._component = None
+        self._objectText = None
+        self._cachedComponent = None
 
 
     @inlineCallbacks
@@ -1763,7 +1762,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
 
     @classmethod
     @inlineCallbacks
-    def _objectWithNameOrID(cls, parent, name, uid, resourceID):
+    def objectWith(cls, parent, name=None, uid=None, resourceID=None):
 
         row, groupBindRow = yield cls._getDBData(parent, name, uid, resourceID)
 
@@ -2111,7 +2110,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             self._objectText = componentText
 
         self._size = len(self._objectText)
-        self._component = component
+        self._cachedComponent = component
         self._md5 = hashlib.md5(componentText).hexdigest()
         self._componentChanged = originalComponentText != componentText
 
@@ -2228,7 +2227,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         only allowed in good data.
         """
 
-        if self._component is None:
+        if self._cachedComponent is None:
 
             if self.isGroupForSharedAddressBook():
                 component = yield self.addressbook()._groupForSharedAddressBookComponent()
@@ -2294,9 +2293,9 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                     component.addProperty(Property("X-ADDRESSBOOKSERVER-KIND", "group"))
                     component.addProperty(Property("UID", self._uid))
 
-            self._component = component
+            self._cachedComponent = component
 
-        returnValue(self._component)
+        returnValue(self._cachedComponent)
 
 
     def moveValidation(self, destination, name):

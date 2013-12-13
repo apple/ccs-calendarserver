@@ -29,7 +29,9 @@ from txdav.common.datastore.podding.test.util import MultiStoreConduitTest, \
     FakeConduitRequest
 from txdav.common.datastore.sql_tables import _BIND_STATUS_ACCEPTED
 from pycalendar.datetime import DateTime
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, normalize_iCalStr
+from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError, \
+    ObjectResourceNameNotAllowedError
 
 class TestConduit (CommonCommonTests, twext.web2.dav.test.util.TestCase):
 
@@ -208,12 +210,44 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n").format(**nowYear)
 
+    caldata1_changed = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{now:04d}0102T150000Z
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+RRULE:FREQ=WEEKLY
+SUMMARY:instance changed
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n").format(**nowYear)
+
     caldata2 = """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:ui2
+UID:uid2
+DTSTART:{now:04d}0102T160000Z
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+RRULE:FREQ=WEEKLY
+SUMMARY:instance
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n").format(**nowYear)
+
+    caldata3 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid3
 DTSTART:{now:04d}0102T160000Z
 DURATION:PT1H
 CREATED:20060102T190000Z
@@ -493,3 +527,360 @@ END:VCALENDAR
         uid = yield shared.resourceNameForUID("uid2")
         self.assertTrue(uid is None)
         yield self.otherCommit()
+
+
+    @inlineCallbacks
+    def test_loadallobjects(self):
+        """
+        Test that action=loadallobjects works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        resource1 = yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        resource_id1 = resource1.id()
+        resource2 = yield  calendar1.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
+        resource_id2 = resource2.id()
+        yield self.commit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resources = yield shared.objectResources()
+        byname = dict([(resource.name(), resource) for resource in resources])
+        byuid = dict([(resource.uid(), resource) for resource in resources])
+        self.assertEqual(len(resources), 2)
+        self.assertEqual(set([resource.name() for resource in resources]), set(("1.ics", "2.ics",)))
+        self.assertEqual(set([resource.uid() for resource in resources]), set(("uid1", "uid2",)))
+        self.assertEqual(set([resource.id() for resource in resources]), set((resource_id1, resource_id2,)))
+        resource = yield shared.objectResourceWithName("1.ics")
+        self.assertTrue(resource is byname["1.ics"])
+        resource = yield shared.objectResourceWithName("2.ics")
+        self.assertTrue(resource is byname["2.ics"])
+        resource = yield shared.objectResourceWithName("Missing.ics")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithUID("uid1")
+        self.assertTrue(resource is byuid["uid1"])
+        resource = yield shared.objectResourceWithUID("uid2")
+        self.assertTrue(resource is byuid["uid2"])
+        resource = yield shared.objectResourceWithUID("uid-missing")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithID(resource_id1)
+        self.assertTrue(resource is byname["1.ics"])
+        resource = yield shared.objectResourceWithID(resource_id2)
+        self.assertTrue(resource is byname["2.ics"])
+        resource = yield shared.objectResourceWithID(0)
+        self.assertTrue(resource is None)
+        yield self.otherCommit()
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield  object1.remove()
+        yield self.commit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resources = yield shared.objectResources()
+        byname = dict([(resource.name(), resource) for resource in resources])
+        byuid = dict([(resource.uid(), resource) for resource in resources])
+        self.assertEqual(len(resources), 1)
+        self.assertEqual(set([resource.name() for resource in resources]), set(("2.ics",)))
+        self.assertEqual(set([resource.uid() for resource in resources]), set(("uid2",)))
+        self.assertEqual(set([resource.id() for resource in resources]), set((resource_id2,)))
+        resource = yield shared.objectResourceWithName("1.ics")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithName("2.ics")
+        self.assertTrue(resource is byname["2.ics"])
+        resource = yield shared.objectResourceWithName("Missing.ics")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithUID("uid1")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithUID("uid2")
+        self.assertTrue(resource is byuid["uid2"])
+        resource = yield shared.objectResourceWithUID("uid-missing")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithID(resource_id1)
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithID(resource_id2)
+        self.assertTrue(resource is byname["2.ics"])
+        resource = yield shared.objectResourceWithID(0)
+        self.assertTrue(resource is None)
+        yield self.otherCommit()
+
+
+    @inlineCallbacks
+    def test_loadallobjectswithnames(self):
+        """
+        Test that action=loadallobjectswithnames works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        resource1 = yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        resource_id1 = resource1.id()
+        yield  calendar1.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
+        resource3 = yield  calendar1.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
+        resource_id3 = resource3.id()
+        yield self.commit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resources = yield shared.objectResources()
+        self.assertEqual(len(resources), 3)
+        yield self.otherCommit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resources = yield shared.objectResourcesWithNames(("1.ics", "3.ics",))
+        byname = dict([(resource.name(), resource) for resource in resources])
+        byuid = dict([(resource.uid(), resource) for resource in resources])
+        self.assertEqual(len(resources), 2)
+        self.assertEqual(set([resource.name() for resource in resources]), set(("1.ics", "3.ics",)))
+        self.assertEqual(set([resource.uid() for resource in resources]), set(("uid1", "uid3",)))
+        self.assertEqual(set([resource.id() for resource in resources]), set((resource_id1, resource_id3,)))
+        resource = yield shared.objectResourceWithName("1.ics")
+        self.assertTrue(resource is byname["1.ics"])
+        resource = yield shared.objectResourceWithName("3.ics")
+        self.assertTrue(resource is byname["3.ics"])
+        resource = yield shared.objectResourceWithName("Missing.ics")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithUID("uid1")
+        self.assertTrue(resource is byuid["uid1"])
+        resource = yield shared.objectResourceWithUID("uid3")
+        self.assertTrue(resource is byuid["uid3"])
+        resource = yield shared.objectResourceWithUID("uid-missing")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithID(resource_id1)
+        self.assertTrue(resource is byname["1.ics"])
+        resource = yield shared.objectResourceWithID(resource_id3)
+        self.assertTrue(resource is byname["3.ics"])
+        resource = yield shared.objectResourceWithID(0)
+        self.assertTrue(resource is None)
+        yield self.otherCommit()
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield  object1.remove()
+        yield self.commit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resources = yield shared.objectResourcesWithNames(("1.ics", "3.ics",))
+        byname = dict([(resource.name(), resource) for resource in resources])
+        byuid = dict([(resource.uid(), resource) for resource in resources])
+        self.assertEqual(len(resources), 1)
+        self.assertEqual(set([resource.name() for resource in resources]), set(("3.ics",)))
+        self.assertEqual(set([resource.uid() for resource in resources]), set(("uid3",)))
+        self.assertEqual(set([resource.id() for resource in resources]), set((resource_id3,)))
+        resource = yield shared.objectResourceWithName("1.ics")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithName("3.ics")
+        self.assertTrue(resource is byname["3.ics"])
+        resource = yield shared.objectResourceWithName("Missing.ics")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithUID("uid1")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithUID("uid3")
+        self.assertTrue(resource is byuid["uid3"])
+        resource = yield shared.objectResourceWithUID("uid-missing")
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithID(resource_id1)
+        self.assertTrue(resource is None)
+        resource = yield shared.objectResourceWithID(resource_id3)
+        self.assertTrue(resource is byname["3.ics"])
+        resource = yield shared.objectResourceWithID(0)
+        self.assertTrue(resource is None)
+        yield self.otherCommit()
+
+
+    @inlineCallbacks
+    def test_objectwith(self):
+        """
+        Test that action=objectwith works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        resource = yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        resource_id = resource.id()
+        yield self.commit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resource = yield shared.objectResourceWithName("1.ics")
+        self.assertTrue(resource is not None)
+        self.assertEqual(resource.name(), "1.ics")
+        self.assertEqual(resource.uid(), "uid1")
+
+        resource = yield shared.objectResourceWithName("2.ics")
+        self.assertTrue(resource is None)
+
+        yield self.otherCommit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resource = yield shared.objectResourceWithUID("uid1")
+        self.assertTrue(resource is not None)
+        self.assertEqual(resource.name(), "1.ics")
+        self.assertEqual(resource.uid(), "uid1")
+
+        resource = yield shared.objectResourceWithUID("uid2")
+        self.assertTrue(resource is None)
+
+        yield self.otherCommit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resource = yield shared.objectResourceWithID(resource_id)
+        self.assertTrue(resource is not None)
+        self.assertEqual(resource.name(), "1.ics")
+        self.assertEqual(resource.uid(), "uid1")
+
+        resource = yield shared.objectResourceWithID(0)
+        self.assertTrue(resource is None)
+
+        yield self.otherCommit()
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield  object1.remove()
+        yield self.commit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resource = yield shared.objectResourceWithName("1.ics")
+        self.assertTrue(resource is None)
+        yield self.otherCommit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resource = yield shared.objectResourceWithUID("uid1")
+        self.assertTrue(resource is None)
+        yield self.otherCommit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resource = yield shared.objectResourceWithID(resource_id)
+        self.assertTrue(resource is None)
+        yield self.otherCommit()
+
+
+    @inlineCallbacks
+    def test_create(self):
+        """
+        Test that action=create works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resource = yield shared.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        resource_id = resource.id()
+        self.assertTrue(resource is not None)
+        self.assertEqual(resource.name(), "1.ics")
+        self.assertEqual(resource.uid(), "uid1")
+        yield self.otherCommit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        resource = yield shared.objectResourceWithUID("uid1")
+        self.assertTrue(resource is not None)
+        self.assertEqual(resource.name(), "1.ics")
+        self.assertEqual(resource.uid(), "uid1")
+        self.assertEqual(resource.id(), resource_id)
+        yield self.otherCommit()
+
+        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        self.assertTrue(object1 is not None)
+        self.assertEqual(object1.name(), "1.ics")
+        self.assertEqual(object1.uid(), "uid1")
+        self.assertEqual(object1.id(), resource_id)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_create_exception(self):
+        """
+        Test that action=create fails when a duplicate name is used.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        yield self.failUnlessFailure(shared.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1)), ObjectResourceNameAlreadyExistsError)
+        yield self.otherAbort()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        yield self.failUnlessFailure(shared.createCalendarObjectWithName(".2.ics", Component.fromString(self.caldata2)), ObjectResourceNameNotAllowedError)
+        yield self.otherAbort()
+
+
+    @inlineCallbacks
+    def test_setcomponent(self):
+        """
+        Test that action=setcomponent works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commit()
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        ical = yield shared_object.component()
+        self.assertTrue(isinstance(ical, Component))
+        self.assertEqual(normalize_iCalStr(str(ical)), normalize_iCalStr(self.caldata1))
+        yield self.otherCommit()
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        changed = yield shared_object.setComponent(Component.fromString(self.caldata1_changed))
+        self.assertFalse(changed)
+        ical = yield shared_object.component()
+        self.assertTrue(isinstance(ical, Component))
+        self.assertEqual(normalize_iCalStr(str(ical)), normalize_iCalStr(self.caldata1_changed))
+        yield self.otherCommit()
+
+        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        ical = yield object1.component()
+        self.assertTrue(isinstance(ical, Component))
+        self.assertEqual(normalize_iCalStr(str(ical)), normalize_iCalStr(self.caldata1_changed))
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_component(self):
+        """
+        Test that action=component works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commit()
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        ical = yield shared_object.component()
+        self.assertTrue(isinstance(ical, Component))
+        self.assertEqual(normalize_iCalStr(str(ical)), normalize_iCalStr(self.caldata1))
+        yield self.otherCommit()
+
+
+    @inlineCallbacks
+    def test_remove(self):
+        """
+        Test that action=create works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commit()
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        yield shared_object.remove()
+        yield self.otherCommit()
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        self.assertTrue(shared_object is None)
+        yield self.otherCommit()
+
+        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        self.assertTrue(object1 is None)
+        yield self.commit()

@@ -4102,33 +4102,39 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
     @classmethod
     def objectWithName(cls, home, name, accepted=True):
-        return cls._objectWithNameOrID(home, name=name, accepted=accepted)
+        return cls.objectWith(home, name=name, accepted=accepted)
 
 
     @classmethod
     def objectWithID(cls, home, resourceID, accepted=True):
-        return cls._objectWithNameOrID(home, resourceID=resourceID, accepted=accepted)
+        return cls.objectWith(home, resourceID=resourceID, accepted=accepted)
 
 
     @classmethod
     def objectWithExternalID(cls, home, externalID, accepted=True):
-        return cls._objectWithNameOrID(home, externalID=externalID, accepted=accepted)
+        return cls.objectWith(home, externalID=externalID, accepted=accepted)
 
 
     @classmethod
     @inlineCallbacks
-    def _objectWithNameOrID(cls, home, name=None, resourceID=None, externalID=None, accepted=True):
-        # replaces objectWithName()
+    def objectWith(cls, home, name=None, resourceID=None, externalID=None, accepted=True):
         """
-        Retrieve the child with the given C{name} or C{resourceID} contained in the given
-        C{home}.
+        Create the object using one of the specified arguments as the key to load it. One
+        and only one of the keyword arguments must be set.
 
-        @param home: a L{CommonHome}.
+        @param parent: parent collection
+        @type parent: L{CommonHomeChild}
+        @param name: name of the resource, or C{None}
+        @type name: C{str}
+        @param uid: resource data UID, or C{None}
+        @type uid: C{str}
+        @param resourceID: resource id
+        @type resourceID: C{int}
+        @param accepted: if C{True} only load owned or accepted share items
+        @type accepted: C{bool}
 
-        @param name: a string; the name of the L{CommonHomeChild} to retrieve.
-
-        @return: an L{CommonHomeChild} or C{None} if no such child
-            exists.
+        @return: the new object or C{None} if not found
+        @rtype: C{CommonHomeChild}
         """
 
         dbData = yield cls._getDBData(home, name, resourceID, externalID)
@@ -4376,6 +4382,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         for result in results:
             self._objects[result.name()] = result
             self._objects[result.uid()] = result
+            self._objects[result.id()] = result
         self._objectNames = sorted([result.name() for result in results])
         returnValue(results)
 
@@ -4389,6 +4396,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         for result in results:
             self._objects[result.name()] = result
             self._objects[result.uid()] = result
+            self._objects[result.id()] = result
         self._objectNames = sorted([result.name() for result in results])
         returnValue(results)
 
@@ -4457,18 +4465,13 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         We create the empty object first then have it initialize itself from the
         store.
         """
-        if resourceID:
-            objectResource = (
-                yield self._objectResourceClass.objectWithID(self, resourceID)
-            )
-        else:
-            objectResource = (
-                yield self._objectResourceClass.objectWithName(self, name, uid)
-            )
+        objectResource = (
+            yield self._objectResourceClass.objectWith(self, name=name, uid=uid, resourceID=resourceID)
+        )
         if objectResource:
             self._objects[objectResource.name()] = objectResource
             self._objects[objectResource.uid()] = objectResource
-            self._objects[objectResource._resourceID] = objectResource
+            self._objects[objectResource.id()] = objectResource
         else:
             if resourceID:
                 self._objects[resourceID] = None
@@ -4558,6 +4561,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         )
         self._objects[objectResource.name()] = objectResource
         self._objects[objectResource.uid()] = objectResource
+        self._objects[objectResource.id()] = objectResource
 
         # Note: create triggers a notification when the component is set, so we
         # don't need to call notify() here like we do for object removal.
@@ -4568,6 +4572,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     def removedObjectResource(self, child):
         self._objects.pop(child.name(), None)
         self._objects.pop(child.uid(), None)
+        self._objects.pop(child.id(), None)
         if self._objectNames and child.name() in self._objectNames:
             self._objectNames.remove(child.name())
         yield self._deleteRevision(child.name())
@@ -4639,7 +4644,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         # Clean this collections cache and signal sync change
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
-        self._objects.pop(child._resourceID, None)
+        self._objects.pop(child.id(), None)
         yield self._deleteRevision(name)
         yield self.notifyChanged()
 
@@ -4670,7 +4675,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         # Signal sync change on new collection
         newparent._objects.pop(name, None)
         newparent._objects.pop(uid, None)
-        newparent._objects.pop(child._resourceID, None)
+        newparent._objects.pop(child.id(), None)
         yield newparent._insertRevision(newname)
         yield newparent.notifyChanged()
 
@@ -4876,6 +4881,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
     _externalClass = None
     _objectSchema = None
+    _componentClass = None
 
     BATCH_LOAD_SIZE = 50
 
@@ -4961,7 +4967,8 @@ class CommonObjectResource(FancyEqMixin, object):
         self._size = None
         self._created = None
         self._modified = None
-        self._notificationData = None
+        self._textData = None
+        self._cachedComponent = None
 
         self._locked = False
 
@@ -5023,7 +5030,9 @@ class CommonObjectResource(FancyEqMixin, object):
     @inlineCallbacks
     def loadAllObjectsWithNames(cls, parent, names):
         """
-        Load all child objects with the specified names, doing so in batches.
+        Load all child objects with the specified names, doing so in batches (because we need to match
+        using SQL "resource_name in (...)" where there might be a character length limit on the number
+        of items in the set).
         """
         names = tuple(names)
         results = []
@@ -5062,7 +5071,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
         # Optimize case of single name to load
         if len(names) == 1:
-            obj = yield cls.objectWithName(parent, names[0], None)
+            obj = yield cls.objectWithName(parent, names[0])
             returnValue([obj] if obj else [])
 
         results = []
@@ -5093,18 +5102,39 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classmethod
-    def objectWithName(cls, parent, name, uid):
-        return cls._objectWithNameOrID(parent, name, uid, None)
+    def objectWithName(cls, parent, name):
+        return cls.objectWith(parent, name=name)
+
+
+    @classmethod
+    def objectWithUID(cls, parent, uid):
+        return cls.objectWith(parent, uid=uid)
 
 
     @classmethod
     def objectWithID(cls, parent, resourceID):
-        return cls._objectWithNameOrID(parent, None, None, resourceID)
+        return cls.objectWith(parent, resourceID=resourceID)
 
 
     @classmethod
     @inlineCallbacks
-    def _objectWithNameOrID(cls, parent, name, uid, resourceID):
+    def objectWith(cls, parent, name=None, uid=None, resourceID=None):
+        """
+        Create the object using one of the specified arguments as the key to load it. One
+        and only one of the keyword arguments must be set.
+
+        @param parent: parent collection
+        @type parent: L{CommonHomeChild}
+        @param name: name of the resource, or C{None}
+        @type name: C{str}
+        @param uid: resource data UID, or C{None}
+        @type uid: C{str}
+        @param resourceID: resource id
+        @type resourceID: C{int}
+
+        @return: the new object or C{None} if not found
+        @rtype: C{CommonObjectResource}
+        """
 
         row = yield cls._getDBData(parent, name, uid, resourceID)
 
@@ -5193,6 +5223,27 @@ class CommonObjectResource(FancyEqMixin, object):
             "_created",
             "_modified",
         )
+
+
+    def externalize(self):
+        """
+        Create a dictionary mapping key attributes so this object can be sent over a cross-pod call
+        and reconstituted at the other end. Note that the other end may have a different schema so
+        the attributes may not match exactly and will need to be processed accordingly.
+        """
+        return dict([(attr[1:], getattr(self, attr)) for attr in self._rowAttributes()])
+
+
+    @classmethod
+    def internalize(cls, mapping):
+        """
+        Given a mapping generated by L{externalize}, convert the values into an array of database
+        like items that conforms to the ordering of L{_allColumns} so it can be fed into L{makeClass}.
+        Note that there may be a schema mismatch with the external data, so treat missing items as
+        C{None} and ignore extra items.
+        """
+
+        return [mapping.get(row[1:]) for row in cls._rowAttributes()]
 
 
     @inlineCallbacks
@@ -5309,6 +5360,14 @@ class CommonObjectResource(FancyEqMixin, object):
         raise NotImplementedError
 
 
+    def setComponentText(self, component_text, inserting=False, options=None):
+        """
+        This api is needed for cross-pod calls where the component is serialized as a str and we need
+        to convert it back to the actual component class.
+        """
+        return self.setComponent(self._componentClass.fromString(component_text), inserting, options)
+
+
     def component(self):
         raise NotImplementedError
 
@@ -5361,7 +5420,8 @@ class CommonObjectResource(FancyEqMixin, object):
         self._size = None
         self._created = None
         self._modified = None
-        self._notificationData = None
+        self._textData = None
+        self._cachedComponent = None
 
 
     def removeNotifyCategory(self):
@@ -5417,19 +5477,19 @@ class CommonObjectResource(FancyEqMixin, object):
 
     @inlineCallbacks
     def _text(self):
-        if self._notificationData is None:
+        if self._textData is None:
             texts = (
                 yield self._textByIDQuery.on(self._txn,
                                              resourceID=self._resourceID)
             )
             if texts:
                 text = texts[0][0]
-                self._notificationData = text
+                self._textData = text
                 returnValue(text)
             else:
                 raise ConcurrentModification()
         else:
-            returnValue(self._notificationData)
+            returnValue(self._textData)
 
 
 

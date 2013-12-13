@@ -76,6 +76,8 @@ class AddressBookExternal(CommonHomeChildExternal, AddressBook):
 
 class AddressBookObjectExternal(CommonObjectResourceExternal, AddressBookObject):
     """
-    SQL-based implementation of L{ICalendar}.
+    SQL-based implementation of L{IAddressBookObject}.
     """
     pass
+
+AddressBookExternal._objectResourceClass = AddressBookObjectExternal

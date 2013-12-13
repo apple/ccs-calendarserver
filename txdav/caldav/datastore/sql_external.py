@@ -162,6 +162,9 @@ class CalendarExternal(CommonHomeChildExternal, Calendar):
 
 class CalendarObjectExternal(CommonObjectResourceExternal, CalendarObject):
     """
-    SQL-based implementation of L{ICalendar}.
+    SQL-based implementation of L{ICalendarObject}.
     """
     pass
+
+
+CalendarExternal._objectResourceClass = CalendarObjectExternal
