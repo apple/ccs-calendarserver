@@ -185,6 +185,8 @@ class GatewayTestCase(RunCommandTestCase):
 
         results = yield self.runCommand(command_getAddressAttributes)
         self.assertEquals(results["result"]["RealName"], u'Updated Address')
+        self.assertEquals(results["result"]["StreetAddress"], u'Updated Street Address')
+        self.assertEquals(results["result"]["Geo"], u'Updated Geo')
         
         results = yield self.runCommand(command_deleteAddress)
 
@@ -712,6 +714,11 @@ command_setAddressAttributes = """<?xml version="1.0" encoding="UTF-8"?>
         <string>C701069D-9CA1-4925-A1A9-5CD94767B74B</string>
         <key>RealName</key>
         <string>Updated Address</string>
+        <key>StreetAddress</key>
+        <string>Updated Street Address</string>
+        <key>Geo</key>
+        <string>Updated Geo</string>
+
 </dict>
 </plist>
 """
