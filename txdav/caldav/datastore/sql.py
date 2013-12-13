@@ -40,7 +40,7 @@ from twext.enterprise.util import parseSQLTimestamp
 from twext.python.clsprop import classproperty
 from twext.python.filepath import CachingFilePath
 from twext.python.log import Logger
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import Component as VComponent
 from twext.web2.http_headers import MimeType, generateContentType
 from twext.web2.stream import readStream
 
@@ -108,6 +108,8 @@ import urllib
 import uuid
 
 log = Logger()
+
+
 
 class CalendarStoreFeatures(object):
     """

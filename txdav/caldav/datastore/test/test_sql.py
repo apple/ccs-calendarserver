@@ -32,7 +32,7 @@ from pycalendar.timezone import Timezone
 
 from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import Component as VComponent
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 

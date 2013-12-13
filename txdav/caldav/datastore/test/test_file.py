@@ -28,7 +28,7 @@ from twisted.internet.defer import inlineCallbacks
 
 from twext.python.filepath import CachingFilePath as FilePath
 
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import Component as VComponent
 
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError
 from txdav.common.icommondatastore import ObjectResourceNameNotAllowedError

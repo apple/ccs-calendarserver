@@ -38,7 +38,7 @@ from random import Random
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import Component as VComponent
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.web2.dav.resource import TwistedGETContentMD5

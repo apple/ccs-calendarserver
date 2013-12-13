@@ -34,8 +34,8 @@ from twext.python.log import Logger
 
 from twext.web2 import http_headers
 
-from twext.python.vcomponent import InvalidICalendarDataError
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import InvalidICalendarDataError
+from twistedcaldav.ical import Component as VComponent
 
 from twistedcaldav import ical
 from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
