@@ -821,8 +821,6 @@ dependencies () {
     "${n}" "pgdb" "${p}" \
     "${pypi}/P/${n}/${p}.tgz";
 
-  # Maintenance note: next time the Twisted dependency gets updated, check out
-  # twext/patches.py.
   local v="13.2.0";
   local n="Twisted";
   local p="${n}-${v}";
