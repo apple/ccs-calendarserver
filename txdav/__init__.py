@@ -18,7 +18,3 @@
 """
 WebDAV support for Twisted.
 """
-
-# Make sure we have twext's required Twisted patches loaded before we do
-# anything at all.
-__import__("twext")

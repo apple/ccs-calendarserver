@@ -21,10 +21,6 @@ CalDAV support for Twext.Web2.
 See RFC 4791.
 """
 
-# Make sure we have twext's required Twisted patches loaded before we do
-# anything at all.
-__import__("twext")
-
 #
 # Load in suitable file extension/content-type map from OS X
 #
