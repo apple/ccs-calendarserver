@@ -28,6 +28,8 @@ from time import time
 from urlparse import urlparse
 from cgi import parse_qs
 
+from twisted.internet.defer import succeed
+
 from twext.web2 import responsecode
 from twext.web2.http import Response
 from twext.web2.http_headers import MimeType
@@ -37,10 +39,10 @@ from twext.web2.dav.resource import TwistedACLInheritable
 
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
+from twistedcaldav.timezones import hasTZ
 
-from twisted.internet.defer import succeed
+DEFAULT_TIMEZONE = "America/Los_Angeles"
 
-from twext.python.timezone import getLocalTimezone
 
 
 class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
@@ -75,7 +77,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         return "Web Calendar"
 
     def contentType(self):
-        return MimeType.fromString("text/html; charset=utf-8");
+        return MimeType.fromString("text/html; charset=utf-8")
 
     def contentEncoding(self):
         return None
@@ -95,7 +97,10 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         else:
             cacheAttr = "_htmlContent"
             templateFileName = "standalone.html"
-        templateFileName = os.path.join(config.WebCalendarRoot, templateFileName)
+
+        templateFileName = os.path.join(
+            config.WebCalendarRoot, templateFileName
+        )
 
         #
         # See if the file changed, and dump the cached template if so.
@@ -135,14 +140,17 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
 
         #
         # Get URL of authenticated principal.
-        # Don't need to authenticate here because the ACL will have already required it.
+        # Don't need to authenticate here because the ACL will have already
+        # required it.
         #
-        authenticatedPrincipalURL = str(request.authnUser.childOfType(davxml.HRef))
+        authenticatedPrincipalURL = str(
+            request.authnUser.childOfType(davxml.HRef)
+        )
 
         def queryValue(arg):
             query = parse_qs(urlparse(request.uri).query, True)
             return query.get(arg, [""])[0]
-            
+
         #
         # Parse debug query arg
         #
@@ -180,3 +188,36 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
                 response.headers.setHeader(header, value)
 
         return response
+
+
+
+try:
+    from Foundation import NSTimeZone
+
+    def lookupSystemTimezone():
+        return NSTimeZone.localTimeZone().name().encode("utf-8")
+
+except ImportError:
+    def lookupSystemTimezone():
+        return ""
+
+
+def getLocalTimezone():
+    """
+    Returns the default timezone for the server.  The order of precedence is:
+    config.DefaultTimezone, lookupSystemTimezone( ), DEFAULT_TIMEZONE.
+    Also, if neither of the first two values in that list are in the timezone
+    database, DEFAULT_TIMEZONE is returned.
+
+    @return: The server's local timezone name
+    @rtype: C{str}
+    """
+    if config.DefaultTimezone:
+        if hasTZ(config.DefaultTimezone):
+            return config.DefaultTimezone
+
+    systemTimezone = lookupSystemTimezone()
+    if hasTZ(systemTimezone):
+        return systemTimezone
+
+    return DEFAULT_TIMEZONE
