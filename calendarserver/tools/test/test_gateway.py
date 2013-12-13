@@ -127,15 +127,9 @@ class GatewayTestCase(RunCommandTestCase):
     def test_getLocationAttributes(self):
         yield self.runCommand(command_createLocation)
         results = yield self.runCommand(command_getLocationAttributes)
-        self.assertEquals(results["result"]["Building"], "Test Building")
-        self.assertEquals(results["result"]["City"], "Cupertino")
         self.assertEquals(results["result"]["Capacity"], "40")
         self.assertEquals(results["result"]["Description"], "Test Description")
-        self.assertEquals(results["result"]["ZIP"], "95014")
-        self.assertEquals(results["result"]["Floor"], "First")
         self.assertEquals(results["result"]["RecordName"], ["createdlocation01"])
-        self.assertEquals(results["result"]["State"], "CA")
-        self.assertEquals(results["result"]["Street"], "1 Infinite Loop")
         self.assertEquals(results["result"]["RealName"],
             "Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
         self.assertEquals(results["result"]["Comment"], "Test Comment")
@@ -162,6 +156,43 @@ class GatewayTestCase(RunCommandTestCase):
 
 
     @inlineCallbacks
+    def test_createAddress(self):
+        directory = getDirectory()
+
+        record = directory.recordWithUID("C701069D-9CA1-4925-A1A9-5CD94767B74B")
+        self.assertEquals(record, None)
+        yield self.runCommand(command_createAddress)
+
+        directory.flushCaches()
+
+        record = directory.recordWithUID("C701069D-9CA1-4925-A1A9-5CD94767B74B")
+        self.assertEquals(record.fullName.decode("utf-8"),
+            "Created Address 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
+
+        self.assertNotEquals(record, None)
+
+        self.assertEquals(record.extras["abbreviatedName"], "Addr1")
+        self.assertEquals(record.extras["streetAddress"], "1 Infinite Loop\nCupertino, 95014\nCA")
+        self.assertEquals(record.extras["geo"], "geo:37.331,-122.030")
+
+        results = yield self.runCommand(command_getAddressList)
+        self.assertEquals(len(results["result"]), 1)
+
+        results = yield self.runCommand(command_getAddressAttributes)
+        self.assertEquals(results["result"]["RealName"], u'Created Address 01 \xd0 \U0001f4a3')
+
+        results = yield self.runCommand(command_setAddressAttributes)
+
+        results = yield self.runCommand(command_getAddressAttributes)
+        self.assertEquals(results["result"]["RealName"], u'Updated Address')
+        
+        results = yield self.runCommand(command_deleteAddress)
+
+        results = yield self.runCommand(command_getAddressList)
+        self.assertEquals(len(results["result"]), 0)
+
+
+    @inlineCallbacks
     def test_createLocation(self):
         directory = getDirectory()
 
@@ -184,16 +215,8 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(record.autoSchedule, True)
 
         self.assertEquals(record.extras["comment"], "Test Comment")
-        self.assertEquals(record.extras["building"], "Test Building")
         self.assertEquals(record.extras["floor"], "First")
         self.assertEquals(record.extras["capacity"], "40")
-        self.assertEquals(record.extras["street"], "1 Infinite Loop")
-        self.assertEquals(record.extras["city"], "Cupertino")
-        self.assertEquals(record.extras["state"], "CA")
-        self.assertEquals(record.extras["zip"], "95014")
-        self.assertEquals(record.extras["country"], "USA")
-        self.assertEquals(record.extras["phone"], "(408) 555-1212")
-        self.assertEquals(record.extras["geo"], "geo:37.331,-122.030")
 
         results = yield self.runCommand(command_getLocationAttributes)
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
@@ -216,15 +239,9 @@ class GatewayTestCase(RunCommandTestCase):
         record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
 
         self.assertEquals(record.extras["comment"], "Updated Test Comment")
-        self.assertEquals(record.extras["building"], "Updated Test Building")
         self.assertEquals(record.extras["floor"], "Second")
         self.assertEquals(record.extras["capacity"], "41")
-        self.assertEquals(record.extras["street"], "2 Infinite Loop")
-        self.assertEquals(record.extras["city"], "Updated Cupertino")
-        self.assertEquals(record.extras["state"], "Updated CA")
-        self.assertEquals(record.extras["zip"], "95015")
-        self.assertEquals(record.extras["country"], "Updated USA")
-        self.assertEquals(record.extras["phone"], "(408) 555-1213")
+        self.assertEquals(record.extras["streetAddress"], "2 Infinite Loop\nCupertino, 95014\nCA")
         self.assertEquals(record.autoSchedule, True)
         self.assertEquals(record.autoAcceptGroup, "F5A6142C-4189-4E9E-90B0-9CD0268B314B")
 
@@ -385,6 +402,31 @@ command_addWriteProxy = """<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 """
 
+command_createAddress = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>createAddress</string>
+        <key>GeneratedUID</key>
+        <string>C701069D-9CA1-4925-A1A9-5CD94767B74B</string>
+        <key>RealName</key>
+        <string>Created Address 01 %s %s</string>
+        <key>AbbreviatedName</key>
+        <string>Addr1</string>
+        <key>RecordName</key>
+        <array>
+                <string>createdaddress01</string>
+        </array>
+        <key>StreetAddress</key>
+        <string>1 Infinite Loop\nCupertino, 95014\nCA</string>
+        <key>Geo</key>
+        <string>geo:37.331,-122.030</string>
+</dict>
+</plist>
+""" % (unichr(208), u"\ud83d\udca3")
+
+
 command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -407,26 +449,12 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         <string>Test Comment</string>
         <key>Description</key>
         <string>Test Description</string>
-        <key>Building</key>
-        <string>Test Building</string>
         <key>Floor</key>
         <string>First</string>
         <key>Capacity</key>
         <string>40</string>
-        <key>Street</key>
-        <string>1 Infinite Loop</string>
-        <key>City</key>
-        <string>Cupertino</string>
-        <key>State</key>
-        <string>CA</string>
-        <key>ZIP</key>
-        <string>95014</string>
-        <key>Country</key>
-        <string>USA</string>
-        <key>Phone</key>
-        <string>(408) 555-1212</string>
-        <key>Geo</key>
-        <string>geo:37.331,-122.030</string>
+        <key>AssociatedAddress</key>
+        <string>C701069D-9CA1-4925-A1A9-5CD94767B74B</string>
         <key>ReadProxies</key>
         <array>
             <string>users:user03</string>
@@ -454,14 +482,16 @@ command_createResource = """<?xml version="1.0" encoding="UTF-8"?>
         <string>AF575A61-CFA6-49E1-A0F6-B5662C9D9801</string>
         <key>RealName</key>
         <string>Laptop 1</string>
+        <key>Comment</key>
+        <string>Test Comment</string>
+        <key>Description</key>
+        <string>Test Description</string>
         <key>Type</key>
         <string>Computer</string>
         <key>RecordName</key>
         <array>
                 <string>laptop1</string>
         </array>
-        <key>Comment</key>
-        <string>Test Comment</string>
         <key>ReadProxies</key>
         <array>
             <string>users:user03</string>
@@ -500,6 +530,19 @@ command_deleteResource = """<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 """
 
+
+command_deleteAddress = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>deleteAddress</string>
+        <key>GeneratedUID</key>
+        <string>C701069D-9CA1-4925-A1A9-5CD94767B74B</string>
+</dict>
+</plist>
+"""
+
 command_getLocationAndResourceList = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -529,6 +572,17 @@ command_getResourceList = """<?xml version="1.0" encoding="UTF-8"?>
 </dict>
 </plist>
 """
+
+command_getAddressList = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>getAddressList</string>
+</dict>
+</plist>
+"""
+
 
 command_listReadProxies = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -604,24 +658,12 @@ command_setLocationAttributes = """<?xml version="1.0" encoding="UTF-8"?>
         <string>Updated Test Comment</string>
         <key>Description</key>
         <string>Updated Test Description</string>
-        <key>Building</key>
-        <string>Updated Test Building</string>
         <key>Floor</key>
         <string>Second</string>
         <key>Capacity</key>
         <string>41</string>
-        <key>Street</key>
-        <string>2 Infinite Loop</string>
-        <key>City</key>
-        <string>Updated Cupertino</string>
-        <key>State</key>
-        <string>Updated CA</string>
-        <key>ZIP</key>
-        <string>95015</string>
-        <key>Country</key>
-        <string>Updated USA</string>
-        <key>Phone</key>
-        <string>(408) 555-1213</string>
+        <key>StreetAddress</key>
+        <string>2 Infinite Loop\nCupertino, 95014\nCA</string>
         <key>ReadProxies</key>
         <array>
             <string>users:user03</string>
@@ -647,6 +689,33 @@ command_getLocationAttributes = """<?xml version="1.0" encoding="UTF-8"?>
 </dict>
 </plist>
 """
+
+command_getAddressAttributes = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>getAddressAttributes</string>
+        <key>GeneratedUID</key>
+        <string>C701069D-9CA1-4925-A1A9-5CD94767B74B</string>
+</dict>
+</plist>
+"""
+
+command_setAddressAttributes = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>setAddressAttributes</string>
+        <key>GeneratedUID</key>
+        <string>C701069D-9CA1-4925-A1A9-5CD94767B74B</string>
+        <key>RealName</key>
+        <string>Updated Address</string>
+</dict>
+</plist>
+"""
+
 
 command_setResourceAttributes = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

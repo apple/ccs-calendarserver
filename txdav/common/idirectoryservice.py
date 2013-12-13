@@ -39,6 +39,13 @@ class IStoreDirectoryService(Interface):
         @rtype: L{IStoreDirectoryRecord}
         """
 
+    def recordWithGUID(guid): #@NoSelf
+        """
+        Return the record for the specified store guid.
+
+        @return: the record.
+        @rtype: L{IStoreDirectoryRecord}
+        """
 
 
 class IStoreDirectoryRecord(Interface):

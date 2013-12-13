@@ -176,6 +176,7 @@
         <array>
             <string>resources</string>
             <string>locations</string>
+            <string>addresses</string>
         </array>
       </dict>
     </dict>

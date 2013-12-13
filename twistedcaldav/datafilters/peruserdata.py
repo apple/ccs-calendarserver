@@ -67,7 +67,7 @@ class PerUserDataFilter(CalendarFilter):
 
     # X- properties that are ignored - by default all X- properties are treated as per-user except for the
     # ones listed here
-    IGNORE_X_PROPERTIES = (Component.HIDDEN_INSTANCE_PROPERTY,)
+    IGNORE_X_PROPERTIES = [Component.HIDDEN_INSTANCE_PROPERTY]
 
     def __init__(self, uid):
         """

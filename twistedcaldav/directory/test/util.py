@@ -44,6 +44,10 @@ class DirectoryTestCase (TestCase):
     # Subclass should init this to a dict of resourcenames keys and dict values.
     resources = {}
 
+    # Subclass should init this to a dict of addressname keys and dict values.
+    addresses = {}
+
+
     # Subclass should init this to an IDirectoryService implementation class.
     def service(self):
         """

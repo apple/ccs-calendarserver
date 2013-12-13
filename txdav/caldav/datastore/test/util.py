@@ -62,9 +62,11 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
         calendarUserAddresses,
         cutype="INDIVIDUAL",
         thisServer=True,
+        extras={},
     ):
 
-        super(TestCalendarStoreDirectoryRecord, self).__init__(uid, shortNames, fullName)
+        super(TestCalendarStoreDirectoryRecord, self).__init__(uid, shortNames,
+            fullName, extras=extras)
         self.uid = uid
         self.shortNames = shortNames
         self.fullName = fullName
@@ -157,6 +159,36 @@ def buildDirectory(homes=None):
     ))
     for uid in homes:
         directory.addRecord(buildDirectoryRecord(uid))
+
+    # Structured Locations
+    directory.addRecord(TestCalendarStoreDirectoryRecord(
+        "il1", ("il1",), "1 Infinite Loop", [],
+        extras={
+            "geo" : "37.331741,-122.030333",
+            "streetAddress" : "1 Infinite Loop, Cupertino, CA 95014",
+        }
+    ))
+    directory.addRecord(TestCalendarStoreDirectoryRecord(
+        "il2", ("il2",), "2 Infinite Loop", [],
+        extras={
+            "geo" : "37.332633,-122.030502",
+            "streetAddress" : "2 Infinite Loop, Cupertino, CA 95014",
+        }
+    ))
+    directory.addRecord(TestCalendarStoreDirectoryRecord(
+        "room1", ("room1",), "Conference Room One",
+        frozenset(("urn:uuid:room1",)),
+        extras={
+            "associatedAddress" : "il1",
+        }
+    ))
+    directory.addRecord(TestCalendarStoreDirectoryRecord(
+        "room2", ("room2",), "Conference Room Two",
+        frozenset(("urn:uuid:room2",)),
+        extras={
+            "associatedAddress" : "il2",
+        }
+    ))
 
     return directory
 

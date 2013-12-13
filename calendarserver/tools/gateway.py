@@ -32,7 +32,9 @@ from calendarserver.tools.util import (
     principalForPrincipalID, proxySubprincipal, addProxy, removeProxy,
     ProxyError, ProxyWarning, autoDisableMemcached
 )
-from calendarserver.tools.principals import getProxies, setProxies, updateRecord
+from calendarserver.tools.principals import (
+    getProxies, setProxies, updateRecord, attrMap
+)
 from calendarserver.tools.purge import WorkerService, PurgeOldEventsService, DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS
 from calendarserver.tools.cmdline import utilityMain
 
@@ -140,26 +142,6 @@ def main():
     utilityMain(configFileName, RunnerService, verbose=debug)
 
 
-attrMap = {
-    'GeneratedUID' : { 'attr' : 'guid', },
-    'RealName' : { 'attr' : 'fullName', },
-    'RecordName' : { 'attr' : 'shortNames', },
-    'Comment' : { 'extras' : True, 'attr' : 'comment', },
-    'Description' : { 'extras' : True, 'attr' : 'description', },
-    'Type' : { 'extras' : True, 'attr' : 'type', },
-    'Capacity' : { 'extras' : True, 'attr' : 'capacity', },
-    'Building' : { 'extras' : True, 'attr' : 'building', },
-    'Floor' : { 'extras' : True, 'attr' : 'floor', },
-    'Street' : { 'extras' : True, 'attr' : 'street', },
-    'City' : { 'extras' : True, 'attr' : 'city', },
-    'State' : { 'extras' : True, 'attr' : 'state', },
-    'ZIP' : { 'extras' : True, 'attr' : 'zip', },
-    'Country' : { 'extras' : True, 'attr' : 'country', },
-    'Phone' : { 'extras' : True, 'attr' : 'phone', },
-    'Geo' : { 'extras' : True, 'attr' : 'geo', },
-    'AutoSchedule' : { 'attr' : 'autoSchedule', },
-    'AutoAcceptGroup' : { 'attr' : 'autoAcceptGroup', },
-}
 
 class Runner(object):
 
@@ -218,8 +200,8 @@ class Runner(object):
             self.respondWithError("Command failed: '%s'" % (str(e),))
             raise
 
-    # Locations
 
+    # Locations
 
     def command_getLocationList(self, command):
         self.respondWithRecordsOfTypes(self.dir, command, ["locations"])
@@ -266,6 +248,7 @@ class Runner(object):
 
     command_getResourceAttributes = command_getLocationAttributes
 
+
     @inlineCallbacks
     def command_setLocationAttributes(self, command):
 
@@ -306,8 +289,8 @@ class Runner(object):
             return
         self.respondWithRecordsOfTypes(self.dir, command, ["locations"])
 
-    # Resources
 
+    # Resources
 
     def command_getResourceList(self, command):
         self.respondWithRecordsOfTypes(self.dir, command, ["resources"])
@@ -377,6 +360,67 @@ class Runner(object):
 
     def command_getLocationAndResourceList(self, command):
         self.respondWithRecordsOfTypes(self.dir, command, ["locations", "resources"])
+
+
+    # Addresses
+
+    def command_getAddressList(self, command):
+        self.respondWithRecordsOfTypes(self.dir, command, ["addresses"])
+
+
+    @inlineCallbacks
+    def command_createAddress(self, command):
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if key in command:
+                kwargs[info['attr']] = command[key]
+
+        try:
+            yield updateRecord(True, self.dir, "addresses", **kwargs)
+        except DirectoryError, e:
+            self.respondWithError(str(e))
+            return
+
+        self.respondWithRecordsOfTypes(self.dir, command, ["addresses"])
+
+
+    def command_getAddressAttributes(self, command):
+        guid = command['GeneratedUID']
+        record = self.dir.recordWithGUID(guid)
+        if record is None:
+            self.respondWithError("Principal not found: %s" % (guid,))
+            return
+        recordDict = recordToDict(record)
+        self.respond(command, recordDict)
+        return succeed(None)
+
+
+    @inlineCallbacks
+    def command_setAddressAttributes(self, command):
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if key in command:
+                kwargs[info['attr']] = command[key]
+        try:
+            yield updateRecord(False, self.dir, "addresses", **kwargs)
+        except DirectoryError, e:
+            self.respondWithError(str(e))
+            return
+
+        yield self.command_getAddressAttributes(command)
+
+
+    def command_deleteAddress(self, command):
+        kwargs = {}
+        for key, info in attrMap.iteritems():
+            if key in command:
+                kwargs[info['attr']] = command[key]
+        try:
+            self.dir.destroyRecord("addresses", **kwargs)
+        except DirectoryError, e:
+            self.respondWithError(str(e))
+            return
+        self.respondWithRecordsOfTypes(self.dir, command, ["addresses"])
 
 
     # Config

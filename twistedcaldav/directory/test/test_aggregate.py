@@ -56,6 +56,7 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
     groups = property(_records("groups"))
     locations = property(_records("locations"))
     resources = property(_records("resources"))
+    addresses = property(_records("addresses"))
 
     recordTypePrefixes = tuple(s[0] for s in testServices)
 
