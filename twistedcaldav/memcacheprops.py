@@ -34,8 +34,8 @@ except ImportError:
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError, StatusResponse
+from txweb2 import responsecode
+from txweb2.http import HTTPError, StatusResponse
 
 from txdav.xml.base import encodeXMLName
 

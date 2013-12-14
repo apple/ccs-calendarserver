@@ -60,8 +60,8 @@ from twistedcaldav.directory.util import splitIntoBatches, normalizeUUID
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.internet.threads import deferToThread
 from twext.python.log import Logger
-from twext.web2.http import HTTPError, StatusResponse
-from twext.web2 import responsecode
+from txweb2.http import HTTPError, StatusResponse
+from txweb2 import responsecode
 
 class LdapDirectoryService(CachingDirectoryService):
     """

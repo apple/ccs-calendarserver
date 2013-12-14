@@ -87,7 +87,7 @@ class IPropertyStore(IMapping):
     using C{abort()}.
 
     Also, keys must be L{IPropertyName} providers and values must be
-    L{twext.web2.element.dav.base.WeDAVElement}s.
+    L{txweb2.element.dav.base.WeDAVElement}s.
     """
     # FIXME: the type for values isn't quite right, there should be some more
     # specific interface for that.

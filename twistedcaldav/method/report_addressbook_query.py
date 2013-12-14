@@ -26,12 +26,12 @@ import urllib
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
-from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
-from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
-from twext.web2.dav.util import joinURL
-from twext.web2.http import HTTPError, StatusResponse
+from txweb2.dav.http import ErrorResponse, MultiStatusResponse
+from txweb2.dav.method.report import NumberOfMatchesWithinLimits
+from txweb2.dav.util import joinURL
+from txweb2.http import HTTPError, StatusResponse
 
 from twistedcaldav import carddavxml
 from twistedcaldav.config import config

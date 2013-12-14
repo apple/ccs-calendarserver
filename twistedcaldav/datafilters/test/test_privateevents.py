@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.web2.http import HTTPError
+from txweb2.http import HTTPError
 import twistedcaldav.test.util
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.ical import Component

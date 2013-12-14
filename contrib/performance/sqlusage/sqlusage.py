@@ -28,7 +28,7 @@ from contrib.performance.sqlusage.requests.put import PutTest
 from contrib.performance.sqlusage.requests.query import QueryTest
 from contrib.performance.sqlusage.requests.sync import SyncTest
 from pycalendar.datetime import DateTime
-from twext.web2.dav.util import joinURL
+from txweb2.dav.util import joinURL
 import getopt
 import itertools
 import sys

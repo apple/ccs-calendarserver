@@ -25,13 +25,13 @@ from twisted.python.failure import Failure
 
 from twext.python.log import Logger
 from txdav.xml import element
-from twext.web2.dav.http import ErrorResponse
-from twext.web2 import responsecode
-from twext.web2.dav.http import MultiStatusResponse, statusForFailure
-from twext.web2.dav.method.prop_common import responseForHref
-from twext.web2.dav.method.propfind import propertyName
-from twext.web2.dav.util import joinURL
-from twext.web2.http import HTTPError, StatusResponse
+from txweb2.dav.http import ErrorResponse
+from txweb2 import responsecode
+from txweb2.dav.http import MultiStatusResponse, statusForFailure
+from txweb2.dav.method.prop_common import responseForHref
+from txweb2.dav.method.propfind import propertyName
+from txweb2.dav.util import joinURL
+from txweb2.http import HTTPError, StatusResponse
 
 from twistedcaldav.config import config
 

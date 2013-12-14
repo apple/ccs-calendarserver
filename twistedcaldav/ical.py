@@ -35,8 +35,8 @@ import itertools
 import uuid
 
 from twext.python.log import Logger
-from twext.web2.stream import IStream
-from twext.web2.dav.util import allDataFromStream
+from txweb2.stream import IStream
+from txweb2.dav.util import allDataFromStream
 
 from twistedcaldav.config import config
 from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime, \

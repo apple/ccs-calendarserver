@@ -21,11 +21,11 @@ import os
 
 from twext.python.filepath import CachingFilePath as FilePath
 
-from twext.web2 import responsecode
-from twext.web2.iweb import IResponse
-from twext.web2.stream import MemoryStream
+from txweb2 import responsecode
+from txweb2.iweb import IResponse
+from txweb2.stream import MemoryStream
 
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.test.test_server import SimpleRequest
 
 import twistedcaldav.test.util
 from twistedcaldav import caldavxml

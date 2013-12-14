@@ -34,11 +34,11 @@ import psutil
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
-from twext.web2.auth.basic import BasicCredentialFactory
-from twext.web2.dav import auth
-from twext.web2.http_headers import Headers
-from twext.web2.resource import Resource
-from twext.web2.static import File as FileResource
+from txweb2.auth.basic import BasicCredentialFactory
+from txweb2.dav import auth
+from txweb2.http_headers import Headers
+from txweb2.resource import Resource
+from txweb2.static import File as FileResource
 
 from twisted.application.service import Service
 from twisted.cred.portal import Portal

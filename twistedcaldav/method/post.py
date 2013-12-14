@@ -21,8 +21,8 @@ CalDAV POST method.
 
 __all__ = ["http_POST"]
 
-from twext.web2 import responsecode
-from twext.web2.http import StatusResponse
+from txweb2 import responsecode
+from txweb2.http import StatusResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 

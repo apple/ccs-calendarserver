@@ -35,8 +35,8 @@ from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.queue import WorkItem, PeerConnectionPool
 from twext.python.log import Logger
-from twext.web2.dav.auth import IPrincipalCredentials
-from twext.web2.dav.util import joinURL
+from txweb2.dav.auth import IPrincipalCredentials
+from txweb2.dav.util import joinURL
 
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.cred.error import UnauthorizedLogin

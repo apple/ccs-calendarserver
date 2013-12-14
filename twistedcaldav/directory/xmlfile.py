@@ -29,7 +29,7 @@ import pwd
 import types
 
 from twisted.cred.credentials import UsernamePassword
-from twext.web2.auth.digest import DigestedCredentials
+from txweb2.auth.digest import DigestedCredentials
 from twext.python.filepath import CachingFilePath as FilePath
 from twistedcaldav.config import config
 from twisted.internet.defer import succeed

@@ -33,8 +33,8 @@ See RFC 2518: http://www.ietf.org/rfc/rfc2518.txt
 __all__ = []
 
 
-from twext.web2 import responsecode
-from twext.web2.http_headers import MimeType
+from txweb2 import responsecode
+from txweb2.http_headers import MimeType
 
 from txdav.xml.base import WebDAVElement, WebDAVTextElement, PCDATAElement
 from txdav.xml.base import WebDAVEmptyElement, WebDAVOneShotElement
@@ -366,7 +366,7 @@ class Status (WebDAVTextElement):
     def fromResponseCode(clazz, code):
         """
         code must be an integer response code in
-        twext.web2.responsecode.RESPONSES.keys()
+        txweb2.responsecode.RESPONSES.keys()
         """
         if code not in responsecode.RESPONSES:
             raise ValueError("Invalid response code: %r" % (code,))

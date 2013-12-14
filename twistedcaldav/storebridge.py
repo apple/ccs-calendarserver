@@ -19,20 +19,20 @@ from pycalendar.datetime import DateTime
 
 from twext.enterprise.locking import LockTimeout
 from twext.python.log import Logger
-from twext.web2 import responsecode, http_headers, http
-from twext.web2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError, \
+from txweb2 import responsecode, http_headers, http
+from txweb2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.dav.resource import TwistedACLInheritable, AccessDeniedError, \
     davPrivilegeSet
-from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
-from twext.web2.filter.location import addLocation
-from twext.web2.http import HTTPError, StatusResponse, Response
-from twext.web2.http_headers import ETag, MimeType, MimeDisposition
-from twext.web2.iweb import IResponse
-from twext.web2.responsecode import \
+from txweb2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
+from txweb2.filter.location import addLocation
+from txweb2.http import HTTPError, StatusResponse, Response
+from txweb2.http_headers import ETag, MimeType, MimeDisposition
+from txweb2.iweb import IResponse
+from txweb2.responsecode import \
     FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED, \
     BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE
-from twext.web2.stream import ProducerStream, readStream, MemoryStream
+from txweb2.stream import ProducerStream, readStream, MemoryStream
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.internet.protocol import Protocol
@@ -450,12 +450,12 @@ class _CommonHomeChildCollectionMixin(object):
             this is the request which I{triggered} the C{DELETE}, but which may
             not actually be a C{DELETE} request itself.
 
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
 
         @return: an HTTP response suitable for sending to a client (or
             including in a multi-status).
 
-        @rtype: something adaptable to L{twext.web2.iweb.IResponse}
+        @rtype: something adaptable to L{txweb2.iweb.IResponse}
         """
 
         # Check sharee collection first
@@ -2487,7 +2487,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         Move this object to a different parent.
 
         @param request:
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
         @param destinationparent: Parent to move to
         @type destinationparent: L{CommonHomeChild}
         @param destination_name: name of new resource
@@ -2506,12 +2506,12 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         @param request: Unused by this implementation; present for signature
             compatibility with L{CalendarCollectionResource.storeRemove}.
 
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
 
         @return: an HTTP response suitable for sending to a client (or
             including in a multi-status).
 
-         @rtype: something adaptable to L{twext.web2.iweb.IResponse}
+         @rtype: something adaptable to L{txweb2.iweb.IResponse}
         """
 
         # Do delete
@@ -2722,7 +2722,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             if self.exists():
                 etags = self.scheduleEtags
                 if len(etags) > 1:
-                    # This is almost verbatim from twext.web2.static.checkPreconditions
+                    # This is almost verbatim from txweb2.static.checkPreconditions
                     if request.method not in ("GET", "HEAD"):
 
                         # Always test against the current etag first just in case schedule-etags is out of sync
@@ -3514,13 +3514,13 @@ class AddressBookObjectResource(_CommonObjectResource):
         "direct" shares are not supported.
 
         @param request: the request used to locate the owner resource.
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
 
         @param args: The arguments for
-            L{twext.web2.dav.idav.IDAVResource.accessControlList}
+            L{txweb2.dav.idav.IDAVResource.accessControlList}
 
         @param kwargs: The keyword arguments for
-            L{twext.web2.dav.idav.IDAVResource.accessControlList}, plus
+            L{txweb2.dav.idav.IDAVResource.accessControlList}, plus
             keyword-only arguments.
 
         @return: the appropriate WebDAV ACL for the sharee

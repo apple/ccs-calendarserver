@@ -40,9 +40,9 @@ from calendarserver.logAnalysis import getAdjustedMethodName, \
     getAdjustedClientName
 
 from twext.python.log import Logger
-from twext.web2 import iweb
-from twext.web2.log import BaseCommonAccessLoggingObserver
-from twext.web2.log import LogWrapperResource
+from txweb2 import iweb
+from txweb2.log import BaseCommonAccessLoggingObserver
+from txweb2.log import LogWrapperResource
 
 from twisted.internet import protocol, task
 from twisted.protocols import amp

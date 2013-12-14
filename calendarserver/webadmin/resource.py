@@ -36,12 +36,12 @@ from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from twext.web2.http import Response
+from txweb2.http import Response
 from twisted.python.modules import getModule
-from twext.web2.http_headers import MimeType
+from txweb2.http_headers import MimeType
 from zope.interface.declarations import implements
-from twext.web2.stream import MemoryStream
-from twext.web2.http import HTTPError
+from txweb2.stream import MemoryStream
+from txweb2.http import HTTPError
 from txdav.xml import element as davxml
 
 from twisted.web.iweb import ITemplateLoader

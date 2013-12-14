@@ -38,15 +38,15 @@ except ImportError:
 
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
-from twext.web2 import responsecode
+from txweb2 import responsecode
 
 from txdav.xml import element
-from twext.web2.dav.http import statusForFailure
-from twext.web2.dav.method.propfind import propertyName
-from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
-from twext.web2.dav.method.report import max_number_of_matches
-from twext.web2.dav.resource import AccessDeniedError
-from twext.web2.http import HTTPError
+from txweb2.dav.http import statusForFailure
+from txweb2.dav.method.propfind import propertyName
+from txweb2.dav.method.report import NumberOfMatchesWithinLimits
+from txweb2.dav.method.report import max_number_of_matches
+from txweb2.dav.resource import AccessDeniedError
+from txweb2.http import HTTPError
 
 from twext.python.log import Logger
 

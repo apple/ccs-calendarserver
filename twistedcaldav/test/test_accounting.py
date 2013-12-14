@@ -14,9 +14,9 @@
 # limitations under the License.
 ##
 
-from twext.web2.channel.http import HTTPLoggingChannelRequest
-from twext.web2 import http_headers
-from twext.web2.channel.http import HTTPChannel
+from txweb2.channel.http import HTTPLoggingChannelRequest
+from txweb2 import http_headers
+from txweb2.channel.http import HTTPChannel
 from twistedcaldav.accounting import emitAccounting
 from twistedcaldav.config import config
 import twistedcaldav.test.util

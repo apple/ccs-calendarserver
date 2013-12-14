@@ -19,8 +19,8 @@ from pycalendar.duration import Duration
 from pycalendar.timezone import Timezone
 
 from twext.python.log import Logger
-from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
-from twext.web2.http import HTTPError
+from txweb2.dav.method.report import NumberOfMatchesWithinLimits
+from txweb2.http import HTTPError
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue

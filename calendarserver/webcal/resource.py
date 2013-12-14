@@ -30,12 +30,12 @@ from cgi import parse_qs
 
 from twisted.internet.defer import succeed
 
-from twext.web2 import responsecode
-from twext.web2.http import Response
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from txweb2 import responsecode
+from txweb2.http import Response
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 from txdav.xml import element as davxml
-from twext.web2.dav.resource import TwistedACLInheritable
+from txweb2.dav.resource import TwistedACLInheritable
 
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn

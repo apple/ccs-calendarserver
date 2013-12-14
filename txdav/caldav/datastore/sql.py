@@ -41,8 +41,8 @@ from twext.python.clsprop import classproperty
 from twext.python.filepath import CachingFilePath
 from twext.python.log import Logger
 from twistedcaldav.ical import Component as VComponent
-from twext.web2.http_headers import MimeType, generateContentType
-from twext.web2.stream import readStream
+from txweb2.http_headers import MimeType, generateContentType
+from txweb2.stream import readStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib

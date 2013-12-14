@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.web2.http_headers import DefaultHTTPHandler, tokenize, generateList, singleHeader
+from txweb2.http_headers import DefaultHTTPHandler, tokenize, generateList, singleHeader
 
 DefaultHTTPHandler.updateParsers({
     "x-forwarded-for": (tokenize, list),

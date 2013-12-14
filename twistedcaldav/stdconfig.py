@@ -24,7 +24,7 @@ from twisted.python.runtime import platform
 
 from plistlib import PlistParser #@UnresolvedImport
 from twext.python.log import Logger, InvalidLogLevelError, LogLevel
-from twext.web2.dav.resource import TwistedACLInheritable
+from txweb2.dav.resource import TwistedACLInheritable
 
 from txdav.xml import element as davxml
 
@@ -1011,7 +1011,7 @@ DEFAULT_CONFIG = {
     "FreeBusyIndexDelayedExpand": True,
 
     # The RootResource uses a twext property store. Specify the class here
-    "RootResourcePropStoreClass": "twext.web2.dav.xattrprops.xattrPropertyStore",
+    "RootResourcePropStoreClass": "txweb2.dav.xattrprops.xattrPropertyStore",
 
     # Used in the command line utilities to specify which service class to
     # use to carry out work.

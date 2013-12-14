@@ -14,8 +14,8 @@
 # limitations under the License.
 ##
 
-from twext.web2 import http_headers, responsecode
-from twext.web2.test.test_server import SimpleRequest
+from txweb2 import http_headers, responsecode
+from txweb2.test.test_server import SimpleRequest
 
 from twisted.internet.defer import inlineCallbacks
 
@@ -28,10 +28,10 @@ from txdav.caldav.datastore.scheduling.ischedule.remoteservers import IScheduleS
 from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from twext.python.clsprop import classproperty
-import twext.web2.dav.test.util
+import txweb2.dav.test.util
 from txdav.caldav.datastore.test.util import buildCalendarStore
 
-class iSchedulePOST (CommonCommonTests, twext.web2.dav.test.util.TestCase):
+class iSchedulePOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
     @inlineCallbacks
     def setUp(self):

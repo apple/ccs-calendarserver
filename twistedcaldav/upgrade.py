@@ -34,7 +34,7 @@ from cPickle import loads as unpickle, UnpicklingError
 
 from twext.python.log import Logger
 from txdav.xml import element
-from twext.web2.dav.fileop import rmdir
+from txweb2.dav.fileop import rmdir
 
 from twistedcaldav import caldavxml
 from twistedcaldav.directory import calendaruserproxy

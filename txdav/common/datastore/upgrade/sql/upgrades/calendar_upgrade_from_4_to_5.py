@@ -15,7 +15,7 @@
 # limitations under the License.
 ##
 
-from twext.web2.dav.resource import TwistedQuotaUsedProperty, TwistedGETContentMD5
+from txweb2.dav.resource import TwistedQuotaUsedProperty, TwistedGETContentMD5
 
 from twisted.internet.defer import inlineCallbacks
 

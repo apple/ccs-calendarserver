@@ -18,8 +18,8 @@ from __future__ import print_function
 from twistedcaldav.directory.directory import DirectoryService
 
 from txdav.xml import element as davxml
-from twext.web2.dav.resource import AccessDeniedError
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.dav.resource import AccessDeniedError
+from txweb2.test.test_server import SimpleRequest
 
 from twistedcaldav.directory.test.util import maybeCommit
 from twistedcaldav.test.util import TestCase, xmlFile

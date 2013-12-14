@@ -25,11 +25,11 @@ __all__ = [
     "SharedHomeMixin",
 ]
 
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError, Response, XMLResponse
-from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
-from twext.web2.dav.resource import TwistedACLInheritable
-from twext.web2.dav.util import allDataFromStream, joinURL
+from txweb2 import responsecode
+from txweb2.http import HTTPError, Response, XMLResponse
+from txweb2.dav.http import ErrorResponse, MultiStatusResponse
+from txweb2.dav.resource import TwistedACLInheritable
+from txweb2.dav.util import allDataFromStream, joinURL
 
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_STATUS_INVITED, \
@@ -142,7 +142,7 @@ class SharedResourceMixin(object):
 
         @return: the (asynchronous) HTTP result to respond to the direct-share
             request.
-        @rtype: L{Deferred} firing L{twext.web2.http.Response}, failing with
+        @rtype: L{Deferred} firing L{txweb2.http.Response}, failing with
             L{HTTPError}
         """
 
@@ -299,13 +299,13 @@ class SharedResourceMixin(object):
         underlying shared collection.
 
         @param request: the request used to locate the owner resource.
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
 
         @param args: The arguments for
-            L{twext.web2.dav.idav.IDAVResource.accessControlList}
+            L{txweb2.dav.idav.IDAVResource.accessControlList}
 
         @param kwargs: The keyword arguments for
-            L{twext.web2.dav.idav.IDAVResource.accessControlList}, plus
+            L{txweb2.dav.idav.IDAVResource.accessControlList}, plus
             keyword-only arguments.
 
         @return: the appropriate WebDAV ACL for the sharee

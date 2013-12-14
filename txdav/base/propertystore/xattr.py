@@ -65,7 +65,7 @@ class PropertyStore(AbstractPropertyStore):
 
     # Mimic old xattr-prefix behavior by importing it directly.
     deadPropertyXattrPrefix = namedAny(
-        "twext.web2.dav.xattrprops.xattrPropertyStore.deadPropertyXattrPrefix"
+        "txweb2.dav.xattrprops.xattrPropertyStore.deadPropertyXattrPrefix"
     )
 
     # There is a 127 character limit for xattr keys so we need to

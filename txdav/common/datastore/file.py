@@ -24,8 +24,8 @@ from twext.internet.decorate import memoizedKey
 from twext.python.log import Logger
 from txdav.xml.rfc2518 import GETContentType, HRef
 from txdav.xml.rfc5842 import ResourceID
-from twext.web2.http_headers import generateContentType, MimeType
-from twext.web2.dav.resource import TwistedGETContentMD5, \
+from txweb2.http_headers import generateContentType, MimeType
+from txweb2.dav.resource import TwistedGETContentMD5, \
     TwistedQuotaUsedProperty
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue

@@ -18,11 +18,11 @@ import os
 
 from twisted.internet.defer import inlineCallbacks
 
-from twext.web2 import responsecode
-from twext.web2.iweb import IResponse
-from twext.web2.stream import MemoryStream
+from txweb2 import responsecode
+from txweb2.iweb import IResponse
+from txweb2.stream import MemoryStream
 from txdav.xml import element as davxml
-from twext.web2.dav.fileop import rmdir
+from txweb2.dav.fileop import rmdir
 
 from twistedcaldav import caldavxml
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest

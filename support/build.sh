@@ -863,7 +863,7 @@ dependencies () {
     "${n}" "twisted" "${p}" \
     "${pypi}/T/${n}/${p}.tar.bz2";
 
-  local v="12078";
+  local v="12094";
   local n="twext";
   local p="${n}-${v}";
   py_dependency -fe -r "${v}" \

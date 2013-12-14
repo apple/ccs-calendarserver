@@ -15,8 +15,8 @@
 ##
 
 from txdav.xml.element import HRef, Principal, Unauthenticated
-from twext.web2.http import HTTPError
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.http import HTTPError
+from txweb2.test.test_server import SimpleRequest
 
 from twisted.internet.defer import inlineCallbacks
 

@@ -26,7 +26,7 @@ __all__ = [
 from twext.python.log import Logger
 from txdav.xml import element as davxml
 from txdav.xml.base import encodeXMLName
-from twext.web2.dav.resource import TwistedGETContentMD5, \
+from txweb2.dav.resource import TwistedGETContentMD5, \
     TwistedQuotaRootProperty
 
 from txdav.idav import IPropertyStore, IPropertyName

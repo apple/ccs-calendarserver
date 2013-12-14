@@ -17,7 +17,7 @@
 from caldavclientlibrary.protocol.url import URL
 from caldavclientlibrary.protocol.webdav.definitions import davxml
 from contrib.performance.sqlusage.requests.httpTests import HTTPTestBase
-from twext.web2.dav.util import joinURL
+from txweb2.dav.util import joinURL
 from pycalendar.datetime import DateTime
 
 ICAL = """BEGIN:VCALENDAR

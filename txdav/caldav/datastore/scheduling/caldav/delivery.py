@@ -15,12 +15,12 @@
 ##
 
 from twext.python.log import Logger, LogLevel
-from twext.web2.dav.http import ErrorResponse
+from txweb2.dav.http import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.failure import Failure
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError
+from txweb2 import responsecode
+from txweb2.http import HTTPError
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config

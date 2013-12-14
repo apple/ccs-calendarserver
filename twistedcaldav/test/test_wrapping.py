@@ -21,12 +21,12 @@ Tests for the interaction between model-level and protocol-level logic.
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.locking import NamedLock
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError
-from twext.web2.http_headers import Headers, MimeType
-from twext.web2.responsecode import INSUFFICIENT_STORAGE_SPACE
-from twext.web2.responsecode import UNAUTHORIZED
-from twext.web2.stream import MemoryStream
+from txweb2 import responsecode
+from txweb2.http import HTTPError
+from txweb2.http_headers import Headers, MimeType
+from txweb2.responsecode import INSUFFICIENT_STORAGE_SPACE
+from txweb2.responsecode import UNAUTHORIZED
+from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import maybeDeferred

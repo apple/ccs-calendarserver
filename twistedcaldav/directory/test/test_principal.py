@@ -20,10 +20,10 @@ import os
 from twisted.cred.credentials import UsernamePassword
 from twisted.internet.defer import inlineCallbacks
 from txdav.xml import element as davxml
-from twext.web2.dav.fileop import rmdir
-from twext.web2.dav.resource import AccessDeniedError
-from twext.web2.http import HTTPError
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.dav.fileop import rmdir
+from txweb2.dav.resource import AccessDeniedError
+from txweb2.http import HTTPError
+from txweb2.test.test_server import SimpleRequest
 
 from twistedcaldav.cache import DisabledCacheNotifier
 from twistedcaldav.caldavxml import caldav_namespace

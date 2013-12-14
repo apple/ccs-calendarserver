@@ -28,7 +28,7 @@ from twisted.internet.defer import inlineCallbacks
 from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 
-from twext.web2.http_headers import MimeType
+from txweb2.http_headers import MimeType
 
 import os
 

@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.web2.http_headers import Headers
+from txweb2.http_headers import Headers
 
 import twistedcaldav.test.util
 from twistedcaldav.util import bestAcceptType

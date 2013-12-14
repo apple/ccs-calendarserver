@@ -19,15 +19,15 @@ import os
 from twisted.cred.portal import Portal
 from twisted.internet.defer import inlineCallbacks, maybeDeferred, returnValue
 
-from twext.web2 import http_headers
-from twext.web2 import responsecode
-from twext.web2 import server
-from twext.web2.auth import basic
-from twext.web2.dav import auth
+from txweb2 import http_headers
+from txweb2 import responsecode
+from txweb2 import server
+from txweb2.auth import basic
+from txweb2.dav import auth
 from txdav.xml import element as davxml
-from twext.web2.http import HTTPError
-from twext.web2.iweb import IResponse
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.http import HTTPError
+from txweb2.iweb import IResponse
+from txweb2.test.test_server import SimpleRequest
 
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource

@@ -25,7 +25,7 @@ See RFC 4791.
 # Load in suitable file extension/content-type map from OS X
 #
 
-from twext.web2.static import File, loadMimeTypes
+from txweb2.static import File, loadMimeTypes
 
 File.contentTypes = loadMimeTypes(("/etc/apache2/mime.types", "/etc/httpd/mime.types",))
 
@@ -45,7 +45,7 @@ twistedcaldav # Shhh.. pyflakes
 # DefaultHTTPHandler
 #
 
-from twext.web2.http_headers import DefaultHTTPHandler, last, singleHeader
+from txweb2.http_headers import DefaultHTTPHandler, last, singleHeader
 
 DefaultHTTPHandler.updateParsers({
     "If-Schedule-Tag-Match": (last, str),

@@ -20,15 +20,15 @@ from calendarserver.version import version
 
 from twext.internet.gaiendpoint import GAIEndpoint
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.client.http import ClientRequest
-from twext.web2.client.http import HTTPClientProtocol
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.dav.util import davXMLFromStream, joinURL, allDataFromStream
-from twext.web2.http import HTTPError
-from twext.web2.http_headers import Headers
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from txweb2 import responsecode
+from txweb2.client.http import ClientRequest
+from txweb2.client.http import HTTPClientProtocol
+from txweb2.dav.http import ErrorResponse
+from txweb2.dav.util import davXMLFromStream, joinURL, allDataFromStream
+from txweb2.http import HTTPError
+from txweb2.http_headers import Headers
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import inlineCallbacks, DeferredList, returnValue
 from twisted.internet.protocol import Factory

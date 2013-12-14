@@ -26,13 +26,13 @@ __all__ = [
 ]
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.dav.method.propfind import http_PROPFIND
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.http import HTTPError, JSONResponse
-from twext.web2.http import Response
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from txweb2 import responsecode
+from txweb2.dav.method.propfind import http_PROPFIND
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.http import HTTPError, JSONResponse
+from txweb2.http import Response
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 from txdav.xml import element as davxml
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue, \

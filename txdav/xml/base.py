@@ -51,7 +51,7 @@ import cStringIO as StringIO
 import re
 
 from twext.python.log import Logger
-from twext.web2.http_headers import parseDateTime
+from txweb2.http_headers import parseDateTime
 
 log = Logger()
 

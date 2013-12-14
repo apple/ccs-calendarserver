@@ -18,8 +18,8 @@ from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
 
 from twext.python.clsprop import classproperty
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError
+from txweb2 import responsecode
+from txweb2.http import HTTPError
 
 from twisted.internet import reactor
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue

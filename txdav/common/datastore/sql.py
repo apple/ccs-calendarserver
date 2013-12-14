@@ -42,7 +42,7 @@ from twext.enterprise.util import parseSQLTimestamp
 from twext.internet.decorate import memoizedKey, Memoizable
 from twext.python.clsprop import classproperty
 from twext.python.log import Logger
-from twext.web2.http_headers import MimeType
+from txweb2.http_headers import MimeType
 
 from twisted.application.service import Service
 from twisted.internet import reactor

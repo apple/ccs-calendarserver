@@ -18,7 +18,7 @@ from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, \
     LocalCalendarUser
 from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 
@@ -33,8 +33,8 @@ from pycalendar.timezone import Timezone
 from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
 from twistedcaldav.ical import Component as VComponent
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList, \

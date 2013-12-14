@@ -41,7 +41,7 @@ from twext.python.filepath import CachingFilePath
 from twistedcaldav.ical import Component as VComponent
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from twext.web2.dav.resource import TwistedGETContentMD5
+from txweb2.dav.resource import TwistedGETContentMD5
 
 from twisted.application.service import Service
 from twisted.internet import reactor

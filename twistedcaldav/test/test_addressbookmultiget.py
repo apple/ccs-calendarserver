@@ -16,11 +16,11 @@
 
 import os
 
-from twext.web2 import responsecode
-from twext.web2.iweb import IResponse
-from twext.web2.stream import MemoryStream
-from twext.web2.dav.util import davXMLFromStream, joinURL
-from twext.web2.http_headers import Headers, MimeType
+from txweb2 import responsecode
+from txweb2.iweb import IResponse
+from txweb2.stream import MemoryStream
+from txweb2.dav.util import davXMLFromStream, joinURL
+from txweb2.http_headers import Headers, MimeType
 
 from twistedcaldav import carddavxml
 from twistedcaldav import vcard

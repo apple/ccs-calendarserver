@@ -46,17 +46,17 @@ from twext.python.log import Logger
 from txdav.xml import element
 from txdav.xml.element import dav_namespace
 
-from twext.web2 import responsecode, http, http_headers
-from twext.web2.dav.auth import AuthenticationWrapper as SuperAuthenticationWrapper
-from twext.web2.dav.idav import IDAVPrincipalCollectionResource
-from twext.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource, \
+from txweb2 import responsecode, http, http_headers
+from txweb2.dav.auth import AuthenticationWrapper as SuperAuthenticationWrapper
+from txweb2.dav.idav import IDAVPrincipalCollectionResource
+from txweb2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource, \
     davPrivilegeSet
-from twext.web2.dav.resource import TwistedACLInheritable
-from twext.web2.dav.util import joinURL, parentForURL, normalizeURL
-from twext.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.http_headers import MimeType, ETag
-from twext.web2.stream import MemoryStream
+from txweb2.dav.resource import TwistedACLInheritable
+from txweb2.dav.util import joinURL, parentForURL, normalizeURL
+from txweb2.http import HTTPError, RedirectResponse, StatusResponse, Response
+from txweb2.dav.http import ErrorResponse
+from txweb2.http_headers import MimeType, ETag
+from txweb2.stream import MemoryStream
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav import carddavxml
@@ -322,7 +322,7 @@ class CalDAVResource (
         successfully rendered.
 
         @param request: the request to generate a response for.
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
         @param transaction: optional transaction to use instead of associated transaction
         @type transaction: L{txdav.caldav.idav.ITransaction}
         """
@@ -1354,7 +1354,7 @@ class CalDAVResource (
             if self.exists() and hasattr(self, "scheduleEtags"):
                 etags = self.scheduleEtags
                 if len(etags) > 1:
-                    # This is almost verbatim from twext.web2.static.checkPreconditions
+                    # This is almost verbatim from txweb2.static.checkPreconditions
                     if request.method not in ("GET", "HEAD"):
 
                         # Always test against the current etag first just in case schedule-etags is out of sync
@@ -1402,7 +1402,7 @@ class CalDAVResource (
         @param request: the request used to look up parent resources to
             validate.
 
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
 
         @return: a deferred that fires when a calendar collection has been
             created in this resource.
@@ -1488,7 +1488,7 @@ class CalDAVResource (
         @param request: the request used to look up parent resources to
             validate.
 
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
 
         @return: a deferred that fires when an addressbook collection has been
             created in this resource.

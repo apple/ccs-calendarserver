@@ -38,12 +38,12 @@ from twisted.internet.defer import succeed
 from twisted.web.template import XMLFile, Element, renderer, tags
 from twistedcaldav.directory.util import NotFoundResource
 
-from twext.web2.auth.digest import DigestedCredentials
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError
+from txweb2.auth.digest import DigestedCredentials
+from txweb2 import responsecode
+from txweb2.http import HTTPError
 from txdav.xml import element as davxml
-from twext.web2.dav.util import joinURL
-from twext.web2.dav.noneprops import NonePropertyStore
+from txweb2.dav.util import joinURL
+from txweb2.dav.noneprops import NonePropertyStore
 
 from twext.python.log import Logger
 

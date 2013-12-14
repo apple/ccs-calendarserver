@@ -20,8 +20,8 @@ from twistedcaldav.directory.wiki import (
 )
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.web.xmlrpc import Fault
-from twext.web2.http import HTTPError
-from twext.web2 import responsecode
+from txweb2.http import HTTPError
+from txweb2 import responsecode
 from twistedcaldav.config import config
 from twisted.web.error import Error as WebError
 

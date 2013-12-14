@@ -52,15 +52,15 @@ from twisted.application.service import MultiService, IServiceMaker
 from twisted.application.service import Service
 from twisted.protocols.amp import AMP
 
-from twext.web2.server import Site
+from txweb2.server import Site
 from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
 from twext.python.filepath import CachingFilePath
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.internet.fswatch import DirectoryChangeListener, IDirectoryChangeListenee
-from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest, \
+from txweb2.channel.http import LimitingHTTPFactory, SSLRedirectRequest, \
     HTTPChannel
-from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
+from txweb2.metafd import ConnectionLimiter, ReportingHTTPService
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool
@@ -119,7 +119,7 @@ except ImportError:
     from version import version as getVersion
     version = "%s (%s*)" % getVersion()
 
-from twext.web2.server import VERSION as TWISTED_VERSION
+from txweb2.server import VERSION as TWISTED_VERSION
 TWISTED_VERSION = "CalendarServer/%s %s" % (
     version.replace(" ", ""), TWISTED_VERSION,
 )
