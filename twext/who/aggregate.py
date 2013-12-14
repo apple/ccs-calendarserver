@@ -30,8 +30,8 @@ from twisted.internet.defer import gatherResults, FirstError
 
 from twext.who.idirectory import DirectoryConfigurationError
 from twext.who.idirectory import IDirectoryService
-from twext.who.index import DirectoryService as BaseDirectoryService
-from twext.who.index import DirectoryRecord
+from twext.who.directory import DirectoryService as BaseDirectoryService
+from twext.who.directory import DirectoryRecord
 from twext.who.util import ConstantsContainer
 
 
@@ -78,10 +78,10 @@ class DirectoryService(BaseDirectoryService):
         return self._recordType
 
 
-    def recordsFromExpression(self, expression, records=None):
+    def recordsFromExpression(self, expression):
         ds = []
         for service in self.services:
-            d = service.recordsFromExpression(expression, records)
+            d = service.recordsFromExpression(expression)
             ds.append(d)
 
         def unwrapFirstError(f):

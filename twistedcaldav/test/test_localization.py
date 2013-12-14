@@ -20,7 +20,8 @@ from twistedcaldav.localization import translationTo, getLanguage, _
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import ConfigDict
-from pycalendar.datetime import PyCalendarDateTime
+from twistedcaldav.timezones import TimezoneCache
+from pycalendar.datetime import DateTime
 
 import os
 
@@ -52,6 +53,11 @@ localeDir = os.path.join(os.path.dirname(__file__), "data", "locales")
 
 class LocalizationTests(TestCase):
 
+    def setUp(self):
+        super(LocalizationTests, self).setUp()
+        TimezoneCache.create()
+
+
     def test_BasicStringLocalization(self):
 
         with translationTo('pig', localeDir=localeDir):
@@ -68,22 +74,22 @@ class LocalizationTests(TestCase):
 
         with translationTo('en', localeDir=localeDir) as t:
 
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 0, 0, 0)), "12:00 AM")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 12, 0, 0)), "12:00 PM")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 23, 59, 0)), "11:59 PM")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 6, 5, 0)), "6:05 AM")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 16, 5, 0)), "4:05 PM")
+            self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 0, 0, 0)), "12:00 AM")
+            self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 12, 0, 0)), "12:00 PM")
+            self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 23, 59, 0)), "11:59 PM")
+            self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 6, 5, 0)), "6:05 AM")
+            self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 16, 5, 0)), "4:05 PM")
 
 
     def test_TimeFormatting24Hour(self):
 
         with translationTo('pig', localeDir=localeDir) as t:
 
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 0, 0, 0)), "00:00")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 12, 0, 0)), "12:00")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 23, 59, 0)), "23:59")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 6, 5, 0)), "06:05")
-            self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 16, 5, 0)), "16:05")
+            self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 0, 0, 0)), "00:00")
+            self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 12, 0, 0)), "12:00")
+            self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 23, 59, 0)), "23:59")
+            self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 6, 5, 0)), "06:05")
+            self.assertEquals(t.dtTime(DateTime(2000, 1, 1, 16, 5, 0)), "16:05")
 
 
     def test_CalendarFormatting(self):

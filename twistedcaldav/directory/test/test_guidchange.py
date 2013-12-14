@@ -52,7 +52,7 @@ class ProvisionedPrincipals(TestCase):
         newUID = "38D8AC00-5490-4425-BE3A-05FFB9862444"
 
         homeResource = "/calendars/users/cdaboo/"
-        
+
         def privs1(result):
             # Change GUID in record
             self.xmlFile.setContent(
@@ -65,10 +65,10 @@ class ProvisionedPrincipals(TestCase):
 
             # Now force the calendar home resource to be reset
             self.resetCalendars()
-            
+
             # Make sure new user cannot access old user's calendar home
             return self._checkPrivileges(None, homeResource, davxml.HRef("/principals/__uids__/" + newUID + "/"), davxml.Write, False)
-            
+
         # Make sure current user has access to their calendar home
         d = self._checkPrivileges(None, homeResource, davxml.HRef("/principals/__uids__/" + oldUID + "/"), davxml.Write, True)
         d.addCallback(privs1)

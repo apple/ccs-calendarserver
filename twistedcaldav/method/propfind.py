@@ -98,7 +98,7 @@ def http_PROPFIND(self, request):
             search_properties = "names"
         elif isinstance(container, davxml.PropertyContainer):
             properties = container.children
-            search_properties = [(p.namespace, p.name) for p in properties]
+            search_properties = properties
         else:
             raise AssertionError("Unexpected element type in %s: %s"
                                  % (davxml.PropertyFind.sname(), container))
@@ -245,7 +245,11 @@ def http_PROPFIND(self, request):
 # Utilities
 ##
 
-def propertyName(name):
+def propertyName(prop):
+    if type(prop) is tuple:
+        name = prop
+    else:
+        name = prop.qname()
     property_namespace, property_name = name
     pname = davxml.WebDAVUnknownElement()
     pname.namespace = property_namespace

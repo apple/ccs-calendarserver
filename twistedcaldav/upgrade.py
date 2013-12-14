@@ -1065,7 +1065,6 @@ class PostDBImportStep(object):
             # Migrate mail tokens from sqlite to store
             yield migrateTokensToStore(self.config.DataRoot, self.store)
 
-            
 
     @inlineCallbacks
     def processInboxItems(self):

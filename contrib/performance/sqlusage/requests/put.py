@@ -16,7 +16,7 @@
 
 from caldavclientlibrary.protocol.url import URL
 from contrib.performance.sqlusage.requests.httpTests import HTTPTestBase
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 from twext.web2.dav.util import joinURL
 
 ICAL = """BEGIN:VCALENDAR
@@ -62,7 +62,7 @@ class PutTest(HTTPTestBase):
         Execute the actual HTTP request.
         """
 
-        now = PyCalendarDateTime.getNowUTC()
+        now = DateTime.getNowUTC()
         href = joinURL(self.sessions[0].calendarHref, "put.ics")
         self.sessions[0].writeData(URL(path=href), ICAL % (now.getYear() + 1,), "text/calendar")
 

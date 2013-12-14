@@ -121,7 +121,6 @@ class GroupMembershipTests (TestCase):
         self.count += 1
 
 
-
     def test_expandedMembers(self):
         """
         Make sure expandedMembers( ) returns a complete, flattened set of
@@ -889,7 +888,7 @@ class GroupMembershipTests (TestCase):
         }
         members = pickle.loads(snapshotFile.getContent())
         self.assertEquals(members, expected)
-        
+
         # "Corrupt" the snapshot and verify it is regenerated properly
         snapshotFile.setContent("xyzzy")
         cache.delete("group-cacher-populated")
@@ -900,7 +899,7 @@ class GroupMembershipTests (TestCase):
         self.assertTrue(snapshotFile.exists())
         members = pickle.loads(snapshotFile.getContent())
         self.assertEquals(members, expected)
-        
+
 
     def test_autoAcceptMembers(self):
         """
@@ -926,6 +925,7 @@ class GroupMembershipTests (TestCase):
             ])
         )
 
+
     @inlineCallbacks
     def testScheduling(self):
         """
@@ -933,6 +933,7 @@ class GroupMembershipTests (TestCase):
         """
 
         groupCacher = StubGroupCacher()
+
 
         def decorateTransaction(txn):
             txn._groupCacher = groupCacher
@@ -945,13 +946,17 @@ class GroupMembershipTests (TestCase):
 
     testScheduling.skip = "Fix WorkProposal to track delayed calls and cancel them"
 
+
+
 class StubGroupCacher(object):
     def __init__(self):
         self.called = False
         self.updateSeconds = 99
 
+
     def updateCache(self):
         self.called = True
+
 
 
 class RecordsMatchingTokensTests(TestCase):
@@ -1036,6 +1041,7 @@ class RecordsMatchingTokensTests(TestCase):
             ]),
             set(self.directoryService.recordTypesForSearchContext("attendee"))
         )
+
 
 
 class GUIDTests(TestCase):

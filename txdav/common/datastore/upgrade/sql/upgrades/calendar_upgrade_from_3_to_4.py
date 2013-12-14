@@ -94,27 +94,32 @@ def _processDefaultCalendarProperty(home, propname):
     """
 
     inbox = (yield home.calendarWithName("inbox"))
-    prop = inbox.properties().get(PropertyName.fromElement(propname))
-    if prop is not None:
-        defaultCalendar = str(prop.children[0])
-        parts = defaultCalendar.split("/")
-        if len(parts) == 5:
+    if inbox is not None:
+        prop = inbox.properties().get(PropertyName.fromElement(propname))
+        if prop is not None:
+            defaultCalendar = str(prop.children[0])
+            parts = defaultCalendar.split("/")
+            if len(parts) == 5:
 
-            calendarName = parts[-1]
-            calendarHomeUID = parts[-2]
-            if calendarHomeUID == home.uid():
+                calendarName = parts[-1]
+                calendarHomeUID = parts[-2]
+                if calendarHomeUID == home.uid():
 
-                calendar = (yield home.calendarWithName(calendarName))
-                if calendar is not None:
-                    try:
-                        yield home.setDefaultCalendar(
-                            calendar, tasks=(propname == customxml.ScheduleDefaultTasksURL)
-                        )
-                    except InvalidDefaultCalendar:
-                        # Ignore these - the server will recover
-                        pass
+                    calendar = (yield home.calendarWithName(calendarName))
+                    if calendar is not None:
+                        try:
+                            if propname == caldavxml.ScheduleDefaultCalendarURL:
+                                ctype = "VEVENT"
+                            elif propname == customxml.ScheduleDefaultTasksURL:
+                                ctype = "VTODO"
+                            yield home.setDefaultCalendar(
+                                calendar, ctype
+                            )
+                        except InvalidDefaultCalendar:
+                            # Ignore these - the server will recover
+                            pass
 
-        del inbox.properties()[PropertyName.fromElement(propname)]
+            del inbox.properties()[PropertyName.fromElement(propname)]
 
 
 
@@ -130,15 +135,13 @@ def moveCalendarTranspProperties(home):
     calendars = (yield home.loadChildren())
     for calendar in calendars:
         if calendar.isInbox():
-            continue
+            prop = calendar.properties().get(PropertyName.fromElement(caldavxml.CalendarFreeBusySet))
+            if prop is not None:
+                del calendar.properties()[PropertyName.fromElement(caldavxml.CalendarFreeBusySet)]
         prop = calendar.properties().get(PropertyName.fromElement(caldavxml.ScheduleCalendarTransp))
         if prop is not None:
             yield calendar.setUsedForFreeBusy(prop == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
             del calendar.properties()[PropertyName.fromElement(caldavxml.ScheduleCalendarTransp)]
-    inbox = (yield home.calendarWithName("inbox"))
-    prop = inbox.properties().get(PropertyName.fromElement(caldavxml.CalendarFreeBusySet))
-    if prop is not None:
-        del inbox.properties()[PropertyName.fromElement(caldavxml.CalendarFreeBusySet)]
 
 
 

@@ -517,3 +517,52 @@ def normalizationLookup(cuaddr, principalFunction, config):
         cuas = principal.record.calendarUserAddresses
 
         return (fullName, rec.guid, cuas)
+
+
+
+def bestAcceptType(accepts, allowedTypes):
+    """
+    Given a set of Accept headers and the set of types the server can return, determine the best choice
+    of format to return to the client.
+
+    @param accepts: parsed accept headers
+    @type accepts: C{dict}
+    @param allowedTypes: list of allowed types in server preferred order
+    @type allowedTypes: C{list}
+    """
+
+    # If no Accept present just use the first allowed type - the server's preference
+    if not accepts:
+        return allowedTypes[0]
+
+    # Get mapping for ordered top-level types for use in subtype wildcard match
+    toptypes = {}
+    for allowed in allowedTypes:
+        mediaType = allowed.split("/")[0]
+        if mediaType not in toptypes:
+            toptypes[mediaType] = allowed
+
+    result = None
+    result_qval = 0.0
+    for content_type, qval in accepts.items():
+        # Exact match
+        ctype = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
+        if ctype in allowedTypes:
+            if qval > result_qval:
+                result = ctype
+                result_qval = qval
+
+        # Subtype wildcard match
+        elif content_type.mediaType != "*" and content_type.mediaSubtype == "*":
+            if content_type.mediaType in toptypes:
+                if qval > result_qval:
+                    result = toptypes[content_type.mediaType]
+                    result_qval = qval
+
+        # Full wildcard match
+        elif content_type.mediaType == "*" and content_type.mediaSubtype == "*":
+            if qval > result_qval:
+                result = allowedTypes[0]
+                result_qval = qval
+
+    return result

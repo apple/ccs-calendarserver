@@ -27,7 +27,7 @@ __all__ = [
 
 from cStringIO import StringIO
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twext.enterprise.dal.syntax import (
     Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction,
@@ -74,6 +74,7 @@ from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.xml.parser import WebDAVDocument
+from txdav.idav import ChangeCategory
 
 from uuid import uuid4, UUID
 
@@ -1107,7 +1108,7 @@ class CommonStoreTransaction(object):
     def eventsOlderThan(self, cutoff, batchSize=None):
         """
         Return up to the oldest batchSize events which exist completely earlier
-        than "cutoff" (PyCalendarDateTime)
+        than "cutoff" (DateTime)
 
         Returns a deferred to a list of (uid, calendarName, eventName, maxDate)
         tuples.
@@ -1115,7 +1116,7 @@ class CommonStoreTransaction(object):
 
         # Make sure cut off is after any lower limit truncation in the DB
         if config.FreeBusyIndexLowerLimitDays:
-            truncateLowerLimit = PyCalendarDateTime.getToday()
+            truncateLowerLimit = DateTime.getToday()
             truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
             if cutoff < truncateLowerLimit:
                 raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))
@@ -1133,7 +1134,7 @@ class CommonStoreTransaction(object):
 
         # Make sure cut off is after any lower limit truncation in the DB
         if config.FreeBusyIndexLowerLimitDays:
-            truncateLowerLimit = PyCalendarDateTime.getToday()
+            truncateLowerLimit = DateTime.getToday()
             truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
             if cutoff < truncateLowerLimit:
                 raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))
@@ -2203,7 +2204,7 @@ class CommonHome(object):
 
 
     @inlineCallbacks
-    def notifyChanged(self):
+    def notifyChanged(self, category=ChangeCategory.default):
         """
         Send notifications, change sync token and bump last modified because
         the resource has changed.  We ensure we only do this once per object
@@ -2227,7 +2228,7 @@ class CommonHome(object):
             # push notifiers add their work items immediately
             notifier = self._notifiers.get("push", None)
             if notifier:
-                yield notifier.notify(self._txn)
+                yield notifier.notify(self._txn, priority=category.value)
 
 
     @classproperty
@@ -4335,11 +4336,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         return self.ownerHome().notifierID()
 
 
-    def notifyChanged(self):
+    def notifyChanged(self, category=ChangeCategory.default):
         """
         Send notifications when a child resource is changed.
         """
-        return self._notifyChanged(property_change=False)
+        return self._notifyChanged(property_change=False, category=category)
 
 
     def notifyPropertyChanged(self):
@@ -4350,7 +4351,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @inlineCallbacks
-    def _notifyChanged(self, property_change=False):
+    def _notifyChanged(self, property_change=False,
+            category=ChangeCategory.default):
         """
         Send notifications, change sync token and bump last modified because
         the resource has changed.  We ensure we only do this once per object
@@ -4386,7 +4388,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             # push notifiers add their work items immediately
             notifier = self._notifiers.get("push", None)
             if notifier:
-                yield notifier.notify(self._txn)
+                yield notifier.notify(self._txn, priority=category.value)
 
 
     @classproperty
@@ -5200,7 +5202,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     @inlineCallbacks
-    def notifyChanged(self):
+    def notifyChanged(self, category=ChangeCategory.default):
         """
         Send notifications, change sync token and bump last modified because
         the resource has changed.  We ensure we only do this once per object
@@ -5219,7 +5221,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             # push notifiers add their work items immediately
             notifier = self._notifiers.get("push", None)
             if notifier:
-                yield notifier.notify(self._txn)
+                yield notifier.notify(self._txn, priority=category.value)
 
         returnValue(None)
 

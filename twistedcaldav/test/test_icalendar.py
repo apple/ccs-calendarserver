@@ -21,16 +21,16 @@ import itertools
 from twisted.trial.unittest import SkipTest
 
 from twistedcaldav.ical import Component, Property, InvalidICalendarDataError, \
-    normalizeCUAddress
+    normalizeCUAddress, normalize_iCalStr
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 import twistedcaldav.test.util
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 from twistedcaldav.ical import iCalendarProductID
-from pycalendar.duration import PyCalendarDuration
+from pycalendar.duration import Duration
 from twistedcaldav.dateops import normalizeForExpand
-from pycalendar.value import PyCalendarValue
+from pycalendar.value import Value
 
 class iCalendar (twistedcaldav.test.util.TestCase):
     """
@@ -469,7 +469,7 @@ END:VCALENDAR
         calendar.validCalendarData(doFix=False, validateRecurrences=True)
 
         # Verify expansion works, even for an RDATE prior to master DTSTART:
-        calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
+        calendar.expandTimeRanges(DateTime(2100, 1, 1))
 
         # Test EXDATEs *prior* to master (as the result of client splitting a
         # a recurring event and copying *all* EXDATEs to new event):
@@ -568,13 +568,13 @@ END:VCALENDAR
 
         year = 2004
 
-        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
+        instances = calendar.expandTimeRanges(DateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
-            self.assertEqual(start, PyCalendarDateTime(year, 7, 4))
-            self.assertEqual(end  , PyCalendarDateTime(year, 7, 5))
+            self.assertEqual(start, DateTime(year, 7, 4))
+            self.assertEqual(end  , DateTime(year, 7, 5))
             if year == 2050:
                 break
             year += 1
@@ -594,14 +594,14 @@ END:VCALENDAR
         }
         year = 2004
 
-        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
+        instances = calendar.expandTimeRanges(DateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
             if year in results:
-                self.assertEqual(start, PyCalendarDateTime(year, results[year][0], results[year][1]))
-                self.assertEqual(end  , PyCalendarDateTime(year, results[year][0], results[year][2]))
+                self.assertEqual(start, DateTime(year, results[year][0], results[year][1]))
+                self.assertEqual(end  , DateTime(year, results[year][0], results[year][2]))
             if year == 2050:
                 break
             year += 1
@@ -621,14 +621,14 @@ END:VCALENDAR
         }
         year = 2002
 
-        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
+        instances = calendar.expandTimeRanges(DateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
             if year in results:
-                self.assertEqual(start, PyCalendarDateTime(year, results[year][0], results[year][1]))
-                self.assertEqual(end  , PyCalendarDateTime(year, results[year][0], results[year][2]))
+                self.assertEqual(start, DateTime(year, results[year][0], results[year][1]))
+                self.assertEqual(end  , DateTime(year, results[year][0], results[year][2]))
             if year == 2050:
                 break
             year += 1
@@ -642,13 +642,13 @@ END:VCALENDAR
         """
         calendar = Component.fromStream(file(os.path.join(self.data_dir, "Holidays", "C318ABFE-1ED0-11D9-A5E0-000A958A3252.ics")))
 
-        instances = calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
+        instances = calendar.expandTimeRanges(DateTime(2100, 1, 1))
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
-            self.assertEqual(start, PyCalendarDateTime(2004, 11, 25))
-            self.assertEqual(end, PyCalendarDateTime(2004, 11, 27))
+            self.assertEqual(start, DateTime(2004, 11, 25))
+            self.assertEqual(end, DateTime(2004, 11, 27))
             break
 
     # test_component_timerange.todo = "recurrence expansion should give us no end date here"
@@ -658,44 +658,44 @@ END:VCALENDAR
         """
         parse_date()
         """
-        self.assertEqual(PyCalendarDateTime.parseText("19970714"), PyCalendarDateTime(1997, 7, 14))
+        self.assertEqual(DateTime.parseText("19970714"), DateTime(1997, 7, 14))
 
 
     def test_parse_datetime(self):
         """
         parse_datetime()
         """
-        dt = PyCalendarDateTime.parseText("19980118T230000")
-        self.assertEqual(dt, PyCalendarDateTime(1998, 1, 18, 23, 0, 0))
+        dt = DateTime.parseText("19980118T230000")
+        self.assertEqual(dt, DateTime(1998, 1, 18, 23, 0, 0))
         self.assertTrue(dt.floating())
 
-        dt = PyCalendarDateTime.parseText("19980119T070000Z")
-        self.assertEqual(dt, PyCalendarDateTime(1998, 1, 19, 7, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+        dt = DateTime.parseText("19980119T070000Z")
+        self.assertEqual(dt, DateTime(1998, 1, 19, 7, 0, 0, tzid=Timezone(utc=True)))
 
 
     def test_parse_date_or_datetime(self):
         """
         parse_date_or_datetime()
         """
-        self.assertEqual(PyCalendarDateTime.parseText("19970714"), PyCalendarDateTime(1997, 7, 14))
+        self.assertEqual(DateTime.parseText("19970714"), DateTime(1997, 7, 14))
 
-        dt = PyCalendarDateTime.parseText("19980118T230000")
-        self.assertEqual(dt, PyCalendarDateTime(1998, 1, 18, 23, 0, 0))
+        dt = DateTime.parseText("19980118T230000")
+        self.assertEqual(dt, DateTime(1998, 1, 18, 23, 0, 0))
         self.assertTrue(dt.floating())
 
-        dt = PyCalendarDateTime.parseText("19980119T070000Z")
-        self.assertEqual(dt, PyCalendarDateTime(1998, 1, 19, 7, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+        dt = DateTime.parseText("19980119T070000Z")
+        self.assertEqual(dt, DateTime(1998, 1, 19, 7, 0, 0, tzid=Timezone(utc=True)))
 
 
     def test_parse_duration(self):
         """
         parse_duration()
         """
-        self.assertEqual(PyCalendarDuration.parseText("P15DT5H0M20S"), PyCalendarDuration(days=15, hours=5, minutes=0, seconds=20))
-        self.assertEqual(PyCalendarDuration.parseText("+P15DT5H0M20S"), PyCalendarDuration(days=15, hours=5, minutes=0, seconds=20))
-        self.assertEqual(PyCalendarDuration.parseText("-P15DT5H0M20S"), PyCalendarDuration(days=15 * -1, hours=5 * -1, minutes=0, seconds=20 * -1))
+        self.assertEqual(Duration.parseText("P15DT5H0M20S"), Duration(days=15, hours=5, minutes=0, seconds=20))
+        self.assertEqual(Duration.parseText("+P15DT5H0M20S"), Duration(days=15, hours=5, minutes=0, seconds=20))
+        self.assertEqual(Duration.parseText("-P15DT5H0M20S"), Duration(days=15 * -1, hours=5 * -1, minutes=0, seconds=20 * -1))
 
-        self.assertEqual(PyCalendarDuration.parseText("P7W"), PyCalendarDuration(weeks=7))
+        self.assertEqual(Duration.parseText("P7W"), Duration(weeks=7))
 
 
     def test_correct_attendee_properties(self):
@@ -807,7 +807,7 @@ END:VCALENDAR
 """,
                 (
                     ("mailto:user1@example.com", None),
-                    ("mailto:user1@example.com", PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+                    ("mailto:user1@example.com", DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)))
                 )
             ),
             (
@@ -833,7 +833,7 @@ END:VCALENDAR
 """,
                 (
                     ("mailto:user1@example.com", None),
-                    ("mailto:user3@example.com", PyCalendarDateTime(2009, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+                    ("mailto:user3@example.com", DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)))
                 )
             ),
             (
@@ -946,8 +946,8 @@ END:VCALENDAR
                 False,
                 (
                     ("mailto:user2@example.com", None),
-                    ("mailto:user2@example.com", PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user3@example.com", PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+                    ("mailto:user2@example.com", DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user3@example.com", DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)))
                 )
             ),
             (
@@ -1152,6 +1152,82 @@ END:VCALENDAR
             self.assertEqual(result, str(component).replace("\r", ""))
 
 
+    def test_parameter_multi_values(self):
+        caldata = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;MEMBER="urn:uuid:group01","urn:uuid:group02";PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        caldata2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;MEMBER="urn:uuid:group01","urn:uuid:group02","urn:uuid:group03";PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        caldata3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;MEMBER="urn:uuid:group01";PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(caldata)
+        attendee = component.masterComponent().getAttendeeProperty(["mailto:user02@example.com", ])
+        self.assertTrue(attendee is not None)
+
+        # Single value retrieved as multi-value
+        partstat = attendee.parameterValues("PARTSTAT")
+        self.assertEqual(partstat, ["NEEDS-ACTION"])
+
+        # Multi-value retrieved as single-value
+        member = attendee.parameterValue("MEMBER")
+        self.assertEqual(member, "urn:uuid:group01")
+
+        # Multi-value retrieved as multi-value
+        members = attendee.parameterValues("MEMBER")
+        self.assertEqual(members, ["urn:uuid:group01", "urn:uuid:group02"])
+
+        # Multi-value add a new value
+        members = attendee.parameterValues("MEMBER")
+        members.append("urn:uuid:group03")
+        attendee.setParameter("MEMBER", members)
+        members = attendee.parameterValues("MEMBER")
+        self.assertEqual(members, ["urn:uuid:group01", "urn:uuid:group02", "urn:uuid:group03"])
+        self.assertEqual(normalize_iCalStr(str(component)), normalize_iCalStr(caldata2))
+
+        # Multi-value back to one
+        members = attendee.parameterValues("MEMBER")
+        del members[1:]
+        attendee.setParameter("MEMBER", members)
+        members = attendee.parameterValues("MEMBER")
+        self.assertEqual(members, ["urn:uuid:group01"])
+        self.assertEqual(normalize_iCalStr(str(component)), normalize_iCalStr(caldata3))
+
+
     def test_add_property_with_valuetype(self):
         data = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1177,7 +1253,7 @@ END:VCALENDAR
 
         component = Component.fromString(data)
         vevent = component.mainComponent()
-        vevent.addProperty(Property("ATTACH", "foobar", valuetype=PyCalendarValue.VALUETYPE_BINARY))
+        vevent.addProperty(Property("ATTACH", "foobar", valuetype=Value.VALUETYPE_BINARY))
         self.assertEqual(str(component), result)
 
 
@@ -2277,8 +2353,8 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2299,12 +2375,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2326,16 +2402,16 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 16, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 16, 2, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2357,12 +2433,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 16, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 16, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2384,12 +2460,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 16, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 16, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2417,12 +2493,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 15, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 2, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2474,12 +2550,12 @@ END:VCALENDAR
                 True,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2488,9 +2564,9 @@ END:VCALENDAR
         for description, original, ignoreInvalidInstances, results in data:
             component = Component.fromString(original)
             if results is None:
-                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances)
+                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, DateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances)
             else:
-                instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances)
+                instances = component.expandTimeRanges(DateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances)
                 self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
                 periods = tuple([(instance.start, instance.end) for instance in sorted(instances.instances.values(), key=lambda x:x.start)])
                 self.assertEqual(periods, results)
@@ -2518,8 +2594,8 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2539,8 +2615,8 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 15),
-                        PyCalendarDateTime(2007, 11, 16),
+                        DateTime(2007, 11, 15),
+                        DateTime(2007, 11, 16),
                     ),
                 )
             ),
@@ -2561,12 +2637,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2587,12 +2663,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 15),
-                        PyCalendarDateTime(2007, 11, 16),
+                        DateTime(2007, 11, 15),
+                        DateTime(2007, 11, 16),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 16),
-                        PyCalendarDateTime(2007, 11, 17),
+                        DateTime(2007, 11, 16),
+                        DateTime(2007, 11, 17),
                     ),
                 )
             ),
@@ -2614,16 +2690,16 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 16, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 16, 2, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2645,16 +2721,16 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 15),
-                        PyCalendarDateTime(2007, 11, 16),
+                        DateTime(2007, 11, 15),
+                        DateTime(2007, 11, 16),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 16),
-                        PyCalendarDateTime(2007, 11, 17),
+                        DateTime(2007, 11, 16),
+                        DateTime(2007, 11, 17),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 18),
-                        PyCalendarDateTime(2007, 11, 19),
+                        DateTime(2007, 11, 18),
+                        DateTime(2007, 11, 19),
                     ),
                 )
             ),
@@ -2676,12 +2752,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 16, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 16, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 16, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2703,12 +2779,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 15),
-                        PyCalendarDateTime(2007, 11, 16),
+                        DateTime(2007, 11, 15),
+                        DateTime(2007, 11, 16),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 17),
-                        PyCalendarDateTime(2007, 11, 18),
+                        DateTime(2007, 11, 17),
+                        DateTime(2007, 11, 18),
                     ),
                 )
             ),
@@ -2736,12 +2812,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 15, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 2, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -2769,12 +2845,12 @@ END:VCALENDAR
                 False,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 15),
-                        PyCalendarDateTime(2007, 11, 16),
+                        DateTime(2007, 11, 15),
+                        DateTime(2007, 11, 16),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 16),
-                        PyCalendarDateTime(2007, 11, 18),
+                        DateTime(2007, 11, 16),
+                        DateTime(2007, 11, 18),
                     ),
                 )
             ),
@@ -2831,9 +2907,9 @@ END:VCALENDAR
         for description, original, ignoreInvalidInstances, results in data:
             component = Component.fromString(original)
             if results is None:
-                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances)
+                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, DateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances)
             else:
-                instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances, normalizeFunction=normalizeForExpand)
+                instances = component.expandTimeRanges(DateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances, normalizeFunction=normalizeForExpand)
                 self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
                 periods = tuple([(instance.start, instance.end) for instance in sorted(instances.instances.values(), key=lambda x:x.start)])
                 self.assertEqual(periods, results)
@@ -2861,8 +2937,8 @@ END:VCALENDAR
                 None,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 ),
                 None,
@@ -2880,11 +2956,11 @@ DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2007, 1, 1),
+                DateTime(2007, 1, 1),
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 ),
                 None,
@@ -2902,9 +2978,9 @@ DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2010, 1, 1),
+                DateTime(2010, 1, 1),
                 (),
-                PyCalendarDateTime(2010, 1, 1),
+                DateTime(2010, 1, 1),
             ),
             (
                 "Simple recurring - no limit",
@@ -2923,20 +2999,20 @@ END:VCALENDAR
                 None,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2008, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2009, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2009, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2010, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2010, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2010, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 ),
                 None,
@@ -2955,23 +3031,23 @@ RRULE:FREQ=YEARLY;COUNT=4
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2007, 1, 1),
+                DateTime(2007, 1, 1),
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2008, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2008, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2009, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2009, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2010, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2010, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2010, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 ),
                 None,
@@ -2990,14 +3066,14 @@ RRULE:FREQ=YEARLY;COUNT=4
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2010, 1, 1),
+                DateTime(2010, 1, 1),
                 (
                     (
-                        PyCalendarDateTime(2010, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2010, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2010, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 ),
-                PyCalendarDateTime(2010, 1, 1),
+                DateTime(2010, 1, 1),
             ),
             (
                 "Simple recurring - limit effective full",
@@ -3013,9 +3089,9 @@ RRULE:FREQ=YEARLY;COUNT=4
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2012, 1, 1),
+                DateTime(2012, 1, 1),
                 (),
-                PyCalendarDateTime(2012, 1, 1),
+                DateTime(2012, 1, 1),
             ),
             (
                 "Complex recurring - no limit",
@@ -3048,20 +3124,20 @@ END:VCALENDAR
                 None,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2008, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2008, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2008, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2009, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2009, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2010, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2010, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2010, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 ),
                 None,
@@ -3094,23 +3170,23 @@ DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2007, 1, 1),
+                DateTime(2007, 1, 1),
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2008, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2008, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2008, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2008, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2009, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2009, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2009, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2009, 11, 14, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2010, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2010, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2010, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 ),
                 None,
@@ -3143,14 +3219,14 @@ DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2010, 1, 1),
+                DateTime(2010, 1, 1),
                 (
                     (
-                        PyCalendarDateTime(2010, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2010, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2010, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2010, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 ),
-                PyCalendarDateTime(2010, 1, 1),
+                DateTime(2010, 1, 1),
             ),
             (
                 "Complex recurring - limit effective full",
@@ -3180,15 +3256,15 @@ DURATION:PT1H
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2012, 1, 1),
+                DateTime(2012, 1, 1),
                 (),
-                PyCalendarDateTime(2012, 1, 1),
+                DateTime(2012, 1, 1),
             ),
         )
 
         for description, original, lowerLimit, results, limited in data:
             component = Component.fromString(original)
-            instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), lowerLimit=lowerLimit)
+            instances = component.expandTimeRanges(DateTime(2100, 1, 1), lowerLimit=lowerLimit)
             self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
             periods = tuple([(instance.start, instance.end) for instance in sorted(instances.instances.values(), key=lambda x:x.start)])
             self.assertEqual(periods, results)
@@ -4040,7 +4116,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090102T080000Z
@@ -4065,7 +4141,7 @@ RDATE:20090102T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 2, 18, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 1, 2, 18, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090102T180000Z
@@ -4091,7 +4167,7 @@ RDATE:20090104T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 3, 18, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 1, 3, 18, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090103T180000Z
@@ -4115,7 +4191,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 2, 9, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 1, 2, 9, 0, 0, tzid=Timezone(utc=True)),
                 None,
             ),
             (
@@ -4133,7 +4209,7 @@ RDATE:20090102T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 2, 19, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 1, 2, 19, 0, 0, tzid=Timezone(utc=True)),
                 None,
             ),
             (
@@ -4152,7 +4228,7 @@ RDATE:20090104T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 3, 19, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 1, 3, 19, 0, 0, tzid=Timezone(utc=True)),
                 None,
             ),
             (
@@ -4169,7 +4245,7 @@ RRULE:FREQ=WEEKLY
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 8),
+                DateTime(2009, 1, 8),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID;VALUE=DATE:20090108
@@ -4194,7 +4270,7 @@ RDATE;VALUE=DATE:20090103
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 3),
+                DateTime(2009, 1, 3),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID;VALUE=DATE:20090103
@@ -4220,7 +4296,7 @@ RDATE;VALUE=DATE:20090118
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 10),
+                DateTime(2009, 1, 10),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID;VALUE=DATE:20090110
@@ -4244,7 +4320,7 @@ RRULE:FREQ=WEEKLY
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 3),
+                DateTime(2009, 1, 3),
                 None,
             ),
             (
@@ -4262,7 +4338,7 @@ RDATE;VALUE=DATE:20090104
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 5),
+                DateTime(2009, 1, 5),
                 None,
             ),
             (
@@ -4281,7 +4357,7 @@ RDATE;VALUE=DATE:20090118
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 19),
+                DateTime(2009, 1, 19),
                 None,
             ),
         )
@@ -4311,8 +4387,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2009, 1, 4, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 4, 8, 0, 0, tzid=Timezone(utc=True)),
                 ),
                 (
                     """BEGIN:VEVENT
@@ -4349,8 +4425,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    PyCalendarDateTime(2009, 1, 2, 18, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2009, 1, 4, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    DateTime(2009, 1, 2, 18, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 4, 8, 0, 0, tzid=Timezone(utc=True)),
                 ),
                 (
                     """BEGIN:VEVENT
@@ -4388,8 +4464,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    PyCalendarDateTime(2009, 1, 3, 18, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2009, 1, 5, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    DateTime(2009, 1, 3, 18, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 5, 8, 0, 0, tzid=Timezone(utc=True)),
                 ),
                 (
                     """BEGIN:VEVENT
@@ -4425,8 +4501,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    PyCalendarDateTime(2009, 1, 2, 9, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2009, 1, 3, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    DateTime(2009, 1, 2, 9, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone(utc=True)),
                 ),
                 (
                     None,
@@ -4456,8 +4532,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    PyCalendarDateTime(2009, 1, 2, 19, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2009, 1, 3, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    DateTime(2009, 1, 2, 19, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone(utc=True)),
                 ),
                 (
                     None,
@@ -4488,8 +4564,8 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    PyCalendarDateTime(2009, 1, 3, 19, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2009, 1, 3, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    DateTime(2009, 1, 3, 19, 0, 0, tzid=Timezone(utc=True)),
+                    DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone(utc=True)),
                 ),
                 (
                     None,
@@ -4534,7 +4610,7 @@ EXDATE:20090102T080000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090102T080000Z
@@ -4561,7 +4637,7 @@ STATUS:CONFIRMED
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VEVENT
 UID:12345-67890-1
 RECURRENCE-ID:20090102T080000Z
@@ -4604,19 +4680,19 @@ END:VCALENDAR
         self.assertFalse(hasattr(ical, "cachedInstances"))
 
         # Derive one day apart - no re-cache
-        ical.deriveInstance(PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+        ical.deriveInstance(DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)))
         self.assertTrue(hasattr(ical, "cachedInstances"))
         oldLimit = ical.cachedInstances.limit
-        ical.deriveInstance(PyCalendarDateTime(2009, 1, 3, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+        ical.deriveInstance(DateTime(2009, 1, 3, 8, 0, 0, tzid=Timezone(utc=True)))
         self.assertEqual(ical.cachedInstances.limit, oldLimit)
 
         # Derive several years ahead - re-cached
-        ical.deriveInstance(PyCalendarDateTime(2011, 1, 1, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+        ical.deriveInstance(DateTime(2011, 1, 1, 8, 0, 0, tzid=Timezone(utc=True)))
         self.assertNotEqual(ical.cachedInstances.limit, oldLimit)
         oldLimit = ical.cachedInstances.limit
 
         # Check one day ahead again - no re-cache
-        ical.deriveInstance(PyCalendarDateTime(2011, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+        ical.deriveInstance(DateTime(2011, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)))
         self.assertEqual(ical.cachedInstances.limit, oldLimit)
 
 
@@ -4661,13 +4737,13 @@ END:VEVENT
         masterDerived = ical.masterDerived()
 
         # Derive one day apart - no re-cache
-        result = ical.deriveInstance(PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)), newcomp=masterDerived)
+        result = ical.deriveInstance(DateTime(2009, 1, 2, 8, 0, 0, tzid=Timezone(utc=True)), newcomp=masterDerived)
         self.assertEqual(str(result), derived1)
 
-        result = ical.deriveInstance(PyCalendarDateTime(2009, 2, 3, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)), newcomp=masterDerived)
+        result = ical.deriveInstance(DateTime(2009, 2, 3, 8, 0, 0, tzid=Timezone(utc=True)), newcomp=masterDerived)
         self.assertEqual(str(result), derived2)
 
-        result = ical.deriveInstance(PyCalendarDateTime(2009, 3, 3, 9, 0, 0, tzid=PyCalendarTimezone(utc=True)), newcomp=masterDerived)
+        result = ical.deriveInstance(DateTime(2009, 3, 3, 9, 0, 0, tzid=Timezone(utc=True)), newcomp=masterDerived)
         self.assertEqual(result, None)
 
         self.assertEqual(str(ical), event)
@@ -4847,8 +4923,8 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), False),
                 )
             ),
             (
@@ -4866,9 +4942,9 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 5, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 5, 0, 0, 0, tzid=Timezone(utc=True)), False),
                 )
             ),
             (
@@ -4886,10 +4962,10 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone(utc=True)), False),
                 )
             ),
             (
@@ -4908,11 +4984,11 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 2, 0, 0, tzid=Timezone(utc=True)), False),
                 )
             ),
             (
@@ -4932,12 +5008,12 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
-                    (PyCalendarDateTime(2009, 10, 3, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 2, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2009, 10, 3, 0, 0, 0, tzid=Timezone(utc=True)), False),
                 )
             ),
             (
@@ -4960,11 +5036,11 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
-                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone(utc=True)), False),
                 )
             ),
             (
@@ -4989,12 +5065,12 @@ END:VCALENDAR
 """,
                 (
                     (None, True),
-                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2007, 11, 15, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
-                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2007, 11, 15, 1, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2007, 11, 15, 2, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 1, 0, 0, tzid=Timezone(utc=True)), False),
                 )
             ),
             (
@@ -5012,9 +5088,9 @@ END:VCALENDAR
 """,
                 (
                     (None, False),
-                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
-                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
-                    (PyCalendarDateTime(2009, 10, 4, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), False),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), True),
+                    (DateTime(2009, 10, 4, 0, 0, 0, tzid=Timezone(utc=True)), False),
                 )
             ),
             (
@@ -5046,7 +5122,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), True),
+                    (DateTime(2007, 11, 14, 0, 0, 0, tzid=Timezone(utc=True)), True),
                 )
             ),
             (
@@ -5062,7 +5138,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), False),
                 )
             ),
             (
@@ -5084,7 +5160,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                    (DateTime(2007, 11, 15, 0, 0, 0, tzid=Timezone(utc=True)), False),
                 )
             ),
         )
@@ -5396,12 +5472,12 @@ END:VCALENDAR
 """,
                 (
                     (
-                        PyCalendarDateTime(2007, 11, 14, 20, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 14, 21, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 14, 20, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 14, 21, 0, 0, tzid=Timezone(utc=True)),
                     ),
                     (
-                        PyCalendarDateTime(2007, 11, 15, 21, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                        PyCalendarDateTime(2007, 11, 15, 22, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        DateTime(2007, 11, 15, 21, 0, 0, tzid=Timezone(utc=True)),
+                        DateTime(2007, 11, 15, 22, 0, 0, tzid=Timezone(utc=True)),
                     ),
                 )
             ),
@@ -5409,7 +5485,7 @@ END:VCALENDAR
 
         for description, original, fixed, results in data:
             component = Component.fromString(original)
-            instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances=False)
+            instances = component.expandTimeRanges(DateTime(2100, 1, 1), ignoreInvalidInstances=False)
             self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
             periods = tuple([(instance.start, instance.end) for instance in sorted(instances.instances.values(), key=lambda x:x.start)])
             self.assertEqual(periods, results)
@@ -5696,7 +5772,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", False,),
                                 ),
@@ -5741,7 +5817,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", False,),
@@ -5795,7 +5871,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", False,),
@@ -5841,19 +5917,19 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", False,),
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 3, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", True,),
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 4, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", True,),
                                 ),
@@ -5916,21 +5992,21 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", True,),
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 3, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", True,),
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 4, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", False,),
@@ -6015,7 +6091,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", True,),
@@ -6023,7 +6099,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 3, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", True,),
@@ -6031,7 +6107,7 @@ END:VCALENDAR
                                 ),
                             ),
                             (
-                                PyCalendarDateTime(2008, 6, 4, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                                DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
                                     ("", False,),
                                     ("user01", False,),
@@ -7415,7 +7491,7 @@ END:VCALENDAR
 """,
             ),
         )
-        cutoff = PyCalendarDateTime(2011, 11, 30, 0, 0, 0)
+        cutoff = DateTime(2011, 11, 30, 0, 0, 0)
         for _ignore_title, expected, body in data:
             ical = Component.fromString(body)
             self.assertEquals(expected, ical.hasInstancesAfter(cutoff))
@@ -9437,7 +9513,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 2, 1, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -9505,7 +9581,7 @@ DTSTAMP:20080601T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 2, 1, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -9577,7 +9653,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 2, 1, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -9626,7 +9702,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 2, 1, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -9676,7 +9752,7 @@ RDATE:20090202T180000Z
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 31, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 1, 31, 8, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -9725,7 +9801,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 1, 31, 6, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 1, 31, 6, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -9795,7 +9871,7 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 2, 1, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -9944,7 +10020,7 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """,
-                PyCalendarDateTime(2009, 2, 1, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                DateTime(2009, 2, 1, 8, 0, 0, tzid=Timezone(utc=True)),
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN

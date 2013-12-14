@@ -18,7 +18,7 @@ from caldavclientlibrary.protocol.url import URL
 from caldavclientlibrary.protocol.webdav.definitions import davxml
 from contrib.performance.sqlusage.requests.httpTests import HTTPTestBase
 from twext.web2.dav.util import joinURL
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 ICAL = """BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
@@ -75,7 +75,7 @@ class SyncTest(HTTPTestBase):
             self.synctoken = results[davxml.sync_token]
 
             # Add resources to create required number of changes
-            now = PyCalendarDateTime.getNowUTC()
+            now = DateTime.getNowUTC()
             for i in range(self.count):
                 href = joinURL(self.sessions[0].calendarHref, "sync-collection-%d.ics" % (i + 1,))
                 self.sessions[0].writeData(URL(path=href), ICAL % (now.getYear() + 1, i + 1,), "text/calendar")

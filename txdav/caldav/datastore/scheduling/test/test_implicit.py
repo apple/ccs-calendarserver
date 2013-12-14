@@ -14,8 +14,8 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 from twext.python.clsprop import classproperty
 from twext.web2 import responsecode
@@ -248,9 +248,9 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user1@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user2@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user3@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+                    ("mailto:user1@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user2@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -287,12 +287,12 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user1@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user2@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user3@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user1@example.com", PyCalendarDateTime(2008, 9, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user2@example.com", PyCalendarDateTime(2008, 9, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user3@example.com", PyCalendarDateTime(2008, 9, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+                    ("mailto:user1@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user2@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user1@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user2@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user3@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -330,15 +330,15 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user1@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user2@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user3@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user1@example.com", PyCalendarDateTime(2008, 9, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user2@example.com", PyCalendarDateTime(2008, 9, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user3@example.com", PyCalendarDateTime(2008, 9, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user1@example.com", PyCalendarDateTime(2008, 12, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user2@example.com", PyCalendarDateTime(2008, 12, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user3@example.com", PyCalendarDateTime(2008, 12, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+                    ("mailto:user1@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user2@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user1@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user2@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user3@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user1@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user2@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user3@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -447,7 +447,7 @@ END:VCALENDAR
 """,
                 (
                     ("mailto:user3@example.com", None),
-                    ("mailto:user3@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -502,7 +502,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user3@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -648,9 +648,9 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user1@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user2@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user3@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+                    ("mailto:user1@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user2@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -705,7 +705,7 @@ END:VCALENDAR
 """,
                 (
                     ("mailto:user3@example.com", None),
-                    ("mailto:user4@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+                    ("mailto:user4@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -751,7 +751,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user4@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+                    ("mailto:user4@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -798,9 +798,9 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user1@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user2@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
-                    ("mailto:user4@example.com", PyCalendarDateTime(2008, 8, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+                    ("mailto:user1@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user2@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user4@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
         )

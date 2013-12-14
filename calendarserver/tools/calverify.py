@@ -47,12 +47,12 @@ import time
 import traceback
 import uuid
 
-from pycalendar import definitions
-from pycalendar.calendar import PyCalendar
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.exceptions import PyCalendarError
-from pycalendar.period import PyCalendarPeriod
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.icalendar import definitions
+from pycalendar.icalendar.calendar import Calendar
+from pycalendar.datetime import DateTime
+from pycalendar.exceptions import ErrorBase
+from pycalendar.period import Period
+from pycalendar.timezone import Timezone
 
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -543,7 +543,7 @@ class CalVerifyService(Service, object):
         tr = schema.TIME_RANGE
         kwds = {
             "Start" : pyCalendarTodatetime(start),
-            "Max"   : pyCalendarTodatetime(PyCalendarDateTime(1900, 1, 1, 0, 0, 0))
+            "Max"   : pyCalendarTodatetime(DateTime(1900, 1, 1, 0, 0, 0))
         }
         rows = (yield Select(
             [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
@@ -596,7 +596,7 @@ class CalVerifyService(Service, object):
         tr = schema.TIME_RANGE
         kwds = {
             "Start" : pyCalendarTodatetime(start),
-            "Max"   : pyCalendarTodatetime(PyCalendarDateTime(1900, 1, 1, 0, 0, 0)),
+            "Max"   : pyCalendarTodatetime(DateTime(1900, 1, 1, 0, 0, 0)),
             "UUID" : uuid,
         }
         rows = (yield Select(
@@ -626,7 +626,7 @@ class CalVerifyService(Service, object):
 
         kwds = {
             "Start" : pyCalendarTodatetime(start),
-            "Max"   : pyCalendarTodatetime(PyCalendarDateTime(1900, 1, 1, 0, 0, 0)),
+            "Max"   : pyCalendarTodatetime(DateTime(1900, 1, 1, 0, 0, 0)),
             "UUID" : uuid,
         }
         rows = (yield Select(
@@ -704,8 +704,8 @@ class CalVerifyService(Service, object):
             ),
         ).on(self.txn, **kwds))
         try:
-            caldata = PyCalendar.parseText(rows[0][0]) if rows else None
-        except PyCalendarError:
+            caldata = Calendar.parseText(rows[0][0]) if rows else None
+        except ErrorBase:
             caltxt = rows[0][0] if rows else None
             if caltxt:
                 caltxt = caltxt.replace("\r\n ", "")
@@ -713,8 +713,8 @@ class CalVerifyService(Service, object):
                     if doFix:
                         caltxt = (yield self.fixBadOldCua(resid, caltxt))
                         try:
-                            caldata = PyCalendar.parseText(caltxt) if rows else None
-                        except PyCalendarError:
+                            caldata = Calendar.parseText(caltxt) if rows else None
+                        except ErrorBase:
                             self.parseError = "No fix bad CALENDARSERVER-OLD-CUA"
                             returnValue(None)
                     else:
@@ -746,8 +746,8 @@ class CalVerifyService(Service, object):
         ).on(self.txn, **kwds))
 
         try:
-            caldata = PyCalendar.parseText(rows[0][0]) if rows else None
-        except PyCalendarError:
+            caldata = Calendar.parseText(rows[0][0]) if rows else None
+        except ErrorBase:
             returnValue((None, None, None, None,))
 
         returnValue((caldata, rows[0][1], rows[0][2], rows[0][3],) if rows else (None, None, None, None,))
@@ -1056,14 +1056,14 @@ class BadDataService(CalVerifyService):
 
         self.output.write("\n---- Scanning calendar data ----\n")
 
-        self.now = PyCalendarDateTime.getNowUTC()
-        self.start = PyCalendarDateTime.getToday()
+        self.now = DateTime.getNowUTC()
+        self.start = DateTime.getToday()
         self.start.setDateOnly(False)
         self.end = self.start.duplicate()
         self.end.offsetYear(1)
         self.fix = self.options["fix"]
 
-        self.tzid = PyCalendarTimezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
+        self.tzid = Timezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
 
         self.txn = self.store.newTransaction()
 
@@ -1426,14 +1426,14 @@ class SchedulingMismatchService(CalVerifyService):
 
         self.output.write("\n---- Scanning calendar data ----\n")
 
-        self.now = PyCalendarDateTime.getNowUTC()
-        self.start = self.options["start"] if "start" in self.options else PyCalendarDateTime.getToday()
+        self.now = DateTime.getNowUTC()
+        self.start = self.options["start"] if "start" in self.options else DateTime.getToday()
         self.start.setDateOnly(False)
         self.end = self.start.duplicate()
         self.end.offsetYear(1)
         self.fix = self.options["fix"]
 
-        self.tzid = PyCalendarTimezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
+        self.tzid = Timezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
 
         self.txn = self.store.newTransaction()
 
@@ -2028,7 +2028,7 @@ class SchedulingMismatchService(CalVerifyService):
         """
         Return the master iCal component in this calendar.
 
-        @return: the L{PyCalendarComponent} for the master component,
+        @return: the L{Component} for the master component,
             or C{None} if there isn't one.
         """
         for component in calendar.getComponents(definitions.cICalComponent_VEVENT):
@@ -2042,7 +2042,7 @@ class SchedulingMismatchService(CalVerifyService):
         # Expand events into instances in the start/end range
         results = []
         calendar.getVEvents(
-            PyCalendarPeriod(
+            Period(
                 start=start,
                 end=end,
             ),
@@ -2082,10 +2082,10 @@ class SchedulingMismatchService(CalVerifyService):
                 if cancelled:
                     partstat = "CANCELLED"
                 else:
-                    if not prop.hasAttribute(definitions.cICalAttribute_PARTSTAT):
-                        partstat = definitions.cICalAttribute_PARTSTAT_NEEDSACTION
+                    if not prop.hasParameter(definitions.cICalParameter_PARTSTAT):
+                        partstat = definitions.cICalParameter_PARTSTAT_NEEDSACTION
                     else:
-                        partstat = prop.getAttributeValue(definitions.cICalAttribute_PARTSTAT)
+                        partstat = prop.getParameterValue(definitions.cICalParameter_PARTSTAT)
 
                 attendees.setdefault(caladdr, set()).add((instance_id, partstat))
 
@@ -2140,9 +2140,9 @@ class DoubleBookingService(CalVerifyService):
 
         self.output.write("\n---- Scanning calendar data ----\n")
 
-        self.tzid = PyCalendarTimezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
-        self.now = PyCalendarDateTime.getNowUTC()
-        self.start = PyCalendarDateTime.getToday()
+        self.tzid = Timezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
+        self.now = DateTime.getNowUTC()
+        self.start = DateTime.getToday()
         self.start.setDateOnly(False)
         self.start.setTimezone(self.tzid)
         self.end = self.start.duplicate()
@@ -2328,7 +2328,7 @@ class DoubleBookingService(CalVerifyService):
                     continue
                 dtstart = instance.component.propertyValue("DTSTART")
                 if tzid is None and dtstart.getTimezoneID():
-                    tzid = PyCalendarTimezone(tzid=dtstart.getTimezoneID())
+                    tzid = Timezone(tzid=dtstart.getTimezoneID())
                 hasFloating |= dtstart.isDateOnly() or dtstart.floating()
 
                 details.append(InstanceDetails(resid, uid, instance.start, instance.end, instance.component.getOrganizer(), instance.component.propertyValue("SUMMARY")))
@@ -2369,7 +2369,7 @@ class DoubleBookingService(CalVerifyService):
 
         # Adjust floating and sort
         if hasFloating and tzid is not None:
-            utc = PyCalendarTimezone(utc=True)
+            utc = Timezone(utc=True)
             for item in details:
                 if item.start.floating():
                     item.start.setTimezone(tzid)
@@ -2449,9 +2449,9 @@ class DarkPurgeService(CalVerifyService):
 
         self.output.write("\n---- Scanning calendar data ----\n")
 
-        self.tzid = PyCalendarTimezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
-        self.now = PyCalendarDateTime.getNowUTC()
-        self.start = self.options["start"] if "start" in self.options else PyCalendarDateTime.getToday()
+        self.tzid = Timezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
+        self.now = DateTime.getNowUTC()
+        self.start = self.options["start"] if "start" in self.options else DateTime.getToday()
         self.start.setDateOnly(False)
         self.start.setTimezone(self.tzid)
         self.fix = self.options["fix"]

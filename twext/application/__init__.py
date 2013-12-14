@@ -1,6 +1,5 @@
-#!/usr/bin/env python
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,18 +14,6 @@
 # limitations under the License.
 ##
 
-import sys
-
-#PYTHONPATH
-
-if __name__ == "__main__":
-    if "PYTHONPATH" in globals():
-        sys.path.insert(0, PYTHONPATH)
-    else:
-        try:
-            import _calendarserver_preamble
-        except ImportError:
-            sys.exc_clear()
-
-    from calendarserver.tools.makepartition import main
-    main()
+"""
+TAP files
+"""

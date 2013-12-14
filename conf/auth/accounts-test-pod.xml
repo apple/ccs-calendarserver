@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<accounts realm="Test Realm">
+  <user>
+    <uid>admin</uid>
+    <guid>admin</guid>
+    <password>admin</password>
+    <name>Super User</name>
+    <first-name>Super</first-name>
+    <last-name>User</last-name>
+  </user>
+  <user repeat="101">
+    <uid>user%02d</uid>
+    <uid>User %02d</uid>
+    <guid>user%02d</guid>
+    <password>user%02d</password>
+    <name>User %02d</name>
+    <first-name>User</first-name>
+    <last-name>%02d</last-name>
+    <email-address>user%02d@example.com</email-address>
+  </user>
+  <user repeat="101">
+    <uid>puser%02d</uid>
+    <uid>Puser %02d</uid>
+    <guid>puser%02d</guid>
+    <password>puser%02d</password>
+    <name>Puser %02d</name>
+    <first-name>Puser</first-name>
+    <last-name>%02d</last-name>
+    <email-address>puser%02d@example.com</email-address>
+  </user>
+</accounts>

@@ -34,7 +34,7 @@ from twistedcaldav import caldavxml, carddavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Component as iComponent
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 
 calendarserver_namespace = "http://calendarserver.org/ns/"
@@ -640,7 +640,7 @@ class DTStamp (WebDAVTextElement):
 
     def __init__(self, *children):
         super(DTStamp, self).__init__(children)
-        self.children = (PCDATAElement(PyCalendarDateTime.getNowUTC().getText()),)
+        self.children = (PCDATAElement(DateTime.getNowUTC().getText()),)
 
 
 

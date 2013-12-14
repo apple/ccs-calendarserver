@@ -32,7 +32,7 @@ from twistedcaldav.config import config
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 from twistedcaldav.ical import Component
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from twistedcaldav.directory.directory import DirectoryService
@@ -124,8 +124,8 @@ class CalendarQuery (StoreTestCase):
         )
 
         query_timerange = caldavxml.TimeRange(
-            start="%04d1001T000000Z" % (PyCalendarDateTime.getToday().getYear(),),
-            end="%04d1101T000000Z" % (PyCalendarDateTime.getToday().getYear(),),
+            start="%04d1001T000000Z" % (DateTime.getToday().getYear(),),
+            end="%04d1101T000000Z" % (DateTime.getToday().getYear(),),
         )
 
         query = caldavxml.CalendarQuery(

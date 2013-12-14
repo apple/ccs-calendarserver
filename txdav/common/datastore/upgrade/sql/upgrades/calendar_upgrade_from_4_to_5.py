@@ -102,10 +102,11 @@ def moveCalendarAvailabilityProperties(home):
     the new value from the XML property.
     """
     inbox = (yield home.calendarWithName("inbox"))
-    prop = inbox.properties().get(PropertyName.fromElement(customxml.CalendarAvailability))
-    if prop is not None:
-        yield home.setAvailability(prop.calendar())
-        del inbox.properties()[customxml.CalendarAvailability]
+    if inbox is not None:
+        prop = inbox.properties().get(PropertyName.fromElement(customxml.CalendarAvailability))
+        if prop is not None:
+            yield home.setAvailability(prop.calendar())
+            del inbox.properties()[PropertyName.fromElement(customxml.CalendarAvailability)]
 
 
 

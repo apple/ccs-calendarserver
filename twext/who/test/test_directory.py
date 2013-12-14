@@ -18,32 +18,96 @@
 Generic directory service base implementation tests.
 """
 
+from uuid import UUID
+from textwrap import dedent
+
 from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
+from twisted.python.constants import Names, NamedConstant
 from twisted.trial import unittest
-from twisted.trial.unittest import SkipTest
 from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import succeed
 
 from twext.who.idirectory import QueryNotSupportedError, NotAllowedError
 from twext.who.idirectory import RecordType, FieldName
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
+from twext.who.expression import CompoundExpression, Operand
 from twext.who.directory import DirectoryService, DirectoryRecord
 
 
 
-class BaseTest(unittest.TestCase):
-    realmName = "xyzzy"
+class StubDirectoryService(DirectoryService):
+    """
+    Stub directory service with some built-in records and an implementation
+    of C{recordsFromNonCompoundExpression}.
+    """
+
+    def __init__(self, realmName):
+        DirectoryService.__init__(self, realmName)
+
+        self.records = RecordStorage(self, DirectoryRecord)
 
 
-    def service(self):
-        if not hasattr(self, "_service"):
-            self._service = DirectoryService(self.realmName)
-        return self._service
+    def recordsFromExpression(self, expression):
+        self.seenExpressions = []
+
+        return DirectoryService.recordsFromExpression(self, expression)
+
+
+    def recordsFromNonCompoundExpression(self, expression, records=None):
+        """
+        This implementation handles three expressions:
+
+        The expression C{u"None"} will match no records.
+
+        The expressions C{u"twistedmatrix.com"} and C{u"calendarserver.org"}
+        will match records that have an email address ending with the
+        given expression.
+        """
+        self.seenExpressions.append(expression)
+
+        if expression == u"None":
+            return succeed([])
+
+        if expression in (u"twistedmatrix.com", u"calendarserver.org"):
+            result = []
+            for record in self.records:
+                for email in record.emailAddresses:
+                    if email.endswith(expression):
+                        result.append(record)
+                        break
+            return succeed(result)
+
+        return DirectoryService.recordsFromNonCompoundExpression(
+            self, expression, records=records
+        )
 
 
 
-class DirectoryServiceTest(BaseTest):
+class ServiceMixIn(object):
+    """
+    MixIn that sets up a service appropriate for testing.
+    """
+
+    realmName = u"xyzzy"
+
+
+    def service(self, subClass=None):
+        if subClass is None:
+            subClass = self.serviceClass
+        return subClass(self.realmName)
+
+
+
+class BaseDirectoryServiceTest(ServiceMixIn):
+    """
+    Tests for directory services.
+    """
+
     def test_interface(self):
+        """
+        Service instance conforms to L{IDirectoryService}.
+        """
         service = self.service()
         try:
             verifyObject(IDirectoryService, service)
@@ -52,16 +116,30 @@ class DirectoryServiceTest(BaseTest):
 
 
     def test_init(self):
+        """
+        Test initialization.
+        """
         service = self.service()
         self.assertEquals(service.realmName, self.realmName)
 
 
     def test_repr(self):
+        """
+        L{DirectoryService.repr} returns the expected string.
+        """
         service = self.service()
-        self.assertEquals(repr(service), "<DirectoryService 'xyzzy'>")
+        self.assertEquals(
+            repr(service),
+            "<{0} u'xyzzy'>".format(self.serviceClass.__name__)
+        )
 
 
     def test_recordTypes(self):
+        """
+        L{DirectoryService.recordTypes} returns the supported set of record
+        types. For L{DirectoryService}, that's the set of constants in the
+        L{DirectoryService.recordType} attribute.
+        """
         service = self.service()
         self.assertEquals(
             set(service.recordTypes()),
@@ -69,102 +147,451 @@ class DirectoryServiceTest(BaseTest):
         )
 
 
+    def test_recordsFromNonCompoundExpression_unknownExpression(self):
+        """
+        L{DirectoryService.recordsFromNonCompoundExpression} with an unknown
+        expression type fails with L{QueryNotSupportedError}.
+        """
+        service = self.service()
+        self.assertFailure(
+            service.recordsFromNonCompoundExpression(object()),
+            QueryNotSupportedError
+        )
+
+
     @inlineCallbacks
-    def test_recordsFromQueryNone(self):
+    def test_recordsFromNonCompoundExpression_emptyRecords(self):
+        """
+        L{DirectoryService.recordsFromNonCompoundExpression} with an unknown
+        expression type and an empty C{records} set returns an empty result.
+        """
         service = self.service()
-        records = (yield service.recordsFromQuery(()))
-        for record in records:
-            self.failTest("No records expected")
+        result = (
+            yield service.recordsFromNonCompoundExpression(
+                object(), records=()
+            )
+        )
+        self.assertEquals(set(result), set(()))
 
 
-    def test_recordsFromQueryBogus(self):
-        service = self.service()
-        self.assertFailure(service.recordsFromQuery((object(),)), QueryNotSupportedError)
-
-
-    def test_recordWithUID(self):
-        raise SkipTest("Subclasses should implement this test.")
-
-
-    def test_recordWithGUID(self):
-        raise SkipTest("Subclasses should implement this test.")
-
-
-    def test_recordsWithRecordType(self):
-        raise SkipTest("Subclasses should implement this test.")
-
-
-    def test_recordWithShortName(self):
-        raise SkipTest("Subclasses should implement this test.")
-
-
-    def test_recordsWithEmailAddress(self):
-        raise SkipTest("Subclasses should implement this test.")
-
-
-
-class DirectoryServiceImmutableTest(BaseTest):
-    def test_updateRecordsNotAllowed(self):
+    def test_recordsFromNonCompoundExpression_nonEmptyRecords(self):
+        """
+        L{DirectoryService.recordsFromNonCompoundExpression} with an unknown
+        expression type and a non-empty C{records} fails with
+        L{QueryNotSupportedError}.
+        """
         service = self.service()
 
-        newRecord = DirectoryRecord(
+        wsanchez = self.directoryRecordClass(
             service,
-            fields = {
-                service.fieldName.uid:        "__plugh__",
+            {
                 service.fieldName.recordType: service.recordType.user,
-                service.fieldName.shortNames: ("plugh",),
+                service.fieldName.uid: u"__wsanchez__",
+                service.fieldName.shortNames: [u"wsanchez"],
             }
         )
 
         self.assertFailure(
-            service.updateRecords((newRecord,), create=True),
-            NotAllowedError,
-        )
-
-        self.assertFailure(
-            service.updateRecords((newRecord,), create=False),
-            NotAllowedError,
+            service.recordsFromNonCompoundExpression(
+                object(), records=((wsanchez,))
+            ),
+            QueryNotSupportedError
         )
 
 
-    def test_removeRecordsNotAllowed(self):
+    def test_recordsFromExpression_unknownExpression(self):
+        """
+        L{DirectoryService.recordsFromExpression} with an unknown expression
+        type fails with L{QueryNotSupportedError}.
+        """
+        service = self.service()
+        result = yield(service.recordsFromExpression(object()))
+        self.assertFailure(result, QueryNotSupportedError)
+
+
+    @inlineCallbacks
+    def test_recordsFromExpression_emptyExpression(self):
+        """
+        L{DirectoryService.recordsFromExpression} with an unknown expression
+        type and an empty L{CompoundExpression} returns an empty result.
+        """
+        service = self.service()
+
+        for operand in Operand.iterconstants():
+            result = yield(service.recordsFromExpression(
+                CompoundExpression((), operand)
+            ))
+            self.assertEquals(set(result), set(()))
+
+
+    def _unimplemented(self):
+        """
+        Unimplemented test.
+        """
+        raise NotImplementedError("Subclasses should implement this test.")
+
+
+    test_recordWithUID = _unimplemented
+    test_recordWithGUID = _unimplemented
+    test_recordsWithRecordType = _unimplemented
+    test_recordWithShortName = _unimplemented
+    test_recordsWithEmailAddress = _unimplemented
+
+
+    def test_updateRecordsEmpty(self):
+        """
+        Updating no records is not an error.
+        """
+        service = self.service()
+        for create in (True, False):
+            service.updateRecords((), create=create),
+
+
+    def test_removeRecordsEmpty(self):
+        """
+        Removing no records is allowed.
+        """
         service = self.service()
 
         service.removeRecords(())
+
+
+
+class DirectoryServiceRecordsFromExpressionTest(
+    unittest.TestCase,
+    ServiceMixIn
+):
+    """
+    Tests for L{DirectoryService.recordsFromExpression}.
+    """
+    serviceClass = StubDirectoryService
+    directoryRecordClass = DirectoryRecord
+
+    @inlineCallbacks
+    def test_recordsFromExpression_single(self):
+        """
+        L{DirectoryService.recordsFromExpression} handles a single expression.
+        """
+        service = self.service()
+
+        result = yield service.recordsFromExpression("twistedmatrix.com")
+
+        self.assertEquals(
+            set((
+                u"__wsanchez__",
+                u"__glyph__",
+                u"__exarkun__",
+                u"__dreid__",
+            )),
+            set((record.uid for record in result))
+        )
+
+
+    @inlineCallbacks
+    def test_recordsFromExpression_OR(self):
+        """
+        L{DirectoryService.recordsFromExpression} handles a
+        L{CompoundExpression} with L{Operand.OR}.
+        """
+        service = self.service()
+
+        result = yield service.recordsFromExpression(
+            CompoundExpression(
+                (
+                    u"twistedmatrix.com",
+                    u"calendarserver.org",
+                ),
+                Operand.OR
+            )
+        )
+
+        self.assertEquals(
+            set((
+                u"__wsanchez__",
+                u"__glyph__",
+                u"__sagen__",
+                u"__cdaboo__",
+                u"__dre__",
+                u"__exarkun__",
+                u"__dreid__",
+            )),
+            set((record.uid for record in result))
+        )
+
+
+    @inlineCallbacks
+    def test_recordsFromExpression_AND(self):
+        """
+        L{DirectoryService.recordsFromExpression} handles a
+        L{CompoundExpression} with L{Operand.AND}.
+        """
+        service = self.service()
+
+        result = yield service.recordsFromExpression(
+            CompoundExpression(
+                (
+                    u"twistedmatrix.com",
+                    u"calendarserver.org",
+                ),
+                Operand.AND
+            )
+        )
+
+        self.assertEquals(
+            set((
+                u"__wsanchez__",
+                u"__glyph__",
+            )),
+            set((record.uid for record in result))
+        )
+
+
+    @inlineCallbacks
+    def test_recordsFromExpression_AND_optimized(self):
+        """
+        L{DirectoryService.recordsFromExpression} handles a
+        L{CompoundExpression} with L{Operand.AND}, and when one of the
+        expression matches no records, the subsequent expressions are skipped.
+        """
+        service = self.service()
+
+        result = yield service.recordsFromExpression(
+            CompoundExpression(
+                (
+                    u"twistedmatrix.com",
+                    u"None",
+                    u"calendarserver.org",
+                ),
+                Operand.AND
+            )
+        )
+
+        self.assertEquals(
+            set(()),
+            set((record.uid for record in result))
+        )
+
+        self.assertEquals(
+            [u"twistedmatrix.com", u"None"],
+            service.seenExpressions
+        )
+
+
+    def test_recordsFromExpression_unknownOperand(self):
+        """
+        L{DirectoryService.recordsFromExpression} fails with
+        L{QueryNotSupportedError} when given a L{CompoundExpression} with an
+        unknown operand.
+        """
+        service = self.service()
+
+        results = service.recordsFromExpression(
+            CompoundExpression(
+                (
+                    u"twistedmatrix.com",
+                    u"calendarserver.org",
+                ),
+                WackyOperand.WHUH
+            )
+        )
+
+        self.assertFailure(results, QueryNotSupportedError)
+
+
+
+class DirectoryServiceConvenienceTest(
+    unittest.TestCase,
+    BaseDirectoryServiceTest
+):
+    """
+    Tests for L{DirectoryService} convenience methods.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
+
+    def test_recordWithUID(self):
+        """
+        L{DirectoryService.recordWithUID} fails with L{QueryNotSupportedError}.
+        """
+        service = self.service()
+
         self.assertFailure(
-            service.removeRecords(("foo",)),
+            service.recordWithUID(u""),
+            QueryNotSupportedError
+        )
+
+
+    def test_recordWithGUID(self):
+        """
+        L{DirectoryService.recordWithGUID} fails with
+        L{QueryNotSupportedError}.
+        """
+        service = self.service()
+
+        self.assertFailure(
+            service.recordWithGUID(UUID(int=0)),
+            QueryNotSupportedError
+        )
+
+
+    def test_recordsWithRecordType(self):
+        """
+        L{DirectoryService.recordsWithRecordType} fails with
+        L{QueryNotSupportedError}.
+        """
+        service = self.service()
+
+        for recordType in RecordType.iterconstants():
+            self.assertFailure(
+                service.recordsWithRecordType(recordType),
+                QueryNotSupportedError
+            )
+
+
+    def test_recordWithShortName(self):
+        """
+        L{DirectoryService.recordWithShortName} fails with
+        L{QueryNotSupportedError}.
+        """
+        service = self.service()
+
+        for recordType in RecordType.iterconstants():
+            self.assertFailure(
+                service.recordWithShortName(recordType, u""),
+                QueryNotSupportedError
+            )
+
+
+    def test_recordsWithEmailAddress(self):
+        """
+        L{DirectoryService.recordsWithEmailAddress} fails with
+        L{QueryNotSupportedError}.
+        """
+        service = self.service()
+
+        self.assertFailure(
+            service.recordsWithEmailAddress("a@b"),
+            QueryNotSupportedError
+        )
+
+
+
+class BaseDirectoryServiceImmutableTest(ServiceMixIn):
+    """
+    Tests for immutable directory services.
+    """
+
+    def test_updateRecordsNotAllowed(self):
+        """
+        Updating records is not allowed.
+        """
+        service = self.service()
+
+        newRecord = self.directoryRecordClass(
+            service,
+            fields={
+                service.fieldName.uid: u"__plugh__",
+                service.fieldName.recordType: service.recordType.user,
+                service.fieldName.shortNames: (u"plugh",),
+            }
+        )
+
+        for create in (True, False):
+            self.assertFailure(
+                service.updateRecords((newRecord,), create=create),
+                NotAllowedError,
+            )
+
+
+    def test_removeRecordsNotAllowed(self):
+        """
+        Removing records is not allowed.
+        """
+        service = self.service()
+
+        self.assertFailure(
+            service.removeRecords((u"foo",)),
             NotAllowedError,
         )
 
 
 
-class DirectoryRecordTest(BaseTest):
+class DirectoryServiceImmutableTest(
+    unittest.TestCase,
+    BaseDirectoryServiceImmutableTest,
+):
+    """
+    Tests for immutable L{DirectoryService}.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
+
+
+class BaseDirectoryRecordTest(ServiceMixIn):
+    """
+    Tests for directory records.
+    """
+
     fields_wsanchez = {
-        FieldName.uid:            "UID:wsanchez",
-        FieldName.recordType:     RecordType.user,
-        FieldName.shortNames:     ("wsanchez", "wilfredo_sanchez"),
-        FieldName.fullNames:      ("Wilfredo Sanchez", "Wilfredo Sanchez Vega"),
-        FieldName.emailAddresses: ("wsanchez@calendarserver.org", "wsanchez@example.com")
+        FieldName.uid: u"UID:wsanchez",
+        FieldName.recordType: RecordType.user,
+        FieldName.shortNames: (u"wsanchez", u"wilfredo_sanchez"),
+        FieldName.fullNames: (
+            u"Wilfredo Sanchez",
+            u"Wilfredo Sanchez Vega",
+        ),
+        FieldName.emailAddresses: (
+            u"wsanchez@calendarserver.org",
+            u"wsanchez@example.com",
+        )
     }
 
     fields_glyph = {
-        FieldName.uid:            "UID:glyph",
-        FieldName.recordType:     RecordType.user,
-        FieldName.shortNames:     ("glyph",),
-        FieldName.fullNames:      ("Glyph Lefkowitz",),
-        FieldName.emailAddresses: ("glyph@calendarserver.org",)
+        FieldName.uid: u"UID:glyph",
+        FieldName.recordType: RecordType.user,
+        FieldName.shortNames: (u"glyph",),
+        FieldName.fullNames: (u"Glyph Lefkowitz",),
+        FieldName.emailAddresses: (u"glyph@calendarserver.org",)
     }
 
     fields_sagen = {
-        FieldName.uid:            "UID:sagen",
-        FieldName.recordType:     RecordType.user,
-        FieldName.shortNames:     ("sagen",),
-        FieldName.fullNames:      ("Morgen Sagen",),
-        FieldName.emailAddresses: ("sagen@CalendarServer.org",)
+        FieldName.uid: u"UID:sagen",
+        FieldName.recordType: RecordType.user,
+        FieldName.shortNames: (u"sagen",),
+        FieldName.fullNames: (u"Morgen Sagen",),
+        FieldName.emailAddresses: (u"sagen@CalendarServer.org",)
+    }
+
+    fields_nobody = {
+        FieldName.uid: u"UID:nobody",
+        FieldName.recordType: RecordType.user,
+        FieldName.shortNames: (u"nobody",),
+    }
+
+    fields_staff = {
+        FieldName.uid: u"UID:staff",
+        FieldName.recordType: RecordType.group,
+        FieldName.shortNames: (u"staff",),
+        FieldName.fullNames: (u"Staff",),
+        FieldName.emailAddresses: (u"staff@CalendarServer.org",)
     }
 
 
-    def _testRecord(self, fields=None, service=None):
+    def makeRecord(self, fields=None, service=None):
+        """
+        Create a directory record from fields and a service.
+
+        @param fields: Record fields.
+        @type fields: L{dict} with L{FieldName} keys
+
+        @param service: Directory service.
+        @type service: L{DirectoryService}
+
+        @return: A directory record.
+        @rtype: L{DirectoryRecord}
+        """
         if fields is None:
             fields = self.fields_wsanchez
         if service is None:
@@ -173,7 +600,10 @@ class DirectoryRecordTest(BaseTest):
 
 
     def test_interface(self):
-        record = self._testRecord()
+        """
+        L{DirectoryRecord} complies with L{IDirectoryRecord}.
+        """
+        record = self.makeRecord()
         try:
             verifyObject(IDirectoryRecord, record)
         except BrokenMethodImplementation as e:
@@ -181,100 +611,348 @@ class DirectoryRecordTest(BaseTest):
 
 
     def test_init(self):
+        """
+        L{DirectoryRecord} initialization sets service and fields.
+        """
         service  = self.service()
-        wsanchez = self._testRecord(self.fields_wsanchez, service=service)
+        wsanchez = self.makeRecord(self.fields_wsanchez, service=service)
 
         self.assertEquals(wsanchez.service, service)
-        self.assertEquals(wsanchez.fields , self.fields_wsanchez)
+        self.assertEquals(wsanchez.fields, self.fields_wsanchez)
 
 
     def test_initWithNoUID(self):
+        """
+        Directory records must have a UID.
+        """
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.uid]
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
-        fields[FieldName.uid] = ""
-        self.assertRaises(ValueError, self._testRecord, fields)
+        fields[FieldName.uid] = u""
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
 
     def test_initWithNoRecordType(self):
+        """
+        Directory records must have a record type.
+        """
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.recordType]
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
         fields = self.fields_wsanchez.copy()
-        fields[FieldName.recordType] = ""
-        self.assertRaises(ValueError, self._testRecord, fields)
-
-
-    def test_initWithNoShortNames(self):
-        fields = self.fields_wsanchez.copy()
-        del fields[FieldName.shortNames]
-        self.assertRaises(ValueError, self._testRecord, fields)
-
-        fields = self.fields_wsanchez.copy()
-        fields[FieldName.shortNames] = ()
-        self.assertRaises(ValueError, self._testRecord, fields)
-
-        fields = self.fields_wsanchez.copy()
-        fields[FieldName.shortNames] = ("",)
-        self.assertRaises(ValueError, self._testRecord, fields)
-
-        fields = self.fields_wsanchez.copy()
-        fields[FieldName.shortNames] = ("wsanchez", "")
-        self.assertRaises(ValueError, self._testRecord, fields)
+        fields[FieldName.recordType] = None
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
 
     def test_initWithBogusRecordType(self):
+        """
+        Directory records must have a known record type.
+        """
         fields = self.fields_wsanchez.copy()
         fields[FieldName.recordType] = object()
-        self.assertRaises(ValueError, self._testRecord, fields)
+        self.assertRaises(ValueError, self.makeRecord, fields)
 
 
-    def test_initNormalize(self):
-        sagen = self._testRecord(self.fields_sagen)
+    def test_initWithNoShortNames(self):
+        """
+        Directory records must have a short name.
+        """
+        fields = self.fields_wsanchez.copy()
+        del fields[FieldName.shortNames]
+        self.assertRaises(ValueError, self.makeRecord, fields)
+
+        fields = self.fields_wsanchez.copy()
+        fields[FieldName.shortNames] = ()
+        self.assertRaises(ValueError, self.makeRecord, fields)
+
+        fields = self.fields_wsanchez.copy()
+        fields[FieldName.shortNames] = (u"",)
+        self.assertRaises(ValueError, self.makeRecord, fields)
+
+        fields = self.fields_wsanchez.copy()
+        fields[FieldName.shortNames] = (u"wsanchez", u"")
+        self.assertRaises(ValueError, self.makeRecord, fields)
+
+
+    def test_initNormalizeEmailLowercase(self):
+        """
+        Email addresses are normalized to lowercase.
+        """
+        sagen = self.makeRecord(self.fields_sagen)
 
         self.assertEquals(
             sagen.fields[FieldName.emailAddresses],
-            ("sagen@calendarserver.org",)
+            (u"sagen@calendarserver.org",)
+        )
+
+
+    def test_repr(self):
+        """
+        L{DirectoryRecord.repr} returns the expected string.
+        """
+        wsanchez = self.makeRecord(self.fields_wsanchez)
+
+        self.assertEquals(
+            "<DirectoryRecord (user)wsanchez>",
+            repr(wsanchez)
         )
 
 
     def test_compare(self):
+        """
+        Comparison of records.
+        """
         fields_glyphmod = self.fields_glyph.copy()
         del fields_glyphmod[FieldName.emailAddresses]
 
-        wsanchez    = self._testRecord(self.fields_wsanchez)
-        wsanchezmod = self._testRecord(self.fields_wsanchez, DirectoryService("plugh"))
-        glyph       = self._testRecord(self.fields_glyph)
-        glyphmod    = self._testRecord(fields_glyphmod)
+        plugh = DirectoryService(u"plugh")
+
+        wsanchez    = self.makeRecord(self.fields_wsanchez)
+        wsanchezmod = self.makeRecord(self.fields_wsanchez, plugh)
+        glyph       = self.makeRecord(self.fields_glyph)
+        glyphmod    = self.makeRecord(fields_glyphmod)
 
         self.assertEquals(wsanchez, wsanchez)
         self.assertNotEqual(wsanchez, glyph)
-        self.assertNotEqual(glyph, glyphmod) # UID matches, other fields do not
+        self.assertNotEqual(glyph, glyphmod)  # UID matches, other fields don't
         self.assertNotEqual(glyphmod, wsanchez)
-        self.assertNotEqual(wsanchez, wsanchezmod) # Different service
+        self.assertNotEqual(wsanchez, wsanchezmod)  # Different service
 
 
     def test_attributeAccess(self):
-        wsanchez = self._testRecord(self.fields_wsanchez)
+        """
+        Fields can be accessed as attributes.
+        """
+        wsanchez = self.makeRecord(self.fields_wsanchez)
 
-        self.assertEquals(wsanchez.recordType    , wsanchez.fields[FieldName.recordType    ])
-        self.assertEquals(wsanchez.uid           , wsanchez.fields[FieldName.uid           ])
-        self.assertEquals(wsanchez.shortNames    , wsanchez.fields[FieldName.shortNames    ])
-        self.assertEquals(wsanchez.emailAddresses, wsanchez.fields[FieldName.emailAddresses])
+        self.assertEquals(
+            wsanchez.recordType,
+            wsanchez.fields[FieldName.recordType]
+        )
+        self.assertEquals(
+            wsanchez.uid,
+            wsanchez.fields[FieldName.uid]
+        )
+        self.assertEquals(
+            wsanchez.shortNames,
+            wsanchez.fields[FieldName.shortNames]
+        )
+        self.assertEquals(
+            wsanchez.emailAddresses,
+            wsanchez.fields[FieldName.emailAddresses]
+        )
+
+        self.assertRaises(AttributeError, lambda: wsanchez.fooBarBaz)
+
+        nobody = self.makeRecord(self.fields_nobody)
+
+        self.assertRaises(AttributeError, lambda: nobody.emailAddresses)
+
+
+    def test_description(self):
+        """
+        L{DirectoryRecord.description} returns the expected string.
+        """
+        sagen = self.makeRecord(self.fields_sagen)
+
+        self.assertEquals(
+            dedent(
+                u"""
+                DirectoryRecord:
+                  UID = UID:sagen
+                  record type = user
+                  short names = (u'sagen',)
+                  full names = (u'Morgen Sagen',)
+                  email addresses = ('sagen@calendarserver.org',)
+                """[1:]
+            ),
+            sagen.description()
+        )
+
+    test_description.todo = "Intermittent order issues"
+
+
+    def test_members_group(self):
+        """
+        Group members for group records.
+        """
+        raise NotImplementedError("Subclasses should implement this test.")
+
 
     @inlineCallbacks
-    def test_members(self):
-        wsanchez = self._testRecord(self.fields_wsanchez)
+    def test_members_nonGroup(self):
+        """
+        Group members for non-group records.  Non-groups have no members.
+        """
+        wsanchez = self.makeRecord(self.fields_wsanchez)
 
         self.assertEquals(
             set((yield wsanchez.members())),
             set()
         )
 
-        raise SkipTest("Subclasses should implement this test.")
 
-    def test_groups(self):
-        raise SkipTest("Subclasses should implement this test.")
+    def test_memberships(self):
+        """
+        Group memberships.
+        """
+        raise NotImplementedError("Subclasses should implement this test.")
+
+
+
+class DirectoryRecordTest(unittest.TestCase, BaseDirectoryRecordTest):
+    """
+    Tests for L{DirectoryRecord}.
+    """
+    serviceClass = DirectoryService
+    directoryRecordClass = DirectoryRecord
+
+    def test_members_group(self):
+        staff = self.makeRecord(self.fields_staff)
+
+        self.assertFailure(staff.members(), NotImplementedError)
+
+
+    def test_memberships(self):
+        wsanchez = self.makeRecord(self.fields_wsanchez)
+
+        self.assertFailure(wsanchez.groups(), NotImplementedError)
+
+
+
+class RecordStorage(object):
+    """
+    Container for directory records.
+    """
+    def __init__(self, service, recordClass):
+        self.service = service
+        self.recordClass = recordClass
+        self.records = []
+
+        self.addDefaultRecords()
+
+
+    def addDefaultRecords(self):
+        """
+        Add a known set of records to this service.
+        """
+        self.addUser(
+            shortNames=[u"wsanchez", u"wilfredo_sanchez"],
+            fullNames=[
+                u"Wilfredo S\xe1nchez Vega",
+                u"Wilfredo Sanchez Vega",
+                u"Wilfredo Sanchez",
+            ],
+            emailAddresses=[
+                u"wsanchez@bitbucket.calendarserver.org",
+                u"wsanchez@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"glyph"],
+            fullNames=[u"Glyph Lefkowitz"],
+            emailAddresses=[
+                u"glyph@bitbucket.calendarserver.org",
+                u"glyph@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"sagen"],
+            fullNames=[u"Morgen Sagen"],
+            emailAddresses=[
+                u"sagen@bitbucket.calendarserver.org",
+                u"shared@example.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"cdaboo"],
+            fullNames=[u"Cyrus Daboo"],
+            emailAddresses=[
+                u"cdaboo@bitbucket.calendarserver.org",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"dre"],
+            fullNames=[u"Andre LaBranche"],
+            emailAddresses=[
+                u"dre@bitbucket.calendarserver.org",
+                u"shared@example.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"exarkun"],
+            fullNames=[u"Jean-Paul Calderone"],
+            emailAddresses=[
+                u"exarkun@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"dreid"],
+            fullNames=[u"David Reid"],
+            emailAddresses=[
+                u"dreid@devnull.twistedmatrix.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"joe"],
+            fullNames=[u"Joe Schmoe"],
+            emailAddresses=[
+                u"joe@example.com",
+            ],
+        )
+
+        self.addUser(
+            shortNames=[u"alyssa"],
+            fullNames=[u"Alyssa P. Hacker"],
+            emailAddresses=[
+                u"alyssa@example.com",
+            ],
+        )
+
+
+    def addUser(self, shortNames, fullNames, emailAddresses=[]):
+        """
+        Add a user record with the given field information.
+
+        @param shortNames: Record short names.
+        @type shortNames: L{list} of L{unicode}s
+
+        @param fullNames: Record full names.
+        @type fullNames: L{list} of L{unicode}s
+
+        @param emailAddresses: Record email addresses.
+        @type emailAddresses: L{list} of L{unicode}s
+        """
+        service = self.service
+        fieldName = service.fieldName
+        recordType = service.recordType
+        self.records.append(self.recordClass(self.service, {
+            fieldName.recordType: recordType.user,
+            fieldName.uid: u"__{0}__".format(shortNames[0]),
+            fieldName.shortNames: shortNames,
+            fieldName.fullNames: fullNames,
+            fieldName.password: u"".join(reversed(shortNames[0])),
+            fieldName.emailAddresses: emailAddresses,
+        }))
+
+
+    def __iter__(self):
+        return iter(self.records)
+
+
+
+class WackyOperand(Names):
+    """
+    Wacky operands.
+    """
+    WHUH = NamedConstant()

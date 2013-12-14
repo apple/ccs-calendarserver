@@ -42,12 +42,10 @@ limitations under the License.
   <record>
     <uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
     <enable>true</enable>
-    <partition-id>00001</partition-id>
   </record>
   <record>
     <uid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</uid>
     <enable>true</enable>
-    <partition-id>00002</partition-id>
   </record>
   <record>
     <uid>6A73326A-F781-47E7-A9F8-AF47364D4152</uid>

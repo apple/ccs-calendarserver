@@ -35,9 +35,9 @@ from os.path import join, abspath
 from tempfile import mkstemp, gettempdir
 from random import random
 
-from pycalendar.n import N
-from pycalendar.adr import Adr
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.vcard.n import N
+from pycalendar.vcard.adr import Adr
+from pycalendar.datetime import DateTime
 
 from socket import getfqdn
 
@@ -1494,7 +1494,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
 
             birthdate = self.isoDateStringForDateAttribute(dsattributes.kDS1AttrBirthday)
             if birthdate:
-                vcard.addProperty(Property("BDAY", PyCalendarDateTime.parseText(birthdate, fullISO=True)))
+                vcard.addProperty(Property("BDAY", DateTime.parseText(birthdate, fullISO=True)))
 
             # 3.2 Delivery Addressing Types http://tools.ietf.org/html/rfc2426#section-3.2
             #
@@ -1685,7 +1685,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
             # 3.6.4 REV Type Definition
             revDate = self.isoDateStringForDateAttribute(dsattributes.kDS1AttrModificationTimestamp)
             if revDate:
-                vcard.addProperty(Property("REV", PyCalendarDateTime.parseText(revDate, fullISO=True)))
+                vcard.addProperty(Property("REV", DateTime.parseText(revDate, fullISO=True)))
 
             """
             # UNIMPLEMENTED:

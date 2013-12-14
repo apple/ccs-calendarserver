@@ -30,7 +30,7 @@ from twisted.python.constants import Names, NamedConstant
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.who.util import ConstantsContainer
-from twext.who.util import describe, uniqueResult, iterFlags
+from twext.who.util import uniqueResult
 from twext.who.idirectory import FieldName as BaseFieldName
 from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.directory import DirectoryService as BaseDirectoryService
@@ -44,7 +44,7 @@ from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 
 class FieldName(Names):
     memberUIDs = NamedConstant()
-    memberUIDs.description = "member UIDs"
+    memberUIDs.description = u"member UIDs"
     memberUIDs.multiValue = True
 
 
@@ -55,7 +55,91 @@ class FieldName(Names):
 
 class DirectoryService(BaseDirectoryService):
     """
-    XML directory service.
+    Generic (and abstract) in-memory-indexed directory service.
+
+    This class implements the record access API in L{BaseDirectoryService} by
+    caching all records in an in-memory dictionary.
+
+    Each indexed field has a top-level key in the index and in turn contains
+    a dictionary in which keys are field values, and values are directory
+    records which have a matching field value for the cooresponding key::
+
+        {
+            <FieldName1>: {
+                <value1a>: set([<record1a1>, ...]),
+                ...
+            },
+            ...
+        }
+
+    Here is an example index for a service with a three user records and one
+    group record::
+
+        {
+            <FieldName=uid>: {
+                u'__calendar-dev__': set([
+                    <DirectoryRecord (group)calendar-dev>
+                ]),
+                u'__dre__': set([
+                    <DirectoryRecord (user)dre>
+                ]),
+                u'__sagen__': set([
+                    <DirectoryRecord (user)sagen>
+                ]),
+                u'__wsanchez__': set([
+                    <DirectoryRecord (user)wsanchez>
+                ])
+            },
+            <FieldName=recordType>: {
+                <RecordType=group>: set([
+                    <DirectoryRecord (group)calendar-dev>,
+                ]),
+                <RecordType=user>: set([
+                    <DirectoryRecord (user)sagen>,
+                    <DirectoryRecord (user)wsanchez>
+                ])
+            },
+            <FieldName=shortNames>: {
+                u'calendar-dev': set([<DirectoryRecord (group)calendar-dev>]),
+                u'dre': set([<DirectoryRecord (user)dre>]),
+                u'sagen': set([<DirectoryRecord (user)sagen>]),
+                u'wilfredo_sanchez': set([<DirectoryRecord (user)wsanchez>]),
+                u'wsanchez': set([<DirectoryRecord (user)wsanchez>])
+            },
+            <FieldName=emailAddresses>: {
+                'dev@bitbucket.calendarserver.org': set([
+                    <DirectoryRecord (group)calendar-dev>
+                ]),
+                'dre@bitbucket.calendarserver.org': set([
+                    <DirectoryRecord (user)dre>
+                ]),
+                'sagen@bitbucket.calendarserver.org': set([
+                    <DirectoryRecord (user)sagen>
+                ]),
+                'shared@example.com': set([
+                    <DirectoryRecord (user)sagen>,
+                    <DirectoryRecord (user)dre>
+                ]),
+                'wsanchez@bitbucket.calendarserver.org': set([
+                    <DirectoryRecord (user)wsanchez>
+                ]),
+                'wsanchez@devnull.twistedmatrix.com': set([
+                    <DirectoryRecord (user)wsanchez>
+                ])
+            },
+            <FieldName=memberUIDs>: {
+                u'__sagen__': set([<DirectoryRecord (group)calendar-dev>]),
+                u'__wsanchez__': set([<DirectoryRecord (group)calendar-dev>])
+            }
+        }
+
+    The field names that are indexed are defined by the C{indexedFields}
+    attribute of the service.
+
+    A subclass must override L{loadRecords}, which populates the index.
+
+    @cvar indexedFields: an iterable of field names (C{NamedConstant})
+        which are indexed.
     """
 
     fieldName = ConstantsContainer(chain(
@@ -81,58 +165,95 @@ class DirectoryService(BaseDirectoryService):
 
     @property
     def index(self):
+        """
+        Call L{loadRecords} and return the index.
+        """
         self.loadRecords()
         return self._index
 
 
-    @index.setter
-    def index(self, value):
-        self._index = value
-
-
     def loadRecords(self):
         """
-        Load records.
+        Load records.  This method is called by the L{index} property and
+        provides a hook into which the index can be updated.
+
+        This method must be implemented by subclasses.
+
+        An example implementation::
+
+            def loadRecords(self):
+                self.flush()
+                while True:
+                    records = readSomeRecordsFromMyBackEnd()
+                    if not records:
+                        break
+                    self.indexRecords(records)
         """
         raise NotImplementedError("Subclasses must implement loadRecords().")
+
+
+    def indexRecords(self, records):
+        """
+        Add some records to the index.
+
+        @param records: The records to index.
+        @type records: iterable of L{DirectoryRecord}
+        """
+        index = self._index
+
+        for fieldName in self.indexedFields:
+            index.setdefault(fieldName, {})
+
+        for record in records:
+            for fieldName in self.indexedFields:
+                values = record.fields.get(fieldName, None)
+
+                if values is not None:
+                    if not BaseFieldName.isMultiValue(fieldName):
+                        values = (values,)
+
+                    for value in values:
+                        index[fieldName].setdefault(value, set()).add(record)
 
 
     def flush(self):
         """
         Flush the index.
         """
-        self._index = None
+        index = {}
 
+        for fieldName in self.indexedFields:
+            index.setdefault(fieldName, {})
 
-    @staticmethod
-    def _queryFlags(flags):
-        predicate = lambda x: x
-        normalize = lambda x: x
-
-        if flags is not None:
-            for flag in iterFlags(flags):
-                if flag == MatchFlags.NOT:
-                    predicate = lambda x: not x
-                elif flag == MatchFlags.caseInsensitive:
-                    normalize = lambda x: x.lower()
-                else:
-                    raise NotImplementedError(
-                        "Unknown query flag: {0}".format(describe(flag))
-                    )
-
-        return predicate, normalize
+        self._index = index
 
 
     def indexedRecordsFromMatchExpression(self, expression, records=None):
         """
-        Finds records in the internal indexes matching a single
-        expression.
-        @param expression: an expression
-        @type expression: L{object}
-        """
-        predicate, normalize = self._queryFlags(expression.flags)
+        Finds records in the internal indexes matching a single expression.
 
-        fieldIndex = self.index[expression.fieldName]
+        @param expression: An expression.
+        @type expression: L{MatchExpression}
+
+        @param records: a set of records to limit the search to. C{None} if
+            the whole directory should be searched.
+        @type records: L{set} or L{frozenset}
+
+        @return: The matching records.
+        @rtype: deferred iterable of L{DirectoryRecord}s
+        """
+        predicate = MatchFlags.predicator(expression.flags)
+        normalize = MatchFlags.normalizer(expression.flags)
+
+        try:
+            fieldIndex = self.index[expression.fieldName]
+        except KeyError:
+            raise TypeError(
+                "indexedRecordsFromMatchExpression() was passed an "
+                "expression with an unindexed field: {0!r}"
+                .format(expression.fieldName)
+            )
+
         matchValue = normalize(expression.fieldValue)
         matchType  = expression.matchType
 
@@ -156,27 +277,36 @@ class DirectoryService(BaseDirectoryService):
                 )
         else:
             raise NotImplementedError(
-                "Unknown match type: {0}".format(describe(matchType))
+                "Unknown match type: {0!r}".format(matchType)
             )
 
         matchingRecords = set()
         for key in indexKeys:
             matchingRecords |= fieldIndex.get(key, frozenset())
 
-        if records is not None:
-            matchingRecords &= records
+        # Not necessary, so don't unless we know it's a performance win:
+        # if records is not None:
+        #     matchingRecords &= records
 
         return succeed(matchingRecords)
 
 
     def unIndexedRecordsFromMatchExpression(self, expression, records=None):
         """
-        Finds records not in the internal indexes matching a single
-        expression.
-        @param expression: an expression
-        @type expression: L{object}
+        Finds records not in the internal indexes matching a single expression.
+
+        @param expression: An expression.
+        @type expression: L{MatchExpression}
+
+        @param records: a set of records to limit the search to. C{None} if
+            the whole directory should be searched.
+        @type records: L{set} or L{frozenset}
+
+        @return: The matching records.
+        @rtype: deferred iterable of L{DirectoryRecord}s
         """
-        predicate, normalize = self._queryFlags(expression.flags)
+        predicate = MatchFlags.predicator(expression.flags)
+        normalize = MatchFlags.normalizer(expression.flags)
 
         matchValue = normalize(expression.fieldValue)
         matchType  = expression.matchType
@@ -191,7 +321,7 @@ class DirectoryService(BaseDirectoryService):
             match = lambda fieldValue: predicate(fieldValue == matchValue)
         else:
             raise NotImplementedError(
-                "Unknown match type: {0}".format(describe(matchType))
+                "Unknown match type: {0!r}".format(matchType)
             )
 
         result = set()
@@ -215,7 +345,11 @@ class DirectoryService(BaseDirectoryService):
         return succeed(result)
 
 
-    def recordsFromExpression(self, expression, records=None):
+    def recordsFromNonCompoundExpression(self, expression, records=None):
+        """
+        This implementation can handle L{MatchExpression} expressions; other
+        expressions are passed up to the superclass.
+        """
         if isinstance(expression, MatchExpression):
             if expression.fieldName in self.indexedFields:
                 return self.indexedRecordsFromMatchExpression(
@@ -226,7 +360,7 @@ class DirectoryService(BaseDirectoryService):
                     expression, records=records
                 )
         else:
-            return BaseDirectoryService.recordsFromExpression(
+            return BaseDirectoryService.recordsFromNonCompoundExpression(
                 self, expression, records=records
             )
 

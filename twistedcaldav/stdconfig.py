@@ -36,6 +36,7 @@ from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 from twistedcaldav.util import computeProcessCount
 
 from calendarserver.push.util import getAPNTopicFromCertificate
+from twistedcaldav import ical
 
 log = Logger()
 
@@ -156,9 +157,8 @@ DEFAULT_SERVICE_PARAMS = {
             "resourceInfoAttr": None, # contains location/resource info
             "autoAcceptGroupAttr": None, # auto accept group
         },
-        "partitionSchema": {
+        "poddingSchema": {
             "serverIdAttr": None, # maps to augments server-id
-            "partitionIdAttr": None, # maps to augments partition-id
         },
     },
 }
@@ -304,7 +304,7 @@ DEFAULT_CONFIG = {
                                     # the master process, rather than having
                                     # each client make its connections directly.
 
-    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
+    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility
                                    # tools from running if the database needs a schema
                                    # upgrade.
     "StopAfterUpgradeTriggerFile" : "stop_after_upgrade",   # if this file exists in ConfigRoot, stop
@@ -546,6 +546,11 @@ DEFAULT_CONFIG = {
     "EnableManagedAttachments"    : False, # Support Managed Attachments
 
     #
+    # Generic CalDAV/CardDAV extensions
+    #
+    "EnableJSONData"          : True, # Allow clients to send/receive JSON jCal and jCard format data
+
+    #
     # Non-standard CalDAV extensions
     #
     "EnableDropBox"           : False, # Calendar Drop Box
@@ -594,6 +599,12 @@ DEFAULT_CONFIG = {
                                                    # split existing calendars into multiples based on component type.
                                                    # If on, it will also cause new accounts to provision with separate
                                                    # calendars for events and tasks.
+
+    "SupportedComponents" : [                      # Set of supported iCalendar components
+        "VEVENT",
+        "VTODO",
+        #"VPOLL",
+    ],
 
     "ParallelUpgrades" : False, # Perform upgrades - currently only the
                                    # database -> filesystem migration - but in
@@ -806,11 +817,11 @@ DEFAULT_CONFIG = {
     # Support multiple hosts within a domain
     #
     "Servers" : {
-        "Enabled": False, # Multiple servers/partitions enabled or not
-        "ConfigFile": "localservers.xml", # File path for server information
-        "MaxClients": 5, # Pool size for connections to each partition
+        "Enabled": False,                   # Multiple servers enabled or not
+        "ConfigFile": "localservers.xml",   # File path for server information
+        "MaxClients": 5,                    # Pool size for connections to between servers
+        "InboxName": "podding",             # Name for top-level inbox resource
     },
-    "ServerPartitionID": "", # Unique ID for this server's partition instance.
 
     #
     # Performance tuning
@@ -881,7 +892,8 @@ DEFAULT_CONFIG = {
 
     # Support for Content-Encoding compression options as specified in
     # RFC2616 Section 3.5
-    "ResponseCompression": True,
+    # Defaults off, because it weakens TLS (CRIME attack).
+    "ResponseCompression": False,
 
     # The retry-after value (in seconds) to return with a 503 error
     "HTTPRetryAfter": 180,
@@ -1011,7 +1023,8 @@ DEFAULT_CONFIG = {
     # means no automatic shutdown.
     "AgentInactivityTimeoutSeconds"  : 4 * 60 * 60,
 
-    # These two aren't relative to ConfigRoot:
+    # These aren't relative to ConfigRoot:
+    "ImportConfig": "", # Config to read first and merge
     "Includes": [], # Other plists to parse after this one
     "WritableConfigFile" : "", # which config file calendarserver_config should
         # write to for changes; empty string means the main config file.
@@ -1043,18 +1056,41 @@ class PListConfigProvider(ConfigProvider):
         if self._configFileName:
             configDict = self._parseConfigFromFile(self._configFileName)
         configDict = ConfigDict(configDict)
-        # Now check for Includes and parse and add each of those
-        if "Includes" in configDict:
-            for include in configDict.Includes:
-                # Includes are not relative to ConfigRoot
-                path = _expandPath(include)
+
+        def _loadImport(childDict):
+            # Look for an import and read that one as the main config and merge the current one into that
+            if "ImportConfig" in childDict and childDict.ImportConfig:
+                configRoot = os.path.join(childDict.ServerRoot, childDict.ConfigRoot)
+                path = _expandPath(fullServerPath(configRoot, childDict.ImportConfig))
                 if os.path.exists(path):
-                    additionalDict = ConfigDict(self._parseConfigFromFile(path))
-                    if additionalDict:
-                        log.info("Adding configuration from file: '%s'" % (path,))
-                        mergeData(configDict, additionalDict)
-                else:
-                    log.debug("Missing configuration file: '%s'" % (path,))
+                    importDict = ConfigDict(self._parseConfigFromFile(path))
+                    if importDict:
+                        self.importedFiles.append(path)
+                        importDict = _loadImport(importDict)
+                        mergeData(importDict, childDict)
+                        return importDict
+                raise ConfigurationError("Import configuration file '{path}' must exist and be valid.".format(path=path))
+            else:
+                return childDict
+
+        def _loadIncludes(parentDict):
+            # Now check for Includes and parse and add each of those
+            if "Includes" in parentDict:
+                configRoot = os.path.join(parentDict.ServerRoot, parentDict.ConfigRoot)
+                for include in parentDict.Includes:
+                    # Includes are not relative to ConfigRoot
+                    path = _expandPath(fullServerPath(configRoot, include))
+                    if os.path.exists(path):
+                        additionalDict = ConfigDict(self._parseConfigFromFile(path))
+                        if additionalDict:
+                            self.includedFiles.append(path)
+                            _loadIncludes(additionalDict)
+                            mergeData(parentDict, additionalDict)
+                    else:
+                        self.missingFiles.append(path)
+
+        configDict = _loadImport(configDict)
+        _loadIncludes(configDict)
         return configDict
 
 
@@ -1479,6 +1515,14 @@ def _updateNotifications(configDict, reloading=False):
 
 
 
+def _updateICalendar(configDict, reloading=False):
+    """
+    Updated support iCalendar components.
+    """
+    ical._updateAllowedComponents(tuple(configDict.SupportedComponents))
+
+
+
 def _updateScheduling(configDict, reloading=False):
     #
     # Scheduling
@@ -1518,8 +1562,7 @@ def _updateServers(configDict, reloading=False):
     from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
     if configDict.Servers.Enabled:
         Servers.load()
-        Servers.getThisServer().installReverseProxies(
-            configDict.ServerPartitionID,
+        Servers.installReverseProxies(
             configDict.Servers.MaxClients,
         )
     else:
@@ -1590,6 +1633,7 @@ POST_UPDATE_HOOKS = (
     _updateRejectClients,
     _updateLogLevels,
     _updateNotifications,
+    _updateICalendar,
     _updateScheduling,
     _updateServers,
     _updateCompliance,

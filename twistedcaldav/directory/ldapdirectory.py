@@ -75,12 +75,13 @@ class LdapDirectoryService(CachingDirectoryService):
         return "<%s %r: %r>" % (self.__class__.__name__, self.realmName,
             self.uri)
 
+
     def __init__(self, params):
         """
         @param params: a dictionary containing the following keys:
             cacheTimeout, realmName, uri, tls, tlsCACertFile, tlsCACertDir,
             tlsRequireCert, credentials, rdnSchema, groupSchema, resourceSchema
-            partitionSchema
+            poddingSchema
         """
 
         defaults = {
@@ -188,9 +189,8 @@ class LdapDirectoryService(CachingDirectoryService):
                 "readOnlyProxyAttr": None, # list of GUIDs
                 "autoAcceptGroupAttr": None, # single group GUID
             },
-            "partitionSchema": {
+            "poddingSchema": {
                 "serverIdAttr": None, # maps to augments server-id
-                "partitionIdAttr": None, # maps to augments partition-id
             },
         }
         ignored = None
@@ -222,7 +222,7 @@ class LdapDirectoryService(CachingDirectoryService):
         self.rdnSchema = params["rdnSchema"]
         self.groupSchema = params["groupSchema"]
         self.resourceSchema = params["resourceSchema"]
-        self.partitionSchema = params["partitionSchema"]
+        self.poddingSchema = params["poddingSchema"]
 
         self.base = ldap.dn.str2dn(self.rdnSchema["base"])
 
@@ -272,10 +272,8 @@ class LdapDirectoryService(CachingDirectoryService):
             attrSet.add(self.resourceSchema["proxyAttr"])
         if self.resourceSchema["readOnlyProxyAttr"]:
             attrSet.add(self.resourceSchema["readOnlyProxyAttr"])
-        if self.partitionSchema["serverIdAttr"]:
-            attrSet.add(self.partitionSchema["serverIdAttr"])
-        if self.partitionSchema["partitionIdAttr"]:
-            attrSet.add(self.partitionSchema["partitionIdAttr"])
+        if self.poddingSchema["serverIdAttr"]:
+            attrSet.add(self.poddingSchema["serverIdAttr"])
         self.attrlist = list(attrSet)
 
         self.typeDNs = {}
@@ -284,9 +282,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 self.rdnSchema[recordType]["rdn"].lower()
             ) + self.base
 
-
         self.ldap = None
-
 
         # Separate LDAP connection used solely for authenticating clients
         self.authLDAP = None
@@ -314,7 +310,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
         # Query the LDAP server
         self.log.debug("Querying ldap for records matching base {base} and "
-            "filter {filter} for attributes {attrs}.", 
+            "filter {filter} for attributes {attrs}.",
             base=ldap.dn.dn2str(base), filter=filterstr, attrs=self.attrlist)
 
         # This takes a while, so if you don't want to have a "long request"
@@ -353,6 +349,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
         return records
 
+
     @inlineCallbacks
     def recordWithCachedGroupsAlias(self, recordType, alias):
         """
@@ -372,6 +369,7 @@ class LdapDirectoryService(CachingDirectoryService):
             returnValue(results[0])
         else:
             returnValue(None)
+
 
     def getExternalProxyAssignments(self):
         """
@@ -425,6 +423,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
         return assignments
 
+
     def getLDAPConnection(self):
         if self.ldap is None:
             self.log.info("Connecting to LDAP {uri}", uri=repr(self.uri))
@@ -442,6 +441,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     self.log.error("Can't bind to LDAP {uri}: check credentials", uri=self.uri)
                     raise DirectoryConfigurationError()
         return self.ldap
+
 
     def createLDAPConnection(self):
         """
@@ -478,7 +478,7 @@ class LdapDirectoryService(CachingDirectoryService):
         """
         TRIES = 3
 
-        for i in xrange(TRIES):
+        for _ignore_i in xrange(TRIES):
             self.log.debug("Authenticating %s" % (dn,))
 
             if self.authLDAP is None:
@@ -555,11 +555,11 @@ class LdapDirectoryService(CachingDirectoryService):
                 self.log.warn("LDAP timeout exceeded: %d seconds" % (timeoutSeconds,))
             except ldap.SERVER_DOWN:
                 self.ldap = None
-                self.log.error("LDAP server unavailable (tried %d times)" % (i+1,))
+                self.log.error("LDAP server unavailable (tried %d times)" % (i + 1,))
                 continue
 
             # change format, ignoring resultsType
-            result = [resultItem for resultType, resultItem in s.allResults]
+            result = [resultItem for _ignore_resultType, resultItem in s.allResults]
 
             totalTime = time.time() - startTime
             if totalTime > self.warningThresholdSeconds:
@@ -769,7 +769,6 @@ class LdapDirectoryService(CachingDirectoryService):
         """
 
         guid = None
-        shortNames = ()
         authIDs = set()
         fullName = None
         firstName = ""
@@ -891,30 +890,27 @@ class LdapDirectoryService(CachingDirectoryService):
                     autoAcceptGroup = self._getUniqueLdapAttribute(attrs,
                         self.resourceSchema["autoAcceptGroupAttr"])
 
-        serverID = partitionID = None
-        if self.partitionSchema["serverIdAttr"]:
+        serverID = None
+        if self.poddingSchema["serverIdAttr"]:
             serverID = self._getUniqueLdapAttribute(attrs,
-                self.partitionSchema["serverIdAttr"])
-        if self.partitionSchema["partitionIdAttr"]:
-            partitionID = self._getUniqueLdapAttribute(attrs,
-                self.partitionSchema["partitionIdAttr"])
+                self.poddingSchema["serverIdAttr"])
 
         record = LdapDirectoryRecord(
-            service                 = self,
-            recordType              = recordType,
-            guid                    = guid,
-            shortNames              = shortNames,
-            authIDs                 = authIDs,
-            fullName                = fullName,
-            firstName               = firstName,
-            lastName                = lastName,
-            emailAddresses          = emailAddresses,
-            uid                     = uid,
-            dn                      = dn,
-            memberGUIDs             = memberGUIDs,
-            extProxies              = proxyGUIDs,
-            extReadOnlyProxies      = readOnlyProxyGUIDs,
-            attrs                   = attrs,
+            service=self,
+            recordType=recordType,
+            guid=guid,
+            shortNames=shortNames,
+            authIDs=authIDs,
+            fullName=fullName,
+            firstName=firstName,
+            lastName=lastName,
+            emailAddresses=emailAddresses,
+            uid=uid,
+            dn=dn,
+            memberGUIDs=memberGUIDs,
+            extProxies=proxyGUIDs,
+            extReadOnlyProxies=readOnlyProxyGUIDs,
+            attrs=attrs,
         )
 
         if self.augmentService is not None:
@@ -924,7 +920,7 @@ class LdapDirectoryService(CachingDirectoryService):
             # immediately.
             d = self.augmentService.getAugmentRecord(record.guid,
                 recordType)
-            d.addCallback(lambda x:record.addAugmentInformation(x))
+            d.addCallback(lambda x: record.addAugmentInformation(x))
 
         else:
             # Generate augment record based on information retrieved from LDAP
@@ -932,7 +928,6 @@ class LdapDirectoryService(CachingDirectoryService):
                 guid,
                 enabled=True,
                 serverID=serverID,
-                partitionID=partitionID,
                 enabledForCalendaring=enabledForCalendaring,
                 autoSchedule=autoSchedule,
                 autoAcceptGroup=autoAcceptGroup,
@@ -965,7 +960,7 @@ class LdapDirectoryService(CachingDirectoryService):
         matching the indexType and indexKey parameters.
 
         recordTypes is a list of record types to limit the search to.
-        indexType specifies one of the CachingDirectoryService contstants
+        indexType specifies one of the CachingDirectoryService constants
             identifying which attribute to search on.
         indexKey is the value to search for.
 
@@ -994,7 +989,8 @@ class LdapDirectoryService(CachingDirectoryService):
                 # Query on guid only works if guid attribute has been defined.
                 # Support for query on guid even if is auto-generated should
                 # be added.
-                if not guidAttr: return
+                if not guidAttr:
+                    return
                 filterstr = "(&%s(%s=%s))" % (filterstr, guidAttr, indexKey)
 
             elif indexType == self.INDEX_TYPE_SHORTNAME:
@@ -1157,7 +1153,6 @@ class LdapDirectoryService(CachingDirectoryService):
 
                 self.log.debug("LDAP search returned %d results, %d usable" % (len(results), typeCounts[recordType]))
 
-
         typeCountsStr = ", ".join(["%s:%d" % (rt, ct) for (rt, ct) in typeCounts.iteritems()])
         totalTime = time.time() - startTime
         self.log.info("Calendar user search for %s matched %d records (%s) in %.2f seconds" % (tokens, len(records), typeCountsStr, totalTime))
@@ -1172,7 +1167,7 @@ class LdapDirectoryService(CachingDirectoryService):
         """
         records = []
 
-        self.log.debug("Peforming principal property search for %s" % (fields,))
+        self.log.debug("Performing principal property search for %s" % (fields,))
 
         if recordType is None:
             # Make a copy since we're modifying it
@@ -1324,6 +1319,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
         returnValue(recordsByAlias.values())
 
+
     def recordTypeForDN(self, dnStr):
         """
         Examine a DN to determine which recordType it belongs to
@@ -1339,11 +1335,13 @@ class LdapDirectoryService(CachingDirectoryService):
         return None
 
 
+
 def dnContainedIn(child, parent):
     """
     Return True if child dn is contained within parent dn, otherwise False.
     """
     return child[-len(parent):] == parent
+
 
 
 def normalizeDNstr(dnStr):
@@ -1356,6 +1354,7 @@ def normalizeDNstr(dnStr):
     return ' '.join(ldap.dn.dn2str(ldap.dn.str2dn(dnStr.lower())).split())
 
 
+
 def _convertValue(value, matchType):
     if matchType == "starts-with":
         value = "%s*" % (ldapEsc(value),)
@@ -1365,6 +1364,8 @@ def _convertValue(value, matchType):
     else:
         value = ldapEsc(value)
     return value
+
+
 
 def buildFilter(recordType, mapping, fields, operand="or", optimizeMultiName=False):
     """
@@ -1403,8 +1404,8 @@ def buildFilter(recordType, mapping, fields, operand="or", optimizeMultiName=Fal
                 # try the various firstName/lastName permutations:
                 if recordType == "users":
                     converted = []
-                    for firstName, firstCaseless, firstMatchType in combined["firstName"]:
-                        for lastName, lastCaseless, lastMatchType in combined["lastName"]:
+                    for firstName, _ignore_firstCaseless, firstMatchType in combined["firstName"]:
+                        for lastName, _ignore_lastCaseless, lastMatchType in combined["lastName"]:
                             if firstName != lastName:
                                 firstValue = _convertValue(firstName, firstMatchType)
                                 lastValue = _convertValue(lastName, lastMatchType)
@@ -1427,12 +1428,13 @@ def buildFilter(recordType, mapping, fields, operand="or", optimizeMultiName=Fal
         # name, guid)
         additional = []
         for key in ("recordName", "guid"):
-            if mapping.has_key(key):
+            if key in mapping:
                 additional.append("(%s=*)" % (mapping.get(key),))
         if additional:
             filterstr = "(&%s%s)" % ("".join(additional), filterstr)
 
     return filterstr
+
 
 
 def buildFilterFromTokens(recordType, mapping, tokens, extra=None):
@@ -1497,6 +1499,7 @@ def buildFilterFromTokens(recordType, mapping, tokens, extra=None):
     return filterStr
 
 
+
 class LdapDirectoryRecord(CachingDirectoryRecord):
     """
     LDAP implementation of L{IDirectoryRecord}.
@@ -1509,18 +1512,18 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         attrs
     ):
         super(LdapDirectoryRecord, self).__init__(
-            service               = service,
-            recordType            = recordType,
-            guid                  = guid,
-            shortNames            = shortNames,
-            authIDs               = authIDs,
-            fullName              = fullName,
-            firstName             = firstName,
-            lastName              = lastName,
-            emailAddresses        = emailAddresses,
-            extProxies            = extProxies,
-            extReadOnlyProxies    = extReadOnlyProxies,
-            uid                   = uid,
+            service=service,
+            recordType=recordType,
+            guid=guid,
+            shortNames=shortNames,
+            authIDs=authIDs,
+            fullName=fullName,
+            firstName=firstName,
+            lastName=lastName,
+            emailAddresses=emailAddresses,
+            extProxies=extProxies,
+            extReadOnlyProxies=extReadOnlyProxies,
+            uid=uid,
         )
 
         # Save attributes of dn and attrs in case you might need them later
@@ -1547,6 +1550,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         except AttributeError:
             self._members_storage = self._members()
             return self._members_storage
+
 
     def _members(self):
         """ Fault in records for the members of this group """
@@ -1578,7 +1582,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
 
                 dn, attrs = result.pop()
                 dn = normalizeDNstr(dn)
-                self.log.debug("Retrieved: %s %s" % (dn,attrs))
+                self.log.debug("Retrieved: %s %s" % (dn, attrs))
                 recordType = self.service.recordTypeForDN(dn)
                 if recordType is None:
                     self.log.error("Unable to map %s to a record type" % (dn,))
@@ -1595,6 +1599,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
 
         return results
 
+
     def groups(self):
         """ Return the records representing groups this record is a member of """
         try:
@@ -1602,6 +1607,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         except AttributeError:
             self._groups_storage = self._groups()
             return self._groups_storage
+
 
     def _groups(self):
         """ Fault in the groups of which this record is a member """
@@ -1618,7 +1624,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         if len(membersAttrs) == 1:
             filterstr = "(%s=%s)" % (membersAttrs[0], self._memberId)
         else:
-            filterstr = "(|%s)" % ( "".join(
+            filterstr = "(|%s)" % ("".join(
                     ["(%s=%s)" % (a, self._memberId) for a in membersAttrs]
                 ),
             )
@@ -1641,6 +1647,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
 
         return groups
 
+
     def cachedGroupsAlias(self):
         """
         See directory.py for full description
@@ -1649,6 +1656,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         will be set to the appropriate value to look up group-membership with.
         """
         return self._memberId
+
 
     def memberGUIDs(self):
         return set(self._memberGUIDs)
@@ -1717,9 +1725,12 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         return super(LdapDirectoryRecord, self).verifyCredentials(credentials)
 
 
+
 class MissingRecordNameException(Exception):
     """ Raised when LDAP record is missing recordName """
     pass
+
+
 
 class MissingGuidException(Exception):
     """ Raised when LDAP record is missing guidAttr and it's required """

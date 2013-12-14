@@ -74,6 +74,7 @@ create table CALENDAR_HOME_METADATA (
   QUOTA_USED_BYTES         integer     default 0 not null,
   DEFAULT_EVENTS           integer     default null references CALENDAR on delete set null,
   DEFAULT_TASKS            integer     default null references CALENDAR on delete set null,
+  DEFAULT_POLLS            integer     default null references CALENDAR on delete set null,
   ALARM_VEVENT_TIMED       text        default null,
   ALARM_VEVENT_ALLDAY      text        default null,
   ALARM_VTODO_TIMED        text        default null,
@@ -87,6 +88,8 @@ create index CALENDAR_HOME_METADATA_DEFAULT_EVENTS on
 	CALENDAR_HOME_METADATA(DEFAULT_EVENTS);
 create index CALENDAR_HOME_METADATA_DEFAULT_TASKS on
 	CALENDAR_HOME_METADATA(DEFAULT_TASKS);
+create index CALENDAR_HOME_METADATA_DEFAULT_POLLS on
+	CALENDAR_HOME_METADATA(DEFAULT_POLLS);
 
 -----------------------
 -- Calendar Metadata --
@@ -504,7 +507,7 @@ create table SHARED_GROUP_BIND (
   MESSAGE                      		text,                  -- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_RESOURCE_ID), -- implicit index
-  unique (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_ADDRESSBOOK_NAME)     -- implicit index
+  unique (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_ADDRESSBOOK_NAME)  -- implicit index
 );
 
 create index SHARED_GROUP_BIND_RESOURCE_ID on
@@ -534,8 +537,8 @@ create table CALENDAR_OBJECT_REVISIONS (
 create index CALENDAR_OBJECT_REVISIONS_HOME_RESOURCE_ID_CALENDAR_RESOURCE_ID
   on CALENDAR_OBJECT_REVISIONS(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID);
 
-create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
-  on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, RESOURCE_NAME);
+create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME_DELETED_REVISION
+  on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, RESOURCE_NAME, DELETED, REVISION);
 
 create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
   on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, REVISION);
@@ -558,8 +561,8 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
 create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_HOME_RESOURCE_ID
   on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID);
 
-create index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_RESOURCE_NAME
-  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_HOME_RESOURCE_ID, RESOURCE_NAME);
+create index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_RESOURCE_NAME_DELETED_REVISION
+  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_HOME_RESOURCE_ID, RESOURCE_NAME, DELETED, REVISION);
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_REVISION
   on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_HOME_RESOURCE_ID, REVISION);
@@ -669,7 +672,8 @@ create table IMIP_REPLY_WORK (
 create table PUSH_NOTIFICATION_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  PUSH_ID                       varchar(255) not null
+  PUSH_ID                       varchar(255) not null,
+  PRIORITY                      integer      not null -- 1:low 5:medium 10:high
 );
 
 -----------------
@@ -704,6 +708,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '26');
+insert into CALENDARSERVER values ('VERSION', '29');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');

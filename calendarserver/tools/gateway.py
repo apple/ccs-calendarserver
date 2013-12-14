@@ -36,9 +36,9 @@ from calendarserver.tools.principals import getProxies, setProxies, updateRecord
 from calendarserver.tools.purge import WorkerService, PurgeOldEventsService, DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS
 from calendarserver.tools.cmdline import utilityMain
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
-from twistedcaldav.config import config, ConfigDict 
+from twistedcaldav.config import config, ConfigDict
 
 from calendarserver.tools.config import WRITABLE_CONFIG_KEYS, setKeyPath, getKeyPath, flattenDictionary, WritableConfig
 
@@ -156,6 +156,7 @@ attrMap = {
     'ZIP' : { 'extras' : True, 'attr' : 'zip', },
     'Country' : { 'extras' : True, 'attr' : 'country', },
     'Phone' : { 'extras' : True, 'attr' : 'phone', },
+    'Geo' : { 'extras' : True, 'attr' : 'geo', },
     'AutoSchedule' : { 'attr' : 'autoSchedule', },
     'AutoAcceptGroup' : { 'attr' : 'autoAcceptGroup', },
 }
@@ -373,7 +374,7 @@ class Runner(object):
             return
         self.respondWithRecordsOfTypes(self.dir, command, ["resources"])
 
-        
+
     def command_getLocationAndResourceList(self, command):
         self.respondWithRecordsOfTypes(self.dir, command, ["locations", "resources"])
 
@@ -424,9 +425,7 @@ class Runner(object):
             self.command_readConfig(command)
 
 
-
     # Proxies
-
 
     @inlineCallbacks
     def command_listWriteProxies(self, command):
@@ -538,12 +537,11 @@ class Runner(object):
         @type command: C{dict}
         """
         retainDays = command.get("RetainDays", DEFAULT_RETAIN_DAYS)
-        cutoff = PyCalendarDateTime.getToday()
+        cutoff = DateTime.getToday()
         cutoff.setDateOnly(False)
         cutoff.offsetDay(-retainDays)
         eventCount = (yield PurgeOldEventsService.purgeOldEvents(self.store, cutoff, DEFAULT_BATCH_SIZE))
         self.respond(command, {'EventsRemoved' : eventCount, "RetainDays" : retainDays})
-
 
 
     @inlineCallbacks
@@ -562,7 +560,6 @@ class Runner(object):
         })
 
 
-
     def respondWithRecordsOfTypes(self, directory, command, recordTypes):
         result = []
         for recordType in recordTypes:
@@ -572,13 +569,13 @@ class Runner(object):
         self.respond(command, result)
 
 
-
     def respond(self, command, result):
         self.output.write(writePlistToString({'command' : command['command'], 'result' : result}))
 
 
     def respondWithError(self, msg, status=1):
         self.output.write(writePlistToString({'error' : msg, }))
+
 
 
 def recordToDict(record):
@@ -595,6 +592,8 @@ def recordToDict(record):
         except KeyError:
             pass
     return recordDict
+
+
 
 def respondWithError(msg, status=1):
     sys.stdout.write(writePlistToString({'error' : msg, }))

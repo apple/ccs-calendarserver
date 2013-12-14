@@ -142,8 +142,6 @@ if runLDAPTests or runODTests:
             record = self.svc.recordWithShortName("users", "odtestcarlene")
             self.assertTrue(record in records)
 
-
-
     if runLDAPTests:
 
         from twistedcaldav.directory.ldapdirectory import LdapDirectoryService
@@ -195,7 +193,6 @@ if runLDAPTests or runODTests:
                     },
                 }
                 self.svc = LdapDirectoryService(params)
-
 
     if runODTests:
 

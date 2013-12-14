@@ -55,9 +55,9 @@ from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.config import config
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
+from pycalendar.timezone import Timezone
 
 log = Logger()
 
@@ -341,7 +341,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
                     maxDate = maxDate.duplicate()
                     maxDate.setDateOnly(True)
                     if isStartDate:
-                        maxDate += PyCalendarDuration(days=365)
+                        maxDate += Duration(days=365)
                     self.testAndUpdateIndex(maxDate)
             else:
                 # We cannot handle this filter in an indexed search
@@ -671,7 +671,7 @@ class CalendarIndex (AbstractCalendarIndex):
         if master is None or not calendar.isRecurring():
             # When there is no master we have a set of overridden components - index them all.
             # When there is one instance - index it.
-            expand = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            expand = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
             doInstanceIndexing = True
         else:
             # If migrating or re-creating or config option for delayed indexing is off, always index
@@ -682,8 +682,8 @@ class CalendarIndex (AbstractCalendarIndex):
             # by default.  This is a caching parameter which affects the size of the index;
             # it does not affect search results beyond this period, but it may affect
             # performance of such a search.
-            expand = (PyCalendarDateTime.getToday() +
-                      PyCalendarDuration(days=config.FreeBusyIndexExpandAheadDays))
+            expand = (DateTime.getToday() +
+                      Duration(days=config.FreeBusyIndexExpandAheadDays))
 
             if expand_until and expand_until > expand:
                 expand = expand_until
@@ -700,8 +700,8 @@ class CalendarIndex (AbstractCalendarIndex):
             # occurrences into some obscenely far-in-the-future date, so we cap the caching
             # period.  Searches beyond this period will always be relatively expensive for
             # resources with occurrences beyond this period.
-            if expand > (PyCalendarDateTime.getToday() +
-                         PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)):
+            if expand > (DateTime.getToday() +
+                         Duration(days=config.FreeBusyIndexExpandMaxDays)):
                 raise IndexedSearchException()
 
         # Always do recurrence expansion even if we do not intend to index - we need this to double-check the
@@ -716,7 +716,7 @@ class CalendarIndex (AbstractCalendarIndex):
         # Now coerce indexing to off if needed
         if not doInstanceIndexing:
             instances = None
-            recurrenceLimit = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
 
         self._delete_from_db(name, uid, False)
 
@@ -782,8 +782,8 @@ class CalendarIndex (AbstractCalendarIndex):
             # Special - for unbounded recurrence we insert a value for "infinity"
             # that will allow an open-ended time-range to always match it.
             if calendar.isRecurringUnbounded():
-                start = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-                end = PyCalendarDateTime(2100, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
+                start = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+                end = DateTime(2100, 1, 1, 1, 0, 0, tzid=Timezone(utc=True))
                 float = 'N'
                 self._db_execute(
                     """

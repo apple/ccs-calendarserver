@@ -64,7 +64,7 @@ END:VCALENDAR
         yield delivery.generateSchedulingResponses()
 
         self.assertEqual(len(responses.responses), 1)
-        self.assertEqual(str(responses.responses[0].children[1]), iTIPRequestStatus.SERVICE_UNAVAILABLE)
+        self.assertEqual(str(responses.responses[0].reqstatus), iTIPRequestStatus.SERVICE_UNAVAILABLE)
 
 
     @inlineCallbacks
