@@ -35,14 +35,20 @@ from twext.internet.gaiendpoint import GAIEndpoint
 ##
 
 try:
-    from ctypes import *
-    import ctypes.util
+    from ctypes import (
+        cdll,
+        c_int, c_uint64, c_ulong,
+        c_char_p, c_void_p,
+        addressof, sizeof, c_size_t,
+        connect,
+    )
+    from ctypes.util import find_library
     hasCtypes = True
 except ImportError:
     hasCtypes = False
 
 if sys.platform == "darwin" and hasCtypes:
-    libc = cdll.LoadLibrary(ctypes.util.find_library("libc"))
+    libc = cdll.LoadLibrary(find_library("libc"))
 
     def getNCPU():
         """
@@ -56,8 +62,8 @@ if sys.platform == "darwin" and hasCtypes:
         ]
         libc.sysctlbyname(
             "hw.ncpu",
-            c_voidp(addressof(ncpu)),
-            c_voidp(addressof(size)),
+            c_void_p(addressof(ncpu)),
+            c_void_p(addressof(size)),
             None,
             0
         )
@@ -77,8 +83,8 @@ if sys.platform == "darwin" and hasCtypes:
         ]
         libc.sysctlbyname(
             "hw.memsize",
-            c_voidp(addressof(memsize)),
-            c_voidp(addressof(size)),
+            c_void_p(addressof(memsize)),
+            c_void_p(addressof(size)),
             None,
             0
         )
@@ -87,7 +93,7 @@ if sys.platform == "darwin" and hasCtypes:
 
 
 elif sys.platform == "linux2" and hasCtypes:
-    libc = cdll.LoadLibrary(ctypes.util.find_library("libc"))
+    libc = cdll.LoadLibrary(find_library("libc"))
 
     def getNCPU():
         return libc.get_nprocs()
