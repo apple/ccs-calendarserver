@@ -14,7 +14,7 @@ else
 fi;
 
 if [ $# -eq 0 ]; then
-  set - calendarserver twext twisted twistedcaldav txdav contrib;
+  set - calendarserver twisted twistedcaldav txdav contrib;
 fi;
 
 tmp="$(mktemp "/tmp/pyflakes.XXXXX")";
@@ -22,7 +22,6 @@ tmp="$(mktemp "/tmp/pyflakes.XXXXX")";
 cd "${wd}" && "${pyflakes}" "$@" | sed                                    \
   -e "/'from ctypes import \\*' used; unable to detect undefined names/d" \
   -e "/redefinition of unused/d"                                          \
-  -e "/^twext\\/backport/d"                                               \
   -e "/xmlext.py:[0-9][0-9]*: /d"                                         \
   | tee "${tmp}";
 
