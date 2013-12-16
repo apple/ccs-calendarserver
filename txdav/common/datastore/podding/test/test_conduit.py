@@ -32,6 +32,9 @@ from pycalendar.datetime import DateTime
 from twistedcaldav.ical import Component, normalize_iCalStr
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError, \
     ObjectResourceNameNotAllowedError
+from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
+from twistedcaldav.caldavxml import TimeRange
+from pycalendar.period import Period
 
 class TestConduit (CommonCommonTests, twext.web2.dav.test.util.TestCase):
 
@@ -770,6 +773,7 @@ END:VCALENDAR
         self.assertTrue(resource is not None)
         self.assertEqual(resource.name(), "1.ics")
         self.assertEqual(resource.uid(), "uid1")
+        self.assertFalse(resource._componentChanged)
         yield self.otherCommit()
 
         shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
@@ -884,3 +888,42 @@ END:VCALENDAR
         object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
         self.assertTrue(object1 is None)
         yield self.commit()
+
+
+    @inlineCallbacks
+    def test_freebusy(self):
+        """
+        Test that action=component works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commit()
+
+        fbstart = "{now:04d}0102T000000Z".format(**self.nowYear)
+        fbend = "{now:04d}0103T000000Z".format(**self.nowYear)
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+
+        fbinfo = [[], [], []]
+        matchtotal = yield generateFreeBusyInfo(
+            shared,
+            fbinfo,
+            TimeRange(start=fbstart, end=fbend),
+            0,
+            excludeuid=None,
+            organizer=None,
+            organizerPrincipal=None,
+            same_calendar_user=False,
+            servertoserver=False,
+            event_details=False,
+            logItems=None
+        )
+
+        self.assertEqual(matchtotal, 1)
+        self.assertEqual(fbinfo[0], [Period.parseText("{now:04d}0102T140000Z/PT1H".format(**self.nowYear)), ])
+        self.assertEqual(len(fbinfo[1]), 0)
+        self.assertEqual(len(fbinfo[2]), 0)
+        yield self.otherCommit()

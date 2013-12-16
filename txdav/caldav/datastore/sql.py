@@ -2147,6 +2147,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         Scheduling will be done automatically.
         """
 
+        if isinstance(component, str) or isinstance(component, unicode):
+            component = self._componentClass.fromString(component)
         return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, smart_merge)
 
 

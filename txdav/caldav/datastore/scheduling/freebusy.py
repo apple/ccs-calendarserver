@@ -92,8 +92,87 @@ class FBCacheEntry(object):
 
 
 
-@inlineCallbacks
 def generateFreeBusyInfo(
+    calresource,
+    fbinfo,
+    timerange,
+    matchtotal,
+    excludeuid=None,
+    organizer=None,
+    organizerPrincipal=None,
+    same_calendar_user=False,
+    servertoserver=False,
+    event_details=None,
+    logItems=None,
+):
+    """
+    Get freebusy information for a calendar. Different behavior for internal vs external calendars.
+
+    See L{_internalGenerateFreeBusyInfo} for argument description.
+    """
+
+    # TODO: this method really should be moved to L{CalendarObject} so the internal/external pieces
+    # can be split across L{CalendarObject} and L{CalendarObjectExternal}
+    if calresource.external():
+        return _externalGenerateFreeBusyInfo(
+            calresource,
+            fbinfo,
+            timerange,
+            matchtotal,
+            excludeuid,
+            organizer,
+            organizerPrincipal,
+            same_calendar_user,
+            servertoserver,
+            event_details,
+            logItems
+        )
+    else:
+        return _internalGenerateFreeBusyInfo(
+            calresource,
+            fbinfo,
+            timerange,
+            matchtotal,
+            excludeuid,
+            organizer,
+            organizerPrincipal,
+            same_calendar_user,
+            servertoserver,
+            event_details,
+            logItems
+        )
+
+
+
+@inlineCallbacks
+def _externalGenerateFreeBusyInfo(
+    calresource,
+    fbinfo,
+    timerange,
+    matchtotal,
+    excludeuid=None,
+    organizer=None,
+    organizerPrincipal=None,
+    same_calendar_user=False,
+    servertoserver=False,
+    event_details=None,
+    logItems=None,
+):
+    """
+    Generate a freebusy response for an external (cross-pod) calendar by making a cross-pod call. This will bypass
+    any type of smart caching on this pod in favor of using caching on the pod hosting the actual calendar data.
+
+    See L{_internalGenerateFreeBusyInfo} for argument description.
+    """
+    fbresults, matchtotal = yield calresource._txn.store().conduit.send_freebusy(calresource, timerange, matchtotal, excludeuid, organizer, organizerPrincipal, same_calendar_user, servertoserver, event_details)
+    for i in range(3):
+        fbinfo[i].extend([Period.parseText(p) for p in fbresults[i]])
+    returnValue(matchtotal)
+
+
+
+@inlineCallbacks
+def _internalGenerateFreeBusyInfo(
     calresource,
     fbinfo,
     timerange,

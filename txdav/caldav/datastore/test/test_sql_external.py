@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,18 +15,17 @@
 ##
 
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.trial.unittest import TestCase
+from twisted.internet.defer import inlineCallbacks
 
 from twext.python.clsprop import classproperty
-from txdav.common.datastore.test.util import CommonCommonTests, \
-    populateCalendarsFrom
-from txdav.caldav.datastore.test.util import buildCalendarStore
+from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, \
     _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
+from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 
 
-class BaseSharingTests(CommonCommonTests, TestCase):
+class BaseSharingTests(MultiStoreConduitTest):
+
     """
     Test store-based calendar sharing.
     """
@@ -34,7 +33,6 @@ class BaseSharingTests(CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(BaseSharingTests, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
 
@@ -83,33 +81,6 @@ END:VCALENDAR
     }
 
 
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlCalendarStore
-
-
-    @inlineCallbacks
-    def _createShare(self):
-        # Invite
-        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
-        invites = yield calendar.sharingInvites()
-        self.assertEqual(len(invites), 0)
-
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
-        inviteUID = shareeView.shareUID()
-        yield self.commit()
-
-        # Accept
-        shareeHome = yield self.homeUnderTest(name="user02")
-        shareeView = yield shareeHome.acceptShare(inviteUID)
-        sharedName = shareeView.name()
-        yield self.commit()
-
-        returnValue(sharedName)
-
-
 
 class CalendarSharing(BaseSharingTests):
 
@@ -137,45 +108,48 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(calendar.isShared())
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUserToShare("puser02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
         self.assertEqual(invites[0].uid, shareeView.shareUID())
         self.assertEqual(invites[0].ownerUID, "user01")
-        self.assertEqual(invites[0].shareeUID, "user02")
+        self.assertEqual(invites[0].shareeUID, "puser02")
         self.assertEqual(invites[0].mode, _BIND_MODE_READ)
         self.assertEqual(invites[0].status, _BIND_STATUS_INVITED)
         self.assertEqual(invites[0].summary, "summary")
+
         inviteUID = shareeView.shareUID()
-
         sharedName = shareeView.name()
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
-        self.assertTrue(shared is None)
-
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
-        notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [inviteUID, ])
 
         self.assertTrue(calendar.isShared())
 
         yield self.commit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser02", name=sharedName)
+        self.assertTrue(shared is None)
+
+        notifyHome = yield self.otherTransactionUnderTest().notificationsWithUID("puser02")
+        notifications = yield notifyHome.listNotificationObjects()
+        self.assertEqual(notifications, [inviteUID, ])
+        yield self.otherCommit()
 
         # Uninvite
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
 
-        yield calendar.uninviteUserFromShare("user02")
+        yield calendar.uninviteUserFromShare("puser02")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
-
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
-        notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(notifications, [])
 
         self.assertTrue(calendar.isShared())
 
         yield self.commit()
+
+        notifyHome = yield self.otherTransactionUnderTest().notificationsWithUID("puser02")
+        notifications = yield notifyHome.listNotificationObjects()
+        self.assertEqual(notifications, [])
+        yield self.otherCommit()
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertTrue(calendar.isShared())
@@ -195,29 +169,33 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(calendar.isShared())
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUserToShare("puser02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
+
         inviteUID = shareeView.shareUID()
-
         sharedName = shareeView.name()
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
-        self.assertTrue(shared is None)
-
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
-        notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(len(notifications), 1)
 
         self.assertTrue(calendar.isShared())
 
         yield self.commit()
 
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser02", name=sharedName)
+        self.assertTrue(shared is None)
+
+        notifyHome = yield self.otherTransactionUnderTest().notificationsWithUID("puser02")
+        notifications = yield notifyHome.listNotificationObjects()
+        self.assertEqual(len(notifications), 1)
+        yield self.otherCommit()
+
         # Accept
-        shareeHome = yield self.homeUnderTest(name="user02")
+        txn2 = self.newOtherTransaction()
+        shareeHome = yield self.homeUnderTest(txn=txn2, name="puser02")
         yield shareeHome.acceptShare(inviteUID)
 
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertTrue(shared is not None)
+        yield self.otherCommit()
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
@@ -229,11 +207,13 @@ class CalendarSharing(BaseSharingTests):
         yield self.commit()
 
         # Re-accept
-        shareeHome = yield self.homeUnderTest(name="user02")
+        txn2 = self.newOtherTransaction()
+        shareeHome = yield self.homeUnderTest(txn=txn2, name="puser02")
         yield shareeHome.acceptShare(inviteUID)
 
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertTrue(shared is not None)
+        yield self.otherCommit()
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
@@ -255,29 +235,34 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(calendar.isShared())
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUserToShare("puser02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
+
         inviteUID = shareeView.shareUID()
-
         sharedName = shareeView.name()
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
-        self.assertTrue(shared is None)
-
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
-        notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(len(notifications), 1)
 
         self.assertTrue(calendar.isShared())
 
         yield self.commit()
 
+        txn2 = self.newOtherTransaction()
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
+        self.assertTrue(shared is None)
+
+        notifyHome = yield txn2.notificationsWithUID("puser02")
+        notifications = yield notifyHome.listNotificationObjects()
+        self.assertEqual(len(notifications), 1)
+        yield self.otherCommit()
+
         # Decline
-        shareeHome = yield self.homeUnderTest(name="user02")
+        txn2 = self.newOtherTransaction()
+        shareeHome = yield self.homeUnderTest(txn=txn2, name="puser02")
         yield shareeHome.declineShare(inviteUID)
 
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertTrue(shared is None)
+        yield self.otherCommit()
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
@@ -289,11 +274,13 @@ class CalendarSharing(BaseSharingTests):
         yield self.commit()
 
         # Redecline
-        shareeHome = yield self.homeUnderTest(name="user02")
+        txn2 = self.newOtherTransaction()
+        shareeHome = yield self.homeUnderTest(txn=txn2, name="puser02")
         yield shareeHome.declineShare(inviteUID)
 
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertTrue(shared is None)
+        yield self.otherCommit()
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
@@ -316,29 +303,34 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(calendar.isShared())
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUserToShare("puser02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
 
         sharedName = shareeView.name()
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
-        self.assertTrue(shared is None)
-
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
-        notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(len(notifications), 1)
 
         self.assertTrue(calendar.isShared())
 
         yield self.commit()
 
+        txn2 = self.newOtherTransaction()
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
+        self.assertTrue(shared is None)
+
+        notifyHome = yield txn2.notificationsWithUID("puser02")
+        notifications = yield notifyHome.listNotificationObjects()
+        self.assertEqual(len(notifications), 1)
+        yield self.otherCommit()
+
         # Accept
-        shareeHome = yield self.homeUnderTest(name="user02")
+        txn2 = self.newOtherTransaction()
+        shareeHome = yield self.homeUnderTest(txn=txn2, name="puser02")
         yield shareeHome.acceptShare(inviteUID)
 
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertTrue(shared is not None)
+        yield self.otherCommit()
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
@@ -350,11 +342,13 @@ class CalendarSharing(BaseSharingTests):
         yield self.commit()
 
         # Decline
-        shareeHome = yield self.homeUnderTest(name="user02")
+        txn2 = self.newOtherTransaction()
+        shareeHome = yield self.homeUnderTest(txn=txn2, name="puser02")
         yield shareeHome.declineShare(inviteUID)
 
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertTrue(shared is None)
+        yield self.otherCommit()
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
@@ -376,27 +370,32 @@ class CalendarSharing(BaseSharingTests):
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUserToShare("puser02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
+
         inviteUID = shareeView.shareUID()
-
         sharedName = shareeView.name()
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
-        self.assertTrue(shared is None)
-
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
-        notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(len(notifications), 1)
 
         yield self.commit()
 
+        txn2 = self.newOtherTransaction()
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
+        self.assertTrue(shared is None)
+
+        notifyHome = yield txn2.notificationsWithUID("puser02")
+        notifications = yield notifyHome.listNotificationObjects()
+        self.assertEqual(len(notifications), 1)
+        yield self.otherCommit()
+
         # Accept
-        shareeHome = yield self.homeUnderTest(name="user02")
+        txn2 = self.newOtherTransaction()
+        shareeHome = yield self.homeUnderTest(txn=txn2, name="puser02")
         yield shareeHome.acceptShare(inviteUID)
 
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertTrue(shared is not None)
+        yield self.otherCommit()
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
@@ -405,15 +404,70 @@ class CalendarSharing(BaseSharingTests):
         yield self.commit()
 
         # Delete
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        txn2 = self.newOtherTransaction()
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         yield shared.deleteShare()
+        yield self.otherCommit()
 
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        txn2 = self.newOtherTransaction()
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertTrue(shared is None)
+        yield self.otherCommit()
 
         notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(notifications, [inviteUID + "-reply", ])
+
+
+    @inlineCallbacks
+    def test_accept_remove_accept(self):
+        yield self.createShare()
+        yield self.removeShare()
+        shared_name = yield self.createShare()
+
+        txn2 = self.newOtherTransaction()
+        otherCal = yield self.calendarUnderTest(txn=txn2, home="puser02", name=shared_name)
+        self.assertTrue(otherCal is not None)
+        yield self.otherCommit()
+
+
+    @inlineCallbacks
+    def test_accept_remove_accept_newcalendar(self):
+        """
+        Test that deleting and re-creating a share with the same sharer name works.
+        """
+
+        home = yield self.homeUnderTest(name="user01", create=True)
+        yield home.createCalendarWithName("shared")
+        yield self.commit()
+
+        shared_name = yield self.createShare(name="shared")
+
+        txn2 = self.newOtherTransaction()
+        otherCal = yield self.calendarUnderTest(txn=txn2, home="puser02", name=shared_name)
+        self.assertTrue(otherCal is not None)
+        yield self.otherCommit()
+
+        yield self.removeShare(name="shared")
+        home = yield self.homeUnderTest(name="user01", create=True)
+        yield home.removeCalendarWithName("shared")
+        yield self.commit()
+
+        txn2 = self.newOtherTransaction()
+        otherCal = yield self.calendarUnderTest(txn=txn2, home="puser02", name=shared_name)
+        self.assertTrue(otherCal is None)
+        yield self.otherCommit()
+
+        home = yield self.homeUnderTest(name="user01", create=True)
+        yield home.createCalendarWithName("shared")
+        yield self.commit()
+
+        shared_name = yield self.createShare(name="shared")
+
+        txn2 = self.newOtherTransaction()
+        otherCal = yield self.calendarUnderTest(txn=txn2, home="puser02", name=shared_name)
+        self.assertTrue(otherCal is not None)
+        yield self.otherCommit()
 
 
     @inlineCallbacks
@@ -423,9 +477,10 @@ class CalendarSharing(BaseSharingTests):
         yield calendar.setUsedForFreeBusy(True)
         yield self.commit()
 
-        shared_name = yield self._createShare()
+        shared_name = yield self.createShare()
 
-        shared = yield self.calendarUnderTest(home="user02", name=shared_name)
+        txn2 = self.newOtherTransaction()
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=shared_name)
         self.assertFalse(shared.isUsedForFreeBusy())
 
 
@@ -441,41 +496,47 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(calendar.isShared())
 
-        shareeView = yield calendar.directShareWithUser("user02")
+        shareeView = yield calendar.directShareWithUser("puser02")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
         self.assertEqual(invites[0].uid, shareeView.shareUID())
         self.assertEqual(invites[0].ownerUID, "user01")
-        self.assertEqual(invites[0].shareeUID, "user02")
+        self.assertEqual(invites[0].shareeUID, "puser02")
         self.assertEqual(invites[0].mode, _BIND_MODE_DIRECT)
         self.assertEqual(invites[0].status, _BIND_STATUS_ACCEPTED)
 
         sharedName = shareeView.name()
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
-        self.assertTrue(shared is not None)
-
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
-        notifications = yield notifyHome.listNotificationObjects()
-        self.assertEqual(len(notifications), 0)
 
         yield self.commit()
 
+        txn2 = self.newOtherTransaction()
+        shared = yield self.calendarUnderTest(txn=txn2, home="user02", name=sharedName)
+        self.assertTrue(shared is not None)
+
+        notifyHome = yield txn2.notificationsWithUID("user02")
+        notifications = yield notifyHome.listNotificationObjects()
+        self.assertEqual(len(notifications), 0)
+        yield self.otherCommit()
+
         # Remove
-        shared = yield self.calendarUnderTest(home="user02", name=sharedName)
+        txn2 = self.newOtherTransaction()
+        shared = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         yield shared.deleteShare()
+        yield self.otherCommit()
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
+        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user01")
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(len(notifications), 0)
 
+    test_direct_sharee.skip = True
 
     @inlineCallbacks
     def test_sharedNotifierID(self):
-        shared_name = yield self._createShare()
+        shared_name = yield self.createShare()
 
         home = yield self.homeUnderTest(name="user01")
         self.assertEquals(home.notifierID(), ("CalDAV", "user01",))
@@ -483,11 +544,27 @@ class CalendarSharing(BaseSharingTests):
         self.assertEquals(calendar.notifierID(), ("CalDAV", "user01/calendar",))
         yield self.commit()
 
-        home = yield self.homeUnderTest(name="user02")
-        self.assertEquals(home.notifierID(), ("CalDAV", "user02",))
+        txn2 = self.newOtherTransaction()
+        home = yield self.homeUnderTest(txn=txn2, name="puser02")
+        self.assertEquals(home.notifierID(), ("CalDAV", "puser02",))
         calendar = yield home.calendarWithName(shared_name)
         self.assertEquals(calendar.notifierID(), ("CalDAV", "user01/calendar",))
-        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_sharedWithTwo(self):
+        shared_name1 = yield self.createShare(shareeGUID="puser02")
+        shared_name2 = yield self.createShare(shareeGUID="puser03")
+
+        txn2 = self.newOtherTransaction()
+        otherCal = yield self.calendarUnderTest(txn=txn2, home="puser02", name=shared_name1)
+        self.assertTrue(otherCal is not None)
+        yield self.otherCommit()
+
+        txn2 = self.newOtherTransaction()
+        otherCal = yield self.calendarUnderTest(txn=txn2, home="puser03", name=shared_name2)
+        self.assertTrue(otherCal is not None)
+        yield self.otherCommit()
 
 
 
@@ -501,11 +578,13 @@ class SharingRevisions(BaseSharingTests):
         """
         Verify that bindRevision on calendars and shared calendars has the correct value.
         """
-        sharedName = yield self._createShare()
+        sharedName = yield self.createShare()
 
         normalCal = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertEqual(normalCal._bindRevision, 0)
-        otherCal = yield self.calendarUnderTest(home="user02", name=sharedName)
+
+        txn2 = self.newOtherTransaction()
+        otherCal = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertNotEqual(otherCal._bindRevision, 0)
 
 
@@ -519,25 +598,31 @@ class SharingRevisions(BaseSharingTests):
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUserToShare("puser02", _BIND_MODE_READ, "summary")
         newCalName = shareeView.shareUID()
         yield self.commit()
 
         normalCal = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertEqual(normalCal._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name="user02")
-        otherCal = yield otherHome.anyObjectWithShareUID(newCalName)
-        self.assertEqual(otherCal._bindRevision, 0)
         yield self.commit()
 
-        shareeHome = yield self.homeUnderTest(name="user02")
+        txn2 = self.newOtherTransaction()
+        otherHome = yield self.homeUnderTest(txn=txn2, name="puser02")
+        otherCal = yield otherHome.anyObjectWithShareUID(newCalName)
+        self.assertEqual(otherCal._bindRevision, 0)
+        yield self.otherCommit()
+
+        txn2 = self.newOtherTransaction()
+        shareeHome = yield self.homeUnderTest(txn=txn2, name="puser02")
         shareeView = yield shareeHome.acceptShare(newCalName)
         sharedName = shareeView.name()
-        yield self.commit()
+        yield self.otherCommit()
 
         normalCal = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertEqual(normalCal._bindRevision, 0)
-        otherCal = yield self.calendarUnderTest(home="user02", name=sharedName)
+
+        txn2 = self.newOtherTransaction()
+        otherCal = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertNotEqual(otherCal._bindRevision, 0)
 
 
@@ -546,29 +631,50 @@ class SharingRevisions(BaseSharingTests):
         """
         Verify that resourceNamesSinceRevision returns all resources after initial bind and sync.
         """
-        sharedName = yield self._createShare()
+        sharedName = yield self.createShare()
 
         normalCal = yield self.calendarUnderTest(home="user01", name="calendar")
         self.assertEqual(normalCal._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name="user02")
-        otherCal = yield self.calendarUnderTest(home="user02", name=sharedName)
+
+        txn2 = self.newOtherTransaction()
+        otherHome = yield self.homeUnderTest(txn=txn2, name="puser02")
+        otherCal = yield self.calendarUnderTest(txn=txn2, home="puser02", name=sharedName)
         self.assertNotEqual(otherCal._bindRevision, 0)
 
-        changed, deleted = yield otherCal.resourceNamesSinceRevision(otherCal._bindRevision - 1)
+        sync_token = yield otherCal.syncToken()
+        revision = otherCal.revisionFromToken(sync_token)
+
+        changed, deleted = yield otherCal.resourceNamesSinceRevision(revision - 1)
         self.assertNotEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
 
-        changed, deleted = yield otherCal.resourceNamesSinceRevision(otherCal._bindRevision)
+        changed, deleted = yield otherCal.resourceNamesSinceRevision(revision)
         self.assertEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
 
-        for depth in ("1", "infinity",):
-            changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(otherCal._bindRevision - 1, depth)
-            self.assertNotEqual(len(changed), 0)
-            self.assertEqual(len(deleted), 0)
-            self.assertEqual(len(invalid), 0)
+        sync_token = yield otherHome.syncToken()
+        revision = otherHome.revisionFromToken(sync_token)
 
-            changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(otherCal._bindRevision, depth)
+        for depth in ("1", "infinity",):
+            changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(revision - 1, depth)
+            self.assertEqual(len(changed), 0 if depth == "infinity" else 1)
+            self.assertEqual(len(deleted), 0)
+            self.assertEqual(len(invalid), 1 if depth == "infinity" else 0)
+
+            changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(revision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
+            self.assertEqual(len(invalid), 1 if depth == "infinity" else 0)
+
+        yield self.otherCommit()
+
+        yield self.removeShare()
+
+        txn2 = self.newOtherTransaction()
+        otherHome = yield self.homeUnderTest(txn=txn2, name="puser02")
+
+        for depth in ("1", "infinity",):
+            changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(revision, depth)
+            self.assertEqual(len(changed), 0)
+            self.assertEqual(len(deleted), 1)
             self.assertEqual(len(invalid), 0)

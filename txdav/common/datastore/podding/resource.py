@@ -139,6 +139,11 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
             self.log.error("Invalid JSON data in request: {ex}\n{body}", ex=e, body=body)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid JSON data in request: {}\n{}".format(e, body)))
 
+        # Log extended item
+        if not hasattr(request, "extendedLogItems"):
+            request.extendedLogItems = {}
+        request.extendedLogItems["xpod"] = j["action"] if "action" in j else "unknown"
+
         # Get the conduit to process the data
         try:
             result = yield self.store.conduit.processRequest(j)

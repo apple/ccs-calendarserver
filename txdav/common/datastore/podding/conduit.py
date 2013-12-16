@@ -22,6 +22,8 @@ from txdav.common.datastore.podding.request import ConduitRequest
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 from txdav.common.icommondatastore import ExternalShareFailed
 from twisted.python.reflect import namedClass
+from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
+from twistedcaldav.caldavxml import TimeRange
 
 
 __all__ = [
@@ -372,6 +374,66 @@ class PoddingConduit(object):
         })
 
 
+    @inlineCallbacks
+    def send_shareremove(self, txn, homeType, ownerUID, shareeUID, shareUID):
+        """
+        Send a sharing remove cross-pod message.
+
+        @param homeType: Type of home being shared.
+        @type homeType: C{int}
+        @param ownerUID: GUID of the sharer.
+        @type ownerUID: C{str}
+        @param shareeUID: GUID of the recipient
+        @type shareeUID: C{str}
+        @param shareUID: Resource/invite ID for recipient
+        @type shareUID: C{str}
+        """
+
+        _ignore_sender, recipient = self.validRequst(shareeUID, ownerUID)
+
+        action = {
+            "action": "shareremove",
+            "type": homeType,
+            "owner": ownerUID,
+            "sharee": shareeUID,
+            "share_id": shareUID,
+        }
+
+        result = yield self.sendRequest(txn, recipient, action)
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def recv_shareremove(self, txn, message):
+        """
+        Process a sharing remove cross-pod message. Message arguments as per L{send_shareremove}.
+
+        @param message: message arguments
+        @type message: C{dict}
+        """
+
+        if message["action"] != "shareremove":
+            raise FailedCrossPodRequestError("Wrong action '{}' for recv_shareremove".format(message["action"]))
+
+        # Create a share
+        ownerHome = yield txn.homeWithUID(message["type"], message["owner"])
+        if ownerHome is None or ownerHome.external():
+            FailedCrossPodRequestError("Invalid owner UID specified")
+
+        try:
+            yield ownerHome.processExternalRemove(
+                message["owner"],
+                message["sharee"],
+                message["share_id"],
+            )
+        except ExternalShareFailed as e:
+            FailedCrossPodRequestError(str(e))
+
+        returnValue({
+            "result": "ok",
+        })
+
+
     #
     # Sharer data access related apis
     #
@@ -415,24 +477,28 @@ class PoddingConduit(object):
         if message["action"] != expected_action:
             raise FailedCrossPodRequestError("Wrong action '{}' for recv_{}".format(message["action"], expected_action))
 
-        # Create a share
-        ownerHome = yield txn.homeWithUID(message["type"], message["owner"], create=True)
+        # Get a share
+        ownerHome = yield txn.homeWithUID(message["type"], message["owner"])
         if ownerHome is None or ownerHome.external():
             FailedCrossPodRequestError("Invalid owner UID specified")
 
-        ownerHomeChild = yield ownerHome.childWithID(message["owner_id"])
-        if ownerHomeChild is None:
-            FailedCrossPodRequestError("Invalid owner shared resource specified")
+        shareeHome = yield txn.homeWithUID(message["type"], message["sharee"])
+        if shareeHome is None or not shareeHome.external():
+            FailedCrossPodRequestError("Invalid sharee UID specified")
+
+        shareeView = yield shareeHome.childWithID(message["owner_id"])
+        if shareeView is None:
+            FailedCrossPodRequestError("Invalid shared resource specified")
 
         resourceID = message.get("resource_id", None)
         if resourceID is not None:
-            objectResource = yield ownerHomeChild.objectResourceWithID(resourceID)
+            objectResource = yield shareeView.objectResourceWithID(resourceID)
             if objectResource is None:
                 FailedCrossPodRequestError("Invalid owner shared object resource specified")
         else:
             objectResource = None
 
-        returnValue((ownerHome, ownerHomeChild, objectResource,))
+        returnValue((shareeView, objectResource,))
 
 
     #
@@ -451,6 +517,8 @@ class PoddingConduit(object):
         @type shareeView: L{CommonHomeChildExternal}
         @param objectResource: the resource being operated on, or C{None} for classmethod.
         @type objectResource: L{CommonObjectResourceExternal}
+        @param transform: a function used to convert the JSON result into return values.
+        @type transform: C{callable}
         @param args: list of optional arguments.
         @type args: C{list}
         @param kwargs: optional keyword arguments.
@@ -485,41 +553,112 @@ class PoddingConduit(object):
         @type transform: C{callable}
         """
 
-        _ignore_ownerHome, ownerHomeChild, objectResource = yield self._recv(txn, message, actionName)
+        shareeView, objectResource = yield self._recv(txn, message, actionName)
         try:
             if onHomeChild:
                 # Operate on the L{CommonHomeChild}
-                value = yield getattr(ownerHomeChild, method)(*message.get("arguments", ()), **message.get("keywords", {}))
+                value = yield getattr(shareeView, method)(*message.get("arguments", ()), **message.get("keywords", {}))
             else:
                 # Operate on the L{CommonObjectResource}
                 if objectResource is not None:
                     value = yield getattr(objectResource, method)(*message.get("arguments", ()), **message.get("keywords", {}))
                 else:
                     # classmethod call
-                    value = yield getattr(ownerHomeChild._objectResourceClass, method)(ownerHomeChild, *message.get("arguments", ()), **message.get("keywords", {}))
+                    value = yield getattr(shareeView._objectResourceClass, method)(shareeView, *message.get("arguments", ()), **message.get("keywords", {}))
         except Exception as e:
             returnValue({
                 "result": "exception",
                 "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
                 "message": str(e),
             })
-        if transform is not None:
-            value = transform(value, ownerHomeChild, objectResource)
 
         returnValue({
             "result": "ok",
-            "value": value,
+            "value": transform(value, shareeView, objectResource) if transform is not None else value,
+        })
+
+
+    @inlineCallbacks
+    def send_freebusy(
+        self,
+        calresource,
+        timerange,
+        matchtotal,
+        excludeuid,
+        organizer,
+        organizerPrincipal,
+        same_calendar_user,
+        servertoserver,
+        event_details,
+    ):
+        action, recipient = self._send("freebusy", calresource)
+        action["timerange"] = [timerange.start.getText(), timerange.end.getText()]
+        action["matchtotal"] = matchtotal
+        action["excludeuid"] = excludeuid
+        action["organizer"] = organizer
+        action["organizerPrincipal"] = organizerPrincipal
+        action["same_calendar_user"] = same_calendar_user
+        action["servertoserver"] = servertoserver
+        action["event_details"] = event_details
+        result = yield self.sendRequest(calresource._txn, recipient, action)
+        if result["result"] == "ok":
+            returnValue((result["fbresults"], result["matchtotal"],))
+        elif result["result"] == "exception":
+            raise namedClass(result["class"])(result["message"])
+
+
+    @inlineCallbacks
+    def recv_freebusy(self, txn, message):
+        """
+        Process a freebusy cross-pod message. Message arguments as per L{send_freebusy}.
+
+        @param message: message arguments
+        @type message: C{dict}
+        """
+
+        shareeView, _ignore_objectResource = yield self._recv(txn, message, "freebusy")
+        try:
+            # Operate on the L{CommonHomeChild}
+            fbinfo = [[], [], []]
+            matchtotal = yield generateFreeBusyInfo(
+                shareeView,
+                fbinfo,
+                TimeRange(start=message["timerange"][0], end=message["timerange"][1]),
+                message["matchtotal"],
+                message["excludeuid"],
+                message["organizer"],
+                message["organizerPrincipal"],
+                message["same_calendar_user"],
+                message["servertoserver"],
+                message["event_details"],
+                logItems=None
+            )
+        except Exception as e:
+            returnValue({
+                "result": "exception",
+                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                "message": str(e),
+            })
+
+        for i in range(3):
+            for j in range(len(fbinfo[i])):
+                fbinfo[i][j] = fbinfo[i][j].getText()
+
+        returnValue({
+            "result": "ok",
+            "fbresults": fbinfo,
+            "matchtotal": matchtotal,
         })
 
 
     @staticmethod
-    def _transform_string(value, ownerHomeChild, objectResource):
+    def _result_string(value, shareeView, objectResource):
         return str(value)
 
 
     @staticmethod
-    def _transform_externalize(value, ownerHomeChild, objectResource):
-        if isinstance(value, ownerHomeChild._objectResourceClass):
+    def _result_externalize(value, shareeView, objectResource):
+        if isinstance(value, shareeView._objectResourceClass):
             value = value.externalize()
         elif value is not None:
             value = [v.externalize() for v in value]
@@ -528,14 +667,34 @@ class PoddingConduit(object):
 
     @classmethod
     def _make_simple_homechild_action(cls, action, method):
-        setattr(cls, "send_{}".format(action), lambda self, shareeView, *args, **kwargs: self._simple_send(action, shareeView, args=args, kwargs=kwargs))
-        setattr(cls, "recv_{}".format(action), lambda self, txn, message: self._simple_recv(txn, action, message, method))
+        setattr(
+            cls,
+            "send_{}".format(action),
+            lambda self, shareeView, *args, **kwargs:
+                self._simple_send(action, shareeView, args=args, kwargs=kwargs)
+        )
+        setattr(
+            cls,
+            "recv_{}".format(action),
+            lambda self, txn, message:
+                self._simple_recv(txn, action, message, method)
+        )
 
 
     @classmethod
     def _make_simple_object_action(cls, action, method, transform_result=None):
-        setattr(cls, "send_{}".format(action), lambda self, shareeView, objectResource, *args, **kwargs: self._simple_send(action, shareeView, objectResource, args=args, kwargs=kwargs))
-        setattr(cls, "recv_{}".format(action), lambda self, txn, message: self._simple_recv(txn, action, message, method, onHomeChild=False, transform=transform_result))
+        setattr(
+            cls,
+            "send_{}".format(action),
+            lambda self, shareeView, objectResource, *args, **kwargs:
+                self._simple_send(action, shareeView, objectResource, args=args, kwargs=kwargs)
+        )
+        setattr(
+            cls,
+            "recv_{}".format(action),
+            lambda self, txn, message:
+                self._simple_recv(txn, action, message, method, onHomeChild=False, transform=transform_result)
+        )
 
 
 # Calls on L{CommonHomeChild} objects
@@ -547,10 +706,10 @@ PoddingConduit._make_simple_homechild_action("resourceuidforname", "resourceUIDF
 PoddingConduit._make_simple_homechild_action("resourcenameforuid", "resourceNameForUID")
 
 # Calls on L{CommonObjectResource} objects
-PoddingConduit._make_simple_object_action("loadallobjects", "loadAllObjects", transform_result=PoddingConduit._transform_externalize)
-PoddingConduit._make_simple_object_action("loadallobjectswithnames", "loadAllObjectsWithNames", transform_result=PoddingConduit._transform_externalize)
-PoddingConduit._make_simple_object_action("objectwith", "objectWith", transform_result=PoddingConduit._transform_externalize)
-PoddingConduit._make_simple_object_action("create", "create", transform_result=PoddingConduit._transform_externalize)
-PoddingConduit._make_simple_object_action("setcomponent", "setComponentText")
-PoddingConduit._make_simple_object_action("component", "component", transform_result=PoddingConduit._transform_string)
+PoddingConduit._make_simple_object_action("loadallobjects", "loadAllObjects", transform_result=PoddingConduit._result_externalize)
+PoddingConduit._make_simple_object_action("loadallobjectswithnames", "loadAllObjectsWithNames", transform_result=PoddingConduit._result_externalize)
+PoddingConduit._make_simple_object_action("objectwith", "objectWith", transform_result=PoddingConduit._result_externalize)
+PoddingConduit._make_simple_object_action("create", "create", transform_result=PoddingConduit._result_externalize)
+PoddingConduit._make_simple_object_action("setcomponent", "setComponent")
+PoddingConduit._make_simple_object_action("component", "component", transform_result=PoddingConduit._result_string)
 PoddingConduit._make_simple_object_action("remove", "remove")

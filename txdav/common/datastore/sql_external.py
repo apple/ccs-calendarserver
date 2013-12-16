@@ -14,21 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.common.icommondatastore import NonExistentExternalShare, \
-    ExternalShareFailed
 """
 SQL data store.
 """
 
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-
 from twext.internet.decorate import memoizedKey
 from twext.python.log import Logger
+
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from txdav.base.propertystore.sql import PropertyStore
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource
 from txdav.common.datastore.sql_tables import _HOME_STATUS_EXTERNAL
+from txdav.common.icommondatastore import NonExistentExternalShare, \
+    ExternalShareFailed
 
 
 log = Logger()
@@ -114,6 +114,17 @@ class CommonHomeExternal(CommonHome):
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
+
+
+    @inlineCallbacks
+    def removeExternalChild(self, child):
+        """
+        Remove an external child. Check that it is invalid or unused before calling this because if there
+        are valid references to it, removing will break things.
+        """
+        if child._externalID is None:
+            raise AssertionError("CommonHomeExternal: not supported")
+        yield super(CommonHomeExternal, self).removeChildWithName(child.name())
 
 
     def syncToken(self):
@@ -217,11 +228,16 @@ class CommonHomeChildExternal(CommonHomeChild):
         yield ownerView.removeShare(self)
 
 
-    def remove(self, rid):
+    @inlineCallbacks
+    def remove(self):
         """
-        External shares are never removed directly - instead they must be "uninvited".
+        External shares are never removed directly - instead they must be "uninvited". However,
+        the owner's external calendar can be removed.
         """
-        raise AssertionError("CommonHomeChildExternal: not supported")
+        if self.owned():
+            yield super(CommonHomeChildExternal, self).remove()
+        else:
+            raise AssertionError("CommonHomeChildExternal: not supported")
 
 
     @inlineCallbacks
@@ -291,14 +307,6 @@ class CommonHomeChildExternal(CommonHomeChild):
 
 
     @inlineCallbacks
-    def createObjectResourceWithName(self, name, component, options=None):
-        """
-        Actually I think we can defer this to the object resource class's .create()
-        """
-        raise NotImplementedError("TODO: external resource")
-
-
-    @inlineCallbacks
     def moveObjectResource(self, child, newparent, newname=None):
         """
         The base class does an optimization to avoid removing/re-creating
@@ -348,7 +356,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
         results = []
         if mapping_list:
             for mapping in mapping_list:
-                child = yield cls.makeClass(parent, cls.internalize(mapping))
+                child = yield cls.internalize(parent, mapping)
                 results.append(child)
         returnValue(results)
 
@@ -361,7 +369,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
         results = []
         if mapping_list:
             for mapping in mapping_list:
-                child = yield cls.makeClass(parent, cls.internalize(mapping))
+                child = yield cls.internalize(parent, mapping)
                 results.append(child)
         returnValue(results)
 
@@ -372,7 +380,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
         mapping = yield parent._txn.store().conduit.send_objectwith(parent, None, name, uid, resourceID)
 
         if mapping:
-            child = yield cls.makeClass(parent, cls.internalize(mapping))
+            child = yield cls.internalize(parent, mapping)
             returnValue(child)
         else:
             returnValue(None)
@@ -381,20 +389,20 @@ class CommonObjectResourceExternal(CommonObjectResource):
     @classmethod
     @inlineCallbacks
     def create(cls, parent, name, component, options=None):
-        mapping = yield parent._txn.store().conduit.send_create(parent, None, name, component, options=options)
+        mapping = yield parent._txn.store().conduit.send_create(parent, None, name, str(component), options=options)
 
         if mapping:
-            child = yield cls.makeClass(parent, cls.internalize(mapping))
+            child = yield cls.internalize(parent, mapping)
             returnValue(child)
         else:
             returnValue(None)
 
 
     @inlineCallbacks
-    def setComponent(self, component, inserting=False, options=None):
-        changed = yield self._txn.store().conduit.send_setcomponent(self.parentCollection(), self, str(component), inserting, options)
+    def setComponent(self, component, **kwargs):
+        self._componentChanged = yield self._txn.store().conduit.send_setcomponent(self.parentCollection(), self, str(component), **kwargs)
         self._cachedComponent = None
-        returnValue(changed)
+        returnValue(self._componentChanged)
 
 
     @inlineCallbacks

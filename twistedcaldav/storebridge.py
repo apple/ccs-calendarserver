@@ -462,6 +462,8 @@ class _CommonHomeChildCollectionMixin(object):
         if self.isShareeResource():
             log.debug("Removing shared collection %s" % (self,))
             yield self.removeShareeResource(request)
+            # Re-initialize to get stuff setup again now we have no object
+            self._initializeWithHomeChild(None, self._parentResource)
             returnValue(NO_CONTENT)
 
         log.debug("Deleting collection %s" % (self,))
@@ -3371,6 +3373,8 @@ class AddressBookObjectResource(_CommonObjectResource):
         if self.isShareeResource():
             log.debug("Removing shared resource %s" % (self,))
             yield self.removeShareeResource(request)
+            # Re-initialize to get stuff setup again now we have no object
+            self._initializeWithObject(None, self._newStoreParent)
             returnValue(NO_CONTENT)
         elif self._newStoreObject.isGroupForSharedAddressBook():
             abCollectionResource = (yield request.locateResource(parentForURL(request.uri)))

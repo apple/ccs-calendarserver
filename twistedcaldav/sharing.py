@@ -805,6 +805,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # Accept the share
         shareeView = yield self._newStoreHome.acceptShare(inviteUID, summary)
+        if shareeView is None:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "invalid-share"),
+                "Invite UID not valid",
+            ))
 
         # Return the URL of the shared collection
         sharedAsURL = joinURL(self.url(), shareeView.shareName())
@@ -820,7 +826,13 @@ class SharedHomeMixin(LinkFollowerMixIn):
     def declineShare(self, request, inviteUID):
 
         # Remove it if it is in the DB
-        yield self._newStoreHome.declineShare(inviteUID)
+        result = yield self._newStoreHome.declineShare(inviteUID)
+        if not result:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "invalid-share"),
+                "Invite UID not valid",
+            ))
         returnValue(Response(code=responsecode.NO_CONTENT))
 
 

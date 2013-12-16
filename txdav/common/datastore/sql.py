@@ -85,6 +85,7 @@ from uuid import uuid4, UUID
 from zope.interface import implements, directlyProvides
 
 from collections import namedtuple
+import itertools
 import json
 import sys
 import time
@@ -1471,7 +1472,7 @@ class SharingHomeMixIn(object):
         if shareeView is not None:
             yield shareeView.declineShare()
 
-        returnValue(shareeView)
+        returnValue(shareeView is not None)
 
 
     #
@@ -1491,12 +1492,30 @@ class SharingHomeMixIn(object):
         # Try to find owner calendar via its external id
         ownerView = yield ownerHome.childWithExternalID(ownerRID)
         if ownerView is None:
-            ownerView = yield ownerHome.createChildWithName(ownerName, externalID=ownerRID)
+            try:
+                ownerView = yield ownerHome.createChildWithName(ownerName, externalID=ownerRID)
+            except HomeChildNameAlreadyExistsError:
+                # This is odd - it means we possibly have a left over sharer collection which the sharer likely removed
+                # and re-created with the same name but now it has a different externalID and is not found by the initial
+                # query. What we do is check to see whether any shares still reference the old ID - if they do we are hosed.
+                # If not, we can remove the old item and create a new one.
+                oldOwnerView = yield ownerHome.childWithName(ownerName)
+                invites = yield oldOwnerView.sharingInvites()
+                if len(invites) != 0:
+                    log.error("External invite collection name is present with a different externalID and still has shares")
+                    raise
+                log.error("External invite collection name is present with a different externalID - trying to fix")
+                yield ownerHome.removeExternalChild(oldOwnerView)
+                ownerView = yield ownerHome.createChildWithName(ownerName, externalID=ownerRID)
+
             if supported_components is not None and hasattr(ownerView, "setSupportedComponents"):
                 yield ownerView.setSupportedComponents(supported_components)
 
         # Now carry out the share operation
-        yield ownerView.inviteUserToShare(self.uid(), bindMode, summary, shareName=shareUID)
+        if bindMode == _BIND_MODE_DIRECT:
+            yield ownerView.directShareWithUser(self.uid(), shareName=shareUID)
+        else:
+            yield ownerView.inviteUserToShare(self.uid(), bindMode, summary, shareName=shareUID)
 
 
     @inlineCallbacks
@@ -1517,6 +1536,11 @@ class SharingHomeMixIn(object):
 
         # Now carry out the share operation
         yield ownerView.uninviteUserFromShare(self.uid())
+
+        # See if there are any references to the external share - if not remove it
+        invites = yield ownerView.sharingInvites()
+        if len(invites) == 0:
+            yield ownerHome.removeExternalChild(ownerView)
 
 
     @inlineCallbacks
@@ -1542,6 +1566,28 @@ class SharingHomeMixIn(object):
             yield shareeHome.acceptShare(shareUID, summary)
         elif bindStatus == _BIND_STATUS_DECLINED:
             yield shareeHome.declineShare(shareUID)
+
+
+    @inlineCallbacks
+    def processExternalRemove(self, ownerUID, shareeUID, shareUID):
+        """
+        External invite received.
+        """
+
+        # Make sure the shareeUID and shareUID match
+
+        # Get the owner home - create external one if not present
+        shareeHome = yield self._txn.homeWithUID(self._homeType, shareeUID)
+        if shareeHome is None or not shareeHome.external():
+            raise ExternalShareFailed("Invalid sharee UID: {}".format(shareeUID))
+
+        # Try to find owner calendar via its external id
+        shareeView = yield shareeHome.anyObjectWithShareUID(shareUID)
+        if shareeView is None:
+            raise ExternalShareFailed("Invalid share UID: {}".format(shareUID))
+
+        # Now carry out the share operation
+        yield shareeView.deleteShare()
 
 
 
@@ -2158,6 +2204,10 @@ class CommonHome(SharingHomeMixIn):
         record a revision for the sharee home and sharee collection name with the "deleted" flag set. That way
         the shared collection can be reported as removed.
 
+        For external shared collections we need to report them as invalid as we cannot aggregate the sync token
+        for this home with the sync token from the external share which is under the control of the other pod.
+        Reporting it as invalid means that clients should do requests directly on the share itself to sync it.
+
         @param revision: the sync revision to compare to
         @type revision: C{str}
         @param depth: depth for determine what changed
@@ -2176,6 +2226,7 @@ class CommonHome(SharingHomeMixIn):
 
         changed = set()
         deleted = set()
+        invalid = set()
         deleted_collections = set()
         changed_collections = set()
         for path, name, wasdeleted in results:
@@ -2211,40 +2262,52 @@ class CommonHome(SharingHomeMixIn):
         shares = yield self.children()
         for share in shares:
             if not share.owned():
-                sharerevision = 0 if revision < share._bindRevision else revision
-                results = [
-                    (
-                        share.name(),
-                        name if name else "",
-                        wasdeleted
-                    )
-                    for name, wasdeleted in
-                    (yield Select([rev.RESOURCE_NAME, rev.DELETED],
-                                     From=rev,
-                                    Where=(rev.REVISION > sharerevision).And(
-                                    rev.RESOURCE_ID == share._resourceID)).on(self._txn))
-                    if name
-                ]
+                if share.external():
+                    if depth == "1":
+                        pass
+                    else:
+                        name = share.name() + "/"
+                        invalid.add(name)
+                        if name in changed:
+                            changed.remove(name)
+                        if name in deleted:
+                            deleted.remove(name)
+                else:
+                    sharerevision = 0 if revision < share._bindRevision else revision
+                    results = [
+                        (
+                            share.name(),
+                            name if name else "",
+                            wasdeleted
+                        )
+                        for name, wasdeleted in
+                        (yield Select([rev.RESOURCE_NAME, rev.DELETED],
+                                         From=rev,
+                                        Where=(rev.REVISION > sharerevision).And(
+                                        rev.RESOURCE_ID == share._resourceID)).on(self._txn))
+                        if name
+                    ]
 
-                for path, name, wasdeleted in results:
-                    if wasdeleted:
-                        if sharerevision:
-                            if depth == "1":
-                                changed.add("%s/" % (path,))
-                            else:
-                                deleted.add("%s/%s" % (path, name,))
+                    for path, name, wasdeleted in results:
+                        if wasdeleted:
+                            if sharerevision:
+                                if depth == "1":
+                                    changed.add("%s/" % (path,))
+                                else:
+                                    deleted.add("%s/%s" % (path, name,))
 
-                for path, name, wasdeleted in results:
-                    # Always report collection as changed
-                    changed.add("%s/" % (path,))
-                    if name:
-                        # Resource changed - for depth "infinity" report resource as changed
-                        if depth != "1":
-                            changed.add("%s/%s" % (path, name,))
+                    for path, name, wasdeleted in results:
+                        # Always report collection as changed
+                        changed.add("%s/" % (path,))
+                        if name:
+                            # Resource changed - for depth "infinity" report resource as changed
+                            if depth != "1":
+                                changed.add("%s/%s" % (path, name,))
 
         changed = sorted(changed)
         deleted = sorted(deleted)
-        returnValue((changed, deleted))
+        invalid = sorted(invalid)
+        returnValue((changed, deleted, invalid,))
 
 
     @inlineCallbacks
@@ -3084,6 +3147,11 @@ class SharingMixIn(object):
         if shareeView is None:
             shareeView = yield self.createShare(shareeUID=shareeUID, mode=_BIND_MODE_DIRECT, shareName=shareName)
             yield shareeView.newShare()
+
+            # Check for external
+            if shareeView.viewerHome().external():
+                yield self._sendExternalInvite(shareeView)
+
         returnValue(shareeView)
 
 
@@ -3154,6 +3222,8 @@ class SharingMixIn(object):
         ownerView = yield self.ownerView()
         if self.direct():
             yield ownerView.removeShare(self)
+            if not ownerView.external():
+                yield self._removeExternalInvite(ownerView)
         else:
             yield self.declineShare()
 
@@ -3300,6 +3370,18 @@ class SharingMixIn(object):
             self.shareName(),
             status,
             summary,
+        )
+
+
+    @inlineCallbacks
+    def _removeExternalInvite(self):
+
+        yield self._txn.store().conduit.send_shareremove(
+            self._txn,
+            self.viewerHome()._homeType,
+            self.ownerHome().uid(),
+            self.viewerHome().uid(),
+            self.shareName(),
         )
 
 
@@ -4695,7 +4777,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @type revision: C{int}
         """
 
-        if revision < self._bindRevision:
+        if revision < self._bindRevision and not self.external():
             revision = 0
         return super(CommonHomeChild, self).resourceNamesSinceRevision(revision)
 
@@ -5225,17 +5307,25 @@ class CommonObjectResource(FancyEqMixin, object):
         )
 
 
+    @classmethod
+    def _otherSerializedAttributes(cls): #@NoSelf
+        return (
+            "_componentChanged",
+        )
+
+
     def externalize(self):
         """
         Create a dictionary mapping key attributes so this object can be sent over a cross-pod call
         and reconstituted at the other end. Note that the other end may have a different schema so
         the attributes may not match exactly and will need to be processed accordingly.
         """
-        return dict([(attr[1:], getattr(self, attr)) for attr in self._rowAttributes()])
+        return dict([(attr[1:], getattr(self, attr, None)) for attr in itertools.chain(self._rowAttributes(), self._otherSerializedAttributes())])
 
 
     @classmethod
-    def internalize(cls, mapping):
+    @inlineCallbacks
+    def internalize(cls, parent, mapping):
         """
         Given a mapping generated by L{externalize}, convert the values into an array of database
         like items that conforms to the ordering of L{_allColumns} so it can be fed into L{makeClass}.
@@ -5243,7 +5333,10 @@ class CommonObjectResource(FancyEqMixin, object):
         C{None} and ignore extra items.
         """
 
-        return [mapping.get(row[1:]) for row in cls._rowAttributes()]
+        child = yield cls.makeClass(parent, [mapping.get(row[1:]) for row in cls._rowAttributes()])
+        for attr in cls._otherSerializedAttributes():
+            setattr(child, attr, mapping.get(attr[1:]))
+        returnValue(child)
 
 
     @inlineCallbacks
@@ -5356,16 +5449,8 @@ class CommonObjectResource(FancyEqMixin, object):
         self._locked = True
 
 
-    def setComponent(self, component, inserting=False, options=None):
+    def setComponent(self, component, inserting=False):
         raise NotImplementedError
-
-
-    def setComponentText(self, component_text, inserting=False, options=None):
-        """
-        This api is needed for cross-pod calls where the component is serialized as a str and we need
-        to convert it back to the actual component class.
-        """
-        return self.setComponent(self._componentClass.fromString(component_text), inserting, options)
 
 
     def component(self):

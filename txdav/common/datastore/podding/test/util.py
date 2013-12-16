@@ -26,6 +26,8 @@ from txdav.common.datastore.test.util import CommonCommonTests, SQLStoreBuilder,
 
 import twext.web2.dav.test.util
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
+from twext.enterprise.ienterprise import AlreadyFinishedError
+import json
 
 class FakeConduitRequest(object):
     """
@@ -52,7 +54,7 @@ class FakeConduitRequest(object):
     def __init__(self, server, data):
 
         self.server = server
-        self.data = data
+        self.data = json.dumps(data)
 
 
     @inlineCallbacks
@@ -61,6 +63,7 @@ class FakeConduitRequest(object):
         # Generate an HTTP client request
         try:
             response = (yield self._processRequest())
+            response = json.loads(response)
         except Exception as e:
             raise ValueError("Failed cross-pod request: {}".format(e))
 
@@ -77,7 +80,8 @@ class FakeConduitRequest(object):
         """
 
         store = self.storeMap[self.server.details()]
-        result = yield store.conduit.processRequest(self.data)
+        result = yield store.conduit.processRequest(json.loads(self.data))
+        result = json.dumps(result)
         returnValue(result)
 
 
@@ -121,7 +125,21 @@ class MultiStoreConduitTest(CommonCommonTests, twext.web2.dav.test.util.TestCase
     def newOtherTransaction(self):
         assert self.otherTransaction is None
         store2 = self.otherStoreUnderTest()
-        self.otherTransaction = store2.newTransaction()
+        txn = store2.newTransaction()
+        @inlineCallbacks
+        def maybeCommitThis():
+            try:
+                yield txn.commit()
+            except AlreadyFinishedError:
+                pass
+        self.addCleanup(maybeCommitThis)
+        self.otherTransaction = txn
+        return self.otherTransaction
+
+
+    def otherTransactionUnderTest(self):
+        if self.otherTransaction is None:
+            self.newOtherTransaction()
         return self.otherTransaction
 
 
@@ -190,13 +208,24 @@ class MultiStoreConduitTest(CommonCommonTests, twext.web2.dav.test.util.TestCase
 
 
     @inlineCallbacks
-    def createShare(self, ownerGUID, shareeGUID, name="calendar"):
+    def createShare(self, ownerGUID="user01", shareeGUID="puser02", name="calendar"):
 
         home = yield self.homeUnderTest(name=ownerGUID, create=True)
-        calendar = yield home.calendarWithName("calendar")
+        calendar = yield home.calendarWithName(name)
         yield calendar.inviteUserToShare(shareeGUID, _BIND_MODE_WRITE, "shared", shareName="shared-calendar")
         yield self.commit()
 
         home2 = yield self.homeUnderTest(txn=self.newOtherTransaction(), name=shareeGUID)
         yield home2.acceptShare("shared-calendar")
         yield self.otherCommit()
+
+        returnValue("shared-calendar")
+
+
+    @inlineCallbacks
+    def removeShare(self, ownerGUID="user01", shareeGUID="puser02", name="calendar"):
+
+        home = yield self.homeUnderTest(name=ownerGUID)
+        calendar = yield home.calendarWithName(name)
+        yield calendar.uninviteUserFromShare(shareeGUID)
+        yield self.commit()

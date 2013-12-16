@@ -1956,6 +1956,9 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
     @inlineCallbacks
     def setComponent(self, component, inserting=False):
 
+        if isinstance(component, str) or isinstance(component, unicode):
+            component = self._componentClass.fromString(component)
+
         self._componentChanged = False
 
         # Handle all validation operations here.
