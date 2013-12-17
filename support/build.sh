@@ -709,13 +709,14 @@ dependencies () {
     using_system "memcached";
   else
     local le="libevent-2.0.21-stable";
-    local mc="memcached-1.4.15";
+    local mc="memcached-1.4.16";
     c_dependency -m "b2405cc9ebf264aa47ff615d9de527a2" \
       "libevent" "${le}" \
       "http://github.com/downloads/libevent/libevent/${le}.tar.gz";
-    c_dependency -m "36ea966f5a29655be1746bf4949f7f69" \
+    c_dependency -m "1c5781fecb52d70b615c6d0c9c140c9c" \
       "memcached" "${mc}" \
-      "http://memcached.googlecode.com/files/${mc}.tar.gz";
+      "http://www.memcached.org/files/${mc}.tar.gz";
+    # "http://memcached.googlecode.com/files/${mc}.tar.gz";
   fi;
 
   if type -P postgres > /dev/null; then
