@@ -1479,7 +1479,7 @@ class SharingHomeMixIn(object):
     # External (cross-pod) sharing - entry point is the sharee's home collection.
     #
     @inlineCallbacks
-    def processExternalInvite(self, ownerUID, ownerRID, ownerName, shareUID, bindMode, summary, supported_components=None):
+    def processExternalInvite(self, ownerUID, ownerRID, ownerName, shareUID, bindMode, summary, copy_invite_properties, supported_components=None):
         """
         External invite received.
         """
@@ -1513,9 +1513,11 @@ class SharingHomeMixIn(object):
 
         # Now carry out the share operation
         if bindMode == _BIND_MODE_DIRECT:
-            yield ownerView.directShareWithUser(self.uid(), shareName=shareUID)
+            shareeView = yield ownerView.directShareWithUser(self.uid(), shareName=shareUID)
         else:
-            yield ownerView.inviteUserToShare(self.uid(), bindMode, summary, shareName=shareUID)
+            shareeView = yield ownerView.inviteUserToShare(self.uid(), bindMode, summary, shareName=shareUID)
+
+        shareeView.setInviteCopyProperties(copy_invite_properties)
 
 
     @inlineCallbacks
@@ -2630,7 +2632,7 @@ class _SharedSyncLogic(object):
     def revisionFromToken(self, token):
         if token is None:
             return 0
-        elif isinstance(token, str):
+        elif isinstance(token, str) or isinstance(token, unicode):
             _ignore_uuid, revision = token.split("_", 1)
             return int(revision)
         else:
@@ -3342,6 +3344,7 @@ class SharingMixIn(object):
             shareeView.shareUID(),
             shareeView.shareMode(),
             shareeView.shareMessage(),
+            self.getInviteCopyProperties(),
             supported_components=self.getSupportedComponents() if hasattr(self, "getSupportedComponents") else None,
         )
 
@@ -3805,6 +3808,24 @@ class SharingMixIn(object):
         @see: L{ICalendar.shareMessage}
         """
         return self._bindMessage
+
+
+    def getInviteCopyProperties(self):
+        """
+        Get a dictionary of property name/values (as strings) for properties that are shadowable and
+        need to be copied to a sharee's collection when an external (cross-pod) share is created.
+        Sub-classes should override to expose the properties they care about.
+        """
+        return {}
+
+
+    def setInviteCopyProperties(self, props):
+        """
+        Copy a set of shadowable properties (as name/value strings) onto this shared resource when
+        a cross-pod invite is processed. Sub-classes should override to expose the properties they
+        care about.
+        """
+        pass
 
 
     @classmethod

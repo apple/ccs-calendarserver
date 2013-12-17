@@ -568,6 +568,37 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
         )
 
 
+    def getInviteCopyProperties(self):
+        """
+        Get a dictionary of property name/values (as strings) for properties that are shadowable and
+        need to be copied to a sharee's collection when an external (cross-pod) share is created.
+        Sub-classes should override to expose the properties they care about.
+        """
+        props = {}
+        for elem in (element.DisplayName, carddavxml.AddressBookDescription,):
+            if PropertyName.fromElement(elem) in self.properties():
+                props[elem.sname()] = str(self.properties()[PropertyName.fromElement(elem)])
+        return props
+
+
+    def setInviteCopyProperties(self, props):
+        """
+        Copy a set of shadowable properties (as name/value strings) onto this shared resource when
+        a cross-pod invite is processed. Sub-classes should override to expose the properties they
+        care about.
+        """
+        # Initialize these for all shares
+        for elem in (carddavxml.AddressBookDescription,):
+            if PropertyName.fromElement(elem) not in self.properties() and elem.sname() in props:
+                self.properties()[PropertyName.fromElement(elem)] = elem.fromString(props[elem.sname()])
+
+        # Only initialize these for direct shares
+        if self.direct():
+            for elem in (element.DisplayName,):
+                if PropertyName.fromElement(elem) not in self.properties() and elem.sname() in props:
+                    self.properties()[PropertyName.fromElement(elem)] = elem.fromString(props[elem.sname()])
+
+
     def contentType(self):
         """
         The content type of addressbook objects is text/vcard.

@@ -439,13 +439,13 @@ END:VCALENDAR
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
         token1_2 = yield calendar1.syncToken()
         names1 = yield calendar1.resourceNamesSinceToken(token1_1)
-        self.assertEqual(names1, (["1.ics"], [],))
+        self.assertEqual(names1, ([u"1.ics"], [],))
         yield self.commit()
 
         shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
         token2_2 = yield shared.syncToken()
         names2 = yield shared.resourceNamesSinceToken(token2_1)
-        self.assertEqual(names2, (["1.ics"], [],))
+        self.assertEqual(names2, ([u"1.ics"], [],))
         yield self.otherCommit()
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -458,13 +458,13 @@ END:VCALENDAR
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
         token1_3 = yield calendar1.syncToken()
         names1 = yield calendar1.resourceNamesSinceToken(token1_2)
-        self.assertEqual(names1, ([], ["1.ics"],))
+        self.assertEqual(names1, ([], [u"1.ics"],))
         yield self.commit()
 
         shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
         token2_3 = yield shared.syncToken()
         names2 = yield shared.resourceNamesSinceToken(token2_2)
-        self.assertEqual(names2, ([], ["1.ics"],))
+        self.assertEqual(names2, ([], [u"1.ics"],))
         yield self.otherCommit()
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -518,17 +518,17 @@ END:VCALENDAR
         yield self.commit()
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        uid = yield calendar1.resourceNameForUID("uid1")
-        self.assertEqual(uid, "1.ics")
-        uid = yield calendar1.resourceNameForUID("uid2")
-        self.assertTrue(uid is None)
+        name = yield calendar1.resourceNameForUID("uid1")
+        self.assertEqual(name, "1.ics")
+        name = yield calendar1.resourceNameForUID("uid2")
+        self.assertTrue(name is None)
         yield self.commit()
 
         shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
-        uid = yield shared.resourceNameForUID("uid1")
-        self.assertEqual(uid, "1.ics")
-        uid = yield shared.resourceNameForUID("uid2")
-        self.assertTrue(uid is None)
+        name = yield shared.resourceNameForUID("uid1")
+        self.assertEqual(name, "1.ics")
+        name = yield shared.resourceNameForUID("uid2")
+        self.assertTrue(name is None)
         yield self.otherCommit()
 
 

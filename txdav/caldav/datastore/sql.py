@@ -1294,6 +1294,37 @@ class Calendar(CommonHomeChild):
         yield self.setDefaultAlarm("empty", False, False)
 
 
+    def getInviteCopyProperties(self):
+        """
+        Get a dictionary of property name/values (as strings) for properties that are shadowable and
+        need to be copied to a sharee's collection when an external (cross-pod) share is created.
+        Sub-classes should override to expose the properties they care about.
+        """
+        props = {}
+        for elem in (element.DisplayName, caldavxml.CalendarDescription, caldavxml.CalendarTimeZone, customxml.CalendarColor,):
+            if PropertyName.fromElement(elem) in self.properties():
+                props[elem.sname()] = str(self.properties()[PropertyName.fromElement(elem)])
+        return props
+
+
+    def setInviteCopyProperties(self, props):
+        """
+        Copy a set of shadowable properties (as name/value strings) onto this shared resource when
+        a cross-pod invite is processed. Sub-classes should override to expose the properties they
+        care about.
+        """
+        # Initialize these for all shares
+        for elem in (caldavxml.CalendarDescription, caldavxml.CalendarTimeZone,):
+            if PropertyName.fromElement(elem) not in self.properties() and elem.sname() in props:
+                self.properties()[PropertyName.fromElement(elem)] = elem.fromString(props[elem.sname()])
+
+        # Only initialize these for direct shares
+        if self.direct():
+            for elem in (element.DisplayName, customxml.CalendarColor,):
+                if PropertyName.fromElement(elem) not in self.properties() and elem.sname() in props:
+                    self.properties()[PropertyName.fromElement(elem)] = elem.fromString(props[elem.sname()])
+
+
     # FIXME: this is DAV-ish.  Data store calendar objects don't have
     # mime types.  -wsv
     def contentType(self):

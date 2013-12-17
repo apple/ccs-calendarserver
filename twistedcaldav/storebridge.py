@@ -1123,7 +1123,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         isowner = (yield self.isOwner(request))
         accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
-        for name, _ignore_uid, _ignore_type in (yield maybeDeferred(self.index().bruteForceSearch)):
+        for name in (yield self._newStoreObject.listObjectResources()):
             try:
                 child = yield request.locateChildResource(self, name)
             except TypeError:

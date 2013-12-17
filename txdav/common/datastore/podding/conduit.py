@@ -163,7 +163,7 @@ class PoddingConduit(object):
     #
 
     @inlineCallbacks
-    def send_shareinvite(self, txn, homeType, ownerUID, ownerID, ownerName, shareeUID, shareUID, bindMode, summary, supported_components):
+    def send_shareinvite(self, txn, homeType, ownerUID, ownerID, ownerName, shareeUID, shareUID, bindMode, summary, copy_properties, supported_components):
         """
         Send a sharing invite cross-pod message.
 
@@ -183,6 +183,8 @@ class PoddingConduit(object):
         @type bindMode: C{str}
         @param summary: sharing message
         @type summary: C{str}
+        @param copy_properties: C{str} name/value for properties to be copied
+        @type copy_properties: C{dict}
         @param supported_components: supproted components, may be C{None}
         @type supported_components: C{str}
         """
@@ -199,6 +201,7 @@ class PoddingConduit(object):
             "share_id": shareUID,
             "mode": bindMode,
             "summary": summary,
+            "properties": copy_properties,
         }
         if supported_components is not None:
             action["supported-components"] = supported_components
@@ -232,6 +235,7 @@ class PoddingConduit(object):
                 message["share_id"],
                 message["mode"],
                 message["summary"],
+                message["properties"],
                 supported_components=message.get("supported-components")
             )
         except ExternalShareFailed as e:
@@ -507,7 +511,7 @@ class PoddingConduit(object):
     #
 
     @inlineCallbacks
-    def _simple_send(self, actionName, shareeView, objectResource=None, args=None, kwargs=None):
+    def _simple_send(self, actionName, shareeView, objectResource=None, transform=None, args=None, kwargs=None):
         """
         A simple send operation that returns a value.
 
@@ -532,7 +536,7 @@ class PoddingConduit(object):
             action["keywords"] = kwargs
         result = yield self.sendRequest(shareeView._txn, recipient, action)
         if result["result"] == "ok":
-            returnValue(result["value"])
+            returnValue(result["value"] if transform is None else transform(result["value"], shareeView, objectResource))
         elif result["result"] == "exception":
             raise namedClass(result["class"])(result["message"])
 
@@ -652,12 +656,17 @@ class PoddingConduit(object):
 
 
     @staticmethod
-    def _result_string(value, shareeView, objectResource):
+    def _to_tuple(value, shareeView, objectResource):
+        return tuple(value)
+
+
+    @staticmethod
+    def _to_string(value, shareeView, objectResource):
         return str(value)
 
 
     @staticmethod
-    def _result_externalize(value, shareeView, objectResource):
+    def _to_externalize(value, shareeView, objectResource):
         if isinstance(value, shareeView._objectResourceClass):
             value = value.externalize()
         elif value is not None:
@@ -666,34 +675,34 @@ class PoddingConduit(object):
 
 
     @classmethod
-    def _make_simple_homechild_action(cls, action, method):
+    def _make_simple_homechild_action(cls, action, method, transform_recv=None, transform_send=None):
         setattr(
             cls,
             "send_{}".format(action),
             lambda self, shareeView, *args, **kwargs:
-                self._simple_send(action, shareeView, args=args, kwargs=kwargs)
+                self._simple_send(action, shareeView, transform=transform_send, args=args, kwargs=kwargs)
         )
         setattr(
             cls,
             "recv_{}".format(action),
             lambda self, txn, message:
-                self._simple_recv(txn, action, message, method)
+                self._simple_recv(txn, action, message, method, transform=transform_recv)
         )
 
 
     @classmethod
-    def _make_simple_object_action(cls, action, method, transform_result=None):
+    def _make_simple_object_action(cls, action, method, transform_recv=None, transform_send=None):
         setattr(
             cls,
             "send_{}".format(action),
             lambda self, shareeView, objectResource, *args, **kwargs:
-                self._simple_send(action, shareeView, objectResource, args=args, kwargs=kwargs)
+                self._simple_send(action, shareeView, objectResource, transform=transform_send, args=args, kwargs=kwargs)
         )
         setattr(
             cls,
             "recv_{}".format(action),
             lambda self, txn, message:
-                self._simple_recv(txn, action, message, method, onHomeChild=False, transform=transform_result)
+                self._simple_recv(txn, action, message, method, onHomeChild=False, transform=transform_recv)
         )
 
 
@@ -701,15 +710,15 @@ class PoddingConduit(object):
 PoddingConduit._make_simple_homechild_action("countobjects", "countObjectResources")
 PoddingConduit._make_simple_homechild_action("listobjects", "listObjectResources")
 PoddingConduit._make_simple_homechild_action("synctoken", "syncToken")
-PoddingConduit._make_simple_homechild_action("resourcenamessincerevision", "resourceNamesSinceRevision")
+PoddingConduit._make_simple_homechild_action("resourcenamessincerevision", "resourceNamesSinceRevision", transform_send=PoddingConduit._to_tuple)
 PoddingConduit._make_simple_homechild_action("resourceuidforname", "resourceUIDForName")
 PoddingConduit._make_simple_homechild_action("resourcenameforuid", "resourceNameForUID")
 
 # Calls on L{CommonObjectResource} objects
-PoddingConduit._make_simple_object_action("loadallobjects", "loadAllObjects", transform_result=PoddingConduit._result_externalize)
-PoddingConduit._make_simple_object_action("loadallobjectswithnames", "loadAllObjectsWithNames", transform_result=PoddingConduit._result_externalize)
-PoddingConduit._make_simple_object_action("objectwith", "objectWith", transform_result=PoddingConduit._result_externalize)
-PoddingConduit._make_simple_object_action("create", "create", transform_result=PoddingConduit._result_externalize)
+PoddingConduit._make_simple_object_action("loadallobjects", "loadAllObjects", transform_recv=PoddingConduit._to_externalize)
+PoddingConduit._make_simple_object_action("loadallobjectswithnames", "loadAllObjectsWithNames", transform_recv=PoddingConduit._to_externalize)
+PoddingConduit._make_simple_object_action("objectwith", "objectWith", transform_recv=PoddingConduit._to_externalize)
+PoddingConduit._make_simple_object_action("create", "create", transform_recv=PoddingConduit._to_externalize)
 PoddingConduit._make_simple_object_action("setcomponent", "setComponent")
-PoddingConduit._make_simple_object_action("component", "component", transform_result=PoddingConduit._result_string)
+PoddingConduit._make_simple_object_action("component", "component", transform_recv=PoddingConduit._to_string)
 PoddingConduit._make_simple_object_action("remove", "remove")
