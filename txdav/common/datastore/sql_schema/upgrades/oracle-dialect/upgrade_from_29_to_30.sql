@@ -23,9 +23,9 @@
 ----------------------------------------
 
 begin
-for i in (select constraint_name from abo_members where column_name = 'MEMBER_ID' or column_name = 'GROUP_ID')
+for i in (select constraint_name from user_cons_columns where column_name = 'MEMBER_ID' or column_name = 'GROUP_ID')
 loop
-execute immediate 'alter table abo_members constraint' || i.constraint_name;
+execute immediate 'alter table abo_members drop constraint' || i.constraint_name;
 end loop;
 end;
 
