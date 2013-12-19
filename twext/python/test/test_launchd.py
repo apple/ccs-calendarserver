@@ -17,7 +17,7 @@
 """
 Tests for L{twext.python.launchd}.
 """
-
+'''
 import sys, os, plistlib, socket, json
 
 if __name__ == '__main__':
@@ -393,5 +393,5 @@ class CheckInTests(TestCase):
         err = self.stderr.getContent()
         if 'Traceback' in err:
             self.fail(err)
-
+'''
 

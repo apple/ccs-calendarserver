@@ -22,7 +22,7 @@ L{txdav.carddav.datastore.test.common}.
 from twext.enterprise.dal.syntax import Select, Parameter
 
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import deferLater
 
 from twisted.trial import unittest
@@ -40,9 +40,7 @@ from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE, CommonObjectResource
-from txdav.common.datastore.sql_tables import  _ABO_KIND_PERSON, _ABO_KIND_GROUP, \
-    schema, _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED, _BIND_MODE_WRITE, \
-    _BIND_STATUS_INVITED
+from txdav.common.datastore.sql_tables import  _ABO_KIND_PERSON, _ABO_KIND_GROUP, schema
 from txdav.common.datastore.test.util import buildStore
 from txdav.carddav.datastore.sql import AddressBook
 
@@ -756,13 +754,13 @@ END:VCARD
 
         @inlineCallbacks
         def _defer1():
-            yield ab1.shareWith(shareeHome=sharerHome1, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, message="Shared Wiki AddressBook")
+            yield ab1.directShareWithUser("uid2")
             yield txn1.commit()
         d1 = _defer1()
 
         @inlineCallbacks
         def _defer2():
-            yield ab2.shareWith(shareeHome=sharerHome2, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, message="Shared Wiki AddressBook")
+            yield ab2.directShareWithUser("uid1")
             yield txn2.commit()
         d2 = _defer2()
 
@@ -880,268 +878,3 @@ END:VCARD
         obj = (yield self.addressbookObjectUnderTest())
         addressbookObject = (yield home.objectResourceWithID(obj._resourceID))
         self.assertNotEquals(addressbookObject, None)
-
-
-    @inlineCallbacks
-    def test_shareWithRevision(self):
-        """
-        Verify that bindRevision on addressbooks and shared addressbooks has the correct value.
-        """
-        ab = yield self.addressbookUnderTest()
-        self.assertEqual(ab._bindRevision, 0)
-        other = yield self.homeUnderTest(name="home2")
-        newABShareUID = yield ab.shareWith(other, _BIND_MODE_WRITE)
-        yield self.commit()
-
-        normalAB = yield self.addressbookUnderTest()
-        self.assertEqual(normalAB._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name="home2")
-        otherAB = yield otherHome.objectWithShareUID(newABShareUID)
-        self.assertNotEqual(otherAB._bindRevision, 0)
-
-
-    @inlineCallbacks
-    def test_shareGroupWithRevision(self):
-        """
-        Verify that bindRevision on addressbooks and shared groups has the correct value.
-        """
-        ab = yield self.addressbookUnderTest(home="home3")
-        self.assertEqual(ab._bindRevision, 0)
-        group = yield ab.objectResourceWithName("4.vcf")
-        other = yield self.homeUnderTest(name="home2")
-        newGroupShareUID = yield group.shareWith(other, _BIND_MODE_WRITE)
-        yield self.commit()
-
-        normalAB = yield self.addressbookUnderTest(home="home3")
-        self.assertEqual(normalAB._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name="home2")
-        otherGroup = yield otherHome.objectWithShareUID(newGroupShareUID)
-        self.assertNotEqual(otherGroup._bindRevision, 0)
-        otherAB = otherGroup.addressbook()
-        self.assertEqual(otherAB._bindRevision, None)
-
-
-    @inlineCallbacks
-    def test_updateShareRevision(self):
-        """
-        Verify that bindRevision on addressbooks and shared addressbooks has the correct value.
-        """
-        ab = yield self.addressbookUnderTest()
-        self.assertEqual(ab._bindRevision, 0)
-        other = yield self.homeUnderTest(name="home2")
-        newABShareUID = yield ab.shareWith(other, _BIND_MODE_WRITE, status=_BIND_STATUS_INVITED)
-        yield self.commit()
-
-        normalAB = yield self.addressbookUnderTest()
-        self.assertEqual(normalAB._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name="home2")
-        otherAB = yield otherHome.invitedObjectWithShareUID(newABShareUID)
-        self.assertEqual(otherAB._bindRevision, 0)
-        yield self.commit()
-
-        normalAB = yield self.addressbookUnderTest()
-        otherHome = yield self.homeUnderTest(name="home2")
-        otherAB = yield otherHome.invitedObjectWithShareUID(newABShareUID)
-        yield normalAB.updateShare(otherAB, status=_BIND_STATUS_ACCEPTED)
-        yield self.commit()
-
-        normalAB = yield self.addressbookUnderTest()
-        self.assertEqual(normalAB._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name="home2")
-        otherAB = yield otherHome.objectWithShareUID(newABShareUID)
-        self.assertNotEqual(otherAB._bindRevision, 0)
-
-
-    @inlineCallbacks
-    def test_updateSharedGroupRevision(self):
-        """
-        Verify that bindRevision on addressbooks and shared addressbooks has the correct value.
-        """
-        ab = yield self.addressbookUnderTest(home="home3")
-        self.assertEqual(ab._bindRevision, 0)
-        group = yield ab.objectResourceWithName("4.vcf")
-        other = yield self.homeUnderTest(name="home2")
-        newGroupShareUID = yield group.shareWith(other, _BIND_MODE_WRITE, status=_BIND_STATUS_INVITED)
-        yield self.commit()
-
-        normalAB = yield self.addressbookUnderTest(home="home3")
-        self.assertEqual(normalAB._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name="home2")
-        otherGroup = yield otherHome.invitedObjectWithShareUID(newGroupShareUID)
-        self.assertEqual(otherGroup._bindRevision, 0)
-        otherAB = otherGroup.addressbook()
-        self.assertEqual(otherAB._bindRevision, None)
-        yield self.commit()
-
-        normalAB = yield self.addressbookUnderTest(home="home3")
-        normalGroup = yield normalAB.objectResourceWithName("4.vcf")
-        otherHome = yield self.homeUnderTest(name="home2")
-        otherGroup = yield otherHome.invitedObjectWithShareUID(newGroupShareUID)
-        yield normalGroup.updateShare(otherGroup, status=_BIND_STATUS_ACCEPTED)
-        yield self.commit()
-
-        normalAB = yield self.addressbookUnderTest(home="home3")
-        self.assertEqual(normalAB._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name="home2")
-        otherGroup = yield otherHome.objectWithShareUID(newGroupShareUID)
-        self.assertNotEqual(otherGroup._bindRevision, 0)
-        otherAB = otherGroup.addressbook()
-        self.assertEqual(otherAB._bindRevision, None)
-
-
-    @inlineCallbacks
-    def test_sharedRevisions(self):
-        """
-        Verify that resourceNamesSinceRevision returns all resources after initial bind and sync.
-        """
-        ab = yield self.addressbookUnderTest()
-        self.assertEqual(ab._bindRevision, 0)
-        other = yield self.homeUnderTest(name="home2")
-        newABShareUID = yield ab.shareWith(other, _BIND_MODE_WRITE)
-        yield self.commit()
-
-        normalAB = yield self.addressbookUnderTest()
-        self.assertEqual(normalAB._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name="home2")
-        otherAB = yield otherHome.objectWithShareUID(newABShareUID)
-        self.assertNotEqual(otherAB._bindRevision, 0)
-
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(0)
-        self.assertNotEqual(len(changed), 0)
-        self.assertEqual(len(deleted), 0)
-
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
-        self.assertEqual(len(changed), 0)
-        self.assertEqual(len(deleted), 0)
-
-        for depth in ("1", "infinity",):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
-            self.assertNotEqual(len(changed), 0)
-            self.assertEqual(len(deleted), 0)
-
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
-            self.assertEqual(len(changed), 0)
-            self.assertEqual(len(deleted), 0)
-
-
-    @inlineCallbacks
-    def test_sharedGroupRevisions(self):
-        """
-        Verify that resourceNamesSinceRevision returns all resources after initial bind and sync.
-        """
-        ab = yield self.addressbookUnderTest(home="home3")
-        self.assertEqual(ab._bindRevision, 0)
-        group = yield ab.objectResourceWithName("4.vcf")
-        other = yield self.homeUnderTest(name="home2")
-        newGroupShareUID = yield group.shareWith(other, _BIND_MODE_WRITE)
-        yield self.commit()
-
-        normalAB = yield self.addressbookUnderTest(home="home3")
-        self.assertEqual(normalAB._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name="home2")
-        otherGroup = yield otherHome.objectWithShareUID(newGroupShareUID)
-        self.assertNotEqual(otherGroup._bindRevision, 0)
-        otherAB = otherGroup.addressbook()
-        self.assertEqual(otherAB._bindRevision, None)
-
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(0)
-        self.assertEqual(set(changed), set(['1.vcf', '4.vcf', '2.vcf', ]))
-        self.assertEqual(len(deleted), 0)
-
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherGroup._bindRevision)
-        self.assertEqual(len(changed), 0)
-        self.assertEqual(len(deleted), 0)
-
-        for depth, result in (
-            ("1", ['addressbook/',
-                   'home3/', ]
-            ),
-            ("infinity", ['addressbook/',
-                          'addressbook/1.vcf',
-                          'addressbook/2.vcf',
-                          'addressbook/3.vcf',
-                          'addressbook/4.vcf',
-                          'addressbook/5.vcf',
-                          'home3/',
-                          'home3/1.vcf',
-                          'home3/2.vcf',
-                          'home3/4.vcf', ]
-             )):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
-            self.assertEqual(set(changed), set(result))
-            self.assertEqual(len(deleted), 0)
-
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherGroup._bindRevision, depth)
-            self.assertEqual(len(changed), 0)
-            self.assertEqual(len(deleted), 0)
-
-
-    @inlineCallbacks
-    def test_addressbookRevisionChangeConcurrency(self):
-        """
-        Test that two concurrent attempts to add resources in two separate
-        calendar homes does not deadlock on the revision table update.
-        """
-
-        # Make sure homes are provisioned
-        txn = self.transactionUnderTest()
-        home_uid1 = yield txn.homeWithUID(EADDRESSBOOKTYPE, "user01", create=True)
-        home_uid2 = yield txn.homeWithUID(EADDRESSBOOKTYPE, "user02", create=True)
-        self.assertNotEqual(home_uid1, None)
-        self.assertNotEqual(home_uid2, None)
-        yield self.commit()
-
-        # Create first events in different calendar homes
-        txn1 = self._sqlStore.newTransaction()
-        txn2 = self._sqlStore.newTransaction()
-
-        addressbook_uid1_in_txn1 = yield self.addressbookUnderTest(txn1, "addressbook", "user01")
-        addressbook_uid2_in_txn2 = yield self.addressbookUnderTest(txn2, "addressbook", "user02")
-
-        data = """BEGIN:VCARD
-VERSION:3.0
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-UID:data%(ctr)s
-FN:Data %(ctr)s
-N:Sub Group;;;;
-REV:20120503T194243Z
-END:VCARD
-
-"""
-
-        component = VComponent.fromString(data % {"ctr": 1})
-        yield addressbook_uid1_in_txn1.createAddressBookObjectWithName("data1.ics", component)
-
-        component = VComponent.fromString(data % {"ctr": 2})
-        yield addressbook_uid2_in_txn2.createAddressBookObjectWithName("data2.ics", component)
-
-        # Setup deferreds to run concurrently and create second events in the calendar homes
-        # previously used by the other transaction - this could create the deadlock.
-        @inlineCallbacks
-        def _defer_uid3():
-            addressbook_uid1_in_txn2 = yield self.addressbookUnderTest(txn2, "addressbook", "user01")
-            component = VComponent.fromString(data % {"ctr": 3})
-            yield addressbook_uid1_in_txn2.createAddressBookObjectWithName("data3.ics", component)
-            yield txn2.commit()
-        d1 = _defer_uid3()
-
-        @inlineCallbacks
-        def _defer_uid4():
-            addressbook_uid2_in_txn1 = yield self.addressbookUnderTest(txn1, "addressbook", "user02")
-            component = VComponent.fromString(data % {"ctr": 4})
-            yield addressbook_uid2_in_txn1.createAddressBookObjectWithName("data4.ics", component)
-            yield txn1.commit()
-        d2 = _defer_uid4()
-
-        # Now do the concurrent provision attempt
-        yield DeferredList([d1, d2])
-
-        # Verify we did not have a deadlock and all resources have been created.
-        vcarddata1 = yield self.addressbookObjectUnderTest(name="data1.ics", addressbook_name="addressbook", home="user01")
-        vcarddata2 = yield self.addressbookObjectUnderTest(name="data2.ics", addressbook_name="addressbook", home="user02")
-        vcarddata3 = yield self.addressbookObjectUnderTest(name="data3.ics", addressbook_name="addressbook", home="user01")
-        vcarddata4 = yield self.addressbookObjectUnderTest(name="data4.ics", addressbook_name="addressbook", home="user02")
-        self.assertNotEqual(vcarddata1, None)
-        self.assertNotEqual(vcarddata2, None)
-        self.assertNotEqual(vcarddata3, None)
-        self.assertNotEqual(vcarddata4, None)

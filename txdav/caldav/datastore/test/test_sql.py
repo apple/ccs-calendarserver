@@ -51,7 +51,7 @@ from twistedcaldav.query import calendarqueryfilter
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
-    test_event_text, OTHER_HOME_UID
+    test_event_text
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
@@ -59,7 +59,7 @@ from txdav.caldav.icalendarstore import ComponentUpdateState, InvalidDefaultCale
 from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
-    _BIND_STATUS_ACCEPTED, _BIND_MODE_WRITE, _BIND_STATUS_INVITED
+    _BIND_STATUS_ACCEPTED
 from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from txdav.common.icommondatastore import NoSuchObjectResourceError
@@ -952,13 +952,13 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _defer1():
-            yield cal1.shareWith(shareeHome=sharerHome1, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, message="Shared Wiki Calendar")
+            yield cal1.directShareWithUser("uid2")
             yield txn1.commit()
         d1 = _defer1()
 
         @inlineCallbacks
         def _defer2():
-            yield cal2.shareWith(shareeHome=sharerHome2, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, message="Shared Wiki Calendar")
+            yield cal2.directShareWithUser("uid1")
             yield txn2.commit()
         d2 = _defer2()
 
@@ -1705,90 +1705,6 @@ END:VALARM
             self.assertEquals(alarm_result, None)
 
         yield self.commit()
-
-
-    @inlineCallbacks
-    def test_shareWithRevision(self):
-        """
-        Verify that bindRevision on calendars and shared calendars has the correct value.
-        """
-        cal = yield self.calendarUnderTest()
-        self.assertEqual(cal._bindRevision, 0)
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
-        yield self.commit()
-
-        normalCal = yield self.calendarUnderTest()
-        self.assertEqual(normalCal._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield otherHome.childWithName(newCalName)
-        self.assertNotEqual(otherCal._bindRevision, 0)
-
-
-    @inlineCallbacks
-    def test_updateShareRevision(self):
-        """
-        Verify that bindRevision on calendars and shared calendars has the correct value.
-        """
-        cal = yield self.calendarUnderTest()
-        self.assertEqual(cal._bindRevision, 0)
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE, status=_BIND_STATUS_INVITED)
-        yield self.commit()
-
-        normalCal = yield self.calendarUnderTest()
-        self.assertEqual(normalCal._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield otherHome.invitedObjectWithShareUID(newCalName)
-        self.assertEqual(otherCal._bindRevision, 0)
-        yield self.commit()
-
-        normalCal = yield self.calendarUnderTest()
-        otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield otherHome.invitedObjectWithShareUID(newCalName)
-        yield normalCal.updateShare(otherCal, status=_BIND_STATUS_ACCEPTED)
-        yield self.commit()
-
-        normalCal = yield self.calendarUnderTest()
-        self.assertEqual(normalCal._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield otherHome.childWithName(newCalName)
-        self.assertNotEqual(otherCal._bindRevision, 0)
-
-
-    @inlineCallbacks
-    def test_sharedRevisions(self):
-        """
-        Verify that resourceNamesSinceRevision returns all resources after initial bind and sync.
-        """
-        cal = yield self.calendarUnderTest()
-        self.assertEqual(cal._bindRevision, 0)
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
-        yield self.commit()
-
-        normalCal = yield self.calendarUnderTest()
-        self.assertEqual(normalCal._bindRevision, 0)
-        otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield otherHome.childWithName(newCalName)
-        self.assertNotEqual(otherCal._bindRevision, 0)
-
-        changed, deleted = yield otherCal.resourceNamesSinceRevision(0)
-        self.assertNotEqual(len(changed), 0)
-        self.assertEqual(len(deleted), 0)
-
-        changed, deleted = yield otherCal.resourceNamesSinceRevision(otherCal._bindRevision)
-        self.assertEqual(len(changed), 0)
-        self.assertEqual(len(deleted), 0)
-
-        for depth in ("1", "infinity",):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
-            self.assertNotEqual(len(changed), 0)
-            self.assertEqual(len(deleted), 0)
-
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherCal._bindRevision, depth)
-            self.assertEqual(len(changed), 0)
-            self.assertEqual(len(deleted), 0)
 
 
     @inlineCallbacks

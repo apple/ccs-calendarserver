@@ -35,6 +35,7 @@ from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 
 from txdav.common.icommondatastore import SyncTokenValidException
 
+import json
 import os
 import types
 
@@ -92,17 +93,6 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
         return davxml.ResourceType.notification
 
 
-    @inlineCallbacks
-    def addNotification(self, request, uid, xmltype, xmldata):
-
-        # Write data to file
-        rname = uid + ".xml"
-        yield self._writeNotification(request, uid, rname, xmltype, xmldata)
-
-        # Update database
-        self.notificationsDB().addOrUpdateRecord(NotificationRecord(uid, rname, xmltype.name))
-
-
     def getNotifictionMessages(self, request, componentType=None, returnLatestVersion=True):
         return succeed([])
 
@@ -144,10 +134,10 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
 
 class NotificationRecord(object):
 
-    def __init__(self, uid, name, xmltype):
+    def __init__(self, uid, name, notificationtype):
         self.uid = uid
         self.name = name
-        self.xmltype = xmltype
+        self.notificationtype = notificationtype if isinstance(notificationtype, dict) else json.loads(notificationtype)
 
 
 
@@ -184,7 +174,7 @@ class NotificationsDatabase(AbstractSQLDatabase):
 
         self._db_execute("""insert or replace into NOTIFICATIONS (UID, NAME, TYPE)
             values (:1, :2, :3)
-            """, record.uid, record.name, record.xmltype,
+            """, record.uid, record.name, json.dumps(record.notificationtype),
         )
 
         self._db_execute(

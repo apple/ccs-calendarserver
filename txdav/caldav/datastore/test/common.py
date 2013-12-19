@@ -41,19 +41,19 @@ from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.common.inotifications import INotificationObject
 from txdav.common.datastore.test.util import CommonCommonTests
-from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE, _BIND_MODE_READ
 
 from txdav.caldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
     ICalendar, ICalendarTransaction,
     ComponentUpdateState)
 
-from twistedcaldav.customxml import InviteNotification, InviteSummary
 from txdav.common.datastore.test.util import transactionClean
 from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.ical import Component
 from twistedcaldav.config import config
 from calendarserver.push.util import PushPriority
+
+import json
 
 
 storePath = FilePath(__file__).parent().child("calendar_store")
@@ -374,9 +374,11 @@ class CommonTests(CommonCommonTests):
     def notificationUnderTest(self):
         txn = self.transactionUnderTest()
         notifications = yield txn.notificationsWithUID("home1")
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
+        yield notifications.writeNotificationObject(
+            "abc",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
         notificationObject = yield notifications.notificationObjectWithUID("abc")
         returnValue(notificationObject)
 
@@ -399,10 +401,17 @@ class CommonTests(CommonCommonTests):
         """
         txn = self.transactionUnderTest()
         coll = yield txn.notificationsWithUID("home1")
-        invite1 = InviteNotification()
-        yield coll.writeNotificationObject("1", invite1, invite1.toxml())
+        yield coll.writeNotificationObject(
+            "1",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
         st = yield coll.syncToken()
-        yield coll.writeNotificationObject("2", invite1, invite1.toxml())
+        yield coll.writeNotificationObject(
+            "2",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
         rev = self.token2revision(st)
         yield coll.removeNotificationObjectWithUID("1")
         st2 = yield coll.syncToken()
@@ -424,14 +433,21 @@ class CommonTests(CommonCommonTests):
         notifications = yield self.transactionUnderTest().notificationsWithUID(
             "home1"
         )
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
-        inviteNotification2 = InviteNotification(InviteSummary("a summary"))
         yield notifications.writeNotificationObject(
-            "abc", inviteNotification, inviteNotification2.toxml())
+            "abc",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
+        yield notifications.writeNotificationObject(
+            "abc",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}"),
+        )
         abc = yield notifications.notificationObjectWithUID("abc")
-        self.assertEquals((yield abc.xmldata()), inviteNotification2.toxml())
+        self.assertEquals(
+            (yield abc.notificationData()),
+            json.loads("{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}"),
+        )
 
 
     @inlineCallbacks
@@ -450,9 +466,11 @@ class CommonTests(CommonCommonTests):
             "home1"
         )
         self.notifierFactory.reset()
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
+        yield notifications.writeNotificationObject(
+            "abc",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
 
         # notify is called prior to commit
         self.assertEquals(
@@ -492,12 +510,16 @@ class CommonTests(CommonCommonTests):
         notifications = yield self.transactionUnderTest().notificationsWithUID(
             "home1"
         )
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
-        inviteNotification2 = InviteNotification(InviteSummary("a summary"))
         yield notifications.writeNotificationObject(
-            "def", inviteNotification, inviteNotification2.toxml())
+            "abc",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
+        yield notifications.writeNotificationObject(
+            "def",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}"),
+        )
 
         yield self.commit()
 
@@ -948,156 +970,6 @@ class CommonTests(CommonCommonTests):
         L{Calendar.name} reflects the name of the calendar.
         """
         self.assertEquals((yield self.calendarUnderTest()).name(), "calendar_1")
-
-
-    @inlineCallbacks
-    def test_shareWith(self):
-        """
-        L{ICalendar.shareWith} will share a calendar with a given home UID.
-        """
-        cal = yield self.calendarUnderTest()
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
-        self.sharedName = newCalName
-        yield self.commit()
-        normalCal = yield self.calendarUnderTest()
-        otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield otherHome.childWithName(newCalName)
-        self.assertNotIdentical(otherCal, None)
-        self.assertEqual(
-            (yield
-             (yield otherCal.calendarObjectWithName("1.ics")).component()),
-            (yield
-             (yield normalCal.calendarObjectWithName("1.ics")).component())
-        )
-
-
-    @inlineCallbacks
-    def test_shareAgainChangesMode(self):
-        """
-        If a calendar is already shared with a given calendar home,
-        L{ICalendar.shareWith} will change the sharing mode.
-        """
-        yield self.test_shareWith()
-        # yield self.commit() # txn is none? why?
-        cal = yield self.calendarUnderTest()
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newName = yield cal.shareWith(other, _BIND_MODE_READ)
-        otherCal = yield other.childWithName(self.sharedName)
-
-        # Name should not change just because we updated the mode.
-        self.assertEqual(newName, self.sharedName)
-        self.assertNotIdentical(otherCal, None)
-
-        invitedCals = yield cal.sharingInvites()
-        self.assertEqual(len(invitedCals), 1)
-        self.assertEqual(invitedCals[0].mode(), _BIND_MODE_READ)
-
-
-    @inlineCallbacks
-    def test_unshareWith(self, commit=False):
-        """
-        L{ICalendar.unshareWith} will remove a previously-shared calendar from
-        another user's calendar home.
-        """
-        yield self.test_shareWith()
-        if commit:
-            yield self.commit()
-        cal = yield self.calendarUnderTest()
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newName = yield cal.unshareWith(other)
-        otherCal = yield other.childWithName(newName)
-        self.assertIdentical(otherCal, None)
-        invitedCals = yield cal.sharingInvites()
-        self.assertEqual(len(invitedCals), 0)
-
-
-    @inlineCallbacks
-    def test_unshareSharerSide(self, commit=False):
-        """
-        Verify the coll.unshare( ) method works when called from the
-        sharer's copy
-        """
-        yield self.test_shareWith()
-        if commit:
-            yield self.commit()
-        cal = yield self.calendarUnderTest()
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield other.childWithName(self.sharedName)
-        self.assertNotEqual(otherCal, None)
-        yield cal.unshare()
-        otherCal = yield other.childWithName(self.sharedName)
-        self.assertEqual(otherCal, None)
-        invitedCals = yield cal.sharingInvites()
-        self.assertEqual(len(invitedCals), 0)
-
-
-    @inlineCallbacks
-    def test_unshareShareeSide(self, commit=False):
-        """
-        Verify the coll.unshare( ) method works when called from the
-        sharee's copy
-        """
-        yield self.test_shareWith()
-        if commit:
-            yield self.commit()
-        cal = yield self.calendarUnderTest()
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield other.childWithName(self.sharedName)
-        self.assertNotEqual(otherCal, None)
-        yield otherCal.unshare()
-        otherCal = yield other.childWithName(self.sharedName)
-        self.assertEqual(otherCal, None)
-        invitedCals = yield cal.sharingInvites()
-        self.assertEqual(len(invitedCals), 0)
-
-
-    @inlineCallbacks
-    def test_unshareWithInDifferentTransaction(self):
-        """
-        L{ICalendar.unshareWith} will remove a previously-shared calendar from
-        another user's calendar home, assuming the sharing was committed in a
-        previous transaction.
-        """
-        yield self.test_unshareWith(True)
-
-
-    @inlineCallbacks
-    def test_sharingInvites(self):
-        """
-        L{ICalendar.sharingInvites} returns an iterable of all versions of a shared
-        calendar.
-        """
-        cal = yield self.calendarUnderTest()
-        sharedBefore = yield cal.sharingInvites()
-        # It's not shared yet; make sure sharingInvites doesn't include owner version.
-        self.assertEqual(len(sharedBefore), 0)
-        yield self.test_shareWith()
-        # FIXME: don't know why this separate transaction is needed; remove it.
-        yield self.commit()
-        cal = yield self.calendarUnderTest()
-        sharedAfter = yield cal.sharingInvites()
-        self.assertEqual(len(sharedAfter), 1)
-        self.assertEqual(sharedAfter[0].mode(), _BIND_MODE_WRITE)
-        self.assertEqual(sharedAfter[0].shareeUID(), OTHER_HOME_UID)
-
-
-    @inlineCallbacks
-    def test_sharedNotifierID(self):
-        yield self.test_shareWith()
-        yield self.commit()
-
-        home = yield self.homeUnderTest()
-        self.assertEquals(home.notifierID(), ("CalDAV", "home1",))
-        calendar = yield home.calendarWithName("calendar_1")
-        self.assertEquals(calendar.notifierID(), ("CalDAV", "home1/calendar_1",))
-        yield self.commit()
-
-        home = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        self.assertEquals(home.notifierID(), ("CalDAV", OTHER_HOME_UID,))
-        calendar = yield home.calendarWithName(self.sharedName)
-        self.assertEquals(calendar.notifierID(), ("CalDAV", "home1/calendar_1",))
-        yield self.commit()
 
 
     @inlineCallbacks

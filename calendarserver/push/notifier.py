@@ -38,7 +38,6 @@ log = Logger()
 
 
 
-
 class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
     group = property(lambda self: self.pushID)

@@ -256,12 +256,10 @@ insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('group', 1);
 insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('resource', 2);
 insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('location', 3);
 create table ABO_MEMBERS (
-    "GROUP_ID" integer not null,
+    "GROUP_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
     "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
-    "MEMBER_ID" integer not null,
-    "REVISION" integer not null,
-    "REMOVED" integer default 0 not null, 
-    primary key("GROUP_ID", "MEMBER_ID", "REVISION")
+    "MEMBER_ID" integer not null references ADDRESSBOOK_OBJECT, 
+    primary key("GROUP_ID", "MEMBER_ID")
 );
 
 create table ABO_FOREIGN_MEMBERS (
@@ -296,7 +294,6 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "OWNER_HOME_RESOURCE_ID" integer references ADDRESSBOOK_HOME,
     "ADDRESSBOOK_NAME" nvarchar2(255) default null,
-    "OBJECT_RESOURCE_ID" integer default 0,
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
     "DELETED" integer not null
@@ -373,7 +370,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '30');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '29');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');

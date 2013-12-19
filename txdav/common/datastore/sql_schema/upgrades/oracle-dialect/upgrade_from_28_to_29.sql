@@ -18,32 +18,21 @@
 -- Upgrade database schema from VERSION 28 to 29 --
 ---------------------------------------------------
 
-----------------------------------------
--- Change Address Book Object Members --
-----------------------------------------
+-- Sharing notification related updates
 
-alter table ABO_MEMBERS
-	drop ("abo_members_member_id_fkey");
-alter table ABO_MEMBERS
-	drop ("abo_members_group_id_fkey");
-alter table ABO_MEMBERS
-	add ("REVISION" integer default nextval('REVISION_SEQ') not null);
-alter table ABO_MEMBERS
-	add ("REMOVED" boolean default false not null);
-alter table ABO_MEMBERS
-	 drop ("abo_members_pkey");
-alter table ABO_MEMBERS
-	 add ("abo_members_pkey" primary key ("GROUP_ID", "MEMBER_ID", "REVISION"));
+alter table NOTIFICATION_HOME
+ add ("DATAVERSION" integer default 0 not null);
 
-------------------------------------------
--- Change Address Book Object Revisions --
-------------------------------------------
-	
-alter table ADDRESSBOOK_OBJECT_REVISIONS
-	add ("OBJECT_RESOURCE_ID" integer default 0);
+alter table NOTIFICATION
+  rename column XML_TYPE to NOTIFICATION_TYPE;
+alter table NOTIFICATION
+  rename column XML_DATA to NOTIFICATION_DATA;
 
---------------------
--- Update version --
---------------------
+  -- Sharing enumeration updates
+insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('indirect', 4);
 
+insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('deleted', 4);
+
+-- Now update the version
 update CALENDARSERVER set VALUE = '29' where NAME = 'VERSION';
+insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
