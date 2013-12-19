@@ -14,10 +14,10 @@
 # limitations under the License.
 ##
 
-from twext.web2 import responsecode, http_headers
-from twext.web2.dav.util import davXMLFromStream
-from twext.web2.iweb import IResponse
-from twext.web2.stream import MemoryStream
+from txweb2 import responsecode, http_headers
+from txweb2.dav.util import davXMLFromStream
+from txweb2.iweb import IResponse
+from txweb2.stream import MemoryStream
 
 from twistedcaldav import caldavxml
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest

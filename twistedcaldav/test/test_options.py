@@ -14,8 +14,8 @@
 # limitations under the License.
 ##
 
-from twext.web2.iweb import IResponse
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.iweb import IResponse
+from txweb2.test.test_server import SimpleRequest
 
 import twistedcaldav.test.util
 from twistedcaldav.config import config

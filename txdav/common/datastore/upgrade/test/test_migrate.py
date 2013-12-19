@@ -21,7 +21,7 @@ Tests for L{txdav.common.datastore.upgrade.migrate}.
 from twext.enterprise.adbapi2 import Pickle
 from twext.enterprise.dal.syntax import Delete
 from twext.python.filepath import CachingFilePath
-from twext.web2.http_headers import MimeType
+from txweb2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol

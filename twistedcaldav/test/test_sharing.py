@@ -14,10 +14,10 @@
 # limitations under the License.
 ##
 
-from twext.web2 import responsecode
-from twext.web2.dav.util import allDataFromStream
-from twext.web2.http_headers import MimeType
-from twext.web2.iweb import IResponse
+from txweb2 import responsecode
+from txweb2.dav.util import allDataFromStream
+from txweb2.http_headers import MimeType
+from txweb2.iweb import IResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 

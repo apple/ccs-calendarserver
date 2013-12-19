@@ -24,9 +24,9 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.python.usage import Options
 
 from twext.python.log import Logger, LogLevel, StandardIOObserver
-from twext.web2.client.http import ClientRequest
-from twext.web2.http_headers import Headers
-from twext.web2.stream import MemoryStream
+from txweb2.client.http import ClientRequest
+from txweb2.http_headers import Headers
+from txweb2.stream import MemoryStream
 
 from txdav.caldav.datastore.scheduling.ischedule.dkim import RSA256, DKIMRequest, \
     PublicKeyLookup, DKIMVerifier, DKIMVerificationError

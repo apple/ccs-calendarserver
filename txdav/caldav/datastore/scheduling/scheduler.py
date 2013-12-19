@@ -19,11 +19,11 @@ from twisted.python.failure import Failure
 
 from twext.enterprise.locking import NamedLock
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError, Response
-from twext.web2.http_headers import MimeType
+from txweb2 import responsecode
+from txweb2.http import HTTPError, Response
+from txweb2.http_headers import MimeType
 from txdav.xml import element as davxml
-from twext.web2.dav.http import messageForFailure, statusForFailure, \
+from txweb2.dav.http import messageForFailure, statusForFailure, \
     ErrorResponse
 
 from twistedcaldav import caldavxml

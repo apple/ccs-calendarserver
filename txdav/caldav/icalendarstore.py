@@ -658,7 +658,7 @@ class IAttachment(IDataStoreObject):
 
         @param contentType: The content type of the data which will be stored.
 
-        @type contentType: L{twext.web2.http_headers.MimeType}
+        @type contentType: L{txweb2.http_headers.MimeType}
 
         @return: A transport which stores the contents written to it.
 
@@ -736,6 +736,13 @@ class AttendeeAllowedError(CommonStoreError):
 class ShareeAllowedError(CommonStoreError):
     """
     Sharee is not allowed to make an implicit scheduling change.
+    """
+
+
+
+class DuplicatePrivateCommentsError(CommonStoreError):
+    """
+    Calendar data cannot contain duplicate private comment properties.
     """
 
 

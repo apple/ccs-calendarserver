@@ -21,14 +21,14 @@ CalDAV GET method.
 __all__ = ["http_GET"]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.dav.util import parentForURL
-from twext.web2.http import HTTPError, StatusResponse
-from twext.web2.http import Response
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from txweb2.dav.http import ErrorResponse
+from txweb2.dav.util import parentForURL
+from txweb2.http import HTTPError, StatusResponse
+from txweb2.http import Response
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace

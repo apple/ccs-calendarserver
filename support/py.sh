@@ -15,6 +15,9 @@
 # limitations under the License.
 ##
 
+set -e
+set -u
+
 # Echo the major.minor version of the given Python interpreter.
 
 py_version () {

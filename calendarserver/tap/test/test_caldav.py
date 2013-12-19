@@ -42,9 +42,9 @@ from twisted.application import internet
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
-from twext.python.plistlib import writePlist #@UnresolvedImport
-from twext.web2.dav import auth
-from twext.web2.log import LogWrapperResource
+from plistlib import writePlist #@UnresolvedImport
+from txweb2.dav import auth
+from txweb2.log import LogWrapperResource
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
 from twistedcaldav.config import config, ConfigDict, ConfigurationError

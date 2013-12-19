@@ -33,11 +33,11 @@ from twistedcaldav.config import config
 # around that for now.
 __import__("twistedcaldav.stdconfig") # FIXME
 
-from twext.web2 import responsecode
-from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
-from twext.web2.dav.resource import davPrivilegeSet
-from twext.web2.dav.util import joinURL, normalizeURL
-from twext.web2.http import HTTPError
+from txweb2 import responsecode
+from txweb2.dav.http import ErrorResponse, MultiStatusResponse
+from txweb2.dav.resource import davPrivilegeSet
+from txweb2.dav.util import joinURL, normalizeURL
+from txweb2.http import HTTPError
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.failure import Failure

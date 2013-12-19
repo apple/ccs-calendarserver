@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.test.test_server import SimpleRequest
 
 from twisted.internet.defer import inlineCallbacks
 
@@ -22,7 +22,7 @@ from twistedcaldav import caldavxml, customxml
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 
 from txdav.xml import element as davxml
-from twext.web2.http import HTTPError
+from txweb2.http import HTTPError
 
 class Properties (StoreTestCase):
     """

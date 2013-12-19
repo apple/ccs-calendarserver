@@ -37,8 +37,8 @@ from calendarserver.webadmin.resource import WebAdminResource
 from txdav.xml.rfc3744 import GroupMemberSet
 from txdav.xml.rfc2518 import DisplayName
 
-from twext.web2.http import HTTPError
-from twext.web2.responsecode import CONFLICT
+from txweb2.http import HTTPError
+from txweb2.responsecode import CONFLICT
 from txdav.xml.rfc2518 import HRef
 from twistedcaldav.directory.directory import DirectoryRecord
 

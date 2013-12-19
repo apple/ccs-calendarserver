@@ -21,16 +21,16 @@ from twisted.cred import error
 from twisted.internet import address
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import failure
-from twext.web2.auth import digest
-from twext.web2.auth.wrapper import UnauthorizedResponse
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.auth import digest
+from txweb2.auth.wrapper import UnauthorizedResponse
+from txweb2.test.test_server import SimpleRequest
 
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
-from twext.web2.auth.digest import DigestCredentialFactory
-from twext.web2.test.test_httpauth import makeDigestDeterministic
-from twext.web2.test.test_httpauth import FAKE_STATIC_NONCE
+from txweb2.auth.digest import DigestCredentialFactory
+from txweb2.test.test_httpauth import makeDigestDeterministic
+from txweb2.test.test_httpauth import FAKE_STATIC_NONCE
 
 class FakeDigestCredentialFactory(QopDigestCredentialFactory):
     """

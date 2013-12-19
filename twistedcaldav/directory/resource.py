@@ -18,7 +18,7 @@
 Implements a directory-backed principal hierarchy.
 """
 
-from twext.web2.dav.util import joinURL
+from txweb2.dav.util import joinURL
 
 from twistedcaldav.client.reverseproxy import ReverseProxyResource
 

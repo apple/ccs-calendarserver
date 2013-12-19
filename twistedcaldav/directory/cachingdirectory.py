@@ -31,9 +31,9 @@ import time
 import base64
 
 from twext.python.log import Logger
-from twext.python.memcacheclient import ClientFactory, MemcacheError
 
 from twistedcaldav.config import config
+from twistedcaldav.memcacheclient import ClientFactory, MemcacheError
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError, UnknownRecordTypeError
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.directory.util import normalizeUUID

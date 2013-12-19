@@ -21,7 +21,7 @@ except ImportError:
 else:
     from calendarserver.platform.darwin.od import dsattributes
     from collections import defaultdict
-    from twext.web2.auth.digest import DigestedCredentials
+    from txweb2.auth.digest import DigestedCredentials
     from twisted.internet.defer import inlineCallbacks
     from twisted.python.runtime import platform
     from twisted.trial.unittest import SkipTest

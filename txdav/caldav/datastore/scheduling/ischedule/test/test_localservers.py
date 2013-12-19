@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.test.test_server import SimpleRequest
 
 from twisted.trial import unittest
 

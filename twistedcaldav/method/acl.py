@@ -22,9 +22,9 @@ __all__ = ["http_ACL"]
 
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.dav.util import parentForURL
-from twext.web2.http import HTTPError
+from txweb2 import responsecode
+from txweb2.dav.util import parentForURL
+from txweb2.http import HTTPError
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 

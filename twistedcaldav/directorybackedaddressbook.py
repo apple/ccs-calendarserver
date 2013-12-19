@@ -23,10 +23,10 @@ __all__ = [
 ]
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
-from twext.web2.dav.resource import TwistedACLInheritable
-from twext.web2.http import HTTPError, StatusResponse
+from txweb2.dav.resource import TwistedACLInheritable
+from txweb2.http import HTTPError, StatusResponse
 
 from twisted.internet.defer import succeed, inlineCallbacks, maybeDeferred, returnValue
 from twisted.python.reflect import namedClass

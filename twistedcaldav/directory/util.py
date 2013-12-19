@@ -27,10 +27,10 @@ __all__ = [
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.auth.wrapper import UnauthorizedResponse
-from twext.web2.dav.resource import DAVResource
-from twext.web2.http import StatusResponse
+from txweb2 import responsecode
+from txweb2.auth.wrapper import UnauthorizedResponse
+from txweb2.dav.resource import DAVResource
+from txweb2.http import StatusResponse
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.xml import element as davxml
 from uuid import UUID, uuid5

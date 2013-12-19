@@ -15,9 +15,9 @@
 ##
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.http import HTTPError, StatusResponse
+from txweb2 import responsecode
+from txweb2.dav.http import ErrorResponse
+from txweb2.http import HTTPError, StatusResponse
 
 from twisted.internet.defer import inlineCallbacks
 

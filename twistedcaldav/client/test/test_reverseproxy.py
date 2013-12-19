@@ -14,9 +14,9 @@
 # limitations under the License.
 ##
 
-from twext.web2.client.http import ClientRequest
-from twext.web2.http import HTTPError
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.client.http import ClientRequest
+from txweb2.http import HTTPError
+from txweb2.test.test_server import SimpleRequest
 from twistedcaldav.client.pool import _clientPools
 from twistedcaldav.client.reverseproxy import ReverseProxyResource
 from twistedcaldav.config import config

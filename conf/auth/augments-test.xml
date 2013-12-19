@@ -109,6 +109,7 @@
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
     <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>default</auto-schedule-mode>
   </record>
   <record>
     <uid>C38BEE7A-36EE-478C-9DCB-CBF4612AFE65</uid>
@@ -135,5 +136,50 @@
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
     <auto-schedule>true</auto-schedule>
+  </record>
+  <record>
+    <uid>6F9EE33B-78F6-481B-9289-3D0812FF0D64</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule>false</auto-schedule>
+    <auto-schedule-mode>default</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>76E7ECA6-08BC-4AE7-930D-F2E7453993A5</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule>false</auto-schedule>
+    <auto-schedule-mode>default</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>63A2F949-2D8D-4C8D-B8A5-DCF2A94610F3</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule>false</auto-schedule>
+    <auto-schedule-mode>default</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>06E3BDCB-9C19-485A-B14E-F146A80ADDC6</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>default</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>4D66A20A-1437-437D-8069-2F14E8322234</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>default</auto-schedule-mode>
   </record>
 </augments>

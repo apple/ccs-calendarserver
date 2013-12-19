@@ -18,12 +18,12 @@
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.python.log import Logger
 
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.http import Response
-from twext.web2.http_headers import MimeType
-from twext.web2.server import parsePOSTData
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.http import Response
+from txweb2.http_headers import MimeType
+from txweb2.server import parsePOSTData
 from twisted.application import service
 from twisted.internet import protocol
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
@@ -888,7 +888,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         to add a subscription entry to the database.
 
         @param request: The request to process
-        @type request: L{twext.web2.server.Request}
+        @type request: L{txweb2.server.Request}
         """
 
         token = request.args.get("token", ("",))[0].replace(" ", "").lower()

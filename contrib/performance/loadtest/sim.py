@@ -43,6 +43,8 @@ from twisted.internet.defer import gatherResults
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.protocol import ProcessProtocol
 
+from twisted.web.server import Site
+
 from contrib.performance.loadtest.ical import OS_X_10_6
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 from contrib.performance.loadtest.population import (
@@ -214,7 +216,6 @@ class SimOptions(Options):
 Arrival = namedtuple('Arrival', 'factory parameters')
 
 
-from twisted.web import server
 
 class LoadSimulator(object):
     """
@@ -461,7 +462,7 @@ class LoadSimulator(object):
         if self.runtime is not None:
             self.reactor.callLater(self.runtime, self.stopAndReport)
         if self.webadminPort:
-            self.reactor.listenTCP(self.webadminPort, server.Site(LoadSimAdminResource(self)))
+            self.reactor.listenTCP(self.webadminPort, Site(LoadSimAdminResource(self)))
         self.reactor.run()
 
 

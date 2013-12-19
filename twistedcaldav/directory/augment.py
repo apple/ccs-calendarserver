@@ -79,6 +79,7 @@ recordTypesMap = {
     "groups" : "Group",
     "locations" : "Location",
     "resources" : "Resource",
+    "addresses" : "Address",
 }
 
 class AugmentDB(object):

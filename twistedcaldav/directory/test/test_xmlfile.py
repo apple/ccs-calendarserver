@@ -34,7 +34,8 @@ class XMLFileBase(object):
         DirectoryService.recordType_users,
         DirectoryService.recordType_groups,
         DirectoryService.recordType_locations,
-        DirectoryService.recordType_resources
+        DirectoryService.recordType_resources,
+        DirectoryService.recordType_addresses,
     ))
 
     users = {

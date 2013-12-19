@@ -25,7 +25,7 @@ from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
 
 from twext.enterprise.dal.syntax import Update, Delete
-from twext.web2.http_headers import MimeType
+from txweb2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 

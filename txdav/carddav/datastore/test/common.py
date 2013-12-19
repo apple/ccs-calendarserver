@@ -20,8 +20,8 @@ Tests for common addressbook store API functions.
 
 from twext.python.filepath import CachingFilePath as FilePath
 
-from twext.web2.http import HTTPError
-from twext.web2.responsecode import FORBIDDEN
+from txweb2.http import HTTPError
+from txweb2.responsecode import FORBIDDEN
 
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 from twisted.python import hashlib

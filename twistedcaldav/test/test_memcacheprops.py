@@ -26,7 +26,7 @@ Test memcacheprops.
 
 import os
 
-from twext.web2.http import HTTPError
+from txweb2.http import HTTPError
 
 from txdav.xml.base import encodeXMLName
 

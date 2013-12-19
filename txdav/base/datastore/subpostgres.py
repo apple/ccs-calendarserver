@@ -167,7 +167,7 @@ class PostgresService(MultiService):
     def __init__(self, dataStoreDirectory, subServiceFactory,
                  schema, resetSchema=False, databaseName='subpostgres',
                  clusterName="cluster",
-                 logFile="postgres.log", socketDir="/tmp",
+                 logFile="postgres.log", socketDir="",
                  listenAddresses=[], sharedBuffers=30,
                  maxConnections=20, options=[],
                  testMode=False,
@@ -223,20 +223,15 @@ class PostgresService(MultiService):
             self.host, self.port = listenAddresses[0].split(":") if ":" in listenAddresses[0] else (listenAddresses[0], None,)
             self.listenAddresses = [addr.split(":")[0] for addr in listenAddresses]
         else:
-            if socketDir:
-                # Unix socket length path limit
-                self.socketDir = CachingFilePath("%s/ccs_postgres_%s/" %
-                    (socketDir, md5(dataStoreDirectory.path).hexdigest()))
-                if len(self.socketDir.path) > 64:
-                    socketDir = "/tmp"
-                    self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
-                        (md5(dataStoreDirectory.path).hexdigest()))
-                self.host = self.socketDir.path
-                self.port = None
-            else:
-                self.socketDir = None
-                self.host = "localhost"
-                self.port = None
+            if not socketDir:
+                # Socket directory was not specified, so come up with one
+                # in /tmp and based on a hash of the data store directory
+                digest = md5(dataStoreDirectory.path).hexdigest()
+                socketDir = "/tmp/ccs_postgres_" + digest
+                
+            self.socketDir = CachingFilePath(socketDir)
+            self.host = self.socketDir.path
+            self.port = None
             self.listenAddresses = []
         self.sharedBuffers = sharedBuffers if not testMode else 16
         self.maxConnections = maxConnections if not testMode else 4

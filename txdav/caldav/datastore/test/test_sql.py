@@ -18,7 +18,7 @@ from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, \
     LocalCalendarUser
 from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 
@@ -32,9 +32,9 @@ from pycalendar.timezone import Timezone
 
 from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
-from twext.python.vcomponent import VComponent
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from twistedcaldav.ical import Component as VComponent
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList, \
@@ -64,6 +64,7 @@ from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
+from txdav.idav import ChangeCategory
 
 import datetime
 
@@ -911,6 +912,32 @@ END:VCALENDAR
         # Recheck it
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_removeNotifyCategoryInbox(self):
+        """
+        Inbox object removal should be categorized as ChangeCategory.inbox
+        """
+        home = yield self.homeUnderTest()
+        inbox = yield home.createCalendarWithName("inbox")
+        component = VComponent.fromString(test_event_text)
+        inboxItem = yield inbox.createCalendarObjectWithName("inbox.ics", component)
+        self.assertEquals(ChangeCategory.inbox, inboxItem.removeNotifyCategory())
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_removeNotifyCategoryNonInbox(self):
+        """
+        Non-Inbox object removal should be categorized as ChangeCategory.default
+        """
+        home = yield self.homeUnderTest()
+        nonInbox = yield home.createCalendarWithName("noninbox")
+        component = VComponent.fromString(test_event_text)
+        nonInboxItem = yield nonInbox.createCalendarObjectWithName("inbox.ics", component)
+        self.assertEquals(ChangeCategory.default, nonInboxItem.removeNotifyCategory())
         yield self.commit()
 
 
@@ -2048,6 +2075,81 @@ END:VCALENDAR
         yield self.commit()
 
         self.assertEqual(len(self.flushLoggedErrors(InvalidOverriddenInstanceError)), 1)
+
+
+    @inlineCallbacks
+    def test_setComponent_structuredLocation(self):
+        """
+        Verify ROOM attendees who have street address and geo information
+        within the directory will get X-APPLE-STRUCTURED-LOCATION properties
+        added, as well as updated LOCATION properties.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+DTSTART;TZID=America/Los_Angeles:20131211T164500
+DTEND;TZID=America/Los_Angeles:20131211T174500
+ATTENDEE;CN=Conference Room One;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
+ T;SCHEDULE-STATUS=2.0:urn:uuid:room1
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
+ CEPTED:urn:uuid:user01
+CREATED:20131211T221854Z
+DTSTAMP:20131211T230632Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RRULE:FREQ=DAILY;COUNT=5
+SEQUENCE:8
+SUMMARY:locations
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+RECURRENCE-ID;TZID=America/Los_Angeles:20131214T164500
+DTSTART;TZID=America/Los_Angeles:20131214T160000
+DTEND;TZID=America/Los_Angeles:20131214T170000
+ATTENDEE;CN=Conference Room Two;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
+ T;SCHEDULE-STATUS=2.0:urn:uuid:room2
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
+ CEPTED:urn:uuid:user01
+CREATED:20131211T221854Z
+DTSTAMP:20131211T230632Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+SEQUENCE:8
+SUMMARY:locations
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName("structured.ics",
+            Component.fromString(data))
+        cobj = yield self.calendarObjectUnderTest(name="structured.ics",
+            calendar_name="calendar", home="user01")
+        comp = yield cobj.component()
+        components = list(comp.subcomponents())
+
+        # Check first component
+        locProp = components[0].getProperty("LOCATION")
+        self.assertEquals(locProp.value(),
+            "Conference Room One\n1 Infinite Loop, Cupertino, CA 95014")
+        structProp = components[0].getProperty("X-APPLE-STRUCTURED-LOCATION")
+        self.assertEquals(structProp.value(),
+            "geo:37.331741,-122.030333")
+
+        # Check second component
+        locProp = components[1].getProperty("LOCATION")
+        self.assertEquals(locProp.value(),
+            "Conference Room Two\n2 Infinite Loop, Cupertino, CA 95014")
+        structProp = components[1].getProperty("X-APPLE-STRUCTURED-LOCATION")
+        self.assertEquals(structProp.value(),
+            "geo:37.332633,-122.030502")
+
+        yield self.commit()
+
 
 
 

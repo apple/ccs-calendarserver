@@ -26,13 +26,13 @@ from twisted.internet.base import DelayedCall
 from twisted.internet.defer import succeed, fail, inlineCallbacks, returnValue
 from twisted.internet.protocol import ProcessProtocol
 
-from twext.python.memcacheclient import ClientFactory
 from twext.python.filepath import CachingFilePath as FilePath
-import twext.web2.dav.test.util
+import txweb2.dav.test.util
 from txdav.xml import element as davxml, element
-from twext.web2.http import HTTPError, StatusResponse
+from txweb2.http import HTTPError, StatusResponse
 
 from twistedcaldav import memcacher
+from twistedcaldav.memcacheclient import ClientFactory
 from twistedcaldav.bind import doBind
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
@@ -52,7 +52,7 @@ from calendarserver.provision.root import RootResource
 from twext.python.log import Logger
 from txdav.caldav.datastore.test.util import buildCalendarStore
 from calendarserver.tap.util import getRootResource, directoryFromConfig
-from twext.web2.dav.test.util import SimpleRequest
+from txweb2.dav.test.util import SimpleRequest
 from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.directory.directory import DirectoryService
 
@@ -187,7 +187,7 @@ class SimpleStoreRequest(SimpleRequest):
 
 
 
-class StoreTestCase(CommonCommonTests, twext.web2.dav.test.util.TestCase):
+class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
     """
     A base class for tests that use the SQL store.
     """
@@ -268,7 +268,7 @@ class StoreTestCase(CommonCommonTests, twext.web2.dav.test.util.TestCase):
 
 
 
-class TestCase(twext.web2.dav.test.util.TestCase):
+class TestCase(txweb2.dav.test.util.TestCase):
     resource_class = RootResource
 
     def createDataStore(self):

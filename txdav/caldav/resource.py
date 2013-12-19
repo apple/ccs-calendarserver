@@ -32,9 +32,9 @@ import urllib
 
 from twext.python.log import Logger
 from txdav.xml.base import dav_namespace
-from twext.web2.http_headers import MimeType
-from twext.web2.http import RedirectResponse, Response
-from twext.web2.stream import MemoryStream
+from txweb2.http_headers import MimeType
+from txweb2.http import RedirectResponse, Response
+from txweb2.stream import MemoryStream
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace

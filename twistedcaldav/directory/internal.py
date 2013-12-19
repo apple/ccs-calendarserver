@@ -23,7 +23,7 @@ __all__ = [
     "InternalDirectoryService",
 ]
 
-from twext.web2.dav.auth import IPrincipalCredentials
+from txweb2.dav.auth import IPrincipalCredentials
 
 from twisted.cred.error import UnauthorizedLogin
 

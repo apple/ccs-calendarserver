@@ -23,12 +23,12 @@ __all__ = ["multiget_common"]
 from urllib import unquote
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace
-from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
-from twext.web2.dav.resource import AccessDeniedError
-from twext.web2.http import HTTPError, StatusResponse
+from txweb2.dav.http import ErrorResponse, MultiStatusResponse
+from txweb2.dav.resource import AccessDeniedError
+from txweb2.http import HTTPError, StatusResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 

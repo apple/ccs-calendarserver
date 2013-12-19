@@ -35,11 +35,11 @@ from errno import ENOENT
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
 
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import Component as VComponent
 from txdav.xml import element as davxml
 from txdav.xml.rfc2518 import GETContentType
-from twext.web2.dav.resource import TwistedGETContentMD5
-from twext.web2.http_headers import generateContentType, MimeType
+from txweb2.dav.resource import TwistedGETContentMD5
+from txweb2.http_headers import generateContentType, MimeType
 
 from twistedcaldav import caldavxml, customxml, ical
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque, Transparent
@@ -77,6 +77,8 @@ CalendarStore = CommonDataStore
 CalendarStoreTransaction = CommonStoreTransaction
 
 IGNORE_NAMES = ('dropbox', 'notification', 'freebusy')
+
+
 
 class CalendarHome(CommonHome):
     implements(ICalendarHome)

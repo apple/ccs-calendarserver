@@ -1,4 +1,4 @@
-# -*- test-case-name: twext.web2.dav.test.test_prop.PROP.test_PROPFIND -*-
+# -*- test-case-name: txweb2.dav.test.test_prop.PROP.test_PROPFIND -*-
 ##
 # Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
 #
@@ -29,13 +29,13 @@ __all__ = ["http_PROPFIND"]
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twext.web2.http import HTTPError
-from twext.web2 import responsecode
-from twext.web2.http import StatusResponse
+from txweb2.http import HTTPError
+from txweb2 import responsecode
+from txweb2.http import StatusResponse
 from txdav.xml import element as davxml
-from twext.web2.dav.http import MultiStatusResponse, statusForFailure, \
+from txweb2.dav.http import MultiStatusResponse, statusForFailure, \
     ErrorResponse
-from twext.web2.dav.util import normalizeURL, davXMLFromStream, parentForURL
+from txweb2.dav.util import normalizeURL, davXMLFromStream, parentForURL
 
 from twext.python.log import Logger
 

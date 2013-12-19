@@ -21,7 +21,9 @@ set -u;
 
 wd="$(cd "$(dirname "$0")" && pwd -L)";
 
-#. "${wd}/support/build.sh";
+##
+# Options
+##
 
 do_setup="false";
 do_get="false";
@@ -78,14 +80,29 @@ if [ $# -gt 0 ]; then
   test_modules="$@";
   flaky=true;
 else
-  test_modules="calendarserver twistedcaldav twext txdav contrib ${m_twisted}";
+  test_modules="calendarserver twistedcaldav txdav contrib ${m_twisted}";
   flaky=true;
 fi;
 
+
+##
+# Clean up
+##
+
 find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
+
+
+##
+# Unit tests
+##
 
 mkdir -p "${wd}/data";
 cd "${wd}" && "${wd}/bin/trial" --temp-directory="${wd}/data/trial" --rterrors ${reactor} ${random} ${until_fail} ${no_colour} ${coverage} ${numjobs} ${test_modules};
+
+
+##
+# Code linting
+##
 
 if ${flaky}; then
   echo "";
@@ -110,7 +127,7 @@ search_py ()
 
 #tmp="$(mktemp "/tmp/calendarserver_test_flakish.XXXXX")";
 #echo "";
-#echo "Checking for other issues..."
+#echo "Checking for legacy print statements..."
 #search_py 'print  *[^(]' | sed 's|#.*||' | grep 'print  *[^(]' > "${tmp}" || true;
 #if [ -s "${tmp}" ]; then
 #    echo "**** Use of legacy print statement found. ****";
@@ -118,6 +135,11 @@ search_py ()
 #    exit 1;
 #fi;
 #rm -f "${tmp}";
+
+
+##
+# Empty files
+##
 
 tmp="$(mktemp "/tmp/calendarserver_test_emtpy.XXXXX")";
 find "${wd}" '!' '(' -type d '(' -path '*/.*' -or -name data ')' -prune ')' -type f -size 0 > "${tmp}";

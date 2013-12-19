@@ -22,17 +22,17 @@ __all__ = [
     "TimezoneServiceResource",
 ]
 
-from twext.web2.dav.http import ErrorResponse
+from txweb2.dav.http import ErrorResponse
 
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
-from twext.web2.dav.method.propfind import http_PROPFIND
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.http import HTTPError
-from twext.web2.http import Response
-from twext.web2.http import XMLResponse
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from txweb2.dav.method.propfind import http_PROPFIND
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.http import HTTPError
+from txweb2.http import Response
+from txweb2.http import XMLResponse
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import succeed
 

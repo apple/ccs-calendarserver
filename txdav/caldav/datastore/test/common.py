@@ -27,7 +27,7 @@ from twisted.internet.protocol import Protocol
 from twisted.python import hashlib
 
 from twext.python.clsprop import classproperty
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import Component as VComponent
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.enterprise.ienterprise import AlreadyFinishedError
 

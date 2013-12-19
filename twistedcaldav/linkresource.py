@@ -16,10 +16,10 @@
 
 
 from twext.python.log import Logger
-from twext.web2 import responsecode, server, http
+from txweb2 import responsecode, server, http
 from txdav.xml import element as davxml
-from twext.web2.http import HTTPError, StatusResponse
-from twext.web2.resource import WrapperResource
+from txweb2.http import HTTPError, StatusResponse
+from txweb2.resource import WrapperResource
 
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 

@@ -42,7 +42,7 @@ from twext.enterprise.util import parseSQLTimestamp
 from twext.internet.decorate import memoizedKey, Memoizable
 from twext.python.clsprop import classproperty
 from twext.python.log import Logger
-from twext.web2.http_headers import MimeType
+from txweb2.http_headers import MimeType
 
 from twisted.application.service import Service
 from twisted.internet import reactor
@@ -4288,7 +4288,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         if self._objectNames and child.name() in self._objectNames:
             self._objectNames.remove(child.name())
         yield self._deleteRevision(child.name())
-        yield self.notifyChanged()
+        yield self.notifyChanged(category=child.removeNotifyCategory())
 
 
     @classproperty
@@ -5095,6 +5095,18 @@ class CommonObjectResource(FancyEqMixin, object):
         self._notificationData = None
 
 
+    def removeNotifyCategory(self):
+        """
+        Indicates what category to use when determining the priority of push
+        notifications when this object is removed.
+
+        @returns: The "default" category (but should be overridden to return
+            values such as "inbox")
+        @rtype: L{ChangeCategory}
+        """
+        return ChangeCategory.default
+
+
     def uid(self):
         return self._uid
 
@@ -5616,6 +5628,8 @@ class NotificationObject(FancyEqMixin, object):
                 child._notificationType = json.loads(child._notificationType)
             except ValueError:
                 pass
+            if isinstance(child._notificationType, unicode):
+                child._notificationType = child._notificationType.encode("utf-8")
             child._loadPropertyStore(
                 props=propertyStores.get(child._resourceID, None)
             )
@@ -5664,6 +5678,8 @@ class NotificationObject(FancyEqMixin, object):
                 self._notificationType = json.loads(self._notificationType)
             except ValueError:
                 pass
+            if isinstance(self._notificationType, unicode):
+                self._notificationType = self._notificationType.encode("utf-8")
             self._loadPropertyStore()
             returnValue(self)
         else:
@@ -5777,6 +5793,8 @@ class NotificationObject(FancyEqMixin, object):
                 self._notificationData = json.loads(self._notificationData)
             except ValueError:
                 pass
+            if isinstance(self._notificationData, unicode):
+                self._notificationData = self._notificationData.encode("utf-8")
         returnValue(self._notificationData)
 
 

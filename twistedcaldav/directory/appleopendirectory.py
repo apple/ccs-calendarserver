@@ -30,7 +30,7 @@ from uuid import UUID
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.cred.credentials import UsernamePassword
-from twext.web2.auth.digest import DigestedCredentials
+from txweb2.auth.digest import DigestedCredentials
 from twext.python.log import Logger
 
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService, \

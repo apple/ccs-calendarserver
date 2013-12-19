@@ -30,8 +30,8 @@ __all__ = [
 from errno import ENOENT
 
 from txdav.xml.rfc2518 import GETContentType
-from twext.web2.dav.resource import TwistedGETContentMD5
-from twext.web2.http_headers import MimeType
+from txweb2.dav.resource import TwistedGETContentMD5
+from txweb2.http_headers import MimeType
 
 from twisted.python import hashlib
 

@@ -15,7 +15,7 @@
 ##
 
 from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
+from txweb2.dav.http import ErrorResponse
 from twisted.internet.defer import succeed
 from twistedcaldav.caldavxml import caldav_namespace
 from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser

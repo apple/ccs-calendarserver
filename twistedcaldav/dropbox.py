@@ -24,11 +24,11 @@ __all__ = [
 ]
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.dav.resource import DAVResource, TwistedACLInheritable
-from twext.web2.dav.util import joinURL
+from txweb2.dav.http import ErrorResponse
+from txweb2.dav.resource import DAVResource, TwistedACLInheritable
+from txweb2.dav.util import joinURL
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 

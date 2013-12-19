@@ -32,9 +32,9 @@ from twext.enterprise.dal.syntax import Delete, Insert, Len, Parameter, \
     Update, Union, Max, Select, utcNowSQL
 from twext.enterprise.locking import NamedLock
 from twext.python.clsprop import classproperty
-from twext.web2.http import HTTPError
-from twext.web2.http_headers import MimeType
-from twext.web2.responsecode import FORBIDDEN
+from txweb2.http import HTTPError
+from txweb2.http_headers import MimeType
+from txweb2.responsecode import FORBIDDEN
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import hashlib

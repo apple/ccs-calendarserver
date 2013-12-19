@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue,\

@@ -16,9 +16,9 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twext.web2.http import HTTPError
-from twext.web2 import responsecode
-from twext.web2.dav.util import joinURL
+from txweb2.http import HTTPError
+from txweb2 import responsecode
+from txweb2.dav.util import joinURL
 from twistedcaldav.directory.util import transactionFromRequest, NotFoundResource
 from twistedcaldav.directory.resource import DirectoryReverseProxyResource
 

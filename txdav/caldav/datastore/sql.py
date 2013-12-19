@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.xml import element
 
 
 """
@@ -41,9 +40,9 @@ from twext.enterprise.util import parseSQLTimestamp
 from twext.python.clsprop import classproperty
 from twext.python.filepath import CachingFilePath
 from twext.python.log import Logger
-from twext.python.vcomponent import VComponent
-from twext.web2.http_headers import MimeType, generateContentType
-from twext.web2.stream import readStream
+from twistedcaldav.ical import Component as VComponent
+from txweb2.http_headers import MimeType, generateContentType
+from txweb2.stream import readStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
@@ -73,7 +72,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
     ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
     InvalidDefaultCalendar, \
-    InvalidAttachmentOperation
+    InvalidAttachmentOperation, DuplicatePrivateCommentsError
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -89,6 +88,7 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
     InvalidResourceMove, InvalidComponentForStoreError
+from txdav.xml import element
 
 from txdav.idav import ChangeCategory
 
@@ -108,6 +108,8 @@ import urllib
 import uuid
 
 log = Logger()
+
+
 
 class CalendarStoreFeatures(object):
     """
@@ -578,6 +580,14 @@ class CalendarHome(CommonHome):
         if uid not in self._cachedCalendarResourcesForUID:
             self._cachedCalendarResourcesForUID[uid] = (yield self.objectResourcesWithUID(uid, ["inbox"], allowShared=False))
         returnValue(self._cachedCalendarResourcesForUID[uid])
+
+
+    def removedCalendarResource(self, uid):
+        """
+        Clean-up cache when resource is removed.
+        """
+        if hasattr(self, "_cachedCalendarResourcesForUID") and uid in self._cachedCalendarResourcesForUID:
+            del self._cachedCalendarResourcesForUID[uid]
 
 
     @inlineCallbacks
@@ -1067,6 +1077,12 @@ class Calendar(CommonHomeChild):
         # Note: create triggers a notification when the component is set, so we
         # don't need to call notify() here like we do for object removal.
         returnValue(objectResource)
+
+
+    @inlineCallbacks
+    def removedObjectResource(self, child):
+        yield super(Calendar, self).removedObjectResource(child)
+        self.viewerHome().removedCalendarResource(child.uid())
 
 
     def calendarObjectsInTimeRange(self, start, end, timeZone):
@@ -1790,6 +1806,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             self.hasPrivateComment = new_has_private_comments
 
+            # Some clients appear to be buggy and are duplicating the "X-CALENDARSERVER-ATTENDEE-COMMENT" comment. We want
+            # to raise an error to prevent that so the client bugs can be tracked down.
+
+            # Look for properties with duplicate "X-CALENDARSERVER-ATTENDEE-REF" values in the same component
+            if component.hasDuplicatePrivateComments(doFix=config.RemoveDuplicatePrivateComments):
+                raise DuplicatePrivateCommentsError("Duplicate X-CALENDARSERVER-ATTENDEE-COMMENT properties present.")
+
 
     @inlineCallbacks
     def replaceMissingToDoProperties(self, calendar, inserting, internal_state):
@@ -1968,6 +1991,43 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             alarm = self.calendar().viewerHome().getDefaultAlarm(vevent, timed)
         if alarm and alarm != "empty" and component.addAlarms(alarm):
             self._componentChanged = True
+
+
+    def addStructuredLocation(self, component):
+        """
+        Scan the component for ROOM attendees; if any are associated with an
+        address record which has street address and geo coordinates, add an
+        X-APPLE-STRUCTURED-LOCATION property and update the LOCATION property
+        to contain the name and street address.
+        """
+        for sub in component.subcomponents():
+            for attendee in sub.getAllAttendeeProperties():
+                if attendee.parameterValue("CUTYPE") == "ROOM":
+                    value = attendee.value()
+                    if value.startswith("urn:uuid:"):
+                        guid = value[9:]
+                        loc = self.directoryService().recordWithGUID(guid)
+                        if loc is not None:
+                            guid = loc.extras.get("associatedAddress",
+                                None)
+                            if guid is not None:
+                                addr = self.directoryService().recordWithGUID(guid)
+                                if addr is not None:
+                                    street = addr.extras.get("streetAddress", "")
+                                    geo = addr.extras.get("geo", "")
+                                    if street and geo:
+                                        title = attendee.parameterValue("CN")
+                                        params = {
+                                            "X-ADDRESS" : street,
+                                            "X-APPLE-RADIUS" : "71",
+                                            "X-TITLE" : title,
+                                        }
+                                        structured = Property("X-APPLE-STRUCTURED-LOCATION",
+                                            "geo:%s" % (geo,), params=params,
+                                            valuetype=Value.VALUETYPE_URI)
+                                        sub.replaceProperty(structured)
+                                        sub.replaceProperty(Property("LOCATION",
+                                            "%s\n%s" % (title, street)))
 
 
     @inlineCallbacks
@@ -2182,6 +2242,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Default/duplicate alarms
             self.processAlarms(component, inserting)
 
+            # Process structured location
+            self.addStructuredLocation(component)
+
             # Do scheduling
             implicit_result = (yield self.doImplicitScheduling(component, inserting, internal_state))
             if isinstance(implicit_result, int):
@@ -2242,7 +2305,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         elif internal_state == ComponentUpdateState.ORGANIZER_ITIP_UPDATE:
             category = ChangeCategory.organizerITIPUpdate
         elif (internal_state == ComponentUpdateState.ATTENDEE_ITIP_UPDATE and
-            hasattr(self._txn, "doing_attende_refresh")):
+            hasattr(self._txn, "doing_attendee_refresh")):
             category = ChangeCategory.attendeeITIPUpdate
 
         yield self._calendar.notifyChanged(category=category)
@@ -2679,6 +2742,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Do scheduling
         if scheduler is not None:
             yield scheduler.doImplicitScheduling()
+
+
+    def removeNotifyCategory(self):
+        """
+        Indicates what category to use when determining the priority of push
+        notifications when this object is removed.
+
+        @returns: The "inbox" category if this object is in the inbox, otherwise
+            the "default" category
+        @rtype: L{ChangeCategory}
+        """
+        return (ChangeCategory.inbox if self._calendar.isInbox() else
+                ChangeCategory.default)
 
 
     @classproperty

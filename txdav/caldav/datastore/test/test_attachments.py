@@ -21,8 +21,8 @@ from pycalendar.value import Value
 
 from twext.enterprise.dal.syntax import Delete
 from twext.python.clsprop import classproperty
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.filepath import FilePath

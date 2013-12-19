@@ -26,9 +26,9 @@ __all__ = [
     "SimpleDataResource",
 ]
 
-from twext.web2 import http
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.http import Response
+from txweb2 import http
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.http import Response
 
 from twisted.internet.defer import succeed
 

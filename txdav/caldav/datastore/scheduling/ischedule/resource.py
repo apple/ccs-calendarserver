@@ -17,12 +17,12 @@
 from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
 
-from twext.web2 import responsecode
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.dav.util import allDataFromStream
-from twext.web2.http import Response, HTTPError, StatusResponse, XMLResponse
-from twext.web2.http_headers import MimeType
+from txweb2 import responsecode
+from txweb2.dav.http import ErrorResponse
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.dav.util import allDataFromStream
+from txweb2.http import Response, HTTPError, StatusResponse, XMLResponse
+from txweb2.http_headers import MimeType
 
 from twisted.internet.defer import succeed, returnValue, inlineCallbacks
 from twisted.python.failure import Failure

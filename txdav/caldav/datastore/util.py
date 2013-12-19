@@ -32,10 +32,10 @@ from twisted.internet.protocol import Protocol
 
 from twext.python.log import Logger
 
-from twext.web2 import http_headers
+from txweb2 import http_headers
 
-from twext.python.vcomponent import InvalidICalendarDataError
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import InvalidICalendarDataError
+from twistedcaldav.ical import Component as VComponent
 
 from twistedcaldav import ical
 from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
@@ -283,7 +283,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
 
 
 
-# MIME helpers - mostly copied from twext.web2.static
+# MIME helpers - mostly copied from txweb2.static
 
 def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
     """
@@ -507,7 +507,7 @@ class StorageTransportBase(object):
     def __init__(self, attachment, contentType, dispositionName):
         """
         Create a storage transport with a reference to an L{IAttachment} and a
-        L{twext.web2.http_headers.MimeType}.
+        L{txweb2.http_headers.MimeType}.
         """
         from twisted.internet import reactor
         self._clock = reactor

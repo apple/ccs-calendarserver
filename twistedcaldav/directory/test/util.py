@@ -16,7 +16,7 @@
 
 from twisted.trial.unittest import SkipTest
 from twisted.cred.credentials import UsernamePassword
-from twext.web2.auth.digest import DigestedCredentials, calcResponse, calcHA1
+from txweb2.auth.digest import DigestedCredentials, calcResponse, calcHA1
 
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.directory import UnknownRecordTypeError
@@ -43,6 +43,10 @@ class DirectoryTestCase (TestCase):
 
     # Subclass should init this to a dict of resourcenames keys and dict values.
     resources = {}
+
+    # Subclass should init this to a dict of addressname keys and dict values.
+    addresses = {}
+
 
     # Subclass should init this to an IDirectoryService implementation class.
     def service(self):

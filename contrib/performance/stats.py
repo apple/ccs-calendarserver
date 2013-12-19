@@ -15,16 +15,19 @@
 ##
 
 from __future__ import print_function
+
 from math import log, sqrt
+from time import mktime
+import random
+import sqlparse
+
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration as PyDuration
 from pycalendar.icalendar.property import Property
 from pycalendar.timezone import Timezone
-from twisted.python.util import FancyEqMixin
+
 from zope.interface import Interface, implements
-import random
-import time
-import sqlparse
+from twisted.python.util import FancyEqMixin
 
 
 NANO = 1000000000.0
@@ -394,7 +397,7 @@ class WorkDistribution(object, FancyEqMixin):
 
 
     def astimestamp(self, dt):
-        return time.mktime(dt.timetuple())
+        return mktime(dt.timetuple())
 
 
     def _findWorkAfter(self, when):

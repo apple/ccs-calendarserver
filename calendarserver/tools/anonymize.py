@@ -31,7 +31,7 @@ import uuid
 import xattr
 import zlib
 
-from twext.python.plistlib import readPlistFromString
+from plistlib import readPlistFromString
 
 from pycalendar.icalendar.calendar import Calendar
 from pycalendar.parameter import Parameter

@@ -22,7 +22,7 @@ Tests for txdav.caldav.datastore.util.
 import textwrap
 
 from twisted.trial.unittest import TestCase as BaseTestCase
-from twext.web2.http_headers import MimeType
+from txweb2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks
 

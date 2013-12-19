@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.web2 import responsecode
+from txweb2 import responsecode
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
