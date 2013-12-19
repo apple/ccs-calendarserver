@@ -347,26 +347,60 @@ class ExpressionSyntax(Syntax):
         @param other: a constant parameter or sub-select
         @type other: L{Parameter} or L{Select}
         """
+        return self._commonIn('in', other)
+
+
+    def NotIn(self, other):
+        """
+        We support two forms of the SQL "NOT IN" syntax: one where a list of values is supplied, the other where
+        a sub-select is used to provide a set of values.
+
+        @param other: a constant parameter or sub-select
+        @type other: L{Parameter} or L{Select}
+        """
+        return self._commonIn('not in', other)
+
+
+    def _commonIn(self, op, other):
+        """
+        We support two forms of the SQL "NOT IN" syntax: one where a list of values is supplied, the other where
+        a sub-select is used to provide a set of values.
+
+        @param other: a constant parameter or sub-select
+        @type other: L{Parameter} or L{Select}
+        """
         if isinstance(other, Parameter):
             if other.count is None:
-                raise DALError("IN expression needs an explicit count of parameters")
-            return CompoundComparison(self, 'in', Constant(other))
+                raise DALError("{} expression needs an explicit count of parameters".format(op.upper()))
+            return CompoundComparison(self, op, Constant(other))
         else:
             # Can't be Select.__contains__ because __contains__ gets __nonzero__
-            # called on its result by the 'in' syntax.
-            return CompoundComparison(self, 'in', other)
+            # called on its result by the 'not in' syntax.
+            return CompoundComparison(self, op, other)
 
 
     def StartsWith(self, other):
         return CompoundComparison(self, "like", CompoundComparison(Constant(other), '||', Constant('%')))
 
 
+    def NotStartsWith(self, other):
+        return CompoundComparison(self, "not like", CompoundComparison(Constant(other), '||', Constant('%')))
+
+
     def EndsWith(self, other):
         return CompoundComparison(self, "like", CompoundComparison(Constant('%'), '||', Constant(other)))
 
 
+    def NotEndsWith(self, other):
+        return CompoundComparison(self, "not like", CompoundComparison(Constant('%'), '||', Constant(other)))
+
+
     def Contains(self, other):
         return CompoundComparison(self, "like", CompoundComparison(Constant('%'), '||', CompoundComparison(Constant(other), '||', Constant('%'))))
+
+
+    def NotContains(self, other):
+        return CompoundComparison(self, "not like", CompoundComparison(Constant('%'), '||', CompoundComparison(Constant(other), '||', Constant('%'))))
 
 
 
@@ -555,7 +589,7 @@ class TableSyntax(Syntax):
         """
         Create a L{Join}, representing a join between two tables.
         """
-        if on is None:
+        if on is None and not type:
             type = 'cross'
         return Join(self, type, otherTableSyntax, on)
 
@@ -697,13 +731,16 @@ class Join(object):
     def subSQL(self, queryGenerator, allTables):
         stmt = SQLFragment()
         stmt.append(self.leftSide.subSQL(queryGenerator, allTables))
-        stmt.text += ' '
-        if self.type:
-            stmt.text += self.type
+        if self.type == ',':
+            stmt.text += ', '
+        else:
             stmt.text += ' '
-        stmt.text += 'join '
+            if self.type:
+                stmt.text += self.type
+                stmt.text += ' '
+            stmt.text += 'join '
         stmt.append(self.rightSide.subSQL(queryGenerator, allTables))
-        if self.type != 'cross':
+        if self.type not in ('cross', ','):
             stmt.text += ' on '
             stmt.append(self.on.subSQL(queryGenerator, allTables))
         return stmt
@@ -879,6 +916,26 @@ class Comparison(ExpressionSyntax):
 
     def Or(self, other):
         return self.booleanOp('or', other)
+
+
+
+class Not(Comparison):
+    """
+    A L{NotColumn} is a logical NOT of an expression.
+    """
+    def __init__(self, a):
+        # 'op' and 'b' are always None for this comparison type
+        super(Not, self).__init__(a, None, None)
+
+
+    def subSQL(self, queryGenerator, allTables):
+        sqls = SQLFragment()
+        sqls.text += "not "
+        result = self.a.subSQL(queryGenerator, allTables)
+        if isinstance(self.a, CompoundComparison) and self.a.op in ('or', 'and'):
+            result = _inParens(result)
+        sqls.append(result)
+        return sqls
 
 
 

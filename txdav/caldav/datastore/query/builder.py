@@ -14,24 +14,25 @@
 # limitations under the License.
 ##
 
-"""
-Convert a calendar-query into an expression tree.
-Convert a calendar-query into a partial SQL statement.
-"""
+from twistedcaldav.dateops import floatoffset, pyCalendarTodatetime
 
-__version__ = "0.0"
+from txdav.caldav.datastore.query.filter import ComponentFilter, PropertyFilter, TextMatch, TimeRange
+from txdav.common.datastore.query import expression
+
+
+"""
+SQL statement generator from query expressions.
+"""
 
 __all__ = [
-    "calendarquery",
-    "sqlcalendarquery",
+    "buildExpression",
 ]
 
-from twistedcaldav.dateops import floatoffset, pyCalendarTodatetime
-from twistedcaldav.query import expression, sqlgenerator, calendarqueryfilter
+
 
 # SQL Index column (field) names
 
-def calendarquery(filter, fields):
+def buildExpression(filter, fields):
     """
     Convert the supplied calendar-query into an expression tree.
 
@@ -44,7 +45,7 @@ def calendarquery(filter, fields):
     # Top-level filter contains exactly one comp-filter element
     assert filter.child is not None
     vcalfilter = filter.child
-    assert isinstance(vcalfilter, calendarqueryfilter.ComponentFilter)
+    assert isinstance(vcalfilter, ComponentFilter)
     assert vcalfilter.filter_name == "VCALENDAR"
 
     if len(vcalfilter.filters) > 0:
@@ -52,7 +53,7 @@ def calendarquery(filter, fields):
         logical = expression.andExpression if vcalfilter.filter_test == "allof" else expression.orExpression
 
         # Only comp-filters are handled
-        for _ignore in [x for x in vcalfilter.filters if not isinstance(x, calendarqueryfilter.ComponentFilter)]:
+        for _ignore in [x for x in vcalfilter.filters if not isinstance(x, ComponentFilter)]:
             raise ValueError
 
         return compfilterListExpression(vcalfilter.filters, fields, logical)
@@ -99,13 +100,13 @@ def compfilterExpression(compfilter, fields):
         expressions.append(expression.inExpression(fields["TYPE"], compfilter.filter_name, True))
 
     # Handle time-range
-    if compfilter.qualifier and isinstance(compfilter.qualifier, calendarqueryfilter.TimeRange):
+    if compfilter.qualifier and isinstance(compfilter.qualifier, TimeRange):
         start, end, startfloat, endfloat = getTimerangeArguments(compfilter.qualifier)
         expressions.append(expression.timerangeExpression(start, end, startfloat, endfloat))
 
     # Handle properties - we can only do UID right now
     props = []
-    for p in [x for x in compfilter.filters if isinstance(x, calendarqueryfilter.PropertyFilter)]:
+    for p in [x for x in compfilter.filters if isinstance(x, PropertyFilter)]:
         props.append(propfilterExpression(p, fields))
     if len(props) > 1:
         propsExpression = logical(props)
@@ -116,7 +117,7 @@ def compfilterExpression(compfilter, fields):
 
     # Handle embedded components - we do not right now as our Index does not handle them
     comps = []
-    for _ignore in [x for x in compfilter.filters if isinstance(x, calendarqueryfilter.ComponentFilter)]:
+    for _ignore in [x for x in compfilter.filters if isinstance(x, ComponentFilter)]:
         raise ValueError
     if len(comps) > 1:
         compsExpression = logical(comps)
@@ -159,12 +160,12 @@ def propfilterExpression(propfilter, fields):
     logical = expression.andExpression if propfilter.filter_test == "allof" else expression.orExpression
 
     # Handle time-range - we cannot do this with our Index right now
-    if propfilter.qualifier and isinstance(propfilter.qualifier, calendarqueryfilter.TimeRange):
+    if propfilter.qualifier and isinstance(propfilter.qualifier, TimeRange):
         raise ValueError
 
     # Handle text-match
     tm = None
-    if propfilter.qualifier and isinstance(propfilter.qualifier, calendarqueryfilter.TextMatch):
+    if propfilter.qualifier and isinstance(propfilter.qualifier, TextMatch):
         if propfilter.qualifier.match_type == "equals":
             tm = expression.isnotExpression if propfilter.qualifier.negate else expression.isExpression
         elif propfilter.qualifier.match_type == "contains":
@@ -224,21 +225,3 @@ def getTimerangeArguments(timerange):
         pyCalendarTodatetime(startfloat) if startfloat else None,
         pyCalendarTodatetime(endfloat) if endfloat else None,
     )
-
-
-
-def sqlcalendarquery(filter, calendarid=None, userid=None, freebusy=False, generator=sqlgenerator.sqlgenerator):
-    """
-    Convert the supplied calendar-query into a partial SQL statement.
-
-    @param filter: the L{Filter} for the calendar-query to convert.
-    @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the partial SQL statement,
-            and the C{list} is the list of argument substitutions to use with the SQL API execute method.
-            Or return C{None} if it is not possible to create an SQL query to fully match the calendar-query.
-    """
-    try:
-        expression = calendarquery(filter, generator.FIELDS)
-        sql = generator(expression, calendarid, userid, freebusy)
-        return sql.generate()
-    except ValueError:
-        return None

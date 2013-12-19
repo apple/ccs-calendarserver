@@ -286,13 +286,6 @@ class _CommonHomeChildCollectionMixin(object):
         return self._parentResource
 
 
-    def index(self):
-        """
-        Retrieve the new-style index wrapper.
-        """
-        return self._newStoreObject.retrieveOldIndex()
-
-
     def exists(self):
         # FIXME: tests
         return self._newStoreObject is not None
@@ -345,6 +338,18 @@ class _CommonHomeChildCollectionMixin(object):
         @return: L{Deferred} with the count of all known children of this resource.
         """
         return self._newStoreObject.countObjectResources()
+
+
+    @inlineCallbacks
+    def resourceExists(self, name):
+        """
+        Indicate whether a resource with the specified name exists.
+
+        @return: C{True} if it exists
+        @rtype: C{bool}
+        """
+        allNames = yield self._newStoreObject.listObjectResources()
+        returnValue(name in allNames)
 
 
     def name(self):
@@ -968,6 +973,10 @@ class _CommonHomeChildCollectionMixin(object):
                             WebDAVUnknownElement.withName(*error),
                         ) if error else None,
                     )
+
+
+    def search(self, filter, **kwargs):
+        return self._newStoreObject.search(filter, **kwargs)
 
 
     def notifierID(self):

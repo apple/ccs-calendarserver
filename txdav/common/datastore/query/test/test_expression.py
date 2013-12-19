@@ -14,10 +14,10 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.query import expression
-import twistedcaldav.test.util
+from txdav.common.datastore.query import expression
+from twisted.trial.unittest import TestCase
 
-class Tests(twistedcaldav.test.util.TestCase):
+class Tests(TestCase):
 
     def test_andWith(self):
 

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 ##
 
 """
-Object model of CALDAV:filter element used in a calendar-query.
+Object model of CALDAV:filter element used in an addressbook-query.
 """
 
 __all__ = [

@@ -24,8 +24,6 @@ from urllib import unquote
 
 from twext.python.log import Logger
 from twext.web2 import responsecode
-from txdav.xml import element as davxml
-from txdav.xml.base import dav_namespace
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.http import HTTPError, StatusResponse
@@ -37,10 +35,13 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.method import report_common
-from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.method.report_common import COLLECTION_TYPE_CALENDAR, \
     COLLECTION_TYPE_ADDRESSBOOK
-from twistedcaldav.query import addressbookqueryfilter
+
+from txdav.carddav.datastore.query.filter import Filter
+from txdav.common.icommondatastore import ConcurrentModification
+from txdav.xml import element as davxml
+from txdav.xml.base import dav_namespace
 
 log = Logger()
 
@@ -265,7 +266,7 @@ def multiget_common(self, request, multiget, collection_type):
                     returnValue(None)
 
                 addressBookFilter = carddavxml.Filter(*vCardFilters)
-                addressBookFilter = addressbookqueryfilter.Filter(addressBookFilter)
+                addressBookFilter = Filter(addressBookFilter)
                 if self.directory.cacheQuery:
                     # add vcards to directory address book and run "normal case" below
                     limit = config.DirectoryAddressBook.MaxQueryResults
@@ -333,11 +334,11 @@ def multiget_common(self, request, multiget, collection_type):
                     parent = (yield child.locateParent(request, resource_uri))
 
                     if collection_type == COLLECTION_TYPE_CALENDAR:
-                        if not parent.isCalendarCollection() or not (yield parent.index().resourceExists(name)):
+                        if not parent.isCalendarCollection() or not (yield parent.resourceExists(name)):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                             continue
                     elif collection_type == COLLECTION_TYPE_ADDRESSBOOK:
-                        if not parent.isAddressBookCollection() or not (yield parent.index().resourceExists(name)):
+                        if not parent.isAddressBookCollection() or not (yield parent.resourceExists(name)):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                             continue
 
@@ -367,11 +368,11 @@ def multiget_common(self, request, multiget, collection_type):
                     parent = (yield self.locateParent(request, resource_uri))
 
                     if collection_type == COLLECTION_TYPE_CALENDAR:
-                        if not parent.isPseudoCalendarCollection() or not (yield parent.index().resourceExists(name)):
+                        if not parent.isPseudoCalendarCollection() or not (yield parent.resourceExists(name)):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                             continue
                     elif collection_type == COLLECTION_TYPE_ADDRESSBOOK:
-                        if not parent.isAddressBookCollection() or not (yield parent.index().resourceExists(name)):
+                        if not parent.isAddressBookCollection() or not (yield parent.resourceExists(name)):
                             responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
                             continue
                     child = self

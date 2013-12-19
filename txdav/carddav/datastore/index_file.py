@@ -37,10 +37,6 @@ except ImportError:
 
 from twisted.internet.defer import maybeDeferred
 
-from twistedcaldav import carddavxml
-from txdav.common.icommondatastore import SyncTokenValidException, \
-    ReservationError
-from twistedcaldav.query import addressbookquery
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
 from twistedcaldav.vcard import Component
@@ -48,6 +44,12 @@ from twistedcaldav.vcard import Component
 from twext.python.log import Logger
 from twistedcaldav.config import config
 from twistedcaldav.memcachepool import CachePoolUserMixIn
+
+from txdav.carddav.datastore.query.builder import buildExpression
+from txdav.carddav.datastore.query.filter import Filter
+from txdav.common.datastore.query.filegenerator import sqllitegenerator
+from txdav.common.icommondatastore import SyncTokenValidException, \
+    ReservationError
 
 log = Logger()
 
@@ -215,6 +217,24 @@ class SQLUIDReserver(object):
                 return True
 
         return False
+
+
+
+def sqladdressbookquery(filter, addressbookid=None):
+    """
+    Convert the supplied addressbook-query into a partial SQL statement.
+
+    @param filter: the L{Filter} for the addressbook-query to convert.
+    @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the partial SQL statement,
+            and the C{list} is the list of argument substitutions to use with the SQL API execute method.
+            Or return C{None} if it is not possible to create an SQL query to fully match the addressbook-query.
+    """
+    try:
+        expression = buildExpression(filter, sqllitegenerator.FIELDS)
+        sql = sqllitegenerator(expression, addressbookid, None)
+        return sql.generate()
+    except ValueError:
+        return None
 
 
 
@@ -445,8 +465,8 @@ class AddressBookIndex(AbstractSQLDatabase):
 
 
     def searchValid(self, filter):
-        if isinstance(filter, carddavxml.Filter):
-            qualifiers = addressbookquery.sqladdressbookquery(filter)
+        if isinstance(filter, Filter):
+            qualifiers = sqladdressbookquery(filter)
         else:
             qualifiers = None
 
@@ -466,8 +486,8 @@ class AddressBookIndex(AbstractSQLDatabase):
         # start caching...
 
         # Make sure we have a proper Filter element and get the partial SQL statement to use.
-        if isinstance(filter, carddavxml.Filter):
-            qualifiers = addressbookquery.sqladdressbookquery(filter)
+        if isinstance(filter, Filter):
+            qualifiers = sqladdressbookquery(filter)
         else:
             qualifiers = None
         if qualifiers is not None:

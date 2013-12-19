@@ -15,7 +15,7 @@
 ##
 
 """
-Object model of CARDAV:filter element used in an addressbook-query.
+Object model of CARDDAV:filter element used in an addressbook-query.
 """
 
 __all__ = [

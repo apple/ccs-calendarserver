@@ -1178,13 +1178,15 @@ class SharingRevisions(BaseSharingTests):
 
         otherHome = yield self.addressbookHomeUnderTest(name="user02")
         for depth in ("1", "infinity",):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision - 1, depth)
+            changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision - 1, depth)
             self.assertNotEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
+            self.assertEqual(len(invalid), 0)
 
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
+            changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
+            self.assertEqual(len(invalid), 0)
 
 
     @inlineCallbacks

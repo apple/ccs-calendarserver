@@ -13,14 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor
-from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, \
-    LocalCalendarUser
-from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
-from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
-from twext.web2 import responsecode
-from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
-from twistedcaldav.instance import InvalidOverriddenInstanceError
 
 """
 Tests for txdav.caldav.datastore.postgres, mostly based on
@@ -33,6 +25,7 @@ from pycalendar.timezone import Timezone
 from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
 from twext.python.vcomponent import VComponent
+from twext.web2 import responsecode
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
@@ -47,9 +40,16 @@ from twistedcaldav.caldavxml import CalendarDescription
 from twistedcaldav.config import config
 from twistedcaldav.dateops import datetimeMktime
 from twistedcaldav.ical import Component, normalize_iCalStr, diff_iCalStrs
-from twistedcaldav.query import calendarqueryfilter
+from twistedcaldav.instance import InvalidOverriddenInstanceError
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.query.filter import Filter
+from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
+from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, \
+    LocalCalendarUser
+from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
+from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor
+from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
     test_event_text
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
@@ -57,14 +57,13 @@ from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
 from txdav.caldav.icalendarstore import ComponentUpdateState, InvalidDefaultCalendar
 from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource
-from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
     _BIND_STATUS_ACCEPTED
 from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from txdav.common.icommondatastore import NoSuchObjectResourceError
-from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 from txdav.idav import ChangeCategory
+from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 import datetime
 
@@ -407,10 +406,10 @@ END:VCALENDAR
                           name="VCALENDAR",
                        )
                   )
-        filter = calendarqueryfilter.Filter(filter)
+        filter = Filter(filter)
         filter.settimezone(None)
 
-        results = yield toCalendar._index.indexedSearch(filter, 'user01', True)
+        results = yield toCalendar.search(filter, 'user01', True)
         self.assertEquals(len(results), 1)
         _ignore_name, uid, _ignore_type, _ignore_organizer, _ignore_float, _ignore_start, _ignore_end, _ignore_fbtype, transp = results[0]
         self.assertEquals(uid, "uid4")
@@ -1369,7 +1368,7 @@ END:VCALENDAR
     @inlineCallbacks
     def test_notExpandedWithin(self):
         """
-        Test PostgresLegacyIndexEmulator.notExpandedWithin to make sure it returns the correct
+        Test Calendar.notExpandedWithin to make sure it returns the correct
         result based on the ranges passed in.
         """
 
@@ -1378,7 +1377,6 @@ END:VCALENDAR
         # Create the index on a new calendar
         home = yield self.homeUnderTest()
         newcalendar = yield home.createCalendarWithName("index_testing")
-        index = PostgresLegacyIndexEmulator(newcalendar)
 
         # Create the calendar object to use for testing
         nowYear = self.nowYear["now"]
@@ -1406,37 +1404,37 @@ END:VCALENDAR
         # Fully within range
         testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Upper bound exceeded
         testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower bound exceeded
         testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower and upper bounds exceeded
         testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower none within range
         testMin = None
         testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Lower none and upper bounds exceeded
         testMin = None
         testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
 

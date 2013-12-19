@@ -27,7 +27,6 @@ from twext.web2.dav.util import davXMLFromStream
 from twistedcaldav import caldavxml
 from twistedcaldav import ical
 
-from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.config import config
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -36,6 +35,7 @@ from pycalendar.datetime import DateTime
 from twistedcaldav.ical import Component
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from twistedcaldav.directory.directory import DirectoryService
+from txdav.caldav.datastore.query.filter import TimeRange
 
 
 @inlineCallbacks
@@ -167,7 +167,7 @@ class CalendarQuery (StoreTestCase):
                             cal = property.calendar()
                             instances = cal.expandTimeRanges(query_timerange.end)
                             vevents = [x for x in cal.subcomponents() if x.name() == "VEVENT"]
-                            if not calendarqueryfilter.TimeRange(query_timerange).matchinstance(vevents[0], instances):
+                            if not TimeRange(query_timerange).matchinstance(vevents[0], instances):
                                 self.fail("REPORT property %r returned calendar %s outside of request time range %r"
                                           % (property, property.calendar, query_timerange))
 

@@ -67,7 +67,8 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_MODE_INDIRECT, _HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL
 from txdav.common.datastore.sql_tables import schema, splitSQLString
 from txdav.common.icommondatastore import ConcurrentModification, \
-    RecordNotAllowedError, ExternalShareFailed, ShareNotAllowed
+    RecordNotAllowedError, ExternalShareFailed, ShareNotAllowed, \
+    IndexedSearchException
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
@@ -3224,8 +3225,8 @@ class SharingMixIn(object):
         ownerView = yield self.ownerView()
         if self.direct():
             yield ownerView.removeShare(self)
-            if not ownerView.external():
-                yield self._removeExternalInvite(ownerView)
+            if ownerView.external():
+                yield self._removeExternalInvite()
         else:
             yield self.declineShare()
 
@@ -4129,8 +4130,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         else:
             self._notifiers = None
 
-        self._index = None  # Derived classes need to set this
-
 
     def memoMe(self, key, memo): #@UnusedVariable
         """
@@ -4354,10 +4353,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
     def directoryService(self):
         return self._txn.store().directoryService()
-
-
-    def retrieveOldIndex(self):
-        return self._index
 
 
     def __repr__(self):
@@ -4801,6 +4796,21 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         if revision < self._bindRevision and not self.external():
             revision = 0
         return super(CommonHomeChild, self).resourceNamesSinceRevision(revision)
+
+
+    def search(self, filter):
+        """
+        Do a query of the contents of this collection.
+
+        @param filter: the query filter to use
+        @type filter: L{Filter}
+
+        @return: the names of the matching resources
+        @rtype: C{list}
+        """
+
+        # This implementation raises - sub-classes override to do the actual query
+        raise IndexedSearchException()
 
 
     @inlineCallbacks

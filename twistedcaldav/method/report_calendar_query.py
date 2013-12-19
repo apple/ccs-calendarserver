@@ -20,8 +20,7 @@ CalDAV calendar-query report
 
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_query"]
 
-from twisted.internet.defer import inlineCallbacks, returnValue, \
-    maybeDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.python.log import Logger
 from twext.web2 import responsecode
@@ -39,8 +38,8 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     ConcurrentModification
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.method import report_common
-from twistedcaldav.query import calendarqueryfilter
 
+from txdav.caldav.datastore.query.filter import Filter
 from txdav.caldav.icalendarstore import TimeRangeLowerLimit, TimeRangeUpperLimit
 from txdav.xml import element as davxml
 
@@ -66,7 +65,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
     responses = []
 
     xmlfilter = calendar_query.filter
-    filter = calendarqueryfilter.Filter(xmlfilter)
+    filter = Filter(xmlfilter)
     props = calendar_query.props
 
     assert props is not None
@@ -190,13 +189,11 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             if filteredaces is not None:
                 index_query_ok = True
                 try:
-                    # Get list of children that match the search and have read
-                    # access
-                    records = yield maybeDeferred(calresource.index().indexedSearch, filter)
+                    # Get list of children that match the search and have read access
+                    names = [name for name, ignore_uid, ignore_type in (yield calresource.search(filter))]
                 except IndexedSearchException:
-                    records = yield maybeDeferred(calresource.index().bruteForceSearch)
+                    names = yield calresource.listChildren()
                     index_query_ok = False
-                names = [name for name, ignore_uid, ignore_type in records]
 
                 if not names:
                     returnValue(True)

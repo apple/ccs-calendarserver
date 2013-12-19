@@ -57,6 +57,9 @@ from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.query.builder import buildExpression
+from txdav.caldav.datastore.query.filter import Filter
+from txdav.caldav.datastore.query.generator import CalDAVSQLQueryGenerator
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.util import AttachmentRetrievalTransport, \
@@ -72,12 +75,11 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
     ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
     InvalidDefaultCalendar, \
-    InvalidAttachmentOperation, DuplicatePrivateCommentsError
+    InvalidAttachmentOperation, DuplicatePrivateCommentsError, \
+    TimeRangeUpperLimit, TimeRangeLowerLimit
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
-from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator, \
-    PostgresLegacyInboxIndexEmulator
 from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
     _ATTACHMENTS_MODE_WRITE, schema, _BIND_MODE_OWN, \
     _ATTACHMENTS_MODE_READ, _TRANSP_OPAQUE, _TRANSP_TRANSPARENT
@@ -87,7 +89,8 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     InvalidObjectResourceError, ObjectResourceNameAlreadyExistsError, \
     ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
-    InvalidResourceMove, InvalidComponentForStoreError
+    InvalidResourceMove, InvalidComponentForStoreError, \
+    NoSuchObjectResourceError
 from txdav.xml import element
 
 from txdav.idav import ChangeCategory
@@ -949,6 +952,12 @@ class Calendar(CommonHomeChild):
     _objectSchema = schema.CALENDAR_OBJECT
     _timeRangeSchema = schema.TIME_RANGE
 
+    # Mapping of iCalendar property name to DB column name
+    _queryFields = {
+        "UID": _objectSchema.UID,
+        "TYPE": _objectSchema.ICALENDAR_TYPE,
+    }
+
     _supportedComponents = None
 
     def __init__(self, *args, **kw):
@@ -956,10 +965,6 @@ class Calendar(CommonHomeChild):
         Initialize a calendar pointing at a record in a database.
         """
         super(Calendar, self).__init__(*args, **kw)
-        if self.isInbox():
-            self._index = PostgresLegacyInboxIndexEmulator(self)
-        else:
-            self._index = PostgresLegacyIndexEmulator(self)
         self._transp = _TRANSP_OPAQUE
 
 
@@ -1332,6 +1337,189 @@ class Calendar(CommonHomeChild):
         The content type of Calendar objects is text/calendar.
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
+
+
+    @inlineCallbacks
+    def search(self, filter, useruid=None, fbtype=False):
+        """
+        Finds resources matching the given qualifiers.
+        @param filter: the L{Filter} for the calendar-query to execute.
+        @return: an iterable of tuples for each resource matching the
+            given C{qualifiers}. The tuples are C{(name, uid)}, where
+            C{name} is the resource name, C{uid} is the resource UID.
+        """
+
+        # Make sure we have a proper Filter element and get the partial SQL statement to use.
+        sql_stmt = self._sqlquery(filter, useruid, fbtype)
+
+        # No result means it is too complex for us
+        if sql_stmt is None:
+            raise IndexedSearchException()
+        sql_stmt, args, usedtimerange = sql_stmt
+
+        # Check for time-range re-expand
+        if usedtimerange is not None:
+
+            today = DateTime.getToday()
+
+            # Determine how far we need to extend the current expansion of
+            # events. If we have an open-ended time-range we will expand
+            # one year past the start. That should catch bounded
+            # recurrences - unbounded will have been indexed with an
+            # "infinite" value always included.
+            maxDate, isStartDate = filter.getmaxtimerange()
+            if maxDate:
+                maxDate = maxDate.duplicate()
+                maxDate.offsetDay(1)
+                maxDate.setDateOnly(True)
+                upperLimit = today + Duration(days=config.FreeBusyIndexExpandMaxDays)
+                if maxDate > upperLimit:
+                    raise TimeRangeUpperLimit(upperLimit)
+                if isStartDate:
+                    maxDate += Duration(days=365)
+
+            # Determine if the start date is too early for the restricted range we
+            # are applying. If it is today or later we don't need to worry about truncation
+            # in the past.
+            minDate, _ignore_isEndDate = filter.getmintimerange()
+            if minDate >= today:
+                minDate = None
+            if minDate is not None and config.FreeBusyIndexLowerLimitDays:
+                truncateLowerLimit = today - Duration(days=config.FreeBusyIndexLowerLimitDays)
+                if minDate < truncateLowerLimit:
+                    raise TimeRangeLowerLimit(truncateLowerLimit)
+
+            if maxDate is not None or minDate is not None:
+                yield self.testAndUpdateIndex(minDate, maxDate)
+
+        rowiter = yield sql_stmt.on(self._txn, **args)
+
+        # Check result for missing resources
+        results = []
+        for row in rowiter:
+            if fbtype:
+                row = list(row)
+                row[4] = 'Y' if row[4] else 'N'
+                row[7] = indexfbtype_to_icalfbtype[row[7]]
+                if row[9] is not None:
+                    row[8] = row[9]
+                row[8] = 'T' if row[8] else 'F'
+                del row[9]
+            results.append(row)
+
+        returnValue(results)
+
+
+    def _sqlquery(self, filter, useruid, fbtype):
+        """
+        Convert the supplied addressbook-query into a partial SQL statement.
+
+        @param filter: the L{Filter} for the addressbook-query to convert.
+        @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the partial SQL statement,
+                and the C{list} is the list of argument substitutions to use with the SQL API execute method.
+                Or return C{None} if it is not possible to create an SQL query to fully match the addressbook-query.
+        """
+
+        if not isinstance(filter, Filter):
+            return None
+
+        try:
+            expression = buildExpression(filter, self._queryFields)
+            sql = CalDAVSQLQueryGenerator(expression, self, self.id(), useruid, fbtype)
+            return sql.generate()
+        except ValueError:
+            return None
+
+
+    @classproperty
+    def _notExpandedWithinQuery(cls): #@NoSelf
+        """
+        Query to find resources that need to be re-expanded
+        """
+        co = schema.CALENDAR_OBJECT
+        return Select(
+            [co.RESOURCE_NAME],
+            From=co,
+            Where=((co.RECURRANCE_MIN > Parameter("minDate"))
+                .Or(co.RECURRANCE_MAX < Parameter("maxDate")))
+                .And(co.CALENDAR_RESOURCE_ID == Parameter("resourceID"))
+        )
+
+
+    @inlineCallbacks
+    def notExpandedWithin(self, minDate, maxDate):
+        """
+        Gives all resources which have not been expanded beyond a given date
+        in the database.  (Unused; see above L{postgresqlgenerator}.
+        """
+        returnValue([row[0] for row in (
+            yield self._notExpandedWithinQuery.on(
+                self._txn,
+                minDate=pyCalendarTodatetime(normalizeForIndex(minDate)) if minDate is not None else None,
+                maxDate=pyCalendarTodatetime(normalizeForIndex(maxDate)),
+                resourceID=self._resourceID))]
+        )
+
+
+    @inlineCallbacks
+    def reExpandResource(self, name, expand_start, expand_end):
+        """
+        Given a resource name, remove it from the database and re-add it
+        with a longer expansion.
+        """
+        obj = yield self.calendarObjectWithName(name)
+
+        # Use a new transaction to do this update quickly without locking the row for too long. However, the original
+        # transaction may have the row locked, so use wait=False and if that fails, fall back to using the original txn.
+
+        newTxn = obj.transaction().store().newTransaction()
+        try:
+            yield obj.lock(wait=False, txn=newTxn)
+        except NoSuchObjectResourceError:
+            yield newTxn.commit()
+            returnValue(None)
+        except:
+            yield newTxn.abort()
+            newTxn = None
+
+        # Now do the re-expand using the appropriate transaction
+        try:
+            doExpand = False
+            if newTxn is None:
+                doExpand = True
+            else:
+                # We repeat this check because the resource may have been re-expanded by someone else
+                rmin, rmax = (yield obj.recurrenceMinMax(txn=newTxn))
+
+                # If the resource is not fully expanded, see if within the required range or not.
+                # Note that expand_start could be None if no lower limit is applied, but expand_end will
+                # never be None
+                if rmax is not None and rmax < expand_end:
+                    doExpand = True
+                if rmin is not None and expand_start is not None and rmin > expand_start:
+                    doExpand = True
+
+            if doExpand:
+                yield obj.updateDatabase(
+                    (yield obj.component()),
+                    expand_until=expand_end,
+                    reCreate=True,
+                    txn=newTxn,
+                )
+        finally:
+            if newTxn is not None:
+                yield newTxn.commit()
+
+
+    @inlineCallbacks
+    def testAndUpdateIndex(self, minDate, maxDate):
+        # Find out if the index is expanded far enough
+        names = yield self.notExpandedWithin(minDate, maxDate)
+
+        # Actually expand recurrence max
+        for name in names:
+            self.log.info("Search falls outside range of index for %s %s to %s" % (name, minDate, maxDate))
+            yield self.reExpandResource(name, minDate, maxDate)
 
 
     @inlineCallbacks
@@ -2179,7 +2367,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
 
         if isinstance(component, str) or isinstance(component, unicode):
-            component = self._componentClass.fromString(component)
+            try:
+                component = self._componentClass.fromString(component)
+            except InvalidICalendarDataError as e:
+                raise InvalidComponentForStoreError(str(e))
         return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, smart_merge)
 
 

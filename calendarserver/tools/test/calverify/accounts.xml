@@ -47,4 +47,11 @@ limitations under the License.
     <name>Example User4</name>
     <email-address>example4@example.com</email-address>
   </user>
+  <user>
+    <uid>home1</uid>
+    <guid>home1</guid>
+    <password>home1</password>
+    <name>Home 1</name>
+    <email-address>home1@example.com</email-address>
+  </user>
 </accounts>

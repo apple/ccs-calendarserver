@@ -139,7 +139,7 @@ limitations under the License.
       <member type="users">delegateviagroup</member>
     </members>
   </group>
-  <user repeat="2">
+  <user repeat="100">
     <uid>user%02d</uid>
     <guid>user%02d</guid>
     <password>%02duser</password>

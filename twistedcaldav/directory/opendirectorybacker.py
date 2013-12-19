@@ -23,45 +23,44 @@ __all__ = [
     "OpenDirectoryBackingService", "VCardRecord",
 ]
 
-import traceback
-import hashlib
+from calendarserver.platform.darwin.od import opendirectory, dsattributes, dsquery
 
-import os
-import sys
-import time
-
-from os import listdir
-from os.path import join, abspath
-from tempfile import mkstemp, gettempdir
-from random import random
-
-from pycalendar.vcard.n import N
-from pycalendar.vcard.adr import Adr
 from pycalendar.datetime import DateTime
+from pycalendar.vcard.adr import Adr
+from pycalendar.vcard.n import N
 
-from socket import getfqdn
 
-from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, deferredGenerator, succeed
 from twext.python.filepath import CachingFilePath as FilePath
-from txdav.xml import element as davxml
-from txdav.xml.base import twisted_dav_namespace, dav_namespace, parse_date, twisted_private_namespace
 from twext.web2.dav.resource import DAVPropertyMixIn
 from twext.web2.dav.util import joinURL
 from twext.web2.http_headers import MimeType, generateContentType, ETag
 
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, returnValue, deferredGenerator, succeed
 
 from twistedcaldav import customxml, carddavxml
-from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.config import config
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
-from twistedcaldav.query import addressbookqueryfilter
 from twistedcaldav.vcard import Component, Property, vCardProductID
 
-from xmlrpclib import datetime
+from txdav.carddav.datastore.query.filter import IsNotDefined, ParameterFilter, \
+    TextMatch
+from txdav.xml import element as davxml
+from txdav.xml.base import twisted_dav_namespace, dav_namespace, parse_date, twisted_private_namespace
 
-from calendarserver.platform.darwin.od import opendirectory, dsattributes, dsquery
+from os import listdir
+from os.path import join, abspath
+from random import random
+from socket import getfqdn
+from tempfile import mkstemp, gettempdir
+from xmlrpclib import datetime
+import hashlib
+import os
+import sys
+import time
+import traceback
 
 class OpenDirectoryBackingService(DirectoryService):
     """
@@ -830,11 +829,11 @@ class OpenDirectoryBackingService(DirectoryService):
                 if not constant and not allAttrStrings:
                     return (False, [], [])
 
-                if propFilter.qualifier and isinstance(propFilter.qualifier, addressbookqueryfilter.IsNotDefined):
+                if propFilter.qualifier and isinstance(propFilter.qualifier, IsNotDefined):
                     return definedExpression(False, filterAllOf, propFilter.filter_name, constant, queryAttributes, allAttrStrings)
 
-                paramFilterElements = [paramFilterElement for paramFilterElement in propFilter.filters if isinstance(paramFilterElement, addressbookqueryfilter.ParameterFilter)]
-                textMatchElements = [textMatchElement for textMatchElement in propFilter.filters if isinstance(textMatchElement, addressbookqueryfilter.TextMatch)]
+                paramFilterElements = [paramFilterElement for paramFilterElement in propFilter.filters if isinstance(paramFilterElement, ParameterFilter)]
+                textMatchElements = [textMatchElement for textMatchElement in propFilter.filters if isinstance(textMatchElement, TextMatch)]
                 propFilterAllOf = propFilter.propfilter_test == "allof"
 
                 # handle parameter filter elements

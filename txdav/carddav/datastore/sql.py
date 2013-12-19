@@ -15,6 +15,7 @@
 # limitations under the License.
 # #
 
+
 """
 SQL backend for CardDAV storage.
 """
@@ -46,12 +47,14 @@ from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError, Prope
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.sql import PropertyStore
+from txdav.carddav.datastore.query.builder import buildExpression
+from txdav.carddav.datastore.query.filter import Filter
 from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook, \
     IAddressBookObject, GroupWithUnsharedAddressNotAllowedError, \
     KindChangeNotAllowedError
+from txdav.common.datastore.query.generator import SQLQueryGenerator
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, EADDRESSBOOKTYPE, SharingMixIn, SharingInvitation
-from txdav.common.datastore.sql_legacy import PostgresLegacyABIndexEmulator
 from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
     _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema, \
     _BIND_MODE_OWN, _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, \
@@ -60,7 +63,8 @@ from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
 from txdav.common.icommondatastore import InternalDataStoreError, \
     InvalidUIDError, UIDExistsError, ObjectResourceTooBigError, \
     InvalidObjectResourceError, InvalidComponentForStoreError, \
-    AllRetriesFailed, ObjectResourceNameAlreadyExistsError
+    AllRetriesFailed, ObjectResourceNameAlreadyExistsError, \
+    IndexedSearchException
 from txdav.xml import element
 
 from zope.interface.declarations import implements
@@ -439,6 +443,11 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
     _objectSchema = schema.ADDRESSBOOK_OBJECT
 
+    # Mapping of vCard property name to DB column name
+    _queryFields = {
+        "UID": _objectSchema.UID,
+    }
+
 
     @classmethod
     @inlineCallbacks
@@ -515,7 +524,6 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
     def __init__(self, home, name, resourceID, mode, status, revision=0, message=None, ownerHome=None, ownerName=None, externalID=None):
         ownerName = ownerHome.addressbook().name() if ownerHome else None
         super(AddressBook, self).__init__(home, name, resourceID, mode, status, revision=revision, message=message, ownerHome=ownerHome, ownerName=ownerName, externalID=externalID)
-        self._index = PostgresLegacyABIndexEmulator(self)
 
 
     def __repr__(self):
@@ -786,6 +794,50 @@ END:VCARD
             returnValue((yield self._home.bumpModified()))
         else:
             returnValue((yield super(AddressBook, self).bumpModified()))
+
+
+    @inlineCallbacks
+    def search(self, filter):
+        """
+        Finds resources matching the given qualifiers.
+        @param filter: the L{Filter} for the addressbook-query to execute.
+        @return: an iterable of tuples for each resource matching the
+            given C{qualifiers}. The tuples are C{(name, uid)}, where
+            C{name} is the resource name, C{uid} is the resource UID.
+        """
+
+        # Make sure we have a proper Filter element and get the partial SQL statement to use.
+        sql_stmt = self._sqlquery(filter)
+
+        # No result means it is too complex for us
+        if sql_stmt is None:
+            raise IndexedSearchException()
+
+        sql_stmt, args = sql_stmt
+        rowiter = yield sql_stmt.on(self._txn, **args)
+
+        returnValue(list(rowiter))
+
+
+    def _sqlquery(self, filter):
+        """
+        Convert the supplied addressbook-query into a partial SQL statement.
+
+        @param filter: the L{Filter} for the addressbook-query to convert.
+        @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the partial SQL statement,
+                and the C{list} is the list of argument substitutions to use with the SQL API execute method.
+                Or return C{None} if it is not possible to create an SQL query to fully match the addressbook-query.
+        """
+
+        if not isinstance(filter, Filter):
+            return None
+
+        try:
+            expression = buildExpression(filter, self._queryFields)
+            sql = SQLQueryGenerator(expression, self, self.id())
+            return sql.generate()
+        except ValueError:
+            return None
 
 
     @classmethod
@@ -1989,6 +2041,10 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
 
         if isinstance(component, str) or isinstance(component, unicode):
             component = self._componentClass.fromString(component)
+            try:
+                component = self._componentClass.fromString(component)
+            except InvalidVCardDataError as e:
+                raise InvalidComponentForStoreError(str(e))
 
         self._componentChanged = False
 
