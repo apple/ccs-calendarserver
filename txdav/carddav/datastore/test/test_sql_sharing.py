@@ -1134,7 +1134,7 @@ class SharingRevisions(BaseSharingTests):
         otherAB = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertNotEqual(otherAB._bindRevision, 0)
 
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision - 1)
+        changed, deleted = yield otherAB.resourceNamesSinceRevision(0)
         self.assertNotEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
 
@@ -1144,7 +1144,7 @@ class SharingRevisions(BaseSharingTests):
 
         otherHome = yield self.addressbookHomeUnderTest(name="user02")
         for depth in ("1", "infinity",):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision - 1, depth)
+            changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
             self.assertNotEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
 
@@ -1166,21 +1166,29 @@ class SharingRevisions(BaseSharingTests):
         otherAB = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertNotEqual(otherAB._bindRevision, 0)
 
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision - 1)
-        self.assertNotEqual(len(changed), 0)
+        changed, deleted = yield otherAB.resourceNamesSinceRevision(0)
+        self.assertEqual(set(changed), set(['card1.vcf', 'card2.vcf', 'group1.vcf']))
         self.assertEqual(len(deleted), 0)
 
         changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
         self.assertEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
 
-        otherHome = yield self.addressbookHomeUnderTest(name="user02")
-        for depth in ("1", "infinity",):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision - 1, depth)
-            self.assertNotEqual(len(changed), 0)
+        for depth, result in (
+            ("1", ['addressbook/',
+                   'user01/', ]
+            ),
+            ("infinity", ['addressbook/',
+                             'user01/',
+                             'user01/card1.vcf',
+                             'user01/card2.vcf',
+                             'user01/group1.vcf']
+             )):
+            changed, deleted = yield otherAB.viewerHome().resourceNamesSinceRevision(0, depth)
+            self.assertEqual(set(changed), set(result))
             self.assertEqual(len(deleted), 0)
 
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
+            changed, deleted = yield otherAB.viewerHome().resourceNamesSinceRevision(otherAB._bindRevision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
 

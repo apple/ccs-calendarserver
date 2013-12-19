@@ -554,7 +554,7 @@ class SharingRevisions(BaseSharingTests):
         otherCal = yield self.calendarUnderTest(home="user02", name=sharedName)
         self.assertNotEqual(otherCal._bindRevision, 0)
 
-        changed, deleted = yield otherCal.resourceNamesSinceRevision(otherCal._bindRevision - 1)
+        changed, deleted = yield otherCal.resourceNamesSinceRevision(0)
         self.assertNotEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
 
@@ -563,7 +563,7 @@ class SharingRevisions(BaseSharingTests):
         self.assertEqual(len(deleted), 0)
 
         for depth in ("1", "infinity",):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherCal._bindRevision - 1, depth)
+            changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
             self.assertNotEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
 

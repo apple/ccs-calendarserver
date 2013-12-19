@@ -2785,7 +2785,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         content_type = request.headers.getHeader("content-type")
         format = self.determineType(content_type)
         if format is None:
-            log.error("MIME type %s not allowed in calendar collection" % (content_type,))
+            log.error("MIME type {content_type} not allowed in calendar collection", content_type=content_type)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "supported-calendar-data"),
@@ -3395,7 +3395,7 @@ class AddressBookObjectResource(_CommonObjectResource):
         content_type = request.headers.getHeader("content-type")
         format = self.determineType(content_type)
         if format is None:
-            log.error("MIME type %s not allowed in vcard collection" % (content_type,))
+            log.error("MIME type {content_type} not allowed in vcard collection", content_type=content_type)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (carddav_namespace, "supported-address-data"),

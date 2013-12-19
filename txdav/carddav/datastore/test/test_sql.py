@@ -42,6 +42,7 @@ from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE, CommonObjectResource
 from txdav.common.datastore.sql_tables import  _ABO_KIND_PERSON, _ABO_KIND_GROUP, schema
 from txdav.common.datastore.test.util import buildStore
+from txdav.carddav.datastore.sql import AddressBook
 
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
@@ -572,11 +573,11 @@ END:VCARD
             )
         groupObject = yield adbk.createAddressBookObjectWithName("g.vcf", group)
 
-        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         aboMembers = schema.ABO_MEMBERS
-        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers, Where=aboMembers.REMOVED == False).on(txn)
         self.assertEqual(memberRows, [])
 
+        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
         self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
 
@@ -595,7 +596,7 @@ END:VCARD
             )
         subgroupObject = yield adbk.createAddressBookObjectWithName("sg.vcf", subgroup)
 
-        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers, Where=aboMembers.REMOVED == False).on(txn)
         self.assertEqual(sorted(memberRows), sorted([
                                                      [groupObject._resourceID, subgroupObject._resourceID],
                                                      [subgroupObject._resourceID, personObject._resourceID],
@@ -605,12 +606,26 @@ END:VCARD
         self.assertEqual(foreignMemberRows, [])
 
         yield subgroupObject.remove()
-        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
-        self.assertEqual(memberRows, [])
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION], From=aboMembers).on(txn)
 
-        foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers,
-                                                 #Where=(aboForeignMembers.GROUP_ID == groupObject._resourceID),
-                                                 ).on(txn)
+        # combine by groupID
+        groupIDToMemberRowMap = {}
+        for groupID, id, removed, version in memberRows:
+            memberRow = groupIDToMemberRowMap.get(groupID, [])
+            memberRow.append((id, removed, version))
+            groupIDToMemberRowMap[groupID] = memberRow
+
+        # see if this object is in current version
+        groupIDs = set([
+            groupID for groupID, memberIDRemovedRevisionRows in groupIDToMemberRowMap.iteritems()
+                if AddressBook._currentMemberIDsFromMemberIDRemovedRevisionRows(memberIDRemovedRevisionRows)
+        ])
+
+        self.assertEqual(len(groupIDs), 0)
+
+        foreignMemberRows = yield Select(
+            [aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers,
+        ).on(txn)
         self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
 
         yield home.removeAddressBookWithName("addressbook")

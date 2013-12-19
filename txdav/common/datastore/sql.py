@@ -72,7 +72,8 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
-    InvalidIMIPTokenValues, TooManyObjectResourcesError
+    InvalidIMIPTokenValues, TooManyObjectResourcesError, \
+    SyncTokenValidException
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
@@ -2043,7 +2044,6 @@ class CommonHome(SharingHomeMixIn):
         changed = set()
         deleted = set()
         deleted_collections = set()
-        changed_collections = set()
         for path, name, wasdeleted in results:
             if wasdeleted:
                 if revision:
@@ -2059,7 +2059,6 @@ class CommonHome(SharingHomeMixIn):
                         deleted.add("%s/" % (path,))
                         deleted_collections.add(path)
 
-        for path, name, wasdeleted in results:
             if path not in deleted_collections:
                 # Always report collection as changed
                 changed.add("%s/" % (path,))
@@ -2067,46 +2066,14 @@ class CommonHome(SharingHomeMixIn):
                     # Resource changed - for depth "infinity" report resource as changed
                     if depth != "1":
                         changed.add("%s/%s" % (path, name,))
-                else:
-                    # Collection was changed
-                    changed_collections.add(path)
 
         # Now deal with shared collections
         # TODO: think about whether this can be done in one query rather than looping over each share
-        rev = self._revisionsSchema
-        shares = yield self.children()
-        for share in shares:
+        for share in (yield self.children()):
             if not share.owned():
-                sharerevision = 0 if revision < share._bindRevision else revision
-                results = [
-                    (
-                        share.name(),
-                        name if name else "",
-                        wasdeleted
-                    )
-                    for name, wasdeleted in
-                    (yield Select([rev.RESOURCE_NAME, rev.DELETED],
-                                     From=rev,
-                                    Where=(rev.REVISION > sharerevision).And(
-                                    rev.RESOURCE_ID == share._resourceID)).on(self._txn))
-                    if name
-                ]
-
-                for path, name, wasdeleted in results:
-                    if wasdeleted:
-                        if sharerevision:
-                            if depth == "1":
-                                changed.add("%s/" % (path,))
-                            else:
-                                deleted.add("%s/%s" % (path, name,))
-
-                for path, name, wasdeleted in results:
-                    # Always report collection as changed
-                    changed.add("%s/" % (path,))
-                    if name:
-                        # Resource changed - for depth "infinity" report resource as changed
-                        if depth != "1":
-                            changed.add("%s/%s" % (path, name,))
+                sharedChanged, sharedDeleted = yield share.sharedChildResourceNamesSinceRevision(revision, depth)
+                changed |= sharedChanged
+                deleted |= sharedDeleted
 
         changed = sorted(changed)
         deleted = sorted(deleted)
@@ -2760,6 +2727,7 @@ class _SharedSyncLogic(object):
                         resourceID=self._resourceID, name=name)
                 )[0][0]
         self._maybeNotify()
+        returnValue(self._syncTokenRevision)
 
 
     def _maybeNotify(self):
@@ -3230,9 +3198,6 @@ class SharingMixIn(object):
         @param summary: The proposed message to go along with the share, which
             will be used as the default display name, or None to not update
         @type summary: L{str}
-
-        @return: the name of the shared item in the sharee's home.
-        @rtype: a L{Deferred} which fires with a L{str}
         """
         # TODO: raise a nice exception if shareeView is not, in fact, a shared
         # version of this same L{CommonHomeChild}
@@ -3245,7 +3210,7 @@ class SharingMixIn(object):
             bind.MESSAGE:summary
         }.iteritems() if v is not None])
 
-        if len(columnMap):
+        if columnMap:
 
             # Count accepted
             if status is not None:
@@ -3257,10 +3222,10 @@ class SharingMixIn(object):
             )
 
             # Update affected attributes
-            if mode is not None:
+            if bind.BIND_MODE in columnMap:
                 shareeView._bindMode = columnMap[bind.BIND_MODE]
 
-            if status is not None:
+            if bind.BIND_STATUS in columnMap:
                 shareeView._bindStatus = columnMap[bind.BIND_STATUS]
                 yield shareeView._changedStatus(previouslyAcceptedCount)
 
@@ -3385,6 +3350,7 @@ class SharingMixIn(object):
 
     @inlineCallbacks
     def _initBindRevision(self):
+        yield self.syncToken() # init self._syncTokenRevision if None
         self._bindRevision = self._syncTokenRevision
 
         bind = self._bindSchema
@@ -4441,9 +4407,74 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @type revision: C{int}
         """
 
-        if revision < self._bindRevision:
-            revision = 0
+        if revision != 0 and revision < self._bindRevision:
+            raise SyncTokenValidException
+
         return super(CommonHomeChild, self).resourceNamesSinceRevision(revision)
+
+
+    @inlineCallbacks
+    def sharedChildResourceNamesSinceRevision(self, revision, depth):
+        """
+        Determine the list of child resources that have changed since the specified sync revision.
+        We do the same SQL query for both depth "1" and "infinity", but filter the results for
+        "1" to only account for a collection change.
+
+        We need to handle shared collection a little differently from owned ones. When a shared collection
+        is bound into a home we record a revision for it using the sharee home id and sharee collection name.
+        That revision is the "starting point" for changes: so if sync occurs with a revision earlier than
+        that, we return the list of all resources in the shared collection since they are all "new" as far
+        as the client is concerned since the shared collection has just appeared. For a later revision, we
+        just report the changes since that one. When a shared collection is removed from a home, we again
+        record a revision for the sharee home and sharee collection name with the "deleted" flag set. That way
+        the shared collection can be reported as removed.
+
+        @param revision: the sync revision to compare to
+        @type revision: C{str}
+        @param depth: depth for determine what changed
+        @type depth: C{str}
+        """
+        assert not self.owned()
+
+        if revision != 0 and revision < self._bindRevision:
+            if depth != '1':
+                raise SyncTokenValidException
+            else:
+                revision = 0
+
+        changed = set()
+        deleted = set()
+        rev = self._revisionsSchema
+        results = [
+            (
+                self.name(),
+                name if name else "",
+                wasdeleted
+            )
+            for name, wasdeleted in
+            (yield Select([rev.RESOURCE_NAME, rev.DELETED],
+                             From=rev,
+                            Where=(rev.REVISION > revision).And(
+                            rev.RESOURCE_ID == self._resourceID)).on(self._txn))
+            if name
+        ]
+
+        for path, name, wasdeleted in results:
+            if wasdeleted:
+                if revision:
+                    if depth == "1":
+                        changed.add("%s/" % (path,))
+                    else:
+                        deleted.add("%s/%s" % (path, name,))
+
+            # Always report collection as changed
+            changed.add("%s/" % (path,))
+
+            # Resource changed - for depth "infinity" report resource as changed
+            if depth != "1":
+                changed.add("%s/%s" % (path, name,))
+
+        returnValue((changed, deleted))
 
 
     @inlineCallbacks
