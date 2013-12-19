@@ -22,18 +22,21 @@
 -- Change Address Book Object Members --
 ----------------------------------------
 
-alter table ABO_MEMBERS
-	drop ("abo_members_member_id_fkey");
-alter table ABO_MEMBERS
-	drop ("abo_members_group_id_fkey");
+begin
+for i in (select constraint_name from abo_members where column_name = 'MEMBER_ID' or column_name = 'GROUP_ID')
+loop
+execute immediate 'alter table abo_members constraint' || i.constraint_name;
+end loop;
+end;
+
 alter table ABO_MEMBERS
 	add ("REVISION" integer default nextval('REVISION_SEQ') not null);
 alter table ABO_MEMBERS
 	add ("REMOVED" boolean default false not null);
 alter table ABO_MEMBERS
-	 drop ("abo_members_pkey");
+	 drop primary key;
 alter table ABO_MEMBERS
-	 add ("abo_members_pkey" primary key ("GROUP_ID", "MEMBER_ID", "REVISION"));
+	 add primary key ("GROUP_ID", "MEMBER_ID", "REVISION");
 
 ------------------------------------------
 -- Change Address Book Object Revisions --
