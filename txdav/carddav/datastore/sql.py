@@ -637,9 +637,12 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
             # add change for addressbook group
             changed, deleted = yield super(AddressBook, self).sharedChildResourceNamesSinceRevision(revision, depth)
 
-            # remove addressbook group from sync report
-            if changed and depth != "1":
-                changed -= set(["%s/%s" % (path, self._groupForSharedAddressBookName(),)])
+            #===================================================================
+            # # Add the following to add the addressbook group in sync report:
+            #
+            # if changed and depth != "1":
+            #     changed.add("%s/%s" % (path, self._groupForSharedAddressBookName(),))
+            #===================================================================
 
             returnValue((changed, deleted))
 
