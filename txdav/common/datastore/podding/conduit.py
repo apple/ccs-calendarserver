@@ -713,6 +713,7 @@ PoddingConduit._make_simple_homechild_action("synctoken", "syncToken")
 PoddingConduit._make_simple_homechild_action("resourcenamessincerevision", "resourceNamesSinceRevision", transform_send=PoddingConduit._to_tuple)
 PoddingConduit._make_simple_homechild_action("resourceuidforname", "resourceUIDForName")
 PoddingConduit._make_simple_homechild_action("resourcenameforuid", "resourceNameForUID")
+PoddingConduit._make_simple_homechild_action("search", "search")
 
 # Calls on L{CommonObjectResource} objects
 PoddingConduit._make_simple_object_action("loadallobjects", "loadAllObjects", transform_recv=PoddingConduit._to_externalize)

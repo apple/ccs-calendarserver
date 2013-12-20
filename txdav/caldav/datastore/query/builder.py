@@ -94,7 +94,7 @@ def compfilterExpression(compfilter, fields):
     logical = expression.andExpression if compfilter.filter_test == "allof" else expression.orExpression
 
     expressions = []
-    if isinstance(compfilter.filter_name, str):
+    if isinstance(compfilter.filter_name, str) or isinstance(compfilter.filter_name, unicode):
         expressions.append(expression.isExpression(fields["TYPE"], compfilter.filter_name, True))
     else:
         expressions.append(expression.inExpression(fields["TYPE"], compfilter.filter_name, True))

@@ -24,12 +24,14 @@ from twistedcaldav.timezones import TimezoneCache
 
 from txdav.caldav.datastore.index_file import sqlcalendarquery
 from txdav.caldav.datastore.query.builder import buildExpression
-from txdav.caldav.datastore.query.filter import Filter
+from txdav.caldav.datastore.query.filter import Filter, FilterBase, TimeRange, \
+    PropertyFilter, TextMatch
 from txdav.caldav.datastore.query.generator import CalDAVSQLQueryGenerator
 from txdav.common.datastore.sql_tables import schema
 
 from dateutil.tz import tzutc
 import datetime
+from twistedcaldav.ical import Component
 
 class TestQueryFilter(TestCase):
 
@@ -218,3 +220,216 @@ class TestQueryFilter(TestCase):
         self.assertTrue(sql.find("TIMESPAN") == -1)
         self.assertTrue(sql.find("TRANSPARENCY") == -1)
         self.assertTrue("VEVENT" in args)
+
+
+
+class TestQueryFilterSerialize(TestCase):
+
+    def setUp(self):
+        super(TestQueryFilterSerialize, self).setUp()
+        TimezoneCache.create()
+
+
+    def test_query(self):
+        """
+        Basic query test - no time range
+        """
+
+        filter = caldavxml.Filter(
+            caldavxml.ComponentFilter(
+                *[caldavxml.ComponentFilter(
+                    **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
+                )],
+                **{"name": "VCALENDAR"}
+            )
+        )
+        filter = Filter(filter)
+        filter.child.settzinfo(Timezone(tzid="America/New_York"))
+        j = filter.serialize()
+        self.assertEqual(j["type"], "Filter")
+
+        f = FilterBase.deserialize(j)
+        self.assertTrue(isinstance(f, Filter))
+
+
+    def test_timerange_query(self):
+        """
+        Basic query test with time range
+        """
+
+        filter = caldavxml.Filter(
+            caldavxml.ComponentFilter(
+                *[caldavxml.ComponentFilter(
+                    *[caldavxml.TimeRange(**{"start":"20060605T160000Z", "end":"20060605T170000Z"})],
+                    **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
+                )],
+                **{"name": "VCALENDAR"}
+            )
+        )
+        filter = Filter(filter)
+        filter.child.settzinfo(Timezone(tzid="America/New_York"))
+        j = filter.serialize()
+        self.assertEqual(j["type"], "Filter")
+
+        f = FilterBase.deserialize(j)
+        self.assertTrue(isinstance(f, Filter))
+        self.assertTrue(isinstance(f.child.filters[0].qualifier, TimeRange))
+        self.assertTrue(isinstance(f.child.filters[0].qualifier.tzinfo, Timezone))
+        self.assertEqual(f.child.filters[0].qualifier.tzinfo.getTimezoneID(), "America/New_York")
+
+
+    def test_query_not_extended(self):
+        """
+        Basic query test with time range
+        """
+
+        filter = caldavxml.Filter(
+            caldavxml.ComponentFilter(
+                *[
+                    caldavxml.ComponentFilter(
+                        **{"name":("VEVENT")}
+                    ),
+                    caldavxml.ComponentFilter(
+                        **{"name":("VTODO")}
+                    ),
+                ],
+                **{"name": "VCALENDAR"}
+            )
+        )
+        filter = Filter(filter)
+        filter.child.settzinfo(Timezone(tzid="America/New_York"))
+        j = filter.serialize()
+        self.assertEqual(j["type"], "Filter")
+
+        f = FilterBase.deserialize(j)
+        self.assertTrue(isinstance(f, Filter))
+        self.assertEqual(len(f.child.filters), 2)
+
+
+    def test_query_extended(self):
+        """
+        Basic query test with time range
+        """
+
+        filter = caldavxml.Filter(
+            caldavxml.ComponentFilter(
+                *[
+                    caldavxml.ComponentFilter(
+                        *[caldavxml.TimeRange(**{"start":"20060605T160000Z", })],
+                        **{"name":("VEVENT")}
+                    ),
+                    caldavxml.ComponentFilter(
+                        **{"name":("VTODO")}
+                    ),
+                ],
+                **{"name": "VCALENDAR", "test": "anyof"}
+            )
+        )
+        filter = Filter(filter)
+        filter.child.settzinfo(Timezone(tzid="America/New_York"))
+        j = filter.serialize()
+        self.assertEqual(j["type"], "Filter")
+
+        f = FilterBase.deserialize(j)
+        self.assertTrue(isinstance(f, Filter))
+        self.assertEqual(len(f.child.filters), 2)
+        self.assertTrue(isinstance(f.child.filters[0].qualifier, TimeRange))
+
+
+    def test_query_text(self):
+        """
+        Basic query test with time range
+        """
+
+        filter = caldavxml.Filter(
+            caldavxml.ComponentFilter(
+                *[
+                    caldavxml.ComponentFilter(
+                        caldavxml.PropertyFilter(
+                            caldavxml.TextMatch.fromString("1234", False),
+                            name="UID",
+                        ),
+                        **{"name":("VEVENT")}
+                    ),
+                ],
+                **{"name": "VCALENDAR", "test": "anyof"}
+            )
+        )
+        filter = Filter(filter)
+        filter.child.settzinfo(Timezone(tzid="America/New_York"))
+        j = filter.serialize()
+        self.assertEqual(j["type"], "Filter")
+
+        f = FilterBase.deserialize(j)
+        self.assertTrue(isinstance(f, Filter))
+        self.assertTrue(isinstance(f.child.filters[0].filters[0], PropertyFilter))
+        self.assertTrue(isinstance(f.child.filters[0].filters[0].qualifier, TextMatch))
+        self.assertEqual(f.child.filters[0].filters[0].qualifier.text, "1234")
+
+
+
+class TestQueryFilterMatch(TestCase):
+
+    def setUp(self):
+        super(TestQueryFilterMatch, self).setUp()
+        TimezoneCache.create()
+
+
+    def test_vlarm_undefined(self):
+
+        filter = caldavxml.Filter(
+            caldavxml.ComponentFilter(
+                *[caldavxml.ComponentFilter(
+                    *[caldavxml.ComponentFilter(
+                        caldavxml.IsNotDefined(),
+                        **{"name":"VALARM"}
+                    )],
+                    **{"name":"VEVENT"}
+                )],
+                **{"name": "VCALENDAR"}
+            )
+        )
+        filter = Filter(filter)
+        filter.child.settzinfo(Timezone(tzid="America/New_York"))
+
+        self.assertFalse(filter.match(
+            Component.fromString("""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:US/Eastern
+BEGIN:DAYLIGHT
+DTSTART:20000404T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20001026T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTAMP:20051222T210412Z
+CREATED:20060102T150000Z
+DTSTART;TZID=US/Eastern:20130102T100000
+DURATION:PT1H
+RRULE:FREQ=DAILY;COUNT=5
+SUMMARY:event 5
+UID:945113826375CBB89184DC36@ninevah.local
+CATEGORIES:cool,hot
+CATEGORIES:warm
+BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+"""
+        )))

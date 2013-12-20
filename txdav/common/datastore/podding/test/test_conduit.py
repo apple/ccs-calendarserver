@@ -14,27 +14,34 @@
 # limitations under the License.
 ##
 
+from pycalendar.datetime import DateTime
+from pycalendar.period import Period
+
 from twext.python.clsprop import classproperty
-import twext.web2.dav.test.util
+
 from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+
+from twistedcaldav import caldavxml
+from twistedcaldav.caldavxml import TimeRange
+from twistedcaldav.ical import Component, normalize_iCalStr
+
+from txdav.caldav.datastore.query.filter import Filter
+from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers, Server
 from txdav.caldav.datastore.test.util import buildCalendarStore, \
     TestCalendarStoreDirectoryRecord
-from txdav.common.datastore.podding.resource import ConduitResource
-from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 from txdav.common.datastore.podding.conduit import PoddingConduit, \
     FailedCrossPodRequestError
-from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
+from txdav.common.datastore.podding.resource import ConduitResource
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest, \
     FakeConduitRequest
 from txdav.common.datastore.sql_tables import _BIND_STATUS_ACCEPTED
-from pycalendar.datetime import DateTime
-from twistedcaldav.ical import Component, normalize_iCalStr
+from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError, \
     ObjectResourceNameNotAllowedError
-from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
-from twistedcaldav.caldavxml import TimeRange
-from pycalendar.period import Period
+from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
+
+import twext.web2.dav.test.util
 
 class TestConduit (CommonCommonTests, twext.web2.dav.test.util.TestCase):
 
@@ -529,6 +536,39 @@ END:VCALENDAR
         self.assertEqual(name, "1.ics")
         name = yield shared.resourceNameForUID("uid2")
         self.assertTrue(name is None)
+        yield self.otherCommit()
+
+
+    @inlineCallbacks
+    def test_search(self):
+        """
+        Test that action=resourcenameforuid works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commit()
+
+        filter = caldavxml.Filter(
+            caldavxml.ComponentFilter(
+                *[caldavxml.ComponentFilter(
+                    **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
+                )],
+                **{"name": "VCALENDAR"}
+            )
+        )
+        filter = Filter(filter)
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        names = [item[0] for item in (yield calendar1.search(filter))]
+        self.assertEqual(names, ["1.ics", ])
+        yield self.commit()
+
+        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        names = [item[0] for item in (yield shared.search(filter))]
+        self.assertEqual(names, ["1.ics", ])
         yield self.otherCommit()
 
 

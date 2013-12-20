@@ -20,7 +20,7 @@ from twisted.trial.unittest import TestCase
 
 from twistedcaldav import carddavxml
 
-from txdav.carddav.datastore.query.filter import Filter
+from txdav.carddav.datastore.query.filter import Filter, FilterBase
 from txdav.common.datastore.sql_tables import schema
 from txdav.carddav.datastore.query.builder import buildExpression
 from txdav.common.datastore.query.generator import SQLQueryGenerator
@@ -72,3 +72,25 @@ class TestQueryFilter(TestCase):
 
         self.assertEqual(sql, " from RESOURCE where RESOURCE.UID GLOB :1")
         self.assertEqual(args, ["*Example*"])
+
+
+
+class TestQueryFilterSerialize(TestCase):
+
+    def test_query(self):
+        """
+        Basic query test - no time range
+        """
+
+        filter = carddavxml.Filter(
+            *[carddavxml.PropertyFilter(
+                carddavxml.TextMatch.fromString("Example"),
+                **{"name":"UID"}
+            )]
+        )
+        filter = Filter(filter)
+        j = filter.serialize()
+        self.assertEqual(j["type"], "Filter")
+
+        f = FilterBase.deserialize(j)
+        self.assertTrue(isinstance(f, Filter))

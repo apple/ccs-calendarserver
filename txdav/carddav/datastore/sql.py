@@ -806,6 +806,13 @@ END:VCARD
             C{name} is the resource name, C{uid} is the resource UID.
         """
 
+        # We might be passed an L{Filter} or a serialization of one
+        if isinstance(filter, dict):
+            try:
+                filter = Filter.deserialize(filter)
+            except Exception:
+                filter = None
+
         # Make sure we have a proper Filter element and get the partial SQL statement to use.
         sql_stmt = self._sqlquery(filter)
 

@@ -341,6 +341,17 @@ class CommonHomeChildExternal(CommonHomeChild):
         returnValue(names)
 
 
+    @inlineCallbacks
+    def search(self, filter, **kwargs):
+        try:
+            results = yield self._txn.store().conduit.send_search(self, filter.serialize(), **kwargs)
+        except NonExistentExternalShare:
+            yield self.fixNonExistentExternalShare()
+            raise ExternalShareFailed("External share does not exist")
+
+        returnValue(results)
+
+
 
 class CommonObjectResourceExternal(CommonObjectResource):
     """
