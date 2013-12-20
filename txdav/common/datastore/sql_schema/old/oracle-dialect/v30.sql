@@ -260,8 +260,7 @@ create table ABO_MEMBERS (
     "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
     "MEMBER_ID" integer not null,
     "REVISION" integer not null,
-    "REMOVED" integer default 0 not null,
-    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
+    "REMOVED" integer default 0 not null, 
     primary key("GROUP_ID", "MEMBER_ID", "REVISION")
 );
 
@@ -290,8 +289,7 @@ create table CALENDAR_OBJECT_REVISIONS (
     "CALENDAR_NAME" nvarchar2(255) default null,
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
-    "DELETED" integer not null,
-    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+    "DELETED" integer not null
 );
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
@@ -301,16 +299,14 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
     "OBJECT_RESOURCE_ID" integer default 0,
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
-    "DELETED" integer not null,
-    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+    "DELETED" integer not null
 );
 
 create table NOTIFICATION_OBJECT_REVISIONS (
     "NOTIFICATION_HOME_RESOURCE_ID" integer not null references NOTIFICATION_HOME on delete cascade,
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
-    "DELETED" integer not null,
-    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
+    "DELETED" integer not null, 
     unique("NOTIFICATION_HOME_RESOURCE_ID", "RESOURCE_NAME")
 );
 
@@ -377,11 +373,10 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '31');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '30');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
-insert into CALENDARSERVER (NAME, VALUE) values ('MIN-REVISION', '1');
 create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
     DEFAULT_EVENTS
 );

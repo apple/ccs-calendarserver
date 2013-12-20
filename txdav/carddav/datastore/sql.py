@@ -567,6 +567,18 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
         if self.owned():
             returnValue((yield super(AddressBook, self).resourceNamesSinceRevision(revision)))
 
+        if revision:
+            cs = schema.CALENDARSERVER
+            minRevisionRows = yield Select(
+                [cs.VALUE],
+                From=cs,
+                Where=(cs.NAME == "MIN-REVISION")
+            ).on(self._txn)
+
+            if minRevisionRows:
+                if revision < int(minRevisionRows[0][0]):
+                    raise SyncTokenValidException
+
         # call sharedChildResourceNamesSinceRevision() and filter results
         sharedChildChanged, sharedChildDeleted = yield self.sharedChildResourceNamesSinceRevision(revision, "infinity")
 
@@ -625,12 +637,9 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
             # add change for addressbook group
             changed, deleted = yield super(AddressBook, self).sharedChildResourceNamesSinceRevision(revision, depth)
 
-            #===================================================================
-            # # Add the following to add the addressbook group in sync report:
-            #
-            # if changed or deleted and depth != "1":
-            #     changed.add("%s/%s" % (path, self._groupForSharedAddressBookName(),))
-            #===================================================================
+            # remove addressbook group from sync report
+            if changed and depth != "1":
+                changed -= set(["%s/%s" % (path, self._groupForSharedAddressBookName(),)])
 
             returnValue((changed, deleted))
 
@@ -639,23 +648,27 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
         acceptedGroupIDs = set([groupBindRow[2] for groupBindRow in groupBindRows])
 
         allowedObjectIDs = set((yield self.expandGroupIDs(self._txn, acceptedGroupIDs)))
-        oldAllowedObjectIDs = set((yield self.expandGroupIDs(self._txn, acceptedGroupIDs, revision)))
+        oldAllowedObjectIDs = set((yield self.expandGroupIDs(self._txn, acceptedGroupIDs, revision))) if revision else set()
         addedObjectIDs = allowedObjectIDs - oldAllowedObjectIDs
         removedObjectIDs = oldAllowedObjectIDs - allowedObjectIDs
 
-        # get revision table changes
-        rev = self._revisionsSchema
-        results = [(
-                name,
-                id,
-                wasdeleted,
-            ) for name, id, wasdeleted in (
-                yield Select([rev.RESOURCE_NAME, rev.OBJECT_RESOURCE_ID, rev.DELETED],
-                             From=rev,
-                            Where=(rev.REVISION > revision).And(
-                            rev.RESOURCE_ID == self._resourceID)).on(self._txn)
-            ) if name
-        ]
+        results = []
+        if revision:
+            # get revision table changes
+            rev = self._revisionsSchema
+            results = [(
+                    name,
+                    id,
+                    wasdeleted,
+                ) for name, id, wasdeleted in (
+                    yield Select(
+                        [rev.RESOURCE_NAME, rev.OBJECT_RESOURCE_ID, rev.DELETED],
+                        From=rev,
+                        Where=(rev.REVISION > revision).And(
+                        rev.RESOURCE_ID == self._resourceID)
+                    ).on(self._txn)
+                ) if name
+            ]
 
         # get deleted object names if any
         idToNameMap = dict([(id, name) for name, id, wasdeleted in results if wasdeleted])

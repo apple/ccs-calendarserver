@@ -625,6 +625,9 @@ DEFAULT_CONFIG = {
 
     "RemoveDuplicatePrivateComments": False, # Remove duplicate private comments on PUT
 
+    "SyncTokenLifetimeDays" : 14, # Number of days that a client sync report token is valid
+
+
     # CardDAV Features
     "DirectoryAddressBook": {
         "Enabled": True,

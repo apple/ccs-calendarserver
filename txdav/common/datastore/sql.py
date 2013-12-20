@@ -2031,22 +2031,33 @@ class CommonHome(SharingHomeMixIn):
         @type depth: C{str}
         """
 
-        results = [
-            (
-                path if path else (collection if collection else ""),
-                name if name else "",
-                wasdeleted
-            )
-            for path, collection, name, wasdeleted in
-            (yield self.doChangesQuery(revision))
-        ]
-
         changed = set()
         deleted = set()
-        deleted_collections = set()
-        for path, name, wasdeleted in results:
-            if wasdeleted:
-                if revision:
+        if revision:
+            cs = schema.CALENDARSERVER
+            minRevisionRows = yield Select(
+                [cs.VALUE],
+                From=cs,
+                Where=(cs.NAME == "MIN-REVISION")
+            ).on(self._txn)
+
+            if minRevisionRows:
+                if revision < int(minRevisionRows[0][0]):
+                    raise SyncTokenValidException
+
+            results = [
+                (
+                    path if path else (collection if collection else ""),
+                    name if name else "",
+                    wasdeleted
+                )
+                for path, collection, name, wasdeleted in
+                (yield self.doChangesQuery(revision))
+            ]
+
+            deleted_collections = set()
+            for path, name, wasdeleted in results:
+                if wasdeleted:
                     if name:
                         # Resource deleted - for depth "1" report collection as changed,
                         # otherwise report resource as deleted
@@ -2059,18 +2070,27 @@ class CommonHome(SharingHomeMixIn):
                         deleted.add("%s/" % (path,))
                         deleted_collections.add(path)
 
-            if path not in deleted_collections:
-                # Always report collection as changed
-                changed.add("%s/" % (path,))
-                if name:
+                if path not in deleted_collections:
+                    # Always report collection as changed
+                    changed.add("%s/" % (path,))
+                    if name:
+                        # Resource changed - for depth "infinity" report resource as changed
+                        if depth != "1":
+                            changed.add("%s/%s" % (path, name,))
+
+        # Now deal with shared collections (and owned if revision == 0)
+        for share in (yield self.children()):
+            if share.owned():
+                if not revision:
+                    path = share.name()
+                    # Always report collection as changed
+                    changed.add("%s/" % (path,))
+
                     # Resource changed - for depth "infinity" report resource as changed
                     if depth != "1":
-                        changed.add("%s/%s" % (path, name,))
-
-        # Now deal with shared collections
-        # TODO: think about whether this can be done in one query rather than looping over each share
-        for share in (yield self.children()):
-            if not share.owned():
+                        for name in (yield share.listObjectResources()):
+                            changed.add("%s/%s" % (path, name,))
+            else:
                 sharedChanged, sharedDeleted = yield share.sharedChildResourceNamesSinceRevision(revision, depth)
                 changed |= sharedChanged
                 deleted |= sharedDeleted
@@ -2455,24 +2475,36 @@ class _SharedSyncLogic(object):
         @param revision: the revision to determine changes since
         @type revision: C{int}
         """
-
-        results = [
-            (name if name else "", deleted) for name, deleted in
-                (yield self._objectNamesSinceRevisionQuery(deleted=(revision != 0)).on(
-                    self._txn, revision=revision, resourceID=self._resourceID)
-                )
-        ]
-        results.sort(key=lambda x: x[1])
-
         changed = []
         deleted = []
-        for name, wasdeleted in results:
-            if name:
-                if wasdeleted:
-                    if revision:
+        if revision:
+            cs = schema.CALENDARSERVER
+            minRevisionRows = yield Select(
+                [cs.VALUE],
+                From=cs,
+                Where=(cs.NAME == "MIN-REVISION")
+            ).on(self._txn)
+
+            if minRevisionRows:
+                if revision < int(minRevisionRows[0][0]):
+                    raise SyncTokenValidException
+
+            results = [
+                (name if name else "", removed) for name, removed in
+                    (yield self._objectNamesSinceRevisionQuery().on(
+                        self._txn, revision=revision, resourceID=self._resourceID)
+                    )
+            ]
+            results.sort(key=lambda x: x[1])
+
+            for name, wasdeleted in results:
+                if name:
+                    if wasdeleted:
                         deleted.append(name)
-                else:
-                    changed.append(name)
+                    else:
+                        changed.append(name)
+        else:
+            changed = yield self.listObjectResources()
 
         returnValue((changed, deleted))
 
@@ -4396,23 +4428,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         return False
 
 
-    def resourceNamesSinceRevision(self, revision):
-        """
-        Return the changed and deleted resources since a particular revision. This implementation takes
-        into account sharing by making use of the bindRevision attribute to determine if the requested
-        revision is earlier than the share acceptance. If so, then we need to return all resources in
-        the results since the collection is in effect "new".
-
-        @param revision: the revision to determine changes since
-        @type revision: C{int}
-        """
-
-        if revision != 0 and revision < self._bindRevision:
-            raise SyncTokenValidException
-
-        return super(CommonHomeChild, self).resourceNamesSinceRevision(revision)
-
-
     @inlineCallbacks
     def sharedChildResourceNamesSinceRevision(self, revision, depth):
         """
@@ -4444,35 +4459,46 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         changed = set()
         deleted = set()
-        rev = self._revisionsSchema
-        results = [
-            (
-                self.name(),
-                name if name else "",
-                wasdeleted
-            )
-            for name, wasdeleted in
-            (yield Select([rev.RESOURCE_NAME, rev.DELETED],
-                             From=rev,
-                            Where=(rev.REVISION > revision).And(
-                            rev.RESOURCE_ID == self._resourceID)).on(self._txn))
-            if name
-        ]
+        if revision:
+            rev = self._revisionsSchema
+            results = [
+                (
+                    self.name(),
+                    name if name else "",
+                    wasdeleted
+                )
+                for name, wasdeleted in
+                (yield Select(
+                    [rev.RESOURCE_NAME, rev.DELETED],
+                    From=rev,
+                    Where=(rev.REVISION > revision).And(
+                    rev.RESOURCE_ID == self._resourceID)
+                ).on(self._txn))
+                if name
+            ]
 
-        for path, name, wasdeleted in results:
-            if wasdeleted:
-                if revision:
+            for path, name, wasdeleted in results:
+                if wasdeleted:
                     if depth == "1":
                         changed.add("%s/" % (path,))
                     else:
                         deleted.add("%s/%s" % (path, name,))
 
+                # Always report collection as changed
+                changed.add("%s/" % (path,))
+
+                # Resource changed - for depth "infinity" report resource as changed
+                if depth != "1":
+                    changed.add("%s/%s" % (path, name,))
+        else:
+            path = self.name()
             # Always report collection as changed
             changed.add("%s/" % (path,))
 
             # Resource changed - for depth "infinity" report resource as changed
             if depth != "1":
-                changed.add("%s/%s" % (path, name,))
+                for name in (yield self.listObjectResources()):
+                    changed.add("%s/%s" % (path, name,))
 
         returnValue((changed, deleted))
 
@@ -5346,7 +5372,6 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         Where=schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID ==
         Parameter("resourceID"))
 
-
     @inlineCallbacks
     def listNotificationObjects(self):
         if self._notificationNames is None:
@@ -5354,6 +5379,11 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
                 self._txn, resourceID=self._resourceID)
             self._notificationNames = sorted([row[0] for row in rows])
         returnValue(self._notificationNames)
+
+
+    # used by _SharedSyncLogic.resourceNamesSinceRevision()
+    def listObjectResources(self):
+        return self.listNotificationObjects()
 
 
     def _nameToUID(self, name):
