@@ -4703,10 +4703,9 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @inlineCallbacks
-    def moveObjectResource(self, child, newparent, newname=None):
+    def _validObjectResource(self, child, newparent, newname=None):
         """
-        Move a child of this collection into another collection without actually removing/re-inserting the data.
-        Make sure sync and cache details for both collections are updated.
+        Check that the move operation is valid
 
         TODO: check that the resource name does not exist in the new parent, or that the UID
         does not exist there too.
@@ -4720,7 +4719,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
 
         name = child.name()
-        uid = child.uid()
 
         if newname is None:
             newname = name
@@ -4738,6 +4736,30 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             child_count = (yield self.countObjectResources())
             if child_count >= config.MaxResourcesPerCollection:
                 raise TooManyObjectResourcesError()
+
+        returnValue(newname)
+
+
+    @inlineCallbacks
+    def moveObjectResource(self, child, newparent, newname=None):
+        """
+        Move a child of this collection into another collection without actually removing/re-inserting the data.
+        Make sure sync and cache details for both collections are updated.
+
+        TODO: check that the resource name does not exist in the new parent, or that the UID
+        does not exist there too.
+
+        @param child: the child resource to move
+        @type child: L{CommonObjectResource}
+        @param newparent: the parent to move to
+        @type newparent: L{CommonHomeChild}
+        @param newname: new name to use in new parent
+        @type newname: C{str} or C{None} for existing name
+        """
+
+        name = child.name()
+        newname = yield self._validObjectResource(child, newparent, newname)
+        uid = child.uid()
 
         # Clean this collections cache and signal sync change
         self._objects.pop(name, None)
@@ -4776,6 +4798,63 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         newparent._objects.pop(child.id(), None)
         yield newparent._insertRevision(newname)
         yield newparent.notifyChanged()
+
+
+    @inlineCallbacks
+    def moveObjectResourceCreateDelete(self, child, newparent, newname=None):
+        """
+        Move a child of this collection into another collection by doing a create/delete.
+
+        TODO: check that the resource name does not exist in the new parent, or that the UID
+        does not exist there too.
+
+        @param child: the child resource to move
+        @type child: L{CommonObjectResource}
+        @param newparent: the parent to move to
+        @type newparent: L{CommonHomeChild}
+        @param newname: new name to use in new parent
+        @type newname: C{str} or C{None} for existing name
+        """
+
+        name = child.name()
+        newname = yield self._validObjectResource(child, newparent, newname)
+
+        # Do a move as a create/delete
+        component = yield child.component()
+        yield newparent.moveObjectResourceHere(name, component)
+        yield self.moveObjectResourceAway(child.id(), child)
+
+
+    @inlineCallbacks
+    def moveObjectResourceHere(self, name, component):
+        """
+        Create a new child in this collection as part of a move operation. This needs to be split out because
+        behavior differs for sub-classes and cross-pod operations.
+
+        @param name: new name to use in new parent
+        @type name: C{str} or C{None} for existing name
+        @param component: data for new resource
+        @type component: L{Component}
+        """
+
+        yield self.createObjectResourceWithName(name, component)
+
+
+    @inlineCallbacks
+    def moveObjectResourceAway(self, rid, child=None):
+        """
+        Remove the child as the result of a move operation. This needs to be split out because
+        behavior differs for sub-classes and cross-pod operations.
+
+        @param rid: the child resource-id to move
+        @type rid: C{int}
+        @param child: the child resource to move - might be C{None} for cross-pod
+        @type child: L{CommonObjectResource}
+        """
+
+        if child is None:
+            child = yield self.objectResourceWithID(rid)
+        yield child.remove()
 
 
     def objectResourcesHaveProperties(self):
@@ -5513,7 +5592,13 @@ class CommonObjectResource(FancyEqMixin, object):
         """
 
         yield self.moveValidation(destination, name)
-        yield self._parentCollection.moveObjectResource(self, destination, name)
+
+        # If possible we do a "fast" move by simply fixing up the database information directly rather than
+        # re-writing any data. That is only possible when the source and destination are on this pod.
+        if not self._parentCollection.external() and not destination.external():
+            yield self._parentCollection.moveObjectResource(self, destination, name)
+        else:
+            yield self._parentCollection.moveObjectResourceCreateDelete(self, destination, name)
 
 
     def moveValidation(self, destination, name):

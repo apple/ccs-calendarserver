@@ -23,6 +23,7 @@ from twisted.internet.defer import succeed
 from twext.python.log import Logger
 
 from txdav.caldav.datastore.sql import CalendarHome, Calendar, CalendarObject
+from txdav.caldav.icalendarstore import ComponentUpdateState, ComponentRemoveState
 from txdav.common.datastore.sql_external import CommonHomeExternal, CommonHomeChildExternal, \
     CommonObjectResourceExternal
 
@@ -164,7 +165,18 @@ class CalendarObjectExternal(CommonObjectResourceExternal, CalendarObject):
     """
     SQL-based implementation of L{ICalendarObject}.
     """
-    pass
+
+    @classmethod
+    def _createInternal(cls, parent, name, component, internal_state, options=None, split_details=None):
+        raise AssertionError("CalendarObjectExternal: not supported")
+
+
+    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL, smart_merge=False, split_details=None):
+        raise AssertionError("CalendarObjectExternal: not supported")
+
+
+    def _removeInternal(self, internal_state=ComponentRemoveState.NORMAL):
+        raise AssertionError("CalendarObjectExternal: not supported")
 
 
 CalendarExternal._objectResourceClass = CalendarObjectExternal

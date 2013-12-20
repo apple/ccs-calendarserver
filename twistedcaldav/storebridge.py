@@ -2432,6 +2432,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         try:
             response = (yield self.storeMove(request, destinationparent, destination.name()))
+            self._newStoreObject = None
             returnValue(response)
 
         # Handle the various store errors

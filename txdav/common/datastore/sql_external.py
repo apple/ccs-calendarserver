@@ -319,6 +319,46 @@ class CommonHomeChildExternal(CommonHomeChild):
 
 
     @inlineCallbacks
+    def moveObjectResourceHere(self, name, component):
+        """
+        Create a new child in this collection as part of a move operation. This needs to be split out because
+        behavior differs for sub-classes and cross-pod operations.
+
+        @param name: new name to use in new parent
+        @type name: C{str} or C{None} for existing name
+        @param component: data for new resource
+        @type component: L{Component}
+        """
+
+        try:
+            result = yield self._txn.store().conduit.send_movehere(self, name, str(component))
+        except NonExistentExternalShare:
+            yield self.fixNonExistentExternalShare()
+            raise ExternalShareFailed("External share does not exist")
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def moveObjectResourceAway(self, rid, child=None):
+        """
+        Remove the child as the result of a move operation. This needs to be split out because
+        behavior differs for sub-classes and cross-pod operations.
+
+        @param rid: the child resource-id to move
+        @type rid: C{int}
+        @param child: the child resource to move - might be C{None} for cross-pod
+        @type child: L{CommonObjectResource}
+        """
+
+        try:
+            result = yield self._txn.store().conduit.send_moveaway(self, rid)
+        except NonExistentExternalShare:
+            yield self.fixNonExistentExternalShare()
+            raise ExternalShareFailed("External share does not exist")
+        returnValue(result)
+
+
+    @inlineCallbacks
     def syncToken(self):
         if self._syncTokenRevision is None:
             try:
@@ -423,14 +463,6 @@ class CommonObjectResourceExternal(CommonObjectResource):
             self._cachedComponent = self._componentClass.fromString(text)
 
         returnValue(self._cachedComponent)
-
-
-    @inlineCallbacks
-    def moveTo(self, destination, name=None):
-        """
-        Probably OK to leave this to the base implementation which calls up to the parent after some validation.
-        """
-        raise NotImplementedError
 
 
     @inlineCallbacks

@@ -907,7 +907,7 @@ class ComponentRemoveState(Names):
     NORMAL_NO_IMPLICIT -    this is an application layer (user) generated remove that deliberately turns
                             off implicit scheduling operations.
 
-    INTERNAL -              remove the resource without implicit scheduling.
+    INTERNAL -              remove the resource without implicit scheduling or attachment processing.
     """
 
     NORMAL = NamedConstant()

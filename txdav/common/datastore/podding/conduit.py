@@ -709,10 +709,12 @@ class PoddingConduit(object):
 # Calls on L{CommonHomeChild} objects
 PoddingConduit._make_simple_homechild_action("countobjects", "countObjectResources")
 PoddingConduit._make_simple_homechild_action("listobjects", "listObjectResources")
-PoddingConduit._make_simple_homechild_action("synctoken", "syncToken")
-PoddingConduit._make_simple_homechild_action("resourcenamessincerevision", "resourceNamesSinceRevision", transform_send=PoddingConduit._to_tuple)
 PoddingConduit._make_simple_homechild_action("resourceuidforname", "resourceUIDForName")
 PoddingConduit._make_simple_homechild_action("resourcenameforuid", "resourceNameForUID")
+PoddingConduit._make_simple_homechild_action("movehere", "moveObjectResourceHere")
+PoddingConduit._make_simple_homechild_action("moveaway", "moveObjectResourceAway")
+PoddingConduit._make_simple_homechild_action("synctoken", "syncToken")
+PoddingConduit._make_simple_homechild_action("resourcenamessincerevision", "resourceNamesSinceRevision", transform_send=PoddingConduit._to_tuple)
 PoddingConduit._make_simple_homechild_action("search", "search")
 
 # Calls on L{CommonObjectResource} objects

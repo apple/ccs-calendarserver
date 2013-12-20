@@ -1082,6 +1082,45 @@ class Calendar(CommonHomeChild):
         self.viewerHome().removedCalendarResource(child.uid())
 
 
+    @inlineCallbacks
+    def moveObjectResourceHere(self, name, component):
+        """
+        Create a new child in this collection as part of a move operation. This needs to be split out because
+        behavior differs for sub-classes and cross-pod operations.
+
+        @param name: new name to use in new parent
+        @type name: C{str} or C{None} for existing name
+        @param component: data for new resource
+        @type component: L{Component}
+        """
+
+        # Cross-pod calls come in with component as str or unicode
+        if isinstance(component, str) or isinstance(component, unicode):
+            try:
+                component = self._objectResourceClass._componentClass.fromString(component)
+            except InvalidICalendarDataError as e:
+                raise InvalidComponentForStoreError(str(e))
+
+        yield self._createCalendarObjectWithNameInternal(name, component, internal_state=ComponentUpdateState.RAW)
+
+
+    @inlineCallbacks
+    def moveObjectResourceAway(self, rid, child=None):
+        """
+        Remove the child as the result of a move operation. This needs to be split out because
+        behavior differs for sub-classes and cross-pod operations.
+
+        @param rid: the child resource-id to move
+        @type rid: C{int}
+        @param child: the child resource to move - might be C{None} for cross-pod
+        @type child: L{CommonObjectResource}
+        """
+
+        if child is None:
+            child = yield self.objectResourceWithID(rid)
+        yield child._removeInternal(internal_state=ComponentRemoveState.INTERNAL)
+
+
     def calendarObjectsInTimeRange(self, start, end, timeZone):
         raise NotImplementedError()
 
@@ -2373,6 +2412,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         Scheduling will be done automatically.
         """
 
+        # Cross-pod calls come in with component as str or unicode
         if isinstance(component, str) or isinstance(component, unicode):
             try:
                 component = self._componentClass.fromString(component)
@@ -2926,9 +2966,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(calendar.resourceUID()).hexdigest(),))
 
         # Need to also remove attachments
-        if self._dropboxID:
-            yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
-        yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
+        if internal_state != ComponentRemoveState.INTERNAL:
+            if self._dropboxID:
+                yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
+            yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
         yield super(CalendarObject, self).remove()
 
         # Do scheduling
