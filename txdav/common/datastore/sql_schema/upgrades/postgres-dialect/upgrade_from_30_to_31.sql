@@ -32,8 +32,8 @@ alter table NOTIFICATION_OBJECT_REVISIONS
  -- Add cleanup work table --
  
 create table REVISION_CLEANUP_WORK (
-  "WORK_ID" integer primary key not null,
-  "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+  WORK_ID integer primary key default nextval('WORKITEM_SEQ') not null,
+  NOT_BEFORE timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
   
 -- Update version --
