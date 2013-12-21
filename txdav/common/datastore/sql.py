@@ -1568,29 +1568,10 @@ class SharingHomeMixIn(object):
         if bindStatus == _BIND_STATUS_ACCEPTED:
             yield shareeHome.acceptShare(shareUID, summary)
         elif bindStatus == _BIND_STATUS_DECLINED:
-            yield shareeHome.declineShare(shareUID)
-
-
-    @inlineCallbacks
-    def processExternalRemove(self, ownerUID, shareeUID, shareUID):
-        """
-        External invite received.
-        """
-
-        # Make sure the shareeUID and shareUID match
-
-        # Get the owner home - create external one if not present
-        shareeHome = yield self._txn.homeWithUID(self._homeType, shareeUID)
-        if shareeHome is None or not shareeHome.external():
-            raise ExternalShareFailed("Invalid sharee UID: {}".format(shareeUID))
-
-        # Try to find owner calendar via its external id
-        shareeView = yield shareeHome.anyObjectWithShareUID(shareUID)
-        if shareeView is None:
-            raise ExternalShareFailed("Invalid share UID: {}".format(shareUID))
-
-        # Now carry out the share operation
-        yield shareeView.deleteShare()
+            if shareeView.direct():
+                yield shareeView.deleteShare()
+            else:
+                yield shareeHome.declineShare(shareUID)
 
 
 
@@ -3219,16 +3200,30 @@ class SharingMixIn(object):
     @inlineCallbacks
     def deleteShare(self):
         """
-        This share is being deleted - either decline or remove (for direct shares).
+        This share is being deleted (by the sharee) - either decline or remove (for direct shares).
         """
 
         ownerView = yield self.ownerView()
         if self.direct():
             yield ownerView.removeShare(self)
             if ownerView.external():
-                yield self._removeExternalInvite()
+                yield self._replyExternalInvite(_BIND_STATUS_DECLINED)
         else:
             yield self.declineShare()
+
+
+    @inlineCallbacks
+    def ownerDeleteShare(self):
+        """
+        This share is being deleted (by the owner) - either decline or remove (for direct shares).
+        """
+
+        # Change status on store object
+        yield self.setShared(False)
+
+        # Remove all sharees (direct and invited)
+        for invitation in (yield self.sharingInvites()):
+            yield self.uninviteUserFromShare(invitation.shareeUID)
 
 
     def newShare(self, displayname=None):
@@ -3371,21 +3366,9 @@ class SharingMixIn(object):
             self.viewerHome()._homeType,
             self.ownerHome().uid(),
             self.viewerHome().uid(),
-            self.shareName(),
+            self.shareUID(),
             status,
             summary,
-        )
-
-
-    @inlineCallbacks
-    def _removeExternalInvite(self):
-
-        yield self._txn.store().conduit.send_shareremove(
-            self._txn,
-            self.viewerHome()._homeType,
-            self.ownerHome().uid(),
-            self.viewerHome().uid(),
-            self.shareName(),
         )
 
 
@@ -4421,6 +4404,9 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
     @inlineCallbacks
     def remove(self):
+
+        # Stop sharing first
+        yield self.ownerDeleteShare()
 
         # Do before setting _resourceID making changes
         yield self.notifyPropertyChanged()

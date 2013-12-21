@@ -378,66 +378,6 @@ class PoddingConduit(object):
         })
 
 
-    @inlineCallbacks
-    def send_shareremove(self, txn, homeType, ownerUID, shareeUID, shareUID):
-        """
-        Send a sharing remove cross-pod message.
-
-        @param homeType: Type of home being shared.
-        @type homeType: C{int}
-        @param ownerUID: GUID of the sharer.
-        @type ownerUID: C{str}
-        @param shareeUID: GUID of the recipient
-        @type shareeUID: C{str}
-        @param shareUID: Resource/invite ID for recipient
-        @type shareUID: C{str}
-        """
-
-        _ignore_sender, recipient = self.validRequst(shareeUID, ownerUID)
-
-        action = {
-            "action": "shareremove",
-            "type": homeType,
-            "owner": ownerUID,
-            "sharee": shareeUID,
-            "share_id": shareUID,
-        }
-
-        result = yield self.sendRequest(txn, recipient, action)
-        returnValue(result)
-
-
-    @inlineCallbacks
-    def recv_shareremove(self, txn, message):
-        """
-        Process a sharing remove cross-pod message. Message arguments as per L{send_shareremove}.
-
-        @param message: message arguments
-        @type message: C{dict}
-        """
-
-        if message["action"] != "shareremove":
-            raise FailedCrossPodRequestError("Wrong action '{}' for recv_shareremove".format(message["action"]))
-
-        # Create a share
-        ownerHome = yield txn.homeWithUID(message["type"], message["owner"])
-        if ownerHome is None or ownerHome.external():
-            FailedCrossPodRequestError("Invalid owner UID specified")
-
-        try:
-            yield ownerHome.processExternalRemove(
-                message["owner"],
-                message["sharee"],
-                message["share_id"],
-            )
-        except ExternalShareFailed as e:
-            FailedCrossPodRequestError(str(e))
-
-        returnValue({
-            "result": "ok",
-        })
-
-
     #
     # Sharer data access related apis
     #

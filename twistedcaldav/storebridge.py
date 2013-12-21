@@ -495,11 +495,6 @@ class _CommonHomeChildCollectionMixin(object):
 
         # Now do normal delete
 
-        # Handle sharing
-        wasShared = self.isShared()
-        if wasShared:
-            yield self.downgradeFromShare(request)
-
         # Actually delete it.
         yield self._newStoreObject.remove()
 

@@ -922,6 +922,23 @@ class DirectoryPrincipalResource (
 
 
     @inlineCallbacks
+    def proxyMode(self, principal):
+        """
+        Determine whether what proxy mode this principal has in relation to the one specified.
+        """
+
+        read_uids = (yield self.proxyFor(False))
+        if principal in read_uids:
+            returnValue("read")
+
+        write_uids = (yield self.proxyFor(True))
+        if principal in write_uids:
+            returnValue("write")
+
+        returnValue("none")
+
+
+    @inlineCallbacks
     def proxyFor(self, read_write, resolve_memberships=True):
 
         proxyFors = set()
