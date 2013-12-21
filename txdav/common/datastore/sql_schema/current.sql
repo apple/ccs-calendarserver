@@ -706,6 +706,15 @@ create table CALENDAR_OBJECT_SPLITTER_WORK (
 create index CALENDAR_OBJECT_SPLITTER_WORK_RESOURCE_ID on
 	CALENDAR_OBJECT_SPLITTER_WORK(RESOURCE_ID);
 
+---------------------------
+-- Revision Cleaner Work --
+---------------------------
+
+create table REVISION_CLEANUP_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
+);
+
 --------------------
 -- Schema Version --
 --------------------

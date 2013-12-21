@@ -37,54 +37,55 @@ from os import getuid, getgid
 
 from zope.interface import implements
 
+from twisted.application.internet import TCPServer, UNIXServer
+from twisted.application.service import MultiService, IServiceMaker
+from twisted.application.service import Service
+from twisted.internet.defer import gatherResults, Deferred, inlineCallbacks, succeed
+from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
+from twisted.internet.process import ProcessExitedAlready
+from twisted.internet.protocol import ProcessProtocol
+from twisted.internet.protocol import Protocol, Factory
+from twisted.plugin import IPlugin
+from twisted.protocols.amp import AMP
 from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
 from twisted.python.util import uidFromString, gidFromString
-from twisted.plugin import IPlugin
-from twisted.internet.defer import gatherResults, Deferred, inlineCallbacks, succeed
-from twisted.internet.process import ProcessExitedAlready
-from twisted.internet.protocol import Protocol, Factory
-from twisted.internet.protocol import ProcessProtocol
-from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
-from twisted.application.internet import TCPServer, UNIXServer
-from twisted.application.service import MultiService, IServiceMaker
-from twisted.application.service import Service
-from twisted.protocols.amp import AMP
 
-from txweb2.server import Site
-from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
-from twext.python.filepath import CachingFilePath
-from twext.internet.ssl import ChainingOpenSSLContextFactory
-from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
-from twext.internet.fswatch import DirectoryChangeListener, IDirectoryChangeListenee
-from txweb2.channel.http import LimitingHTTPFactory, SSLRedirectRequest, \
-    HTTPChannel
-from txweb2.metafd import ConnectionLimiter, ReportingHTTPService
-from twext.enterprise.ienterprise import POSTGRES_DIALECT
-from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool
+from twext.enterprise.ienterprise import ORACLE_DIALECT
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.queue import NonPerformingQueuer
 from twext.enterprise.queue import PeerConnectionPool
 from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
+from twext.internet.fswatch import DirectoryChangeListener, IDirectoryChangeListenee
+from twext.internet.ssl import ChainingOpenSSLContextFactory
+from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
+from twext.python.filepath import CachingFilePath
+from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
+from txweb2.channel.http import LimitingHTTPFactory, SSLRedirectRequest, \
+    HTTPChannel
+from txweb2.metafd import ConnectionLimiter, ReportingHTTPService
+from txweb2.server import Site
 
-from txdav.common.datastore.sql_tables import schema
-from txdav.common.datastore.upgrade.sql.upgrade import (
-    UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
-    UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
-    UpgradeAcquireLockStep, UpgradeReleaseLockStep, UpgradeDatabaseNotificationDataStep)
-from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
 from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
+from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
+from txdav.common.datastore.upgrade.sql.upgrade import (
+    UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
+    UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
+    UpgradeAcquireLockStep, UpgradeReleaseLockStep, UpgradeDatabaseNotificationDataStep)
+from txdav.common.datastore.work.revision_cleanup import scheduleFirstFindMinRevision
 
+from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
-from twistedcaldav.localization import processLocalizationFiles
-from twistedcaldav import memcachepool
-from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
 from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
+from twistedcaldav.localization import processLocalizationFiles
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
+from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -92,22 +93,22 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
-from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
-from calendarserver.tap.util import checkDirectories
-from calendarserver.tap.util import Stepper
-from calendarserver.tap.util import ConnectionDispenser
-from calendarserver.tap.util import getRootResource
-from calendarserver.tap.util import storeFromConfig
-from calendarserver.tap.util import pgConnectorFromConfig
-from calendarserver.tap.util import oracleConnectorFromConfig
-from calendarserver.controlsocket import ControlSocket
-from calendarserver.controlsocket import ControlSocketConnectingService
 from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
-from calendarserver.push.notifier import PushDistributor
+from calendarserver.controlsocket import ControlSocket
+from calendarserver.controlsocket import ControlSocketConnectingService
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
+from calendarserver.push.notifier import PushDistributor
+from calendarserver.tap.util import ConnectionDispenser
+from calendarserver.tap.util import Stepper
+from calendarserver.tap.util import checkDirectories
+from calendarserver.tap.util import getRootResource
+from calendarserver.tap.util import oracleConnectorFromConfig
+from calendarserver.tap.util import pgConnectorFromConfig
+from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
+from calendarserver.tap.util import storeFromConfig
 
 try:
     from calendarserver.version import version
@@ -550,6 +551,7 @@ class WorkSchedulingService(Service):
             yield scheduleNextMailPoll(self.store, int(config.LogID) if config.LogID else 5)
         if self.doGroupCaching:
             yield scheduleNextGroupCachingUpdate(self.store, int(config.LogID) if config.LogID else 5)
+        yield scheduleFirstFindMinRevision(self.store)
 
 
 

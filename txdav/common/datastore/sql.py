@@ -2035,15 +2035,14 @@ class CommonHome(SharingHomeMixIn):
         deleted = set()
         if revision:
             cs = schema.CALENDARSERVER
-            minRevisionRows = yield Select(
+            minRevision = int((yield Select(
                 [cs.VALUE],
                 From=cs,
                 Where=(cs.NAME == "MIN-REVISION")
-            ).on(self._txn)
+            ).on(self._txn))[0][0])
 
-            if minRevisionRows:
-                if revision < int(minRevisionRows[0][0]):
-                    raise SyncTokenValidException
+            if revision < minRevision:
+                raise SyncTokenValidException
 
             results = [
                 (
@@ -2479,15 +2478,14 @@ class _SharedSyncLogic(object):
         deleted = []
         if revision:
             cs = schema.CALENDARSERVER
-            minRevisionRows = yield Select(
+            minRevision = int((yield Select(
                 [cs.VALUE],
                 From=cs,
                 Where=(cs.NAME == "MIN-REVISION")
-            ).on(self._txn)
+            ).on(self._txn))[0][0])
 
-            if minRevisionRows:
-                if revision < int(minRevisionRows[0][0]):
-                    raise SyncTokenValidException
+            if revision < minRevision:
+                raise SyncTokenValidException
 
             results = [
                 (name if name else "", removed) for name, removed in
@@ -6207,3 +6205,66 @@ def fixUUIDNormalization(store):
         # obscure bug.
     else:
         yield t.commit()
+
+
+
+@inlineCallbacks
+def deleteRevisionsBefore(txn, minRevision):
+    """
+    Delete revisions before minRevision
+    """
+    # Delete old revisions
+    for table in (
+        schema.CALENDAR_OBJECT_REVISIONS,
+        schema.NOTIFICATION_OBJECT_REVISIONS,
+        schema.ADDRESSBOOK_OBJECT_REVISIONS,
+    ):
+        yield Delete(
+            From=table,
+            Where=(table.REVISION < minRevision)
+        ).on(txn)
+
+    # get groups where this object was once a member and version info
+    aboMembers = schema.ABO_MEMBERS
+    groupRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.DELETED, aboMembers.REVISION],
+        From=aboMembers,
+    ).on(txn)
+
+    # group results by group, member, and revisionInfo
+    groupIDToMemberIDMap = {}
+    for groupRow in groupRows:
+        groupID, memberID, deleted, revision = groupRow
+        revisionInfo = [deleted, revision]
+        if groupID not in groupIDToMemberIDMap:
+            groupIDToMemberIDMap[groupID] = {}
+        memberIDToRevisionsMap = groupIDToMemberIDMap[groupID]
+        if memberID not in memberIDToRevisionsMap:
+            memberIDToRevisionsMap[memberID] = []
+        revisionInfoList = memberIDToRevisionsMap[memberID]
+        revisionInfoList.append(revisionInfo)
+
+    # go though list an delete old revisions, leaving at least one undeleted member
+    for groupID, memberIDToRevisionsMap in groupIDToMemberIDMap.iteritems():
+        for memberID, revisionInfoList in memberIDToRevisionsMap.iteritems():
+
+            revisionsToRemove = []
+            maxRevisionInfoToRemove = None
+            revisionsToSave = []
+            for revisionInfo in revisionInfoList:
+                deleted, revision = revisionInfo
+                if revision < minRevision:
+                    revisionsToRemove.append(revision)
+                    if not maxRevisionInfoToRemove or revision > maxRevisionInfoToRemove[1]:
+                        maxRevisionInfoToRemove = revisionInfo
+                else:
+                    revisionsToSave.append(revision)
+
+            if revisionsToRemove and (revisionsToSave or maxRevisionInfoToRemove[0]):
+                aboMembers = schema.ABO_MEMBERS
+                yield Delete(
+                    aboMembers,
+                    Where=(aboMembers.GROUP_ID == groupID).And(
+                        aboMembers.MEMBER_ID == memberID).And(
+                            aboMembers.REVISION.In(revisionsToRemove)
+                        )
+                )

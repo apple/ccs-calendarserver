@@ -29,6 +29,12 @@ alter table ADDRESSBOOK_OBJECT_REVISIONS
 alter table NOTIFICATION_OBJECT_REVISIONS
  add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC');
 
+ -- Add cleanup work table --
+ 
+create table REVISION_CLEANUP_WORK (
+  "WORK_ID" integer primary key not null,
+  "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+);
  
 -- Update version --
 

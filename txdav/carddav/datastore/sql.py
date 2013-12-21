@@ -569,15 +569,14 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
 
         if revision:
             cs = schema.CALENDARSERVER
-            minRevisionRows = yield Select(
+            minRevision = int((yield Select(
                 [cs.VALUE],
                 From=cs,
                 Where=(cs.NAME == "MIN-REVISION")
-            ).on(self._txn)
+            ).on(self._txn))[0][0])
 
-            if minRevisionRows:
-                if revision < int(minRevisionRows[0][0]):
-                    raise SyncTokenValidException
+            if revision < minRevision:
+                raise SyncTokenValidException
 
         # call sharedChildResourceNamesSinceRevision() and filter results
         sharedChildChanged, sharedChildDeleted = yield self.sharedChildResourceNamesSinceRevision(revision, "infinity")
@@ -2345,7 +2344,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         return Delete(
             aboMembers,
             Where=(aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs)))).And(
-                aboMembers.GROUP_ID.In(Parameter("memberIDs", len(memberIDs)))).And(
+                aboMembers.MEMBER_ID.In(Parameter("memberIDs", len(memberIDs)))).And(
                     aboMembers.REVISION < Parameter("revision")
                 )
         )

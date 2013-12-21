@@ -372,6 +372,11 @@ create table CALENDAR_OBJECT_SPLITTER_WORK (
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
 );
 
+create table REVISION_CLEANUP_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+);
+
 create table CALENDARSERVER (
     "NAME" nvarchar2(255) primary key,
     "VALUE" nvarchar2(255)
