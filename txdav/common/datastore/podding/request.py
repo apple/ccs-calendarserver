@@ -34,6 +34,7 @@ from twistedcaldav.config import config
 from twistedcaldav.util import utf8String
 
 from cStringIO import StringIO
+import base64
 import json
 
 
@@ -42,11 +43,17 @@ log = Logger()
 
 
 class ConduitRequest(object):
+    """
+    An HTTP request between pods. This is typically used to send and receive JSON data. However,
+    for attachments, we need to send the actual attachment data as the request body, so in that
+    case the JSON data is sent in an HTTP header.
+    """
 
-    def __init__(self, server, data):
-
+    def __init__(self, server, data, stream=None, stream_type=None):
         self.server = server
         self.data = json.dumps(data)
+        self.stream = stream
+        self.streamType = stream_type
 
 
     @inlineCallbacks
@@ -102,11 +109,15 @@ class ConduitRequest(object):
 
         # We need to play a trick with the request stream as we can only read it once. So we
         # read it, store the value in a MemoryStream, and replace the request's stream with that,
-        # so the data can be read again.
-        data = (yield allDataFromStream(request.stream))
-        iostr.write(data)
-        request.stream = MemoryStream(data if data is not None else "")
-        request.stream.doStartReading = None
+        # so the data can be read again. Note if we are sending an attachment, we won't log
+        # the attachment data as we do not want to read it all into memory.
+        if self.stream is None:
+            data = (yield allDataFromStream(request.stream))
+            iostr.write(data)
+            request.stream = MemoryStream(data if data is not None else "")
+            request.stream.doStartReading = None
+        else:
+            iostr.write("<<Stream Type: {}>>\n".format(self.streamType))
 
         iostr.write("\n\n>>>> Request end\n")
         returnValue(iostr.getvalue())
@@ -155,7 +166,12 @@ class ConduitRequest(object):
 
         headers = Headers()
         headers.setHeader("Host", utf8String(host + ":{}".format(port)))
-        headers.setHeader("Content-Type", MimeType("application", "json", params={"charset": "utf-8", }))
+        if self.streamType:
+            # For attachments we put the base64-encoded JSON data into a header
+            headers.setHeader("Content-Type", self.streamType)
+            headers.addRawHeader("XPOD", base64.b64encode(self.data))
+        else:
+            headers.setHeader("Content-Type", MimeType("application", "json", params={"charset": "utf-8", }))
         headers.setHeader("User-Agent", "CalendarServer/{}".format(version))
         headers.addRawHeader(*self.server.secretHeader())
 
@@ -165,7 +181,7 @@ class ConduitRequest(object):
         ep = GAIEndpoint(reactor, host, port, _configuredClientContextFactory() if ssl else None)
         proto = (yield ep.connect(f))
 
-        request = ClientRequest("POST", path, headers, self.data)
+        request = ClientRequest("POST", path, headers, self.stream if self.stream is not None else self.data)
 
         if accountingEnabledForCategory("xPod"):
             self.loggedRequest = yield self.logRequest(request)

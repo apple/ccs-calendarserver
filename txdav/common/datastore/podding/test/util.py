@@ -51,10 +51,12 @@ class FakeConduitRequest(object):
         cls.storeMap[server.details()] = store
 
 
-    def __init__(self, server, data):
+    def __init__(self, server, data, stream=None, stream_type=None):
 
         self.server = server
         self.data = json.dumps(data)
+        self.stream = stream
+        self.streamType = stream_type
 
 
     @inlineCallbacks
@@ -80,7 +82,11 @@ class FakeConduitRequest(object):
         """
 
         store = self.storeMap[self.server.details()]
-        result = yield store.conduit.processRequest(json.loads(self.data))
+        j = json.loads(self.data)
+        if self.stream is not None:
+            j["stream"] = self.stream
+            j["streamType"] = self.streamType
+        result = yield store.conduit.processRequest(j)
         result = json.dumps(result)
         returnValue(result)
 

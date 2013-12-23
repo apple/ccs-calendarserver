@@ -18,6 +18,9 @@ from pycalendar.datetime import DateTime
 from pycalendar.period import Period
 
 from twext.python.clsprop import classproperty
+import twext.web2.dav.test.util
+from twext.web2.http_headers import MimeType
+from twext.web2.stream import MemoryStream
 
 from twisted.internet.defer import inlineCallbacks, succeed, returnValue
 
@@ -28,6 +31,8 @@ from twistedcaldav.ical import Component, normalize_iCalStr
 from txdav.caldav.datastore.query.filter import Filter
 from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers, Server
+from txdav.caldav.datastore.sql import ManagedAttachment
+from txdav.caldav.datastore.test.common import CaptureProtocol
 from txdav.caldav.datastore.test.util import buildCalendarStore, \
     TestCalendarStoreDirectoryRecord
 from txdav.common.datastore.podding.conduit import PoddingConduit, \
@@ -41,7 +46,6 @@ from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError, 
     ObjectResourceNameNotAllowedError
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 
-import twext.web2.dav.test.util
 
 class TestConduit (CommonCommonTests, twext.web2.dav.test.util.TestCase):
 
@@ -967,3 +971,112 @@ END:VCALENDAR
         self.assertEqual(len(fbinfo[1]), 0)
         self.assertEqual(len(fbinfo[2]), 0)
         yield self.otherCommit()
+
+
+    def attachmentToString(self, attachment):
+        """
+        Convenience to convert an L{IAttachment} to a string.
+
+        @param attachment: an L{IAttachment} provider to convert into a string.
+
+        @return: a L{Deferred} that fires with the contents of the attachment.
+
+        @rtype: L{Deferred} firing C{bytes}
+        """
+        capture = CaptureProtocol()
+        attachment.retrieve(capture)
+        return capture.deferred
+
+
+    @inlineCallbacks
+    def test_add_attachment(self):
+        """
+        Test that action=add-attachment works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        object1 = yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        resourceID = object1.id()
+        yield self.commit()
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        attachment, location = yield shared_object.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
+        managedID = attachment.managedID()
+        from txdav.caldav.datastore.sql_external import ManagedAttachmentExternal
+        self.assertTrue(isinstance(attachment, ManagedAttachmentExternal))
+        self.assertTrue("user01/attachments/test" in location)
+        yield self.otherCommit()
+
+        cobjs = yield ManagedAttachment.referencesTo(self.transactionUnderTest(), managedID)
+        self.assertEqual(cobjs, set((resourceID,)))
+        attachment = yield ManagedAttachment.load(self.transactionUnderTest(), resourceID, managedID)
+        self.assertEqual(attachment.name(), "test.txt")
+        data = yield self.attachmentToString(attachment)
+        self.assertEqual(data, "Here is some text.")
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_update_attachment(self):
+        """
+        Test that action=update-attachment works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commit()
+
+        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        resourceID = object1.id()
+        attachment, _ignore_location = yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
+        managedID = attachment.managedID()
+        yield self.commit()
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        attachment, location = yield shared_object.updateAttachment(managedID, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some more text."))
+        managedID = attachment.managedID()
+        from txdav.caldav.datastore.sql_external import ManagedAttachmentExternal
+        self.assertTrue(isinstance(attachment, ManagedAttachmentExternal))
+        self.assertTrue("user01/attachments/test" in location)
+        yield self.otherCommit()
+
+        cobjs = yield ManagedAttachment.referencesTo(self.transactionUnderTest(), managedID)
+        self.assertEqual(cobjs, set((resourceID,)))
+        attachment = yield ManagedAttachment.load(self.transactionUnderTest(), resourceID, managedID)
+        self.assertEqual(attachment.name(), "test.txt")
+        data = yield self.attachmentToString(attachment)
+        self.assertEqual(data, "Here is some more text.")
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_remove_attachment(self):
+        """
+        Test that action=remove-attachment works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commit()
+
+        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        resourceID = object1.id()
+        attachment, _ignore_location = yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
+        managedID = attachment.managedID()
+        yield self.commit()
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        yield shared_object.removeAttachment(None, managedID)
+        yield self.otherCommit()
+
+        cobjs = yield ManagedAttachment.referencesTo(self.transactionUnderTest(), managedID)
+        self.assertEqual(cobjs, set())
+        attachment = yield ManagedAttachment.load(self.transactionUnderTest(), resourceID, managedID)
+        self.assertTrue(attachment is None)
+        yield self.commit()

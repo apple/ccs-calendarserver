@@ -14,8 +14,6 @@
 # limitations under the License.
 ##
 
-import json
-
 from twext.web2 import responsecode
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.util import allDataFromStream
@@ -33,6 +31,9 @@ from twistedcaldav.scheduling_store.caldav.resource import \
 from txdav.xml import element as davxml
 from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
 from txdav.common.datastore.podding.conduit import FailedCrossPodRequestError
+
+import base64
+import json
 
 __all__ = [
     "ConduitResource",
@@ -125,19 +126,32 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
             self.log.error("Invalid shared secret header in cross-pod request")
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Not authorized to make this request"))
 
-        # Check content first
+        # Look for XPOD header
+        xpod = request.headers.getRawHeaders("XPOD")
         contentType = request.headers.getHeader("content-type")
+        if xpod is not None:
+            # Attachments are sent in the request body with the JSON data in a header. We
+            # decode the header and add the request.stream as an attribute of the JSON object.
+            xpod = xpod[0]
+            try:
+                j = json.loads(base64.b64decode(xpod))
+            except (TypeError, ValueError) as e:
+                self.log.error("Invalid JSON header in request: {ex}\n{xpod}", ex=e, xpod=xpod)
+                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid JSON header in request: {}\n{}".format(e, xpod)))
+            j["stream"] = request.stream
+            j["streamType"] = contentType
+        else:
+            # Check content first
+            if "{}/{}".format(contentType.mediaType, contentType.mediaSubtype) != "application/json":
+                self.log.error("MIME type {mime} not allowed in request", mime=contentType)
+                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "MIME type {} not allowed in request".format(contentType)))
 
-        if "{}/{}".format(contentType.mediaType, contentType.mediaSubtype) != "application/json":
-            self.log.error("MIME type {mime} not allowed in request", mime=contentType)
-            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "MIME type {} not allowed in request".format(contentType)))
-
-        body = (yield allDataFromStream(request.stream))
-        try:
-            j = json.loads(body)
-        except ValueError as e:
-            self.log.error("Invalid JSON data in request: {ex}\n{body}", ex=e, body=body)
-            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid JSON data in request: {}\n{}".format(e, body)))
+            body = (yield allDataFromStream(request.stream))
+            try:
+                j = json.loads(body)
+            except ValueError as e:
+                self.log.error("Invalid JSON data in request: {ex}\n{body}", ex=e, body=body)
+                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid JSON data in request: {}\n{}".format(e, body)))
 
         # Log extended item
         if not hasattr(request, "extendedLogItems"):

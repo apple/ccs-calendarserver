@@ -108,9 +108,9 @@ class PoddingConduit(object):
 
 
     @inlineCallbacks
-    def sendRequest(self, txn, recipient, data):
+    def sendRequest(self, txn, recipient, data, stream=None, streamType=None):
 
-        request = self.conduitRequestClass(recipient.server(), data)
+        request = self.conduitRequestClass(recipient.server(), data, stream, streamType)
         try:
             response = (yield request.doRequest(txn))
         except Exception as e:
@@ -137,7 +137,7 @@ class PoddingConduit(object):
             result = {"result": "ok"}
             returnValue(result)
 
-        method = "recv_{}".format(action)
+        method = "recv_{}".format(action.replace("-", "_"))
         if not hasattr(self, method):
             log.error("Unsupported action: {action}", action=action)
             raise FailedCrossPodRequestError("Unsupported action: {}".format(action))
@@ -375,6 +375,184 @@ class PoddingConduit(object):
 
         returnValue({
             "result": "ok",
+        })
+
+
+    #
+    # Managed attachment related apis
+    #
+
+    @inlineCallbacks
+    def send_add_attachment(self, objectResource, rids, content_type, filename, stream):
+        """
+        Managed attachment addAttachment call.
+
+        @param objectResource: child resource having an attachment added
+        @type objectResource: L{CalendarObject}
+        @param rids: list of recurrence ids
+        @type rids: C{list}
+        @param content_type: content type of attachment data
+        @type content_type: L{MimeType}
+        @param filename: name of attachment
+        @type filename: C{str}
+        @param stream: attachment data stream
+        @type stream: L{IStream}
+        """
+
+        actionName = "add-attachment"
+        shareeView = objectResource._parentCollection
+        action, recipient = self._send(actionName, shareeView, objectResource)
+        action["rids"] = rids
+        action["filename"] = filename
+        result = yield self.sendRequest(shareeView._txn, recipient, action, stream, content_type)
+        if result["result"] == "ok":
+            returnValue(result["value"])
+        elif result["result"] == "exception":
+            raise namedClass(result["class"])(result["message"])
+
+
+    @inlineCallbacks
+    def recv_add_attachment(self, txn, message):
+        """
+        Process an addAttachment cross-pod message. Message arguments as per L{send_add_attachment}.
+
+        @param message: message arguments
+        @type message: C{dict}
+        """
+
+        actionName = "add-attachment"
+        _ignore_shareeView, objectResource = yield self._recv(txn, message, actionName)
+        try:
+            attachment, location = yield objectResource.addAttachment(
+                message["rids"],
+                message["streamType"],
+                message["filename"],
+                message["stream"],
+            )
+        except Exception as e:
+            returnValue({
+                "result": "exception",
+                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                "message": str(e),
+            })
+
+        returnValue({
+            "result": "ok",
+            "value": (attachment.managedID(), location,),
+        })
+
+
+    @inlineCallbacks
+    def send_update_attachment(self, objectResource, managed_id, content_type, filename, stream):
+        """
+        Managed attachment updateAttachment call.
+
+        @param objectResource: child resource having an attachment added
+        @type objectResource: L{CalendarObject}
+        @param managed_id: managed-id to update
+        @type managed_id: C{str}
+        @param content_type: content type of attachment data
+        @type content_type: L{MimeType}
+        @param filename: name of attachment
+        @type filename: C{str}
+        @param stream: attachment data stream
+        @type stream: L{IStream}
+        """
+
+        actionName = "update-attachment"
+        shareeView = objectResource._parentCollection
+        action, recipient = self._send(actionName, shareeView, objectResource)
+        action["managedID"] = managed_id
+        action["filename"] = filename
+        result = yield self.sendRequest(shareeView._txn, recipient, action, stream, content_type)
+        if result["result"] == "ok":
+            returnValue(result["value"])
+        elif result["result"] == "exception":
+            raise namedClass(result["class"])(result["message"])
+
+
+    @inlineCallbacks
+    def recv_update_attachment(self, txn, message):
+        """
+        Process an updateAttachment cross-pod message. Message arguments as per L{send_update_attachment}.
+
+        @param message: message arguments
+        @type message: C{dict}
+        """
+
+        actionName = "update-attachment"
+        _ignore_shareeView, objectResource = yield self._recv(txn, message, actionName)
+        try:
+            attachment, location = yield objectResource.updateAttachment(
+                message["managedID"],
+                message["streamType"],
+                message["filename"],
+                message["stream"],
+            )
+        except Exception as e:
+            returnValue({
+                "result": "exception",
+                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                "message": str(e),
+            })
+
+        returnValue({
+            "result": "ok",
+            "value": (attachment.managedID(), location,),
+        })
+
+
+    @inlineCallbacks
+    def send_remove_attachment(self, objectResource, rids, managed_id):
+        """
+        Managed attachment removeAttachment call.
+
+        @param objectResource: child resource having an attachment added
+        @type objectResource: L{CalendarObject}
+        @param rids: list of recurrence ids
+        @type rids: C{list}
+        @param managed_id: managed-id to update
+        @type managed_id: C{str}
+        """
+
+        actionName = "remove-attachment"
+        shareeView = objectResource._parentCollection
+        action, recipient = self._send(actionName, shareeView, objectResource)
+        action["rids"] = rids
+        action["managedID"] = managed_id
+        result = yield self.sendRequest(shareeView._txn, recipient, action)
+        if result["result"] == "ok":
+            returnValue(result["value"])
+        elif result["result"] == "exception":
+            raise namedClass(result["class"])(result["message"])
+
+
+    @inlineCallbacks
+    def recv_remove_attachment(self, txn, message):
+        """
+        Process an removeAttachment cross-pod message. Message arguments as per L{send_remove_attachment}.
+
+        @param message: message arguments
+        @type message: C{dict}
+        """
+
+        actionName = "remove-attachment"
+        _ignore_shareeView, objectResource = yield self._recv(txn, message, actionName)
+        try:
+            yield objectResource.removeAttachment(
+                message["rids"],
+                message["managedID"],
+            )
+        except Exception as e:
+            returnValue({
+                "result": "exception",
+                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                "message": str(e),
+            })
+
+        returnValue({
+            "result": "ok",
+            "value": None,
         })
 
 

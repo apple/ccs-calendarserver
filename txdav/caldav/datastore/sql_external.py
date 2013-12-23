@@ -18,7 +18,7 @@
 SQL backend for CalDAV storage when resources are external.
 """
 
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.python.log import Logger
 
@@ -177,6 +177,41 @@ class CalendarObjectExternal(CommonObjectResourceExternal, CalendarObject):
 
     def _removeInternal(self, internal_state=ComponentRemoveState.NORMAL):
         raise AssertionError("CalendarObjectExternal: not supported")
+
+
+    @inlineCallbacks
+    def addAttachment(self, rids, content_type, filename, stream):
+        result = yield self._txn.store().conduit.send_add_attachment(self, rids, content_type, filename, stream)
+        managedID, location = result
+        returnValue((ManagedAttachmentExternal(str(managedID)), str(location),))
+
+
+    @inlineCallbacks
+    def updateAttachment(self, managed_id, content_type, filename, stream):
+        result = yield self._txn.store().conduit.send_update_attachment(self, managed_id, content_type, filename, stream)
+        managedID, location = result
+        returnValue((ManagedAttachmentExternal(str(managedID)), str(location),))
+
+
+    @inlineCallbacks
+    def removeAttachment(self, rids, managed_id):
+        yield self._txn.store().conduit.send_remove_attachment(self, rids, managed_id)
+        returnValue(None)
+
+
+
+class ManagedAttachmentExternal(object):
+    """
+    Fake managed attachment object returned from L{CalendarObjectExternal.addAttachment} and
+    L{CalendarObjectExternal.updateAttachment}.
+    """
+
+    def __init__(self, managedID):
+        self._managedID = managedID
+
+
+    def managedID(self):
+        return self._managedID
 
 
 CalendarExternal._objectResourceClass = CalendarObjectExternal
