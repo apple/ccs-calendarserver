@@ -625,9 +625,8 @@ DEFAULT_CONFIG = {
 
     "RemoveDuplicatePrivateComments": False, # Remove duplicate private comments on PUT
 
-    "SyncTokenLifetimeDays" : 16,       # Number of days that a client sync report token is valid
+    "SyncTokenLifetimeDays" : 14,       # Number of days that a client sync report token is valid
     "RevisionCleanupPeriodDays" : 2,    # Number of days between revision cleanups
-    "RevisionCleanupPhaseDays" : 0.25,  # Number of days between startup and the first revision cleanup
 
 
     # CardDAV Features

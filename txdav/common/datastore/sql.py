@@ -2035,13 +2035,13 @@ class CommonHome(SharingHomeMixIn):
         deleted = set()
         if revision:
             cs = schema.CALENDARSERVER
-            minRevision = int((yield Select(
+            minValidRevision = int((yield Select(
                 [cs.VALUE],
                 From=cs,
-                Where=(cs.NAME == "MIN-REVISION")
+                Where=(cs.NAME == "MIN-VALID-REVISION")
             ).on(self._txn))[0][0])
 
-            if revision < minRevision:
+            if revision < minValidRevision:
                 raise SyncTokenValidException
 
             results = [
@@ -2478,13 +2478,13 @@ class _SharedSyncLogic(object):
         deleted = []
         if revision:
             cs = schema.CALENDARSERVER
-            minRevision = int((yield Select(
+            minValidRevision = int((yield Select(
                 [cs.VALUE],
                 From=cs,
-                Where=(cs.NAME == "MIN-REVISION")
+                Where=(cs.NAME == "MIN-VALID-REVISION")
             ).on(self._txn))[0][0])
 
-            if revision < minRevision:
+            if revision < minValidRevision:
                 raise SyncTokenValidException
 
             results = [
@@ -6226,15 +6226,19 @@ def deleteRevisionsBefore(txn, minRevision):
 
     # get groups where this object was once a member and version info
     aboMembers = schema.ABO_MEMBERS
-    groupRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.DELETED, aboMembers.REVISION],
+    groupRows = yield Select(
+        [aboMembers.GROUP_ID,
+         aboMembers.MEMBER_ID,
+         aboMembers.REMOVED,
+         aboMembers.REVISION],
         From=aboMembers,
     ).on(txn)
 
     # group results by group, member, and revisionInfo
     groupIDToMemberIDMap = {}
     for groupRow in groupRows:
-        groupID, memberID, deleted, revision = groupRow
-        revisionInfo = [deleted, revision]
+        groupID, memberID, removed, revision = groupRow
+        revisionInfo = [removed, revision]
         if groupID not in groupIDToMemberIDMap:
             groupIDToMemberIDMap[groupID] = {}
         memberIDToRevisionsMap = groupIDToMemberIDMap[groupID]
@@ -6243,7 +6247,7 @@ def deleteRevisionsBefore(txn, minRevision):
         revisionInfoList = memberIDToRevisionsMap[memberID]
         revisionInfoList.append(revisionInfo)
 
-    # go though list an delete old revisions, leaving at least one undeleted member
+    # go though list an delete old revisions, leaving at least one unremoved member
     for groupID, memberIDToRevisionsMap in groupIDToMemberIDMap.iteritems():
         for memberID, revisionInfoList in memberIDToRevisionsMap.iteritems():
 
@@ -6251,7 +6255,7 @@ def deleteRevisionsBefore(txn, minRevision):
             maxRevisionInfoToRemove = None
             revisionsToSave = []
             for revisionInfo in revisionInfoList:
-                deleted, revision = revisionInfo
+                removed, revision = revisionInfo
                 if revision < minRevision:
                     revisionsToRemove.append(revision)
                     if not maxRevisionInfoToRemove or revision > maxRevisionInfoToRemove[1]:

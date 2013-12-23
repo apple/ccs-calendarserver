@@ -32,8 +32,8 @@ import datetime
 log = Logger()
 
 
-class FindMinRevisionWork(WorkItem,
-    fromTable(schema.REVISION_CLEANUP_WORK)):
+class FindMinValidRevisionWork(WorkItem,
+    fromTable(schema.FIND_MIN_VALID_REVISION_WORK)):
 
     group = "find_min_revision"
 
@@ -45,16 +45,16 @@ class FindMinRevisionWork(WorkItem,
 
         # Get the minimum valid revision
         cs = schema.CALENDARSERVER
-        minRevision = int((yield Select(
+        minValidRevision = int((yield Select(
             [cs.VALUE],
             From=cs,
-            Where=(cs.NAME == "MIN-REVISION")
+            Where=(cs.NAME == "MIN-VALID-REVISION")
         ).on(self.transaction))[0][0])
 
         # get max revision on table rows before dateLimit
         dateLimit = (datetime.datetime.utcnow() -
             datetime.timedelta(days=float(config.SyncTokenLifetimeDays)))
-        maxRevision = 0
+        maxRevOlderThanDate = 0
 
         # TODO: Use one Select statement
         for table in (
@@ -65,23 +65,21 @@ class FindMinRevisionWork(WorkItem,
         ):
             revisionRows = yield Select(
                 [Max(table.REVISION)],
-                From=Select(
-                    [table.REVISION],
-                    From=table,
-                    Where=(table.MODIFIED < dateLimit),
-                ).on(self.transaction)
-            )
+                From=table,
+                Where=(table.MODIFIED < dateLimit),
+            ).on(self.transaction)
+
             if revisionRows:
                 tableMaxRevision = revisionRows[0][0]
-                if tableMaxRevision > maxRevision:
-                    maxRevison = tableMaxRevision
+                if tableMaxRevision > maxRevOlderThanDate:
+                    maxRevOlderThanDate = tableMaxRevision
 
-        if maxRevision > minRevision:
+        if maxRevOlderThanDate > minValidRevision:
             # save it
             cs = schema.CALENDARSERVER
             yield Update(
-                {cs.VALUE: minRevision},
-                Where=cs.NAME == "MIN-REVISION",
+                {cs.VALUE: maxRevOlderThanDate},
+                Where=cs.NAME == "MIN-VALID-REVISION",
             ).on(self.transaction)
 
             # Schedule revision cleanup
@@ -95,8 +93,8 @@ class FindMinRevisionWork(WorkItem,
             # Schedule next update
             notBefore = (datetime.datetime.utcnow() +
                 datetime.timedelta(days=float(config.RevisionCleanupPeriodDays)))
-            log.debug("Rescheduling find minimum revision work: %s" % (notBefore,))
-            yield self.transaction.enqueue(FindMinRevisionWork,
+            log.debug("Rescheduling find minimum valid revision work: %s" % (notBefore,))
+            yield self.transaction.enqueue(FindMinValidRevisionWork,
                 notBefore=notBefore)
 
 
@@ -114,30 +112,29 @@ class RevisionCleanupWork(WorkItem,
 
         # Get the minimum valid revision
         cs = schema.CALENDARSERVER
-        minRevision = int((yield Select(
+        minValidRevision = int((yield Select(
             [cs.VALUE],
             From=cs,
-            Where=(cs.NAME == "MIN-REVISION")
+            Where=(cs.NAME == "MIN-VALID-REVISION")
         ).on(self.transaction))[0][0])
 
         # delete revisions
-        yield deleteRevisionsBefore(self.transaction, minRevision)
+        yield deleteRevisionsBefore(self.transaction, minValidRevision)
 
         # Schedule next update
         notBefore = (datetime.datetime.utcnow() +
             datetime.timedelta(days=float(config.RevisionCleanupPeriodDays)))
-        log.debug("Rescheduling find minimum revision work: %s" % (notBefore,))
-        yield self.transaction.enqueue(FindMinRevisionWork,
+        log.debug("Rescheduling find minimum valid revision work: %s" % (notBefore,))
+        yield self.transaction.enqueue(FindMinValidRevisionWork,
             notBefore=notBefore)
 
 
 
 @inlineCallbacks
-def scheduleFirstFindMinRevision(store):
+def scheduleFirstFindMinRevision(store, seconds):
     txn = store.newTransaction()
-    notBefore = (datetime.datetime.utcnow() +
-        datetime.timedelta(days=float(config.RevisionCleanupPhaseDays)))
-    log.debug("Scheduling find minimum revision work: %s" % (notBefore,))
-    wp = (yield txn.enqueue(FindMinRevisionWork, notBefore=notBefore))
+    notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
+    log.debug("Scheduling first find minimum valid revision work: %s" % (notBefore,))
+    wp = (yield txn.enqueue(FindMinValidRevisionWork, notBefore=notBefore))
     yield txn.commit()
     returnValue(wp)

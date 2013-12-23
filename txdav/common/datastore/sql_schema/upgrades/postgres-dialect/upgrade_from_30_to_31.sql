@@ -29,8 +29,12 @@ alter table ADDRESSBOOK_OBJECT_REVISIONS
 alter table NOTIFICATION_OBJECT_REVISIONS
   add column MODIFIED timestamp default timezone('UTC', CURRENT_TIMESTAMP);
 
- -- Add cleanup work table --
+ -- Add cleanup work tables --
  
+create table FIND_MIN_VALID_REVISION_WORK (
+  WORK_ID integer primary key default nextval('WORKITEM_SEQ') not null,
+  NOT_BEFORE timestamp default timezone('UTC', CURRENT_TIMESTAMP)
+);
 create table REVISION_CLEANUP_WORK (
   WORK_ID integer primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE timestamp default timezone('UTC', CURRENT_TIMESTAMP)

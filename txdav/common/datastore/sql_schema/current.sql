@@ -710,6 +710,11 @@ create index CALENDAR_OBJECT_SPLITTER_WORK_RESOURCE_ID on
 -- Revision Cleaner Work --
 ---------------------------
 
+create table FIND_MIN_VALID_REVISION_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
+);
+
 create table REVISION_CLEANUP_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
@@ -728,4 +733,4 @@ insert into CALENDARSERVER values ('VERSION', '31');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
-insert into CALENDARSERVER values ('MIN-REVISION', '1');
+insert into CALENDARSERVER values ('MIN-VALID-REVISION', '1');

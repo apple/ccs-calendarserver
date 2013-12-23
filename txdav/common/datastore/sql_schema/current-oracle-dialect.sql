@@ -372,6 +372,11 @@ create table CALENDAR_OBJECT_SPLITTER_WORK (
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
 );
 
+create table FIND_MIN_VALID_REVISION_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+);
+
 create table REVISION_CLEANUP_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
@@ -386,7 +391,7 @@ insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '31');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
-insert into CALENDARSERVER (NAME, VALUE) values ('MIN-REVISION', '1');
+insert into CALENDARSERVER (NAME, VALUE) values ('MIN-VALID-REVISION', '1');
 create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
     DEFAULT_EVENTS
 );
