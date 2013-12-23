@@ -216,16 +216,18 @@ class CommonDataStore(Service, object):
 
 
     @inlineCallbacks
-    def _withEachHomeDo(self, homeTable, homeFromTxn, action, batchSize): #@UnusedVariable
+    def _withEachHomeDo(self, homeTable, homeFromTxn, action, batchSize, processExternal=False):
         """
         Implementation of L{ICalendarStore.withEachCalendarHomeDo} and
         L{IAddressbookStore.withEachAddressbookHomeDo}.
         """
         txn = yield self.newTransaction()
         try:
-            allUIDs = yield (Select([homeTable.OWNER_UID], From=homeTable)
-                             .on(txn))
+            allUIDs = yield (Select([homeTable.OWNER_UID], From=homeTable).on(txn))
             for [uid] in allUIDs:
+                home = yield homeFromTxn(txn, uid)
+                if not processExternal and home.external():
+                    continue
                 yield action(txn, (yield homeFromTxn(txn, uid)))
         except:
             a, b, c = sys.exc_info()
@@ -235,25 +237,25 @@ class CommonDataStore(Service, object):
             yield txn.commit()
 
 
-    def withEachCalendarHomeDo(self, action, batchSize=None):
+    def withEachCalendarHomeDo(self, action, batchSize=None, processExternal=False):
         """
         Implementation of L{ICalendarStore.withEachCalendarHomeDo}.
         """
         return self._withEachHomeDo(
             schema.CALENDAR_HOME,
             lambda txn, uid: txn.calendarHomeWithUID(uid),
-            action, batchSize
+            action, batchSize, processExternal
         )
 
 
-    def withEachAddressbookHomeDo(self, action, batchSize=None):
+    def withEachAddressbookHomeDo(self, action, batchSize=None, processExternal=False):
         """
         Implementation of L{IAddressbookStore.withEachAddressbookHomeDo}.
         """
         return self._withEachHomeDo(
             schema.ADDRESSBOOK_HOME,
             lambda txn, uid: txn.addressbookHomeWithUID(uid),
-            action, batchSize
+            action, batchSize, processExternal
         )
 
 
