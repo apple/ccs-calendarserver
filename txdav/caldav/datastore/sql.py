@@ -1395,7 +1395,7 @@ class Calendar(CommonHomeChild):
             try:
                 filter = Filter.deserialize(filter)
             except Exception:
-                file = None
+                filter = None
 
         # Make sure we have a proper Filter element and get the partial SQL statement to use.
         sql_stmt = self._sqlquery(filter, useruid, fbtype)

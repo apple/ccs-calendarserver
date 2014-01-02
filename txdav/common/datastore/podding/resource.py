@@ -35,10 +35,6 @@ from txdav.common.datastore.podding.conduit import FailedCrossPodRequestError
 import base64
 import json
 
-__all__ = [
-    "ConduitResource",
-]
-
 class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource):
     """
     Podding cross-pod RPC conduit resource.

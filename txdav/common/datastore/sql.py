@@ -4869,8 +4869,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             if depth == "1":
                 pass
             else:
-                name = self.name() + "/"
-                invalid.add(name)
+                invalid.add(self.name() + "/")
         else:
             if revision != 0 and revision < self._bindRevision:
                 if depth != "1":

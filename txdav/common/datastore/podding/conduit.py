@@ -27,10 +27,6 @@ from txdav.common.icommondatastore import ExternalShareFailed
 from twistedcaldav.caldavxml import TimeRange
 
 
-__all__ = [
-    "PoddingConduitResource",
-]
-
 log = Logger()
 
 
