@@ -53,9 +53,21 @@ create table NAMED_LOCK (
 
 create table CALENDAR_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID        varchar(255) not null unique,                                 -- implicit index
+  OWNER_UID        varchar(255) not null unique,                                -- implicit index
+  STATUS           integer      default 0 not null,                             -- enum HOME_STATUS
   DATAVERSION      integer      default 0 not null
 );
+
+-- Enumeration of statuses
+
+create table HOME_STATUS (
+  ID          integer     primary key,
+  DESCRIPTION varchar(16) not null unique
+);
+
+insert into HOME_STATUS values (0, 'normal' );
+insert into HOME_STATUS values (1, 'external');
+
 
 --------------
 -- Calendar --
@@ -64,6 +76,7 @@ create table CALENDAR_HOME (
 create table CALENDAR (
   RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
 );
+
 
 ----------------------------
 -- Calendar Home Metadata --
@@ -91,6 +104,7 @@ create index CALENDAR_HOME_METADATA_DEFAULT_TASKS on
 create index CALENDAR_HOME_METADATA_DEFAULT_POLLS on
 	CALENDAR_HOME_METADATA(DEFAULT_POLLS);
 
+
 -----------------------
 -- Calendar Metadata --
 -----------------------
@@ -110,6 +124,7 @@ create table CALENDAR_METADATA (
 create table NOTIFICATION_HOME (
   RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   OWNER_UID   varchar(255) not null unique,                                -- implicit index
+  STATUS      integer      default 0 not null,                             -- enum HOME_STATUS
   DATAVERSION integer      default 0 not null
 );
 
@@ -139,6 +154,7 @@ create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
 create table CALENDAR_BIND (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
   CALENDAR_RESOURCE_ID      integer      not null references CALENDAR on delete cascade,
+  EXTERNAL_ID			    integer      default null,
   CALENDAR_RESOURCE_NAME    varchar(255) not null,
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
@@ -380,6 +396,7 @@ create table ADDRESSBOOK_HOME (
   RESOURCE_ID      				integer			primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   ADDRESSBOOK_PROPERTY_STORE_ID	integer      	default nextval('RESOURCE_ID_SEQ') not null, 	-- implicit index
   OWNER_UID        				varchar(255) 	not null unique,                                -- implicit index
+  STATUS           				integer      	default 0 not null,                             -- enum HOME_STATUS
   DATAVERSION      				integer      	default 0 not null
 );
 
@@ -405,6 +422,7 @@ create table ADDRESSBOOK_HOME_METADATA (
 create table SHARED_ADDRESSBOOK_BIND (
   ADDRESSBOOK_HOME_RESOURCE_ID			integer			not null references ADDRESSBOOK_HOME,
   OWNER_HOME_RESOURCE_ID    			integer      	not null references ADDRESSBOOK_HOME on delete cascade,
+  EXTERNAL_ID			                integer         default null,
   ADDRESSBOOK_RESOURCE_NAME    			varchar(255) 	not null,
   BIND_MODE                    			integer      	not null,	-- enum CALENDAR_BIND_MODE
   BIND_STATUS                  			integer      	not null,	-- enum CALENDAR_BIND_STATUS
@@ -503,6 +521,7 @@ create index ABO_FOREIGN_MEMBERS_ADDRESSBOOK_ID on
 create table SHARED_GROUP_BIND (	
   ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
   GROUP_RESOURCE_ID      			integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
+  EXTERNAL_ID			            integer      default null,
   GROUP_ADDRESSBOOK_NAME			varchar(255) not null,
   BIND_MODE                    		integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                  		integer      not null, -- enum CALENDAR_BIND_STATUS
@@ -711,7 +730,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '30');
+insert into CALENDARSERVER values ('VERSION', '31');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

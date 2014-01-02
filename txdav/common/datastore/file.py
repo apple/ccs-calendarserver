@@ -852,7 +852,8 @@ class CommonHome(FileMetaDataMixin):
     def resourceNamesSinceToken(self, token, depth):
         deleted = []
         changed = []
-        return succeed((changed, deleted))
+        invalid = []
+        return succeed((changed, deleted, invalid))
 
 
     # @cached

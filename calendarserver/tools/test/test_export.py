@@ -277,7 +277,7 @@ class IntegrationTests(StoreTestCase):
         """
         yield populateCalendarsFrom(
             {
-                "home1": {
+                "user01": {
                     "calendar1": {
                         "valentines-day.ics": (valentines, {})
                     }
@@ -291,7 +291,7 @@ class IntegrationTests(StoreTestCase):
 
         io = StringIO()
         yield exportToFile(
-            [(yield self.txn().calendarHomeWithUID("home1"))
+            [(yield self.txn().calendarHomeWithUID("user01"))
               .calendarWithName("calendar1")], io
         )
         self.assertEquals(Component.fromString(io.getvalue()),
@@ -306,7 +306,7 @@ class IntegrationTests(StoreTestCase):
         """
         yield populateCalendarsFrom(
             {
-                "home1": {
+                "user01": {
                     "calendar1": {
                         "valentines-day.ics": (valentines, {}),
                         "new-years-day.ics": (newYears, {})
@@ -324,7 +324,7 @@ class IntegrationTests(StoreTestCase):
 
         io = StringIO()
         yield exportToFile(
-            [(yield self.txn().calendarHomeWithUID("home1"))
+            [(yield self.txn().calendarHomeWithUID("user01"))
               .calendarWithName("calendar1")], io
         )
         self.assertEquals(Component.fromString(io.getvalue()),
@@ -342,7 +342,7 @@ class IntegrationTests(StoreTestCase):
         """
         yield populateCalendarsFrom(
             {
-                "home1": {
+                "user01": {
                     "calendar1": {
                         "1.ics": (one, {}), # EST
                         "2.ics": (another, {}), # EST
@@ -354,7 +354,7 @@ class IntegrationTests(StoreTestCase):
 
         io = StringIO()
         yield exportToFile(
-            [(yield self.txn().calendarHomeWithUID("home1"))
+            [(yield self.txn().calendarHomeWithUID("user01"))
               .calendarWithName("calendar1")], io
         )
         result = Component.fromString(io.getvalue())

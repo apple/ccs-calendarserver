@@ -15,7 +15,7 @@
 ##
 
 """
-Object model of CARDAV:filter element used in an addressbook-query.
+Object model of CARDDAV:filter element used in an addressbook-query.
 """
 
 __all__ = [
@@ -34,8 +34,42 @@ class FilterBase(object):
     Determines which matching components are returned.
     """
 
+    serialized_name = None
+    deserialize_names = {}
+
+    @classmethod
+    def serialize_register(cls, register):
+        cls.deserialize_names[register.serialized_name] = register
+
+
     def __init__(self, xml_element):
-        self.xmlelement = xml_element
+        pass
+
+
+    @classmethod
+    def deserialize(cls, data):
+        """
+        Convert a JSON compatible serialization of this object into the actual object.
+        """
+        obj = cls.deserialize_names[data["type"]](None)
+        obj._deserialize(data)
+        return obj
+
+
+    def _deserialize(self, data):
+        """
+        Convert a JSON compatible serialization of this object into the actual object.
+        """
+        pass
+
+
+    def serialize(self):
+        """
+        Create a JSON compatible serialization of this object - will be used in a cross-pod request.
+        """
+        return {
+            "type": self.serialized_name,
+        }
 
 
     def match(self, item, access=None):
@@ -52,9 +86,13 @@ class Filter(FilterBase):
     Determines which matching components are returned.
     """
 
+    serialized_name = "Filter"
+
     def __init__(self, xml_element):
 
         super(Filter, self).__init__(xml_element)
+        if xml_element is None:
+            return
 
         filter_test = xml_element.attributes.get("test", "anyof")
         if filter_test not in ("anyof", "allof"):
@@ -63,6 +101,26 @@ class Filter(FilterBase):
         self.filter_test = filter_test
 
         self.children = [PropertyFilter(child) for child in xml_element.children]
+
+
+    def _deserialize(self, data):
+        """
+        Convert a JSON compatible serialization of this object into the actual object.
+        """
+        self.filter_test = data["filter_test"]
+        self.child = [FilterBase.deserialize(child) for child in data["children"]]
+
+
+    def serialize(self):
+        """
+        Create a JSON compatible serialization of this object - will be used in a cross-pod request.
+        """
+        result = super(Filter, self).serialize()
+        result.update({
+            "filter_test": self.filter_test,
+            "children": [child.serialize() for child in self.children],
+        })
+        return result
 
 
     def match(self, vcard):
@@ -96,6 +154,8 @@ class Filter(FilterBase):
         else:
             return True
 
+FilterBase.serialize_register(Filter)
+
 
 
 class FilterChildBase(FilterBase):
@@ -106,6 +166,8 @@ class FilterChildBase(FilterBase):
     def __init__(self, xml_element):
 
         super(FilterChildBase, self).__init__(xml_element)
+        if xml_element is None:
+            return
 
         qualifier = None
         filters = []
@@ -147,6 +209,32 @@ class FilterChildBase(FilterBase):
         self.defined = not self.qualifier or not isinstance(qualifier, IsNotDefined)
 
 
+    def _deserialize(self, data):
+        """
+        Convert a JSON compatible serialization of this object into the actual object.
+        """
+        self.propfilter_test = data["propfilter_test"]
+        self.qualifier = FilterBase.deserialize(data["qualifier"]) if data["qualifier"] else None
+        self.filters = [FilterBase.deserialize(filter) for filter in data["filters"]]
+        self.filter_name = data["filter_name"]
+        self.defined = data["defined"]
+
+
+    def serialize(self):
+        """
+        Create a JSON compatible serialization of this object - will be used in a cross-pod request.
+        """
+        result = super(FilterChildBase, self).serialize()
+        result.update({
+            "propfilter_test": self.propfilter_test,
+            "qualifier": self.qualifier.serialize() if self.qualifier else None,
+            "filters": [filter.serialize() for filter in self.filters],
+            "filter_name": self.filter_name,
+            "defined": self.defined,
+        })
+        return result
+
+
     def match(self, item):
         """
         Returns True if the given address book item (either a property or parameter value)
@@ -177,6 +265,8 @@ class PropertyFilter (FilterChildBase):
     Limits a search to specific properties.
     """
 
+    serialized_name = "PropertyFilter"
+
     def _match(self, vcard):
         # At least one property must match (or is-not-defined is set)
         for property in vcard.properties():
@@ -198,12 +288,16 @@ class PropertyFilter (FilterChildBase):
         # No tests
         return True
 
+FilterBase.serialize_register(PropertyFilter)
+
 
 
 class ParameterFilter (FilterChildBase):
     """
     Limits a search to specific parameters.
     """
+
+    serialized_name = "ParameterFilter"
 
     def _match(self, property):
 
@@ -216,12 +310,16 @@ class ParameterFilter (FilterChildBase):
 
         return result
 
+FilterBase.serialize_register(ParameterFilter)
+
 
 
 class IsNotDefined (FilterBase):
     """
     Specifies that the named iCalendar item does not exist.
     """
+
+    serialized_name = "IsNotDefined"
 
     def match(self, component, access=None):
         # Oddly, this needs always to return True so that it appears there is
@@ -230,15 +328,21 @@ class IsNotDefined (FilterBase):
         # is-not-defined option.
         return True
 
+FilterBase.serialize_register(IsNotDefined)
+
 
 
 class TextMatch (FilterBase):
     """
     Specifies a substring match on a property or parameter value.
     """
+    serialized_name = "TextMatch"
+
     def __init__(self, xml_element):
 
         super(TextMatch, self).__init__(xml_element)
+        if xml_element is None:
+            return
 
         self.text = str(xml_element)
 
@@ -266,6 +370,30 @@ class TextMatch (FilterBase):
                 self.match_type = "contains"
         else:
             self.match_type = "contains"
+
+
+    def _deserialize(self, data):
+        """
+        Convert a JSON compatible serialization of this object into the actual object.
+        """
+        self.text = data["text"]
+        self.collation = data["collation"]
+        self.negate = data["negate"]
+        self.match_type = data["match_type"]
+
+
+    def serialize(self):
+        """
+        Create a JSON compatible serialization of this object - will be used in a cross-pod request.
+        """
+        result = super(TextMatch, self).serialize()
+        result.update({
+            "text": self.text,
+            "collation": self.collation,
+            "negate": self.negate,
+            "match_type": self.match_type,
+        })
+        return result
 
 
     def _match(self, item):
@@ -312,3 +440,5 @@ class TextMatch (FilterBase):
                     return not self.negate
 
         return self.negate
+
+FilterBase.serialize_register(TextMatch)

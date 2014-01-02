@@ -112,11 +112,13 @@ class TestStoreDirectoryService(object):
     def recordWithUID(self, uid):
         return self.records.get(uid)
 
+
     def recordWithGUID(self, guid):
         for record in self.records.itervalues():
             if record.guid == guid:
                 return record
         return None
+
 
     def addRecord(self, record):
         self.records[record.uid] = record
@@ -127,13 +129,52 @@ class TestStoreDirectoryRecord(object):
 
     implements(IStoreDirectoryRecord)
 
-    def __init__(self, uid, shortNames, fullName, extras={}):
+    def __init__(self, uid, shortNames, fullName, thisServer=True, server=None, extras={}):
         self.uid = uid
         self.guid = uid
         self.shortNames = shortNames
         self.fullName = fullName
         self.displayName = self.fullName if self.fullName else self.shortNames[0]
+        self._thisServer = thisServer
+        self._server = server
         self.extras = extras
+
+
+    def thisServer(self):
+        return self._thisServer
+
+
+    def server(self):
+        return self._server
+
+
+
+def buildDirectory(homes=None):
+
+    directory = TestStoreDirectoryService()
+
+    # User accounts
+    for ctr in range(1, 100):
+        directory.addRecord(TestStoreDirectoryRecord(
+            "user%02d" % (ctr,),
+            ("user%02d" % (ctr,),),
+            "User %02d" % (ctr,),
+        ))
+
+    homes = set(homes) if homes is not None else set()
+    for uid in homes:
+        directory.addRecord(buildDirectoryRecord(uid))
+
+    return directory
+
+
+
+def buildDirectoryRecord(uid):
+    return TestStoreDirectoryRecord(
+        uid,
+        (uid,),
+        uid.capitalize(),
+    )
 
 
 
@@ -141,18 +182,17 @@ class SQLStoreBuilder(object):
     """
     Test-fixture-builder which can construct a PostgresStore.
     """
-    sharedService = None
-    currentTestID = None
+    def __init__(self, secondary=False):
+        self.sharedService = None
+        self.currentTestID = None
+        self.sharedDBPath = "_test_sql_db" + str(os.getpid()) + ("-2" if secondary else "")
 
-    SHARED_DB_PATH = "_test_sql_db" + str(os.getpid())
 
-
-    @classmethod
-    def createService(cls, serviceFactory):
+    def createService(self, serviceFactory):
         """
         Create a L{PostgresService} to use for building a store.
         """
-        dbRoot = CachingFilePath(cls.SHARED_DB_PATH)
+        dbRoot = CachingFilePath(self.sharedDBPath)
         return PostgresService(
             dbRoot, serviceFactory, current_sql_schema, resetSchema=True,
             databaseName="caldav",
@@ -168,17 +208,15 @@ class SQLStoreBuilder(object):
         )
 
 
-    @classmethod
-    def childStore(cls):
+    def childStore(self):
         """
         Create a store suitable for use in a child process, that is hooked up
         to the store that a parent test process is managing.
         """
         disableMemcacheForTest(TestCase())
         staticQuota = 3000
-        attachmentRoot = (CachingFilePath(cls.SHARED_DB_PATH)
-                          .child("attachments"))
-        stubsvc = cls.createService(lambda cf: Service())
+        attachmentRoot = (CachingFilePath(self.sharedDBPath).child("attachments"))
+        stubsvc = self.createService(lambda cf: Service())
 
         cp = ConnectionPool(stubsvc.produceConnection, maxConnections=1)
         # Attach the service to the running reactor.
@@ -194,17 +232,17 @@ class SQLStoreBuilder(object):
         return cds
 
 
-    def buildStore(self, testCase, notifierFactory, directoryService=None):
+    def buildStore(self, testCase, notifierFactory, directoryService=None, homes=None):
         """
         Do the necessary work to build a store for a particular test case.
 
         @return: a L{Deferred} which fires with an L{IDataStore}.
         """
         disableMemcacheForTest(testCase)
-        dbRoot = CachingFilePath(self.SHARED_DB_PATH)
+        dbRoot = CachingFilePath(self.sharedDBPath)
         attachmentRoot = dbRoot.child("attachments")
         if directoryService is None:
-            directoryService = TestStoreDirectoryService()
+            directoryService = buildDirectory(homes=homes)
         if self.sharedService is None:
             ready = Deferred()
             def getReady(connectionFactory, storageService):
@@ -251,8 +289,7 @@ class SQLStoreBuilder(object):
         attachmentRoot.createDirectory()
 
         currentTestID = testCase.id()
-        cp = ConnectionPool(self.sharedService.produceConnection,
-                            maxConnections=5)
+        cp = ConnectionPool(self.sharedService.produceConnection, maxConnections=5)
         quota = deriveQuota(testCase)
         store = CommonDataStore(
             cp.connection,
@@ -314,6 +351,7 @@ class SQLStoreBuilder(object):
 
 theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore
+cleanStore = theStoreBuilder.cleanStore
 
 
 _notSet = object()
@@ -685,13 +723,13 @@ class CommonCommonTests(object):
 
 
     @inlineCallbacks
-    def homeUnderTest(self, txn=None, name="home1"):
+    def homeUnderTest(self, txn=None, name="home1", create=False):
         """
         Get the calendar home detailed by C{requirements['home1']}.
         """
         if txn is None:
             txn = self.transactionUnderTest()
-        returnValue((yield txn.calendarHomeWithUID(name)))
+        returnValue((yield txn.calendarHomeWithUID(name, create=create)))
 
 
     @inlineCallbacks

@@ -14,23 +14,22 @@
 # limitations under the License.
 ##
 
-"""
-Convert a addressbook-query into an expression tree.
-Convert a addressbook-query into a partial SQL statement.
-"""
+from txdav.common.datastore.query import expression
+from txdav.carddav.datastore.query.filter import TextMatch
 
-__version__ = "0.0"
+"""
+SQL statement generator from query expressions.
+"""
 
 __all__ = [
-    "addressbookquery",
-    "sqladdressbookquery",
+    "buildExpression",
 ]
 
-from twistedcaldav.query import expression, sqlgenerator, addressbookqueryfilter
+
 
 # SQL Index column (field) names
 
-def addressbookquery(filter, fields):
+def buildExpression(filter, fields):
     """
     Convert the supplied addressbook-query into an expression tree.
 
@@ -82,7 +81,7 @@ def propfilterExpression(propfilter, fields):
     # Handle embedded parameters/text-match
     params = []
     for filter in propfilter.filters:
-        if isinstance(filter, addressbookqueryfilter.TextMatch):
+        if isinstance(filter, TextMatch):
             if filter.match_type == "equals":
                 tm = expression.isnotExpression if filter.negate else expression.isExpression
             elif filter.match_type == "contains":
@@ -105,22 +104,4 @@ def propfilterExpression(propfilter, fields):
     elif len(params) == 1:
         return params[0]
     else:
-        return None
-
-
-
-def sqladdressbookquery(filter, addressbookid=None, generator=sqlgenerator.sqlgenerator):
-    """
-    Convert the supplied addressbook-query into a partial SQL statement.
-
-    @param filter: the L{Filter} for the addressbook-query to convert.
-    @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the partial SQL statement,
-            and the C{list} is the list of argument substitutions to use with the SQL API execute method.
-            Or return C{None} if it is not possible to create an SQL query to fully match the addressbook-query.
-    """
-    try:
-        expression = addressbookquery(filter, generator.FIELDS)
-        sql = generator(expression, addressbookid, None)
-        return sql.generate()
-    except ValueError:
         return None

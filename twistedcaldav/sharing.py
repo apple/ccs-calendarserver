@@ -267,10 +267,10 @@ class SharedResourceMixin(object):
         """
         if self._newStoreObject.direct():
             owner = self.principalForUID(self._newStoreObject.ownerHome().uid())
+            sharee = self.principalForUID(self._newStoreObject.viewerHome().uid())
             if owner.record.recordType == WikiDirectoryService.recordType_wikis:
                 # Access level comes from what the wiki has granted to the
                 # sharee
-                sharee = self.principalForUID(self._newStoreObject.viewerHome().uid())
                 userID = sharee.record.guid
                 wikiID = owner.record.shortNames[0]
                 access = (yield getWikiAccess(userID, wikiID))
@@ -281,7 +281,12 @@ class SharedResourceMixin(object):
                 else:
                     returnValue(None)
             else:
-                returnValue("original")
+                # Check proxy access
+                proxy_mode = yield sharee.proxyMode(owner)
+                if proxy_mode == "none":
+                    returnValue("original")
+                else:
+                    returnValue("read-write" if proxy_mode == "write" else "read-only")
         else:
             # Invited shares use access mode from the invite
             # Get the access for self
@@ -318,7 +323,7 @@ class SharedResourceMixin(object):
         sharee = self.principalForUID(self._newStoreObject.viewerHome().uid())
         access = yield self._checkAccessControl()
 
-        if access == "original":
+        if access == "original" and not self._newStoreObject.ownerHome().external():
             original = (yield request.locateResource(self._share_url))
             result = (yield original.accessControlList(request, *args, **kwargs))
             returnValue(result)
@@ -805,6 +810,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # Accept the share
         shareeView = yield self._newStoreHome.acceptShare(inviteUID, summary)
+        if shareeView is None:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "invalid-share"),
+                "Invite UID not valid",
+            ))
 
         # Return the URL of the shared collection
         sharedAsURL = joinURL(self.url(), shareeView.shareName())
@@ -820,7 +831,13 @@ class SharedHomeMixin(LinkFollowerMixIn):
     def declineShare(self, request, inviteUID):
 
         # Remove it if it is in the DB
-        yield self._newStoreHome.declineShare(inviteUID)
+        result = yield self._newStoreHome.declineShare(inviteUID)
+        if not result:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "invalid-share"),
+                "Invite UID not valid",
+            ))
         returnValue(Response(code=responsecode.NO_CONTENT))
 
 

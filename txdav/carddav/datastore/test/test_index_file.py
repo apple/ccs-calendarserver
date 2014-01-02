@@ -189,12 +189,12 @@ END:VCARD
         self.db.deleteResource("data3.vcf")
 
         tests = (
-            (0, (["data1.vcf", "data2.vcf", ], [],)),
-            (1, (["data2.vcf", ], ["data3.vcf", ],)),
-            (2, ([], ["data3.vcf", ],)),
-            (3, ([], ["data3.vcf", ],)),
-            (4, ([], [],)),
-            (5, ([], [],)),
+            (0, (["data1.vcf", "data2.vcf", ], [], [],)),
+            (1, (["data2.vcf", ], ["data3.vcf", ], [],)),
+            (2, ([], ["data3.vcf", ], [],)),
+            (3, ([], ["data3.vcf", ], [],)),
+            (4, ([], [], [],)),
+            (5, ([], [], [],)),
         )
 
         for revision, results in tests:

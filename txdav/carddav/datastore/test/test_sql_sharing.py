@@ -1134,23 +1134,27 @@ class SharingRevisions(BaseSharingTests):
         otherAB = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertNotEqual(otherAB._bindRevision, 0)
 
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(0)
+        changed, deleted, invalid = yield otherAB.resourceNamesSinceRevision(0)
         self.assertNotEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
+        self.assertEqual(len(invalid), 0)
 
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
+        changed, deleted, invalid = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
         self.assertEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
+        self.assertEqual(len(invalid), 0)
 
         otherHome = yield self.addressbookHomeUnderTest(name="user02")
         for depth in ("1", "infinity",):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
+            changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(0, depth)
             self.assertNotEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
+            self.assertEqual(len(invalid), 0)
 
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
+            changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
+            self.assertEqual(len(invalid), 0)
 
 
     @inlineCallbacks
@@ -1166,13 +1170,15 @@ class SharingRevisions(BaseSharingTests):
         otherAB = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertNotEqual(otherAB._bindRevision, 0)
 
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(0)
+        changed, deleted, invalid = yield otherAB.resourceNamesSinceRevision(0)
         self.assertEqual(set(changed), set(['card1.vcf', 'card2.vcf', 'group1.vcf']))
         self.assertEqual(len(deleted), 0)
+        self.assertEqual(len(invalid), 0)
 
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
+        changed, deleted, invalid = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
         self.assertEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
+        self.assertEqual(len(invalid), 0)
 
         for depth, result in (
             ("1", ['addressbook/',
@@ -1184,13 +1190,15 @@ class SharingRevisions(BaseSharingTests):
                              'user01/card2.vcf',
                              'user01/group1.vcf']
              )):
-            changed, deleted = yield otherAB.viewerHome().resourceNamesSinceRevision(0, depth)
+            changed, deleted, invalid = yield otherAB.viewerHome().resourceNamesSinceRevision(0, depth)
             self.assertEqual(set(changed), set(result))
             self.assertEqual(len(deleted), 0)
+            self.assertEqual(len(invalid), 0)
 
-            changed, deleted = yield otherAB.viewerHome().resourceNamesSinceRevision(otherAB._bindRevision, depth)
+            changed, deleted, invalid = yield otherAB.viewerHome().resourceNamesSinceRevision(otherAB._bindRevision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
+            self.assertEqual(len(invalid), 0)
 
 
     @inlineCallbacks

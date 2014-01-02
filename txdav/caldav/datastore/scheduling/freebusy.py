@@ -32,10 +32,11 @@ from twistedcaldav.dateops import compareDateTime, normalizeToUTC, \
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.memcacher import Memcacher
-from twistedcaldav.query import calendarqueryfilter
 
+from txdav.caldav.datastore.query.filter import Filter
 from txdav.caldav.icalendarstore import QueryMaxResources
-from txdav.common.icommondatastore import IndexedSearchException
+from txdav.common.icommondatastore import IndexedSearchException, \
+    InternalDataStoreError
 
 import uuid
 
@@ -92,8 +93,87 @@ class FBCacheEntry(object):
 
 
 
-@inlineCallbacks
 def generateFreeBusyInfo(
+    calresource,
+    fbinfo,
+    timerange,
+    matchtotal,
+    excludeuid=None,
+    organizer=None,
+    organizerPrincipal=None,
+    same_calendar_user=False,
+    servertoserver=False,
+    event_details=None,
+    logItems=None,
+):
+    """
+    Get freebusy information for a calendar. Different behavior for internal vs external calendars.
+
+    See L{_internalGenerateFreeBusyInfo} for argument description.
+    """
+
+    # TODO: this method really should be moved to L{CalendarObject} so the internal/external pieces
+    # can be split across L{CalendarObject} and L{CalendarObjectExternal}
+    if calresource.external():
+        return _externalGenerateFreeBusyInfo(
+            calresource,
+            fbinfo,
+            timerange,
+            matchtotal,
+            excludeuid,
+            organizer,
+            organizerPrincipal,
+            same_calendar_user,
+            servertoserver,
+            event_details,
+            logItems
+        )
+    else:
+        return _internalGenerateFreeBusyInfo(
+            calresource,
+            fbinfo,
+            timerange,
+            matchtotal,
+            excludeuid,
+            organizer,
+            organizerPrincipal,
+            same_calendar_user,
+            servertoserver,
+            event_details,
+            logItems
+        )
+
+
+
+@inlineCallbacks
+def _externalGenerateFreeBusyInfo(
+    calresource,
+    fbinfo,
+    timerange,
+    matchtotal,
+    excludeuid=None,
+    organizer=None,
+    organizerPrincipal=None,
+    same_calendar_user=False,
+    servertoserver=False,
+    event_details=None,
+    logItems=None,
+):
+    """
+    Generate a freebusy response for an external (cross-pod) calendar by making a cross-pod call. This will bypass
+    any type of smart caching on this pod in favor of using caching on the pod hosting the actual calendar data.
+
+    See L{_internalGenerateFreeBusyInfo} for argument description.
+    """
+    fbresults, matchtotal = yield calresource._txn.store().conduit.send_freebusy(calresource, timerange, matchtotal, excludeuid, organizer, organizerPrincipal, same_calendar_user, servertoserver, event_details)
+    for i in range(3):
+        fbinfo[i].extend([Period.parseText(p) for p in fbresults[i]])
+    returnValue(matchtotal)
+
+
+
+@inlineCallbacks
+def _internalGenerateFreeBusyInfo(
     calresource,
     fbinfo,
     timerange,
@@ -203,23 +283,23 @@ def generateFreeBusyInfo(
 
         # Create fake filter element to match time-range
         filter = caldavxml.Filter(
-                      caldavxml.ComponentFilter(
-                          caldavxml.ComponentFilter(
-                              cache_timerange if caching else timerange,
-                              name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
-                          ),
-                          name="VCALENDAR",
-                       )
-                  )
-        filter = calendarqueryfilter.Filter(filter)
+            caldavxml.ComponentFilter(
+                caldavxml.ComponentFilter(
+                    cache_timerange if caching else timerange,
+                    name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                ),
+                name="VCALENDAR",
+            )
+        )
+        filter = Filter(filter)
         tzinfo = filter.settimezone(tz)
 
         try:
-            resources = yield calresource._index.indexedSearch(filter, useruid=attendee_uid, fbtype=True)
+            resources = yield calresource.search(filter, useruid=attendee_uid, fbtype=True)
             if caching:
                 yield FBCacheEntry.makeCacheEntry(calresource, attendee_uid, cache_timerange, resources)
         except IndexedSearchException:
-            resources = yield calresource._index.bruteForceSearch()
+            raise InternalDataStoreError("Invalid indexedSearch query")
 
     else:
         # Log extended item

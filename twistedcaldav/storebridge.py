@@ -286,13 +286,6 @@ class _CommonHomeChildCollectionMixin(object):
         return self._parentResource
 
 
-    def index(self):
-        """
-        Retrieve the new-style index wrapper.
-        """
-        return self._newStoreObject.retrieveOldIndex()
-
-
     def exists(self):
         # FIXME: tests
         return self._newStoreObject is not None
@@ -303,7 +296,6 @@ class _CommonHomeChildCollectionMixin(object):
         # The newstore implementation supports this directly
         returnValue(
             (yield self._newStoreObject.resourceNamesSinceToken(revision))
-            + ([],)
         )
 
 
@@ -345,6 +337,18 @@ class _CommonHomeChildCollectionMixin(object):
         @return: L{Deferred} with the count of all known children of this resource.
         """
         return self._newStoreObject.countObjectResources()
+
+
+    @inlineCallbacks
+    def resourceExists(self, name):
+        """
+        Indicate whether a resource with the specified name exists.
+
+        @return: C{True} if it exists
+        @rtype: C{bool}
+        """
+        allNames = yield self._newStoreObject.listObjectResources()
+        returnValue(name in allNames)
 
 
     def name(self):
@@ -462,6 +466,8 @@ class _CommonHomeChildCollectionMixin(object):
         if self.isShareeResource():
             log.debug("Removing shared collection %s" % (self,))
             yield self.removeShareeResource(request)
+            # Re-initialize to get stuff setup again now we have no object
+            self._initializeWithHomeChild(None, self._parentResource)
             returnValue(NO_CONTENT)
 
         log.debug("Deleting collection %s" % (self,))
@@ -487,11 +493,6 @@ class _CommonHomeChildCollectionMixin(object):
                 errors.add(childurl, BAD_REQUEST)
 
         # Now do normal delete
-
-        # Handle sharing
-        wasShared = self.isShared()
-        if wasShared:
-            yield self.downgradeFromShare(request)
 
         # Actually delete it.
         yield self._newStoreObject.remove()
@@ -968,6 +969,10 @@ class _CommonHomeChildCollectionMixin(object):
                     )
 
 
+    def search(self, filter, **kwargs):
+        return self._newStoreObject.search(filter, **kwargs)
+
+
     def notifierID(self):
         return "%s/%s" % self._newStoreObject.notifierID()
 
@@ -1121,7 +1126,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         isowner = (yield self.isOwner(request))
         accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
-        for name, _ignore_uid, _ignore_type in (yield maybeDeferred(self.index().bruteForceSearch)):
+        for name in (yield self._newStoreObject.listObjectResources()):
             try:
                 child = yield request.locateChildResource(self, name)
             except TypeError:
@@ -2421,6 +2426,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         try:
             response = (yield self.storeMove(request, destinationparent, destination.name()))
+            self._newStoreObject = None
             returnValue(response)
 
         # Handle the various store errors
@@ -3371,6 +3377,8 @@ class AddressBookObjectResource(_CommonObjectResource):
         if self.isShareeResource():
             log.debug("Removing shared resource %s" % (self,))
             yield self.removeShareeResource(request)
+            # Re-initialize to get stuff setup again now we have no object
+            self._initializeWithObject(None, self._newStoreParent)
             returnValue(NO_CONTENT)
         elif self._newStoreObject.isGroupForSharedAddressBook():
             abCollectionResource = (yield request.locateResource(parentForURL(request.uri)))
@@ -3673,7 +3681,6 @@ class StoreNotificationCollectionResource(_NotificationChildHelper, Notification
         # The newstore implementation supports this directly
         returnValue(
             (yield self._newStoreNotifications.resourceNamesSinceToken(revision))
-            + ([],)
         )
 
 

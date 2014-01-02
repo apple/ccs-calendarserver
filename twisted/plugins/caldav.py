@@ -23,7 +23,6 @@ from twisted.python import reflect
 from twisted.internet.protocol import Factory
 Factory.noisy = False
 
-
 def serviceMakerProperty(propname):
     def getProperty(self):
         return getattr(reflect.namedClass(self.serviceMakerClass), propname)

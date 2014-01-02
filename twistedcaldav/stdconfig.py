@@ -318,6 +318,13 @@ DEFAULT_CONFIG = {
                                     # upgrade.
 
     #
+    # Work queue configuration information
+    #
+    "WorkQueue" : {
+        "ampPort": 7654,            # Port used for hosts in a cluster to take to each other
+    },
+
+    #
     # Types of service provided
     #
     "EnableCalDAV"  : True, # Enable CalDAV service
@@ -361,7 +368,7 @@ DEFAULT_CONFIG = {
     #
     # Directory service
     #
-    #    A directory service provides information about principals (eg.
+    #    A directory service provides information about principals (e.g.
     #    users, groups, locations and resources) to the server.
     #
     "DirectoryService": {
@@ -825,8 +832,9 @@ DEFAULT_CONFIG = {
     "Servers" : {
         "Enabled": False,                   # Multiple servers enabled or not
         "ConfigFile": "localservers.xml",   # File path for server information
-        "MaxClients": 5,                    # Pool size for connections to between servers
+        "MaxClients": 5,                    # Pool size for connections between servers
         "InboxName": "podding",             # Name for top-level inbox resource
+        "ConduitName": "conduit",           # Name for top-level cross-pod resource
     },
 
     #
@@ -1067,8 +1075,11 @@ class PListConfigProvider(ConfigProvider):
         def _loadImport(childDict):
             # Look for an import and read that one as the main config and merge the current one into that
             if "ImportConfig" in childDict and childDict.ImportConfig:
-                configRoot = os.path.join(childDict.ServerRoot, childDict.ConfigRoot)
-                path = _expandPath(fullServerPath(configRoot, childDict.ImportConfig))
+                if childDict.ImportConfig[0] != ".":
+                    configRoot = os.path.join(childDict.ServerRoot, childDict.ConfigRoot)
+                    path = _expandPath(fullServerPath(configRoot, childDict.ImportConfig))
+                else:
+                    path = childDict.ImportConfig
                 if os.path.exists(path):
                     importDict = ConfigDict(self._parseConfigFromFile(path))
                     if importDict:
@@ -1564,6 +1575,7 @@ def _updateScheduling(configDict, reloading=False):
                         (direction,))
 
 
+
 def _updateSharing(configDict, reloading=False):
     #
     # Sharing
@@ -1572,6 +1584,7 @@ def _updateSharing(configDict, reloading=False):
     # Transfer configured non-per-user property names to PerUserDataFilter
     for propertyName in configDict.Sharing.Calendars.IgnorePerUserProperties:
         PerUserDataFilter.IGNORE_X_PROPERTIES.append(propertyName)
+
 
 
 def _updateServers(configDict, reloading=False):

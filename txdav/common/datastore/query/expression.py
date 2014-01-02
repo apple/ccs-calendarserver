@@ -13,16 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from __future__ import print_function
 
 """
 Query Expression Elements. These are used to build a 'generic' query
 expression tree that can then be used by different query language
 generators to produce the actual query syntax required (SQL, xpath
-eyc).
+etc).
 """
-
-__version__ = "0.0"
 
 __all__ = [
     "allExpression",
@@ -383,18 +380,3 @@ class notinExpression(textcompareExpression):
 
     def __str__(self):
         return self.operator() + "(" + self.field + ", " + str(self.text) + ", " + str(self.caseless) + ")"
-
-
-
-if __name__ == "__main__":
-
-    e1 = isExpression("type", "vevent", False)
-    e2 = timerangeExpression("20060101T120000Z", "20060101T130000Z", "20060101T120000Z", "20060101T130000Z")
-    e3 = containsExpression("summary", "help", True)
-    e4 = notExpression(e3)
-    e5 = andExpression([e1, e2, e4])
-    print(e5)
-    e6 = inExpression("type", ("vevent", "vtodo",), False)
-    print(e6)
-    e7 = notinExpression("type", ("vevent", "vtodo",), False)
-    print(e7)

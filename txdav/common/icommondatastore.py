@@ -51,6 +51,13 @@ class CommonStoreError(RuntimeError):
 
 
 
+class RecordNotAllowedError(CommonStoreError):
+    """
+    User not allowed.
+    """
+
+
+
 class NameNotAllowedError(CommonStoreError):
     """
     Attempt to create an object with a name that is not allowed.
@@ -202,6 +209,29 @@ class AllRetriesFailed(CommonStoreError):
     """
     In a re-tried subtransaction, all attempts failed to produce useful
     progress.  Other exceptions will be logged.
+    """
+
+
+
+class ShareNotAllowed(CommonStoreError):
+    """
+    An operation on a shared resource is not allowed.
+    """
+
+
+
+class ExternalShareFailed(CommonStoreError):
+    """
+    An external sharee operation failed.
+    """
+
+
+
+class NonExistentExternalShare(CommonStoreError):
+    """
+    An external sharee operation failed because the share does not exist on the
+    other pod. The caller of the external request receiving this exception should
+    remove the local external share to "heal" this mismatch.
     """
 
 

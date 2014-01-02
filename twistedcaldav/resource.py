@@ -2667,10 +2667,9 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
     @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
         # The newstore implementation supports this directly
-        changed, deleted = yield self._newStoreHome.resourceNamesSinceToken(
+        changed, deleted, notallowed = yield self._newStoreHome.resourceNamesSinceToken(
             revision, depth
         )
-        notallowed = []
 
         # Need to insert some addition items on first sync
         if revision == 0:
@@ -2894,10 +2893,9 @@ class AddressBookHomeResource (CommonHomeResource):
     @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
         # The newstore implementation supports this directly
-        changed, deleted = yield self._newStoreHome.resourceNamesSinceToken(
+        changed, deleted, notallowed = yield self._newStoreHome.resourceNamesSinceToken(
             revision, depth
         )
-        notallowed = []
 
         # Need to insert some addition items on first sync
         if revision == 0:

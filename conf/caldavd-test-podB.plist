@@ -43,6 +43,13 @@
     <array>
     </array>
 
+	<!--  Work Queue -->
+	<key>WorkQueue</key>
+	<dict>
+		<key>ampPort</key>
+		<integer>7655</integer>
+	</dict>
+
     <!-- Server root -->
     <key>ServerRoot</key>
     <string>./data/podB</string>
@@ -91,6 +98,19 @@
         <array>
 	      <string>./conf/auth/augments-test-pod.xml</string>
         </array>
+      </dict>
+    </dict>
+
+    <!-- Sqlite ProxyDB Service - must use the same one as Pod A-->
+    <key>ProxyDBService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.calendaruserproxy.ProxySqliteDB</string>
+      
+      <key>params</key>
+      <dict>
+        <key>dbpath</key>
+        <string>./data/podA/Data/proxies.sqlite</string>
       </dict>
     </dict>
 

@@ -228,7 +228,7 @@ class PostgresService(MultiService):
                 # in /tmp and based on a hash of the data store directory
                 digest = md5(dataStoreDirectory.path).hexdigest()
                 socketDir = "/tmp/ccs_postgres_" + digest
-                
+
             self.socketDir = CachingFilePath(socketDir)
             self.host = self.socketDir.path
             self.port = None

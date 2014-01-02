@@ -133,6 +133,15 @@ def _schemaConstants(nameColumn, valueColumn):
 
 # Various constants
 
+_homeStatus = _schemaConstants(
+    schema.HOME_STATUS.DESCRIPTION,
+    schema.HOME_STATUS.ID
+)
+
+
+_HOME_STATUS_NORMAL = _homeStatus('normal')
+_HOME_STATUS_EXTERNAL = _homeStatus('external')
+
 _bindStatus = _schemaConstants(
     schema.CALENDAR_BIND_STATUS.DESCRIPTION,
     schema.CALENDAR_BIND_STATUS.ID

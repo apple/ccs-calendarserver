@@ -28,10 +28,11 @@ from txdav.common.datastore.test.util import buildStore
 
 class TestListEntry(TestCase):
     def test_toString(self):
-        self.assertEquals(ListEntry(None, File  , "thingo"           ).toString(), "thingo" )
-        self.assertEquals(ListEntry(None, File  , "thingo", Foo="foo").toString(), "thingo" )
-        self.assertEquals(ListEntry(None, Folder, "thingo"           ).toString(), "thingo/")
+        self.assertEquals(ListEntry(None, File  , "thingo").toString(), "thingo")
+        self.assertEquals(ListEntry(None, File  , "thingo", Foo="foo").toString(), "thingo")
+        self.assertEquals(ListEntry(None, Folder, "thingo").toString(), "thingo/")
         self.assertEquals(ListEntry(None, Folder, "thingo", Foo="foo").toString(), "thingo/")
+
 
     def test_fieldNamesImplicit(self):
         # This test assumes File doesn't set list.fieldNames.
@@ -39,33 +40,42 @@ class TestListEntry(TestCase):
 
         self.assertEquals(set(ListEntry(File(None, ()), File, "thingo").fieldNames), set(("Name",)))
 
+
     def test_fieldNamesExplicit(self):
         def fieldNames(fileClass):
             return ListEntry(fileClass(None, ()), fileClass, "thingo", Flavor="Coconut", Style="Hard")
 
         # Full list
-        class MyFile(File):
-            def list(self): return succeed(())
+        class MyFile1(File):
+            def list(self):
+                return succeed(())
             list.fieldNames = ("Name", "Flavor")
-        self.assertEquals(fieldNames(MyFile).fieldNames, ("Name", "Flavor"))
+        self.assertEquals(fieldNames(MyFile1).fieldNames, ("Name", "Flavor"))
+
 
         # Full list, different order
-        class MyFile(File):
-            def list(self): return succeed(())
+        class MyFile2(File):
+            def list(self):
+                return succeed(())
             list.fieldNames = ("Flavor", "Name")
-        self.assertEquals(fieldNames(MyFile).fieldNames, ("Flavor", "Name"))
+        self.assertEquals(fieldNames(MyFile2).fieldNames, ("Flavor", "Name"))
+
 
         # Omits Name, which is implicitly added
-        class MyFile(File):
-            def list(self): return succeed(())
+        class MyFile3(File):
+            def list(self):
+                return succeed(())
             list.fieldNames = ("Flavor",)
-        self.assertEquals(fieldNames(MyFile).fieldNames, ("Name", "Flavor"))
+        self.assertEquals(fieldNames(MyFile3).fieldNames, ("Name", "Flavor"))
+
 
         # Emtpy
-        class MyFile(File):
-            def list(self): return succeed(())
+        class MyFile4(File):
+            def list(self):
+                return succeed(())
             list.fieldNames = ()
-        self.assertEquals(fieldNames(MyFile).fieldNames, ("Name",))
+        self.assertEquals(fieldNames(MyFile4).fieldNames, ("Name",))
+
 
     def test_toFieldsImplicit(self):
         # This test assumes File doesn't set list.fieldNames.
@@ -77,33 +87,41 @@ class TestListEntry(TestCase):
             ("thingo", "Coconut", "Hard")
         )
 
+
     def test_toFieldsExplicit(self):
         def fields(fileClass):
             return tuple(ListEntry(fileClass(None, ()), fileClass, "thingo", Flavor="Coconut", Style="Hard").toFields())
 
         # Full list
-        class MyFile(File):
-            def list(self): return succeed(())
+        class MyFile1(File):
+            def list(self):
+                return succeed(())
             list.fieldNames = ("Name", "Flavor")
-        self.assertEquals(fields(MyFile), ("thingo", "Coconut"))
+        self.assertEquals(fields(MyFile1), ("thingo", "Coconut"))
+
 
         # Full list, different order
-        class MyFile(File):
-            def list(self): return succeed(())
+        class MyFile2(File):
+            def list(self):
+                return succeed(())
             list.fieldNames = ("Flavor", "Name")
-        self.assertEquals(fields(MyFile), ("Coconut", "thingo"))
+        self.assertEquals(fields(MyFile2), ("Coconut", "thingo"))
+
 
         # Omits Name, which is implicitly added
-        class MyFile(File):
-            def list(self): return succeed(())
+        class MyFile3(File):
+            def list(self):
+                return succeed(())
             list.fieldNames = ("Flavor",)
-        self.assertEquals(fields(MyFile), ("thingo", "Coconut"))
+        self.assertEquals(fields(MyFile3), ("thingo", "Coconut"))
+
 
         # Emtpy
-        class MyFile(File):
-            def list(self): return succeed(())
+        class MyFile4(File):
+            def list(self):
+                return succeed(())
             list.fieldNames = ()
-        self.assertEquals(fields(MyFile), ("thingo",))
+        self.assertEquals(fields(MyFile4), ("thingo",))
 
 
 
@@ -113,6 +131,7 @@ class DirectoryStubber(XMLFileBase):
     """
     def __init__(self, testCase):
         self.testCase = testCase
+
 
     def mktemp(self):
         return self.testCase.mktemp()
@@ -129,8 +148,9 @@ class UIDsFolderTests(TestCase):
         """
         Create a L{UIDsFolder}.
         """
-        self.svc = ShellService(store=(yield buildStore(self, None)),
-                                directory=DirectoryStubber(self).service(),
+        directory = DirectoryStubber(self).service()
+        self.svc = ShellService(store=(yield buildStore(self, None, directoryService=directory)),
+                                directory=directory,
                                 options=None, reactor=None, config=None)
         self.folder = UIDsFolder(self.svc, ())
 
@@ -156,6 +176,3 @@ class UIDsFolderTests(TestCase):
               {"Record Type": "users", "Short Name": "dreid",
               "Full Name": "David Reid", "Name": dreid}]
         )
-
-
-

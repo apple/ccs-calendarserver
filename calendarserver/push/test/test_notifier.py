@@ -184,10 +184,10 @@ class PushNotificationWorkTests(StoreTestCase):
 class NotifierFactory(StoreTestCase):
 
     requirements = {
-        "home1" : {
+        "user01" : {
             "calendar_1" : {}
         },
-        "home2" : {
+        "user02" : {
             "calendar_1" : {}
         },
     }
@@ -208,23 +208,23 @@ class NotifierFactory(StoreTestCase):
     @inlineCallbacks
     def test_homeNotifier(self):
 
-        home = yield self.homeUnderTest()
+        home = yield self.homeUnderTest(name="user01")
         yield home.notifyChanged(category=ChangeCategory.default)
         self.assertEquals(self.notifierFactory.history,
-            [("/CalDAV/example.com/home1/", PushPriority.high)])
+            [("/CalDAV/example.com/user01/", PushPriority.high)])
         yield self.commit()
 
 
     @inlineCallbacks
     def test_calendarNotifier(self):
 
-        calendar = yield self.calendarUnderTest()
+        calendar = yield self.calendarUnderTest(home="user01")
         yield calendar.notifyChanged(category=ChangeCategory.default)
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                ("/CalDAV/example.com/home1/", PushPriority.high),
-                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high)])
+                ("/CalDAV/example.com/user01/", PushPriority.high),
+                ("/CalDAV/example.com/user01/calendar_1/", PushPriority.high)])
         )
         yield self.commit()
 
@@ -232,28 +232,28 @@ class NotifierFactory(StoreTestCase):
     @inlineCallbacks
     def test_shareWithNotifier(self):
 
-        calendar = yield self.calendarUnderTest()
-        yield calendar.inviteUserToShare("home2", _BIND_MODE_WRITE, "")
+        calendar = yield self.calendarUnderTest(home="user01")
+        yield calendar.inviteUserToShare("user02", _BIND_MODE_WRITE, "")
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                ("/CalDAV/example.com/home1/", PushPriority.high),
-                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
-                ("/CalDAV/example.com/home2/", PushPriority.high),
-                ("/CalDAV/example.com/home2/notification/", PushPriority.high),
+                ("/CalDAV/example.com/user01/", PushPriority.high),
+                ("/CalDAV/example.com/user01/calendar_1/", PushPriority.high),
+                ("/CalDAV/example.com/user02/", PushPriority.high),
+                ("/CalDAV/example.com/user02/notification/", PushPriority.high),
             ])
         )
         yield self.commit()
 
-        calendar = yield self.calendarUnderTest()
-        yield calendar.uninviteUserFromShare("home2")
+        calendar = yield self.calendarUnderTest(home="user01")
+        yield calendar.uninviteUserFromShare("user02")
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                ("/CalDAV/example.com/home1/", PushPriority.high),
-                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
-                ("/CalDAV/example.com/home2/", PushPriority.high),
-                ("/CalDAV/example.com/home2/notification/", PushPriority.high),
+                ("/CalDAV/example.com/user01/", PushPriority.high),
+                ("/CalDAV/example.com/user01/calendar_1/", PushPriority.high),
+                ("/CalDAV/example.com/user02/", PushPriority.high),
+                ("/CalDAV/example.com/user02/notification/", PushPriority.high),
             ])
         )
         yield self.commit()
@@ -262,20 +262,20 @@ class NotifierFactory(StoreTestCase):
     @inlineCallbacks
     def test_sharedCalendarNotifier(self):
 
-        calendar = yield self.calendarUnderTest()
-        shareeView = yield calendar.inviteUserToShare("home2", _BIND_MODE_WRITE, "")
+        calendar = yield self.calendarUnderTest(home="user01")
+        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_WRITE, "")
         yield shareeView.acceptShare("")
         shareName = shareeView.name()
         yield self.commit()
         self.notifierFactory.reset()
 
-        shared = yield self.calendarUnderTest(home="home2", name=shareName)
+        shared = yield self.calendarUnderTest(home="user02", name=shareName)
         yield shared.notifyChanged(category=ChangeCategory.default)
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                ("/CalDAV/example.com/home1/", PushPriority.high),
-                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high)])
+                ("/CalDAV/example.com/user01/", PushPriority.high),
+                ("/CalDAV/example.com/user01/calendar_1/", PushPriority.high)])
         )
         yield self.commit()
 
@@ -283,12 +283,12 @@ class NotifierFactory(StoreTestCase):
     @inlineCallbacks
     def test_notificationNotifier(self):
 
-        notifications = yield self.transactionUnderTest().notificationsWithUID("home1")
+        notifications = yield self.transactionUnderTest().notificationsWithUID("user01")
         yield notifications.notifyChanged(category=ChangeCategory.default)
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                ("/CalDAV/example.com/home1/", PushPriority.high),
-                ("/CalDAV/example.com/home1/notification/", PushPriority.high)])
+                ("/CalDAV/example.com/user01/", PushPriority.high),
+                ("/CalDAV/example.com/user01/notification/", PushPriority.high)])
         )
         yield self.commit()

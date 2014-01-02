@@ -60,14 +60,6 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @rtype: C{str}
         """
 
-    def thisServer(): #@NoSelf
-        """
-        Indicates whether the record is hosted on this server "pod".
-
-        @return: C{True} if hosted by this service.
-        @rtype: C{bool}
-        """
-
     def calendarsEnabled(): #@NoSelf
         """
         Indicates whether the record enabled for using the calendar service.

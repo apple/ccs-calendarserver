@@ -999,8 +999,9 @@ class RecordsMatchingTokensTests(TestCase):
         Exercise the default recordsMatchingTokens implementation
         """
         records = list((yield self.directoryService.recordsMatchingTokens(["Use", "01"])))
-        self.assertEquals(len(records), 1)
-        self.assertEquals(records[0].shortNames[0], "user01")
+        self.assertNotEquals(len(records), 0)
+        shorts = [record.shortNames[0] for record in records]
+        self.assertTrue("user01" in shorts)
 
         records = list((yield self.directoryService.recordsMatchingTokens(['"quotey"'],
             context=self.directoryService.searchContext_attendee)))

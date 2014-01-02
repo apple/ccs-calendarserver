@@ -806,16 +806,6 @@ class PurgePrincipalTests(StoreTestCase):
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.DirectoryService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "purge", "accounts.xml"
-            )
-        )
-        self.patch(config.ResourceService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "purge", "resources.xml"
-            )
-        )
         yield super(PurgePrincipalTests, self).setUp()
 
         txn = self._sqlCalendarStore.newTransaction()
@@ -848,6 +838,20 @@ class PurgePrincipalTests(StoreTestCase):
         calendar1 = (yield home2.childWithName(self.sharedName2))
         self.assertNotEquals(calendar1, None)
         (yield txn.commit())
+
+
+    def configure(self):
+        super(PurgePrincipalTests, self).configure()
+        self.patch(config.DirectoryService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "accounts.xml"
+            )
+        )
+        self.patch(config.ResourceService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "resources.xml"
+            )
+        )
 
 
     @inlineCallbacks

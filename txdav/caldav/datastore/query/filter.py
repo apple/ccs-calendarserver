@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 ##
 
 """
-Object model of CALDAV:filter element used in a calendar-query.
+Object model of CALDAV:filter element used in an addressbook-query.
 """
 
 __all__ = [
@@ -39,8 +39,42 @@ class FilterBase(object):
     Determines which matching components are returned.
     """
 
+    serialized_name = None
+    deserialize_names = {}
+
+    @classmethod
+    def serialize_register(cls, register):
+        cls.deserialize_names[register.serialized_name] = register
+
+
     def __init__(self, xml_element):
-        self.xmlelement = xml_element
+        pass
+
+
+    @classmethod
+    def deserialize(cls, data):
+        """
+        Convert a JSON compatible serialization of this object into the actual object.
+        """
+        obj = cls.deserialize_names[data["type"]](None)
+        obj._deserialize(data)
+        return obj
+
+
+    def _deserialize(self, data):
+        """
+        Convert a JSON compatible serialization of this object into the actual object.
+        """
+        pass
+
+
+    def serialize(self):
+        """
+        Create a JSON compatible serialization of this object - will be used in a cross-pod request.
+        """
+        return {
+            "type": self.serialized_name,
+        }
 
 
     def match(self, item, access=None):
@@ -57,15 +91,37 @@ class Filter(FilterBase):
     Determines which matching components are returned.
     """
 
+    serialized_name = "Filter"
+
     def __init__(self, xml_element):
 
         super(Filter, self).__init__(xml_element)
+        if xml_element is None:
+            return
 
         # One comp-filter element must be present
         if len(xml_element.children) != 1 or xml_element.children[0].qname() != (caldav_namespace, "comp-filter"):
             raise ValueError("Invalid CALDAV:filter element: %s" % (xml_element,))
 
         self.child = ComponentFilter(xml_element.children[0])
+
+
+    def _deserialize(self, data):
+        """
+        Convert a JSON compatible serialization of this object into the actual object.
+        """
+        self.child = FilterBase.deserialize(data["child"])
+
+
+    def serialize(self):
+        """
+        Create a JSON compatible serialization of this object - will be used in a cross-pod request.
+        """
+        result = super(Filter, self).serialize()
+        result.update({
+            "child": self.child.serialize(),
+        })
+        return result
 
 
     def match(self, component, access=None):
@@ -148,6 +204,8 @@ class Filter(FilterBase):
 
         return self.child.getmintimerange(None, False)
 
+FilterBase.serialize_register(Filter)
+
 
 
 class FilterChildBase(FilterBase):
@@ -158,6 +216,8 @@ class FilterChildBase(FilterBase):
     def __init__(self, xml_element):
 
         super(FilterChildBase, self).__init__(xml_element)
+        if xml_element is None:
+            return
 
         qualifier = None
         filters = []
@@ -205,6 +265,32 @@ class FilterChildBase(FilterBase):
         self.filter_test = filter_test
 
 
+    def _deserialize(self, data):
+        """
+        Convert a JSON compatible serialization of this object into the actual object.
+        """
+        self.qualifier = FilterBase.deserialize(data["qualifier"]) if data["qualifier"] else None
+        self.filters = [FilterBase.deserialize(filter) for filter in data["filters"]]
+        self.filter_name = data["filter_name"]
+        self.defined = data["defined"]
+        self.filter_test = data["filter_test"]
+
+
+    def serialize(self):
+        """
+        Create a JSON compatible serialization of this object - will be used in a cross-pod request.
+        """
+        result = super(FilterChildBase, self).serialize()
+        result.update({
+            "qualifier": self.qualifier.serialize() if self.qualifier else None,
+            "filters": [filter.serialize() for filter in self.filters],
+            "filter_name": self.filter_name,
+            "defined": self.defined,
+            "filter_test": self.filter_test,
+        })
+        return result
+
+
     def match(self, item, access=None):
         """
         Returns True if the given calendar item (either a component, property or parameter value)
@@ -234,6 +320,8 @@ class ComponentFilter (FilterChildBase):
     """
     Limits a search to only the chosen component types.
     """
+
+    serialized_name = "ComponentFilter"
 
     def match(self, item, access):
         """
@@ -414,12 +502,16 @@ class ComponentFilter (FilterChildBase):
 
         return currentMinimum, currentIsEndTime
 
+FilterBase.serialize_register(ComponentFilter)
+
 
 
 class PropertyFilter (FilterChildBase):
     """
     Limits a search to specific properties.
     """
+
+    serialized_name = "PropertyFilter"
 
     def _match(self, component, access):
         # When access restriction is in force, we need to only allow matches against the properties
@@ -516,12 +608,16 @@ class PropertyFilter (FilterChildBase):
 
         return currentMinimum, currentIsEndTime
 
+FilterBase.serialize_register(PropertyFilter)
+
 
 
 class ParameterFilter (FilterChildBase):
     """
     Limits a search to specific parameters.
     """
+
+    serialized_name = "ParameterFilter"
 
     def _match(self, property, access):
 
@@ -534,12 +630,16 @@ class ParameterFilter (FilterChildBase):
 
         return result
 
+FilterBase.serialize_register(ParameterFilter)
+
 
 
 class IsNotDefined (FilterBase):
     """
     Specifies that the named iCalendar item does not exist.
     """
+
+    serialized_name = "IsNotDefined"
 
     def match(self, component, access=None):
         # Oddly, this needs always to return True so that it appears there is
@@ -548,6 +648,7 @@ class IsNotDefined (FilterBase):
         # is-not-defined option.
         return True
 
+FilterBase.serialize_register(IsNotDefined)
 
 
 class TextMatch (FilterBase):
@@ -555,9 +656,13 @@ class TextMatch (FilterBase):
     Specifies a substring match on a property or parameter value.
     (CalDAV-access-09, section 9.6.4)
     """
+    serialized_name = "TextMatch"
+
     def __init__(self, xml_element):
 
         super(TextMatch, self).__init__(xml_element)
+        if xml_element is None:
+            return
 
         self.text = str(xml_element)
         if "caseless" in xml_element.attributes:
@@ -589,6 +694,30 @@ class TextMatch (FilterBase):
                 self.match_type = "contains"
         else:
             self.match_type = "contains"
+
+
+    def _deserialize(self, data):
+        """
+        Convert a JSON compatible serialization of this object into the actual object.
+        """
+        self.text = data["text"]
+        self.caseless = data["caseless"]
+        self.negate = data["negate"]
+        self.match_type = data["match_type"]
+
+
+    def serialize(self):
+        """
+        Create a JSON compatible serialization of this object - will be used in a cross-pod request.
+        """
+        result = super(TextMatch, self).serialize()
+        result.update({
+            "text": self.text,
+            "caseless": self.caseless,
+            "negate": self.negate,
+            "match_type": self.match_type,
+        })
+        return result
 
 
     def match(self, item, access):
@@ -637,6 +766,8 @@ class TextMatch (FilterBase):
 
         return self.negate
 
+FilterBase.serialize_register(TextMatch)
+
 
 
 class TimeRange (FilterBase):
@@ -644,9 +775,13 @@ class TimeRange (FilterBase):
     Specifies a time for testing components against.
     """
 
+    serialized_name = "TimeRange"
+
     def __init__(self, xml_element):
 
         super(TimeRange, self).__init__(xml_element)
+        if xml_element is None:
+            return
 
         # One of start or end must be present
         if "start" not in xml_element.attributes and "end" not in xml_element.attributes:
@@ -655,6 +790,28 @@ class TimeRange (FilterBase):
         self.start = DateTime.parseText(xml_element.attributes["start"]) if "start" in xml_element.attributes else None
         self.end = DateTime.parseText(xml_element.attributes["end"]) if "end" in xml_element.attributes else None
         self.tzinfo = None
+
+
+    def _deserialize(self, data):
+        """
+        Convert a JSON compatible serialization of this object into the actual object.
+        """
+        self.start = DateTime.parseText(data["start"]) if data["start"] else None
+        self.end = DateTime.parseText(data["end"]) if data["end"] else None
+        self.tzinfo = Timezone(tzid=data["tzinfo"]) if data["tzinfo"] else None
+
+
+    def serialize(self):
+        """
+        Create a JSON compatible serialization of this object - will be used in a cross-pod request.
+        """
+        result = super(TimeRange, self).serialize()
+        result.update({
+            "start": self.start.getText() if self.start else None,
+            "end": self.end.getText() if self.end else None,
+            "tzinfo": self.tzinfo.getTimezoneID() if self.tzinfo else None,
+        })
+        return result
 
 
     def settzinfo(self, tzinfo):
@@ -752,3 +909,5 @@ class TimeRange (FilterBase):
                     return True
 
         return False
+
+FilterBase.serialize_register(TimeRange)

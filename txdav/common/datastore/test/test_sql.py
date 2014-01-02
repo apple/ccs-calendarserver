@@ -19,20 +19,27 @@ Tests for L{txdav.common.datastore.sql}.
 """
 
 from twext.enterprise.dal.syntax import Select
-from txdav.xml import element as davxml
+from twext.enterprise.dal.syntax import Insert
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
 from twisted.internet.defer import Deferred
 
+from txdav.caldav.datastore.test.util import buildDirectoryRecord
 from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor, \
     CommonHome, CommonHomeChild, ECALENDARTYPE
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import CommonCommonTests, buildStore
 from txdav.common.icommondatastore import AllRetriesFailed
-from twext.enterprise.dal.syntax import Insert
 from txdav.common.datastore.sql import fixUUIDNormalization
+from txdav.xml import element as davxml
+
+from uuid import UUID
+
+exampleUID = UUID("a" * 32)
+denormalizedUID = str(exampleUID)
+normalizedUID = denormalizedUID.upper()
 
 class CommonSQLStoreTests(CommonCommonTests, TestCase):
     """
@@ -46,6 +53,9 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         yield super(CommonSQLStoreTests, self).setUp()
         self._sqlStore = yield buildStore(self, self.notifierFactory)
+        self._sqlStore.directoryService().addRecord(buildDirectoryRecord(denormalizedUID))
+        self._sqlStore.directoryService().addRecord(buildDirectoryRecord(normalizedUID))
+        self._sqlStore.directoryService().addRecord(buildDirectoryRecord("uid"))
 
 
     def storeUnderTest(self):
@@ -308,31 +318,31 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         token = yield homeChild.syncToken()
         yield homeChild._changeRevision("insert", "C")
         changed = yield homeChild.resourceNamesSinceToken(token)
-        self.assertEqual(changed, (["C"], [],))
+        self.assertEqual(changed, (["C"], [], [],))
 
         # update test
         token = yield homeChild.syncToken()
         yield homeChild._changeRevision("update", "C")
         changed = yield homeChild.resourceNamesSinceToken(token)
-        self.assertEqual(changed, (["C"], [],))
+        self.assertEqual(changed, (["C"], [], [],))
 
         # delete test
         token = yield homeChild.syncToken()
         yield homeChild._changeRevision("delete", "C")
         changed = yield homeChild.resourceNamesSinceToken(token)
-        self.assertEqual(changed, ([], ["C"],))
+        self.assertEqual(changed, ([], ["C"], [],))
 
         # missing update test
         token = yield homeChild.syncToken()
         yield homeChild._changeRevision("update", "D")
         changed = yield homeChild.resourceNamesSinceToken(token)
-        self.assertEqual(changed, (["D"], [],))
+        self.assertEqual(changed, (["D"], [], [],))
 
         # missing delete test
         token = yield homeChild.syncToken()
         yield homeChild._changeRevision("delete", "E")
         changed = yield homeChild.resourceNamesSinceToken(token)
-        self.assertEqual(changed, ([], [],))
+        self.assertEqual(changed, ([], [], [],))
 
         yield txn.abort()
 
@@ -421,10 +431,3 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         yield fixUUIDNormalization(self.storeUnderTest())
         self.assertEqual((yield self.allHomeUIDs(schema.ADDRESSBOOK_HOME)),
                          [[normalizedUID]])
-
-
-
-from uuid import UUID
-exampleUID = UUID("a" * 32)
-denormalizedUID = str(exampleUID)
-normalizedUID = denormalizedUID.upper()

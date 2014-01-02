@@ -13,14 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor
-from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, \
-    LocalCalendarUser
-from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
-from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
-from txweb2 import responsecode
-from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
-from twistedcaldav.instance import InvalidOverriddenInstanceError
 
 """
 Tests for txdav.caldav.datastore.postgres, mostly based on
@@ -32,7 +24,8 @@ from pycalendar.timezone import Timezone
 
 from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
-from twistedcaldav.ical import Component as VComponent
+
+from txweb2 import responsecode
 from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
 
@@ -47,9 +40,16 @@ from twistedcaldav.caldavxml import CalendarDescription
 from twistedcaldav.config import config
 from twistedcaldav.dateops import datetimeMktime
 from twistedcaldav.ical import Component, normalize_iCalStr, diff_iCalStrs
-from twistedcaldav.query import calendarqueryfilter
+from twistedcaldav.instance import InvalidOverriddenInstanceError
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.query.filter import Filter
+from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
+from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, \
+    LocalCalendarUser
+from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
+from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor
+from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
     test_event_text
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
@@ -57,14 +57,13 @@ from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
 from txdav.caldav.icalendarstore import ComponentUpdateState, InvalidDefaultCalendar
 from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource
-from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
     _BIND_STATUS_ACCEPTED
 from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from txdav.common.icommondatastore import NoSuchObjectResourceError
-from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 from txdav.idav import ChangeCategory
+from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 import datetime
 
@@ -407,10 +406,10 @@ END:VCALENDAR
                           name="VCALENDAR",
                        )
                   )
-        filter = calendarqueryfilter.Filter(filter)
+        filter = Filter(filter)
         filter.settimezone(None)
 
-        results = yield toCalendar._index.indexedSearch(filter, 'user01', True)
+        results = yield toCalendar.search(filter, 'user01', True)
         self.assertEquals(len(results), 1)
         _ignore_name, uid, _ignore_type, _ignore_organizer, _ignore_float, _ignore_start, _ignore_end, _ignore_fbtype, transp = results[0]
         self.assertEquals(uid, "uid4")
@@ -618,7 +617,7 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _defer1():
-            yield cal1.createObjectResourceWithName("1.ics", VComponent.fromString(
+            yield cal1.createObjectResourceWithName("1.ics", Component.fromString(
 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -664,7 +663,7 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _defer2():
-            yield cal2.createObjectResourceWithName("2.ics", VComponent.fromString(
+            yield cal2.createObjectResourceWithName("2.ics", Component.fromString(
 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -825,7 +824,7 @@ END:VCALENDAR
         # Create calendar object
         calendar1 = yield self.calendarUnderTest()
         name = "test.ics"
-        component = VComponent.fromString(test_event_text)
+        component = Component.fromString(test_event_text)
         metadata = {
             "accessMode": "PUBLIC",
             "isScheduleObject": True,
@@ -873,7 +872,7 @@ END:VCALENDAR
         inbox = yield home.createCalendarWithName("inbox")
 
         name = "test.ics"
-        component = VComponent.fromString(test_event_text)
+        component = Component.fromString(test_event_text)
         metadata = {
             "accessMode": "PUBLIC",
             "isScheduleObject": True,
@@ -922,7 +921,7 @@ END:VCALENDAR
         """
         home = yield self.homeUnderTest()
         inbox = yield home.createCalendarWithName("inbox")
-        component = VComponent.fromString(test_event_text)
+        component = Component.fromString(test_event_text)
         inboxItem = yield inbox.createCalendarObjectWithName("inbox.ics", component)
         self.assertEquals(ChangeCategory.inbox, inboxItem.removeNotifyCategory())
         yield self.commit()
@@ -935,7 +934,7 @@ END:VCALENDAR
         """
         home = yield self.homeUnderTest()
         nonInbox = yield home.createCalendarWithName("noninbox")
-        component = VComponent.fromString(test_event_text)
+        component = Component.fromString(test_event_text)
         nonInboxItem = yield nonInbox.createCalendarObjectWithName("inbox.ics", component)
         self.assertEquals(ChangeCategory.default, nonInboxItem.removeNotifyCategory())
         yield self.commit()
@@ -1105,9 +1104,10 @@ END:VCALENDAR
         self.assertTrue(calendar2_vtodo is not None)
         children = yield calendar2_vtodo.listCalendarObjects()
         self.assertEqual(len(children), 2)
-        changed, deleted = yield calendar2_vtodo.resourceNamesSinceToken(None)
+        changed, deleted, invalid = yield calendar2_vtodo.resourceNamesSinceToken(None)
         self.assertEqual(sorted(changed), ["3.ics", "5.ics"])
         self.assertEqual(len(deleted), 0)
+        self.assertEqual(len(invalid), 0)
         result = yield calendar2_vtodo.getSupportedComponents()
         self.assertEquals(result, "VTODO")
         self.assertTrue(pkey in calendar2_vtodo.properties())
@@ -1118,9 +1118,10 @@ END:VCALENDAR
         self.assertEqual(len(children), 3)
         new_sync_token2 = yield calendar2.syncToken()
         self.assertNotEqual(new_sync_token2, original_sync_token2)
-        changed, deleted = yield calendar2.resourceNamesSinceToken(original_sync_token2)
+        changed, deleted, invalid = yield calendar2.resourceNamesSinceToken(original_sync_token2)
         self.assertEqual(len(changed), 0)
         self.assertEqual(sorted(deleted), ["3.ics", "5.ics"])
+        self.assertEqual(len(invalid), 0)
         result = yield calendar2.getSupportedComponents()
         self.assertEquals(result, "VEVENT")
         self.assertTrue(pkey in calendar2.properties())
@@ -1369,7 +1370,7 @@ END:VCALENDAR
     @inlineCallbacks
     def test_notExpandedWithin(self):
         """
-        Test PostgresLegacyIndexEmulator.notExpandedWithin to make sure it returns the correct
+        Test Calendar.notExpandedWithin to make sure it returns the correct
         result based on the ranges passed in.
         """
 
@@ -1378,7 +1379,6 @@ END:VCALENDAR
         # Create the index on a new calendar
         home = yield self.homeUnderTest()
         newcalendar = yield home.createCalendarWithName("index_testing")
-        index = PostgresLegacyIndexEmulator(newcalendar)
 
         # Create the calendar object to use for testing
         nowYear = self.nowYear["now"]
@@ -1406,37 +1406,37 @@ END:VCALENDAR
         # Fully within range
         testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Upper bound exceeded
         testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower bound exceeded
         testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower and upper bounds exceeded
         testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower none within range
         testMin = None
         testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Lower none and upper bounds exceeded
         testMin = None
         testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
 
@@ -1542,8 +1542,8 @@ END:VCALENDAR
 
         # Tests on inbox - resources with properties
         txn = self.transactionUnderTest()
-        yield txn.homeWithUID(ECALENDARTYPE, "byNameTest", create=True)
-        inbox = yield self.calendarUnderTest(txn=txn, name="inbox", home="byNameTest")
+        yield txn.homeWithUID(ECALENDARTYPE, "user01", create=True)
+        inbox = yield self.calendarUnderTest(txn=txn, name="inbox", home="user01")
         caldata = """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -1574,7 +1574,7 @@ END:VCALENDAR
         yield _createInboxItem("4.ics", "p4")
         yield self.commit()
 
-        inbox = yield self.calendarUnderTest(name="inbox", home="byNameTest")
+        inbox = yield self.calendarUnderTest(name="inbox", home="user01")
         yield _tests(inbox)
 
         resources = yield inbox.objectResourcesWithNames(("1.ics",))
@@ -2149,7 +2149,6 @@ END:VCALENDAR
             "geo:37.332633,-122.030502")
 
         yield self.commit()
-
 
 
 
