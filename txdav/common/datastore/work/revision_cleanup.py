@@ -83,11 +83,8 @@ class FindMinValidRevisionWork(WorkItem,
             ).on(self.transaction)
 
             # Schedule revision cleanup
-            notBefore = (datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=10))
-            log.debug("Scheduling revision cleanup: %s" % (notBefore,))
-            yield self.transaction.enqueue(RevisionCleanupWork,
-                notBefore=notBefore)
+            log.debug("Scheduling revision cleanup now")
+            yield self.transaction.enqueue(RevisionCleanupWork)
 
         else:
             # Schedule next update
