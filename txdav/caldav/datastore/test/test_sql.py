@@ -2152,7 +2152,6 @@ END:VCALENDAR
 
 
 
-
 class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
     """
     CalendarObject splitting tests
