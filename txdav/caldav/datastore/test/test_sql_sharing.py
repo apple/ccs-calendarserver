@@ -562,9 +562,18 @@ class SharingRevisions(BaseSharingTests):
         self.assertEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
 
-        for depth in ("1", "infinity",):
+        for depth, result in (
+            ("1", [otherCal.name() + '/',
+                   'calendar/',
+                   'inbox/'],
+            ),
+            ("infinity", [otherCal.name() + '/',
+                         otherCal.name() + '/cal1.ics',
+                         'calendar/',
+                         'inbox/'],
+             )):
             changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
-            self.assertNotEqual(len(changed), 0)
+            self.assertEqual(set(changed), set(result))
             self.assertEqual(len(deleted), 0)
 
             changed, deleted = yield otherHome.resourceNamesSinceRevision(otherCal._bindRevision, depth)
