@@ -339,9 +339,6 @@ create table ATTACHMENT (
 create index ATTACHMENT_CALENDAR_HOME_RESOURCE_ID on
   ATTACHMENT(CALENDAR_HOME_RESOURCE_ID);
 
-create index ATTACHMENT_DROPBOX_ID on
-  ATTACHMENT(DROPBOX_ID);
-
 -- Many-to-many relationship between attachments and calendar objects
 create table ATTACHMENT_CALENDAR_OBJECT (
   ATTACHMENT_ID                  integer      not null references ATTACHMENT on delete cascade,
@@ -698,6 +695,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '27');
+insert into CALENDARSERVER values ('VERSION', '26');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
