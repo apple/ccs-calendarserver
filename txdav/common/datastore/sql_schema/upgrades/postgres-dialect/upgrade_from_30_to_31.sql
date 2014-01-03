@@ -18,38 +18,27 @@
 -- Upgrade database schema from VERSION 30 to 31 --
 ---------------------------------------------------
 
--- Home related updates
+----------------------------------------
+-- Change Address Book Object Members --
+----------------------------------------
 
-alter table CALENDAR_HOME
- add column STATUS integer default 0 not null;
+alter table ABO_MEMBERS
+	drop constraint	abo_members_member_id_fkey,
+	drop constraint	abo_members_group_id_fkey,
+	add column	REVISION		integer      default nextval('REVISION_SEQ') not null,
+	add column	REMOVED         boolean      default false not null,
+	drop constraint abo_members_pkey,
+	add constraint abo_members_pkey primary key(GROUP_ID, MEMBER_ID, REVISION);
 
-alter table NOTIFICATION_HOME
- add column STATUS integer default 0 not null;
+------------------------------------------
+-- Change Address Book Object Revisions --
+------------------------------------------
+	
+alter table ADDRESSBOOK_OBJECT_REVISIONS
+	add column OBJECT_RESOURCE_ID integer default 0;
+	
+--------------------
+-- Update version --
+--------------------
 
-alter table ADDRESSBOOK_HOME
- add column STATUS integer default 0 not null;
-
--- Enumeration of statuses
-
-create table HOME_STATUS (
-  ID          integer     primary key,
-  DESCRIPTION varchar(16) not null unique
-);
-
-insert into HOME_STATUS values (0, 'normal' );
-insert into HOME_STATUS values (1, 'external');
-
--- Bind changes
-alter table CALENDAR_BIND
- add column EXTERNAL_ID integer default null;
-
-alter table SHARED_ADDRESSBOOK_BIND
- add column EXTERNAL_ID integer default null;
-
-alter table SHARED_GROUP_BIND
- add column EXTERNAL_ID integer default null;
-
-
--- Now update the version
--- No data upgrades
 update CALENDARSERVER set VALUE = '31' where NAME = 'VERSION';

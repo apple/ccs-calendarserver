@@ -347,8 +347,7 @@ create table IMIP_REPLY_WORK (
 create table PUSH_NOTIFICATION_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "PUSH_ID" nvarchar2(255),
-    "PRIORITY" integer not null
+    "PUSH_ID" nvarchar2(255)
 );
 
 create table GROUP_CACHER_POLLING_WORK (
@@ -422,6 +421,10 @@ create index TRANSPARENCY_TIME_RAN_5f34467f on TRANSPARENCY (
 
 create index ATTACHMENT_CALENDAR_H_0078845c on ATTACHMENT (
     CALENDAR_HOME_RESOURCE_ID
+);
+
+create index ATTACHMENT_DROPBOX_ID_5073cf23 on ATTACHMENT (
+    DROPBOX_ID
 );
 
 create index ATTACHMENT_CALENDAR_O_81508484 on ATTACHMENT_CALENDAR_OBJECT (

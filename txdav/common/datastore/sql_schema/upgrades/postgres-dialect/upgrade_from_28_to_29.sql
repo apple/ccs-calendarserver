@@ -18,21 +18,12 @@
 -- Upgrade database schema from VERSION 28 to 29 --
 ---------------------------------------------------
 
--- Sharing notification related updates
+-- Push notification work related updates
 
-alter table NOTIFICATION_HOME
-  add column DATAVERSION integer default 0 not null;
+alter table PUSH_NOTIFICATION_WORK
+ add column PRIORITY integer default 10 not null;
 
-alter table NOTIFICATION
-  rename column XML_TYPE to NOTIFICATION_TYPE;
-alter table NOTIFICATION
-  rename column XML_DATA to NOTIFICATION_DATA;
-
--- Sharing enumeration updates
-insert into CALENDAR_BIND_MODE values (4, 'indirect');
-
-insert into CALENDAR_BIND_STATUS values (4, 'deleted');
+update PUSH_NOTIFICATION_WORK set PRIORITY = 10;
 
 -- Now update the version
 update CALENDARSERVER set VALUE = '29' where NAME = 'VERSION';
-insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

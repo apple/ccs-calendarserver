@@ -18,10 +18,36 @@
 -- Upgrade database schema from VERSION 31 to 32 --
 ---------------------------------------------------
 
--- New index
+-- Home related updates
 
-create index ATTACHMENT_DROPBOX_ID on
-  ATTACHMENT(DROPBOX_ID);
+alter table CALENDAR_HOME
+ add column STATUS integer default 0 not null;
+
+alter table NOTIFICATION_HOME
+ add column STATUS integer default 0 not null;
+
+alter table ADDRESSBOOK_HOME
+ add column STATUS integer default 0 not null;
+
+-- Enumeration of statuses
+
+create table HOME_STATUS (
+  ID          integer     primary key,
+  DESCRIPTION varchar(16) not null unique
+);
+
+insert into HOME_STATUS values (0, 'normal' );
+insert into HOME_STATUS values (1, 'external');
+
+-- Bind changes
+alter table CALENDAR_BIND
+ add column EXTERNAL_ID integer default null;
+
+alter table SHARED_ADDRESSBOOK_BIND
+ add column EXTERNAL_ID integer default null;
+
+alter table SHARED_GROUP_BIND
+ add column EXTERNAL_ID integer default null;
 
 
 -- Now update the version

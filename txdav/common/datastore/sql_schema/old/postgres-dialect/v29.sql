@@ -109,16 +109,15 @@ create table CALENDAR_METADATA (
 
 create table NOTIFICATION_HOME (
   RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID   varchar(255) not null unique,                                -- implicit index
-  DATAVERSION integer      default 0 not null
+  OWNER_UID   varchar(255) not null unique                                 -- implicit index
 );
 
 create table NOTIFICATION (
   RESOURCE_ID                   integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   NOTIFICATION_HOME_RESOURCE_ID integer      not null references NOTIFICATION_HOME,
   NOTIFICATION_UID              varchar(255) not null,
-  NOTIFICATION_TYPE             varchar(255) not null,
-  NOTIFICATION_DATA             text         not null,
+  XML_TYPE                      varchar(255) not null,
+  XML_DATA                      text         not null,
   MD5                           char(32)     not null,
   CREATED                       timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
@@ -169,7 +168,6 @@ insert into CALENDAR_BIND_MODE values (0, 'own'  );
 insert into CALENDAR_BIND_MODE values (1, 'read' );
 insert into CALENDAR_BIND_MODE values (2, 'write');
 insert into CALENDAR_BIND_MODE values (3, 'direct');
-insert into CALENDAR_BIND_MODE values (4, 'indirect');
 
 -- Enumeration of statuses
 
@@ -182,7 +180,6 @@ insert into CALENDAR_BIND_STATUS values (0, 'invited' );
 insert into CALENDAR_BIND_STATUS values (1, 'accepted');
 insert into CALENDAR_BIND_STATUS values (2, 'declined');
 insert into CALENDAR_BIND_STATUS values (3, 'invalid');
-insert into CALENDAR_BIND_STATUS values (4, 'deleted');
 
 
 -- Enumeration of transparency
@@ -344,6 +341,9 @@ create table ATTACHMENT (
 
 create index ATTACHMENT_CALENDAR_HOME_RESOURCE_ID on
   ATTACHMENT(CALENDAR_HOME_RESOURCE_ID);
+
+create index ATTACHMENT_DROPBOX_ID on
+  ATTACHMENT(DROPBOX_ID);
 
 -- Many-to-many relationship between attachments and calendar objects
 create table ATTACHMENT_CALENDAR_OBJECT (
@@ -705,4 +705,3 @@ create table CALENDARSERVER (
 insert into CALENDARSERVER values ('VERSION', '29');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
-insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

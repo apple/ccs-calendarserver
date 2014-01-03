@@ -18,17 +18,9 @@ create table NAMED_LOCK (
 create table CALENDAR_HOME (
     "RESOURCE_ID" integer primary key,
     "OWNER_UID" nvarchar2(255) unique,
-    "STATUS" integer default 0 not null,
     "DATAVERSION" integer default 0 not null
 );
 
-create table HOME_STATUS (
-    "ID" integer primary key,
-    "DESCRIPTION" nvarchar2(16) unique
-);
-
-insert into HOME_STATUS (DESCRIPTION, ID) values ('normal', 0);
-insert into HOME_STATUS (DESCRIPTION, ID) values ('external', 1);
 create table CALENDAR (
     "RESOURCE_ID" integer primary key
 );
@@ -58,7 +50,6 @@ create table CALENDAR_METADATA (
 create table NOTIFICATION_HOME (
     "RESOURCE_ID" integer primary key,
     "OWNER_UID" nvarchar2(255) unique,
-    "STATUS" integer default 0 not null,
     "DATAVERSION" integer default 0 not null
 );
 
@@ -77,7 +68,6 @@ create table NOTIFICATION (
 create table CALENDAR_BIND (
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
     "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
-    "EXTERNAL_ID" integer default null,
     "CALENDAR_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
@@ -220,7 +210,6 @@ create table ADDRESSBOOK_HOME (
     "RESOURCE_ID" integer primary key,
     "ADDRESSBOOK_PROPERTY_STORE_ID" integer not null,
     "OWNER_UID" nvarchar2(255) unique,
-    "STATUS" integer default 0 not null,
     "DATAVERSION" integer default 0 not null
 );
 
@@ -234,7 +223,6 @@ create table ADDRESSBOOK_HOME_METADATA (
 create table SHARED_ADDRESSBOOK_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "OWNER_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
-    "EXTERNAL_ID" integer default null,
     "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
@@ -286,7 +274,6 @@ create table ABO_FOREIGN_MEMBERS (
 create table SHARED_GROUP_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "GROUP_RESOURCE_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
-    "EXTERNAL_ID" integer default null,
     "GROUP_ADDRESSBOOK_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
@@ -442,6 +429,10 @@ create index TRANSPARENCY_TIME_RAN_5f34467f on TRANSPARENCY (
 
 create index ATTACHMENT_CALENDAR_H_0078845c on ATTACHMENT (
     CALENDAR_HOME_RESOURCE_ID
+);
+
+create index ATTACHMENT_DROPBOX_ID_5073cf23 on ATTACHMENT (
+    DROPBOX_ID
 );
 
 create index ATTACHMENT_CALENDAR_O_81508484 on ATTACHMENT_CALENDAR_OBJECT (

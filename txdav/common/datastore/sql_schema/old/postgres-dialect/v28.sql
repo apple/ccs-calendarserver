@@ -342,6 +342,9 @@ create table ATTACHMENT (
 create index ATTACHMENT_CALENDAR_HOME_RESOURCE_ID on
   ATTACHMENT(CALENDAR_HOME_RESOURCE_ID);
 
+create index ATTACHMENT_DROPBOX_ID on
+  ATTACHMENT(DROPBOX_ID);
+
 -- Many-to-many relationship between attachments and calendar objects
 create table ATTACHMENT_CALENDAR_OBJECT (
   ATTACHMENT_ID                  integer      not null references ATTACHMENT on delete cascade,
@@ -663,8 +666,7 @@ create table IMIP_REPLY_WORK (
 create table PUSH_NOTIFICATION_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  PUSH_ID                       varchar(255) not null,
-  PRIORITY                      integer      not null -- 1:low 5:medium 10:high
+  PUSH_ID                       varchar(255) not null
 );
 
 -----------------

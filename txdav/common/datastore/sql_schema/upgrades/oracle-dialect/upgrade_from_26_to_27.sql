@@ -18,13 +18,10 @@
 -- Upgrade database schema from VERSION 26 to 27 --
 ---------------------------------------------------
 
--- Calendar home related updates
+-- New index
 
-alter table CALENDAR_HOME_METADATA
- add ("DEFAULT_POLLS" integer default null references CALENDAR on delete set null);
-
-create index CALENDAR_HOME_METADAT_910264ce on CALENDAR_HOME_METADATA (
-    DEFAULT_POLLS
+create index ATTACHMENT_DROPBOX_ID_5073cf23 on ATTACHMENT (
+    DROPBOX_ID
 );
 
 

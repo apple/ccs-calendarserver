@@ -18,36 +18,35 @@
 -- Upgrade database schema from VERSION 30 to 31 --
 ---------------------------------------------------
 
--- Home related updates
+----------------------------------------
+-- Change Address Book Object Members --
+----------------------------------------
 
-alter table CALENDAR_HOME
- add ("STATUS" integer default 0 not null);
+begin
+for i in (select constraint_name from user_cons_columns where column_name = 'MEMBER_ID' or column_name = 'GROUP_ID')
+loop
+execute immediate 'alter table abo_members drop constraint' || i.constraint_name;
+end loop;
+end;
 
-alter table NOTIFICATION_HOME
- add ("STATUS" integer default 0 not null);
+alter table ABO_MEMBERS
+	add ("REVISION" integer default nextval('REVISION_SEQ') not null);
+alter table ABO_MEMBERS
+	add ("REMOVED" boolean default false not null);
+alter table ABO_MEMBERS
+	 drop primary key;
+alter table ABO_MEMBERS
+	 add primary key ("GROUP_ID", "MEMBER_ID", "REVISION");
 
-alter table ADDRESSBOOK_HOME
- add ("STATUS" integer default 0 not null);
+------------------------------------------
+-- Change Address Book Object Revisions --
+------------------------------------------
+	
+alter table ADDRESSBOOK_OBJECT_REVISIONS
+	add ("OBJECT_RESOURCE_ID" integer default 0);
 
-create table HOME_STATUS (
-    "ID" integer primary key,
-    "DESCRIPTION" nvarchar2(16) unique
-);
+--------------------
+-- Update version --
+--------------------
 
-insert into HOME_STATUS (DESCRIPTION, ID) values ('normal', 0);
-insert into HOME_STATUS (DESCRIPTION, ID) values ('external', 1);
-
--- Bind changes
-alter table CALENDAR_BIND
- add ("EXTERNAL_ID" integer default null);
-
-alter table SHARED_ADDRESSBOOK_BIND
- add ("EXTERNAL_ID" integer default null);
-
-alter table SHARED_GROUP_BIND
- add ("EXTERNAL_ID" integer default null);
-
-
--- Now update the version
--- No data upgrades
 update CALENDARSERVER set VALUE = '31' where NAME = 'VERSION';
