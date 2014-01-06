@@ -72,6 +72,9 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.util import normalizationLookup
 
 from txdav.caldav.icalendarstore import ComponentUpdateState
+from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
+from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
+from txdav.caldav.datastore.sql import CalendarStoreFeatures
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
 
@@ -206,7 +209,7 @@ Component.validRecurrenceIDs = new_validRecurrenceIDs
 if not hasattr(Component, "maxAlarmCounts"):
     Component.hasDuplicateAlarms = new_hasDuplicateAlarms
 
-VERSION = "10"
+VERSION = "11"
 
 def printusage(e=None):
     if e:
@@ -240,6 +243,7 @@ Modes of operation:
                       with either --ical or --mismatch.
 --double            : detect double-bookings.
 --dark-purge        : purge room/resource events with invalid organizer
+--split             : split recurring event
 
 --nuke PATH|RID     : remove specific calendar resources - can
                       only be used by itself. PATH is the full
@@ -275,6 +279,10 @@ Options for --double:
 --summary  : report only which GUIDs have double-bookings - no details.
 --days     : number of days ahead to scan [DEFAULT: 365]
 
+Options for --double:
+If none of (--no-organizer, --invalid-organizer, --disabled-organizer) is present, it
+will default to (--invalid-organizer, --disabled-organizer).
+
 Options for --dark-purge:
 
 --uuid     : only scan specified calendar homes. Can be a partial GUID
@@ -285,8 +293,11 @@ Options for --dark-purge:
 --invalid-organizer  : only detect events with an organizer not in the directory
 --disabled-organizer : only detect events with an organizer disabled for calendaring
 
-If none of (--no-organizer, --invalid-organizer, --disabled-organizer) is present, it
-will default to (--invalid-organizer, --disabled-organizer).
+Options for --split:
+
+--path     : URI path to resource to split.
+--rid      : UTC date-time where split occurs (YYYYMMDDTHHMMSSZ).
+--summary  : only print a list of recurrences in the resource - no splitting.
 
 CHANGES
 v8: Detects ORGANIZER or ATTENDEE properties with mailto: calendar user
@@ -294,6 +305,10 @@ v8: Detects ORGANIZER or ATTENDEE properties with mailto: calendar user
     replace the value with a urn:uuid: form.
 
 v9: Detects double-bookings.
+
+v10: Purges data for invalid users.
+
+v11: Allows manual splitting of recurring events.
 
 """ % (VERSION,)
 
@@ -319,10 +334,11 @@ class CalVerifyOptions(Options):
         ['missing', 'm', "Show 'orphaned' homes."],
         ['double', 'd', "Detect double-bookings."],
         ['dark-purge', 'p', "Purge room/resource events with invalid organizer."],
+        ['split', 'l', "Split an event."],
         ['fix', 'x', "Fix problems."],
         ['verbose', 'v', "Verbose logging."],
         ['details', 'V', "Detailed logging."],
-        ['summary', 'S', "Summary of double-bookings."],
+        ['summary', 'S', "Summary of double-bookings/split."],
         ['tzid', 't', "Timezone to adjust displayed times to."],
 
         ['no-organizer', '', "Detect dark events without an organizer"],
@@ -335,7 +351,9 @@ class CalVerifyOptions(Options):
         ['uuid', 'u', "", "Only check this user."],
         ['uid', 'U', "", "Only this event UID."],
         ['nuke', 'e', "", "Remove event given its path."],
-        ['days', 'T', "365", "Number of days for scanning events into the future."]
+        ['days', 'T', "365", "Number of days for scanning events into the future."],
+        ['path', '', "", "Split event given its path."],
+        ['rid', '', "", "Split date-time."],
     ]
 
 
@@ -2670,6 +2688,122 @@ class DarkPurgeService(CalVerifyService):
 
 
 
+class EventSplitService(CalVerifyService):
+    """
+    Service which splits a recurring event at a specific date-time value.
+    """
+
+    def title(self):
+        return "Event Split Service"
+
+
+    @inlineCallbacks
+    def doAction(self):
+        """
+        Split a resource using either its path or resource id.
+        """
+
+        self.txn = self.store.newTransaction()
+
+        path = self.options["path"]
+        if path.startswith("/calendars/__uids__/"):
+            try:
+                pathbits = path.split("/")
+            except TypeError:
+                printusage("Not a valid calendar object resource path: %s" % (path,))
+            if len(pathbits) != 6:
+                printusage("Not a valid calendar object resource path: %s" % (path,))
+            homeName = pathbits[3]
+            calendarName = pathbits[4]
+            resourceName = pathbits[5]
+
+            resid = yield self.getResourceID(homeName, calendarName, resourceName)
+            if resid is None:
+                yield self.txn.commit()
+                self.txn = None
+                self.output.write("\n")
+                self.output.write("Path does not exist. Nothing split.\n")
+                returnValue(None)
+            resid = int(resid)
+        else:
+            try:
+                resid = int(path)
+            except ValueError:
+                printusage("path argument must be a calendar object path or an SQL resource-id")
+
+        calendarObj = yield CalendarStoreFeatures(self.txn._store).calendarObjectWithID(self.txn, resid)
+        ical = yield calendarObj.component()
+
+        # Must be the ORGANIZER's copy
+        organizer = ical.getOrganizer()
+        if organizer is None:
+            printusage("Calendar object has no ORGANIZER property - cannot split")
+
+        # Only allow organizers to split
+        scheduler = ImplicitScheduler()
+        is_attendee = (yield scheduler.testAttendeeEvent(calendarObj.calendar(), calendarObj, ical,))
+        if is_attendee:
+            printusage("Calendar object is not owned by the ORGANIZER - cannot split")
+
+        if self.options["summary"]:
+            result = self.doSummary(ical)
+        else:
+            result = yield self.doSplit(resid, calendarObj, ical)
+
+        returnValue(result)
+
+
+    def doSummary(self, ical):
+        """
+        Print a summary of the recurrence instances of the specified event.
+
+        @param ical: calendar to process
+        @type ical: L{Component}
+        """
+        self.output.write("\n---- Calendar resource instances ----\n")
+
+        # Find the instance RECURRENCE-ID where a split is going to happen
+        now = DateTime.getNowUTC()
+        now.offsetDay(1)
+        instances = ical.cacheExpandedTimeRanges(now)
+        instances = sorted(instances.instances.values(), key=lambda x: x.start)
+        for instance in instances:
+            self.output.write(instance.rid.getText() + (" *\n" if instance.overridden else "\n"))
+
+
+    @inlineCallbacks
+    def doSplit(self, resid, calendarObj, ical):
+        rid = self.options["rid"]
+        try:
+            if rid[-1] != "Z":
+                raise ValueError
+            rid = DateTime.parseText(rid)
+        except ValueError:
+            printusage("rid must be a valid UTC date-time value: 'YYYYMMDDTHHMMSSZ'")
+
+        self.output.write("\n---- Splitting calendar resource ----\n")
+
+        # Find actual RECURRENCE-ID of split
+        splitter = iCalSplitter(1024, 14)
+        rid = splitter.whereSplit(ical, break_point=rid, allow_past_the_end=False)
+        if rid is None:
+            printusage("rid is not a valid recurrence instance")
+
+        self.output.write("\n")
+        self.output.write("Actual RECURRENCE-ID: %s.\n" % (rid,))
+
+        oldUID = yield calendarObj.split(rid=rid)
+
+        self.output.write("\n")
+        self.output.write("Split Resource: %s at %s, old UID: %s.\n" % (resid, rid, oldUID,))
+
+        yield self.txn.commit()
+        self.txn = None
+
+        returnValue(oldUID)
+
+
+
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     if reactor is None:
@@ -2702,6 +2836,8 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             return DoubleBookingService(store, options, output, reactor, config)
         elif options["dark-purge"]:
             return DarkPurgeService(store, options, output, reactor, config)
+        elif options["split"]:
+            return EventSplitService(store, options, output, reactor, config)
         else:
             printusage("Invalid operation")
             sys.exit(1)
