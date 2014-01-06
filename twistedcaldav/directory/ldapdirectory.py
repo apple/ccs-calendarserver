@@ -1,6 +1,6 @@
 ##
 # Copyright (c) 2008-2009 Aymeric Augustin. All rights reserved.
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -112,8 +112,6 @@ class LdapDirectoryService(CachingDirectoryService):
                 "guidAttr": "entryUUID",
                 "users": {
                     "rdn": "ou=People",
-                    "attr": "uid", # used only to synthesize email address
-                    "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
                     "loginEnabledAttr" : "", # attribute controlling login
                     "loginEnabledValue" : "yes", # "True" value of above attribute
@@ -129,8 +127,6 @@ class LdapDirectoryService(CachingDirectoryService):
                 },
                 "groups": {
                     "rdn": "ou=Group",
-                    "attr": "cn", # used only to synthesize email address
-                    "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
                     "mapping" : { # maps internal record names to LDAP
                         "recordName": "cn",
@@ -142,23 +138,18 @@ class LdapDirectoryService(CachingDirectoryService):
                 },
                 "locations": {
                     "rdn": "ou=Places",
-                    "attr": "cn", # used only to synthesize email address
-                    "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
                     "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
                     "calendarEnabledValue" : "yes", # "True" value of above attribute
+                    "associatedAddressAttr" : "",
                     "mapping" : { # maps internal record names to LDAP
                         "recordName": "cn",
                         "fullName" : "cn",
                         "emailAddresses" : ["mail"], # multiple LDAP fields supported
-                        "firstName" : "givenName",
-                        "lastName" : "sn",
                     },
                 },
                 "resources": {
                     "rdn": "ou=Resources",
-                    "attr": "cn", # used only to synthesize email address
-                    "emailSuffix": None, # used only to synthesize email address
                     "filter": None, # additional filter for this type
                     "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
                     "calendarEnabledValue" : "yes", # "True" value of above attribute
@@ -166,8 +157,16 @@ class LdapDirectoryService(CachingDirectoryService):
                         "recordName": "cn",
                         "fullName" : "cn",
                         "emailAddresses" : ["mail"], # multiple LDAP fields supported
-                        "firstName" : "givenName",
-                        "lastName" : "sn",
+                    },
+                },
+                "addresses": {
+                    "rdn": "ou=Buildings",
+                    "filter": None, # additional filter for this type
+                    "streetAddressAttr" : "",
+                    "geoAttr" : "",
+                    "mapping" : { # maps internal record names to LDAP
+                        "recordName": "cn",
+                        "fullName" : "cn",
                     },
                 },
             },
@@ -238,8 +237,10 @@ class LdapDirectoryService(CachingDirectoryService):
         for recordType in self.recordTypes():
             if self.rdnSchema[recordType]["attr"]:
                 attrSet.add(self.rdnSchema[recordType]["attr"])
-            if self.rdnSchema[recordType].get("calendarEnabledAttr", False):
-                attrSet.add(self.rdnSchema[recordType]["calendarEnabledAttr"])
+            for n in ("calendarEnabledAttr", "associatedAddressAttr",
+                "streetAddressAttr", "geoAttr"):
+                if self.rdnSchema[recordType].get(n, False):
+                    attrSet.add(self.rdnSchema[recordType][n])
             for attrList in self.rdnSchema[recordType]["mapping"].values():
                 if attrList:
                     # Since emailAddresses can map to multiple LDAP fields,
@@ -308,7 +309,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
         # Build filter
         filterstr = "(!(objectClass=organizationalUnit))"
-        typeFilter = self.rdnSchema[recordType]["filter"]
+        typeFilter = self.rdnSchema[recordType].get("filter", "")
         if typeFilter:
             filterstr = "(&%s%s)" % (filterstr, typeFilter)
 
@@ -779,6 +780,7 @@ class LdapDirectoryService(CachingDirectoryService):
         enabledForAddressBooks = None
         uid = None
         enabledForLogin = True
+        extras = {}
 
         shortNames = tuple(self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["recordName"]))
         if not shortNames:
@@ -795,17 +797,17 @@ class LdapDirectoryService(CachingDirectoryService):
 
         # Find or build email
         # (The emailAddresses mapping is a list of ldap fields)
-        emailAddressesMappedTo = self.rdnSchema[recordType]["mapping"]["emailAddresses"]
+        emailAddressesMappedTo = self.rdnSchema[recordType]["mapping"].get("emailAddresses", "")
         # Supporting either string or list for emailAddresses:
         if isinstance(emailAddressesMappedTo, str):
-            emailAddresses = set(self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["emailAddresses"]))
+            emailAddresses = set(self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"].get("emailAddresses", "")))
         else:
             emailAddresses = set(self._getMultipleLdapAttributes(attrs, *self.rdnSchema[recordType]["mapping"]["emailAddresses"]))
-        emailSuffix = self.rdnSchema[recordType]["emailSuffix"]
+        emailSuffix = self.rdnSchema[recordType].get("emailSuffix", None)
 
         if len(emailAddresses) == 0 and emailSuffix:
             emailPrefix = self._getUniqueLdapAttribute(attrs,
-                self.rdnSchema[recordType]["attr"])
+                self.rdnSchema[recordType].get("attr", "cn"))
             emailAddresses.add(emailPrefix + emailSuffix)
 
         proxyGUIDs = ()
@@ -891,6 +893,25 @@ class LdapDirectoryService(CachingDirectoryService):
                     autoAcceptGroup = self._getUniqueLdapAttribute(attrs,
                         self.resourceSchema["autoAcceptGroupAttr"])
 
+            if recordType == self.recordType_locations:
+                if self.rdnSchema[recordType]["associatedAddressAttr"]:
+                    associatedAddress = self._getUniqueLdapAttribute(attrs,
+                        self.rdnSchema[recordType]["associatedAddressAttr"])
+                    if associatedAddress:
+                        extras["associatedAddress"] = associatedAddress
+
+        elif recordType == self.recordType_addresses:
+            if self.rdnSchema[recordType].get("geoAttr", ""):
+                geo = self._getUniqueLdapAttribute(attrs,
+                    self.rdnSchema[recordType]["geoAttr"])
+                if geo:
+                    extras["geo"] = geo
+            if self.rdnSchema[recordType].get("streetAddressAttr", ""):
+                street = self._getUniqueLdapAttribute(attrs,
+                    self.rdnSchema[recordType]["streetAddressAttr"])
+                if street:
+                    extras["streetAddress"] = street
+
         serverID = partitionID = None
         if self.partitionSchema["serverIdAttr"]:
             serverID = self._getUniqueLdapAttribute(attrs,
@@ -915,6 +936,7 @@ class LdapDirectoryService(CachingDirectoryService):
             extProxies              = proxyGUIDs,
             extReadOnlyProxies      = readOnlyProxyGUIDs,
             attrs                   = attrs,
+            **extras
         )
 
         if self.augmentService is not None:
@@ -986,7 +1008,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
             # Build filter
             filterstr = "(!(objectClass=organizationalUnit))"
-            typeFilter = self.rdnSchema[recordType]["filter"]
+            typeFilter = self.rdnSchema[recordType].get("filter", "")
             if typeFilter:
                 filterstr = "(&%s%s)" % (filterstr, typeFilter)
 
@@ -1007,17 +1029,17 @@ class LdapDirectoryService(CachingDirectoryService):
             elif indexType == self.INDEX_TYPE_CUA:
                 # indexKey is of the form "mailto:test@example.net"
                 email = indexKey[7:] # strip "mailto:"
-                emailSuffix = self.rdnSchema[recordType]["emailSuffix"]
+                emailSuffix = self.rdnSchema[recordType].get("emailSuffix", None)
                 if emailSuffix is not None and email.partition("@")[2] == emailSuffix:
                     filterstr = "(&%s(|(&(!(mail=*))(%s=%s))(mail=%s)))" % (
                         filterstr,
-                        self.rdnSchema[recordType]["attr"],
+                        self.rdnSchema[recordType].get("attr", "cn"),
                         email.partition("@")[0],
                         ldapEsc(email)
                     )
                 else:
                     # emailAddresses can map to multiple LDAP fields
-                    ldapFields = self.rdnSchema[recordType]["mapping"]["emailAddresses"]
+                    ldapFields = self.rdnSchema[recordType]["mapping"].get("emailAddresses", "")
                     if isinstance(ldapFields, str):
                         if ldapFields:
                             subfilter = "(%s=%s)" % (ldapFields, ldapEsc(email))
@@ -1112,7 +1134,7 @@ class LdapDirectoryService(CachingDirectoryService):
             typeCounts[recordType] = 0
             base = self.typeDNs[recordType]
             scope = ldap.SCOPE_SUBTREE
-            extraFilter = self.rdnSchema[recordType]["filter"]
+            extraFilter = self.rdnSchema[recordType].get("filter", "")
             filterstr = buildFilterFromTokens(recordType, self.rdnSchema[recordType]["mapping"],
                 tokens, extra=extraFilter)
 
@@ -1453,7 +1475,7 @@ def buildFilterFromTokens(recordType, mapping, tokens, extra=None):
     """
 
     filterStr = None
-    tokens = [ldapEsc(t) for t in tokens if len(t) > 2]
+    tokens = [ldapEsc(t) for t in tokens]
     if len(tokens) == 0:
         return None
 
@@ -1506,7 +1528,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         guid, shortNames, authIDs, fullName,
         firstName, lastName, emailAddresses,
         uid, dn, memberGUIDs, extProxies, extReadOnlyProxies,
-        attrs
+        attrs, **kwargs
     ):
         super(LdapDirectoryRecord, self).__init__(
             service               = service,
@@ -1521,6 +1543,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
             extProxies            = extProxies,
             extReadOnlyProxies    = extReadOnlyProxies,
             uid                   = uid,
+            **kwargs
         )
 
         # Save attributes of dn and attrs in case you might need them later

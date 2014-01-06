@@ -41,6 +41,7 @@ ELEMENT_USER              = "user"
 ELEMENT_GROUP             = "group"
 ELEMENT_LOCATION          = "location"
 ELEMENT_RESOURCE          = "resource"
+ELEMENT_ADDRESS           = "address"
 
 ELEMENT_SHORTNAME         = "uid"
 ELEMENT_GUID              = "guid"
@@ -65,6 +66,7 @@ RECORD_TYPES = {
     ELEMENT_GROUP    : DirectoryService.recordType_groups,
     ELEMENT_LOCATION : DirectoryService.recordType_locations,
     ELEMENT_RESOURCE : DirectoryService.recordType_resources,
+    ELEMENT_ADDRESS  : DirectoryService.recordType_addresses,
 }
 
 class XMLAccountsParser(object):

@@ -71,6 +71,7 @@ class XMLDirectoryService(DirectoryService):
                 self.recordType_groups,
                 self.recordType_locations,
                 self.recordType_resources,
+                self.recordType_addresses,
             ),
             'realmName' : '/Search',
             'statSeconds' : 15,
@@ -373,6 +374,7 @@ class XMLDirectoryService(DirectoryService):
             'groups'    : 'group',
             'locations' : 'location',
             'resources' : 'resource',
+            'addresses' : 'address',
         }
         xmlType = xmlTypes[principal.recordType]
 

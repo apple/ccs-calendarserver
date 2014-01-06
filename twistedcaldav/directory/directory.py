@@ -86,6 +86,7 @@ class DirectoryService(object):
     recordType_groups = "groups"
     recordType_locations = "locations"
     recordType_resources = "resources"
+    recordType_addresses = "addresses"
 
     searchContext_location = "location"
     searchContext_resource = "resource"

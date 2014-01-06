@@ -1938,6 +1938,43 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             self._componentChanged = True
 
 
+    def addStructuredLocation(self, component):
+        """
+        Scan the component for ROOM attendees; if any are associated with an
+        address record which has street address and geo coordinates, add an
+        X-APPLE-STRUCTURED-LOCATION property and update the LOCATION property
+        to contain the name and street address.
+        """
+        for sub in component.subcomponents():
+            for attendee in sub.getAllAttendeeProperties():
+                if attendee.parameterValue("CUTYPE") == "ROOM":
+                    value = attendee.value()
+                    if value.startswith("urn:uuid:"):
+                        guid = value[9:]
+                        loc = self.directoryService().recordWithGUID(guid)
+                        if loc is not None:
+                            guid = loc.extras.get("associatedAddress",
+                                None)
+                            if guid is not None:
+                                addr = self.directoryService().recordWithGUID(guid)
+                                if addr is not None:
+                                    street = addr.extras.get("streetAddress", "")
+                                    geo = addr.extras.get("geo", "")
+                                    if street and geo:
+                                        title = attendee.parameterValue("CN")
+                                        params = {
+                                            "X-ADDRESS" : street,
+                                            "X-APPLE-RADIUS" : "71",
+                                            "X-TITLE" : title,
+                                        }
+                                        structured = Property("X-APPLE-STRUCTURED-LOCATION",
+                                            "geo:%s" % (geo,), params=params,
+                                            valuetype=PyCalendarValue.VALUETYPE_URI)
+                                        sub.replaceProperty(structured)
+                                        sub.replaceProperty(Property("LOCATION",
+                                            "%s\n%s" % (title, street)))
+
+
     @inlineCallbacks
     def doImplicitScheduling(self, component, inserting, internal_state, split_details=None):
 
@@ -2149,6 +2186,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Default/duplicate alarms
             self.processAlarms(component, inserting)
+
+            # Process structured location
+            self.addStructuredLocation(component)
 
             # Do scheduling
             implicit_result = (yield self.doImplicitScheduling(component, inserting, internal_state))

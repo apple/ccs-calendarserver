@@ -34,6 +34,7 @@ from twistedcaldav.config import config, mergeData, fullServerPath
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 from twistedcaldav.util import computeProcessCount
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
 from calendarserver.push.util import getAPNTopicFromCertificate
 
@@ -166,7 +167,7 @@ DEFAULT_SERVICE_PARAMS = {
 DEFAULT_RESOURCE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "resources.xml",
-        "recordTypes" : ("locations", "resources"),
+        "recordTypes" : ("locations", "resources", "addresses"),
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
@@ -583,10 +584,13 @@ DEFAULT_CONFIG = {
 
         "Calendars" : {
             "Enabled"         : True, # Calendar on/off switch
+            "IgnorePerUserProperties" : [
+                "X-APPLE-STRUCTURED-LOCATION",
+            ],
         },
         "AddressBooks" : {
             "Enabled"         : False, # Address Books on/off switch
-        }
+        },
     },
 
     "RestrictCalendarsToOneComponentType" : True, # Only allow calendars to be created with a single component type
@@ -1516,6 +1520,15 @@ def _updateScheduling(configDict, reloading=False):
                         (direction,))
 
 
+def _updateSharing(configDict, reloading=False):
+    #
+    # Sharing
+    #
+
+    # Transfer configured non-per-user property names to PerUserDataFilter
+    for propertyName in configDict.Sharing.Calendars.IgnorePerUserProperties:
+        PerUserDataFilter.IGNORE_X_PROPERTIES.append(propertyName)
+
 
 def _updateServers(configDict, reloading=False):
     from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
@@ -1594,6 +1607,7 @@ POST_UPDATE_HOOKS = (
     _updateLogLevels,
     _updateNotifications,
     _updateScheduling,
+    _updateSharing,
     _updateServers,
     _updateCompliance,
     )

@@ -111,6 +111,11 @@ class TestStoreDirectoryService(object):
     def recordWithUID(self, uid):
         return self.records.get(uid)
 
+    def recordWithGUID(self, guid):
+        for record in self.records.itervalues():
+            if record.guid == guid:
+                return record
+        return None
 
     def addRecord(self, record):
         self.records[record.uid] = record
@@ -121,11 +126,13 @@ class TestStoreDirectoryRecord(object):
 
     implements(IStoreDirectoryRecord)
 
-    def __init__(self, uid, shortNames, fullName):
+    def __init__(self, uid, shortNames, fullName, extras={}):
         self.uid = uid
+        self.guid = uid
         self.shortNames = shortNames
         self.fullName = fullName
         self.displayName = self.fullName if self.fullName else self.shortNames[0]
+        self.extras = extras
 
 
 
