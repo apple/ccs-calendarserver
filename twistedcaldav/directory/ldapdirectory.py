@@ -1477,9 +1477,25 @@ def buildFilterFromTokens(recordType, mapping, tokens, extra=None):
     """
 
     filterStr = None
-    tokens = [ldapEsc(t) for t in tokens if len(t) > 2]
+
+    # Eliminate any substring duplicates
+    tokenSet = set()
+    for token in tokens:
+        collision = False
+        for existing in tokenSet:
+            if token in existing:
+                collision = True
+                break
+            elif existing in token:
+                tokenSet.remove(existing)
+                break
+        if not collision:
+            tokenSet.add(token)
+
+    tokens = [ldapEsc(t) for t in tokenSet]
     if len(tokens) == 0:
         return None
+    tokens.sort()
 
     attributes = [
         ("fullName", "(%s=*%s*)"),

@@ -211,6 +211,24 @@ else:
                     "extra" : "(a=b)",
                 },
                 {
+                    "tokens" : ["foo", "foo", "oo", "fo", "bar"],
+                    "mapping" : {
+                        "fullName" : "cn",
+                        "emailAddresses" : "mail",
+                    },
+                    "expected" : "(&(a=b)(|(cn=*bar*)(mail=bar*))(|(cn=*foo*)(mail=foo*)))",
+                    "extra" : "(a=b)",
+                },
+               {
+                    "tokens" : ["fo", "foo", "foooo", "ooo", "fooo"],
+                    "mapping" : {
+                        "fullName" : "cn",
+                        "emailAddresses" : "mail",
+                    },
+                    "expected" : "(&(a=b)(|(cn=*foooo*)(mail=foooo*)))",
+                    "extra" : "(a=b)",
+                },
+                {
                     "tokens" : ["foo"],
                     "mapping" : {
                         "fullName" : "cn",
@@ -239,7 +257,7 @@ else:
                     "mapping" : {
                         "emailAddresses" : "mail",
                     },
-                    "expected" : "(&(mail=foo*)(mail=bar*))",
+                    "expected" : "(&(mail=bar*)(mail=foo*))",
                     "extra" : None,
                 },
                 {
@@ -248,7 +266,7 @@ else:
                         "fullName" : "cn",
                         "emailAddresses" : "mail",
                     },
-                    "expected" : "(&(|(cn=*foo*)(mail=foo*))(|(cn=*bar*)(mail=bar*)))",
+                    "expected" : "(&(|(cn=*bar*)(mail=bar*))(|(cn=*foo*)(mail=foo*)))",
                     "extra" : None,
                 },
                 {
@@ -257,7 +275,7 @@ else:
                         "fullName" : "cn",
                         "emailAddresses" : ["mail", "mailAliases"],
                     },
-                    "expected" : "(&(|(cn=*foo*)(mail=foo*)(mailAliases=foo*))(|(cn=*bar*)(mail=bar*)(mailAliases=bar*)))",
+                    "expected" : "(&(|(cn=*bar*)(mail=bar*)(mailAliases=bar*))(|(cn=*foo*)(mail=foo*)(mailAliases=foo*)))",
                     "extra" : None,
                 },
                 {
@@ -266,7 +284,7 @@ else:
                         "fullName" : "cn",
                         "emailAddresses" : "mail",
                     },
-                    "expected" : "(&(|(cn=*foo*)(mail=foo*))(|(cn=*bar*)(mail=bar*))(|(cn=*baz\\28*)(mail=baz\\28*)))",
+                    "expected" : "(&(|(cn=*bar*)(mail=bar*))(|(cn=*baz\\28*)(mail=baz\\28*))(|(cn=*foo*)(mail=foo*)))",
                     "extra" : None,
                 },
             ]
