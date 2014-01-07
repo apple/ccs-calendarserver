@@ -110,6 +110,9 @@ py_have_module () {
     done;
 
     if [ -z "${module_version}" ]; then
+      module_version=$("${python}" -c 'import pkg_resources; print pkg_resources.get_distribution("'"${module}"'").version;');
+    fi;
+    if [ -z "${module_version}" ]; then
       if ! "${print_path}"; then
         echo "Unable to determine version for ${module}.";
       fi;
