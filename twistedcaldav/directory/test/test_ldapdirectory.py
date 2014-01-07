@@ -1270,6 +1270,7 @@ else:
             }
         )
 
+
         def setupService(self, scenario):
             self.service = LdapDirectoryService(scenario[1])
             self.service.ldap = LdapDirectoryTestWrapper(self.service.ldap, scenario[0])
