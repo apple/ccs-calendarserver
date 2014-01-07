@@ -234,3 +234,6 @@ def migrateTokensToStore(path, store):
         yield txn.imipCreateToken(organizer, attendee, icaluid, token=token)
     yield txn.commit()
     os.remove(oldDB.dbpath)
+    journalPath = oldDB.dbpath + "-journal"
+    if os.path.exists(journalPath):
+        os.remove(journalPath)
