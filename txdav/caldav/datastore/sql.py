@@ -46,6 +46,7 @@ from txweb2.stream import readStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
+from twisted.python.failure import Failure
 
 from twistedcaldav import caldavxml, customxml, ical
 from twistedcaldav.config import config
@@ -2331,6 +2332,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 internal_request=is_internal,
             ))
 
+            # Set an attribute on this object to indicate that it is valid to check for an event split. We need to do this here so that if a timeout
+            # occurs whilst doing implicit processing (most likely because the event is too big) we are able to subsequently detect that it is OK
+            # to split and then try that.
+            if internal_state not in (ComponentUpdateState.SPLIT_OWNER, ComponentUpdateState.SPLIT_ATTENDEE,) and scheduler.state == "organizer":
+                self.okToSplit = True
+
             if do_implicit_action and not is_internal:
 
                 # Cannot do implicit in sharee's shared calendar
@@ -2445,6 +2452,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         raise UIDExistsElsewhereError("UID already exists in different calendar: %s." % (elsewhere.calendar().name(),))
 
 
+    @inlineCallbacks
     def setComponent(self, component, inserting=False, smart_merge=False):
         """
         Public api for storing a component. This will do full data validation checks on the specified component.
@@ -2457,7 +2465,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 component = self._componentClass.fromString(component)
             except InvalidICalendarDataError as e:
                 raise InvalidComponentForStoreError(str(e))
-        return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, smart_merge)
+        try:
+            yield self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, smart_merge)
+        except Exception as e:
+            ex = Failure()
+
+            # If the failure is due to a txn timeout and we have the special attribute indicating it is OK to
+            # attempt a split, then try splitting only when doing an update.
+            if self._txn.timedout and hasattr(self, "okToSplit") and not inserting:
+                yield self.timeoutSplit()
+
+            ex.raiseException()
 
 
     @inlineCallbacks
@@ -3674,16 +3692,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def checkSplit(self):
+    def checkSplit(self, txn=None):
         """
-        Determine if the calendar data needs to be split, and enqueue a split work item if needed.
+        Determine if the calendar data needs to be split, and enqueue a split work item if needed. Note we may
+        need to do this in some other transaction.
         """
 
         if config.Scheduling.Options.Splitting.Enabled:
             will = (yield self.willSplit())
             if will:
                 notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.Splitting.Delay)
-                work = (yield self._txn.enqueue(CalendarObject.CalendarObjectSplitterWork, resourceID=self._resourceID, notBefore=notBefore))
+                if txn is None:
+                    txn = self._txn
+                work = (yield txn.enqueue(CalendarObject.CalendarObjectSplitterWork, resourceID=self._resourceID, notBefore=notBefore))
 
                 # _workItems is used during unit testing only, to track the created work
                 if not hasattr(self, "_workItems"):
@@ -3701,6 +3722,21 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         ical = (yield self.component())
         will_split = splitter.willSplit(ical)
         returnValue(will_split)
+
+
+    @inlineCallbacks
+    def timeoutSplit(self):
+        """
+        A txn timeout occurred. Check to see if it is possible to split this event and if so schedule that to occur
+        as the timeout might be the result of the resource being too large and doing a split here will allow a
+        subsequent operation to succeed since the split can reduce the size.
+        """
+
+        # Can only do if cached data exists
+        if self._cachedComponent:
+            txn = self.transaction().store().newTransaction("Timeout checkSplit")
+            yield self.checkSplit(txn=txn)
+            yield txn.commit()
 
 
     @inlineCallbacks

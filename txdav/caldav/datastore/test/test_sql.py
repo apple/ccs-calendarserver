@@ -24,6 +24,7 @@ from pycalendar.timezone import Timezone
 
 from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
+from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from txweb2 import responsecode
 from txweb2.http_headers import MimeType
@@ -32,7 +33,7 @@ from txweb2.stream import MemoryStream
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList, \
     succeed
-from twisted.internet.task import deferLater
+from twisted.internet.task import deferLater, Clock
 from twisted.trial import unittest
 
 from twistedcaldav import caldavxml, ical
@@ -47,6 +48,7 @@ from txdav.caldav.datastore.query.filter import Filter
 from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
 from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, \
     LocalCalendarUser
+from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
@@ -56,7 +58,8 @@ from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
 from txdav.caldav.icalendarstore import ComponentUpdateState, InvalidDefaultCalendar
-from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource
+from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource, \
+    CommonStoreTransactionMonitor
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
     _BIND_STATUS_ACCEPTED
 from txdav.common.datastore.test.util import populateCalendarsFrom, \
@@ -5144,3 +5147,426 @@ END:VCALENDAR
         self.assertEqual(details[1][0], "urn:uuid:user01")
         self.assertEqual(details[1][1], ("mailto:cuser01@example.org",))
         self.assertEqual(normalize_iCalStr(details[1][2]), normalize_iCalStr(data_past_external) % relsubs, "Failed past: %s\n%s" % (title, diff_iCalStrs(details[1][2], data_past_external % relsubs),))
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_timeout(self):
+        """
+        Test that splitting of calendar objects works.
+        """
+        data_init = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back30)s
+DURATION:PT2H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+RRULE:FREQ=DAILY
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back30)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+RRULE:FREQ=DAILY
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_future = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back14)s
+DURATION:PT2H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_past = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+DTSTART:%(now_back30)s
+DURATION:PT2H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_future2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back14)s
+DURATION:PT2H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+"""
+
+        data_past2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+DTSTART:%(now_back30)s
+DURATION:PT2H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:%(relID)s
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+"""
+
+        data_inbox2 = """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REQUEST
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back14)s
+DURATION:PT2H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        # Create one event without active split
+        self.patch(config.Scheduling.Options.Splitting, "Enabled", False)
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString(data_init % self.subs)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        yield self.commit()
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        # Turn on splitting
+        self.patch(config.Scheduling.Options.Splitting, "Enabled", True)
+        self.patch(config.Scheduling.Options.Splitting, "Size", 1024)
+        self.patch(config.Scheduling.Options.Splitting, "PastDays", 14)
+        self.patch(config.Scheduling.Options.Splitting, "Delay", 2)
+
+        # Setup timeouts
+        c = Clock()
+        self.patch(CommonStoreTransactionMonitor, "callLater", c.callLater)
+
+        # Patch config to turn on transaction timeouts then rebuild the store
+        self.patch(self.storeUnderTest(), "timeoutTransactions", 1)
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+
+        self.assertFalse(self.transactionUnderTest().timedout)
+
+        oldScheduling = ImplicitScheduler.doImplicitScheduling
+        def newScheduling(self, do_smart_merge=False, split_details=None):
+            c.advance(2)
+            return oldScheduling(self, do_smart_merge, split_details)
+        self.patch(ImplicitScheduler, "doImplicitScheduling", newScheduling)
+
+        component = Component.fromString(data % self.subs)
+        yield self.failUnlessFailure(cobj.setComponent(component), AlreadyFinishedError)
+        self.assertTrue(self.transactionUnderTest().timedout)
+        work = cobj._workItems[0]
+
+        # Clear out timed out state
+        self.lastTransaction = None
+        self.patch(self.storeUnderTest(), "timeoutTransactions", 0)
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], cobj._resourceID)
+        yield self.abort()
+
+        # Wait for it to complete
+        yield work.whenExecuted()
+
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        # Get the existing and new object data
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        self.assertTrue(cobj1.isScheduleObject)
+        ical1 = yield cobj1.component()
+        newUID = ical1.masterComponent().propertyValue("RELATED-TO")
+
+        cobj2 = yield self.calendarObjectUnderTest(name="%s.ics" % (newUID,), calendar_name="calendar", home="user01")
+        self.assertTrue(cobj2 is not None)
+        self.assertTrue(cobj2.isScheduleObject)
+
+        ical_future = yield cobj1.component()
+        ical_past = yield cobj2.component()
+
+        # Verify user01 data
+        title = "user01"
+        relsubs = dict(self.subs)
+        relsubs["relID"] = newUID
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
+
+        # Get user02 data
+        cal = yield self.calendarUnderTest(name="calendar", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 2)
+        for cobj in cobjs:
+            ical = yield cobj.component()
+            if ical.resourceUID() == "12345-67890":
+                ical_future = ical
+            else:
+                ical_past = ical
+
+        cal = yield self.calendarUnderTest(name="inbox", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        ical_inbox = yield cobjs[0].component()
+
+        # Verify user02 data
+        title = "user02"
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future2) % relsubs, "Failed future: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox2) % relsubs, "Failed inbox: %s" % (title,))
