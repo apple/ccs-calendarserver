@@ -358,7 +358,7 @@ class CalendarStoreFeatures(object):
     @inlineCallbacks
     def calendarObjectWithID(self, txn, rid):
         """
-        Return all child object resources with the specified UID. Only "owned" resources are returned,
+        Return all child object resources with the specified resource id. Only "owned" resources are returned,
         no shared resources.
 
         @param txn: transaction to use
@@ -370,7 +370,7 @@ class CalendarStoreFeatures(object):
         @rtype: L{CalendarObject} or C{None}
         """
 
-        # First find the resource-ids of the (home, parent, object) for each object matching the UID.
+        # First find the resource-ids of the (home, parent, object) for each object matching the resource id.
         obj = CalendarHome._objectSchema
         bind = CalendarHome._bindSchema
         rows = (yield Select(
@@ -3331,6 +3331,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if will:
                 notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.Splitting.Delay)
                 work = (yield self._txn.enqueue(CalendarObject.CalendarObjectSplitterWork, resourceID=self._resourceID, notBefore=notBefore))
+
+                # _workItems is used during unit testing only, to track the created work
                 if not hasattr(self, "_workItems"):
                     self._workItems = []
                 self._workItems.append(work)

@@ -3533,7 +3533,7 @@ def normalize_iCalStr(icalstr):
     icalstr = str(icalstr).replace("\r\n ", "")
     icalstr = icalstr.replace("\n ", "")
     icalstr = "\r\n".join([line for line in icalstr.splitlines() if not line.startswith("DTSTAMP")])
-    return icalstr
+    return icalstr + "\r\n"
 
 
 

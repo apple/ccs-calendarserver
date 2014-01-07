@@ -63,6 +63,11 @@ class ICalSplitter (unittest.TestCase):
             getattr(self, attrname_12h).offsetHours(12)
             self.subs[attrname_12h] = getattr(self, attrname_12h)
 
+            attrname_1 = "now_fwd%s_1" % (i + 1,)
+            setattr(self, attrname_1, getattr(self, attrname).duplicate())
+            getattr(self, attrname_1).offsetSeconds(-1)
+            self.subs[attrname_1] = getattr(self, attrname_1)
+
         self.patch(config, "MaxAllowedInstances", 500)
 
 
@@ -2010,6 +2015,191 @@ END:VCALENDAR
             if title[0] == "1":
                 self.assertTrue(splitter.willSplit(ical), "Failed will split: %s" % (title,))
             icalOld, icalNew = splitter.split(ical)
+            relsubs = dict(self.subs)
+            relsubs["relID"] = icalOld.resourceUID()
+            self.assertEqual(str(icalNew).replace("\r\n ", ""), split_future.replace("\n", "\r\n") % relsubs, "Failed future: %s" % (title,))
+            self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
+
+            # Make sure new items won't split again
+            self.assertFalse(splitter.willSplit(icalNew), "Failed future will split: %s" % (title,))
+            self.assertFalse(splitter.willSplit(icalOld), "Failed past will split: %s" % (title,))
+
+
+    def test_future_split(self):
+
+        data = (
+            (
+                "1.1 - RRULE with override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+ATTENDEE:mailto:user4@example.com
+ATTENDEE:mailto:user5@example.com
+ATTENDEE:mailto:user6@example.com
+ATTENDEE:mailto:user7@example.com
+ATTENDEE:mailto:user8@example.com
+ATTENDEE:mailto:user9@example.com
+ATTENDEE:mailto:user10@example.com
+ATTENDEE:mailto:user11@example.com
+ATTENDEE:mailto:user12@example.com
+ATTENDEE:mailto:user13@example.com
+ATTENDEE:mailto:user14@example.com
+ATTENDEE:mailto:user15@example.com
+ATTENDEE:mailto:user16@example.com
+ATTENDEE:mailto:user17@example.com
+ATTENDEE:mailto:user18@example.com
+ATTENDEE:mailto:user19@example.com
+ATTENDEE:mailto:user20@example.com
+ATTENDEE:mailto:user21@example.com
+ATTENDEE:mailto:user22@example.com
+ATTENDEE:mailto:user23@example.com
+ATTENDEE:mailto:user24@example.com
+ATTENDEE:mailto:user25@example.com
+ORGANIZER:mailto:user1@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd11)s
+DTSTART:%(now_fwd11)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_fwd11)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+ATTENDEE:mailto:user4@example.com
+ATTENDEE:mailto:user5@example.com
+ATTENDEE:mailto:user6@example.com
+ATTENDEE:mailto:user7@example.com
+ATTENDEE:mailto:user8@example.com
+ATTENDEE:mailto:user9@example.com
+ATTENDEE:mailto:user10@example.com
+ATTENDEE:mailto:user11@example.com
+ATTENDEE:mailto:user12@example.com
+ATTENDEE:mailto:user13@example.com
+ATTENDEE:mailto:user14@example.com
+ATTENDEE:mailto:user15@example.com
+ATTENDEE:mailto:user16@example.com
+ATTENDEE:mailto:user17@example.com
+ATTENDEE:mailto:user18@example.com
+ATTENDEE:mailto:user19@example.com
+ATTENDEE:mailto:user20@example.com
+ATTENDEE:mailto:user21@example.com
+ATTENDEE:mailto:user22@example.com
+ATTENDEE:mailto:user23@example.com
+ATTENDEE:mailto:user24@example.com
+ATTENDEE:mailto:user25@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd11)s
+DTSTART:%(now_fwd11)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+DTSTART:%(now)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+ATTENDEE:mailto:user4@example.com
+ATTENDEE:mailto:user5@example.com
+ATTENDEE:mailto:user6@example.com
+ATTENDEE:mailto:user7@example.com
+ATTENDEE:mailto:user8@example.com
+ATTENDEE:mailto:user9@example.com
+ATTENDEE:mailto:user10@example.com
+ATTENDEE:mailto:user11@example.com
+ATTENDEE:mailto:user12@example.com
+ATTENDEE:mailto:user13@example.com
+ATTENDEE:mailto:user14@example.com
+ATTENDEE:mailto:user15@example.com
+ATTENDEE:mailto:user16@example.com
+ATTENDEE:mailto:user17@example.com
+ATTENDEE:mailto:user18@example.com
+ATTENDEE:mailto:user19@example.com
+ATTENDEE:mailto:user20@example.com
+ATTENDEE:mailto:user21@example.com
+ATTENDEE:mailto:user22@example.com
+ATTENDEE:mailto:user23@example.com
+ATTENDEE:mailto:user24@example.com
+ATTENDEE:mailto:user25@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(now_fwd11_1)s
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+        )
+
+        for title, calendar, split_future, split_past in data:
+            ical = Component.fromString(calendar % self.subs)
+            splitter = iCalSplitter(1024, 14)
+            icalOld, icalNew = splitter.split(ical, rid=PyCalendarDateTime.parseText("%(now_fwd11)s" % self.subs))
+            relsubs = dict(self.subs)
+            relsubs["relID"] = icalOld.resourceUID()
+            self.assertEqual(str(icalNew).replace("\r\n ", ""), split_future.replace("\n", "\r\n") % relsubs, "Failed future: %s" % (title,))
+            self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
+
+            # Make sure new items won't split again
+            self.assertFalse(splitter.willSplit(icalNew), "Failed future will split: %s" % (title,))
+            self.assertFalse(splitter.willSplit(icalOld), "Failed past will split: %s" % (title,))
+
+            ical = Component.fromString(calendar % self.subs)
+            splitter = iCalSplitter(1024, 14)
+            icalOld, icalNew = splitter.split(ical, rid=splitter.whereSplit(ical, break_point=PyCalendarDateTime.parseText("%(now_fwd10_12h)s" % self.subs)))
             relsubs = dict(self.subs)
             relsubs["relID"] = icalOld.resourceUID()
             self.assertEqual(str(icalNew).replace("\r\n ", ""), split_future.replace("\n", "\r\n") % relsubs, "Failed future: %s" % (title,))
