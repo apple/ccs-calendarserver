@@ -30,9 +30,9 @@ end loop;
 end;
 
 alter table ABO_MEMBERS
-	add ("REVISION" integer default nextval('REVISION_SEQ') not null);
+	add ("REVISION" integer not null);
 alter table ABO_MEMBERS
-	add ("REMOVED" boolean default false not null);
+	add ("REMOVED" integer default 0 not null);
 alter table ABO_MEMBERS
 	 drop primary key;
 alter table ABO_MEMBERS
