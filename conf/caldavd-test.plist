@@ -826,6 +826,10 @@
     <!-- Private Events -->
     <key>EnablePrivateEvents</key>
     <true/>
+    
+    <!-- Private Comment fix off for testing -->
+    <key>RemoveDuplicatePrivateComments</key>
+    <false/>
 
     <!-- Timezone Service -->
     <key>EnableTimezoneService</key>

@@ -58,7 +58,7 @@ from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError, \
     InvalidPerUserDataMerge, \
     AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation, \
-    ShareeAllowedError
+    ShareeAllowedError, DuplicatePrivateCommentsError
 from txdav.carddav.iaddressbookstore import KindChangeNotAllowedError, \
     GroupWithUnsharedAddressNotAllowedError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
@@ -2613,6 +2613,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         TooManyInstancesError: MaxInstances.fromString(str(config.MaxAllowedInstances)),
         AttachmentStoreValidManagedID: (caldav_namespace, "valid-managed-id"),
         ShareeAllowedError: (calendarserver_namespace, "sharee-privilege-needed",),
+        DuplicatePrivateCommentsError: (calendarserver_namespace, "no-duplicate-private-comments",),
     }
 
     StoreMoveExceptionsStatusErrors = set((

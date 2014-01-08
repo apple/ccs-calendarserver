@@ -3332,6 +3332,32 @@ END:VCALENDAR
         return False
 
 
+    def hasDuplicatePrivateComments(self, doFix=False):
+        """
+        Test and optionally remove "X-CALENDARSERVER-ATTENDEE-COMMENT" properties that have the same
+        "X-CALENDARSERVER-ATTENDEE-REF" parameter values in the same component.
+
+        @return: C{True} if there are duplicates that were not fixed.
+        """
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() in ("VTIMEZONE",):
+                    continue
+                if component.hasDuplicatePrivateComments(doFix):
+                    return True
+        else:
+            attendee_refs = set()
+            for prop in tuple(self.properties("X-CALENDARSERVER-ATTENDEE-COMMENT")):
+                ref = prop.parameterValue("X-CALENDARSERVER-ATTENDEE-REF")
+                if ref in attendee_refs:
+                    if doFix:
+                        self.removeProperty(prop)
+                    else:
+                        return True
+                attendee_refs.add(ref)
+        return False
+
+
 
 # #
 # Timezones
