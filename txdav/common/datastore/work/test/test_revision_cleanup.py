@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,34 +18,27 @@
 
 from twext.enterprise.dal.syntax import Select
 from twext.python.clsprop import classproperty
-from twisted.internet.defer import inlineCallbacks, succeed, returnValue, DeferredList
-from twisted.trial import unittest
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
-from twistedcaldav import ical
 from twistedcaldav.config import config
-from twistedcaldav.ical import Component, normalize_iCalStr, diff_iCalStrs
 from twistedcaldav.vcard import Component as VCard
-from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
-from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
-from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
-from txdav.caldav.datastore.test.util import buildCalendarStore
-from txdav.common.datastore.sql import ECALENDARTYPE
 from txdav.common.datastore.sql_tables import  schema, _BIND_MODE_READ
-from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
-from txweb2 import responsecode
+from txdav.common.datastore.test.util import buildStore, CommonCommonTests
 from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWork
+import datetime
 
 
-class BaseSharingTests(CommonCommonTests, TestCase):
+class AddressBookSharedGroupRevisionCleanupTests(CommonCommonTests, TestCase):
     """
     Test store-based address book sharing.
     """
 
     @inlineCallbacks
     def setUp(self):
-        yield super(BaseSharingTests, self).setUp()
+        yield super(AddressBookSharedGroupRevisionCleanupTests, self).setUp()
         self._sqlStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()
+        self.patch(config, "SyncTokenLifetimeDays", 0)
 
 
     @inlineCallbacks
@@ -207,18 +200,11 @@ END:VCARD
         returnValue(inviteUID)
 
 
-
-class SharingRevisions(BaseSharingTests):
-    """
-    Test store-based sharing and interaction with revision table.
-    """
-
     @inlineCallbacks
     def test_sharedRevisions(self):
         """
         Verify that resourceNamesSinceRevision returns all resources after initial bind and sync.
         """
-
         yield self._createShare()
 
         normalAB = yield self.addressbookUnderTest(home="user01", name="addressbook")
@@ -234,6 +220,8 @@ class SharingRevisions(BaseSharingTests):
         self.assertEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
 
+        # TODO:  Change the groups
+
         otherHome = yield self.addressbookHomeUnderTest(name="user02")
         for depth in ("1", "infinity",):
             changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
@@ -244,24 +232,32 @@ class SharingRevisions(BaseSharingTests):
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
 
-        yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork)
+        # Get the minimum valid revision
+        cs = schema.CALENDARSERVER
+        minValidRevision = int((yield Select(
+            [cs.VALUE],
+            From=cs,
+            Where=(cs.NAME == "MIN-VALID-REVISION")
+        ).on(self.transactionUnderTest()))[0][0])
+        self.assertEqual(minValidRevision, 1)
 
-        yield self.transactionUnderTest().commit()
+        # queue work items
+        work = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
 
-        # now nuke the revisions
-        w = schema.FIND_MIN_VALID_REVISION_WORK
-        rows = yield Select(
-            [w.WORK_ID, ],
-            From=w
-        ).on(self.transactionUnderTest())
-        print("test_sharedRevisions FIND_MIN_VALID_REVISION_WORK rows=%s" % (rows,))
+        yield self.abort()
 
-        w = schema.REVISION_CLEANUP_WORK
-        rows = yield Select(
-            [w.WORK_ID, ],
-            From=w
-        ).on(self.transactionUnderTest())
-        print("test_sharedRevisions REVISION_CLEANUP_WORK rows=%s" % (rows,))
+        # Wait for it to complete
+        yield work.whenExecuted()
+
+        # Get the minimum valid revision again
+        cs = schema.CALENDARSERVER
+        minValidRevision = int((yield Select(
+            [cs.VALUE],
+            From=cs,
+            Where=(cs.NAME == "MIN-VALID-REVISION")
+        ).on(self.transactionUnderTest()))[0][0])
+        print("test_sharedRevisions minValidRevision=%s" % (minValidRevision,))
+        self.assertNotEqual(minValidRevision, 1)
 
 
     @inlineCallbacks
@@ -304,7 +300,7 @@ class SharingRevisions(BaseSharingTests):
             self.assertEqual(len(deleted), 0)
 
 
-
+'''
 class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
     """
     CalendarObject splitting tests
@@ -765,3 +761,4 @@ END:VCALENDAR
         self.assertEqual(details[1][0], "urn:uuid:user01")
         self.assertEqual(details[1][1], ("mailto:cuser01@example.org",))
         self.assertEqual(normalize_iCalStr(details[1][2]), normalize_iCalStr(data_past_external) % relsubs, "Failed past: %s\n%s" % (title, diff_iCalStrs(details[1][2], data_past_external % relsubs),))
+'''
