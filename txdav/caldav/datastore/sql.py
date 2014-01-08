@@ -2466,8 +2466,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             except InvalidICalendarDataError as e:
                 raise InvalidComponentForStoreError(str(e))
         try:
-            yield self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, smart_merge)
-        except Exception as e:
+            result = yield self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, smart_merge)
+        except Exception:
             ex = Failure()
 
             # If the failure is due to a txn timeout and we have the special attribute indicating it is OK to
@@ -2476,6 +2476,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 yield self.timeoutSplit()
 
             ex.raiseException()
+
+        returnValue(result)
 
 
     @inlineCallbacks
