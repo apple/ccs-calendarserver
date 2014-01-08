@@ -123,6 +123,8 @@
         <string>cluster.pg</string>
         <key>LogFile</key>
         <string>xpg_ctl.log</string>
+        <key>SocketDirectory</key>
+        <string>/var/run/caldavd/PostgresSocket</string>
     </dict>
 
     <!-- Data root -->

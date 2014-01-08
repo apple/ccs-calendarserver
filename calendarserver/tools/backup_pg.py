@@ -35,7 +35,7 @@ DUMPFILENAME  = "db_backup"
 
 PSQL          = "%s/usr/bin/psql" % (SIPP,)
 PGDUMP        = "%s/usr/bin/pg_dump" % (SIPP,)
-PGSOCKETDIR   = "/Library/Server/PostgreSQL For Server Services/Socket"
+PGSOCKETDIR   = "/var/run/caldavd/PostgresSocket"
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
