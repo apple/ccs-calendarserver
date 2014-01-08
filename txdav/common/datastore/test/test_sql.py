@@ -118,10 +118,12 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(log, "error", counter)
 
         txn = self.transactionUnderTest()
+        self.assertFalse(txn.timedout)
 
         c.advance(2)
         self.assertNotEqual(ctr[0], 0)
         self.assertTrue(txn._sqlTxn._completed)
+        self.assertTrue(txn.timedout)
 
 
     def test_logWaitsAndTxnTimeout(self):

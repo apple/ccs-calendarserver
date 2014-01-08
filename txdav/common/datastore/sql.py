@@ -439,7 +439,7 @@ class CommonStoreTransactionMonitor(object):
                 if self.delayedLog:
                     self.delayedLog.cancel()
                     self.delayedLog = None
-                self.txn.abort()
+                self.txn.timeout()
 
         if self.timeoutSeconds:
             self.delayedTimeout = self.callLater(self.timeoutSeconds, _forceAbort)
@@ -497,6 +497,7 @@ class CommonStoreTransaction(object):
         self.statementCount = 0
         self.iudCount = 0
         self.currentStatement = None
+        self.timedout = False
 
         self.logItems = {}
 
@@ -1058,6 +1059,14 @@ class CommonStoreTransaction(object):
         Abort the transaction.
         """
         return self._sqlTxn.abort()
+
+
+    def timeout(self):
+        """
+        Abort the transaction due to time out.
+        """
+        self.timedout = True
+        return self.abort()
 
 
     def statsReport(self):
