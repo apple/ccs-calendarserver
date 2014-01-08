@@ -35,6 +35,13 @@ class AlreadyUnlocked(Exception):
 
 
 
+class LockTimeout(Exception):
+    """
+    The lock you were trying to lock was already locked causing a timeout.
+    """
+
+
+
 def makeLockSchema(inSchema):
     """
     Create a self-contained schema just for L{Locker} use, in C{inSchema}.
@@ -54,7 +61,6 @@ def makeLockSchema(inSchema):
     return inSchema
 
 LockSchema = SchemaSyntax(makeLockSchema(Schema(__file__)))
-
 
 
 
@@ -79,7 +85,9 @@ class NamedLock(Record, fromTable(LockSchema.NAMED_LOCK)):
         def autoRelease(self):
             txn.preCommit(lambda: self.release(True))
             return self
-        return cls.create(txn, lockName=name).addCallback(autoRelease)
+        def lockFailed(f):
+            raise LockTimeout(name)
+        return cls.create(txn, lockName=name).addCallback(autoRelease).addErrback(lockFailed)
 
 
     def release(self, ignoreAlreadyUnlocked=False):
@@ -98,6 +106,3 @@ class NamedLock(Record, fromTable(LockSchema.NAMED_LOCK)):
             unlocked.
         """
         return self.delete()
-
-
-
