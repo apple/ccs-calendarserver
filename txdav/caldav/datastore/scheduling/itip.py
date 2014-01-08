@@ -309,8 +309,8 @@ class iTipProcessing(object):
             calendar_master.addProperty(Property("EXDATE", exdates))
 
         # See if there are still components in the calendar - we might have deleted the last overridden instance
-        # in which case the calendar object is empty (except for VTIMEZONEs).
-        if calendar.mainType() is None:
+        # in which case the calendar object is empty (except for VTIMEZONEs) or has only hidden components.
+        if calendar.mainType() is None or calendar.hasPropertyValueInAllComponents(Property(Component.HIDDEN_INSTANCE_PROPERTY, "T")):
             # Delete the now empty calendar object
             return True, True, None
         else:
