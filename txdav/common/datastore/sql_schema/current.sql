@@ -663,7 +663,8 @@ create table IMIP_REPLY_WORK (
 create table PUSH_NOTIFICATION_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  PUSH_ID                       varchar(255) not null
+  PUSH_ID                       varchar(255) not null,
+  PRIORITY                      integer      not null -- 1:low 5:medium 10:high
 );
 
 -----------------
@@ -698,6 +699,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '27');
+insert into CALENDARSERVER values ('VERSION', '28');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');

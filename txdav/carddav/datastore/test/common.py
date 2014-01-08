@@ -39,6 +39,8 @@ from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.xml.element import WebDAVUnknownElement
+from calendarserver.push.util import PushPriority
+
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
 
@@ -372,7 +374,7 @@ class CommonTests(CommonCommonTests):
         yield home.removeAddressBookWithName(name)
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
         # notify is called prior to commit
-        self.assertTrue("/CardDAV/example.com/home1/" in self.notifierFactory.history)
+        self.assertTrue(("/CardDAV/example.com/home1/", PushPriority.high) in self.notifierFactory.history)
         yield self.commit()
 
         # Make sure it's available in a new transaction; i.e. test the commit.
@@ -399,8 +401,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CardDAV/example.com/home1/",
-                "/CardDAV/example.com/home1/addressbook/",
+                ("/CardDAV/example.com/home1/", PushPriority.high),
+                ("/CardDAV/example.com/home1/addressbook/", PushPriority.high),
             ])
         )
 
@@ -532,8 +534,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CardDAV/example.com/home1/",
-                "/CardDAV/example.com/home1/addressbook/",
+                ("/CardDAV/example.com/home1/", PushPriority.high),
+                ("/CardDAV/example.com/home1/addressbook/", PushPriority.high),
             ])
         )
 
@@ -693,8 +695,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CardDAV/example.com/home1/",
-                "/CardDAV/example.com/home1/addressbook/",
+                ("/CardDAV/example.com/home1/", PushPriority.high),
+                ("/CardDAV/example.com/home1/addressbook/", PushPriority.high),
             ])
         )
 
@@ -809,8 +811,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CardDAV/example.com/home1/",
-                "/CardDAV/example.com/home1/addressbook/",
+                ("/CardDAV/example.com/home1/", PushPriority.high),
+                ("/CardDAV/example.com/home1/addressbook/", PushPriority.high),
             ])
         )
 

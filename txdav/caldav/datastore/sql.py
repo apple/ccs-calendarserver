@@ -94,6 +94,7 @@ from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.timezone import PyCalendarTimezone
 from pycalendar.value import PyCalendarValue
+from txdav.idav import ChangeCategory
 
 from zope.interface.declarations import implements
 
@@ -2284,7 +2285,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         else:
             yield self._calendar._updateRevision(self._name)
 
-        yield self._calendar.notifyChanged()
+        # Determine change category
+        category = ChangeCategory.default
+        if internal_state == ComponentUpdateState.INBOX:
+            category = ChangeCategory.inbox
+        elif internal_state == ComponentUpdateState.ORGANIZER_ITIP_UPDATE:
+            category = ChangeCategory.organizerITIPUpdate
+        elif (internal_state == ComponentUpdateState.ATTENDEE_ITIP_UPDATE and
+            hasattr(self._txn, "doing_attende_refresh")):
+            category = ChangeCategory.attendeeITIPUpdate
+
+        yield self._calendar.notifyChanged(category=category)
 
         # Finally check if a split is needed
         if internal_state not in (ComponentUpdateState.SPLIT_OWNER, ComponentUpdateState.SPLIT_ATTENDEE,) and schedule_state == "organizer":

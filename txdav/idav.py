@@ -34,6 +34,9 @@ __all__ = [
 from zope.interface import Attribute, Interface
 from zope.interface.common.mapping import IMapping
 
+from twisted.python.constants import Values, ValueConstant
+from calendarserver.push.util import PushPriority
+
 #
 # Exceptions
 #
@@ -231,6 +234,19 @@ class ITransaction(Interface):
 
 
 
+class ChangeCategory(Values):
+    """
+    Constants to use for notifyChanged's category parameter.  Maps
+    types of changes to the appropriate push priority level.
+    TODO: make these values configurable in plist perhaps.
+    """
+    default             = ValueConstant(PushPriority.high)
+    inbox               = ValueConstant(PushPriority.medium)
+    attendeeITIPUpdate  = ValueConstant(PushPriority.medium)
+    organizerITIPUpdate = ValueConstant(PushPriority.medium)
+
+
+
 class INotifier(Interface):
     """
     Interface for an object that can send change notifications. Notifiers are associated with specific notifier factories
@@ -260,9 +276,12 @@ class INotifier(Interface):
         @rtype: L{IStoreNotifier} or C{None}
         """
 
-    def notifyChanged(): #@NoSelf
+    def notifyChanged(category): #@NoSelf
         """
         Send a change notification to any notifiers assigned to the object.
+
+        @param category: the kind of change triggering this notification
+        @type: L{ChangeCategory}
         """
 
     def notifierID(): #@NoSelf

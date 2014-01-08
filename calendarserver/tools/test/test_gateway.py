@@ -219,6 +219,7 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(record.extras["comment"], "Test Comment")
         self.assertEquals(record.extras["floor"], "First")
         self.assertEquals(record.extras["capacity"], "40")
+        self.assertEquals(record.extras["geo"], "geo:37.331,-122.030")
 
         results = yield self.runCommand(command_getLocationAttributes)
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
@@ -457,6 +458,8 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         <string>40</string>
         <key>AssociatedAddress</key>
         <string>C701069D-9CA1-4925-A1A9-5CD94767B74B</string>
+        <key>Geo</key>
+        <string>geo:37.331,-122.030</string>
         <key>ReadProxies</key>
         <array>
             <string>users:user03</string>

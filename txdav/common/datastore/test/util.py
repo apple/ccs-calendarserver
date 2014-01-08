@@ -733,8 +733,8 @@ class StubNotifierFactory(object):
         return "/%s/%s/%s/" % (prefix, self.hostname, id)
 
 
-    def send(self, prefix, id, txn):
-        self.history.append(self.pushKeyForId(prefix, id))
+    def send(self, prefix, id, txn, priority): 
+        self.history.append((self.pushKeyForId(prefix, id), priority))
 
 
     def reset(self):

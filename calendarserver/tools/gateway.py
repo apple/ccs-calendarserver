@@ -142,7 +142,6 @@ def main():
     utilityMain(configFileName, RunnerService, verbose=debug)
 
 
-
 class Runner(object):
 
     def __init__(self, root, directory, store, commands, output=None):

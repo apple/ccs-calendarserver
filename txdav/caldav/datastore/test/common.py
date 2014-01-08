@@ -53,6 +53,8 @@ from txdav.common.datastore.test.util import transactionClean
 from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.ical import Component
 from twistedcaldav.config import config
+from calendarserver.push.util import PushPriority
+
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -456,8 +458,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/notification/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/notification/", PushPriority.high),
             ])
         )
         yield self.commit()
@@ -474,8 +476,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/notification/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/notification/", PushPriority.high),
             ])
         )
         yield self.commit()
@@ -698,7 +700,7 @@ class CommonTests(CommonCommonTests):
         calendarProperties = (yield home.calendarWithName(name)).properties()
         self.assertEqual(len(calendarProperties), 0)
         # notify is called prior to commit
-        self.assertTrue("/CalDAV/example.com/home1/" in self.notifierFactory.history)
+        self.assertTrue(("/CalDAV/example.com/home1/", PushPriority.high) in self.notifierFactory.history)
         yield self.commit()
 
         # Make sure it's available in a new transaction; i.e. test the commit.
@@ -741,10 +743,10 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/calendar_1/",
-                "/CalDAV/example.com/home1/calendar_2/",
-                "/CalDAV/example.com/home1/calendar_empty/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_2/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_empty/", PushPriority.high),
             ])
         )
 
@@ -918,8 +920,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/calendar_1/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
             ])
         )
         yield self.commit()
@@ -1474,8 +1476,8 @@ END:VCALENDAR
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/calendar_1/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
             ])
         )
         yield self.commit()
@@ -1593,8 +1595,8 @@ END:VCALENDAR
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/calendar_1/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
             ])
         )
         yield self.commit()
