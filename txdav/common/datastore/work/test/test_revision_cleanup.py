@@ -25,6 +25,7 @@ from twistedcaldav.vcard import Component as VCard
 from txdav.common.datastore.sql_tables import  schema, _BIND_MODE_READ
 from txdav.common.datastore.test.util import buildStore, CommonCommonTests
 from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWork
+from txdav.common.icommondatastore import SyncTokenValidException
 import datetime
 
 
@@ -212,25 +213,17 @@ END:VCARD
         otherAB = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertNotEqual(otherAB._bindRevision, 0)
 
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(0)
-        self.assertNotEqual(len(changed), 0)
-        self.assertEqual(len(deleted), 0)
-
         changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
         self.assertEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
 
-        # TODO:  Change the groups
-
         otherHome = yield self.addressbookHomeUnderTest(name="user02")
         for depth in ("1", "infinity",):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
-            self.assertNotEqual(len(changed), 0)
-            self.assertEqual(len(deleted), 0)
-
             changed, deleted = yield otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
+
+        yield self.commit()
 
         # Get the minimum valid revision
         cs = schema.CALENDARSERVER
@@ -242,12 +235,12 @@ END:VCARD
         self.assertEqual(minValidRevision, 1)
 
         # queue work items
-        work = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
+        wp = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
 
-        yield self.abort()
+        yield self.commit()
 
         # Wait for it to complete
-        yield work.whenExecuted()
+        yield wp.whenExecuted()
 
         # Get the minimum valid revision again
         cs = schema.CALENDARSERVER
@@ -256,8 +249,11 @@ END:VCARD
             From=cs,
             Where=(cs.NAME == "MIN-VALID-REVISION")
         ).on(self.transactionUnderTest()))[0][0])
-        print("test_sharedRevisions minValidRevision=%s" % (minValidRevision,))
         self.assertNotEqual(minValidRevision, 1)
+
+        otherHome = yield self.addressbookHomeUnderTest(name="user02")
+        for depth in ("1", "infinity",):
+            self.failUnlessFailure(otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth), SyncTokenValidException)
 
 
     @inlineCallbacks
