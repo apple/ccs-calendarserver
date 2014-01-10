@@ -73,7 +73,8 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
     ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
     InvalidDefaultCalendar, \
-    InvalidAttachmentOperation, DuplicatePrivateCommentsError
+    InvalidAttachmentOperation, DuplicatePrivateCommentsError, \
+    InvalidSplit
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -3421,6 +3422,40 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
+    def splitAt(self, rid):
+        """
+        User initiated split. We need to verify it is OK to do so first. We will allow any recurring item to
+        be split, but will not allow attendees to split invites.
+
+        @param rid: the date-time where the split should occur. This need not be a specific instance
+            date-time - this method will choose the next instance on or after this value.
+        @type rid: L{DateTime}
+        """
+
+        # Must be recurring
+        component = yield self.component()
+        if not component.isRecurring():
+            raise InvalidSplit()
+
+        # Cannot be attendee
+        ownerPrincipal = self.calendar().ownerHome().directoryRecord()
+        organizer = component.getOrganizer()
+        organizerPrincipal = self.directoryService().recordWithCalendarUserAddress(organizer) if organizer else None
+        if organizer is not None and organizerPrincipal.uid != ownerPrincipal.uid:
+            raise InvalidSplit()
+
+        # Determine valid split point
+        splitter = iCalSplitter(1024, 14)
+        rid = splitter.whereSplit(component, break_point=rid, allow_past_the_end=False)
+        if rid is None:
+            raise InvalidSplit()
+
+        # Do split and return new resource
+        olderObject = yield self.split(rid=rid)
+        returnValue(olderObject)
+
+
+    @inlineCallbacks
     def split(self, onlyThis=False, rid=None, olderUID=None):
         """
         Split this and all matching UID calendar objects as per L{iCalSplitter}.
@@ -3463,8 +3498,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Now process this resource, but do implicit scheduling for attendees not hosted on this server.
         # We need to do this before processing attendee copies.
         calendar_old, calendar_new = splitter.split(calendar, rid=rid, olderUID=olderUID)
-        calendar_new.bumpiTIPInfo(oldcalendar=calendar, doSequence=True)
-        calendar_old.bumpiTIPInfo(oldcalendar=None, doSequence=True)
+        if calendar_new.getOrganizer() is not None:
+            calendar_new.bumpiTIPInfo(oldcalendar=calendar, doSequence=True)
+            calendar_old.bumpiTIPInfo(oldcalendar=None, doSequence=True)
 
         # If the split results in nothing either resource, then there is really nothing
         # to actually split
@@ -3473,7 +3509,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Store changed data
         yield self._setComponentInternal(calendar_new, internal_state=ComponentUpdateState.SPLIT_OWNER, split_details=(rid, olderUID, True,))
-        yield self.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (olderUID,), calendar_old, ComponentUpdateState.SPLIT_OWNER, split_details=(rid, newerUID, False,))
+        olderObject = yield self.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (olderUID,), calendar_old, ComponentUpdateState.SPLIT_OWNER, split_details=(rid, newerUID, False,))
 
         # Split each one - but not this resource
         for resource in resources:
@@ -3481,7 +3517,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 continue
             yield resource.splitForAttendee(rid, olderUID)
 
-        returnValue(olderUID)
+        returnValue(olderObject)
 
 
     @inlineCallbacks

@@ -76,6 +76,10 @@ calendarserver_home_sync_compliance = (
     "calendarserver-home-sync",
 )
 
+calendarserver_recurrence_split = (
+    "calendarserver-recurrence-split",
+)
+
 
 @registerElement
 class TwistedCalendarSupportedComponents (WebDAVTextElement):

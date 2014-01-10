@@ -1523,6 +1523,7 @@ def _updateScheduling(configDict, reloading=False):
                         (direction,))
 
 
+
 def _updateSharing(configDict, reloading=False):
     #
     # Sharing
@@ -1531,6 +1532,7 @@ def _updateSharing(configDict, reloading=False):
     # Transfer configured non-per-user property names to PerUserDataFilter
     for propertyName in configDict.Sharing.Calendars.IgnorePerUserProperties:
         PerUserDataFilter.IGNORE_X_PROPERTIES.append(propertyName)
+
 
 
 def _updateServers(configDict, reloading=False):
@@ -1573,6 +1575,7 @@ def _updateCompliance(configDict, reloading=False):
             compliance += customxml.calendarserver_partstat_changes_compliance
         if configDict.EnableTimezonesByReference:
             compliance += caldavxml.caldav_timezones_by_reference_compliance
+        compliance += customxml.calendarserver_recurrence_split
     else:
         compliance = ()
 

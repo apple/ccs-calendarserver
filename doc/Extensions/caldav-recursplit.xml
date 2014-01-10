@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../rfc2629.xslt"?>
+<!DOCTYPE rfc SYSTEM 'rfc2629.dtd' [
+<!ENTITY rfc2119 PUBLIC '' 'bibxml/reference.RFC.2119.xml'>
+<!ENTITY rfc5545 PUBLIC '' 'bibxml/reference.RFC.5545.xml'>
+<!ENTITY rfc5546 PUBLIC '' 'bibxml/reference.RFC.5546.xml'>
+<!ENTITY rfc4791 PUBLIC '' 'bibxml/reference.RFC.4791.xml'>
+<!ENTITY rfc6638 PUBLIC '' 'bibxml/reference.RFC.6638.xml'>
+<!ENTITY idPreferHeader SYSTEM 'http://xml.resource.org/public/rfc/bibxml3/reference.I-D.snell-http-prefer.xml'>
+]> 
+<?rfc toc="yes"?>
+<?rfc tocdepth="4"?>
+<?rfc strict="yes"?>
+<?rfc comments="yes"?>
+<?rfc inline="yes"?>
+<?rfc symrefs="yes"?>
+<?rfc sortrefs="yes"?>
+<?rfc compact="yes"?>
+<?rfc subcompact="no"?>
+<?rfc private="Calendar Server Extension"?>
+<rfc ipr="none" docName='caldav-recursplit-00'>
+    <front>
+        <title abbrev="CalDAV Recurrence Splitting">Smart Splitting of Recurring Events in CalDAV</title> 
+        <author initials="C." surname="Daboo" fullname="Cyrus Daboo">
+            <organization abbrev="Apple">
+                Apple Inc.
+            </organization>
+            <address>
+                <postal>
+                    <street>1 Infinite Loop</street>
+                    <city>Cupertino</city>
+                    <region>CA</region>
+                    <code>95014</code> 
+                    <country>USA</country>
+                </postal>
+                <email>cyrus@daboo.name</email>
+                <uri>http://www.apple.com/</uri>
+            </address>
+        </author>
+        <date />
+        <abstract>
+            <t>
+                This document defines an extension to CalDAV that allows calendar clients to split recurring events on the server in such a way as to preserve the original per-attendee data, such as alarms and participation status.
+            </t>
+        </abstract>
+    </front>
+    <middle>
+        <section title='Introduction'>
+            <t>
+                Internet calendaring and scheduling standards are defined by <xref target="RFC5545">iCalendar</xref> and <xref target="RFC5546">iTIP</xref>. The <xref target="RFC4791">CalDAV Access</xref> standard defines a way to access calendar data stored on a server, and the <xref target="RFC6638">CalDAV Scheduling</xref> draft defines how scheduling occurs between users of a CalDAV server.
+            </t>
+            <t>
+                When dealing with recurring events defined in iCalendar, it is often necessary for the organizer of the events to apply a change from one of the recurrence instances on into the future (e.g., add a new attendee part way through the series of meetings). iCalendar supports a "RANGE" property parameter on the "RECURRENCE-ID" property that allows for a "THIS-AND-FUTURE" change to an existing set of recurring events. However, the "RANGE" behavior is not always implemented. Instead, clients split the recurring series into two separate events (different UIDs and thus different calendar object resources stored in a CalDAV calendar). One series contains all the instances up to the point where the change is made, and the other contains all the instances from that point onwards. Typically this is done by truncating the recurrence rule in the existing resource and creating a new resource for the ongoing recurrence. However, when done that way, it results in any per-attendee data in the original resource for recurrence instances after the "split point" being lost - i.e., attendee loose all their status for the ongoing instances. What is more, due to the requirements of CalDAV scheduling, the "PARTSTAT" parameter on the "ATTENDEE" properties in the new calendar object resource will be forcibly reset to "NEEDS-ACTION", requiring attendees to re-accept/decline the ongoing recurrence series in the new calendar object resource. This is obviously a poor user experience that needs to be corrected.
+            </t>
+            <t>
+                This specification defines a new CalDAV POST request action that causes the server to split an existing calendar object resource containing a recurring event, into two pieces at a specified "split point", such that per-attendee data and attendee participation status is preserved in the new calendar object resource created by the split. Once that is done, clients can then modify the new resource to make the actual "this-and-future" change that triggers the split.
+            </t>
+            <t>
+              This specification does not cover the case of splitting of scheduled calendar data for attendees not hosted on the CalDAV server. Instead, existing existing procedures for sending iTIP messages have to be used to update the attendee data to account for the split, likely resulting in loss of per-attendee data. A future extension to iTIP might be possible to address that, but is not covered here.
+            </t>
+        </section>
+        <section title='Conventions Used in This Document'>
+            <t>
+                The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in <xref target='RFC2119' />. 
+            </t>
+            <t>
+                When XML element types in the namespaces "DAV:" and "urn:ietf:params:xml:ns:caldav" are referenced in this document outside of the context of an XML fragment, the string "DAV:" and "CALDAV:" will be prefixed to the element type names respectively. 
+            </t>
+            <t>
+                The namespace "http://calendarserver.org/ns/" is used for XML elements defined in this specification.  When XML element types in this namespace are referenced in this document outside of the context of an XML fragment, the string "CS:" will be prefixed to the element type names respectively. 
+            </t>
+            <t>
+                The prefix X-CALENDARSERVER- is used for all iCalendar properties, parameters and enumerated values defined in this extension. 
+            </t>
+        </section>
+        
+        <section title="New behavior">
+          <t>A server supporting the features described in this specification MUST include "calendarserver-recurrence-split" as a field in the DAV response header from an OPTIONS request on a calendar home collection.</t>
+          <t>To split an existing calendar object resource containing a recurring event, a client issues an HTTP POST resource with the request-uri set to the URI of the calendar object resource. The client also includes the following two URI query parameters:
+            <list style='numbers'>
+              <t>"action" set to the value "split"</t>
+              <t>"rid" set to an iCalendar format DATE-TIME value in UTC ("YYYYMMDDTHHMMSSZ" style format).</t>
+            </list>
+            The "action" parameter is used to distinguish this operation from others that might be defined in the future for calendar object resources. The "rid" parameter specified the UTC date-time where the split is to occur. The actual split occurs at the next recurrence instance on or after the "rid" parameter value - the "split point".</t>
+            <t>
+            Client MUST include both parameters in the POST request and MUST ensure a valid date-time value is used. The date-time value MUST NOT be earlier than the start time of the first instance of the recurrence set, and it MUST NOT be later than the start time of the last instance of the recurrence set. If the "rid" parameter value is not of the correct format or missing, the server MUST return a DAV:error response with the CALDAV:valid-rid-parameter pre-condition code. If the "rid" parameter is valid, but outside of the allowed range, or the targeted calendar object resource is not recurring, then the server MUST return a DAV:error response with the CS:invalid-split pre-condition code. The server MUST reject any attempt by an attendee to split their copy of a scheduled calendar object resource - only organizers are allowed to split events.
+          </t>
+          <t>
+            Clients MAY include an HTTP "Prefer" request header including the value "return=representation" (see <xref target='I-D.snell-http-prefer'/>). That instructs the server to return a WebDAV multistatus response containing two responses: one for the targeted resource and one for the new resource created as a result of the split. The multistatus response MUST include the DAV:getetag and CALDAV:calendar-data properties for each resource. In the absence of the "Prefer:return=representation" request header, the server MUST return an HTTP "Split-Component-URL" response header whose value is the URI of the new resource created as a result of the split.
+          </t>
+          <t>
+            When a server receives a valid split request as described above, it does the equivalent of the following:
+            <list style='numbers'>
+              <t>The existing resource is duplicated, preserving any per-user data such as alarms or transparency status.</t>
+              <t>The calendar data in the existing resource is modified as follows:
+                <list style='letters'>
+                  <t>Any overridden components with a "RECURRENCE-ID" property value prior to the split point are removed.</t>
+                  <t>Any "RDATE" or "EXDATE" property values prior to the split point are removed.</t>
+                  <t>Any "RRULE" property that only generates instances prior to the split point is removed.</t>
+                  <t>Any remaining "RRULE" property has its "COUNT" value adjusted by subtracting the number of instances prior to the split point.</t>
+                  <t>The "DTSTART" property of the master instance is adjusted to the value of the first instance of the "RRULE" on or after the split point, or, in the absence of an "RRULE", to the first "RDATE" property value on or after the split point.</t>
+                </list>
+              </t>
+              <t>The calendar data in the new resource is modified as follows:
+                <list style='letters'>
+                  <t>Any overridden components with a "RECURRENCE-ID" property value on or after the split point are removed.</t>
+                  <t>Any "RDATE" or "EXDATE" property values on or after the split point are removed.</t>
+                  <t>Any "RRULE" property that only generates instances on or after the split point is removed.</t>
+                  <t>Any remaining "RRULE" property has an "UNTIL" value applied, with the until value being one second less than the split point.</t>
+                  <t>The "UID" property of all components is changed to (the same) new value.</t>
+                  <t>Attendee participation status MUST NOT be changed.</t>
+                </list>
+              </t>
+              <t>
+                The server MUST add a "RELATED" property, with a "RELTYPE" parameter set to "X-CALENDARSERVER-RECURRENCE-SET", and with its value set to the "UID" property value of the new resource to all components of the existing and new resources, if the existing resource does not contain a "RELATED" property with a "RELTYPE" parameter value set to "X-CALENDARSERVER-RECURRENCE-SET". 
+              </t>
+            </list>
+          </t>
+          <t>
+              When an organizer splits a scheduled event, the server performs the following actions:
+            <list style="numbers">
+              <t>For each attendee hosted on the same server, the server MUST split the attendee's copy of the event in accordance with the split point used by the organizer. In doing so, it MUST preserve any per-attendee state (alarms, transparency, participation status) in the new resource (which also MUST have the same "UID" property value as the organizer's new resource).</t>
+              <t>For each attendee not hosted on the same server, the server will need to send a series of iTIP messages to correctly update the attendee with both the modified (old) resource data and the new resource. This will likely result in loss of per-attendee data such as alarms (though the participation status might be preserved if the calendar user agent processing the new iTIP message for the new resource allows it).</t>
+            </list>
+          </t>
+          <t>
+            Note that, since attendees can be invited to specific instances of a recurring meeting (not necessarily the entire set), it is possible that either the old or new calendar data no longer contains any valid components since the attendee was not invited to the corresponding portions of the original split recurrence. In such cases, the server MUST remove the original resource, or MUST NOT create the new resource.
+          </t>
+          <section title='Example'>
+            <t>Assume the following iCalendar data is stored in the resource with URI "/event.ics":
+            <figure><artwork><![CDATA[BEGIN:VCALENDAR
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20140110T135358Z
+DTSTART:20140101T120000Z
+DURATION:PT1H
+SUMMARY:Example
+UID:DF400028-1223-4D26-92CA-B0ED3CC161F3
+RRULE:FREQ=DAILY;COUNT=20
+END:VEVENT
+END:VCALENDAR
+]]></artwork></figure>
+            </t>
+            <t>
+              The client issues a POST split request to split the recurring event at the instance with date-time "20140110T120000Z":
+        <figure>
+          <preamble>
+            &gt;&gt; Request &lt;&lt;
+          </preamble>
+          <artwork>
+<![CDATA[POST /event.ics?action=split&rid=20140110T120000Z HTTP/1.1
+Host: cal.example.com
+Content-Length: 0
+Prefer: return=representation
+
+]]></artwork> </figure>
+        <figure>
+          <preamble>
+            &gt;&gt; Response &lt;&lt;
+          </preamble>
+          <artwork>
+<![CDATA[HTTP/1.1 207 Multi-Status
+ETag: "5bc9a2b55081eba0a9cd34f742aa1c11"
+Date: Fri, 10 Jan 2014 14:02:20 GMT
+Content-Type: text/xml
+Content-Length: xxxx
+
+<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
+  <response>
+    <href>/event.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"5bc9a2b55081eba0a9cd34f742aa1c11"</getetag>
+        <calendar-data xmlns='urn:ietf:params:xml:ns:caldav'
+>BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:DF400028-1223-4D26-92CA-B0ED3CC161F3
+DTSTART:20140110T120000Z
+DURATION:PT1H
+DTSTAMP:20140110T135358Z
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:E3B9D6D4-E19F-
+ 47AA-9088-1A29A9A7030F
+RRULE:FREQ=DAILY;COUNT=11
+SUMMARY:Example
+END:VEVENT
+END:VCALENDAR
+</calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/event-split.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"8b352ad2e0ca26c99cb205373b3dc34c"</getetag>
+        <calendar-data xmlns='urn:ietf:params:xml:ns:caldav'
+>BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:E3B9D6D4-E19F-47AA-9088-1A29A9A7030F
+DTSTART:20140110T120000Z
+DURATION:PT1H
+DTSTAMP:20140110T135358Z
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:E3B9D6D4-E19F-
+ 47AA-9088-1A29A9A7030F
+RRULE:FREQ=DAILY;UNTIL=20140110T115959Z
+SUMMARY:Example
+END:VEVENT
+END:VCALENDAR
+</calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>
+]]></artwork></figure>
+            </t>
+            <t>
+              The original resource is changed to have a start date-time value of "20140110T120000Z", and the "COUNT" component of the "RRULE" property is adjusted to the value "11" (which represents the number of remaining instances for that event, 9 early instances having been removed). The new resource has the original start date-time value, and its "RRULE" property has an "UNTIL" value one second prior to the split point. Both resources have a "RELATED" property with a "RELTYPE" parameter set to "X-CALENDARSERVER-RECURRENCE-SET" and a value set to the "UID" property value of the new resource.
+            </t>
+          </section>
+        </section>
+
+        <section title='Security Considerations'>
+            <t>This specification does not introduce any more security considerations beyond those already listed in <xref target="RFC5545">iCalendar</xref>, <xref target="RFC5546">iTIP</xref> and <xref target="RFC4791">CalDAV Access</xref> and <xref target="RFC6638">CalDAV Scheduling</xref>.</t>
+        </section>
+        <section title='IANA Considerations'>
+            <t>
+                TBD: new HTTP request header registration.
+            </t>
+        </section>
+    </middle>
+    <back>
+        <references title='Normative References'>
+            &rfc2119;
+            &rfc5545;
+            &rfc5546;
+            &rfc4791;
+            &rfc6638;
+            &idPreferHeader;
+        </references>
+<!--
+<references title='Informative References'>
+</references>
+-->
+        <section title='Acknowledgments'>
+            <t>
+                This specification is the result of discussions between the Apple calendar server and client teams.
+            </t>
+        </section>
+        <!--
+        <section title='Change History'>
+          <t>Changes since -00
+            <list style='numbers'>
+              <t></t>
+            </list>
+          </t>
+        </section>
+        -->
+    </back>
+</rfc>
