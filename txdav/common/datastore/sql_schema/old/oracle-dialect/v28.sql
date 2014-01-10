@@ -30,7 +30,6 @@ create table CALENDAR_HOME_METADATA (
     "QUOTA_USED_BYTES" integer default 0 not null,
     "DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
     "DEFAULT_TASKS" integer default null references CALENDAR on delete set null,
-    "DEFAULT_POLLS" integer default null references CALENDAR on delete set null,
     "ALARM_VEVENT_TIMED" nclob default null,
     "ALARM_VEVENT_ALLDAY" nclob default null,
     "ALARM_VTODO_TIMED" nclob default null,
@@ -347,7 +346,8 @@ create table IMIP_REPLY_WORK (
 create table PUSH_NOTIFICATION_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "PUSH_ID" nvarchar2(255)
+    "PUSH_ID" nvarchar2(255),
+    "PRIORITY" integer not null
 );
 
 create table GROUP_CACHER_POLLING_WORK (
@@ -375,10 +375,6 @@ create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
 
 create index CALENDAR_HOME_METADAT_d55e5548 on CALENDAR_HOME_METADATA (
     DEFAULT_TASKS
-);
-
-create index CALENDAR_HOME_METADAT_910264ce on CALENDAR_HOME_METADATA (
-    DEFAULT_POLLS
 );
 
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (

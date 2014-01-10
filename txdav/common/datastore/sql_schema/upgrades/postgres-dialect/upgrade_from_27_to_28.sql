@@ -18,14 +18,12 @@
 -- Upgrade database schema from VERSION 27 to 28 --
 ---------------------------------------------------
 
--- Calendar home related updates
+-- Push notification work related updates
 
-alter table CALENDAR_HOME_METADATA
- add column DEFAULT_POLLS integer default null references CALENDAR on delete set null;
+alter table PUSH_NOTIFICATION_WORK
+ add column PRIORITY integer default 10 not null;
 
-create index CALENDAR_HOME_METADATA_DEFAULT_POLLS on
-	CALENDAR_HOME_METADATA(DEFAULT_POLLS);
+update PUSH_NOTIFICATION_WORK set PRIORITY = 10;
 
 -- Now update the version
--- No data upgrades
 update CALENDARSERVER set VALUE = '28' where NAME = 'VERSION';
