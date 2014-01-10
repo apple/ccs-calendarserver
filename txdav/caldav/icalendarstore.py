@@ -843,6 +843,13 @@ class QueryMaxResources(CommonStoreError):
 
 
 
+class InvalidSplit(CommonStoreError):
+    """
+    A user triggered split operation is invalid.
+    """
+
+
+
 #
 # FIXME: These may belong elsewhere.
 #

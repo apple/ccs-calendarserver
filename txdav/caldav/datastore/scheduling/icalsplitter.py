@@ -105,8 +105,12 @@ class iCalSplitter(object):
         instances = sorted(instances.instances.values(), key=lambda x: x.start)
         rid = instances[0].rid
         for instance in instances:
-            rid = instance.rid
             if instance.start >= break_point:
+                rid = instance.rid
+
+                # Do not allow a rid prior to the first instance
+                if break_point and rid == instances[0].rid:
+                    rid = None
                 break
         else:
             # We can get here when splitting an event for overrides only in the past,

@@ -3066,7 +3066,8 @@ END:VCALENDAR
         }
         output = StringIO()
         calverify = EventSplitService(self._sqlCalendarStore, options, output, reactor, config)
-        oldUID = yield calverify.doAction()
+        oldObj = yield calverify.doAction()
+        oldUID = oldObj.uid()
 
         relsubs = dict(self.subs)
         relsubs["relID"] = oldUID

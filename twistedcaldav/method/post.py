@@ -22,7 +22,6 @@ CalDAV POST method.
 __all__ = ["http_POST"]
 
 from txweb2 import responsecode
-from txweb2.http import StatusResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -45,13 +44,9 @@ def http_POST(self, request):
         action = request.args.get("action", ("",))
         if len(action) == 1:
             action = action[0]
-            if action in ("attachment-add", "attachment-update", "attachment-remove") and \
-                hasattr(self, "POST_handler_attachment"):
-                if config.EnableManagedAttachments:
-                    result = (yield self.POST_handler_attachment(request, action))
-                    returnValue(result)
-                else:
-                    returnValue(StatusResponse(responsecode.FORBIDDEN, "Managed Attachments not supported."))
+            if hasattr(self, "POST_handler_action"):
+                result = (yield self.POST_handler_action(request, action))
+                returnValue(result)
 
     # Content-type handlers
     contentType = request.headers.getHeader("content-type")
