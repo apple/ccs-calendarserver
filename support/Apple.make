@@ -55,8 +55,8 @@ CS_GROUP = _calendar
 .phony: $(Project) pycalendar build setup prep install install-ossfiles buildit
 
 CALDAVTESTER = CalDAVTester
-PYKERBEROS   = PyKerberos
-PYCALENDAR   = pycalendar
+PYKERBEROS   = PyKerberos-9409
+PYCALENDAR   = PyCalendar-11947
 PYGRESQL     = PyGreSQL-4.1.1
 SQLPARSE     = sqlparse-0.1.2
 SETPROCTITLE = setproctitle-1.1.6
