@@ -55,9 +55,6 @@ from twistedcaldav.notifications import NotificationCollectionResource, Notifica
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
     DefaultAlarmPropertyMixin
 from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
-from twistedcaldav.sharing import invitationBindStatusToXMLMap, \
-    invitationBindModeToXMLMap
-from twistedcaldav.util import bestAcceptType
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
 from txdav.base.propertystore.base import PropertyName

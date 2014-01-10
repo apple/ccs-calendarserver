@@ -21,7 +21,7 @@ import itertools
 from twisted.trial.unittest import SkipTest
 
 from twistedcaldav.ical import Component, Property, InvalidICalendarDataError, \
-    normalizeCUAddress
+    normalizeCUAddress, normalize_iCalStr
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 import twistedcaldav.test.util
 
