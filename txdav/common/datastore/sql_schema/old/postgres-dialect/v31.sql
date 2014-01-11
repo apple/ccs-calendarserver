@@ -1,7 +1,7 @@
 -- -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
 
 ----
--- Copyright (c) 2010-2014 Apple Inc. All rights reserved.
+-- Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -465,12 +465,11 @@ create sequence REVISION_SEQ;
 ---------------------------------
 
 create table ABO_MEMBERS (
-    GROUP_ID   		integer		not null, -- references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID	integer		not null references ADDRESSBOOK_HOME on delete cascade,
-    MEMBER_ID      	integer		not null, -- references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
-  	REVISION        integer   	default nextval('REVISION_SEQ') not null,
-  	REMOVED        	boolean		default false not null,
-	MODIFIED        timestamp	default timezone('UTC', CURRENT_TIMESTAMP),
+    GROUP_ID              integer      not null, -- references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
+ 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
+    MEMBER_ID             integer      not null, -- references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
+  	REVISION              integer      default nextval('REVISION_SEQ') not null,
+  	REMOVED               boolean      default false not null,
 
     primary key (GROUP_ID, MEMBER_ID, REVISION) -- implicit index
 );
@@ -535,8 +534,7 @@ create table CALENDAR_OBJECT_REVISIONS (
   CALENDAR_NAME             varchar(255) default null,
   RESOURCE_NAME             varchar(255),
   REVISION                  integer      default nextval('REVISION_SEQ') not null,
-  DELETED                   boolean      not null,
-  MODIFIED                  timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
+  DELETED                   boolean      not null
 );
 
 create index CALENDAR_OBJECT_REVISIONS_HOME_RESOURCE_ID_CALENDAR_RESOURCE_ID
@@ -554,14 +552,13 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
 ----------------------------------
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
-  ADDRESSBOOK_HOME_RESOURCE_ID 	integer		 not null references ADDRESSBOOK_HOME,
-  OWNER_HOME_RESOURCE_ID    	integer      references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_NAME             	varchar(255) default null,
-  OBJECT_RESOURCE_ID			integer		 default 0,
-  RESOURCE_NAME                	varchar(255),
-  REVISION                     	integer      default nextval('REVISION_SEQ') not null,
-  DELETED                      	boolean   	 not null,
-  MODIFIED                  	timestamp 	 default timezone('UTC', CURRENT_TIMESTAMP)
+  ADDRESSBOOK_HOME_RESOURCE_ID 			integer			not null references ADDRESSBOOK_HOME,
+  OWNER_HOME_RESOURCE_ID    			integer     	references ADDRESSBOOK_HOME,
+  ADDRESSBOOK_NAME             			varchar(255) 	default null,
+  OBJECT_RESOURCE_ID					integer			default 0,
+  RESOURCE_NAME                			varchar(255),
+  REVISION                     			integer     	default nextval('REVISION_SEQ') not null,
+  DELETED                      			boolean      	not null
 );
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_HOME_RESOURCE_ID
@@ -583,7 +580,6 @@ create table NOTIFICATION_OBJECT_REVISIONS (
   RESOURCE_NAME                 varchar(255),
   REVISION                      integer      default nextval('REVISION_SEQ') not null,
   DELETED                       boolean      not null,
-  MODIFIED                  	timestamp	 default timezone('UTC', CURRENT_TIMESTAMP),
 
   unique(NOTIFICATION_HOME_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 );
@@ -706,20 +702,6 @@ create table CALENDAR_OBJECT_SPLITTER_WORK (
 create index CALENDAR_OBJECT_SPLITTER_WORK_RESOURCE_ID on
 	CALENDAR_OBJECT_SPLITTER_WORK(RESOURCE_ID);
 
----------------------------
--- Revision Cleaner Work --
----------------------------
-
-create table FIND_MIN_VALID_REVISION_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
-);
-
-create table REVISION_CLEANUP_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
-);
-
 --------------------
 -- Schema Version --
 --------------------
@@ -729,8 +711,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '33');
+insert into CALENDARSERVER values ('VERSION', '31');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
-insert into CALENDARSERVER values ('MIN-VALID-REVISION', '1');

@@ -1,0 +1,1 @@
+update CALENDARSERVER set VALUE = '32' where NAME = 'VERSION';
