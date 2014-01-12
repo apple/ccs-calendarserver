@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,5 +25,26 @@ limitations under the License.
     <password>example</password>
     <name>Example User</name>
     <email-address>example@example.com</email-address>
+  </user>
+  <user>
+    <uid>example2</uid>
+    <guid>37DB0C90-4DB1-4932-BC69-3DAB66F374F5</guid>
+    <password>example2</password>
+    <name>Example User 2</name>
+    <email-address>example2@example.com</email-address>
+  </user>
+  <user>
+    <uid>home1</uid>
+    <guid>home1</guid>
+    <password>home1</password>
+    <name>Home 1</name>
+    <email-address>home1@example.com</email-address>
+  </user>
+  <user>
+    <uid>home2</uid>
+    <guid>home2</guid>
+    <password>home2</password>
+    <name>Home 2</name>
+    <email-address>home2@example.com</email-address>
   </user>
 </accounts>

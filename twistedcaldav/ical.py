@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_icalendar -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1213,33 +1213,41 @@ class Component (object):
         if master:
             # Check if cut-off matches an RDATE
             adjusted_rid = rid
+            adjust_rrule = None
+            adjust_count = 0
             continuing_rrule = True
-            rdates = set([v.getValue() for v in itertools.chain(*[rdate.value() for rdate in master.properties("RDATE")])])
-            if rid in rdates:
-                # Need to detect the first valid RRULE instance after the cut-off
-                rrules = master._pycalendar.getRecurrenceSet()
-                if rrules and len(rrules.getRules()) != 0:
-                    rrule = rrules.getRules()[0]
-                    upperlimit = rid.duplicate()
-                    upperlimit.offsetYear(1)
-                    rrule_expanded = []
-                    rrule.expand(
-                        master.propertyValue("DTSTART"),
-                        Period(DateTime(1900, 1, 1), upperlimit),
-                        rrule_expanded,
-                    )
-                    for i in sorted(rrule_expanded):
-                        if i > rid:
-                            adjusted_rid = i
-                            break
-                    else:
-                        # RRULE not needed in derived master
-                        continuing_rrule = False
+
+            # Need to detect the first valid RRULE instance after the cut-off as that needs to be the new DTSTART
+            rrules = master._pycalendar.getRecurrenceSet()
+            if rrules and len(rrules.getRules()) != 0:
+                rrule = rrules.getRules()[0]
+                upperlimit = rid.duplicate()
+                upperlimit.offsetYear(1)
+                rrule_expanded = []
+                rrule.expand(
+                    master.propertyValue("DTSTART"),
+                    Period(DateTime(1900, 1, 1), upperlimit),
+                    rrule_expanded,
+                )
+                for ctr, i in enumerate(sorted(rrule_expanded)):
+                    if i >= rid:
+                        adjusted_rid = i
+                        adjust_rrule = rrule
+                        adjust_count = ctr
+                        break
+                else:
+                    # RRULE not needed in derived master
+                    continuing_rrule = False
 
             # Adjust master to previously derived instance
             derived = self.deriveInstance(adjusted_rid, allowExcluded=True)
             if derived is None:
                 return
+
+            # Adjust any COUNT to exclude the earlier instances - note we do this after
+            # deriving the instance otherwise it might truncate the instance we care about
+            if adjust_rrule is not None and rrule.getUseCount():
+                adjust_rrule.setCount(adjust_rrule.getCount() - adjust_count)
 
             # Fix up recurrence properties so the derived one looks like the master
             derived.removeProperty(derived.getProperty("RECURRENCE-ID"))
@@ -3645,7 +3653,7 @@ def normalize_iCalStr(icalstr):
     icalstr = str(icalstr).replace("\r\n ", "")
     icalstr = icalstr.replace("\n ", "")
     icalstr = "\r\n".join([line for line in icalstr.splitlines() if not line.startswith("DTSTAMP")])
-    return icalstr
+    return icalstr + "\r\n"
 
 
 

@@ -1,5 +1,5 @@
 ----
--- Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+-- Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -18,13 +18,11 @@
 -- Upgrade database schema from VERSION 26 to 27 --
 ---------------------------------------------------
 
--- Calendar home related updates
+-- New index
 
-alter table CALENDAR_HOME_METADATA
- add column DEFAULT_POLLS integer default null references CALENDAR on delete set null;
+create index ATTACHMENT_DROPBOX_ID on
+  ATTACHMENT(DROPBOX_ID);
 
-create index CALENDAR_HOME_METADATA_DEFAULT_POLLS on
-	CALENDAR_HOME_METADATA(DEFAULT_POLLS);
 
 -- Now update the version
 -- No data upgrades

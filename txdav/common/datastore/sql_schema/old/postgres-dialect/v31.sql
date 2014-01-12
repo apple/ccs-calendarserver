@@ -1,7 +1,7 @@
 -- -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
 
 ----
--- Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+-- Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -344,6 +344,9 @@ create table ATTACHMENT (
 
 create index ATTACHMENT_CALENDAR_HOME_RESOURCE_ID on
   ATTACHMENT(CALENDAR_HOME_RESOURCE_ID);
+
+create index ATTACHMENT_DROPBOX_ID on
+  ATTACHMENT(DROPBOX_ID);
 
 -- Many-to-many relationship between attachments and calendar objects
 create table ATTACHMENT_CALENDAR_OBJECT (

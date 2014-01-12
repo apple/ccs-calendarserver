@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -806,16 +806,6 @@ class PurgePrincipalTests(StoreTestCase):
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.DirectoryService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "purge", "accounts.xml"
-            )
-        )
-        self.patch(config.ResourceService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "purge", "resources.xml"
-            )
-        )
         yield super(PurgePrincipalTests, self).setUp()
 
         txn = self._sqlCalendarStore.newTransaction()
@@ -848,6 +838,20 @@ class PurgePrincipalTests(StoreTestCase):
         calendar1 = (yield home2.childWithName(self.sharedName2))
         self.assertNotEquals(calendar1, None)
         (yield txn.commit())
+
+
+    def configure(self):
+        super(PurgePrincipalTests, self).configure()
+        self.patch(config.DirectoryService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "accounts.xml"
+            )
+        )
+        self.patch(config.ResourceService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "resources.xml"
+            )
+        )
 
 
     @inlineCallbacks

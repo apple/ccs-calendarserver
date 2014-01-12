@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1693,11 +1693,9 @@ class CalDAVServiceMaker (object):
                 raise StoreNotAvailable()
 
             from twisted.internet import reactor
-            pool = PeerConnectionPool(reactor, store.newTransaction,
-                                      7654, schema)
+            pool = PeerConnectionPool(reactor, store.newTransaction, config.WorkQueue.ampPort, schema)
             store.queuer = store.queuer.transferProposalCallbacks(pool)
-            controlSocket.addFactory(_QUEUE_ROUTE,
-                                     pool.workerListenerFactory())
+            controlSocket.addFactory(_QUEUE_ROUTE, pool.workerListenerFactory())
             # TODO: now that we have the shared control socket, we should get
             # rid of the connection dispenser and make a shared / async
             # connection pool implementation that can dispense transactions

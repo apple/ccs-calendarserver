@@ -1,7 +1,7 @@
 # -*- sh-basic-offset: 2 -*-
 
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -847,7 +847,7 @@ dependencies () {
   local n="pycrypto";
   local p="${n}-${v}";
   py_dependency -v "${v}" -m "55a61a054aa66812daf5161a0d5d7eda" \
-    "PyCrypto" "${n}" "${p}" \
+    "PyCrypto" "Crypto" "${p}" \
     "http://ftp.dlitz.net/pub/dlitz/crypto/${n}/${p}.tar.gz";
 
   local v="0.1.7";
@@ -864,7 +864,7 @@ dependencies () {
     "${n}" "twisted" "${p}" \
     "${pypi}/T/${n}/${p}.tar.bz2";
 
-  local v="12094";
+  local v="12213";
   local n="twext";
   local p="${n}-${v}";
   py_dependency -fe -r "${v}" \
@@ -951,7 +951,7 @@ dependencies () {
   local n="Nevow";
   local p="${n}-${v}";
   py_dependency -o -m "66dda2ad88f42dea05911add15f4d1b2" \
-    "${n}" "${n}" "${p}" \
+    "${n}" "nevow" "${p}" \
     "${pypi}/N/${n}/${p}.tar.gz";
 
   local v="0.5b1";

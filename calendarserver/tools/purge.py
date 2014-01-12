@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_purge -*-
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,9 @@ from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import caldavxml
-from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.directory.directory import DirectoryRecord
-from twistedcaldav.query import calendarqueryfilter
 
+from txdav.caldav.datastore.query.filter import Filter
 from txdav.xml import element as davxml
 
 
@@ -817,13 +816,13 @@ class PurgePrincipalService(WorkerService):
         query_filter = caldavxml.Filter(
               caldavxml.ComponentFilter(
                   caldavxml.ComponentFilter(
-                      TimeRange(start=whenString,),
+                      caldavxml.TimeRange(start=whenString,),
                       name=("VEVENT",),
                   ),
                   name="VCALENDAR",
                )
           )
-        query_filter = calendarqueryfilter.Filter(query_filter)
+        query_filter = Filter(query_filter)
 
         count = 0
         txn = self.store.newTransaction()
@@ -844,7 +843,7 @@ class PurgePrincipalService(WorkerService):
                     childNames.append(childName)
             else:
                 # events matching filter
-                for childName, _ignore_childUid, _ignore_childType in (yield calendar._index.indexedSearch(query_filter)):
+                for childName, _ignore_childUid, _ignore_childType in (yield calendar.search(query_filter)):
                     childNames.append(childName)
             yield txn.commit()
 

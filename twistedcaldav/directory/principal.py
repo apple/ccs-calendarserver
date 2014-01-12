@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_principal -*-
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -919,6 +919,23 @@ class DirectoryPrincipalResource (
             returnValue(True)
 
         returnValue(False)
+
+
+    @inlineCallbacks
+    def proxyMode(self, principal):
+        """
+        Determine whether what proxy mode this principal has in relation to the one specified.
+        """
+
+        read_uids = (yield self.proxyFor(False))
+        if principal in read_uids:
+            returnValue("read")
+
+        write_uids = (yield self.proxyFor(True))
+        if principal in write_uids:
+            returnValue("write")
+
+        returnValue("none")
 
 
     @inlineCallbacks

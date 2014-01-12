@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,6 +74,10 @@ calendarserver_partstat_changes_compliance = (
 
 calendarserver_home_sync_compliance = (
     "calendarserver-home-sync",
+)
+
+calendarserver_recurrence_split = (
+    "calendarserver-recurrence-split",
 )
 
 

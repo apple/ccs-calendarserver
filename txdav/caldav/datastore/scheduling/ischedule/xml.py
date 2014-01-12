@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -259,14 +259,18 @@ class CalendarData (WebDAVTextElement):
 
 
     @classmethod
-    def fromCalendar(clazz, calendar):
+    def fromCalendar(clazz, calendar, format=None):
+        attrs = {}
+        if format is not None and format != "text/calendar":
+            attrs["content-type"] = format
+
         if isinstance(calendar, str):
             if not calendar:
                 raise ValueError("Missing calendar data")
             return clazz(PCDATAElement(calendar))
         elif isinstance(calendar, iComponent):
             assert calendar.name() == "VCALENDAR", "Not a calendar: %r" % (calendar,)
-            return clazz(PCDATAElement(calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference)))
+            return clazz(PCDATAElement(calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference, format=format)))
         else:
             raise ValueError("Not a calendar: %s" % (calendar,))
 

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.sql import PropertyStore
-from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_EXTERNAL
 from twisted.python.failure import Failure
 
 log = Logger()
@@ -134,7 +134,7 @@ def updateNotificationDataVersion(store, version):
 
 
 @inlineCallbacks
-def doToEachHomeNotAtVersion(store, homeSchema, version, doIt, logStr, filterOwnerUID=None):
+def doToEachHomeNotAtVersion(store, homeSchema, version, doIt, logStr, filterOwnerUID=None, processExternal=False):
     """
     Do something to each home whose version column indicates it is older
     than the specified version. Do this in batches as there may be a lot of work to do. Also,
@@ -161,7 +161,7 @@ def doToEachHomeNotAtVersion(store, homeSchema, version, doIt, logStr, filterOwn
         txn = store.newTransaction("updateDataVersion")
         try:
             rows = yield Select(
-                [homeSchema.RESOURCE_ID, homeSchema.OWNER_UID, ],
+                [homeSchema.RESOURCE_ID, homeSchema.OWNER_UID, homeSchema.STATUS, ],
                 From=homeSchema,
                 Where=where,
                 OrderBy=homeSchema.OWNER_UID,
@@ -173,9 +173,10 @@ def doToEachHomeNotAtVersion(store, homeSchema, version, doIt, logStr, filterOwn
                 logUpgradeStatus("End {}".format(logStr), count, total)
                 returnValue(None)
 
-            # Apply to the home
-            homeResourceID, _ignore_owner_uid = rows[0]
-            yield doIt(txn, homeResourceID)
+            # Apply to the home if not external
+            homeResourceID, _ignore_owner_uid, homeStatus = rows[0]
+            if homeStatus != _HOME_STATUS_EXTERNAL or processExternal:
+                yield doIt(txn, homeResourceID)
 
             # Update the home to the current version
             yield Update(

@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.common.datastore.test.test_sql_tables -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -132,6 +132,15 @@ def _schemaConstants(nameColumn, valueColumn):
 
 
 # Various constants
+
+_homeStatus = _schemaConstants(
+    schema.HOME_STATUS.DESCRIPTION,
+    schema.HOME_STATUS.ID
+)
+
+
+_HOME_STATUS_NORMAL = _homeStatus('normal')
+_HOME_STATUS_EXTERNAL = _homeStatus('external')
 
 _bindStatus = _schemaConstants(
     schema.CALENDAR_BIND_STATUS.DESCRIPTION,

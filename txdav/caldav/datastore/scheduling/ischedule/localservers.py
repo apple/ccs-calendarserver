@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -84,6 +84,12 @@ class ServersDB(object):
         self._thisServer = None
 
 
+    def addServer(self, server):
+        self._servers[server.id] = server
+        if server.thisServer:
+            self._thisServer = server
+
+
     def getServerById(self, id):
         return self._servers.get(id)
 
@@ -125,14 +131,20 @@ class Server(object):
     Represents a server.
     """
 
-    def __init__(self):
-        self.id = None
-        self.uri = None
-        self.thisServer = False
+    def __init__(self, id=None, uri=None, sharedSecret=None, thisServer=False):
+        self.id = id
+        self.uri = uri
+        self.thisServer = thisServer
         self.ips = set()
         self.allowed_from_ips = set()
-        self.shared_secret = None
+        self.shared_secret = sharedSecret
         self.isImplicit = True
+
+
+    def details(self):
+        if not hasattr(self, "ssl"):
+            self._parseDetails()
+        return (self.ssl, self.host, self.port, self.path,)
 
 
     def check(self, ignoreIPLookupFailures=False):
@@ -213,6 +225,27 @@ class Server(object):
         Return a tuple of header name, header value
         """
         return (SERVER_SECRET_HEADER, self.shared_secret,)
+
+
+    def _parseDetails(self):
+        # Extract scheme, host, port and path
+        if self.uri.startswith("http://"):
+            self.ssl = False
+            rest = self.uri[7:]
+        elif self.uri.startswith("https://"):
+            self.ssl = True
+            rest = self.uri[8:]
+
+        splits = rest.split("/", 1)
+        hostport = splits[0].split(":")
+        self.host = hostport[0]
+        if len(hostport) > 1:
+            self.port = int(hostport[1])
+        else:
+            self.port = {False: 80, True: 443}[self.ssl]
+        self.path = "/"
+        if len(splits) > 1:
+            self.path += splits[1]
 
 
 

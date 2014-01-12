@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_index -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 
 """
 CalDAV Index.
@@ -43,12 +44,14 @@ from twisted.internet.defer import maybeDeferred, succeed
 
 from twext.python.log import Logger
 
+from txdav.caldav.datastore.query.builder import buildExpression
+from txdav.caldav.datastore.query.filter import Filter
+from txdav.common.datastore.query.filegenerator import sqllitegenerator
 from txdav.common.icommondatastore import SyncTokenValidException, \
     ReservationError, IndexedSearchException
 
 from twistedcaldav.dateops import pyCalendarTodatetime
 from twistedcaldav.ical import Component
-from twistedcaldav.query import calendarquery, calendarqueryfilter
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
 from twistedcaldav.instance import InvalidOverriddenInstanceError
@@ -275,6 +278,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
 
         changed = []
         deleted = []
+        invalid = []
         for name, wasdeleted in results:
             if name:
                 if wasdeleted == 'Y':
@@ -285,7 +289,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
             else:
                 raise SyncTokenValidException
 
-        return changed, deleted,
+        return (changed, deleted, invalid)
 
 
     def lastRevision(self):
@@ -320,7 +324,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
 
         # Make sure we have a proper Filter element and get the partial SQL
         # statement to use.
-        if isinstance(filter, calendarqueryfilter.Filter):
+        if isinstance(filter, Filter):
             if fbtype:
                 # Lookup the useruid - try the empty (default) one if needed
                 dbuseruid = self._db_value_for_sql(
@@ -330,7 +334,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
             else:
                 dbuseruid = ""
 
-            qualifiers = calendarquery.sqlcalendarquery(filter, None, dbuseruid, fbtype)
+            qualifiers = sqlcalendarquery(filter, None, dbuseruid, fbtype)
             if qualifiers is not None:
                 # Determine how far we need to extend the current expansion of
                 # events. If we have an open-ended time-range we will expand one
@@ -434,6 +438,24 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         @param uid: the uid of the resource to delete.
         """
         raise NotImplementedError
+
+
+
+def sqlcalendarquery(filter, calendarid=None, userid=None, freebusy=False):
+    """
+    Convert the supplied calendar-query into a partial SQL statement.
+
+    @param filter: the L{Filter} for the calendar-query to convert.
+    @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the partial SQL statement,
+            and the C{list} is the list of argument substitutions to use with the SQL API execute method.
+            Or return C{None} if it is not possible to create an SQL query to fully match the calendar-query.
+    """
+    try:
+        expression = buildExpression(filter, sqllitegenerator.FIELDS)
+        sql = sqllitegenerator(expression, calendarid, userid, freebusy)
+        return sql.generate()
+    except ValueError:
+        return None
 
 
 

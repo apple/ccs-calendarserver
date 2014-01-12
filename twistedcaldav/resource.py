@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_resource,twistedcaldav.test.test_wrapping -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -2667,10 +2667,9 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
     @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
         # The newstore implementation supports this directly
-        changed, deleted = yield self._newStoreHome.resourceNamesSinceToken(
+        changed, deleted, notallowed = yield self._newStoreHome.resourceNamesSinceToken(
             revision, depth
         )
-        notallowed = []
 
         # Need to insert some addition items on first sync
         if revision == 0:
@@ -2894,10 +2893,9 @@ class AddressBookHomeResource (CommonHomeResource):
     @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
         # The newstore implementation supports this directly
-        changed, deleted = yield self._newStoreHome.resourceNamesSinceToken(
+        changed, deleted, notallowed = yield self._newStoreHome.resourceNamesSinceToken(
             revision, depth
         )
-        notallowed = []
 
         # Need to insert some addition items on first sync
         if revision == 0:

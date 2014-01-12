@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ from twistedcaldav.sharing import WikiDirectoryService
 from twistedcaldav.test.test_cache import StubResponseCacheResource
 from twistedcaldav.test.util import norequest, StoreTestCase, SimpleStoreRequest
 
+from txdav.caldav.datastore.test.util import buildDirectory
 from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT
 from txdav.xml import element as davxml
 from txdav.xml.parser import WebDAVDocument
@@ -738,6 +739,8 @@ class SharingTests(StoreTestCase):
         home is at /.  Return the name of the newly shared calendar in the
         sharee's home.
         """
+
+        self._sqlCalendarStore._directoryService = buildDirectory(homes=("wiki-testing",))
         wcreate = self._sqlCalendarStore.newTransaction("create wiki")
         yield wcreate.calendarHomeWithUID("wiki-testing", create=True)
         yield wcreate.commit()

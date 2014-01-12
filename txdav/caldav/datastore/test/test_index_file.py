@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.internet.task import deferLater
 
 from txdav.caldav.datastore.index_file import Index, MemcachedUIDReserver
+from txdav.caldav.datastore.query.filter import Filter
 from txdav.common.icommondatastore import ReservationError, \
     InternalDataStoreError
 
@@ -26,7 +27,6 @@ from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.ical import Component, InvalidICalendarDataError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
-from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
 import twistedcaldav.test.util
 
@@ -480,7 +480,7 @@ END:VCALENDAR
                       name="VCALENDAR",
                    )
               )
-            filter = calendarqueryfilter.Filter(filter)
+            filter = Filter(filter)
 
             resources = yield self.db.indexedSearch(filter)
             index_results = set()
@@ -666,7 +666,7 @@ END:VCALENDAR
                       name="VCALENDAR",
                    )
               )
-            filter = calendarqueryfilter.Filter(filter)
+            filter = Filter(filter)
 
             resources = yield self.db.indexedSearch(filter, fbtype=True)
             index_results = set()
@@ -1073,7 +1073,7 @@ END:VCALENDAR
                       name="VCALENDAR",
                    )
               )
-            filter = calendarqueryfilter.Filter(filter)
+            filter = Filter(filter)
 
             for useruid, instances in peruserinstances:
                 resources = yield self.db.indexedSearch(filter, useruid=useruid, fbtype=True)
@@ -1142,12 +1142,12 @@ END:VCALENDAR
         self.db.deleteResource("data3.ics")
 
         tests = (
-            (0, (["data1.ics", "data2.ics", ], [],)),
-            (1, (["data2.ics", ], ["data3.ics", ],)),
-            (2, ([], ["data3.ics", ],)),
-            (3, ([], ["data3.ics", ],)),
-            (4, ([], [],)),
-            (5, ([], [],)),
+            (0, (["data1.ics", "data2.ics", ], [], [],)),
+            (1, (["data2.ics", ], ["data3.ics", ], [],)),
+            (2, ([], ["data3.ics", ], [],)),
+            (3, ([], ["data3.ics", ], [],)),
+            (4, ([], [], [],)),
+            (5, ([], [], [],)),
         )
 
         for revision, results in tests:

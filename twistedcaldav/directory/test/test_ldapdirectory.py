@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,9 +23,13 @@ try:
     )
     from twistedcaldav.directory.util import splitIntoBatches
     from twistedcaldav.test.util import proxiesFile
-    from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
+    from twistedcaldav.directory.calendaruserproxyloader import (
+        XMLCalendarUserProxyLoader
+    )
     from twistedcaldav.directory import calendaruserproxy
-    from twistedcaldav.directory.directory import GroupMembershipCache, GroupMembershipCacheUpdater
+    from twistedcaldav.directory.directory import (
+        GroupMembershipCache, GroupMembershipCacheUpdater
+    )
     from twisted.internet.defer import inlineCallbacks
     from string import maketrans
     import ldap
@@ -38,79 +42,79 @@ else:
 
         def test_buildFilter(self):
             mapping = {
-                "recordName" : "uid",
-                "fullName" : "cn",
-                "emailAddresses" : "mail",
-                "firstName" : "givenName",
-                "lastName" : "sn",
-                "guid" : "generateduid",
-                "memberIDAttr" : "generateduid",
+                "recordName": "uid",
+                "fullName": "cn",
+                "emailAddresses": "mail",
+                "firstName": "givenName",
+                "lastName": "sn",
+                "guid": "generateduid",
+                "memberIDAttr": "generateduid",
             }
 
             entries = [
                 {
-                    "fields" : [
+                    "fields": [
                         ("fullName", "mor", True, u"starts-with"),
                         ("emailAddresses", "mor", True, u"starts-with"),
                         ("firstName", "mor", True, u"starts-with"),
                         ("lastName", "mor", True, u"starts-with")
                     ],
-                    "operand" : "or",
-                    "recordType" : "users",
-                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=mor*)(mail=mor*)(givenName=mor*)(sn=mor*)))",
-                    "optimize" : False,
+                    "operand": "or",
+                    "recordType": "users",
+                    "expected": "(&(uid=*)(generateduid=*)(|(cn=mor*)(mail=mor*)(givenName=mor*)(sn=mor*)))",
+                    "optimize": False,
                 },
                 {
-                    "fields" : [
+                    "fields": [
                         ("fullName", "mor(", True, u"starts-with"),
                         ("emailAddresses", "mor)", True, u"contains"),
                         ("firstName", "mor*", True, u"exact"),
                         ("lastName", "mor\\", True, u"starts-with")
                     ],
-                    "operand" : "or",
-                    "recordType" : "users",
-                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=mor\\28*)(mail=*mor\\29*)(givenName=mor\\2a)(sn=mor\\5c*)))",
-                    "optimize" : False,
+                    "operand": "or",
+                    "recordType": "users",
+                    "expected": "(&(uid=*)(generateduid=*)(|(cn=mor\\28*)(mail=*mor\\29*)(givenName=mor\\2a)(sn=mor\\5c*)))",
+                    "optimize": False,
                 },
                 {
-                    "fields" : [
+                    "fields": [
                         ("fullName", "mor", True, u"starts-with"),
                     ],
-                    "operand" : "or",
-                    "recordType" : "users",
-                    "expected" : "(&(uid=*)(generateduid=*)(cn=mor*))",
-                    "optimize" : False,
+                    "operand": "or",
+                    "recordType": "users",
+                    "expected": "(&(uid=*)(generateduid=*)(cn=mor*))",
+                    "optimize": False,
                 },
                 {
-                    "fields" : [
+                    "fields": [
                         ("fullName", "mor", True, u"contains"),
                         ("emailAddresses", "mor", True, u"equals"),
                         ("invalid", "mor", True, u"starts-with"),
                     ],
-                    "operand" : "and",
-                    "recordType" : "users",
-                    "expected" : "(&(uid=*)(generateduid=*)(&(cn=*mor*)(mail=mor)))",
-                    "optimize" : False,
+                    "operand": "and",
+                    "recordType": "users",
+                    "expected": "(&(uid=*)(generateduid=*)(&(cn=*mor*)(mail=mor)))",
+                    "optimize": False,
                 },
                 {
-                    "fields" : [
+                    "fields": [
                         ("invalid", "mor", True, u"contains"),
                         ("invalid", "mor", True, u"starts-with"),
                     ],
-                    "operand" : "and",
-                    "recordType" : "users",
-                    "expected" : None,
-                    "optimize" : False,
+                    "operand": "and",
+                    "recordType": "users",
+                    "expected": None,
+                    "optimize": False,
                 },
                 {
-                    "fields" : [ ],
-                    "operand" : "and",
-                    "recordType" : "users",
-                    "expected" : None,
-                    "optimize" : False,
+                    "fields": [],
+                    "operand": "and",
+                    "recordType": "users",
+                    "expected": None,
+                    "optimize": False,
                 },
                 {
-                    "fields" : [
+                    "fields": [
                         ("fullName", "mor", True, u"starts-with"),
                         ("fullName", "sag", True, u"starts-with"),
                         ("emailAddresses", "mor", True, u"starts-with"),
@@ -120,13 +124,13 @@ else:
                         ("lastName", "mor", True, u"starts-with"),
                         ("lastName", "sag", True, u"starts-with"),
                     ],
-                    "operand" : "or",
-                    "recordType" : "users",
-                    "expected" : "(&(uid=*)(generateduid=*)(|(&(givenName=mor*)(sn=sag*))(&(givenName=sag*)(sn=mor*))))",
-                    "optimize" : True,
+                    "operand": "or",
+                    "recordType": "users",
+                    "expected": "(&(uid=*)(generateduid=*)(|(&(givenName=mor*)(sn=sag*))(&(givenName=sag*)(sn=mor*))))",
+                    "optimize": True,
                 },
                 {
-                    "fields" : [
+                    "fields": [
                         ("fullName", "mor", True, u"starts-with"),
                         ("fullName", "sag", True, u"starts-with"),
                         ("emailAddresses", "mor", True, u"starts-with"),
@@ -136,13 +140,13 @@ else:
                         ("lastName", "mor", True, u"starts-with"),
                         ("lastName", "sag", True, u"starts-with"),
                     ],
-                    "operand" : "or",
-                    "recordType" : "groups",
-                    "expected" : None,
-                    "optimize" : True,
+                    "operand": "or",
+                    "recordType": "groups",
+                    "expected": None,
+                    "optimize": True,
                 },
                 {
-                    "fields" : [
+                    "fields": [
                         ("fullName", "mor", True, u"starts-with"),
                         ("fullName", "sag", True, u"starts-with"),
                         ("emailAddresses", "mor", True, u"starts-with"),
@@ -152,48 +156,49 @@ else:
                         ("lastName", "mor", True, u"starts-with"),
                         ("lastName", "sag", True, u"starts-with"),
                     ],
-                    "operand" : "or",
-                    "recordType" : "groups",
-                    "expected" : None,
-                    "optimize" : True,
+                    "operand": "or",
+                    "recordType": "groups",
+                    "expected": None,
+                    "optimize": True,
                 },
                 {
-                    "fields" : [
+                    "fields": [
                         ("guid", "xyzzy", True, u"equals"),
                         ("guid", "plugh", True, u"equals"),
                     ],
-                    "operand" : "or",
-                    "recordType" : "groups",
-                    "expected" : "(&(uid=*)(generateduid=*)(|(generateduid=xyzzy)(generateduid=plugh)))",
-                    "optimize" : True,
+                    "operand": "or",
+                    "recordType": "groups",
+                    "expected": "(&(uid=*)(generateduid=*)(|(generateduid=xyzzy)(generateduid=plugh)))",
+                    "optimize": True,
                 },
                 {
-                    "fields" : [
+                    "fields": [
                         ("fullName", "mor", True, u"contains"),
                         ("fullName", "sag", True, u"contains"),
                     ],
-                    "operand" : "or",
-                    "recordType" : "locations",
-                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=*mor*)(cn=*sag*)))",
-                    "optimize" : True,
+                    "operand": "or",
+                    "recordType": "locations",
+                    "expected": "(&(uid=*)(generateduid=*)(|(cn=*mor*)(cn=*sag*)))",
+                    "optimize": True,
                 },
                 {
-                    "fields" : [
+                    "fields": [
                         ("fullName", "mor", True, u"contains"),
                         ("fullName", "sag", True, u"contains"),
                     ],
-                    "operand" : "or",
-                    "recordType" : "resources",
-                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=*mor*)(cn=*sag*)))",
-                    "optimize" : True,
+                    "operand": "or",
+                    "recordType": "resources",
+                    "expected": "(&(uid=*)(generateduid=*)(|(cn=*mor*)(cn=*sag*)))",
+                    "optimize": True,
                 },
             ]
             for entry in entries:
                 self.assertEquals(
                     buildFilter(entry["recordType"], mapping, entry["fields"],
-                        operand=entry["operand"], optimizeMultiName=entry["optimize"]),
+                                operand=entry["operand"], optimizeMultiName=entry["optimize"]),
                     entry["expected"]
                 )
+
 
 
     class BuildFilterFromTokensTestCase(TestCase):
@@ -202,72 +207,90 @@ else:
 
             entries = [
                 {
-                    "tokens" : ["foo"],
-                    "mapping" : {
-                        "fullName" : "cn",
-                        "emailAddresses" : "mail",
+                    "tokens": ["foo"],
+                    "mapping": {
+                        "fullName": "cn",
+                        "emailAddresses": "mail",
                     },
-                    "expected" : "(&(a=b)(|(cn=*foo*)(mail=foo*)))",
-                    "extra" : "(a=b)",
+                    "expected": "(&(a=b)(|(cn=*foo*)(mail=foo*)))",
+                    "extra": "(a=b)",
                 },
                 {
-                    "tokens" : ["foo"],
-                    "mapping" : {
-                        "fullName" : "cn",
-                        "emailAddresses" : ["mail", "mailAliases"],
+                    "tokens": ["foo", "foo", "oo", "fo", "bar"],
+                    "mapping": {
+                        "fullName": "cn",
+                        "emailAddresses": "mail",
                     },
-                    "expected" : "(&(a=b)(|(cn=*foo*)(mail=foo*)(mailAliases=foo*)))",
-                    "extra" : "(a=b)",
+                    "expected": "(&(a=b)(|(cn=*bar*)(mail=bar*))(|(cn=*foo*)(mail=foo*)))",
+                    "extra": "(a=b)",
                 },
                 {
-                    "tokens" : [],
-                    "mapping" : {
-                        "fullName" : "cn",
-                        "emailAddresses" : "mail",
+                    "tokens": ["fo", "foo", "foooo", "ooo", "fooo"],
+                    "mapping": {
+                        "fullName": "cn",
+                        "emailAddresses": "mail",
                     },
-                    "expected" : None,
-                    "extra" : None,
+                    "expected": "(&(a=b)(|(cn=*foooo*)(mail=foooo*)))",
+                    "extra": "(a=b)",
                 },
                 {
-                    "tokens" : ["foo", "bar"],
-                    "mapping" : { },
-                    "expected" : None,
-                    "extra" : None,
+                    "tokens": ["foo"],
+                    "mapping": {
+                        "fullName": "cn",
+                        "emailAddresses": ["mail", "mailAliases"],
+                    },
+                    "expected": "(&(a=b)(|(cn=*foo*)(mail=foo*)(mailAliases=foo*)))",
+                    "extra": "(a=b)",
                 },
                 {
-                    "tokens" : ["foo", "bar"],
-                    "mapping" : {
-                        "emailAddresses" : "mail",
+                    "tokens": [],
+                    "mapping": {
+                        "fullName": "cn",
+                        "emailAddresses": "mail",
                     },
-                    "expected" : "(&(mail=foo*)(mail=bar*))",
-                    "extra" : None,
+                    "expected": None,
+                    "extra": None,
                 },
                 {
-                    "tokens" : ["foo", "bar"],
-                    "mapping" : {
-                        "fullName" : "cn",
-                        "emailAddresses" : "mail",
-                    },
-                    "expected" : "(&(|(cn=*foo*)(mail=foo*))(|(cn=*bar*)(mail=bar*)))",
-                    "extra" : None,
+                    "tokens": ["foo", "bar"],
+                    "mapping": {},
+                    "expected": None,
+                    "extra": None,
                 },
                 {
-                    "tokens" : ["foo", "bar"],
-                    "mapping" : {
-                        "fullName" : "cn",
-                        "emailAddresses" : ["mail", "mailAliases"],
+                    "tokens": ["foo", "bar"],
+                    "mapping": {
+                        "emailAddresses": "mail",
                     },
-                    "expected" : "(&(|(cn=*foo*)(mail=foo*)(mailAliases=foo*))(|(cn=*bar*)(mail=bar*)(mailAliases=bar*)))",
-                    "extra" : None,
+                    "expected": "(&(mail=bar*)(mail=foo*))",
+                    "extra": None,
                 },
                 {
-                    "tokens" : ["foo", "bar", "baz("],
-                    "mapping" : {
-                        "fullName" : "cn",
-                        "emailAddresses" : "mail",
+                    "tokens": ["foo", "bar"],
+                    "mapping": {
+                        "fullName": "cn",
+                        "emailAddresses": "mail",
                     },
-                    "expected" : "(&(|(cn=*foo*)(mail=foo*))(|(cn=*bar*)(mail=bar*))(|(cn=*baz\\28*)(mail=baz\\28*)))",
-                    "extra" : None,
+                    "expected": "(&(|(cn=*bar*)(mail=bar*))(|(cn=*foo*)(mail=foo*)))",
+                    "extra": None,
+                },
+                {
+                    "tokens": ["foo", "bar"],
+                    "mapping": {
+                        "fullName": "cn",
+                        "emailAddresses": ["mail", "mailAliases"],
+                    },
+                    "expected": "(&(|(cn=*bar*)(mail=bar*)(mailAliases=bar*))(|(cn=*foo*)(mail=foo*)(mailAliases=foo*)))",
+                    "extra": None,
+                },
+                {
+                    "tokens": ["foo", "bar", "baz("],
+                    "mapping": {
+                        "fullName": "cn",
+                        "emailAddresses": "mail",
+                    },
+                    "expected": "(&(|(cn=*bar*)(mail=bar*))(|(cn=*baz\\28*)(mail=baz\\28*))(|(cn=*foo*)(mail=foo*)))",
+                    "extra": None,
                 },
             ]
             for entry in entries:
@@ -277,12 +300,13 @@ else:
                 )
 
 
+
     class StubList(object):
         def __init__(self, wrapper):
             self.ldap = wrapper
 
         def startSearch(self, base, scope, filterstr, attrList=None,
-            timeout=-1, sizelimit=0):
+                        timeout=-1, sizelimit=0):
             self.base = base
             self.scope = scope
             self.filterstr = filterstr
@@ -292,12 +316,15 @@ else:
 
         def processResults(self):
             self.allResults = self.ldap.search_s(self.base, self.scope,
-                self.filterstr, attrlist=self.attrList)
+                                                 self.filterstr,
+                                                 attrlist=self.attrList)
+
 
 
     class StubAsync(object):
         def List(self, wrapper):
             return StubList(wrapper)
+
 
 
     class LdapDirectoryTestWrapper(object):
@@ -317,7 +344,7 @@ else:
 
 
         def search_s(self, base, scope, filterstr="(objectClass=*)",
-            attrlist=None):
+                     attrlist=None):
             """ A simple implementation of LDAP search filter processing """
 
             base = normalizeDNstr(base)
@@ -475,8 +502,8 @@ else:
                         'givenName': ['Test'],
                         'cn': ['Test Resource'],
                         # purposely throw in an un-normalized GUID
-                        'read-write-proxy' : ['6423f94a-6b76-4a3a-815b-d52cfd77935d'],
-                        'read-only-proxy' : ['5A985493-EE2C-4665-94CF-4DFEA3A89500'],
+                        'read-write-proxy': ['6423f94a-6b76-4a3a-815b-d52cfd77935d'],
+                        'read-only-proxy': ['5A985493-EE2C-4665-94CF-4DFEA3A89500'],
                     }
                 ),
                 (
@@ -487,14 +514,14 @@ else:
                         'sn': ['Resource2'],
                         'givenName': ['Test'],
                         'cn': ['Test Resource2'],
-                        'read-write-proxy' : ['6423F94A-6B76-4A3A-815B-D52CFD77935D'],
+                        'read-write-proxy': ['6423F94A-6B76-4A3A-815B-D52CFD77935D'],
                     }
                 ),
             ),
             {
-                "augmentService" : None,
-                "groupMembershipCache" : None,
-                "cacheTimeout": 1, # Minutes
+                "augmentService": None,
+                "groupMembershipCache": None,
+                "cacheTimeout": 1,  # Minutes
                 "negativeCaching": False,
                 "warningThresholdSeconds": 3,
                 "batchSize": 500,
@@ -506,7 +533,7 @@ else:
                 "tls": False,
                 "tlsCACertFile": None,
                 "tlsCACertDir": None,
-                "tlsRequireCert": None, # never, allow, try, demand, hard
+                "tlsRequireCert": None,  # never, allow, try, demand, hard
                 "credentials": {
                     "dn": None,
                     "password": None,
@@ -517,83 +544,83 @@ else:
                     "guidAttr": "apple-generateduid",
                     "users": {
                         "rdn": "cn=Users",
-                        "attr": "uid", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "", # additional filter for this type
-                        "loginEnabledAttr" : "", # attribute controlling login
-                        "loginEnabledValue" : "yes", # "True" value of above attribute
-                        "calendarEnabledAttr" : "enable-calendar", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "uid",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "",  # additional filter for this type
+                        "loginEnabledAttr": "",  # attribute controlling login
+                        "loginEnabledValue": "yes",  # "True" value of above attribute
+                        "calendarEnabledAttr": "enable-calendar",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "uid",
-                            "fullName" : "cn",
-                            "emailAddresses" : ["mail", "emailAliases"],
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": ["mail", "emailAliases"],
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                     "groups": {
                         "rdn": "cn=Groups",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "", # additional filter for this type
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "",  # additional filter for this type
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : ["mail", "emailAliases"],
+                            "fullName": "cn",
+                            "emailAddresses": ["mail", "emailAliases"],
                         },
                     },
                     "locations": {
                         "rdn": "cn=Places",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "(objectClass=apple-resource)", # additional filter for this type
-                        "calendarEnabledAttr" : "", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "associatedAddressAttr" : "assocAddr",
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)",  # additional filter for this type
+                        "calendarEnabledAttr": "",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "associatedAddressAttr": "assocAddr",
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : "", # old style, single string
+                            "fullName": "cn",
+                            "emailAddresses": "",  # old style, single string
                         },
                     },
                     "resources": {
                         "rdn": "cn=Resources",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "(objectClass=apple-resource)", # additional filter for this type
-                        "calendarEnabledAttr" : "", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)",  # additional filter for this type
+                        "calendarEnabledAttr": "",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : [], # new style, array
+                            "fullName": "cn",
+                            "emailAddresses": [],  # new style, array
                         },
                     },
                     "addresses": {
                         "rdn": "cn=Buildings",
-                        "geoAttr" : "coordinates",
-                        "streetAddressAttr" : "postal",
-                        "mapping": { # maps internal record names to LDAP
+                        "geoAttr": "coordinates",
+                        "streetAddressAttr": "postal",
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
+                            "fullName": "cn",
                         },
                     },
                 },
                 "groupSchema": {
-                    "membersAttr": "uniqueMember", # how members are specified
-                    "nestedGroupsAttr": "nestedGroups", # how nested groups are specified
-                    "memberIdAttr": "", # which attribute the above refer to
+                    "membersAttr": "uniqueMember",  # how members are specified
+                    "nestedGroupsAttr": "nestedGroups",  # how nested groups are specified
+                    "memberIdAttr": "",  # which attribute the above refer to
                 },
                 "resourceSchema": {
-                    "resourceInfoAttr": "apple-resource-info", # contains location/resource info
+                    "resourceInfoAttr": "apple-resource-info",  # contains location/resource info
                     "autoScheduleAttr": None,
                     "proxyAttr": "read-write-proxy",
                     "readOnlyProxyAttr": "read-only-proxy",
                     "autoAcceptGroupAttr": None,
                 },
                 "poddingSchema": {
-                    "serverIdAttr": "server-id", # maps to augments server-id
+                    "serverIdAttr": "server-id",  # maps to augments server-id
                 },
             }
         )
@@ -711,9 +738,9 @@ else:
                 ),
             ),
             {
-                "augmentService" : None,
-                "groupMembershipCache" : None,
-                "cacheTimeout": 1, # Minutes
+                "augmentService": None,
+                "groupMembershipCache": None,
+                "cacheTimeout": 1,  # Minutes
                 "negativeCaching": False,
                 "warningThresholdSeconds": 3,
                 "batchSize": 500,
@@ -725,7 +752,7 @@ else:
                 "tls": False,
                 "tlsCACertFile": None,
                 "tlsCACertDir": None,
-                "tlsRequireCert": None, # never, allow, try, demand, hard
+                "tlsRequireCert": None,  # never, allow, try, demand, hard
                 "credentials": {
                     "dn": None,
                     "password": None,
@@ -736,79 +763,79 @@ else:
                     "guidAttr": "apple-generateduid",
                     "users": {
                         "rdn": "cn=Users",
-                        "attr": "uid", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "", # additional filter for this type
-                        "loginEnabledAttr" : "", # attribute controlling login
-                        "loginEnabledValue" : "yes", # "True" value of above attribute
-                        "calendarEnabledAttr" : "enable-calendar", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "uid",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "",  # additional filter for this type
+                        "loginEnabledAttr": "",  # attribute controlling login
+                        "loginEnabledValue": "yes",  # "True" value of above attribute
+                        "calendarEnabledAttr": "enable-calendar",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "uid",
-                            "fullName" : "cn",
-                            "emailAddresses" : ["mail", "emailAliases"],
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": ["mail", "emailAliases"],
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                     "groups": {
                         "rdn": "cn=Groups",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "", # additional filter for this type
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "",  # additional filter for this type
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : ["mail", "emailAliases"],
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": ["mail", "emailAliases"],
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                     "locations": {
                         "rdn": "cn=Places",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "(objectClass=apple-resource)", # additional filter for this type
-                        "calendarEnabledAttr" : "", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)",  # additional filter for this type
+                        "calendarEnabledAttr": "",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : "", # old style, single string
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": "",  # old style, single string
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                     "resources": {
                         "rdn": "cn=Resources",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "(objectClass=apple-resource)", # additional filter for this type
-                        "calendarEnabledAttr" : "", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)",  # additional filter for this type
+                        "calendarEnabledAttr": "",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : [], # new style, array
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": [],  # new style, array
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                 },
                 "groupSchema": {
-                    "membersAttr": "uniqueMember", # how members are specified
-                    "nestedGroupsAttr": "", # how nested groups are specified
-                    "memberIdAttr": "", # which attribute the above refer to
+                    "membersAttr": "uniqueMember",  # how members are specified
+                    "nestedGroupsAttr": "",  # how nested groups are specified
+                    "memberIdAttr": "",  # which attribute the above refer to
                 },
                 "resourceSchema": {
-                    "resourceInfoAttr": "apple-resource-info", # contains location/resource info
+                    "resourceInfoAttr": "apple-resource-info",  # contains location/resource info
                     "autoScheduleAttr": None,
                     "proxyAttr": None,
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
                 },
                 "poddingSchema": {
-                    "serverIdAttr": "server-id", # maps to augments server-id
+                    "serverIdAttr": "server-id",  # maps to augments server-id
                 },
             }
         )
@@ -928,9 +955,9 @@ else:
                 ),
             ),
             {
-                "augmentService" : None,
-                "groupMembershipCache" : None,
-                "cacheTimeout": 1, # Minutes
+                "augmentService": None,
+                "groupMembershipCache": None,
+                "cacheTimeout": 1,  # Minutes
                 "negativeCaching": False,
                 "warningThresholdSeconds": 3,
                 "batchSize": 500,
@@ -942,7 +969,7 @@ else:
                 "tls": False,
                 "tlsCACertFile": None,
                 "tlsCACertDir": None,
-                "tlsRequireCert": None, # never, allow, try, demand, hard
+                "tlsRequireCert": None,  # never, allow, try, demand, hard
                 "credentials": {
                     "dn": None,
                     "password": None,
@@ -953,79 +980,79 @@ else:
                     "guidAttr": "apple-generateduid",
                     "users": {
                         "rdn": "cn=Users",
-                        "attr": "uid", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "", # additional filter for this type
-                        "loginEnabledAttr" : "", # attribute controlling login
-                        "loginEnabledValue" : "yes", # "True" value of above attribute
-                        "calendarEnabledAttr" : "enable-calendar", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "uid",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "",  # additional filter for this type
+                        "loginEnabledAttr": "",  # attribute controlling login
+                        "loginEnabledValue": "yes",  # "True" value of above attribute
+                        "calendarEnabledAttr": "enable-calendar",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "uid",
-                            "fullName" : "cn",
-                            "emailAddresses" : ["mail", "emailAliases"],
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": ["mail", "emailAliases"],
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                     "groups": {
                         "rdn": "cn=Groups",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "", # additional filter for this type
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "",  # additional filter for this type
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : ["mail", "emailAliases"],
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": ["mail", "emailAliases"],
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                     "locations": {
                         "rdn": "cn=Places",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "(objectClass=apple-resource)", # additional filter for this type
-                        "calendarEnabledAttr" : "", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)",  # additional filter for this type
+                        "calendarEnabledAttr": "",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : "", # old style, single string
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": "",  # old style, single string
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                     "resources": {
                         "rdn": "cn=Resources",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "(objectClass=apple-resource)", # additional filter for this type
-                        "calendarEnabledAttr" : "", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)",  # additional filter for this type
+                        "calendarEnabledAttr": "",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : [], # new style, array
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": [],  # new style, array
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                 },
                 "groupSchema": {
-                    "membersAttr": "uniqueMember", # how members are specified
-                    "nestedGroupsAttr": "nestedGroups", # how nested groups are specified
-                    "memberIdAttr": "apple-generateduid", # which attribute the above refer to
+                    "membersAttr": "uniqueMember",  # how members are specified
+                    "nestedGroupsAttr": "nestedGroups",  # how nested groups are specified
+                    "memberIdAttr": "apple-generateduid",  # which attribute the above refer to
                 },
                 "resourceSchema": {
-                    "resourceInfoAttr": "apple-resource-info", # contains location/resource info
+                    "resourceInfoAttr": "apple-resource-info",  # contains location/resource info
                     "autoScheduleAttr": None,
                     "proxyAttr": None,
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
                 },
                 "poddingSchema": {
-                    "serverIdAttr": "server-id", # maps to augments server-id
+                    "serverIdAttr": "server-id",  # maps to augments server-id
                 },
             }
         )
@@ -1141,9 +1168,9 @@ else:
                 ),
             ),
             {
-                "augmentService" : None,
-                "groupMembershipCache" : None,
-                "cacheTimeout": 1, # Minutes
+                "augmentService": None,
+                "groupMembershipCache": None,
+                "cacheTimeout": 1,  # Minutes
                 "negativeCaching": False,
                 "warningThresholdSeconds": 3,
                 "batchSize": 500,
@@ -1155,7 +1182,7 @@ else:
                 "tls": False,
                 "tlsCACertFile": None,
                 "tlsCACertDir": None,
-                "tlsRequireCert": None, # never, allow, try, demand, hard
+                "tlsRequireCert": None,  # never, allow, try, demand, hard
                 "credentials": {
                     "dn": None,
                     "password": None,
@@ -1166,82 +1193,83 @@ else:
                     "guidAttr": "apple-generateduid",
                     "users": {
                         "rdn": "cn=Users",
-                        "attr": "uid", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "", # additional filter for this type
-                        "loginEnabledAttr" : "", # attribute controlling login
-                        "loginEnabledValue" : "yes", # "True" value of above attribute
-                        "calendarEnabledAttr" : "enable-calendar", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "uid",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "",  # additional filter for this type
+                        "loginEnabledAttr": "",  # attribute controlling login
+                        "loginEnabledValue": "yes",  # "True" value of above attribute
+                        "calendarEnabledAttr": "enable-calendar",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "uid",
-                            "fullName" : "cn",
-                            "emailAddresses" : ["mail", "emailAliases"],
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": ["mail", "emailAliases"],
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                     "groups": {
                         "rdn": "cn=Groups",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "", # additional filter for this type
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "",  # additional filter for this type
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : ["mail", "emailAliases"],
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": ["mail", "emailAliases"],
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                     "locations": {
                         "rdn": "cn=Places",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "(objectClass=apple-resource)", # additional filter for this type
-                        "calendarEnabledAttr" : "", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)",  # additional filter for this type
+                        "calendarEnabledAttr": "",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : "", # old style, single string
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": "",  # old style, single string
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                     "resources": {
                         "rdn": "cn=Resources",
-                        "attr": "cn", # used only to synthesize email address
-                        "emailSuffix": None, # used only to synthesize email address
-                        "filter": "(objectClass=apple-resource)", # additional filter for this type
-                        "calendarEnabledAttr" : "", # attribute controlling calendaring
-                        "calendarEnabledValue" : "yes", # "True" value of above attribute
-                        "mapping": { # maps internal record names to LDAP
+                        "attr": "cn",  # used only to synthesize email address
+                        "emailSuffix": None,  # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)",  # additional filter for this type
+                        "calendarEnabledAttr": "",  # attribute controlling calendaring
+                        "calendarEnabledValue": "yes",  # "True" value of above attribute
+                        "mapping": {  # maps internal record names to LDAP
                             "recordName": "cn",
-                            "fullName" : "cn",
-                            "emailAddresses" : [], # new style, array
-                            "firstName" : "givenName",
-                            "lastName" : "sn",
+                            "fullName": "cn",
+                            "emailAddresses": [],  # new style, array
+                            "firstName": "givenName",
+                            "lastName": "sn",
                         },
                     },
                 },
                 "groupSchema": {
-                    "membersAttr": "uniqueMember", # how members are specified
-                    "nestedGroupsAttr": "", # how nested groups are specified
-                    "memberIdAttr": "apple-generateduid", # which attribute the above refer to
+                    "membersAttr": "uniqueMember",  # how members are specified
+                    "nestedGroupsAttr": "",  # how nested groups are specified
+                    "memberIdAttr": "apple-generateduid",  # which attribute the above refer to
                 },
                 "resourceSchema": {
-                    "resourceInfoAttr": "apple-resource-info", # contains location/resource info
+                    "resourceInfoAttr": "apple-resource-info",  # contains location/resource info
                     "autoScheduleAttr": None,
                     "proxyAttr": None,
                     "readOnlyProxyAttr": None,
                     "autoAcceptGroupAttr": None,
                 },
                 "poddingSchema": {
-                    "serverIdAttr": "server-id", # maps to augments server-id
+                    "serverIdAttr": "server-id",  # maps to augments server-id
                 },
             }
         )
+
 
         def setupService(self, scenario):
             self.service = LdapDirectoryService(scenario[1])
@@ -1286,11 +1314,14 @@ else:
                 'cn': ['Amanda Test']
             }
 
-            record = self.service._ldapResultToRecord(dn, attrs,
-                self.service.recordType_users)
+            record = self.service._ldapResultToRecord(
+                dn, attrs, self.service.recordType_users
+            )
             self.assertEquals(record.guid, guid)
-            self.assertEquals(record.emailAddresses,
-                set(['alternate@example.com', 'odtestamanda@example.com']))
+            self.assertEquals(
+                record.emailAddresses,
+                set(['alternate@example.com', 'odtestamanda@example.com'])
+            )
             self.assertEquals(record.shortNames, ('odtestamanda',))
             self.assertEquals(record.fullName, 'Amanda Test')
             self.assertEquals(record.firstName, 'Amanda')
@@ -1312,8 +1343,9 @@ else:
                 'cn': ['Amanda Test']
             }
 
-            record = self.service._ldapResultToRecord(dn, attrs,
-                self.service.recordType_users)
+            record = self.service._ldapResultToRecord(
+                dn, attrs, self.service.recordType_users
+            )
             self.assertTrue(record.enabledForCalendaring)
 
             # User with "podding" info
@@ -1324,11 +1356,12 @@ else:
                 'uid': ['odtestamanda'],
                 'apple-generateduid': [guid],
                 'cn': ['Amanda Test'],
-                'server-id' : ["test-server-id"],
+                'server-id': ["test-server-id"],
             }
 
-            record = self.service._ldapResultToRecord(dn, attrs,
-                self.service.recordType_users)
+            record = self.service._ldapResultToRecord(
+                dn, attrs, self.service.recordType_users
+            )
             self.assertEquals(record.serverID, "test-server-id")
 
             # User missing guidAttr
@@ -1339,9 +1372,11 @@ else:
                 'cn': ['Amanda Test'],
             }
 
-            self.assertRaises(MissingGuidException,
+            self.assertRaises(
+                MissingGuidException,
                 self.service._ldapResultToRecord, dn, attrs,
-                self.service.recordType_users)
+                self.service.recordType_users
+            )
 
             # User missing record name
 
@@ -1351,9 +1386,11 @@ else:
                 'cn': ['Amanda Test'],
             }
 
-            self.assertRaises(MissingRecordNameException,
+            self.assertRaises(
+                MissingRecordNameException,
                 self.service._ldapResultToRecord, dn, attrs,
-                self.service.recordType_users)
+                self.service.recordType_users
+            )
 
             # Group with direct user members and nested group
 
@@ -1361,23 +1398,26 @@ else:
             guid = '6C6CD280-E6E3-11DF-9492-0800200C9A66'
             attrs = {
                 'apple-generateduid': [guid],
-                'uniqueMember':
-                    [
-                        'uid=odtestamanda,cn=users,dc=example,dc=com',
-                        'uid=odtestbetty,cn=users,dc=example,dc=com',
-                        'cn=odtestgroupb,cn=groups,dc=example,dc=com',
-                    ],
+                'uniqueMember': [
+                    'uid=odtestamanda,cn=users,dc=example,dc=com',
+                    'uid=odtestbetty,cn=users,dc=example,dc=com',
+                    'cn=odtestgroupb,cn=groups,dc=example,dc=com',
+                ],
                 'cn': ['odtestgrouptop']
             }
-            record = self.service._ldapResultToRecord(dn, attrs,
-                self.service.recordType_groups)
+            record = self.service._ldapResultToRecord(
+                dn, attrs, self.service.recordType_groups
+            )
             self.assertEquals(record.guid, guid)
-            self.assertEquals(record.memberGUIDs(),
-                set([
-                     'cn=odtestgroupb,cn=groups,dc=example,dc=com',
-                     'uid=odtestamanda,cn=users,dc=example,dc=com',
-                     'uid=odtestbetty,cn=users,dc=example,dc=com',
-                     ])
+            self.assertEquals(
+                record.memberGUIDs(),
+                set(
+                    [
+                        'cn=odtestgroupb,cn=groups,dc=example,dc=com',
+                        'uid=odtestamanda,cn=users,dc=example,dc=com',
+                        'uid=odtestbetty,cn=users,dc=example,dc=com',
+                    ]
+                )
             )
 
             # Group with illegal DN value in members
@@ -1386,22 +1426,25 @@ else:
             guid = '6C6CD280-E6E3-11DF-9492-0800200C9A66'
             attrs = {
                 'apple-generateduid': [guid],
-                'uniqueMember':
-                    [
-                        'uid=odtestamanda,cn=users,dc=example,dc=com',
-                        'uid=odtestbetty ,cn=users,dc=example,dc=com',
-                        'cn=odtestgroupb+foo,cn=groups,dc=example,dc=com',
-                    ],
+                'uniqueMember': [
+                    'uid=odtestamanda,cn=users,dc=example,dc=com',
+                    'uid=odtestbetty ,cn=users,dc=example,dc=com',
+                    'cn=odtestgroupb+foo,cn=groups,dc=example,dc=com',
+                ],
                 'cn': ['odtestgrouptop']
             }
-            record = self.service._ldapResultToRecord(dn, attrs,
-                self.service.recordType_groups)
+            record = self.service._ldapResultToRecord(
+                dn, attrs, self.service.recordType_groups
+            )
             self.assertEquals(record.guid, guid)
-            self.assertEquals(record.memberGUIDs(),
-                set([
-                     'uid=odtestamanda,cn=users,dc=example,dc=com',
-                     'uid=odtestbetty,cn=users,dc=example,dc=com',
-                     ])
+            self.assertEquals(
+                record.memberGUIDs(),
+                set(
+                    [
+                        'uid=odtestamanda,cn=users,dc=example,dc=com',
+                        'uid=odtestbetty,cn=users,dc=example,dc=com',
+                    ]
+                )
             )
 
             # Resource with delegates, autoSchedule = True, and autoAcceptGroup
@@ -1429,16 +1472,22 @@ else:
 </dict>
 </plist>"""]
             }
-            record = self.service._ldapResultToRecord(dn, attrs,
-                self.service.recordType_resources)
+            record = self.service._ldapResultToRecord(
+                dn, attrs, self.service.recordType_resources
+            )
             self.assertEquals(record.guid, guid)
-            self.assertEquals(record.externalProxies(),
-                set(['6C6CD280-E6E3-11DF-9492-0800200C9A66']))
-            self.assertEquals(record.externalReadOnlyProxies(),
-                set(['6AA1AE12-592F-4190-A069-547CD83C47C0']))
+            self.assertEquals(
+                record.externalProxies(),
+                set(['6C6CD280-E6E3-11DF-9492-0800200C9A66'])
+            )
+            self.assertEquals(
+                record.externalReadOnlyProxies(),
+                set(['6AA1AE12-592F-4190-A069-547CD83C47C0'])
+            )
             self.assertTrue(record.autoSchedule)
-            self.assertEquals(record.autoAcceptGroup,
-                '77A8EB52-AA2A-42ED-8843-B2BEE863AC70')
+            self.assertEquals(
+                record.autoAcceptGroup, '77A8EB52-AA2A-42ED-8843-B2BEE863AC70'
+            )
 
             # Resource with no delegates and autoSchedule = False
 
@@ -1459,25 +1508,24 @@ else:
 </dict>
 </plist>"""]
             }
-            record = self.service._ldapResultToRecord(dn, attrs,
-                self.service.recordType_resources)
+            record = self.service._ldapResultToRecord(
+                dn, attrs, self.service.recordType_resources
+            )
             self.assertEquals(record.guid, guid)
-            self.assertEquals(record.externalProxies(),
-                set())
-            self.assertEquals(record.externalReadOnlyProxies(),
-                set())
+            self.assertEquals(record.externalProxies(), set())
+            self.assertEquals(record.externalReadOnlyProxies(), set())
             self.assertFalse(record.autoSchedule)
             self.assertEquals(record.autoAcceptGroup, "")
 
             # Now switch off the resourceInfoAttr and switch to individual
             # attributes...
             self.service.resourceSchema = {
-                "resourceInfoAttr" : "",
-                "autoScheduleAttr" : "auto-schedule",
-                "autoScheduleEnabledValue" : "yes",
-                "proxyAttr" : "proxy",
-                "readOnlyProxyAttr" : "read-only-proxy",
-                "autoAcceptGroupAttr" : "auto-accept-group",
+                "resourceInfoAttr": "",
+                "autoScheduleAttr": "auto-schedule",
+                "autoScheduleEnabledValue": "yes",
+                "proxyAttr": "proxy",
+                "readOnlyProxyAttr": "read-only-proxy",
+                "autoAcceptGroupAttr": "auto-accept-group",
             }
 
             # Resource with delegates and autoSchedule = True
@@ -1487,21 +1535,28 @@ else:
             attrs = {
                 'apple-generateduid': [guid],
                 'cn': ['odtestresource'],
-                'auto-schedule' : ['yes'],
-                'proxy' : ['6C6CD280-E6E3-11DF-9492-0800200C9A66'],
-                'read-only-proxy' : ['6AA1AE12-592F-4190-A069-547CD83C47C0'],
-                'auto-accept-group' : ['77A8EB52-AA2A-42ED-8843-B2BEE863AC70'],
+                'auto-schedule': ['yes'],
+                'proxy': ['6C6CD280-E6E3-11DF-9492-0800200C9A66'],
+                'read-only-proxy': ['6AA1AE12-592F-4190-A069-547CD83C47C0'],
+                'auto-accept-group': ['77A8EB52-AA2A-42ED-8843-B2BEE863AC70'],
             }
-            record = self.service._ldapResultToRecord(dn, attrs,
-                self.service.recordType_resources)
+            record = self.service._ldapResultToRecord(
+                dn, attrs, self.service.recordType_resources
+            )
             self.assertEquals(record.guid, guid)
-            self.assertEquals(record.externalProxies(),
-                set(['6C6CD280-E6E3-11DF-9492-0800200C9A66']))
-            self.assertEquals(record.externalReadOnlyProxies(),
-                set(['6AA1AE12-592F-4190-A069-547CD83C47C0']))
+            self.assertEquals(
+                record.externalProxies(),
+                set(['6C6CD280-E6E3-11DF-9492-0800200C9A66'])
+            )
+            self.assertEquals(
+                record.externalReadOnlyProxies(),
+                set(['6AA1AE12-592F-4190-A069-547CD83C47C0'])
+            )
             self.assertTrue(record.autoSchedule)
-            self.assertEquals(record.autoAcceptGroup,
-                '77A8EB52-AA2A-42ED-8843-B2BEE863AC70')
+            self.assertEquals(
+                record.autoAcceptGroup,
+                '77A8EB52-AA2A-42ED-8843-B2BEE863AC70'
+            )
 
             # Record with lowercase guid
             dn = "uid=odtestamanda,cn=users,dc=example,dc=com"
@@ -1514,8 +1569,9 @@ else:
                 'givenName': ['Amanda'],
                 'cn': ['Amanda Test']
             }
-            record = self.service._ldapResultToRecord(dn, attrs,
-                self.service.recordType_users)
+            record = self.service._ldapResultToRecord(
+                dn, attrs, self.service.recordType_users
+            )
             self.assertEquals(record.guid, guid.upper())
 
             # Location with associated Address
@@ -1525,14 +1581,15 @@ else:
             attrs = {
                 "apple-generateduid": [guid],
                 "cn": ["odtestlocation"],
-                "assocAddr" : ["6C6CD280-E6E3-11DF-9492-0800200C9A66"],
+                "assocAddr": ["6C6CD280-E6E3-11DF-9492-0800200C9A66"],
             }
-            record = self.service._ldapResultToRecord(dn, attrs,
-                self.service.recordType_locations)
+            record = self.service._ldapResultToRecord(
+                dn, attrs, self.service.recordType_locations
+            )
             self.assertEquals(record.extras, {
                 "associatedAddress": "6C6CD280-E6E3-11DF-9492-0800200C9A66"
             })
-           
+
             # Address with street and geo
 
             dn = "cn=odtestaddress,cn=buildings,dc=example,dc=com"
@@ -1540,16 +1597,16 @@ else:
             attrs = {
                 "apple-generateduid": [guid],
                 "cn": ["odtestaddress"],
-                "coordinates" : ["geo:1,2"],
-                "postal" : ["1 Infinite Loop, Cupertino, CA"],
+                "coordinates": ["geo:1,2"],
+                "postal": ["1 Infinite Loop, Cupertino, CA"],
             }
-            record = self.service._ldapResultToRecord(dn, attrs,
-                self.service.recordType_addresses)
+            record = self.service._ldapResultToRecord(
+                dn, attrs, self.service.recordType_addresses
+            )
             self.assertEquals(record.extras, {
                 "geo": "geo:1,2",
-                "streetAddress" : "1 Infinite Loop, Cupertino, CA",
+                "streetAddress": "1 Infinite Loop, Cupertino, CA",
             })
-           
 
         def test_listRecords(self):
             """
@@ -1562,7 +1619,7 @@ else:
             self.assertEquals(len(records), 4)
             self.assertEquals(
                 set([r.firstName for r in records]),
-                set(["Amanda", "Betty", "Cyrus", "Wilfredo"]) # Carlene is skipped because no guid in LDAP
+                set(["Amanda", "Betty", "Cyrus", "Wilfredo"])  # Carlene is skipped because no guid in LDAP
             )
 
         def test_restrictedPrincipalsUsingDN(self):
@@ -1574,18 +1631,20 @@ else:
             for scenario in (
                 self.nestedUsingSameAttributeUsingDN,
                 self.nestedUsingDifferentAttributeUsingDN,
-                ):
+            ):
                 self.setupService(scenario)
 
                 self.assertEquals(
-                    set([
-                        "cn=left_coast,cn=groups,dc=example,dc=com",
-                        "cn=right_coast,cn=groups,dc=example,dc=com",
-                        "uid=cdaboo,cn=users,dc=example,dc=com",
-                        "uid=dreid,cn=users,dc=example,dc=com",
-                        "uid=lecroy,cn=users,dc=example,dc=com",
-                        "uid=wsanchez,cn=users,dc=example,dc=com",
-                    ]),
+                    set(
+                        [
+                            "cn=left_coast,cn=groups,dc=example,dc=com",
+                            "cn=right_coast,cn=groups,dc=example,dc=com",
+                            "uid=cdaboo,cn=users,dc=example,dc=com",
+                            "uid=dreid,cn=users,dc=example,dc=com",
+                            "uid=lecroy,cn=users,dc=example,dc=com",
+                            "uid=wsanchez,cn=users,dc=example,dc=com",
+                        ]
+                    ),
                     self.service.restrictedPrincipals)
 
                 dn = "uid=cdaboo,cn=users,dc=example,dc=com"
@@ -1620,16 +1679,18 @@ else:
             for scenario in (
                 self.nestedUsingDifferentAttributeUsingGUID,
                 self.nestedUsingSameAttributeUsingGUID,
-                ):
+            ):
                 self.setupService(scenario)
 
                 self.assertEquals(
-                    set([
-                        "left_coast",
-                        "right_coast",
-                        "5A985493-EE2C-4665-94CF-4DFEA3A89500",
-                        "6423F94A-6B76-4A3A-815B-D52CFD77935D",
-                    ]),
+                    set(
+                        [
+                            "left_coast",
+                            "right_coast",
+                            "5A985493-EE2C-4665-94CF-4DFEA3A89500",
+                            "6423F94A-6B76-4A3A-815B-D52CFD77935D",
+                        ]
+                    ),
                     self.service.restrictedPrincipals)
 
                 dn = "uid=cdaboo,cn=users,dc=example,dc=com"
@@ -1674,8 +1735,10 @@ else:
             # Set up the GroupMembershipCache
             cache = GroupMembershipCache("ProxyDB", expireSeconds=60)
             self.service.groupMembershipCache = cache
-            updater = GroupMembershipCacheUpdater(calendaruserproxy.ProxyDBService,
-                self.service, 30, 15, 30, cache=cache, useExternalProxies=False)
+            updater = GroupMembershipCacheUpdater(
+                calendaruserproxy.ProxyDBService,
+                self.service, 30, 15, 30, cache=cache, useExternalProxies=False
+            )
 
             self.assertEquals((False, 8, 8), (yield updater.updateCache()))
 
@@ -1708,21 +1771,24 @@ else:
                 ]
             )
 
-
         def test_splitIntoBatches(self):
             self.setupService(self.nestedUsingDifferentAttributeUsingDN)
             # Data is perfect multiple of size
             results = list(splitIntoBatches(set(range(12)), 4))
-            self.assertEquals(results,
-                [set([0, 1, 2, 3]), set([4, 5, 6, 7]), set([8, 9, 10, 11])])
+            self.assertEquals(
+                results,
+                [set([0, 1, 2, 3]), set([4, 5, 6, 7]), set([8, 9, 10, 11])]
+            )
 
             # Some left overs
             results = list(splitIntoBatches(set(range(12)), 5))
-            self.assertEquals(results,
-                [set([0, 1, 2, 3, 4]), set([8, 9, 5, 6, 7]), set([10, 11])])
+            self.assertEquals(
+                results,
+                [set([0, 1, 2, 3, 4]), set([8, 9, 5, 6, 7]), set([10, 11])]
+            )
 
             # Empty
-            results = list(splitIntoBatches(set([]), 5)) # empty data
+            results = list(splitIntoBatches(set([]), 5))  # empty data
             self.assertEquals(results, [set([])])
 
         def test_recordTypeForDN(self):
@@ -1772,7 +1838,8 @@ else:
             self.history = []
 
             def stubSearchMethod(base, scope, filterstr="(objectClass=*)",
-                attrlist=None, timeoutSeconds=-1, resultLimit=0):
+                                 attrlist=None, timeoutSeconds=-1,
+                                 resultLimit=0):
                 self.history.append((base, scope, filterstr))
 
             recordTypes = [

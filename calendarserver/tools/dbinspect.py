@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_calverify -*-
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,8 +37,8 @@ from twistedcaldav.config import config
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+from txdav.caldav.datastore.query.filter import Filter
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from uuid import UUID
 import os
@@ -757,10 +757,10 @@ class EventsInTimerange(Cmd):
                           name="VCALENDAR",
                        )
                   )
-        filter = calendarqueryfilter.Filter(filter)
+        filter = Filter(filter)
         filter.settimezone(None)
 
-        matches = yield calendar._index.indexedSearch(filter, useruid=uid, fbtype=False)
+        matches = yield calendar.search(filter, useruid=uid, fbtype=False)
         if matches is None:
             returnValue(None)
         for name, _ignore_uid, _ignore_type in matches:

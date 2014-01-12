@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_wrapping -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError, \
     InvalidPerUserDataMerge, \
     AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation, \
-    ShareeAllowedError, DuplicatePrivateCommentsError
+    ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit
 from txdav.carddav.iaddressbookstore import KindChangeNotAllowedError, \
     GroupWithUnsharedAddressNotAllowedError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
@@ -286,13 +286,6 @@ class _CommonHomeChildCollectionMixin(object):
         return self._parentResource
 
 
-    def index(self):
-        """
-        Retrieve the new-style index wrapper.
-        """
-        return self._newStoreObject.retrieveOldIndex()
-
-
     def exists(self):
         # FIXME: tests
         return self._newStoreObject is not None
@@ -303,7 +296,6 @@ class _CommonHomeChildCollectionMixin(object):
         # The newstore implementation supports this directly
         returnValue(
             (yield self._newStoreObject.resourceNamesSinceToken(revision))
-            + ([],)
         )
 
 
@@ -345,6 +337,18 @@ class _CommonHomeChildCollectionMixin(object):
         @return: L{Deferred} with the count of all known children of this resource.
         """
         return self._newStoreObject.countObjectResources()
+
+
+    @inlineCallbacks
+    def resourceExists(self, name):
+        """
+        Indicate whether a resource with the specified name exists.
+
+        @return: C{True} if it exists
+        @rtype: C{bool}
+        """
+        allNames = yield self._newStoreObject.listObjectResources()
+        returnValue(name in allNames)
 
 
     def name(self):
@@ -462,6 +466,8 @@ class _CommonHomeChildCollectionMixin(object):
         if self.isShareeResource():
             log.debug("Removing shared collection %s" % (self,))
             yield self.removeShareeResource(request)
+            # Re-initialize to get stuff setup again now we have no object
+            self._initializeWithHomeChild(None, self._parentResource)
             returnValue(NO_CONTENT)
 
         log.debug("Deleting collection %s" % (self,))
@@ -487,11 +493,6 @@ class _CommonHomeChildCollectionMixin(object):
                 errors.add(childurl, BAD_REQUEST)
 
         # Now do normal delete
-
-        # Handle sharing
-        wasShared = self.isShared()
-        if wasShared:
-            yield self.downgradeFromShare(request)
 
         # Actually delete it.
         yield self._newStoreObject.remove()
@@ -968,6 +969,10 @@ class _CommonHomeChildCollectionMixin(object):
                     )
 
 
+    def search(self, filter, **kwargs):
+        return self._newStoreObject.search(filter, **kwargs)
+
+
     def notifierID(self):
         return "%s/%s" % self._newStoreObject.notifierID()
 
@@ -1121,7 +1126,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         isowner = (yield self.isOwner(request))
         accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
-        for name, _ignore_uid, _ignore_type in (yield maybeDeferred(self.index().bruteForceSearch)):
+        for name in (yield self._newStoreObject.listObjectResources()):
             try:
                 child = yield request.locateChildResource(self, name)
             except TypeError:
@@ -2421,6 +2426,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         try:
             response = (yield self.storeMove(request, destinationparent, destination.name()))
+            self._newStoreObject = None
             returnValue(response)
 
         # Handle the various store errors
@@ -2915,6 +2921,128 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         returnValue(result)
 
 
+    @inlineCallbacks
+    def POST_handler_action(self, request, action):
+        """
+        Handle a POST request with an action= query parameter
+
+        @param request: the request to process
+        @type request: L{Request}
+        @param action: the action to execute
+        @type action: C{str}
+        """
+        if action.startswith("attachment-"):
+            result = (yield self.POST_handler_attachment(request, action))
+            returnValue(result)
+        else:
+            actioner = {
+                "split": self.POST_handler_split,
+            }
+            if action in actioner:
+                result = (yield actioner[action](request, action))
+                returnValue(result)
+            else:
+                raise HTTPError(ErrorResponse(
+                    FORBIDDEN,
+                    (caldav_namespace, "valid-action-parameter",),
+                    "The action parameter in the request-URI is not valid",
+                ))
+
+
+    @requiresPermissions(davxml.WriteContent())
+    @inlineCallbacks
+    def POST_handler_split(self, request, action):
+        """
+        Handle a split of a calendar object resource.
+
+        @param request: HTTP request object
+        @type request: L{Request}
+        @param action: The request-URI 'action' argument
+        @type action: C{str}
+
+        @return: an HTTP response
+        """
+
+        # Resource must exist
+        if not self.exists():
+            raise HTTPError(NOT_FOUND)
+
+        # Split point is in the rid query parameter
+        rid = request.args.get("rid")
+        if rid is None:
+            raise HTTPError(ErrorResponse(
+                FORBIDDEN,
+                (caldav_namespace, "valid-rid-parameter",),
+                "The rid parameter in the request-URI contains an invalid value",
+            ))
+
+        try:
+            rid = DateTime.parseText(rid[0])
+        except ValueError:
+            raise HTTPError(ErrorResponse(
+                FORBIDDEN,
+                (caldav_namespace, "valid-rid-parameter",),
+                "The rid parameter in the request-URI contains an invalid value",
+            ))
+        try:
+            otherStoreObject = yield self._newStoreObject.splitAt(rid)
+        except InvalidSplit:
+            raise HTTPError(ErrorResponse(
+                FORBIDDEN,
+                (calendarserver_namespace, "invalid-split",),
+                "The rid parameter in the request-URI contains an invalid value",
+            ))
+
+        other = yield request.locateChildResource(self._parentResource, otherStoreObject.name())
+        if other is None:
+            raise responsecode.INTERNAL_SERVER_ERROR
+
+        # Look for Prefer header
+        prefer = request.headers.getHeader("prefer", {})
+        returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
+
+        if returnRepresentation:
+            # Accept header handling
+            accepted_type = bestAcceptType(request.headers.getHeader("accept"), Component.allowedTypes())
+            if accepted_type is None:
+                raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
+            etag1 = yield self.etag()
+            etag2 = yield other.etag()
+            cal1 = yield self.component()
+            cal2 = yield other.component()
+
+            xml_responses = [
+                davxml.PropertyStatusResponse(
+                    davxml.HRef.fromString(self.url()),
+                    davxml.PropertyStatus(
+                        davxml.PropertyContainer(
+                            davxml.GETETag.fromString(etag1.generate()),
+                            caldavxml.CalendarData.fromComponent(cal1, accepted_type),
+                        ),
+                        davxml.Status.fromResponseCode(OK),
+                    )
+                ),
+                davxml.PropertyStatusResponse(
+                    davxml.HRef.fromString(other.url()),
+                    davxml.PropertyStatus(
+                        davxml.PropertyContainer(
+                            davxml.GETETag.fromString(etag2.generate()),
+                            caldavxml.CalendarData.fromComponent(cal2, accepted_type),
+                        ),
+                        davxml.Status.fromResponseCode(OK),
+                    )
+                ),
+            ]
+
+            # Return multistatus with calendar data for this resource and the new one
+            result = MultiStatusResponse(xml_responses)
+        else:
+            result = Response(responsecode.NO_CONTENT)
+            result.headers.addRawHeader("Split-Component-URL", other.url())
+
+        returnValue(result)
+
+
     @requiresPermissions(davxml.WriteContent())
     @inlineCallbacks
     def POST_handler_attachment(self, request, action):
@@ -2928,6 +3056,9 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
         @return: an HTTP response
         """
+
+        if not config.EnableManagedAttachments:
+            returnValue(StatusResponse(responsecode.FORBIDDEN, "Managed Attachments not supported."))
 
         # Resource must exist to allow attachment operations
         if not self.exists():
@@ -3371,6 +3502,8 @@ class AddressBookObjectResource(_CommonObjectResource):
         if self.isShareeResource():
             log.debug("Removing shared resource %s" % (self,))
             yield self.removeShareeResource(request)
+            # Re-initialize to get stuff setup again now we have no object
+            self._initializeWithObject(None, self._newStoreParent)
             returnValue(NO_CONTENT)
         elif self._newStoreObject.isGroupForSharedAddressBook():
             abCollectionResource = (yield request.locateResource(parentForURL(request.uri)))
@@ -3673,7 +3806,6 @@ class StoreNotificationCollectionResource(_NotificationChildHelper, Notification
         # The newstore implementation supports this directly
         returnValue(
             (yield self._newStoreNotifications.resourceNamesSinceToken(revision))
-            + ([],)
         )
 
 

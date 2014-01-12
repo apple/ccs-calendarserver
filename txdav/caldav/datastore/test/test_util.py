@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.caldav.datastore.test.util import buildCalendarStore
 
 """
 Tests for txdav.caldav.datastore.util.
@@ -30,6 +29,7 @@ from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
+from txdav.caldav.datastore.test.util import buildCalendarStore
 
 from txdav.caldav.datastore.util import dropboxIDFromCalendarObject, \
     StorageTransportBase, migrateHome
@@ -323,7 +323,12 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(HomeMigrationTests, self).setUp()
-        self.theStore = yield buildCalendarStore(self, self.notifierFactory, homes=("conflict1", "conflict2",))
+        self.theStore = yield buildCalendarStore(self, self.notifierFactory, homes=(
+            "conflict1",
+            "conflict2",
+            "empty_home",
+            "non_empty_home",
+        ))
 
 
     def storeUnderTest(self):

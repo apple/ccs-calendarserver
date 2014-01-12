@@ -315,10 +315,11 @@ END:VCARD
         otherAB = yield self.addressbookUnderTest(home="user02", name="user01")
         self.assertNotEqual(otherAB._bindRevision, 0)
 
-        changed, deleted = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
+        changed, deleted, invalid = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
         print("test_addressbookMembersRevisions changed=%s deleted=%s" % (changed, deleted,))
         self.assertEqual(changed, ["group1.vcf"])
         self.assertEqual(len(deleted), 0)
+        self.assertEqual(len(invalid), 0)
 
         otherHome = yield self.addressbookHomeUnderTest(name="user02")
         for depth, result in (
@@ -327,10 +328,11 @@ END:VCARD
             ("infinity", ['user01/',
                           'user01/group1.vcf']
              )):
-            changed, deleted = yield otherAB.viewerHome().resourceNamesSinceRevision(otherAB._bindRevision, depth)
+            changed, deleted, invalid = yield otherAB.viewerHome().resourceNamesSinceRevision(otherAB._bindRevision, depth)
             print("test_addressbookMembersRevisions depth=%s, changed=%s deleted=%s" % (depth, changed, deleted,))
             self.assertEqual(set(changed), set(result))
             self.assertEqual(len(deleted), 0)
+            self.assertEqual(len(invalid), 0)
 
         yield self.commit()
 

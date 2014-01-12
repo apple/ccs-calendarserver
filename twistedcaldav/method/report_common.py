@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,17 +36,16 @@ try:
 except ImportError:
     from md5 import new as md5
 
-from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
-from txweb2 import responsecode
 
-from txdav.xml import element
+from txweb2 import responsecode
 from txweb2.dav.http import statusForFailure
 from txweb2.dav.method.propfind import propertyName
 from txweb2.dav.method.report import NumberOfMatchesWithinLimits
 from txweb2.dav.method.report import max_number_of_matches
 from txweb2.dav.resource import AccessDeniedError
-from txweb2.http import HTTPError
+from txweb2.http import HTTPError, StatusResponse
 
 from twext.python.log import Logger
 
@@ -65,9 +64,9 @@ from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.memcacher import Memcacher
 
-from twistedcaldav.query import calendarqueryfilter
-
+from txdav.caldav.datastore.query.filter import Filter
 from txdav.common.icommondatastore import IndexedSearchException
+from txdav.xml import element
 
 from pycalendar.duration import Duration
 from pycalendar.datetime import DateTime
@@ -583,17 +582,18 @@ def generateFreeBusyInfo(
                           name="VCALENDAR",
                        )
                   )
-        filter = calendarqueryfilter.Filter(filter)
+        filter = Filter(filter)
         tzinfo = filter.settimezone(tz)
 
         try:
-            resources = yield maybeDeferred(calresource.index().indexedSearch,
-                filter, useruid=useruid, fbtype=True
-            )
+            resources = yield calresource.search(filter, useruid=useruid, fbtype=True)
             if caching:
                 yield FBCacheEntry.makeCacheEntry(calresource, useruid, cache_timerange, resources)
         except IndexedSearchException:
-            resources = yield maybeDeferred(calresource.index().bruteForceSearch)
+            raise HTTPError(StatusResponse(
+                responsecode.INTERNAL_SERVER_ERROR,
+                "Failed freebusy query"
+            ))
 
     else:
         # Log extended item

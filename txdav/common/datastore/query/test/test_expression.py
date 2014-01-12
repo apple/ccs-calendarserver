@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.query import expression
-import twistedcaldav.test.util
+from txdav.common.datastore.query import expression
+from twisted.trial.unittest import TestCase
 
-class Tests(twistedcaldav.test.util.TestCase):
+class Tests(TestCase):
 
     def test_andWith(self):
 

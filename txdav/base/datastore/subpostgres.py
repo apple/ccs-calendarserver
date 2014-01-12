@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.base.datastore.test.test_subpostgres -*-
 # #
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -228,7 +228,7 @@ class PostgresService(MultiService):
                 # in /tmp and based on a hash of the data store directory
                 digest = md5(dataStoreDirectory.path).hexdigest()
                 socketDir = "/tmp/ccs_postgres_" + digest
-                
+
             self.socketDir = CachingFilePath(socketDir)
             self.host = self.socketDir.path
             self.port = None

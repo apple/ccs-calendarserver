@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -554,13 +554,15 @@ class SharingRevisions(BaseSharingTests):
         otherCal = yield self.calendarUnderTest(home="user02", name=sharedName)
         self.assertNotEqual(otherCal._bindRevision, 0)
 
-        changed, deleted = yield otherCal.resourceNamesSinceRevision(0)
+        changed, deleted, invalid = yield otherCal.resourceNamesSinceRevision(0)
         self.assertNotEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
+        self.assertEqual(len(invalid), 0)
 
-        changed, deleted = yield otherCal.resourceNamesSinceRevision(otherCal._bindRevision)
+        changed, deleted, invalid = yield otherCal.resourceNamesSinceRevision(otherCal._bindRevision)
         self.assertEqual(len(changed), 0)
         self.assertEqual(len(deleted), 0)
+        self.assertEqual(len(invalid), 0)
 
         for depth, result in (
             ("1", [otherCal.name() + '/',
@@ -572,10 +574,12 @@ class SharingRevisions(BaseSharingTests):
                          'calendar/',
                          'inbox/'],
              )):
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(0, depth)
+            changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(0, depth)
             self.assertEqual(set(changed), set(result))
             self.assertEqual(len(deleted), 0)
+            self.assertEqual(len(invalid), 0)
 
-            changed, deleted = yield otherHome.resourceNamesSinceRevision(otherCal._bindRevision, depth)
+            changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(otherCal._bindRevision, depth)
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
+            self.assertEqual(len(invalid), 0)

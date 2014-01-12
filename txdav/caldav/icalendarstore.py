@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -843,6 +843,13 @@ class QueryMaxResources(CommonStoreError):
 
 
 
+class InvalidSplit(CommonStoreError):
+    """
+    A user triggered split operation is invalid.
+    """
+
+
+
 #
 # FIXME: These may belong elsewhere.
 #
@@ -907,7 +914,7 @@ class ComponentRemoveState(Names):
     NORMAL_NO_IMPLICIT -    this is an application layer (user) generated remove that deliberately turns
                             off implicit scheduling operations.
 
-    INTERNAL -              remove the resource without implicit scheduling.
+    INTERNAL -              remove the resource without implicit scheduling or attachment processing.
     """
 
     NORMAL = NamedConstant()

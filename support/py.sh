@@ -1,6 +1,6 @@
 # -*- sh-basic-offset: 2 -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -109,6 +109,9 @@ py_have_module () {
       fi;
     done;
 
+    if [ -z "${module_version}" ]; then
+      module_version=$("${python}" -c 'import pkg_resources; print pkg_resources.get_distribution("'"${module}"'").version;');
+    fi;
     if [ -z "${module_version}" ]; then
       if ! "${print_path}"; then
         echo "Unable to determine version for ${module}.";

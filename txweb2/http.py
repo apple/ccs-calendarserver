@@ -1,7 +1,7 @@
 # -*- test-case-name: txweb2.test.test_http -*-
 ##
 # Copyright (c) 2001-2004 Twisted Matrix Laboratories.
-# Copyright (c) 2010-2013 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -558,7 +558,7 @@ class JSONResponse (Response):
     """
     def __init__(self, code, jobj):
         """
-        @param xml_responses: an iterable of davxml.Response objects.
+        @param jobj: a Python object that can be serialized to JSON.
         """
         Response.__init__(self, code, stream=json.dumps(jobj))
         self.headers.setHeader("content-type", http_headers.MimeType("application", "json"))

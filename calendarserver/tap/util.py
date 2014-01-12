@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,6 +92,7 @@ from calendarserver.tools.util import checkDirectory
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
 
+from txdav.common.datastore.podding.resource import ConduitResource
 from txdav.common.datastore.sql import CommonDataStore as CommonSQLDataStore
 from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
 from txdav.common.datastore.sql import current_sql_schema
@@ -407,6 +408,7 @@ def getRootResource(config, newStore, resources=None):
     rootResourceClass = RootResource
     calendarResourceClass = DirectoryCalendarHomeProvisioningResource
     iScheduleResourceClass = IScheduleInboxResource
+    conduitResourceClass = ConduitResource
     timezoneServiceResourceClass = TimezoneServiceResource
     timezoneStdServiceResourceClass = TimezoneStdServiceResource
     webCalendarResourceClass = WebCalendarResource
@@ -636,7 +638,7 @@ def getRootResource(config, newStore, resources=None):
             addSystemEventTrigger("after", "startup", timezoneStdService.onStartup)
 
     #
-    # iSchedule service for podding
+    # iSchedule/cross-pod service for podding
     #
     if config.Servers.Enabled:
         log.info("Setting up iSchedule podding inbox resource: {cls}", cls=iScheduleResourceClass)
@@ -647,6 +649,14 @@ def getRootResource(config, newStore, resources=None):
             podding=True
         )
         root.putChild(config.Servers.InboxName, ischedule)
+
+        log.info("Setting up podding conduit resource: {cls}", cls=conduitResourceClass)
+
+        conduit = conduitResourceClass(
+            root,
+            newStore,
+        )
+        root.putChild(config.Servers.ConduitName, conduit)
 
     #
     # iSchedule service (not used for podding)

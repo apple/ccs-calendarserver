@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,23 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from __future__ import print_function
+
+from txdav.common.datastore.query import expression
 
 """
-SQL statement generator from query expressions.
+SQLLite statement generator from query expressions.
 """
-
-__version__ = "0.0"
 
 __all__ = [
-    "sqlgenerator",
+    "sqllitegenerator",
 ]
-
-from twistedcaldav.query import expression
 
 import cStringIO as StringIO
 
-class sqlgenerator(object):
+class sqllitegenerator(object):
 
     FROM = " from "
     WHERE = " where "
@@ -66,7 +63,7 @@ class sqlgenerator(object):
         """
 
         @param expr: the query expression object model
-        @type expr: L{twistedcaldav.query.calendarqueryfilter.Filter}
+        @type expr: L{Filter}
         @param calendarid: resource ID - not used for file-based per-calendar indexes
         @type calendarid: C{int}
         @param userid: user for whom query is being done - query will be scoped to that user's privileges and their transparency
@@ -323,22 +320,3 @@ class sqlgenerator(object):
 
     def endswithArgument(self, arg):
         return "*%s" % (arg,)
-
-
-if __name__ == "__main__":
-
-    e1 = expression.isExpression("TYPE", "VEVENT", False)
-    e2 = expression.timerangeExpression("20060101T120000Z", "20060101T130000Z", "20060101T080000Z", "20060101T090000Z")
-    e3 = expression.notcontainsExpression("SUMMARY", "help", True)
-    e5 = expression.andExpression([e1, e2, e3])
-    print(e5)
-    sql = sqlgenerator(e5, 'dummy-cal', 'dummy-user')
-    print(sql.generate())
-    e6 = expression.inExpression("TYPE", ("VEVENT", "VTODO",), False)
-    print(e6)
-    sql = sqlgenerator(e6, 'dummy-cal', 'dummy-user')
-    print(sql.generate())
-    e7 = expression.notinExpression("TYPE", ("VEVENT", "VTODO",), False)
-    print(e7)
-    sql = sqlgenerator(e7, 'dummy-cal', 'dummy-user')
-    print(sql.generate())

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor
-from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, \
-    LocalCalendarUser
-from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
-from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
-from txweb2 import responsecode
-from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
-from twistedcaldav.instance import InvalidOverriddenInstanceError
 
 """
 Tests for txdav.caldav.datastore.postgres, mostly based on
@@ -32,14 +24,16 @@ from pycalendar.timezone import Timezone
 
 from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
     Update
-from twistedcaldav.ical import Component as VComponent
+from twext.enterprise.ienterprise import AlreadyFinishedError
+
+from txweb2 import responsecode
 from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList, \
     succeed
-from twisted.internet.task import deferLater
+from twisted.internet.task import deferLater, Clock
 from twisted.trial import unittest
 
 from twistedcaldav import caldavxml, ical
@@ -47,24 +41,33 @@ from twistedcaldav.caldavxml import CalendarDescription
 from twistedcaldav.config import config
 from twistedcaldav.dateops import datetimeMktime
 from twistedcaldav.ical import Component, normalize_iCalStr, diff_iCalStrs
-from twistedcaldav.query import calendarqueryfilter
+from twistedcaldav.instance import InvalidOverriddenInstanceError
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.query.filter import Filter
+from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
+from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, \
+    LocalCalendarUser
+from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
+from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
+from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor
+from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
     test_event_text
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
-from txdav.caldav.icalendarstore import ComponentUpdateState, InvalidDefaultCalendar
-from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource
-from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator
+from txdav.caldav.icalendarstore import ComponentUpdateState, InvalidDefaultCalendar, \
+    InvalidSplit
+from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource, \
+    CommonStoreTransactionMonitor
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
     _BIND_STATUS_ACCEPTED
 from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from txdav.common.icommondatastore import NoSuchObjectResourceError
-from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 from txdav.idav import ChangeCategory
+from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 import datetime
 
@@ -407,10 +410,10 @@ END:VCALENDAR
                           name="VCALENDAR",
                        )
                   )
-        filter = calendarqueryfilter.Filter(filter)
+        filter = Filter(filter)
         filter.settimezone(None)
 
-        results = yield toCalendar._index.indexedSearch(filter, 'user01', True)
+        results = yield toCalendar.search(filter, 'user01', True)
         self.assertEquals(len(results), 1)
         _ignore_name, uid, _ignore_type, _ignore_organizer, _ignore_float, _ignore_start, _ignore_end, _ignore_fbtype, transp = results[0]
         self.assertEquals(uid, "uid4")
@@ -618,7 +621,7 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _defer1():
-            yield cal1.createObjectResourceWithName("1.ics", VComponent.fromString(
+            yield cal1.createObjectResourceWithName("1.ics", Component.fromString(
 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -664,7 +667,7 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _defer2():
-            yield cal2.createObjectResourceWithName("2.ics", VComponent.fromString(
+            yield cal2.createObjectResourceWithName("2.ics", Component.fromString(
 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -825,7 +828,7 @@ END:VCALENDAR
         # Create calendar object
         calendar1 = yield self.calendarUnderTest()
         name = "test.ics"
-        component = VComponent.fromString(test_event_text)
+        component = Component.fromString(test_event_text)
         metadata = {
             "accessMode": "PUBLIC",
             "isScheduleObject": True,
@@ -873,7 +876,7 @@ END:VCALENDAR
         inbox = yield home.createCalendarWithName("inbox")
 
         name = "test.ics"
-        component = VComponent.fromString(test_event_text)
+        component = Component.fromString(test_event_text)
         metadata = {
             "accessMode": "PUBLIC",
             "isScheduleObject": True,
@@ -922,7 +925,7 @@ END:VCALENDAR
         """
         home = yield self.homeUnderTest()
         inbox = yield home.createCalendarWithName("inbox")
-        component = VComponent.fromString(test_event_text)
+        component = Component.fromString(test_event_text)
         inboxItem = yield inbox.createCalendarObjectWithName("inbox.ics", component)
         self.assertEquals(ChangeCategory.inbox, inboxItem.removeNotifyCategory())
         yield self.commit()
@@ -935,7 +938,7 @@ END:VCALENDAR
         """
         home = yield self.homeUnderTest()
         nonInbox = yield home.createCalendarWithName("noninbox")
-        component = VComponent.fromString(test_event_text)
+        component = Component.fromString(test_event_text)
         nonInboxItem = yield nonInbox.createCalendarObjectWithName("inbox.ics", component)
         self.assertEquals(ChangeCategory.default, nonInboxItem.removeNotifyCategory())
         yield self.commit()
@@ -1105,9 +1108,10 @@ END:VCALENDAR
         self.assertTrue(calendar2_vtodo is not None)
         children = yield calendar2_vtodo.listCalendarObjects()
         self.assertEqual(len(children), 2)
-        changed, deleted = yield calendar2_vtodo.resourceNamesSinceToken(None)
+        changed, deleted, invalid = yield calendar2_vtodo.resourceNamesSinceToken(None)
         self.assertEqual(sorted(changed), ["3.ics", "5.ics"])
         self.assertEqual(len(deleted), 0)
+        self.assertEqual(len(invalid), 0)
         result = yield calendar2_vtodo.getSupportedComponents()
         self.assertEquals(result, "VTODO")
         self.assertTrue(pkey in calendar2_vtodo.properties())
@@ -1118,9 +1122,10 @@ END:VCALENDAR
         self.assertEqual(len(children), 3)
         new_sync_token2 = yield calendar2.syncToken()
         self.assertNotEqual(new_sync_token2, original_sync_token2)
-        changed, deleted = yield calendar2.resourceNamesSinceToken(original_sync_token2)
+        changed, deleted, invalid = yield calendar2.resourceNamesSinceToken(original_sync_token2)
         self.assertEqual(len(changed), 0)
         self.assertEqual(sorted(deleted), ["3.ics", "5.ics"])
+        self.assertEqual(len(invalid), 0)
         result = yield calendar2.getSupportedComponents()
         self.assertEquals(result, "VEVENT")
         self.assertTrue(pkey in calendar2.properties())
@@ -1369,7 +1374,7 @@ END:VCALENDAR
     @inlineCallbacks
     def test_notExpandedWithin(self):
         """
-        Test PostgresLegacyIndexEmulator.notExpandedWithin to make sure it returns the correct
+        Test Calendar.notExpandedWithin to make sure it returns the correct
         result based on the ranges passed in.
         """
 
@@ -1378,7 +1383,6 @@ END:VCALENDAR
         # Create the index on a new calendar
         home = yield self.homeUnderTest()
         newcalendar = yield home.createCalendarWithName("index_testing")
-        index = PostgresLegacyIndexEmulator(newcalendar)
 
         # Create the calendar object to use for testing
         nowYear = self.nowYear["now"]
@@ -1406,37 +1410,37 @@ END:VCALENDAR
         # Fully within range
         testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Upper bound exceeded
         testMin = DateTime(nowYear, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower bound exceeded
         testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower and upper bounds exceeded
         testMin = DateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
         testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
         # Lower none within range
         testMin = None
         testMax = DateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, [])
 
         # Lower none and upper bounds exceeded
         testMin = None
         testMax = DateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
-        result = yield index.notExpandedWithin(testMin, testMax)
+        result = yield newcalendar.notExpandedWithin(testMin, testMax)
         self.assertEqual(result, ["indexing.ics"])
 
 
@@ -1542,8 +1546,8 @@ END:VCALENDAR
 
         # Tests on inbox - resources with properties
         txn = self.transactionUnderTest()
-        yield txn.homeWithUID(ECALENDARTYPE, "byNameTest", create=True)
-        inbox = yield self.calendarUnderTest(txn=txn, name="inbox", home="byNameTest")
+        yield txn.homeWithUID(ECALENDARTYPE, "user01", create=True)
+        inbox = yield self.calendarUnderTest(txn=txn, name="inbox", home="user01")
         caldata = """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -1574,7 +1578,7 @@ END:VCALENDAR
         yield _createInboxItem("4.ics", "p4")
         yield self.commit()
 
-        inbox = yield self.calendarUnderTest(name="inbox", home="byNameTest")
+        inbox = yield self.calendarUnderTest(name="inbox", home="user01")
         yield _tests(inbox)
 
         resources = yield inbox.objectResourcesWithNames(("1.ics",))
@@ -2415,7 +2419,8 @@ END:VCALENDAR
         will = yield cobj.willSplit()
         self.assertTrue(will)
 
-        newUID = yield cobj.split()
+        newObj = yield cobj.split()
+        newUID = newObj.uid()
         yield self.commit()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
@@ -5144,3 +5149,1085 @@ END:VCALENDAR
         self.assertEqual(details[1][0], "urn:uuid:user01")
         self.assertEqual(details[1][1], ("mailto:cuser01@example.org",))
         self.assertEqual(normalize_iCalStr(details[1][2]), normalize_iCalStr(data_past_external) % relsubs, "Failed past: %s\n%s" % (title, diff_iCalStrs(details[1][2], data_past_external % relsubs),))
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_timeout(self):
+        """
+        Test that splitting of calendar objects works.
+        """
+        data_init = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back30)s
+DURATION:PT2H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+RRULE:FREQ=DAILY
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back30)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+RRULE:FREQ=DAILY
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_future = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back14)s
+DURATION:PT2H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_past = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+DTSTART:%(now_back30)s
+DURATION:PT2H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_future2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back14)s
+DURATION:PT2H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+"""
+
+        data_past2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+DTSTART:%(now_back30)s
+DURATION:PT2H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:%(relID)s
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+"""
+
+        data_inbox2 = """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REQUEST
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back14)s
+DURATION:PT2H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        # Create one event without active split
+        self.patch(config.Scheduling.Options.Splitting, "Enabled", False)
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString(data_init % self.subs)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        yield self.commit()
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        # Turn on splitting
+        self.patch(config.Scheduling.Options.Splitting, "Enabled", True)
+        self.patch(config.Scheduling.Options.Splitting, "Size", 1024)
+        self.patch(config.Scheduling.Options.Splitting, "PastDays", 14)
+        self.patch(config.Scheduling.Options.Splitting, "Delay", 2)
+
+        # Setup timeouts
+        c = Clock()
+        self.patch(CommonStoreTransactionMonitor, "callLater", c.callLater)
+
+        # Patch config to turn on transaction timeouts then rebuild the store
+        self.patch(self.storeUnderTest(), "timeoutTransactions", 1)
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+
+        self.assertFalse(self.transactionUnderTest().timedout)
+
+        oldScheduling = ImplicitScheduler.doImplicitScheduling
+        def newScheduling(self, do_smart_merge=False, split_details=None):
+            c.advance(2)
+            return oldScheduling(self, do_smart_merge, split_details)
+        self.patch(ImplicitScheduler, "doImplicitScheduling", newScheduling)
+
+        component = Component.fromString(data % self.subs)
+        yield self.failUnlessFailure(cobj.setComponent(component), AlreadyFinishedError)
+        self.assertTrue(self.transactionUnderTest().timedout)
+        work = cobj._workItems[0]
+
+        # Clear out timed out state
+        self.lastTransaction = None
+        self.patch(self.storeUnderTest(), "timeoutTransactions", 0)
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], cobj._resourceID)
+        yield self.abort()
+
+        # Wait for it to complete
+        yield work.whenExecuted()
+
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        # Get the existing and new object data
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        self.assertTrue(cobj1.isScheduleObject)
+        ical1 = yield cobj1.component()
+        newUID = ical1.masterComponent().propertyValue("RELATED-TO")
+
+        cobj2 = yield self.calendarObjectUnderTest(name="%s.ics" % (newUID,), calendar_name="calendar", home="user01")
+        self.assertTrue(cobj2 is not None)
+        self.assertTrue(cobj2.isScheduleObject)
+
+        ical_future = yield cobj1.component()
+        ical_past = yield cobj2.component()
+
+        # Verify user01 data
+        title = "user01"
+        relsubs = dict(self.subs)
+        relsubs["relID"] = newUID
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
+
+        # Get user02 data
+        cal = yield self.calendarUnderTest(name="calendar", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 2)
+        for cobj in cobjs:
+            ical = yield cobj.component()
+            if ical.resourceUID() == "12345-67890":
+                ical_future = ical
+            else:
+                ical_past = ical
+
+        cal = yield self.calendarUnderTest(name="inbox", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        ical_inbox = yield cobjs[0].component()
+
+        # Verify user02 data
+        title = "user02"
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future2) % relsubs, "Failed future: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox2) % relsubs, "Failed inbox: %s" % (title,))
+
+
+    @inlineCallbacks
+    def _setupSplitAt(self):
+        """
+        Test that user triggered splitting of calendar objects works.
+        """
+        self.patch(config.Scheduling.Options.Splitting, "Enabled", False)
+        self.patch(config.Scheduling.Options.Splitting, "Size", 1024)
+        self.patch(config.Scheduling.Options.Splitting, "PastDays", 14)
+        self.patch(config.Scheduling.Options.Splitting, "Delay", 2)
+
+        # Create one event that will split
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back28)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+RRULE:FREQ=DAILY;COUNT=50
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_future = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back14)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;COUNT=36
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_past = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+DTSTART:%(now_back28)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_future2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back14)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;COUNT=36
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+"""
+
+        data_past2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+DTSTART:%(now_back28)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:%(relID)s
+X-CALENDARSERVER-PERUSER-UID:user02
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+TRANSP:TRANSPARENT
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+"""
+
+        data_inbox2 = """BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REQUEST
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back14)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;COUNT=36
+SEQUENCE:1
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+DTSTAMP:20051222T210507Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        # Create it
+        component = Component.fromString(data % self.subs)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        yield self.commit()
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        returnValue((data_future, data_past, data_future2, data_past2, data_inbox2,))
+
+
+    @inlineCallbacks
+    def _setupSplitAt2(self):
+        """
+        Test that user triggered splitting of calendar objects works.
+        """
+        self.patch(config.Scheduling.Options.Splitting, "Enabled", False)
+        self.patch(config.Scheduling.Options.Splitting, "Size", 1024)
+        self.patch(config.Scheduling.Options.Splitting, "PastDays", 14)
+        self.patch(config.Scheduling.Options.Splitting, "Delay", 2)
+
+        # Create one event that will split
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back28)s
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+RRULE:FREQ=DAILY;COUNT=50
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_future = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back14)s
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;COUNT=36
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_fwd10)s
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_past = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+DTSTART:%(now_back28)s
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back25)s
+DTSTART:%(now_back25)s
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+BEGIN:VEVENT
+UID:%(relID)s
+RECURRENCE-ID:%(now_back24)s
+DTSTART:%(now_back24)s
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+END:VCALENDAR
+"""
+
+        # Create it
+        component = Component.fromString(data % self.subs)
+        cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        yield self.commit()
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        returnValue((data_future, data_past,))
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_splitat_ok(self):
+        """
+        Test that user triggered splitting of calendar objects works.
+        """
+
+        data_future, data_past, data_future2, data_past2, data_inbox2 = yield self._setupSplitAt()
+
+        # Update it
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        oldobj = yield cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.subs))
+        oldname = oldobj.name()
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        yield self.commit()
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        # Get the existing and new object data
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        self.assertTrue(cobj1.isScheduleObject)
+        ical1 = yield cobj1.component()
+        newUID = ical1.masterComponent().propertyValue("RELATED-TO")
+
+        cobj2 = yield self.calendarObjectUnderTest(name=oldname, calendar_name="calendar", home="user01")
+        self.assertTrue(cobj2 is not None)
+        self.assertTrue(cobj2.isScheduleObject)
+
+        ical_future = yield cobj1.component()
+        ical_past = yield cobj2.component()
+
+        # Verify user01 data
+        title = "user01"
+        relsubs = dict(self.subs)
+        relsubs["relID"] = newUID
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
+
+        # Get user02 data
+        cal = yield self.calendarUnderTest(name="calendar", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 2)
+        for cobj in cobjs:
+            ical = yield cobj.component()
+            if ical.resourceUID() == "12345-67890":
+                ical_future = ical
+            else:
+                ical_past = ical
+
+        cal = yield self.calendarUnderTest(name="inbox", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        ical_inbox = yield cobjs[0].component()
+
+        # Verify user02 data
+        title = "user02"
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future2) % relsubs, "Failed future: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox2) % relsubs, "Failed inbox: %s" % (title,))
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_splitat_ok_not_instance_rid(self):
+        """
+        Test that user triggered splitting of calendar objects works when split between instances.
+        """
+
+        data_future, data_past, data_future2, data_past2, data_inbox2 = yield self._setupSplitAt()
+
+        # Update it
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        oldobj = yield cobj.splitAt(DateTime.parseText("%(now_back15_12h)s" % self.subs))
+        oldname = oldobj.name()
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        yield self.commit()
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        # Get the existing and new object data
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        self.assertTrue(cobj1.isScheduleObject)
+        ical1 = yield cobj1.component()
+        newUID = ical1.masterComponent().propertyValue("RELATED-TO")
+
+        cobj2 = yield self.calendarObjectUnderTest(name=oldname, calendar_name="calendar", home="user01")
+        self.assertTrue(cobj2 is not None)
+        self.assertTrue(cobj2.isScheduleObject)
+
+        ical_future = yield cobj1.component()
+        ical_past = yield cobj2.component()
+
+        # Verify user01 data
+        title = "user01"
+        relsubs = dict(self.subs)
+        relsubs["relID"] = newUID
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
+
+        # Get user02 data
+        cal = yield self.calendarUnderTest(name="calendar", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 2)
+        for cobj in cobjs:
+            ical = yield cobj.component()
+            if ical.resourceUID() == "12345-67890":
+                ical_future = ical
+            else:
+                ical_past = ical
+
+        cal = yield self.calendarUnderTest(name="inbox", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        ical_inbox = yield cobjs[0].component()
+
+        # Verify user02 data
+        title = "user02"
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future2) % relsubs, "Failed future: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox2) % relsubs, "Failed inbox: %s" % (title,))
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_splitat_no_organizer(self):
+        """
+        Test that user triggered splitting of calendar objects works when no organizer is present.
+        """
+
+        data_future, data_past = yield self._setupSplitAt2()
+
+        # Update it
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        oldobj = yield cobj.splitAt(DateTime.parseText("%(now_back14)s" % self.subs))
+        oldname = oldobj.name()
+        self.assertFalse(hasattr(cobj, "_workItems"))
+        yield self.commit()
+
+        w = schema.CALENDAR_OBJECT_SPLITTER_WORK
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        rows = yield Select(
+            [w.RESOURCE_ID, ],
+            From=w
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(rows), 0)
+        yield self.abort()
+
+        # Get the existing and new object data
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        self.assertTrue(cobj1.isScheduleObject)
+        ical1 = yield cobj1.component()
+        newUID = ical1.masterComponent().propertyValue("RELATED-TO")
+
+        cobj2 = yield self.calendarObjectUnderTest(name=oldname, calendar_name="calendar", home="user01")
+        self.assertTrue(cobj2 is not None)
+        self.assertTrue(cobj2.isScheduleObject)
+
+        ical_future = yield cobj1.component()
+        ical_past = yield cobj2.component()
+
+        # Verify user01 data
+        title = "user01"
+        relsubs = dict(self.subs)
+        relsubs["relID"] = newUID
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_splitat_no_attendee_split(self):
+        """
+        Test that user triggered splitting of calendar objects does not work if done by attendee.
+        """
+
+        yield self._setupSplitAt()
+
+        # Update it
+        cal = yield self.calendarUnderTest(name="calendar", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_back14)s" % self.subs)), InvalidSplit)
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_splitat_too_old(self):
+        """
+        Test that user triggered splitting of calendar objects does not work if split before first instance.
+        """
+
+        yield self._setupSplitAt()
+
+        # Update it
+        cal = yield self.calendarUnderTest(name="calendar", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_back30)s" % self.subs)), InvalidSplit)
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_splitat_too_new(self):
+        """
+        Test that user triggered splitting of calendar objects does not work if split after last instance.
+        """
+
+        yield self._setupSplitAt()
+
+        # Update it
+        cal = yield self.calendarUnderTest(name="calendar", home="user02")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        yield self.failUnlessFailure(cobjs[0].splitAt(DateTime.parseText("%(now_fwd25)s" % self.subs)), InvalidSplit)

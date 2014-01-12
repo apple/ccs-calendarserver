@@ -1,5 +1,5 @@
 ----
--- Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+-- Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -18,21 +18,14 @@
 -- Upgrade database schema from VERSION 28 to 29 --
 ---------------------------------------------------
 
--- Sharing notification related updates
+-- Calendar home related updates
 
-alter table NOTIFICATION_HOME
-  add column DATAVERSION integer default 0 not null;
+alter table CALENDAR_HOME_METADATA
+ add column DEFAULT_POLLS integer default null references CALENDAR on delete set null;
 
-alter table NOTIFICATION
-  rename column XML_TYPE to NOTIFICATION_TYPE;
-alter table NOTIFICATION
-  rename column XML_DATA to NOTIFICATION_DATA;
-
--- Sharing enumeration updates
-insert into CALENDAR_BIND_MODE values (4, 'indirect');
-
-insert into CALENDAR_BIND_STATUS values (4, 'deleted');
+create index CALENDAR_HOME_METADATA_DEFAULT_POLLS on
+	CALENDAR_HOME_METADATA(DEFAULT_POLLS);
 
 -- Now update the version
+-- No data upgrades
 update CALENDARSERVER set VALUE = '29' where NAME = 'VERSION';
-insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_sql -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ from txweb2.stream import readStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
+from twisted.python.failure import Failure
 
 from twistedcaldav import caldavxml, customxml, ical
 from twistedcaldav.config import config
@@ -57,6 +58,9 @@ from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.query.builder import buildExpression
+from txdav.caldav.datastore.query.filter import Filter
+from txdav.caldav.datastore.query.generator import CalDAVSQLQueryGenerator
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.util import AttachmentRetrievalTransport, \
@@ -72,12 +76,11 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     AttendeeAllowedError, InvalidPerUserDataMerge, ComponentUpdateState, \
     ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
     InvalidDefaultCalendar, \
-    InvalidAttachmentOperation, DuplicatePrivateCommentsError
+    InvalidAttachmentOperation, DuplicatePrivateCommentsError, \
+    TimeRangeUpperLimit, TimeRangeLowerLimit, InvalidSplit
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
-from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator, \
-    PostgresLegacyInboxIndexEmulator
 from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
     _ATTACHMENTS_MODE_WRITE, schema, _BIND_MODE_OWN, \
     _ATTACHMENTS_MODE_READ, _TRANSP_OPAQUE, _TRANSP_TRANSPARENT
@@ -87,7 +90,8 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     InvalidObjectResourceError, ObjectResourceNameAlreadyExistsError, \
     ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
-    InvalidResourceMove, InvalidComponentForStoreError
+    InvalidResourceMove, InvalidComponentForStoreError, \
+    NoSuchObjectResourceError
 from txdav.xml import element
 
 from txdav.idav import ChangeCategory
@@ -363,7 +367,7 @@ class CalendarStoreFeatures(object):
     @inlineCallbacks
     def calendarObjectWithID(self, txn, rid):
         """
-        Return all child object resources with the specified UID. Only "owned" resources are returned,
+        Return all child object resources with the specified resource id. Only "owned" resources are returned,
         no shared resources.
 
         @param txn: transaction to use
@@ -375,7 +379,7 @@ class CalendarStoreFeatures(object):
         @rtype: L{CalendarObject} or C{None}
         """
 
-        # First find the resource-ids of the (home, parent, object) for each object matching the UID.
+        # First find the resource-ids of the (home, parent, object) for each object matching the resource id.
         obj = CalendarHome._objectSchema
         bind = CalendarHome._bindSchema
         rows = (yield Select(
@@ -432,12 +436,6 @@ class CalendarHome(CommonHome):
         "VTODO": "_default_tasks",
         "VPOLL": "_default_polls",
     }
-
-    def __init__(self, transaction, ownerUID):
-
-        self._childClass = Calendar
-        super(CalendarHome, self).__init__(transaction, ownerUID)
-
 
     @classmethod
     def metadataColumns(cls):
@@ -957,6 +955,12 @@ class Calendar(CommonHomeChild):
     _objectSchema = schema.CALENDAR_OBJECT
     _timeRangeSchema = schema.TIME_RANGE
 
+    # Mapping of iCalendar property name to DB column name
+    _queryFields = {
+        "UID": _objectSchema.UID,
+        "TYPE": _objectSchema.ICALENDAR_TYPE,
+    }
+
     _supportedComponents = None
 
     def __init__(self, *args, **kw):
@@ -964,10 +968,6 @@ class Calendar(CommonHomeChild):
         Initialize a calendar pointing at a record in a database.
         """
         super(Calendar, self).__init__(*args, **kw)
-        if self.isInbox():
-            self._index = PostgresLegacyInboxIndexEmulator(self)
-        else:
-            self._index = PostgresLegacyIndexEmulator(self)
         self._transp = _TRANSP_OPAQUE
 
 
@@ -1083,6 +1083,45 @@ class Calendar(CommonHomeChild):
     def removedObjectResource(self, child):
         yield super(Calendar, self).removedObjectResource(child)
         self.viewerHome().removedCalendarResource(child.uid())
+
+
+    @inlineCallbacks
+    def moveObjectResourceHere(self, name, component):
+        """
+        Create a new child in this collection as part of a move operation. This needs to be split out because
+        behavior differs for sub-classes and cross-pod operations.
+
+        @param name: new name to use in new parent
+        @type name: C{str} or C{None} for existing name
+        @param component: data for new resource
+        @type component: L{Component}
+        """
+
+        # Cross-pod calls come in with component as str or unicode
+        if isinstance(component, str) or isinstance(component, unicode):
+            try:
+                component = self._objectResourceClass._componentClass.fromString(component)
+            except InvalidICalendarDataError as e:
+                raise InvalidComponentForStoreError(str(e))
+
+        yield self._createCalendarObjectWithNameInternal(name, component, internal_state=ComponentUpdateState.RAW)
+
+
+    @inlineCallbacks
+    def moveObjectResourceAway(self, rid, child=None):
+        """
+        Remove the child as the result of a move operation. This needs to be split out because
+        behavior differs for sub-classes and cross-pod operations.
+
+        @param rid: the child resource-id to move
+        @type rid: C{int}
+        @param child: the child resource to move - might be C{None} for cross-pod
+        @type child: L{CommonObjectResource}
+        """
+
+        if child is None:
+            child = yield self.objectResourceWithID(rid)
+        yield child._removeInternal(internal_state=ComponentRemoveState.INTERNAL)
 
 
     def calendarObjectsInTimeRange(self, start, end, timeZone):
@@ -1302,6 +1341,37 @@ class Calendar(CommonHomeChild):
         yield self.setDefaultAlarm("empty", False, False)
 
 
+    def getInviteCopyProperties(self):
+        """
+        Get a dictionary of property name/values (as strings) for properties that are shadowable and
+        need to be copied to a sharee's collection when an external (cross-pod) share is created.
+        Sub-classes should override to expose the properties they care about.
+        """
+        props = {}
+        for elem in (element.DisplayName, caldavxml.CalendarDescription, caldavxml.CalendarTimeZone, customxml.CalendarColor,):
+            if PropertyName.fromElement(elem) in self.properties():
+                props[elem.sname()] = str(self.properties()[PropertyName.fromElement(elem)])
+        return props
+
+
+    def setInviteCopyProperties(self, props):
+        """
+        Copy a set of shadowable properties (as name/value strings) onto this shared resource when
+        a cross-pod invite is processed. Sub-classes should override to expose the properties they
+        care about.
+        """
+        # Initialize these for all shares
+        for elem in (caldavxml.CalendarDescription, caldavxml.CalendarTimeZone,):
+            if PropertyName.fromElement(elem) not in self.properties() and elem.sname() in props:
+                self.properties()[PropertyName.fromElement(elem)] = elem.fromString(props[elem.sname()])
+
+        # Only initialize these for direct shares
+        if self.direct():
+            for elem in (element.DisplayName, customxml.CalendarColor,):
+                if PropertyName.fromElement(elem) not in self.properties() and elem.sname() in props:
+                    self.properties()[PropertyName.fromElement(elem)] = elem.fromString(props[elem.sname()])
+
+
     # FIXME: this is DAV-ish.  Data store calendar objects don't have
     # mime types.  -wsv
     def contentType(self):
@@ -1309,6 +1379,196 @@ class Calendar(CommonHomeChild):
         The content type of Calendar objects is text/calendar.
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
+
+
+    @inlineCallbacks
+    def search(self, filter, useruid=None, fbtype=False):
+        """
+        Finds resources matching the given qualifiers.
+        @param filter: the L{Filter} for the calendar-query to execute.
+        @return: an iterable of tuples for each resource matching the
+            given C{qualifiers}. The tuples are C{(name, uid)}, where
+            C{name} is the resource name, C{uid} is the resource UID.
+        """
+
+        # We might be passed an L{Filter} or a serialization of one
+        if isinstance(filter, dict):
+            try:
+                filter = Filter.deserialize(filter)
+            except Exception:
+                filter = None
+
+        # Make sure we have a proper Filter element and get the partial SQL statement to use.
+        sql_stmt = self._sqlquery(filter, useruid, fbtype)
+
+        # No result means it is too complex for us
+        if sql_stmt is None:
+            raise IndexedSearchException()
+        sql_stmt, args, usedtimerange = sql_stmt
+
+        # Check for time-range re-expand
+        if usedtimerange is not None:
+
+            today = DateTime.getToday()
+
+            # Determine how far we need to extend the current expansion of
+            # events. If we have an open-ended time-range we will expand
+            # one year past the start. That should catch bounded
+            # recurrences - unbounded will have been indexed with an
+            # "infinite" value always included.
+            maxDate, isStartDate = filter.getmaxtimerange()
+            if maxDate:
+                maxDate = maxDate.duplicate()
+                maxDate.offsetDay(1)
+                maxDate.setDateOnly(True)
+                upperLimit = today + Duration(days=config.FreeBusyIndexExpandMaxDays)
+                if maxDate > upperLimit:
+                    raise TimeRangeUpperLimit(upperLimit)
+                if isStartDate:
+                    maxDate += Duration(days=365)
+
+            # Determine if the start date is too early for the restricted range we
+            # are applying. If it is today or later we don't need to worry about truncation
+            # in the past.
+            minDate, _ignore_isEndDate = filter.getmintimerange()
+            if minDate >= today:
+                minDate = None
+            if minDate is not None and config.FreeBusyIndexLowerLimitDays:
+                truncateLowerLimit = today - Duration(days=config.FreeBusyIndexLowerLimitDays)
+                if minDate < truncateLowerLimit:
+                    raise TimeRangeLowerLimit(truncateLowerLimit)
+
+            if maxDate is not None or minDate is not None:
+                yield self.testAndUpdateIndex(minDate, maxDate)
+
+        rowiter = yield sql_stmt.on(self._txn, **args)
+
+        # Check result for missing resources
+        results = []
+        for row in rowiter:
+            if fbtype:
+                row = list(row)
+                row[4] = 'Y' if row[4] else 'N'
+                row[7] = indexfbtype_to_icalfbtype[row[7]]
+                if row[9] is not None:
+                    row[8] = row[9]
+                row[8] = 'T' if row[8] else 'F'
+                del row[9]
+            results.append(row)
+
+        returnValue(results)
+
+
+    def _sqlquery(self, filter, useruid, fbtype):
+        """
+        Convert the supplied addressbook-query into a partial SQL statement.
+
+        @param filter: the L{Filter} for the addressbook-query to convert.
+        @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the partial SQL statement,
+                and the C{list} is the list of argument substitutions to use with the SQL API execute method.
+                Or return C{None} if it is not possible to create an SQL query to fully match the addressbook-query.
+        """
+
+        if not isinstance(filter, Filter):
+            return None
+
+        try:
+            expression = buildExpression(filter, self._queryFields)
+            sql = CalDAVSQLQueryGenerator(expression, self, self.id(), useruid, fbtype)
+            return sql.generate()
+        except ValueError:
+            return None
+
+
+    @classproperty
+    def _notExpandedWithinQuery(cls): #@NoSelf
+        """
+        Query to find resources that need to be re-expanded
+        """
+        co = schema.CALENDAR_OBJECT
+        return Select(
+            [co.RESOURCE_NAME],
+            From=co,
+            Where=((co.RECURRANCE_MIN > Parameter("minDate"))
+                .Or(co.RECURRANCE_MAX < Parameter("maxDate")))
+                .And(co.CALENDAR_RESOURCE_ID == Parameter("resourceID"))
+        )
+
+
+    @inlineCallbacks
+    def notExpandedWithin(self, minDate, maxDate):
+        """
+        Gives all resources which have not been expanded beyond a given date
+        in the database.  (Unused; see above L{postgresqlgenerator}.
+        """
+        returnValue([row[0] for row in (
+            yield self._notExpandedWithinQuery.on(
+                self._txn,
+                minDate=pyCalendarTodatetime(normalizeForIndex(minDate)) if minDate is not None else None,
+                maxDate=pyCalendarTodatetime(normalizeForIndex(maxDate)),
+                resourceID=self._resourceID))]
+        )
+
+
+    @inlineCallbacks
+    def reExpandResource(self, name, expand_start, expand_end):
+        """
+        Given a resource name, remove it from the database and re-add it
+        with a longer expansion.
+        """
+        obj = yield self.calendarObjectWithName(name)
+
+        # Use a new transaction to do this update quickly without locking the row for too long. However, the original
+        # transaction may have the row locked, so use wait=False and if that fails, fall back to using the original txn.
+
+        newTxn = obj.transaction().store().newTransaction()
+        try:
+            yield obj.lock(wait=False, txn=newTxn)
+        except NoSuchObjectResourceError:
+            yield newTxn.commit()
+            returnValue(None)
+        except:
+            yield newTxn.abort()
+            newTxn = None
+
+        # Now do the re-expand using the appropriate transaction
+        try:
+            doExpand = False
+            if newTxn is None:
+                doExpand = True
+            else:
+                # We repeat this check because the resource may have been re-expanded by someone else
+                rmin, rmax = (yield obj.recurrenceMinMax(txn=newTxn))
+
+                # If the resource is not fully expanded, see if within the required range or not.
+                # Note that expand_start could be None if no lower limit is applied, but expand_end will
+                # never be None
+                if rmax is not None and rmax < expand_end:
+                    doExpand = True
+                if rmin is not None and expand_start is not None and rmin > expand_start:
+                    doExpand = True
+
+            if doExpand:
+                yield obj.updateDatabase(
+                    (yield obj.component()),
+                    expand_until=expand_end,
+                    reCreate=True,
+                    txn=newTxn,
+                )
+        finally:
+            if newTxn is not None:
+                yield newTxn.commit()
+
+
+    @inlineCallbacks
+    def testAndUpdateIndex(self, minDate, maxDate):
+        # Find out if the index is expanded far enough
+        names = yield self.notExpandedWithin(minDate, maxDate)
+
+        # Actually expand recurrence max
+        for name in names:
+            self.log.info("Search falls outside range of index for %s %s to %s" % (name, minDate, maxDate))
+            yield self.reExpandResource(name, minDate, maxDate)
 
 
     @inlineCallbacks
@@ -1524,6 +1784,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     implements(ICalendarObject)
 
     _objectSchema = schema.CALENDAR_OBJECT
+    _componentClass = VComponent
 
     def __init__(self, calendar, name, uid, resourceID=None, options=None):
 
@@ -1542,36 +1803,20 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         self._cachedComponent = None
         self._cachedCommponentPerUser = {}
 
-    _allColumns = [
-        _objectSchema.RESOURCE_ID,
-        _objectSchema.RESOURCE_NAME,
-        _objectSchema.UID,
-        _objectSchema.MD5,
-        Len(_objectSchema.TEXT),
-        _objectSchema.ATTACHMENTS_MODE,
-        _objectSchema.DROPBOX_ID,
-        _objectSchema.ACCESS,
-        _objectSchema.SCHEDULE_OBJECT,
-        _objectSchema.SCHEDULE_TAG,
-        _objectSchema.SCHEDULE_ETAGS,
-        _objectSchema.PRIVATE_COMMENTS,
-        _objectSchema.CREATED,
-        _objectSchema.MODIFIED
-    ]
-
 
     @classmethod
     @inlineCallbacks
     def _createInternal(cls, parent, name, component, internal_state, options=None, split_details=None):
 
-        child = (yield cls.objectWithName(parent, name, None))
+        child = (yield cls.objectWithName(parent, name))
         if child:
             raise ObjectResourceNameAlreadyExistsError(name)
 
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
-        objectResource = cls(parent, name, None, None, options=options)
+        c = cls._externalClass if parent.external() else cls
+        objectResource = c(parent, name, None, None, options=options)
         yield objectResource._setComponentInternal(component, inserting=True, internal_state=internal_state, split_details=split_details)
         yield objectResource._loadPropertyStore(created=True)
 
@@ -1581,25 +1826,49 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue(objectResource)
 
 
-    def _initFromRow(self, row):
+    @classmethod
+    def _allColumns(cls): #@NoSelf
         """
-        Given a select result using the columns from L{_allColumns}, initialize
-        the calendar object resource state.
+        Full set of columns in the object table that need to be loaded to
+        initialize the object resource state.
         """
-        (self._resourceID,
-         self._name,
-         self._uid,
-         self._md5,
-         self._size,
-         self._attachment,
-         self._dropboxID,
-         self._access,
-         self._schedule_object,
-         self._schedule_tag,
-         self._schedule_etags,
-         self._private_comments,
-         self._created,
-         self._modified,) = tuple(row)
+        obj = cls._objectSchema
+        return [
+            obj.RESOURCE_ID,
+            obj.RESOURCE_NAME,
+            obj.UID,
+            obj.MD5,
+            Len(obj.TEXT),
+            obj.ATTACHMENTS_MODE,
+            obj.DROPBOX_ID,
+            obj.ACCESS,
+            obj.SCHEDULE_OBJECT,
+            obj.SCHEDULE_TAG,
+            obj.SCHEDULE_ETAGS,
+            obj.PRIVATE_COMMENTS,
+            obj.CREATED,
+            obj.MODIFIED
+        ]
+
+
+    @classmethod
+    def _rowAttributes(cls): #@NoSelf
+        return (
+            "_resourceID",
+            "_name",
+            "_uid",
+            "_md5",
+            "_size",
+            "_attachment",
+            "_dropboxID",
+            "_access",
+            "_schedule_object",
+            "_schedule_tag",
+            "_schedule_etags",
+            "_private_comments",
+            "_created",
+            "_modified",
+         )
 
 
     @property
@@ -2063,6 +2332,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 internal_request=is_internal,
             ))
 
+            # Set an attribute on this object to indicate that it is valid to check for an event split. We need to do this here so that if a timeout
+            # occurs whilst doing implicit processing (most likely because the event is too big) we are able to subsequently detect that it is OK
+            # to split and then try that.
+            if internal_state not in (ComponentUpdateState.SPLIT_OWNER, ComponentUpdateState.SPLIT_ATTENDEE,) and scheduler.state == "organizer":
+                self.okToSplit = True
+
             if do_implicit_action and not is_internal:
 
                 # Cannot do implicit in sharee's shared calendar
@@ -2177,13 +2452,32 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         raise UIDExistsElsewhereError("UID already exists in different calendar: %s." % (elsewhere.calendar().name(),))
 
 
+    @inlineCallbacks
     def setComponent(self, component, inserting=False, smart_merge=False):
         """
         Public api for storing a component. This will do full data validation checks on the specified component.
         Scheduling will be done automatically.
         """
 
-        return self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, smart_merge)
+        # Cross-pod calls come in with component as str or unicode
+        if isinstance(component, str) or isinstance(component, unicode):
+            try:
+                component = self._componentClass.fromString(component)
+            except InvalidICalendarDataError as e:
+                raise InvalidComponentForStoreError(str(e))
+        try:
+            result = yield self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, smart_merge)
+        except Exception:
+            ex = Failure()
+
+            # If the failure is due to a txn timeout and we have the special attribute indicating it is OK to
+            # attempt a split, then try splitting only when doing an update.
+            if self._txn.timedout and hasattr(self, "okToSplit") and not inserting:
+                yield self.timeoutSplit()
+
+            ex.raiseException()
+
+        returnValue(result)
 
 
     @inlineCallbacks
@@ -2734,9 +3028,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(calendar.resourceUID()).hexdigest(),))
 
         # Need to also remove attachments
-        if self._dropboxID:
-            yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
-        yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
+        if internal_state != ComponentRemoveState.INTERNAL:
+            if self._dropboxID:
+                yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
+            yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
         yield super(CalendarObject, self).remove()
 
         # Do scheduling
@@ -3399,16 +3694,21 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def checkSplit(self):
+    def checkSplit(self, txn=None):
         """
-        Determine if the calendar data needs to be split, and enqueue a split work item if needed.
+        Determine if the calendar data needs to be split, and enqueue a split work item if needed. Note we may
+        need to do this in some other transaction.
         """
 
         if config.Scheduling.Options.Splitting.Enabled:
             will = (yield self.willSplit())
             if will:
                 notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.Splitting.Delay)
-                work = (yield self._txn.enqueue(CalendarObject.CalendarObjectSplitterWork, resourceID=self._resourceID, notBefore=notBefore))
+                if txn is None:
+                    txn = self._txn
+                work = (yield txn.enqueue(CalendarObject.CalendarObjectSplitterWork, resourceID=self._resourceID, notBefore=notBefore))
+
+                # _workItems is used during unit testing only, to track the created work
                 if not hasattr(self, "_workItems"):
                     self._workItems = []
                 self._workItems.append(work)
@@ -3424,6 +3724,55 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         ical = (yield self.component())
         will_split = splitter.willSplit(ical)
         returnValue(will_split)
+
+
+    @inlineCallbacks
+    def timeoutSplit(self):
+        """
+        A txn timeout occurred. Check to see if it is possible to split this event and if so schedule that to occur
+        as the timeout might be the result of the resource being too large and doing a split here will allow a
+        subsequent operation to succeed since the split can reduce the size.
+        """
+
+        # Can only do if cached data exists
+        if self._cachedComponent:
+            txn = self.transaction().store().newTransaction("Timeout checkSplit")
+            yield self.checkSplit(txn=txn)
+            yield txn.commit()
+
+
+    @inlineCallbacks
+    def splitAt(self, rid):
+        """
+        User initiated split. We need to verify it is OK to do so first. We will allow any recurring item to
+        be split, but will not allow attendees to split invites.
+
+        @param rid: the date-time where the split should occur. This need not be a specific instance
+            date-time - this method will choose the next instance on or after this value.
+        @type rid: L{DateTime}
+        """
+
+        # Must be recurring
+        component = yield self.component()
+        if not component.isRecurring():
+            raise InvalidSplit()
+
+        # Cannot be attendee
+        ownerPrincipal = self.calendar().ownerHome().directoryRecord()
+        organizer = component.getOrganizer()
+        organizerPrincipal = self.directoryService().recordWithCalendarUserAddress(organizer) if organizer else None
+        if organizer is not None and organizerPrincipal.uid != ownerPrincipal.uid:
+            raise InvalidSplit()
+
+        # Determine valid split point
+        splitter = iCalSplitter(1024, 14)
+        rid = splitter.whereSplit(component, break_point=rid, allow_past_the_end=False)
+        if rid is None:
+            raise InvalidSplit()
+
+        # Do split and return new resource
+        olderObject = yield self.split(rid=rid)
+        returnValue(olderObject)
 
 
     @inlineCallbacks
@@ -3469,8 +3818,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Now process this resource, but do implicit scheduling for attendees not hosted on this server.
         # We need to do this before processing attendee copies.
         calendar_old, calendar_new = splitter.split(calendar, rid=rid, olderUID=olderUID)
-        calendar_new.bumpiTIPInfo(oldcalendar=calendar, doSequence=True)
-        calendar_old.bumpiTIPInfo(oldcalendar=None, doSequence=True)
+        if calendar_new.getOrganizer() is not None:
+            calendar_new.bumpiTIPInfo(oldcalendar=calendar, doSequence=True)
+            calendar_old.bumpiTIPInfo(oldcalendar=None, doSequence=True)
 
         # If the split results in nothing either resource, then there is really nothing
         # to actually split
@@ -3479,7 +3829,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Store changed data
         yield self._setComponentInternal(calendar_new, internal_state=ComponentUpdateState.SPLIT_OWNER, split_details=(rid, olderUID, True,))
-        yield self.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (olderUID,), calendar_old, ComponentUpdateState.SPLIT_OWNER, split_details=(rid, newerUID, False,))
+        olderObject = yield self.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (olderUID,), calendar_old, ComponentUpdateState.SPLIT_OWNER, split_details=(rid, newerUID, False,))
 
         # Split each one - but not this resource
         for resource in resources:
@@ -3487,7 +3837,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 continue
             yield resource.splitForAttendee(rid, olderUID)
 
-        returnValue(olderUID)
+        returnValue(olderObject)
 
 
     @inlineCallbacks
@@ -4419,4 +4769,10 @@ class ManagedAttachment(Attachment):
 
         returnValue(location)
 
+# Hook-up class relationships at the end after they have all been defined
+from txdav.caldav.datastore.sql_external import CalendarHomeExternal, CalendarExternal, CalendarObjectExternal
+CalendarHome._externalClass = CalendarHomeExternal
+CalendarHome._childClass = Calendar
+Calendar._externalClass = CalendarExternal
 Calendar._objectResourceClass = CalendarObject
+CalendarObject._externalClass = CalendarObjectExternal

@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -416,12 +416,14 @@ class CommonTests(CommonCommonTests):
         yield coll.removeNotificationObjectWithUID("1")
         st2 = yield coll.syncToken()
         rev2 = self.token2revision(st2)
-        changed, deleted = yield coll.resourceNamesSinceToken(rev)
+        changed, deleted, invalid = yield coll.resourceNamesSinceToken(rev)
         self.assertEquals(set(changed), set(["2.xml"]))
         self.assertEquals(set(deleted), set(["1.xml"]))
-        changed, deleted = yield coll.resourceNamesSinceToken(rev2)
+        self.assertEquals(len(invalid), 0)
+        changed, deleted, invalid = yield coll.resourceNamesSinceToken(rev2)
         self.assertEquals(set(changed), set([]))
         self.assertEquals(set(deleted), set([]))
+        self.assertEquals(len(invalid), 0)
 
 
     @inlineCallbacks
@@ -1602,7 +1604,7 @@ END:VCALENDAR
 
         home = yield self.homeUnderTest()
 
-        changed, deleted = yield home.resourceNamesSinceToken(
+        changed, deleted, invalid = yield home.resourceNamesSinceToken(
             self.token2revision(st), "infinity")
 
         self.assertEquals(set(changed), set(["calendar_1/",
@@ -1610,11 +1612,13 @@ END:VCALENDAR
                                              "calendar_1/2.ics",
                                              "other-calendar/"]))
         self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
+        self.assertEquals(invalid, [])
 
-        changed, deleted = yield home.resourceNamesSinceToken(
+        changed, deleted, invalid = yield home.resourceNamesSinceToken(
             self.token2revision(st2), "infinity")
         self.assertEquals(changed, [])
         self.assertEquals(deleted, [])
+        self.assertEquals(invalid, [])
 
 
     @inlineCallbacks
@@ -1634,12 +1638,14 @@ END:VCALENDAR
         yield obj1.remove()
         st2 = yield cal.syncToken()
         rev2 = self.token2revision(st2)
-        changed, deleted = yield cal.resourceNamesSinceToken(rev)
+        changed, deleted, invalid = yield cal.resourceNamesSinceToken(rev)
         self.assertEquals(set(changed), set(["new.ics"]))
         self.assertEquals(set(deleted), set(["2.ics"]))
-        changed, deleted = yield cal.resourceNamesSinceToken(rev2)
+        self.assertEquals(len(invalid), 0)
+        changed, deleted, invalid = yield cal.resourceNamesSinceToken(rev2)
         self.assertEquals(set(changed), set([]))
         self.assertEquals(set(deleted), set([]))
+        self.assertEquals(len(invalid), 0)
 
 
     @inlineCallbacks
@@ -1703,7 +1709,7 @@ END:VCALENDAR
         L{ICalendarStore.withEachCalendarHomeDo} executes its C{action}
         argument repeatedly with all homes that have been created.
         """
-        additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
+        additionalUIDs = set('user01 home2 home3 uid1'.split())
         txn = self.transactionUnderTest()
         for name in additionalUIDs:
             yield txn.calendarHomeWithUID(name, create=True)

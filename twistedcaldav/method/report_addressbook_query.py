@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_addressbookquery -*-
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 
 from twext.python.log import Logger
 from txweb2 import responsecode
-from txdav.xml import element as davxml
 from txweb2.dav.http import ErrorResponse, MultiStatusResponse
 from txweb2.dav.method.report import NumberOfMatchesWithinLimits
 from txweb2.dav.util import joinURL
@@ -37,9 +36,11 @@ from twistedcaldav import carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.carddavxml import carddav_namespace, NResults
 from twistedcaldav.method import report_common
-from twistedcaldav.query import addressbookqueryfilter
 
-from txdav.common.icommondatastore import ConcurrentModification
+from txdav.carddav.datastore.query.filter import Filter
+from txdav.common.icommondatastore import ConcurrentModification, \
+    IndexedSearchException
+from txdav.xml import element as davxml
 
 log = Logger()
 
@@ -62,7 +63,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
     responses = []
 
     xmlfilter = addressbook_query.filter
-    filter = addressbookqueryfilter.Filter(xmlfilter)
+    filter = Filter(xmlfilter)
     query = addressbook_query.props
     limit = addressbook_query.limit
 
@@ -209,7 +210,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                                                         carddavxml.TextMatch.fromString(resource_name[:-4]),
                                                         name="UID", # attributes
                                                         ), ])
-                            vCardFilter = addressbookqueryfilter.Filter(vCardFilter)
+                            vCardFilter = Filter(vCardFilter)
 
                             directoryAddressBookLock, limited[0] = (yield  directory.cacheVCardsForAddressBookQuery(vCardFilter, query, max_number_of_results[0]))
 
@@ -230,11 +231,13 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
 
                     # Check for disabled access
                     if filteredaces is not None:
-                        # See whether the filter is valid for an index only query
-                        index_query_ok = addrresource.index().searchValid(filter)
-
-                        # Get list of children that match the search and have read access
-                        names = [name for name, ignore_uid in (yield addrresource.index().search(filter))] #@UnusedVariable
+                        index_query_ok = True
+                        try:
+                            # Get list of children that match the search and have read access
+                            names = [name for name, ignore_uid in (yield addrresource.search(filter))] #@UnusedVariable
+                        except IndexedSearchException:
+                            names = yield addrresource.listChildren()
+                            index_query_ok = False
                         if not names:
                             return
 
@@ -277,7 +280,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                                                     carddavxml.TextMatch.fromString(resource_name[:-4]),
                                                     name="UID", # attributes
                                                     ), ])
-                        vCardFilter = addressbookqueryfilter.Filter(vCardFilter)
+                        vCardFilter = Filter(vCardFilter)
 
                         yield  maybeDeferred(queryDirectoryBackedAddressBook, parent, vCardFilter)
                         handled = True
