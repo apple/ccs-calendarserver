@@ -82,11 +82,12 @@ class FindMinValidRevisionWork(WorkItem,
                 Where=cs.NAME == "MIN-VALID-REVISION",
             ).on(self.transaction)
 
-            # Schedule revision cleanup
-            log.debug("Scheduling revision cleanup now")
-            yield self.transaction.enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
+            if config.RescheduleRevisionWork:
+                # Schedule revision cleanup
+                log.debug("Scheduling revision cleanup now")
+                yield self.transaction.enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
 
-        else:
+        elif config.RescheduleRevisionWork:
             # Schedule next update
             notBefore = (datetime.datetime.utcnow() +
                 datetime.timedelta(days=float(config.RevisionCleanupPeriodDays)))
@@ -119,11 +120,11 @@ class RevisionCleanupWork(WorkItem,
         yield deleteRevisionsBefore(self.transaction, minValidRevision)
 
         # Schedule next update
-        notBefore = (datetime.datetime.utcnow() +
-            datetime.timedelta(days=float(config.RevisionCleanupPeriodDays)))
-        log.debug("Rescheduling find minimum valid revision work: %s" % (notBefore,))
-        yield self.transaction.enqueue(FindMinValidRevisionWork,
-            notBefore=notBefore)
+        if config.RescheduleRevisionWork:
+            notBefore = (datetime.datetime.utcnow() +
+                datetime.timedelta(days=float(config.RevisionCleanupPeriodDays)))
+            log.debug("Rescheduling find minimum valid revision work: %s" % (notBefore,))
+            yield self.transaction.enqueue(FindMinValidRevisionWork, notBefore=notBefore)
 
 
 

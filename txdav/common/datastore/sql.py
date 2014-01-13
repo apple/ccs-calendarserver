@@ -6816,25 +6816,31 @@ def deleteRevisionsBefore(txn, minRevision):
     # go though list an delete old revisions, leaving at least one unremoved member
     for groupID, memberIDToRevisionsMap in groupIDToMemberIDMap.iteritems():
         for memberID, revisionInfoList in memberIDToRevisionsMap.iteritems():
-
-            revisionsToRemove = []
-            maxRevisionInfoToRemove = None
-            revisionsToSave = []
+            revisionInfosToRemove = []
+            revisionInfosToSave = []
             for revisionInfo in revisionInfoList:
-                removed, revision = revisionInfo
-                if revision < minRevision:
-                    revisionsToRemove.append(revision)
-                    if not maxRevisionInfoToRemove or revision > maxRevisionInfoToRemove[1]:
-                        maxRevisionInfoToRemove = revisionInfo
+                if revisionInfo[1] < minRevision:
+                    revisionInfosToRemove.append(revisionInfo)
                 else:
-                    revisionsToSave.append(revision)
+                    revisionInfosToSave.append(revisionInfo)
 
-            if revisionsToRemove and (revisionsToSave or maxRevisionInfoToRemove[0]):
-                aboMembers = schema.ABO_MEMBERS
+            # save at least one revision
+            if revisionInfosToRemove and len(revisionInfosToRemove) == len(revisionInfoList):
+                maxRevisionInfoToRemove = max(revisionInfosToRemove, key=lambda info: info[1])
+                revisionInfosToSave.append(maxRevisionInfoToRemove)
+                revisionInfosToRemove.remove(maxRevisionInfoToRemove)
+
+            # get rid of extra removed member revision
+            if revisionInfosToSave and max(revisionInfosToSave, key=lambda info: not info[0])[0]:
+                revisionInfosToRemove += revisionInfosToSave
+
+            if revisionInfosToRemove:
+                revisionsToRemove = [revisionInfoToRemove[1] for revisionInfoToRemove in revisionInfosToRemove]
                 yield Delete(
                     aboMembers,
                     Where=(aboMembers.GROUP_ID == groupID).And(
                         aboMembers.MEMBER_ID == memberID).And(
-                            aboMembers.REVISION.In(revisionsToRemove)
+                            aboMembers.REVISION.In(Parameter("revisionsToRemove", len(revisionsToRemove)))
                         )
-                )
+                ).on(txn, revisionsToRemove=revisionsToRemove)
+

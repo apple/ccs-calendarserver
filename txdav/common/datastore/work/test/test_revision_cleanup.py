@@ -18,13 +18,13 @@
 
 from twext.enterprise.dal.syntax import Select
 from twext.python.clsprop import classproperty
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import config
 from twistedcaldav.vcard import Component as VCard
-from txdav.common.datastore.sql_tables import  schema, _BIND_MODE_READ
+from txdav.common.datastore.sql_tables import  schema
 from txdav.common.datastore.test.util import buildStore, CommonCommonTests
-from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWork
+from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWork, RevisionCleanupWork
 from txdav.common.icommondatastore import SyncTokenValidException
 import datetime
 
@@ -40,6 +40,7 @@ class RevisionCleanupTests(CommonCommonTests, TestCase):
         self._sqlStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()
         self.patch(config, "SyncTokenLifetimeDays", 0)
+        self.patch(config, "RescheduleRevisionWork", False)
 
 
     @inlineCallbacks
@@ -110,6 +111,23 @@ X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:foreign
 END:VCARD
 """
 
+    group1Empty = """BEGIN:VCARD
+VERSION:3.0
+UID:group1
+FN:Group 1
+N:group1;;;;
+X-ADDRESSBOOKSERVER-KIND:group
+END:VCARD
+"""
+
+    group2Empty = """BEGIN:VCARD
+VERSION:3.0
+UID:group2
+FN:Group 2
+N:group2;;;;
+X-ADDRESSBOOKSERVER-KIND:group
+END:VCARD
+"""
 
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
@@ -141,75 +159,15 @@ END:VCARD
         return self._sqlStore
 
 
-    @inlineCallbacks
-    def _createShare(self, mode=_BIND_MODE_READ):
-        inviteUID = yield self._inviteShare(mode)
-        sharedName = yield self._acceptShare(inviteUID)
-        returnValue(sharedName)
-
-
-    @inlineCallbacks
-    def _inviteShare(self, mode=_BIND_MODE_READ):
-        # Invite
-        addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        invites = yield addressbook.sharingInvites()
-        self.assertEqual(len(invites), 0)
-
-        shareeView = yield addressbook.inviteUserToShare("user02", mode, "summary")
-        inviteUID = shareeView.shareUID()
-        yield self.commit()
-
-        returnValue(inviteUID)
-
-
-    @inlineCallbacks
-    def _acceptShare(self, inviteUID):
-        # Accept
-        shareeHome = yield self.addressbookHomeUnderTest(name="user02")
-        shareeView = yield shareeHome.acceptShare(inviteUID)
-        sharedName = shareeView.name()
-        yield self.commit()
-
-        returnValue(sharedName)
-
-
-    @inlineCallbacks
-    def _createGroupShare(self, groupname="group1.vcf", mode=_BIND_MODE_READ):
-        inviteUID = yield self._inviteGroupShare(groupname, mode)
-        sharedName = yield self._acceptGroupShare(inviteUID)
-        returnValue(sharedName)
-
-
-    @inlineCallbacks
-    def _inviteGroupShare(self, groupname="group1.vcf", mode=_BIND_MODE_READ):
-        # Invite
-        group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name=groupname)
-        shareeView = yield group.inviteUserToShare("user02", mode, "summary")
-        inviteUID = shareeView.shareUID()
-        yield self.commit()
-
-        returnValue(inviteUID)
-
-
-    @inlineCallbacks
-    def _acceptGroupShare(self, inviteUID):
-        # Accept
-        shareeHome = yield self.addressbookHomeUnderTest(name="user02")
-        yield shareeHome.acceptShare(inviteUID)
-        yield self.commit()
-
-        returnValue(inviteUID)
-
-
-    def test_CalendarObjectRevisions(self):
-        pass
-
-
-    def test_AddressBookObjectRevisions(self):
+    def test_calendarObjectRevisions(self):
         pass
 
 
     def test_notificationObjectRevisions(self):
+        pass
+
+
+    def test_addressbookObjectRevisions(self):
         pass
 
 
@@ -219,122 +177,45 @@ END:VCARD
         Verify that resourceNamesSinceRevision returns all resources after initial bind and sync.
         """
 
-        #normalAB = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        groupObject = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="group1.vcf", addressbook_name="addressbook", home="user01")
-        print("test_addressbookMembersRevisions sharedGroupObject= %s" % (groupObject,))
+        # get sync token
+        addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
+        token = yield addressbook.syncToken()
 
-        # Get revisions
-        # get groups where this object was once a member and version info
+        # generate 3 revisions per member of group1
+        group1Object = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="group1.vcf", addressbook_name="addressbook", home="user01")
+        yield group1Object.setComponent(VCard.fromString(self.group1Empty))
+        self.commit()
+        group1Object = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="group1.vcf", addressbook_name="addressbook", home="user01")
+        yield group1Object.setComponent(VCard.fromString(self.group1))
+        self.commit()
+
+        # generate 2 revisions per member of group2, and make max revision of group1 members < max revision used
+        group2Object = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="group2.vcf", addressbook_name="addressbook", home="user01")
+        yield group2Object.setComponent(VCard.fromString(self.group2Empty))
+        self.commit()
+
+        # Get group1 revisions
         aboMembers = schema.ABO_MEMBERS
-        groupRows = yield Select(
+        group1Rows = yield Select(
             [aboMembers.GROUP_ID,
              aboMembers.MEMBER_ID,
              aboMembers.REMOVED,
              aboMembers.REVISION],
             From=aboMembers,
-            Where=aboMembers.GROUP_ID == groupObject._resourceID,
+            Where=aboMembers.GROUP_ID == group1Object._resourceID,
         ).on(self.transactionUnderTest())
+        self.assertEqual(len(group1Rows), 6)  # 2 members x 3 revisions each
 
-        print("test_addressbookMembersRevisions groupRows= %s" % (groupRows,))
-
-        group1Empty = """BEGIN:VCARD
-VERSION:3.0
-UID:group1
-FN:Group 1
-N:group1;;;;
-X-ADDRESSBOOKSERVER-KIND:group
-END:VCARD
-"""
-        groupEmptyVCard = VCard.fromString(group1Empty.replace("\n", "\r\n"))
-        yield groupObject.setComponent(groupEmptyVCard)
-        self.commit()
-
-        yield self._createGroupShare(groupname="group1.vcf")
-
-        #normalAB = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        groupObject = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="group1.vcf", addressbook_name="addressbook", home="user01")
-        print("test_addressbookMembersRevisions sharedGroupObject= %s" % (groupObject,))
-
-        # Get revisions
-        # get groups where this object was once a member and version info
-        aboMembers = schema.ABO_MEMBERS
-        groupRows = yield Select(
-            [aboMembers.MEMBER_ID,
+        # Get group2 revisions
+        group2Rows = yield Select(
+            [aboMembers.GROUP_ID,
+             aboMembers.MEMBER_ID,
              aboMembers.REMOVED,
              aboMembers.REVISION],
             From=aboMembers,
-            Where=aboMembers.GROUP_ID == groupObject._resourceID,
+            Where=aboMembers.GROUP_ID == group2Object._resourceID,
         ).on(self.transactionUnderTest())
-
-        print("test_addressbookMembersRevisions groupRows= %s" % (groupRows,))
-
-        group1vCard = VCard.fromString(self.group1.replace("\n", "\r\n"))
-        yield groupObject.setComponent(group1vCard)
-        self.commit()
-
-        #normalAB = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        groupObject = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="group1.vcf", addressbook_name="addressbook", home="user01")
-        print("test_addressbookMembersRevisions sharedGroupObject= %s" % (groupObject,))
-
-        # Get revisions
-        # get groups where this object was once a member and version info
-        aboMembers = schema.ABO_MEMBERS
-        groupRows = yield Select(
-            [aboMembers.MEMBER_ID,
-             aboMembers.REMOVED,
-             aboMembers.REVISION],
-            From=aboMembers,
-            Where=aboMembers.GROUP_ID == groupObject._resourceID,
-        ).on(self.transactionUnderTest())
-
-        print("test_addressbookMembersRevisions groupRows= %s" % (groupRows,))
-
-        group1vCard = VCard.fromString(group1Empty.replace("\n", "\r\n"))
-        yield groupObject.setComponent(group1vCard)
-        self.commit()
-
-        #normalAB = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        groupObject = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="group1.vcf", addressbook_name="addressbook", home="user01")
-        print("test_addressbookMembersRevisions sharedGroupObject= %s" % (groupObject,))
-
-        # Get revisions
-        # get groups where this object was once a member and version info
-        aboMembers = schema.ABO_MEMBERS
-        groupRows = yield Select(
-            [aboMembers.MEMBER_ID,
-             aboMembers.REMOVED,
-             aboMembers.REVISION],
-            From=aboMembers,
-            Where=aboMembers.GROUP_ID == groupObject._resourceID,
-        ).on(self.transactionUnderTest())
-
-        print("test_addressbookMembersRevisions groupRows= %s" % (groupRows,))
-
-        normalAB = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        self.assertEqual(normalAB._bindRevision, 0)
-        otherAB = yield self.addressbookUnderTest(home="user02", name="user01")
-        self.assertNotEqual(otherAB._bindRevision, 0)
-
-        changed, deleted, invalid = yield otherAB.resourceNamesSinceRevision(otherAB._bindRevision)
-        print("test_addressbookMembersRevisions changed=%s deleted=%s" % (changed, deleted,))
-        self.assertEqual(changed, ["group1.vcf"])
-        self.assertEqual(len(deleted), 0)
-        self.assertEqual(len(invalid), 0)
-
-        otherHome = yield self.addressbookHomeUnderTest(name="user02")
-        for depth, result in (
-            ("1", ['user01/', ]
-            ),
-            ("infinity", ['user01/',
-                          'user01/group1.vcf']
-             )):
-            changed, deleted, invalid = yield otherAB.viewerHome().resourceNamesSinceRevision(otherAB._bindRevision, depth)
-            print("test_addressbookMembersRevisions depth=%s, changed=%s deleted=%s" % (depth, changed, deleted,))
-            self.assertEqual(set(changed), set(result))
-            self.assertEqual(len(deleted), 0)
-            self.assertEqual(len(invalid), 0)
-
-        yield self.commit()
+        self.assertEqual(len(group2Rows), 4)  # 2 members x 2 revisions each
 
         # Get the minimum valid revision
         cs = schema.CALENDARSERVER
@@ -343,27 +224,48 @@ END:VCARD
             From=cs,
             Where=(cs.NAME == "MIN-VALID-REVISION")
         ).on(self.transactionUnderTest()))[0][0])
-        print("test_addressbookMembersRevisions minValidRevision= %s" % (minValidRevision,))
         self.assertEqual(minValidRevision, 1)
 
-        # queue work items
+        # do FindMinValidRevisionWork
         wp = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
-
         yield self.commit()
-
-        # Wait for it to complete
         yield wp.whenExecuted()
 
-        # Get the minimum valid revision again
+        # Get the minimum valid revision and check it
         cs = schema.CALENDARSERVER
         minValidRevision = int((yield Select(
             [cs.VALUE],
             From=cs,
             Where=(cs.NAME == "MIN-VALID-REVISION")
         ).on(self.transactionUnderTest()))[0][0])
-        print("test_addressbookMembersRevisions minValidRevision= %s" % (minValidRevision,))
-        self.assertNotEqual(minValidRevision, 1)
+        self.assertEqual(minValidRevision, max([row[3] for row in group1Rows + group2Rows]))
 
-        otherHome = yield self.addressbookHomeUnderTest(name="user02")
-        for depth in ("1", "infinity",):
-            self.failUnlessFailure(otherHome.resourceNamesSinceRevision(otherAB._bindRevision, depth), SyncTokenValidException)
+        # old sync token fails
+        addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
+        self.failUnlessFailure(addressbook.resourceNamesSinceToken(token), SyncTokenValidException)
+
+        # do RevisionCleanupWork
+        wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
+        yield self.commit()
+        yield wp.whenExecuted()
+
+        group1Rows = yield Select(
+            [aboMembers.GROUP_ID,
+             aboMembers.MEMBER_ID,
+             aboMembers.REMOVED,
+             aboMembers.REVISION],
+            From=aboMembers,
+            Where=aboMembers.GROUP_ID == group1Object._resourceID,
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(group1Rows), 2)  # 2 members x 1 revision each
+        self.assertTrue(max([row[3] for row in group1Rows]) < minValidRevision) # < min revision but still around
+
+        group2Rows = yield Select(
+            [aboMembers.GROUP_ID,
+             aboMembers.MEMBER_ID,
+             aboMembers.REMOVED,
+             aboMembers.REVISION],
+            From=aboMembers,
+            Where=aboMembers.GROUP_ID == group2Object._resourceID,
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(group2Rows), 0)  # 0 members
