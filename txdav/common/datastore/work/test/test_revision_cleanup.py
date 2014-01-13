@@ -176,14 +176,66 @@ END:VCARD
         pass
 
 
+    @inlineCallbacks
     def test_addressbookObjectRevisions(self):
-        pass
+        """
+        Verify that all extra addressbook object revisions are deleted by the cleaning work items
+        """
+
+        # get sync token
+        addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
+        token = yield addressbook.syncToken()
+
+        #make changes
+        card1Object = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="card1.vcf", addressbook_name="addressbook", home="user01")
+        yield card1Object.remove()
+        card2Object = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="card2.vcf", addressbook_name="addressbook", home="user01")
+        yield card2Object.remove()
+
+        # Get object revisions
+        rev = schema.ADDRESSBOOK_OBJECT_REVISIONS
+        revisionRows = yield Select(
+            [rev.REVISION],
+            From=rev,
+        ).on(self.transactionUnderTest())
+        self.assertNotEqual(len(revisionRows), 0)
+
+        # do FindMinValidRevisionWork
+        wp = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
+        yield self.commit()
+        yield wp.whenExecuted()
+
+        # Get the minimum valid revision and check it
+        cs = schema.CALENDARSERVER
+        minValidRevision = int((yield Select(
+            [cs.VALUE],
+            From=cs,
+            Where=(cs.NAME == "MIN-VALID-REVISION")
+        ).on(self.transactionUnderTest()))[0][0])
+        self.assertEqual(minValidRevision, max([row[0] for row in revisionRows]))
+
+        # do RevisionCleanupWork
+        wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
+        yield self.commit()
+        yield wp.whenExecuted()
+
+        # Get group1 object revision
+        rev = schema.ADDRESSBOOK_OBJECT_REVISIONS
+        revisionRows = yield Select(
+            [rev.REVISION],
+            From=rev,
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(revisionRows), 1)  # current algo leaves 1 revision behind TOTAL, so what?
+
+        # old sync token fails
+        addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
+        self.failUnlessFailure(addressbook.resourceNamesSinceToken(token), SyncTokenValidException)
 
 
     @inlineCallbacks
     def test_addressbookMembersRevisions(self):
         """
-        Verify that resourceNamesSinceRevision returns all resources after initial bind and sync.
+        Verify that all extra members revisions are deleted by the cleaning work items
         """
 
         # get sync token
@@ -198,7 +250,7 @@ END:VCARD
         yield group1Object.setComponent(VCard.fromString(self.group1))
         self.commit()
 
-        # generate 2 revisions per member of group2, and make max revision of group1 members < max revision used
+        # generate 2 revisions per member of group2, and make max revision of group1 members < max valid revision
         group2Object = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="group2.vcf", addressbook_name="addressbook", home="user01")
         yield group2Object.setComponent(VCard.fromString(self.group2Empty))
         self.commit()
@@ -249,10 +301,6 @@ END:VCARD
         ).on(self.transactionUnderTest()))[0][0])
         self.assertEqual(minValidRevision, max([row[3] for row in group1Rows + group2Rows]))
 
-        # old sync token fails
-        addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        self.failUnlessFailure(addressbook.resourceNamesSinceToken(token), SyncTokenValidException)
-
         # do RevisionCleanupWork
         wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
         yield self.commit()
@@ -278,3 +326,7 @@ END:VCARD
             Where=aboMembers.GROUP_ID == group2Object._resourceID,
         ).on(self.transactionUnderTest())
         self.assertEqual(len(group2Rows), 0)  # 0 members
+
+        # old sync token fails
+        addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
+        self.failUnlessFailure(addressbook.resourceNamesSinceToken(token), SyncTokenValidException)
