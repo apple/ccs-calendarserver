@@ -634,7 +634,6 @@ DEFAULT_CONFIG = {
 
     "SyncTokenLifetimeDays" : 14,       # Number of days that a client sync report token is valid
     "RevisionCleanupPeriodDays" : 2,    # Number of days between revision cleanups
-    "RescheduleRevisionWork" : True,    # automatically reschedule revision work
 
     # CardDAV Features
     "DirectoryAddressBook": {

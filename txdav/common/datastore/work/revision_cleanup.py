@@ -37,6 +37,15 @@ class FindMinValidRevisionWork(WorkItem,
 
     group = "find_min_revision"
 
+    @classmethod
+    @inlineCallbacks
+    def _schedule(cls, txn, seconds):
+        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
+        log.debug("Scheduling find minimum valid revision work: %s" % (notBefore,))
+        wp = yield txn.enqueue(cls, notBefore=notBefore)
+        returnValue(wp)
+
+
     @inlineCallbacks
     def doWork(self):
 
@@ -82,18 +91,15 @@ class FindMinValidRevisionWork(WorkItem,
                 Where=cs.NAME == "MIN-VALID-REVISION",
             ).on(self.transaction)
 
-            if config.RescheduleRevisionWork:
-                # Schedule revision cleanup
-                log.debug("Scheduling revision cleanup now")
-                yield self.transaction.enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
+            # Schedule revision cleanup
+            yield RevisionCleanupWork._schedule(self.transaction, seconds=0)
 
-        elif config.RescheduleRevisionWork:
-            # Schedule next update
-            notBefore = (datetime.datetime.utcnow() +
-                datetime.timedelta(days=float(config.RevisionCleanupPeriodDays)))
-            log.debug("Rescheduling find minimum valid revision work: %s" % (notBefore,))
-            yield self.transaction.enqueue(FindMinValidRevisionWork,
-                notBefore=notBefore)
+        else:
+            # Schedule next check
+            yield FindMinValidRevisionWork._schedule(
+                self.transaction,
+                float(config.RevisionCleanupPeriodDays) * 24 * 60 * 60
+            )
 
 
 
@@ -101,6 +107,15 @@ class RevisionCleanupWork(WorkItem,
     fromTable(schema.REVISION_CLEANUP_WORK)):
 
     group = "group_revsion_cleanup"
+
+    @classmethod
+    @inlineCallbacks
+    def _schedule(cls, txn, seconds):
+        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
+        log.debug("Scheduling revision cleanup work: %s" % (notBefore,))
+        wp = yield txn.enqueue(cls, notBefore=notBefore)
+        returnValue(wp)
+
 
     @inlineCallbacks
     def doWork(self):
@@ -120,19 +135,16 @@ class RevisionCleanupWork(WorkItem,
         yield deleteRevisionsBefore(self.transaction, minValidRevision)
 
         # Schedule next update
-        if config.RescheduleRevisionWork:
-            notBefore = (datetime.datetime.utcnow() +
-                datetime.timedelta(days=float(config.RevisionCleanupPeriodDays)))
-            log.debug("Rescheduling find minimum valid revision work: %s" % (notBefore,))
-            yield self.transaction.enqueue(FindMinValidRevisionWork, notBefore=notBefore)
+        yield FindMinValidRevisionWork._schedule(
+            self.transaction,
+            float(config.RevisionCleanupPeriodDays) * 24 * 60 * 60
+        )
 
 
 
 @inlineCallbacks
 def scheduleFirstFindMinRevision(store, seconds):
     txn = store.newTransaction()
-    notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-    log.debug("Scheduling first find minimum valid revision work: %s" % (notBefore,))
-    wp = (yield txn.enqueue(FindMinValidRevisionWork, notBefore=notBefore))
+    wp = yield FindMinValidRevisionWork._schedule(txn, seconds)
     yield txn.commit()
     returnValue(wp)
