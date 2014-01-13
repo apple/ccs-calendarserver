@@ -6830,7 +6830,7 @@ def deleteRevisionsBefore(txn, minRevision):
                 revisionInfosToSave.append(maxRevisionInfoToRemove)
                 revisionInfosToRemove.remove(maxRevisionInfoToRemove)
 
-            # get rid of extra removed member revision
+            # get rid of extra removed member revisions
             if revisionInfosToSave and max(revisionInfosToSave, key=lambda info: not info[0])[0]:
                 revisionInfosToRemove += revisionInfosToSave
 
