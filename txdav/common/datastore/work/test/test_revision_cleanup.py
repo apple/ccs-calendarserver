@@ -29,12 +29,6 @@ from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWor
 from txdav.common.icommondatastore import SyncTokenValidException
 import datetime
 
-class FakeWork(WorkItem):
-
-    @classmethod
-    def _schedule(cls, txn, seconds):
-        pass
-
 
 
 class RevisionCleanupTests(CommonCommonTests, TestCase):
@@ -47,9 +41,15 @@ class RevisionCleanupTests(CommonCommonTests, TestCase):
         yield super(RevisionCleanupTests, self).setUp()
         self._sqlStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()
-        self.patch(config, "SyncTokenLifetimeDays", 0)
+
+        class FakeWork(WorkItem):
+            @classmethod
+            def _schedule(cls, txn, seconds):
+                pass
+
         self.patch(FindMinValidRevisionWork, "_schedule", FakeWork._schedule)
         self.patch(RevisionCleanupWork, "_schedule", FakeWork._schedule)
+        self.patch(config, "SyncTokenLifetimeDays", 0)
 
 
     @inlineCallbacks
