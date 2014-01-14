@@ -19,12 +19,12 @@
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.queue import WorkItem
 from twext.python.clsprop import classproperty
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import config
 from twistedcaldav.vcard import Component as VCard
 from txdav.caldav.datastore.test.util import buildCalendarStore
-from txdav.common.datastore.sql_tables import  schema
+from txdav.common.datastore.sql_tables import schema, _BIND_MODE_READ
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWork, RevisionCleanupWork
 from txdav.common.icommondatastore import SyncTokenValidException
@@ -226,6 +226,12 @@ END:VCARD
                     "inbox": {
                     },
                 },
+                "user02": {
+                    "calendar": {
+                    },
+                    "inbox": {
+                    },
+                },
             }
         }
 
@@ -238,9 +244,29 @@ END:VCARD
 
 
     @inlineCallbacks
+    def _createCalendarShare(self):
+        # Invite
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 0)
+
+        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        inviteUID = shareeView.shareUID()
+        yield self.commit()
+
+        # Accept
+        shareeHome = yield self.homeUnderTest(name="user02")
+        shareeView = yield shareeHome.acceptShare(inviteUID)
+        sharedName = shareeView.name()
+        yield self.commit()
+
+        returnValue(sharedName)
+
+
+    @inlineCallbacks
     def test_calendarObjectRevisions(self):
         """
-        Verify that all extra addressbook object revisions are deleted by the cleaning work items
+        Verify that all extra calendar object revisions are deleted by FindMinValidRevisionWork and RevisionCleanupWork
         """
 
         # get sync token
@@ -293,14 +319,64 @@ END:VCARD
         self.failUnlessFailure(calendar.resourceNamesSinceToken(token), SyncTokenValidException)
 
 
+    @inlineCallbacks
     def test_notificationObjectRevisions(self):
-        pass
+        """
+        Verify that all extra notification object revisions are deleted by FindMinValidRevisionWork and RevisionCleanupWork
+        """
+
+        # get sync token
+        home = yield self.homeUnderTest(name="user01")
+        token = yield home.syncToken()
+
+        #make notification changes as side effect of sharing
+        yield self._createCalendarShare()
+
+        # Get object revisions
+        rev = schema.NOTIFICATION_OBJECT_REVISIONS
+        revisionRows = yield Select(
+            [rev.REVISION],
+            From=rev,
+        ).on(self.transactionUnderTest())
+        self.assertNotEqual(len(revisionRows), 0)
+
+        # do FindMinValidRevisionWork
+        wp = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
+        yield self.commit()
+        yield wp.whenExecuted()
+
+        # Get the minimum valid revision and check it
+        cs = schema.CALENDARSERVER
+        minValidRevision = int((yield Select(
+            [cs.VALUE],
+            From=cs,
+            Where=(cs.NAME == "MIN-VALID-REVISION")
+        ).on(self.transactionUnderTest()))[0][0])
+        self.assertEqual(minValidRevision, max([row[0] for row in revisionRows]))
+
+        # do RevisionCleanupWork
+        wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
+        yield self.commit()
+        yield wp.whenExecuted()
+
+        # Get group1 object revision
+        rev = schema.NOTIFICATION_OBJECT_REVISIONS
+        revisionRows = yield Select(
+            [rev.REVISION],
+            From=rev,
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(revisionRows), 1)  # deleteRevisionsBefore() leaves 1 revision behind
+
+        # old sync token fails
+        home = yield self.homeUnderTest(name="user01")
+        self.failUnlessFailure(home.resourceNamesSinceToken(token, "1"), SyncTokenValidException)
+        self.failUnlessFailure(home.resourceNamesSinceToken(token, "infinity"), SyncTokenValidException)
 
 
     @inlineCallbacks
     def test_addressbookObjectRevisions(self):
         """
-        Verify that all extra addressbook object revisions are deleted by the cleaning work items
+        Verify that all extra addressbook object revisions are deleted by FindMinValidRevisionWork and RevisionCleanupWork
         """
 
         # get sync token
@@ -356,7 +432,7 @@ END:VCARD
     @inlineCallbacks
     def test_addressbookMembersRevisions(self):
         """
-        Verify that all extra members revisions are deleted by the cleaning work items
+        Verify that all extra members revisions are deleted by FindMinValidRevisionWork and RevisionCleanupWork
         """
 
         # get sync token
