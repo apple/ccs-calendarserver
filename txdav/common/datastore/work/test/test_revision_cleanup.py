@@ -150,14 +150,6 @@ END:VCARD
                 "group2.vcf": cls.group2,
             },
         },
-        "user02": {
-            "addressbook": {
-            },
-        },
-        "user03": {
-            "addressbook": {
-            },
-        },
     }
 
 
