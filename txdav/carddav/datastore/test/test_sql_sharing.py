@@ -1121,7 +1121,7 @@ class SharingRevisions(BaseSharingTests):
         self.assertNotEqual(otherAB._bindRevision, 0)
 
 
-#    @inlineCallbacks
+    @inlineCallbacks
     def test_sharedRevisions(self):
         """
         Verify that resourceNamesSinceRevision returns all resources after initial bind and sync.

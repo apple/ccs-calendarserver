@@ -2210,23 +2210,33 @@ class CommonHome(SharingHomeMixIn):
         @type depth: C{str}
         """
 
-        results = [
-            (
-                path if path else (collection if collection else ""),
-                name if name else "",
-                wasdeleted
-            )
-            for path, collection, name, wasdeleted in
-            (yield self.doChangesQuery(revision))
-        ]
-
         changed = set()
         deleted = set()
         invalid = set()
-        deleted_collections = set()
-        for path, name, wasdeleted in results:
-            if wasdeleted:
-                if revision:
+        if revision:
+            cs = schema.CALENDARSERVER
+            minValidRevision = int((yield Select(
+                [cs.VALUE],
+                From=cs,
+                Where=(cs.NAME == "MIN-VALID-REVISION")
+            ).on(self._txn))[0][0])
+
+            if revision < minValidRevision:
+                raise SyncTokenValidException
+
+            results = [
+                (
+                    path if path else (collection if collection else ""),
+                    name if name else "",
+                    wasdeleted
+                )
+                for path, collection, name, wasdeleted in
+                (yield self.doChangesQuery(revision))
+            ]
+
+            deleted_collections = set()
+            for path, name, wasdeleted in results:
+                if wasdeleted:
                     if name:
                         # Resource deleted - for depth "1" report collection as changed,
                         # otherwise report resource as deleted
@@ -2239,18 +2249,27 @@ class CommonHome(SharingHomeMixIn):
                         deleted.add("%s/" % (path,))
                         deleted_collections.add(path)
 
-            if path not in deleted_collections:
-                # Always report collection as changed
-                changed.add("%s/" % (path,))
-                if name:
+                if path not in deleted_collections:
+                    # Always report collection as changed
+                    changed.add("%s/" % (path,))
+                    if name:
+                        # Resource changed - for depth "infinity" report resource as changed
+                        if depth != "1":
+                            changed.add("%s/%s" % (path, name,))
+
+        # Now deal with shared collections (and owned if revision == 0)
+        for share in (yield self.children()):
+            if share.owned():
+                if not revision:
+                    path = share.name()
+                    # Always report collection as changed
+                    changed.add("%s/" % (path,))
+
                     # Resource changed - for depth "infinity" report resource as changed
                     if depth != "1":
-                        changed.add("%s/%s" % (path, name,))
-
-        # Now deal with shared collections
-        # TODO: think about whether this can be done in one query rather than looping over each share
-        for share in (yield self.children()):
-            if not share.owned():
+                        for name in (yield share.listObjectResources()):
+                            changed.add("%s/%s" % (path, name,))
+            else:
                 sharedChanged, sharedDeleted, sharedInvalid = yield share.sharedChildResourceNamesSinceRevision(revision, depth)
                 changed |= sharedChanged
                 changed -= sharedInvalid
@@ -2639,25 +2658,36 @@ class _SharedSyncLogic(object):
         @param revision: the revision to determine changes since
         @type revision: C{int}
         """
-
-        results = [
-            (name if name else "", deleted) for name, deleted in
-                (yield self._objectNamesSinceRevisionQuery(deleted=(revision != 0)).on(
-                    self._txn, revision=revision, resourceID=self._resourceID)
-                )
-        ]
-        results.sort(key=lambda x: x[1])
-
         changed = []
         deleted = []
         invalid = []
-        for name, wasdeleted in results:
-            if name:
-                if wasdeleted:
-                    if revision:
+        if revision:
+            cs = schema.CALENDARSERVER
+            minValidRevision = int((yield Select(
+                [cs.VALUE],
+                From=cs,
+                Where=(cs.NAME == "MIN-VALID-REVISION")
+            ).on(self._txn))[0][0])
+
+            if revision < minValidRevision:
+                raise SyncTokenValidException
+
+            results = [
+                (name if name else "", removed) for name, removed in
+                    (yield self._objectNamesSinceRevisionQuery().on(
+                        self._txn, revision=revision, resourceID=self._resourceID)
+                    )
+            ]
+            results.sort(key=lambda x: x[1])
+
+            for name, wasdeleted in results:
+                if name:
+                    if wasdeleted:
                         deleted.append(name)
-                else:
-                    changed.append(name)
+                    else:
+                        changed.append(name)
+        else:
+            changed = yield self.listObjectResources()
 
         returnValue((changed, deleted, invalid))
 
@@ -4817,22 +4847,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         return False
 
 
-    def resourceNamesSinceRevision(self, revision):
-        """
-        Return the changed and deleted resources since a particular revision. This implementation takes
-        into account sharing by making use of the bindRevision attribute to determine if the requested
-        revision is earlier than the share acceptance. If so, then we need to return all resources in
-        the results since the collection is in effect "new".
-
-        @param revision: the revision to determine changes since
-        @type revision: C{int}
-        """
-
-        if revision != 0 and revision < self._bindRevision and not self.external():
-            raise SyncTokenValidException
-        return super(CommonHomeChild, self).resourceNamesSinceRevision(revision)
-
-
     def search(self, filter):
         """
         Do a query of the contents of this collection.
@@ -4869,8 +4883,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @param depth: depth for determine what changed
         @type depth: C{str}
         """
-        assert not self.owned()
-
         changed = set()
         deleted = set()
         invalid = set()
@@ -4886,35 +4898,45 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 else:
                     revision = 0
 
-            rev = self._revisionsSchema
-            results = [
-                (
-                    self.name(),
-                    name if name else "",
-                    wasdeleted
-                )
-                for name, wasdeleted in
-                (yield Select([rev.RESOURCE_NAME, rev.DELETED],
-                                 From=rev,
-                                Where=(rev.REVISION > revision).And(
-                                rev.RESOURCE_ID == self._resourceID)).on(self._txn))
-                if name
-            ]
+            if revision:
+                rev = self._revisionsSchema
+                results = [
+                    (
+                        self.name(),
+                        name if name else "",
+                        wasdeleted
+                    )
+                    for name, wasdeleted in
+                    (yield Select(
+                        [rev.RESOURCE_NAME, rev.DELETED],
+                        From=rev,
+                        Where=(rev.REVISION > revision).And(
+                        rev.RESOURCE_ID == self._resourceID)
+                    ).on(self._txn))
+                    if name
+                ]
 
-            for path, name, wasdeleted in results:
-                if wasdeleted:
-                    if revision:
+                for path, name, wasdeleted in results:
+                    if wasdeleted:
                         if depth == "1":
                             changed.add("%s/" % (path,))
                         else:
                             deleted.add("%s/%s" % (path, name,))
 
+                    # Always report collection as changed
+                    changed.add("%s/" % (path,))
+
+                    # Resource changed - for depth "infinity" report resource as changed
+                    if depth != "1":
+                        changed.add("%s/%s" % (path, name,))
+            else:
+                path = self.name()
                 # Always report collection as changed
                 changed.add("%s/" % (path,))
 
-                if name:
-                    # Resource changed - for depth "infinity" report resource as changed
-                    if depth != "1":
+                # Resource changed - for depth "infinity" report resource as changed
+                if depth != "1":
+                    for name in (yield self.listObjectResources()):
                         changed.add("%s/%s" % (path, name,))
 
         returnValue((changed, deleted, invalid,))
@@ -5923,6 +5945,11 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         returnValue(self._notificationNames)
 
 
+    # used by _SharedSyncLogic.resourceNamesSinceRevision()
+    def listObjectResources(self):
+        return self.listNotificationObjects()
+
+
     def _nameToUID(self, name):
         """
         Based on the file-backed implementation, the 'name' is just uid +
@@ -6744,3 +6771,76 @@ def fixUUIDNormalization(store):
         # obscure bug.
     else:
         yield t.commit()
+
+
+
+@inlineCallbacks
+def deleteRevisionsBefore(txn, minRevision):
+    """
+    Delete revisions before minRevision
+    """
+    # Delete old revisions
+    for table in (
+        schema.CALENDAR_OBJECT_REVISIONS,
+        schema.NOTIFICATION_OBJECT_REVISIONS,
+        schema.ADDRESSBOOK_OBJECT_REVISIONS,
+    ):
+        yield Delete(
+            From=table,
+            Where=(table.REVISION < minRevision)
+        ).on(txn)
+
+    # get groups where this object was once a member and version info
+    aboMembers = schema.ABO_MEMBERS
+    groupRows = yield Select(
+        [aboMembers.GROUP_ID,
+         aboMembers.MEMBER_ID,
+         aboMembers.REMOVED,
+         aboMembers.REVISION],
+        From=aboMembers,
+    ).on(txn)
+
+    # group results by group, member, and revisionInfo
+    groupIDToMemberIDMap = {}
+    for groupRow in groupRows:
+        groupID, memberID, removed, revision = groupRow
+        revisionInfo = [removed, revision]
+        if groupID not in groupIDToMemberIDMap:
+            groupIDToMemberIDMap[groupID] = {}
+        memberIDToRevisionsMap = groupIDToMemberIDMap[groupID]
+        if memberID not in memberIDToRevisionsMap:
+            memberIDToRevisionsMap[memberID] = []
+        revisionInfoList = memberIDToRevisionsMap[memberID]
+        revisionInfoList.append(revisionInfo)
+
+    # go though list an delete old revisions, leaving at least one unremoved member
+    for groupID, memberIDToRevisionsMap in groupIDToMemberIDMap.iteritems():
+        for memberID, revisionInfoList in memberIDToRevisionsMap.iteritems():
+            revisionInfosToRemove = []
+            revisionInfosToSave = []
+            for revisionInfo in revisionInfoList:
+                if revisionInfo[1] < minRevision:
+                    revisionInfosToRemove.append(revisionInfo)
+                else:
+                    revisionInfosToSave.append(revisionInfo)
+
+            # save at least one revision
+            if revisionInfosToRemove and len(revisionInfosToRemove) == len(revisionInfoList):
+                maxRevisionInfoToRemove = max(revisionInfosToRemove, key=lambda info: info[1])
+                revisionInfosToSave.append(maxRevisionInfoToRemove)
+                revisionInfosToRemove.remove(maxRevisionInfoToRemove)
+
+            # get rid of extra removed member revisions
+            if revisionInfosToSave and max(revisionInfosToSave, key=lambda info: not info[0])[0]:
+                revisionInfosToRemove += revisionInfosToSave
+
+            if revisionInfosToRemove:
+                revisionsToRemove = [revisionInfoToRemove[1] for revisionInfoToRemove in revisionInfosToRemove]
+                yield Delete(
+                    aboMembers,
+                    Where=(aboMembers.GROUP_ID == groupID).And(
+                        aboMembers.MEMBER_ID == memberID).And(
+                            aboMembers.REVISION.In(Parameter("revisionsToRemove", len(revisionsToRemove)))
+                        )
+                ).on(txn, revisionsToRemove=revisionsToRemove)
+
