@@ -23,8 +23,9 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import config
 from twistedcaldav.vcard import Component as VCard
+from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.common.datastore.sql_tables import  schema
-from txdav.common.datastore.test.util import buildStore, CommonCommonTests
+from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWork, RevisionCleanupWork
 from txdav.common.icommondatastore import SyncTokenValidException
 import datetime
@@ -39,7 +40,7 @@ class RevisionCleanupTests(CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(RevisionCleanupTests, self).setUp()
-        self._sqlStore = yield buildStore(self, self.notifierFactory)
+        self._sqlStore = yield buildCalendarStore(self, self.notifierFactory)
         yield self.populate()
 
         class FakeWork(WorkItem):
@@ -55,8 +56,9 @@ class RevisionCleanupTests(CommonCommonTests, TestCase):
     @inlineCallbacks
     def populate(self):
         populateTxn = self.storeUnderTest().newTransaction()
-        for homeUID in self.requirements:
-            addressbooks = self.requirements[homeUID]
+        addressookRequirements = self.requirements["addressbook"]
+        for homeUID in addressookRequirements:
+            addressbooks = addressookRequirements[homeUID]
             if addressbooks is not None:
                 home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
                 addressbook = home.addressbook()
@@ -70,7 +72,56 @@ class RevisionCleanupTests(CommonCommonTests, TestCase):
                         )
 
         yield populateTxn.commit()
+
+        calendarRequirements = self.requirements["calendar"]
+        yield populateCalendarsFrom(calendarRequirements, self.storeUnderTest())
+
         self.notifierFactory.reset()
+
+    cal1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:20131122T140000
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+    cal2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid2
+DTSTART:20131122T140000
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+SUMMARY:event 2
+END:VEVENT
+END:VCALENDAR
+"""
+
+    cal3 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid3
+DTSTART:20131122T140000
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+SUMMARY:event 3
+END:VEVENT
+END:VCALENDAR
+"""
 
     # Data to populate
     card1 = """BEGIN:VCARD
@@ -139,18 +190,44 @@ END:VCARD
 """
 
     @classproperty(cache=False)
-    def requirements(cls): #@NoSelf
+    def calRequirements(cls): #@NoSelf
         return {
         "user01": {
-            "addressbook": {
-                "card1.vcf": cls.card1,
-                "card2.vcf": cls.card2,
-                "card3.vcf": cls.card3,
-                "group1.vcf": cls.group1,
-                "group2.vcf": cls.group2,
+            "calendar": {
+                "cal1.ics": (cls.cal1, None,),
+                "cal2.ics": (cls.cal2, None,),
+                "cal3.ics": (cls.cal3, None,),
+            },
+            "inbox": {
             },
         },
     }
+
+
+    @classproperty(cache=False)
+    def requirements(cls): #@NoSelf
+        return {
+            "addressbook": {
+                "user01": {
+                    "addressbook": {
+                        "card1.vcf": cls.card1,
+                        "card2.vcf": cls.card2,
+                        "card3.vcf": cls.card3,
+                        "group1.vcf": cls.group1,
+                        "group2.vcf": cls.group2,
+                    },
+                },
+            }, "calendar": {
+                "user01": {
+                    "calendar": {
+                        "cal1.ics": (cls.cal1, None,),
+                        "cal2.ics": (cls.cal2, None,),
+                    },
+                    "inbox": {
+                    },
+                },
+            }
+        }
 
 
     def storeUnderTest(self):
@@ -160,8 +237,60 @@ END:VCARD
         return self._sqlStore
 
 
+    @inlineCallbacks
     def test_calendarObjectRevisions(self):
-        pass
+        """
+        Verify that all extra addressbook object revisions are deleted by the cleaning work items
+        """
+
+        # get sync token
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        token = yield calendar.syncToken()
+
+        #make changes
+        cal1Object = yield self.calendarObjectUnderTest(self.transactionUnderTest(), name="cal1.ics", calendar_name="calendar", home="user01")
+        yield cal1Object.remove()
+        cal2Object = yield self.calendarObjectUnderTest(self.transactionUnderTest(), name="cal2.ics", calendar_name="calendar", home="user01")
+        yield cal2Object.remove()
+
+        # Get object revisions
+        rev = schema.CALENDAR_OBJECT_REVISIONS
+        revisionRows = yield Select(
+            [rev.REVISION],
+            From=rev,
+        ).on(self.transactionUnderTest())
+        self.assertNotEqual(len(revisionRows), 0)
+
+        # do FindMinValidRevisionWork
+        wp = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
+        yield self.commit()
+        yield wp.whenExecuted()
+
+        # Get the minimum valid revision and check it
+        cs = schema.CALENDARSERVER
+        minValidRevision = int((yield Select(
+            [cs.VALUE],
+            From=cs,
+            Where=(cs.NAME == "MIN-VALID-REVISION")
+        ).on(self.transactionUnderTest()))[0][0])
+        self.assertEqual(minValidRevision, max([row[0] for row in revisionRows]))
+
+        # do RevisionCleanupWork
+        wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
+        yield self.commit()
+        yield wp.whenExecuted()
+
+        # Get group1 object revision
+        rev = schema.CALENDAR_OBJECT_REVISIONS
+        revisionRows = yield Select(
+            [rev.REVISION],
+            From=rev,
+        ).on(self.transactionUnderTest())
+        self.assertEqual(len(revisionRows), 1)  # deleteRevisionsBefore() leaves 1 revision behind
+
+        # old sync token fails
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        self.failUnlessFailure(calendar.resourceNamesSinceToken(token), SyncTokenValidException)
 
 
     def test_notificationObjectRevisions(self):
@@ -217,7 +346,7 @@ END:VCARD
             [rev.REVISION],
             From=rev,
         ).on(self.transactionUnderTest())
-        self.assertEqual(len(revisionRows), 1)  # current algo leaves 1 revision behind TOTAL, so what?
+        self.assertEqual(len(revisionRows), 1)  # deleteRevisionsBefore() leaves 1 revision behind
 
         # old sync token fails
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
@@ -269,15 +398,6 @@ END:VCARD
             Where=aboMembers.GROUP_ID == group2Object._resourceID,
         ).on(self.transactionUnderTest())
         self.assertEqual(len(group2Rows), 4)  # 2 members x 2 revisions each
-
-        # Get the minimum valid revision
-        cs = schema.CALENDARSERVER
-        minValidRevision = int((yield Select(
-            [cs.VALUE],
-            From=cs,
-            Where=(cs.NAME == "MIN-VALID-REVISION")
-        ).on(self.transactionUnderTest()))[0][0])
-        self.assertEqual(minValidRevision, 1)
 
         # do FindMinValidRevisionWork
         wp = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
