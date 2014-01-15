@@ -17,20 +17,19 @@
 from __future__ import print_function
 
 from calendarserver.push.amppush import subscribeToIDs
-from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 
 from getopt import getopt, GetoptError
 
 from twext.python.log import Logger
 
-from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, succeed
-from twistedcaldav.config import ConfigurationError
 
 import os
 import sys
 
 log = Logger()
+
 
 def usage(e=None):
 
@@ -55,24 +54,6 @@ def usage(e=None):
 
 
 
-class WorkerService(Service):
-
-    def __init__(self, store):
-        self.store = store
-
-
-    @inlineCallbacks
-    def startService(self):
-        try:
-            yield self.doWork()
-        except ConfigurationError, ce:
-            sys.stderr.write("Error: %s\n" % (str(ce),))
-        except Exception, e:
-            sys.stderr.write("Error: %s\n" % (e,))
-            raise
-
-
-
 class MonitorAMPNotifications(WorkerService):
 
     ids = []
@@ -82,6 +63,12 @@ class MonitorAMPNotifications(WorkerService):
     def doWork(self):
         return monitorAMPNotifications(self.hostname, self.port, self.ids)
 
+
+    def postStartService(self):
+        """
+        Don't quit right away
+        """
+        pass
 
 
 def main():
