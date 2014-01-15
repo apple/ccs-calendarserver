@@ -23,6 +23,8 @@ from twistedcaldav.ical import Component
 
 from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 
+from pycalendar.datetime import DateTime
+
 import itertools
 import re
 
@@ -1192,6 +1194,9 @@ END:VCALENDAR
                     str(diffResult[3]).replace("\r", "").replace("\n ", "")
                 ) if diffResult[3] else None,
             )
+            result = list(result)
+            result[2] = tuple([(DateTime.parseText(dt) if dt else None) for dt in result[2]])
+            result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
 
@@ -1694,6 +1699,9 @@ END:VCALENDAR
                     str(diffResult[3]).replace("\r", "").replace("\n ", "")
                 ) if diffResult[3] else None,
             )
+            result = list(result)
+            result[2] = tuple([(DateTime.parseText(dt) if dt else None) for dt in result[2]])
+            result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
 
@@ -2050,6 +2058,9 @@ END:VCALENDAR
                 tuple(sorted(diffResult[2])),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
+            result = list(result)
+            result[2] = tuple([(DateTime.parseText(dt) if dt else None) for dt in result[2]])
+            result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
 
@@ -2415,6 +2426,9 @@ END:VCALENDAR
                 tuple(sorted(diffResult[2])),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
+            result = list(result)
+            result[2] = tuple([(DateTime.parseText(dt) if dt else None) for dt in result[2]])
+            result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
 
@@ -2696,6 +2710,9 @@ END:VCALENDAR
                 tuple(sorted(diffResult[2])),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
+            result = list(result)
+            result[2] = tuple([(DateTime.parseText(dt) if dt else None) for dt in result[2]])
+            result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
 
@@ -3250,6 +3267,9 @@ END:VCALENDAR
                     str(diffResult[3]).replace("\r", "").replace("\n ", "")
                 ) if diffResult[3] else None,
             )
+            result = list(result)
+            result[2] = tuple([(DateTime.parseText(dt) if dt else None) for dt in result[2]])
+            result = tuple(result)
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
 
@@ -4268,6 +4288,7 @@ END:VCALENDAR
         for description, calendar1, calendar2, rids in itertools.chain(data1, data2, data3,):
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
             got_rids = differ.whatIsDifferent()
+            rids = dict([(DateTime.parseText(k) if k else None, v) for k, v in rids.items()])
             self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
 
 

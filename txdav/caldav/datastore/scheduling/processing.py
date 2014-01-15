@@ -604,10 +604,10 @@ class ImplicitProcessor(object):
                 update_details = []
                 for rid, props_changed in sorted(rids.iteritems(), key=lambda x: x[0]):
                     recurrence = []
-                    if rid == "":
+                    if rid is None:
                         recurrence.append(customxml.Master())
                     else:
-                        recurrence.append(customxml.RecurrenceID.fromString(rid))
+                        recurrence.append(customxml.RecurrenceID.fromString(rid.getText()))
                     changes = []
                     for propName, paramNames in sorted(props_changed.iteritems(), key=lambda x: x[0]):
                         params = tuple([customxml.ChangedParameter(name=param) for param in paramNames])
@@ -679,7 +679,7 @@ class ImplicitProcessor(object):
                     # Build the schedule-changes XML element
                     if rids:
                         action = customxml.Cancel(
-                            *[customxml.Recurrence(customxml.RecurrenceID.fromString(rid)) for rid in sorted(rids)]
+                            *[customxml.Recurrence(customxml.RecurrenceID.fromString(rid.getText())) for rid in sorted(rids)]
                         )
                     else:
                         action = customxml.Cancel()

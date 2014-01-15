@@ -2700,7 +2700,7 @@ class Component (object):
     def filterComponents(self, rids):
 
         # If master is in rids do nothing
-        if not rids or "" in rids:
+        if not rids or None in rids:
             return True
 
         assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
@@ -2713,7 +2713,7 @@ class Component (object):
                 remaining -= 1
                 continue
             rid = component.getRecurrenceIDUTC()
-            if (rid.getText() if rid else "") not in rids:
+            if rid not in rids:
                 self.removeComponent(component)
                 remaining -= 1
 

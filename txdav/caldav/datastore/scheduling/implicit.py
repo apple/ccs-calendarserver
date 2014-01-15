@@ -553,7 +553,7 @@ class ImplicitScheduler(object):
                 self.calendar.sequenceInSync(self.oldcalendar)
 
             # Significant change
-            no_change, self.changed_rids, self.needs_action_rids, reinvites, recurrence_reschedule = self.isOrganizerChangeInsignificant()
+            no_change, self.changed_rids, self.needs_action_rids, reinvites, recurrence_reschedule, status_cancelled, only_status = self.isOrganizerChangeInsignificant()
             if no_change:
                 if reinvites:
                     log.debug("Implicit - organizer '{organizer}' is re-inviting UID: '{uid}', attendees: {attendees}", organizer=self.organizer, uid=self.uid, attendees=", ".join(reinvites))
@@ -594,6 +594,8 @@ class ImplicitScheduler(object):
                 else:
                     self.findRemovedAttendeesOnRecurrenceChange()
 
+                self.checkStatusCancelled(status_cancelled, only_status)
+
                 # For now we always bump the sequence number on modifications because we cannot track DTSTAMP on
                 # the Attendee side. But we check the old and the new and only bump if the client did not already do it.
                 self.needs_sequence_change = self.calendar.needsiTIPSequenceChange(self.oldcalendar)
@@ -630,6 +632,8 @@ class ImplicitScheduler(object):
         date_changed_rids = None
         reinvites = None
         recurrence_reschedule = False
+        status_cancelled = set()
+        only_status = None
         differ = iCalDiff(self.oldcalendar, self.calendar, self.do_smart_merge)
         no_change = differ.organizerDiff()
         if not no_change:
@@ -653,7 +657,7 @@ class ImplicitScheduler(object):
                     date_changed_rids.add(rid)
 
                 # Check to see whether a change to R-ID's happened
-                if rid == "":
+                if rid is None:
 
                     if "DTSTART" in props and self.calendar.masterComponent().hasProperty("RRULE"):
                         # DTSTART change with RRULE present is always a reschedule
@@ -693,6 +697,16 @@ class ImplicitScheduler(object):
                             if newrrule == oldrrule:
                                 recurrence_reschedule = False
 
+                # Check for addition of STATUS:CANCELLED
+                if "STATUS" in props:
+                    if only_status is None and len(props) == 1:
+                        only_status = True
+                    instance = self.calendar.overriddenComponent(rid)
+                    if instance and instance.propertyValue("STATUS") == "CANCELLED":
+                        status_cancelled.add(rid)
+                else:
+                    only_status = False
+
             if checkOrganizerValue:
                 oldOrganizer = self.oldcalendar.getOrganizer()
                 newOrganizer = self.calendar.getOrganizer()
@@ -713,7 +727,7 @@ class ImplicitScheduler(object):
                 except KeyError:
                     pass
 
-        return no_change, rids, date_changed_rids, reinvites, recurrence_reschedule
+        return no_change, rids, date_changed_rids, reinvites, recurrence_reschedule, status_cancelled, only_status
 
 
     def findRemovedAttendees(self):
@@ -814,6 +828,22 @@ class ImplicitScheduler(object):
         for attendee, rid in self.oldAttendeesByInstance:
             if attendee not in new_master_attendees:
                 self.cancelledAttendees.add((attendee, rid,))
+
+
+    def checkStatusCancelled(self, cancelled, only_status):
+        """
+        Check to see whether STATUS:CANCELLED has been added to any/all instances, and if so
+        always trigger a METHOD:CANCEL on those. In the case where only STATUS has changed, we
+        need to only send METHOD:CANCEL and suppress any METHOD:REQUEST.
+        """
+        if cancelled:
+            for attendee, rid in self.calendar.getAttendeesByInstance(onlyScheduleAgentServer=True):
+                if rid in cancelled:
+                    self.cancelledAttendees.add((attendee, rid,))
+
+            # If only a cancel is done, then suppress any METHOD:REQUEST that a normal "modify: would do
+            if only_status:
+                self.action = "modify-cancelled"
 
 
     def coerceAttendeesPartstatOnCreate(self):

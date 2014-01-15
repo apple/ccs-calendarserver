@@ -334,7 +334,7 @@ class iCalDiff(object):
                     overridden = returnCalendar.overriddenComponent(rid)
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
-                        changedRids.append(rid.getText() if rid else "")
+                        changedRids.append(rid)
 
                     # When a master component is present we keep the missing override in place but mark it as hidden.
                     # When no master is present we now do the same so we can track updates to the override correctly.
@@ -417,7 +417,7 @@ class iCalDiff(object):
                 #return False, False, (), None
             changeCausesReply |= reply
             if reply:
-                changedRids.append(rid.getText() if rid else "")
+                changedRids.append(rid)
 
         # We need to derive instances for any declined using an EXDATE
         for decline in sorted(declines):
@@ -427,7 +427,7 @@ class iCalDiff(object):
                 if overridden is not None:
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
-                        changedRids.append(decline.getText() if decline else "")
+                        changedRids.append(decline)
 
                     # When a master component is present we keep the missing override in place but mark it as hidden.
                     # When no master is present we remove the override,
@@ -828,7 +828,7 @@ class iCalDiff(object):
 
         if addedChanges:
             rid = comp1.getRecurrenceIDUTC()
-            rids[rid.getText() if rid is not None else ""] = propsChanged
+            rids[rid] = propsChanged
 
 
     def _logDiffError(self, title):
