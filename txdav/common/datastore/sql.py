@@ -2135,6 +2135,12 @@ class CommonHome(SharingHomeMixIn):
         if self._syncTokenRevision is None:
             self._syncTokenRevision = (yield self._syncTokenQuery.on(
                 self._txn, resourceID=self._resourceID))[0][0]
+            if self._syncTokenRevision is None:
+                cs = schema.CALENDARSERVER
+                self._syncTokenRevision = int((yield Select(
+                    [cs.VALUE], From=cs,
+                    Where=(cs.NAME == "MIN-VALID-REVISION")
+                ).on(self._txn))[0][0])
         returnValue("%s_%s" % (self._resourceID, self._syncTokenRevision))
 
 
@@ -2615,6 +2621,12 @@ class _SharedSyncLogic(object):
         if self._syncTokenRevision is None:
             self._syncTokenRevision = (yield self._childSyncTokenQuery.on(
                 self._txn, resourceID=self._resourceID))[0][0]
+            if self._syncTokenRevision is None:
+                cs = schema.CALENDARSERVER
+                self._syncTokenRevision = int((yield Select(
+                    [cs.VALUE], From=cs,
+                    Where=(cs.NAME == "MIN-VALID-REVISION")
+                ).on(self._txn))[0][0])
         returnValue(("%s_%s" % (self._resourceID, self._syncTokenRevision,)))
 
 
@@ -4179,7 +4191,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             propstore = propertyStores.get(resourceID, None)
 
             child = yield cls.makeClass(home, bindData, additionalBindData, metadataData, propstore)
-            child._syncTokenRevision = revisions[resourceID]
+            child._syncTokenRevision = revisions.get(resourceID)
             results.append(child)
 
         returnValue(results)
@@ -6040,6 +6052,12 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
                 yield self._syncTokenQuery.on(
                     self._txn, resourceID=self._resourceID)
             )[0][0]
+            if self._syncTokenRevision is None:
+                cs = schema.CALENDARSERVER
+                self._syncTokenRevision = int((yield Select(
+                    [cs.VALUE], From=cs,
+                    Where=(cs.NAME == "MIN-VALID-REVISION")
+                ).on(self._txn))[0][0])
         returnValue("%s_%s" % (self._resourceID, self._syncTokenRevision))
 
 

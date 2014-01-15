@@ -551,7 +551,7 @@ class WorkSchedulingService(Service):
             yield scheduleNextMailPoll(self.store, int(config.LogID) if config.LogID else 5)
         if self.doGroupCaching:
             yield scheduleNextGroupCachingUpdate(self.store, int(config.LogID) if config.LogID else 5)
-        #yield scheduleFirstFindMinRevision(self.store, int(config.LogID) if config.LogID else 5)
+        yield scheduleFirstFindMinRevision(self.store, int(config.LogID) if config.LogID else 5)
 
 
 
