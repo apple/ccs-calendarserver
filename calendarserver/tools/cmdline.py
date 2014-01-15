@@ -35,6 +35,7 @@ from twext.enterprise.queue import NonPerformingQueuer
 
 # TODO: direct unit tests for these functions.
 
+
 def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVServiceMaker, patchConfig=None, onShutdown=None, verbose=False):
     """
     Shared main-point for utilities.
@@ -139,7 +140,6 @@ class WorkerService(Service):
     @inlineCallbacks
     def startService(self):
 
-        from twisted.internet import reactor
         try:
             # Work can be queued but will not be performed by the command
             # line tool
@@ -154,7 +154,7 @@ class WorkerService(Service):
             sys.stderr.write("Error: %s\n" % (e,))
             raise
         finally:
-            reactor.stop()
+            self.postStartService()
 
 
     def doWorkWithoutStore(self):
@@ -165,3 +165,12 @@ class WorkerService(Service):
         """
         sys.stderr.write("Error: Data store is not available\n")
         return succeed(None)
+
+
+    def postStartService(self):
+        """
+        By default, stop the reactor after doWork( ) finishes.  Subclasses
+        can override this if they want different behavior.
+        """
+        from twisted.internet import reactor
+        reactor.stop()
