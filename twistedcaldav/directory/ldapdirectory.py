@@ -894,7 +894,7 @@ class LdapDirectoryService(CachingDirectoryService):
                         self.resourceSchema["autoAcceptGroupAttr"])
 
             if recordType == self.recordType_locations:
-                if self.rdnSchema[recordType]["associatedAddressAttr"]:
+                if self.rdnSchema[recordType].get("associatedAddressAttr", ""):
                     associatedAddress = self._getUniqueLdapAttribute(attrs,
                         self.rdnSchema[recordType]["associatedAddressAttr"])
                     if associatedAddress:
