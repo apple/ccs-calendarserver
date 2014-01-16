@@ -293,13 +293,8 @@ END:VCARD
         yield wp.whenExecuted()
 
         # Get the minimum valid revision and check it
-        cs = schema.CALENDARSERVER
-        minValidRevision = int((yield Select(
-            [cs.VALUE],
-            From=cs,
-            Where=(cs.NAME == "MIN-VALID-REVISION")
-        ).on(self.transactionUnderTest()))[0][0])
-        self.assertEqual(minValidRevision, max([row[0] for row in revisionRows]))
+        minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
+        self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]))
 
         # do RevisionCleanupWork
         wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
@@ -346,13 +341,8 @@ END:VCARD
         yield wp.whenExecuted()
 
         # Get the minimum valid revision and check it
-        cs = schema.CALENDARSERVER
-        minValidRevision = int((yield Select(
-            [cs.VALUE],
-            From=cs,
-            Where=(cs.NAME == "MIN-VALID-REVISION")
-        ).on(self.transactionUnderTest()))[0][0])
-        self.assertEqual(minValidRevision, max([row[0] for row in revisionRows]))
+        minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
+        self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]))
 
         # do RevisionCleanupWork
         wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
@@ -403,13 +393,8 @@ END:VCARD
         yield wp.whenExecuted()
 
         # Get the minimum valid revision and check it
-        cs = schema.CALENDARSERVER
-        minValidRevision = int((yield Select(
-            [cs.VALUE],
-            From=cs,
-            Where=(cs.NAME == "MIN-VALID-REVISION")
-        ).on(self.transactionUnderTest()))[0][0])
-        self.assertEqual(minValidRevision, max([row[0] for row in revisionRows]))
+        minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
+        self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]))
 
         # do RevisionCleanupWork
         wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
@@ -481,13 +466,8 @@ END:VCARD
         yield wp.whenExecuted()
 
         # Get the minimum valid revision and check it
-        cs = schema.CALENDARSERVER
-        minValidRevision = int((yield Select(
-            [cs.VALUE],
-            From=cs,
-            Where=(cs.NAME == "MIN-VALID-REVISION")
-        ).on(self.transactionUnderTest()))[0][0])
-        self.assertEqual(minValidRevision, max([row[3] for row in group1Rows + group2Rows]))
+        minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
+        self.assertEqual(int(minValidRevision), max([row[3] for row in group1Rows + group2Rows]))
 
         # do RevisionCleanupWork
         wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())

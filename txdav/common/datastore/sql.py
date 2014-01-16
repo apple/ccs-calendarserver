@@ -1441,6 +1441,77 @@ class CommonStoreTransaction(object):
         return DatabaseUnlock().on(self)
 
 
+    @inlineCallbacks
+    def deleteRevisionsBefore(self, minRevision):
+        """
+        Delete revisions before minRevision
+        """
+        # Delete old revisions
+        for table in (
+            schema.CALENDAR_OBJECT_REVISIONS,
+            schema.NOTIFICATION_OBJECT_REVISIONS,
+            schema.ADDRESSBOOK_OBJECT_REVISIONS,
+        ):
+            yield Delete(
+                From=table,
+                Where=(table.REVISION < minRevision)
+            ).on(self)
+
+        # get groups where this object was once a member and version info
+        aboMembers = schema.ABO_MEMBERS
+        groupRows = yield Select(
+            [aboMembers.GROUP_ID,
+             aboMembers.MEMBER_ID,
+             aboMembers.REMOVED,
+             aboMembers.REVISION],
+            From=aboMembers,
+        ).on(self)
+
+        # group results by group, member, and revisionInfo
+        groupIDToMemberIDMap = {}
+        for groupRow in groupRows:
+            groupID, memberID, removed, revision = groupRow
+            revisionInfo = [removed, revision]
+            if groupID not in groupIDToMemberIDMap:
+                groupIDToMemberIDMap[groupID] = {}
+            memberIDToRevisionsMap = groupIDToMemberIDMap[groupID]
+            if memberID not in memberIDToRevisionsMap:
+                memberIDToRevisionsMap[memberID] = []
+            revisionInfoList = memberIDToRevisionsMap[memberID]
+            revisionInfoList.append(revisionInfo)
+
+        # go though list an delete old revisions, leaving at least one unremoved member
+        for groupID, memberIDToRevisionsMap in groupIDToMemberIDMap.iteritems():
+            for memberID, revisionInfoList in memberIDToRevisionsMap.iteritems():
+                revisionInfosToRemove = []
+                revisionInfosToSave = []
+                for revisionInfo in revisionInfoList:
+                    if revisionInfo[1] < minRevision:
+                        revisionInfosToRemove.append(revisionInfo)
+                    else:
+                        revisionInfosToSave.append(revisionInfo)
+
+                # save at least one revision
+                if revisionInfosToRemove and len(revisionInfosToRemove) == len(revisionInfoList):
+                    maxRevisionInfoToRemove = max(revisionInfosToRemove, key=lambda info: info[1])
+                    revisionInfosToSave.append(maxRevisionInfoToRemove)
+                    revisionInfosToRemove.remove(maxRevisionInfoToRemove)
+
+                # get rid of extra removed member revisions
+                if revisionInfosToSave and max(revisionInfosToSave, key=lambda info: not info[0])[0]:
+                    revisionInfosToRemove += revisionInfosToSave
+
+                if revisionInfosToRemove:
+                    revisionsToRemove = [revisionInfoToRemove[1] for revisionInfoToRemove in revisionInfosToRemove]
+                    yield Delete(
+                        aboMembers,
+                        Where=(aboMembers.GROUP_ID == groupID).And(
+                            aboMembers.MEMBER_ID == memberID).And(
+                                aboMembers.REVISION.In(Parameter("revisionsToRemove", len(revisionsToRemove)))
+                            )
+                    ).on(self, revisionsToRemove=revisionsToRemove)
+
+
 
 class _EmptyCacher(object):
 
@@ -2136,11 +2207,7 @@ class CommonHome(SharingHomeMixIn):
             self._syncTokenRevision = (yield self._syncTokenQuery.on(
                 self._txn, resourceID=self._resourceID))[0][0]
             if self._syncTokenRevision is None:
-                cs = schema.CALENDARSERVER
-                self._syncTokenRevision = int((yield Select(
-                    [cs.VALUE], From=cs,
-                    Where=(cs.NAME == "MIN-VALID-REVISION")
-                ).on(self._txn))[0][0])
+                self._syncTokenRevision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
         returnValue("%s_%s" % (self._resourceID, self._syncTokenRevision))
 
 
@@ -2220,14 +2287,8 @@ class CommonHome(SharingHomeMixIn):
         deleted = set()
         invalid = set()
         if revision:
-            cs = schema.CALENDARSERVER
-            minValidRevision = int((yield Select(
-                [cs.VALUE],
-                From=cs,
-                Where=(cs.NAME == "MIN-VALID-REVISION")
-            ).on(self._txn))[0][0])
-
-            if revision < minValidRevision:
+            minValidRevision = yield self._txn.calendarserverValue("MIN-VALID-REVISION")
+            if revision < int(minValidRevision):
                 raise SyncTokenValidException
 
             results = [
@@ -2622,11 +2683,7 @@ class _SharedSyncLogic(object):
             self._syncTokenRevision = (yield self._childSyncTokenQuery.on(
                 self._txn, resourceID=self._resourceID))[0][0]
             if self._syncTokenRevision is None:
-                cs = schema.CALENDARSERVER
-                self._syncTokenRevision = int((yield Select(
-                    [cs.VALUE], From=cs,
-                    Where=(cs.NAME == "MIN-VALID-REVISION")
-                ).on(self._txn))[0][0])
+                self._syncTokenRevision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
         returnValue(("%s_%s" % (self._resourceID, self._syncTokenRevision,)))
 
 
@@ -2674,14 +2731,8 @@ class _SharedSyncLogic(object):
         deleted = []
         invalid = []
         if revision:
-            cs = schema.CALENDARSERVER
-            minValidRevision = int((yield Select(
-                [cs.VALUE],
-                From=cs,
-                Where=(cs.NAME == "MIN-VALID-REVISION")
-            ).on(self._txn))[0][0])
-
-            if revision < minValidRevision:
+            minValidRevision = yield self._txn.calendarserverValue("MIN-VALID-REVISION")
+            if revision < int(minValidRevision):
                 raise SyncTokenValidException
 
             results = [
@@ -6053,11 +6104,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
                     self._txn, resourceID=self._resourceID)
             )[0][0]
             if self._syncTokenRevision is None:
-                cs = schema.CALENDARSERVER
-                self._syncTokenRevision = int((yield Select(
-                    [cs.VALUE], From=cs,
-                    Where=(cs.NAME == "MIN-VALID-REVISION")
-                ).on(self._txn))[0][0])
+                self._syncTokenRevision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
         returnValue("%s_%s" % (self._resourceID, self._syncTokenRevision))
 
 
@@ -6789,75 +6836,3 @@ def fixUUIDNormalization(store):
         # obscure bug.
     else:
         yield t.commit()
-
-
-
-@inlineCallbacks
-def deleteRevisionsBefore(txn, minRevision):
-    """
-    Delete revisions before minRevision
-    """
-    # Delete old revisions
-    for table in (
-        schema.CALENDAR_OBJECT_REVISIONS,
-        schema.NOTIFICATION_OBJECT_REVISIONS,
-        schema.ADDRESSBOOK_OBJECT_REVISIONS,
-    ):
-        yield Delete(
-            From=table,
-            Where=(table.REVISION < minRevision)
-        ).on(txn)
-
-    # get groups where this object was once a member and version info
-    aboMembers = schema.ABO_MEMBERS
-    groupRows = yield Select(
-        [aboMembers.GROUP_ID,
-         aboMembers.MEMBER_ID,
-         aboMembers.REMOVED,
-         aboMembers.REVISION],
-        From=aboMembers,
-    ).on(txn)
-
-    # group results by group, member, and revisionInfo
-    groupIDToMemberIDMap = {}
-    for groupRow in groupRows:
-        groupID, memberID, removed, revision = groupRow
-        revisionInfo = [removed, revision]
-        if groupID not in groupIDToMemberIDMap:
-            groupIDToMemberIDMap[groupID] = {}
-        memberIDToRevisionsMap = groupIDToMemberIDMap[groupID]
-        if memberID not in memberIDToRevisionsMap:
-            memberIDToRevisionsMap[memberID] = []
-        revisionInfoList = memberIDToRevisionsMap[memberID]
-        revisionInfoList.append(revisionInfo)
-
-    # go though list an delete old revisions, leaving at least one unremoved member
-    for groupID, memberIDToRevisionsMap in groupIDToMemberIDMap.iteritems():
-        for memberID, revisionInfoList in memberIDToRevisionsMap.iteritems():
-            revisionInfosToRemove = []
-            revisionInfosToSave = []
-            for revisionInfo in revisionInfoList:
-                if revisionInfo[1] < minRevision:
-                    revisionInfosToRemove.append(revisionInfo)
-                else:
-                    revisionInfosToSave.append(revisionInfo)
-
-            # save at least one revision
-            if revisionInfosToRemove and len(revisionInfosToRemove) == len(revisionInfoList):
-                maxRevisionInfoToRemove = max(revisionInfosToRemove, key=lambda info: info[1])
-                revisionInfosToSave.append(maxRevisionInfoToRemove)
-                revisionInfosToRemove.remove(maxRevisionInfoToRemove)
-
-            # get rid of extra removed member revisions
-            if revisionInfosToSave and max(revisionInfosToSave, key=lambda info: not info[0])[0]:
-                revisionInfosToRemove += revisionInfosToSave
-
-            if revisionInfosToRemove:
-                revisionsToRemove = [revisionInfoToRemove[1] for revisionInfoToRemove in revisionInfosToRemove]
-                yield Delete(
-                    aboMembers,
-                    Where=(aboMembers.GROUP_ID == groupID).And(
-                        aboMembers.MEMBER_ID == memberID).And(
-                            aboMembers.REVISION.In(Parameter("revisionsToRemove", len(revisionsToRemove)))
-                        )
-                ).on(txn, revisionsToRemove=revisionsToRemove)

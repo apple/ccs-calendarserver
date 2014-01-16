@@ -645,14 +645,8 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
             returnValue((yield super(AddressBook, self).resourceNamesSinceRevision(revision)))
 
         if revision:
-            cs = schema.CALENDARSERVER
-            minValidRevision = int((yield Select(
-                [cs.VALUE],
-                From=cs,
-                Where=(cs.NAME == "MIN-VALID-REVISION")
-            ).on(self._txn))[0][0])
-
-            if revision < minValidRevision:
+            minValidRevision = yield self._txn.calendarserverValue("MIN-VALID-REVISION")
+            if revision < int(minValidRevision):
                 raise SyncTokenValidException
 
         # call sharedChildResourceNamesSinceRevision() and filter results

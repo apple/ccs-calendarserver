@@ -25,7 +25,6 @@ from twext.enterprise.queue import WorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.config import config
-from txdav.common.datastore.sql import deleteRevisionsBefore
 from txdav.common.datastore.sql_tables import schema
 import datetime
 
@@ -53,12 +52,7 @@ class FindMinValidRevisionWork(WorkItem,
         yield Delete(From=self.table, Where=None).on(self.transaction)
 
         # Get the minimum valid revision
-        cs = schema.CALENDARSERVER
-        minValidRevision = int((yield Select(
-            [cs.VALUE],
-            From=cs,
-            Where=(cs.NAME == "MIN-VALID-REVISION")
-        ).on(self.transaction))[0][0])
+        minValidRevision = int((yield self.transaction.calendarserverValue("MIN-VALID-REVISION")))
 
         # get max revision on table rows before dateLimit
         dateLimit = (datetime.datetime.utcnow() -
@@ -84,12 +78,8 @@ class FindMinValidRevisionWork(WorkItem,
                     maxRevOlderThanDate = tableMaxRevision
 
         if maxRevOlderThanDate > minValidRevision:
-            # save it
-            cs = schema.CALENDARSERVER
-            yield Update(
-                {cs.VALUE: maxRevOlderThanDate},
-                Where=cs.NAME == "MIN-VALID-REVISION",
-            ).on(self.transaction)
+            # save new min valid revision
+            yield self.transaction.updateCalendarserverValue("MIN-VALID-REVISION", maxRevOlderThanDate)
 
             # Schedule revision cleanup
             yield RevisionCleanupWork._schedule(self.transaction, seconds=0)
@@ -124,15 +114,10 @@ class RevisionCleanupWork(WorkItem,
         yield Delete(From=self.table, Where=None).on(self.transaction)
 
         # Get the minimum valid revision
-        cs = schema.CALENDARSERVER
-        minValidRevision = int((yield Select(
-            [cs.VALUE],
-            From=cs,
-            Where=(cs.NAME == "MIN-VALID-REVISION")
-        ).on(self.transaction))[0][0])
+        minValidRevision = int((yield self.transaction.calendarserverValue("MIN-VALID-REVISION")))
 
         # delete revisions
-        yield deleteRevisionsBefore(self.transaction, minValidRevision)
+        yield self.transaction.deleteRevisionsBefore(minValidRevision)
 
         # Schedule next update
         yield FindMinValidRevisionWork._schedule(
