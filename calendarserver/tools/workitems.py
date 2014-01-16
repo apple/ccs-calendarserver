@@ -23,9 +23,8 @@ import sys
 import curses
 import datetime
 
-from twisted.internet.defer import inlineCallbacks
-from calendarserver.tools.cmdline import utilityMain
-from twisted.application.service import Service
+from twisted.internet.defer import inlineCallbacks, succeed
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.push.notifier import PushNotificationWork
 from twistedcaldav.directory.directory import GroupCacherPollingWork
 from txdav.caldav.datastore.scheduling.imip.inbound import IMIPPollingWork, IMIPReplyWork
@@ -86,19 +85,27 @@ def main():
 
 
 
-class WorkItemMonitorService(Service):
+class WorkItemMonitorService(WorkerService, object):
 
     def __init__(self, store):
-        self.store = store
+        super(WorkItemMonitorService, self).__init__(store)
         from twisted.internet import reactor
         self.reactor = reactor
 
 
-    def startService(self):
+    def doWork(self):
         self.screen = curses.initscr()
         self.windows = []
         self.updateScreenGeometry()
         self.reactor.callLater(0, self.updateDisplay)
+        return succeed(None)
+
+
+    def postStartService(self):
+        """
+        Don't quit right away
+        """
+        pass
 
 
     def updateScreenGeometry(self):

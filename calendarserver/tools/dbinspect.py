@@ -23,12 +23,11 @@ of simple commands.
 """
 
 from calendarserver.tools import tables
-from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 from pycalendar.datetime import DateTime
 from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete, \
     Constant
-from twisted.application.service import Service
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.filepath import FilePath
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
@@ -851,14 +850,13 @@ class Purge(Cmd):
 
 
 
-class DBInspectService(Service, object):
+class DBInspectService(WorkerService, object):
     """
     Service which runs, exports the appropriate records, then stops the reactor.
     """
 
     def __init__(self, store, options, reactor, config):
-        super(DBInspectService, self).__init__()
-        self.store = store
+        super(DBInspectService, self).__init__(store)
         self.options = options
         self.reactor = reactor
         self.config = config
@@ -866,11 +864,10 @@ class DBInspectService(Service, object):
         self.commandMap = {}
 
 
-    def startService(self):
+    def doWork(self):
         """
         Start the service.
         """
-        super(DBInspectService, self).startService()
 
         # Register commands
         self.registerCommand(TableSizes)
@@ -889,6 +886,15 @@ class DBInspectService(Service, object):
         self.registerCommand(EventsByContent)
         self.registerCommand(EventsInTimerange)
         self.doDBInspect()
+
+        return succeed(None)
+
+
+    def postStartService(self):
+        """
+        Don't quit right away
+        """
+        pass
 
 
     def registerCommand(self, cmd):

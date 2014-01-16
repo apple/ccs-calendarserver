@@ -68,6 +68,13 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         will be imported and used.
     """
 
+    # We want to validate that the actual service is always an instance of WorkerService, so wrap the
+    # service maker callback inside a function that does that check
+    def _makeValidService(store):
+        service = serviceClass(store)
+        assert isinstance(service, WorkerService)
+        return service
+
     # Install std i/o observer
     if verbose:
         observer = StandardIOObserver()
@@ -83,7 +90,7 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         checkDirectories(config)
 
         config.ProcessType = "Utility"
-        config.UtilityServiceClass = serviceClass
+        config.UtilityServiceClass = _makeValidService
 
         autoDisableMemcached(config)
 
@@ -172,5 +179,8 @@ class WorkerService(Service):
         By default, stop the reactor after doWork( ) finishes.  Subclasses
         can override this if they want different behavior.
         """
-        from twisted.internet import reactor
-        reactor.stop()
+        if hasattr(self, "reactor"):
+            self.reactor.stop()
+        else:
+            from twisted.internet import reactor
+            reactor.stop()

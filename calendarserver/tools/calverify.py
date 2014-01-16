@@ -54,7 +54,6 @@ from pycalendar.exceptions import ErrorBase
 from pycalendar.period import Period
 from pycalendar.timezone import Timezone
 
-from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import usage
 from twisted.python.usage import Options
@@ -78,7 +77,7 @@ from txdav.caldav.datastore.sql import CalendarStoreFeatures
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
 
-from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 
 from calendarserver.tools import tables
 from calendarserver.tools.util import getDirectory
@@ -386,14 +385,13 @@ class CalVerifyOptions(Options):
 
 
 
-class CalVerifyService(Service, object):
+class CalVerifyService(WorkerService, object):
     """
     Base class for common service behaviors.
     """
 
     def __init__(self, store, options, output, reactor, config):
-        super(CalVerifyService, self).__init__()
-        self.store = store
+        super(CalVerifyService, self).__init__(store)
         self.options = options
         self.output = output
         self.reactor = reactor
@@ -409,32 +407,12 @@ class CalVerifyService(Service, object):
         self.totalExceptions = None
 
 
-    def startService(self):
-        """
-        Start the service.
-        """
-        super(CalVerifyService, self).startService()
-        self.doCalVerify()
-
-
-    def stopService(self):
-        """
-        Stop the service.  Nothing to do; everything should be finished by this
-        time.
-        """
-        # TODO: stopping this service mid-export should really stop the export
-        # loop, but this is not implemented because nothing will actually do it
-        # except hitting ^C (which also calls reactor.stop(), so that will exit
-        # anyway).
-        pass
-
-
     def title(self):
         return ""
 
 
     @inlineCallbacks
-    def doCalVerify(self):
+    def doWork(self):
         """
         Do the operation stopping the reactor when done.
         """
@@ -444,9 +422,7 @@ class CalVerifyService(Service, object):
             yield self.doAction()
             self.output.close()
         except:
-            log.failure("doCalVerify()")
-
-        self.reactor.stop()
+            log.failure("doWork()")
 
 
     def directoryService(self):
@@ -2792,7 +2768,8 @@ class EventSplitService(CalVerifyService):
         self.output.write("\n")
         self.output.write("Actual RECURRENCE-ID: %s.\n" % (rid,))
 
-        oldUID = yield calendarObj.split(rid=rid)
+        oldObj = yield calendarObj.split(rid=rid)
+        oldUID = oldObj.uid()
 
         self.output.write("\n")
         self.output.write("Split Resource: %s at %s, old UID: %s.\n" % (resid, rid, oldUID,))
