@@ -60,10 +60,10 @@ PYCALENDAR   = PyCalendar-11947
 PYGRESQL     = PyGreSQL-4.1.1
 SQLPARSE     = sqlparse-0.1.2
 SETPROCTITLE = setproctitle-1.1.8
-PSUTIL       = psutil-0.6.1
-PYCRYPTO     = pycrypto-2.5
+PSUTIL       = psutil-1.2.0
+PYCRYPTO     = pycrypto-2.6.1
 CFFI         = cffi-0.6
-PYCPARSER    = pycparser-2.09.1
+PYCPARSER    = pycparser-2.10
 
 $(CALDAVTESTER):: $(BuildDirectory)/$(CALDAVTESTER)
 $(PYKERBEROS)::   $(BuildDirectory)/$(PYKERBEROS)
