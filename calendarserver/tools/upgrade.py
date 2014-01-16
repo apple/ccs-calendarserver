@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twisted.internet.defer import succeed
 
 """
 This tool allows any necessary upgrade to complete, then exits.
@@ -31,9 +32,8 @@ from twisted.python.usage import Options, UsageError
 from twext.python.log import Logger, LogLevel, formatEvent, addObserver
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
-from twisted.application.service import Service
 
-from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.tap.caldav import CalDAVServiceMaker
 
 log = Logger()
@@ -122,7 +122,7 @@ class UpgradeOptions(Options):
 
 
 
-class UpgraderService(Service, object):
+class UpgraderService(WorkerService, object):
     """
     Service which runs, exports the appropriate records, then stops the reactor.
     """
@@ -130,8 +130,7 @@ class UpgraderService(Service, object):
     started = False
 
     def __init__(self, store, options, output, reactor, config):
-        super(UpgraderService, self).__init__()
-        self.store = store
+        super(UpgraderService, self).__init__(store)
         self.options = options
         self.output = output
         self.reactor = reactor
@@ -139,7 +138,7 @@ class UpgraderService(Service, object):
         self._directory = None
 
 
-    def startService(self):
+    def doWork(self):
         """
         Immediately stop.  The upgrade will have been run before this.
         """
@@ -155,7 +154,13 @@ class UpgraderService(Service, object):
             else:
                 self.output.write("Upgrade complete, shutting down.\n")
         UpgraderService.started = True
+        return succeed(None)
 
+
+    def postStartService(self):
+        """
+        Quit right away
+        """
         from twisted.internet import reactor
         from twisted.internet.error import ReactorNotRunning
         try:

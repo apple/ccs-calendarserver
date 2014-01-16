@@ -38,12 +38,11 @@ from shlex import shlex
 from twisted.python.failure import Failure
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, succeed
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.stdio import StandardIO
 from twisted.conch.recvline import HistoricRecvLine as ReceiveLineProtocol
 from twisted.conch.insults.insults import ServerProtocol
-from twisted.application.service import Service
 
 from twext.python.log import Logger
 
@@ -51,7 +50,7 @@ from txdav.common.icommondatastore import NotFoundError
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
-from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.shell.cmd import Commands, UsageError as CommandUsageError
 
@@ -95,7 +94,7 @@ class ShellOptions(Options):
 
 
 
-class ShellService(Service, object):
+class ShellService(WorkerService, object):
     """
     A L{ShellService} collects all the information that a shell needs to run;
     when run, it invokes the shell on stdin/stdout.
@@ -117,21 +116,19 @@ class ShellService(Service, object):
     """
 
     def __init__(self, store, directory, options, reactor, config):
-        super(ShellService, self).__init__()
-        self.store      = store
-        self.directory  = directory
-        self.options    = options
-        self.reactor    = reactor
-        self.config     = config
+        super(ShellService, self).__init__(store)
+        self.directory = directory
+        self.options = options
+        self.reactor = reactor
+        self.config = config
         self.terminalFD = None
-        self.protocol   = None
+        self.protocol = None
 
 
-    def startService(self):
+    def doWork(self):
         """
-        Start the service.
+        Service startup.
         """
-        super(ShellService, self).startService()
 
         # Set up the terminal for interactive action
         self.terminalFD = sys.__stdin__.fileno()
@@ -140,6 +137,14 @@ class ShellService(Service, object):
 
         self.protocol = ServerProtocol(lambda: ShellProtocol(self))
         StandardIO(self.protocol)
+        return succeed(None)
+
+
+    def postStartService(self):
+        """
+        Don't quit right away
+        """
+        pass
 
 
     def stopService(self):
@@ -280,7 +285,7 @@ class ShellProtocol(ReceiveLineProtocol):
                 word = ""
             else:
                 word = tokens[-1]
-            cmd  = tokens.pop(0)
+            cmd = tokens.pop(0)
         else:
             word = cmd = ""
 

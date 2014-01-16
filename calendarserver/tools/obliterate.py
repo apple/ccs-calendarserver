@@ -30,7 +30,6 @@ import os
 import sys
 import time
 
-from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
@@ -42,7 +41,7 @@ from twext.python.log import Logger
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 
-from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 
 log = Logger()
 
@@ -138,14 +137,13 @@ if not hasattr(ExpressionSyntax, "NotIn"):
 
 
 
-class ObliterateService(Service, object):
+class ObliterateService(WorkerService, object):
     """
     Service which runs, does its stuff, then stops the reactor.
     """
 
     def __init__(self, store, options, output, reactor, config):
-        super(ObliterateService, self).__init__()
-        self.store = store
+        super(ObliterateService, self).__init__(store)
         self.options = options
         self.output = output
         self.reactor = reactor
@@ -159,16 +157,15 @@ class ObliterateService(Service, object):
         self.attachments = set()
 
 
-    def startService(self):
+    def postStartService(self):
         """
-        Start the service.
+        Don't quit right away
         """
-        super(ObliterateService, self).startService()
-        self.doObliterate()
+        pass
 
 
     @inlineCallbacks
-    def doObliterate(self):
+    def doWork(self):
         """
         Do the work, stopping the reactor when done.
         """
@@ -186,7 +183,7 @@ class ObliterateService(Service, object):
         except ConfigError:
             pass
         except:
-            log.failure("doObliterate()")
+            log.failure("doWork()")
 
         self.reactor.stop()
 

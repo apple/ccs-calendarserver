@@ -29,7 +29,6 @@ not migrated are logged.
 import os
 import sys
 
-from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
@@ -37,7 +36,7 @@ from twisted.python.usage import Options
 from twext.python.log import Logger
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
-from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 
 log = Logger()
 
@@ -118,14 +117,13 @@ class MigrateVerifyOptions(Options):
 
 
 
-class MigrateVerifyService(Service, object):
+class MigrateVerifyService(WorkerService, object):
     """
     Service which runs, does its stuff, then stops the reactor.
     """
 
     def __init__(self, store, options, output, reactor, config):
-        super(MigrateVerifyService, self).__init__()
-        self.store = store
+        super(MigrateVerifyService, self).__init__(store)
         self.options = options
         self.output = output
         self.reactor = reactor
@@ -141,16 +139,15 @@ class MigrateVerifyService(Service, object):
         self.missingResources = []
 
 
-    def startService(self):
+    def postStartService(self):
         """
-        Start the service.
+        Don't quit right away
         """
-        super(MigrateVerifyService, self).startService()
-        self.doMigrateVerify()
+        pass
 
 
     @inlineCallbacks
-    def doMigrateVerify(self):
+    def doWork(self):
         """
         Do the work, stopping the reactor when done.
         """
@@ -163,7 +160,7 @@ class MigrateVerifyService(Service, object):
         except ConfigError:
             pass
         except:
-            log.failure("doMigrateVerify()")
+            log.failure("doWork()")
 
         self.reactor.stop()
 
