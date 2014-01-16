@@ -34,15 +34,15 @@ from twistedcaldav.xmlutil import readXML
 
 log = Logger()
 
-ELEMENT_PROXIES           = "proxies"
-ELEMENT_RECORD            = "record"
+ELEMENT_PROXIES = "proxies"
+ELEMENT_RECORD = "record"
 
-ELEMENT_GUID              = "guid"
-ELEMENT_PROXIES           = "proxies"
+ELEMENT_GUID = "guid"
+ELEMENT_PROXIES = "proxies"
 ELEMENT_READ_ONLY_PROXIES = "read-only-proxies"
-ELEMENT_MEMBER            = "member"
+ELEMENT_MEMBER = "member"
 
-ATTRIBUTE_REPEAT          = "repeat"
+ATTRIBUTE_REPEAT = "repeat"
 
 class XMLCalendarUserProxyLoader(object):
     """
@@ -50,6 +50,7 @@ class XMLCalendarUserProxyLoader(object):
     """
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
+
 
     def __init__(self, xmlFile):
 
@@ -65,13 +66,14 @@ class XMLCalendarUserProxyLoader(object):
         # FIXME: RuntimeError is dumb.
         self._parseXML(proxies_node)
 
+
     def _parseXML(self, rootnode):
         """
         Parse the XML root node from the augments configuration document.
         @param rootnode: the L{Element} to parse.
         """
         for child in rootnode:
-            
+
             if child.tag != ELEMENT_RECORD:
                 raise RuntimeError("Unknown augment type: '%s' in augment file: '%s'" % (child.tag, self.xmlFile,))
 
@@ -81,7 +83,7 @@ class XMLCalendarUserProxyLoader(object):
             write_proxies = set()
             read_proxies = set()
             for node in child:
-                
+
                 if node.tag == ELEMENT_GUID:
                     guid = node.text
 
@@ -92,40 +94,43 @@ class XMLCalendarUserProxyLoader(object):
                     self._parseMembers(node, write_proxies if node.tag == ELEMENT_PROXIES else read_proxies)
                 else:
                     raise RuntimeError("Invalid element '%s' in proxies file: '%s'" % (node.tag, self.xmlFile,))
-                    
+
             # Must have at least a guid
             if not guid:
                 raise RuntimeError("Invalid record '%s' without a guid in proxies file: '%s'" % (child, self.xmlFile,))
-                
+
             if repeat > 1:
-                for i in xrange(1, repeat+1):
+                for i in xrange(1, repeat + 1):
                     self._buildRecord(guid, write_proxies, read_proxies, i)
             else:
                 self._buildRecord(guid, write_proxies, read_proxies)
+
 
     def _parseMembers(self, node, addto):
         for child in node:
             if child.tag == ELEMENT_MEMBER:
                 addto.add(child.text)
-    
+
+
     def _buildRecord(self, guid, write_proxies, read_proxies, count=None):
 
         def expandCount(value, count):
-            
+
             if type(value) in types.StringTypes:
                 return value % (count,) if count and "%" in value else value
             else:
                 return value
-        
+
         guid = expandCount(guid, count)
         write_proxies = set([expandCount(member, count) for member in write_proxies])
         read_proxies = set([expandCount(member, count) for member in read_proxies])
-            
+
         self.items.append((guid, write_proxies, read_proxies,))
+
 
     @inlineCallbacks
     def updateProxyDB(self):
-        
+
         db = calendaruserproxy.ProxyDBService
         for item in self.items:
             guid, write_proxies, read_proxies = item

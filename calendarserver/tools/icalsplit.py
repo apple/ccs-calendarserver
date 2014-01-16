@@ -63,6 +63,7 @@ def splitICalendarFile(inputFileName, outputDirectory):
             subcalendar_file.close()
 
 
+
 def usage(e=None):
     if e:
         print(e)
@@ -85,6 +86,7 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 def main():
     try:
         (optargs, args) = getopt(
@@ -95,7 +97,7 @@ def main():
     except GetoptError, e:
         usage(e)
 
-    for opt, arg in optargs:
+    for opt, _ignore_arg in optargs:
         if opt in ("-h", "--help"):
             usage()
 

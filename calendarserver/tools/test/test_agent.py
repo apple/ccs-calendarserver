@@ -22,13 +22,12 @@ try:
     from twistedcaldav.test.util import TestCase
     from twisted.internet.defer import inlineCallbacks
     from twisted.internet.task import Clock
-    from twisted.cred.error import UnauthorizedLogin 
+    from twisted.cred.error import UnauthorizedLogin
     from twisted.web.resource import IResource
     from twisted.web.resource import ForbiddenResource
     RUN_TESTS = True
 except ImportError:
     RUN_TESTS = False
-
 
 
 
@@ -67,7 +66,6 @@ if RUN_TESTS:
             else:
                 self.fail("Didn't raise UnauthorizedLogin")
 
-
             # Record exists, but invalid credentials
             fakeOpenDirectory.returnThisRecord("fooRecord")
             fakeOpenDirectory.returnThisAuthResponse(False)
@@ -78,13 +76,11 @@ if RUN_TESTS:
             else:
                 self.fail("Didn't raise UnauthorizedLogin")
 
-
             # Record exists, valid credentials
             fakeOpenDirectory.returnThisRecord("fooRecord")
             fakeOpenDirectory.returnThisAuthResponse(True)
             avatar = (yield c.requestAvatarId(creds))
             self.assertEquals(avatar, "foo")
-
 
             # Record exists, but missing fields in credentials
             del creds.fields["nonce"]
@@ -102,11 +98,11 @@ if RUN_TESTS:
             realm = AgentRealm("root", ["abc"])
 
             # Valid avatar
-            interface, resource, ignored = realm.requestAvatar("abc", None, IResource)
+            _ignore_interface, resource, ignored = realm.requestAvatar("abc", None, IResource)
             self.assertEquals(resource, "root")
 
             # Not allowed avatar
-            interface, resource, ignored = realm.requestAvatar("def", None, IResource)
+            _ignore_interface, resource, ignored = realm.requestAvatar("def", None, IResource)
             self.assertTrue(isinstance(resource, ForbiddenResource))
 
             # Interface unhandled
@@ -116,7 +112,6 @@ if RUN_TESTS:
                 pass
             else:
                 self.fail("Didn't raise NotImplementedError")
-
 
 
     class InactivityDectectorTestCase(TestCase):
@@ -156,7 +151,6 @@ if RUN_TESTS:
             return "127.0.0.1"
 
 
-
     class FakeOpenDirectory(object):
 
         def returnThisRecord(self, response):
@@ -173,7 +167,6 @@ if RUN_TESTS:
             return self.authResponse
 
         ODNSerror = "Error"
-
 
 
     class FakeCredentials(object):

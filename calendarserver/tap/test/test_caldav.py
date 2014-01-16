@@ -1473,13 +1473,16 @@ class PreProcessingServiceTestCase(TestCase):
         self.assertFalse(triggerFile.exists())
 
 
+
 class StubStorageService(object):
 
     def __init__(self):
         self.hardStopCalled = False
 
+
     def hardStop(self):
         self.hardStopCalled = True
+
 
 
 class StubReactor(object):
@@ -1487,8 +1490,10 @@ class StubReactor(object):
     def __init__(self):
         self.stopCalled = False
 
+
     def stop(self):
         self.stopCalled = True
+
 
 
 class DataStoreMonitorTestCase(TestCase):

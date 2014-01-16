@@ -240,6 +240,8 @@ def lookupRecordName(node, recordType, name):
 
     return records[0]
 
+
+
 def createRecord(node, recordType, recordName, attrs):
     record, error = node.createRecordWithRecordType_name_attributes_error_(
         recordType,
@@ -251,6 +253,8 @@ def createRecord(node, recordType, recordName, attrs):
         raise ODError(error)
     return record
 
+
+
 def main():
 
     try:
@@ -258,7 +262,7 @@ def main():
     except GetoptError, e:
         usage(e)
 
-    for opt, arg in optargs:
+    for opt, _ignore_arg in optargs:
         if opt in ("-h", "--help"):
             usage()
 
@@ -372,6 +376,8 @@ def main():
                         print("Adding %s to the %s SACL group" % (recordName, saclGroupName))
 
             print("")
+
+
 
 class ODError(Exception):
     def __init__(self, error):

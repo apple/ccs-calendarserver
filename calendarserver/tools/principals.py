@@ -719,6 +719,7 @@ def action_getAutoAcceptGroup(rootResource, directory, store, principal):
         print("No auto-accept-group assigned to %s" % (prettyPrincipal(principal),))
 
 
+
 @inlineCallbacks
 def action_setValue(rootResource, directory, store, principal, name, value):
     print("Setting %s to %s for %s" % (
@@ -735,12 +736,14 @@ def action_setValue(rootResource, directory, store, principal, name, value):
     ))
 
 
+
 def action_getValue(rootResource, directory, store, principal, name):
     print("%s for %s is %s" % (
         name,
         prettyPrincipal(principal),
         principal.record.extras[attrMap[name]["attr"]]
     ))
+
 
 
 def abort(msg, status=1):

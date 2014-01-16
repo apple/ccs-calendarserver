@@ -74,7 +74,7 @@ if RUN_TESTS:
 
         @classmethod
         def getAugmentRecord(cls, guid, recordType):
-            if not cls.records.has_key(guid):
+            if guid not in cls.records:
                 record = StubAugmentRecord(guid=guid)
                 cls.records[guid] = record
             return succeed(cls.records[guid])
@@ -128,11 +128,9 @@ if RUN_TESTS:
 
                 self.assertTrue(guid in StubAugmentService.records)
 
-
             #
             # Add more to OD and re-migrate
             #
-
             data[dsattributes.kDSStdRecordTypeResources].append(
                 ['projector3', {
                     strGUID : '9C99E240-E915-4012-82FA-99E0F638D7EF',

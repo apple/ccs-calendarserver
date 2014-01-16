@@ -36,30 +36,30 @@ import hashlib
 
 log = Logger()
 
-ELEMENT_ACCOUNTS          = "accounts"
-ELEMENT_USER              = "user"
-ELEMENT_GROUP             = "group"
-ELEMENT_LOCATION          = "location"
-ELEMENT_RESOURCE          = "resource"
-ELEMENT_ADDRESS           = "address"
+ELEMENT_ACCOUNTS = "accounts"
+ELEMENT_USER = "user"
+ELEMENT_GROUP = "group"
+ELEMENT_LOCATION = "location"
+ELEMENT_RESOURCE = "resource"
+ELEMENT_ADDRESS = "address"
 
-ELEMENT_SHORTNAME         = "uid"
-ELEMENT_GUID              = "guid"
-ELEMENT_PASSWORD          = "password"
-ELEMENT_NAME              = "name"
-ELEMENT_FIRST_NAME        = "first-name"
-ELEMENT_LAST_NAME         = "last-name"
-ELEMENT_EMAIL_ADDRESS     = "email-address"
-ELEMENT_MEMBERS           = "members"
-ELEMENT_MEMBER            = "member"
-ELEMENT_EXTRAS            = "extras"
+ELEMENT_SHORTNAME = "uid"
+ELEMENT_GUID = "guid"
+ELEMENT_PASSWORD = "password"
+ELEMENT_NAME = "name"
+ELEMENT_FIRST_NAME = "first-name"
+ELEMENT_LAST_NAME = "last-name"
+ELEMENT_EMAIL_ADDRESS = "email-address"
+ELEMENT_MEMBERS = "members"
+ELEMENT_MEMBER = "member"
+ELEMENT_EXTRAS = "extras"
 
-ATTRIBUTE_REALM           = "realm"
-ATTRIBUTE_REPEAT          = "repeat"
-ATTRIBUTE_RECORDTYPE      = "type"
+ATTRIBUTE_REALM = "realm"
+ATTRIBUTE_REPEAT = "repeat"
+ATTRIBUTE_RECORDTYPE = "type"
 
-VALUE_TRUE                = "true"
-VALUE_FALSE               = "false"
+VALUE_TRUE = "true"
+VALUE_FALSE = "false"
 
 RECORD_TYPES = {
     ELEMENT_USER     : DirectoryService.recordType_users,
@@ -76,6 +76,7 @@ class XMLAccountsParser(object):
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
 
+
     def __init__(self, xmlFile, externalUpdate=True):
 
         if type(xmlFile) is str:
@@ -84,7 +85,7 @@ class XMLAccountsParser(object):
         self.xmlFile = xmlFile
         self.realm = None
         self.items = {}
-        
+
         for recordType in RECORD_TYPES.values():
             self.items[recordType] = {}
 
@@ -94,6 +95,7 @@ class XMLAccountsParser(object):
         except ValueError, e:
             raise RuntimeError("XML parse error for '%s' because: %s" % (self.xmlFile, e,))
         self._parseXML(accounts_node)
+
 
     def _parseXML(self, node):
         """
@@ -120,7 +122,7 @@ class XMLAccountsParser(object):
             principal = XMLAccountRecord(recordType)
             principal.parseXML(child)
             if repeat > 0:
-                for i in xrange(1, repeat+1):
+                for i in xrange(1, repeat + 1):
                     newprincipal = principal.repeat(i)
                     self.items[recordType][newprincipal.shortNames[0]] = newprincipal
             else:
@@ -130,7 +132,9 @@ class XMLAccountsParser(object):
         for records in self.items.itervalues():
             for principal in records.itervalues():
                 updateMembership(principal)
-                
+
+
+
 class XMLAccountRecord (object):
     """
     Contains provision information for one user.
@@ -150,6 +154,7 @@ class XMLAccountRecord (object):
         self.members = set()
         self.groups = set()
         self.extras = {}
+
 
     def repeat(self, ctr):
         """
@@ -183,7 +188,7 @@ class XMLAccountRecord (object):
                 if m:
                     length = int(m.group(0)[1:])
                     hash = hashlib.md5(str(ctr)).hexdigest()
-                    string = (hash*((length/32)+1))[:-(32-(length%32))]
+                    string = (hash * ((length / 32) + 1))[:-(32 - (length % 32))]
                     return text.replace(m.group(0), string)
             return text
 
@@ -223,7 +228,7 @@ class XMLAccountRecord (object):
                 emailAddresses.add(emailAddr % ctr)
             else:
                 emailAddresses.add(emailAddr)
-        
+
         result = XMLAccountRecord(self.recordType)
         result.shortNames = shortNames
         result.guid = normalizeUUID(guid)
@@ -235,6 +240,7 @@ class XMLAccountRecord (object):
         result.members = self.members
         result.extras = self.extras
         return result
+
 
     def parseXML(self, node):
         for child in node:
@@ -264,11 +270,13 @@ class XMLAccountRecord (object):
         if not self.shortNames:
             self.shortNames.append(self.guid)
 
+
     def _parseMembers(self, node, addto):
         for child in node:
             if child.tag == ELEMENT_MEMBER:
                 recordType = child.get(ATTRIBUTE_RECORDTYPE, DirectoryService.recordType_users)
                 addto.add((recordType, child.text.encode("utf-8")))
+
 
     def _parseExtras(self, node, addto):
         for child in node:

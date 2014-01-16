@@ -71,6 +71,7 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 def main():
     try:
         (optargs, args) = getopt(
@@ -192,17 +193,20 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         if sigint:
             signal.signal(signal.SIGINT, self.sigint_handler)
 
+
     @inlineCallbacks
     def sigint_handler(self, num, frame):
         print(" Shutting down...")
         yield self.unsubscribeAll()
         reactor.stop()
 
+
     @inlineCallbacks
     def unsubscribeAll(self):
         if self.xmlStream is not None:
-            for node, (url, name, kind) in self.nodes.iteritems():
+            for node, (_ignore_url, name, kind) in self.nodes.iteritems():
                 yield self.unsubscribe(node, name, kind)
+
 
     def connected(self, xmlStream):
         self.xmlStream = xmlStream
@@ -213,6 +217,7 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         xmlStream.addObserver("/message/event/items",
                               self.handleMessageEventItems)
 
+
     def disconnected(self, xmlStream):
         self.xmlStream = None
         if self.presenceCall is not None:
@@ -221,24 +226,28 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         if self.verbose:
             print("XMPP disconnected")
 
+
     def initFailed(self, failure):
         self.xmlStream = None
         print("XMPP connection failure: %s" % (failure,))
         reactor.stop()
+
 
     @inlineCallbacks
     def authenticated(self, xmlStream):
         if self.verbose:
             print("XMPP authentication successful")
         self.sendPresence()
-        for node, (url, name, kind) in self.nodes.iteritems():
+        for node, (_ignore_url, name, kind) in self.nodes.iteritems():
             yield self.subscribe(node, name, kind)
 
         print("Awaiting notifications (hit Control-C to end)")
 
+
     def authFailed(self, e):
         print("XMPP authentication failed")
         reactor.stop()
+
 
     def sendPresence(self):
         if self.doKeepAlive and self.xmlStream is not None:
@@ -246,6 +255,7 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
             self.xmlStream.send(presence)
             self.presenceCall = reactor.callLater(self.presenceSeconds,
                 self.sendPresence)
+
 
     def handleMessageEventItems(self, iq):
         item = iq.firstChildElement().firstChildElement()
@@ -276,6 +286,7 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
             print("OK")
         except Exception, e:
             print("Subscription failure: %s %s" % (node, e))
+
 
     @inlineCallbacks
     def unsubscribe(self, node, name, kind):
@@ -310,12 +321,15 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
     def rawDataIn(self, buf):
         print("RECV: %s" % unicode(buf, 'utf-8').encode('ascii', 'replace'))
 
+
     def rawDataOut(self, buf):
         print("SEND: %s" % unicode(buf, 'utf-8').encode('ascii', 'replace'))
 
 
+
 class PropfindRequestor(AuthorizedHTTPGetter):
     handleStatus_207 = lambda self: self.handleStatus_200
+
 
 
 class PushMonitorService(Service):
@@ -337,10 +351,11 @@ class PushMonitorService(Service):
         self.password = password
         self.verbose = verbose
 
+
     @inlineCallbacks
     def startService(self):
         try:
-            subscribeNodes = { }
+            subscribeNodes = {}
             if self.nodes is None:
                 paths = set()
                 principal = "/principals/users/%s/" % (self.username,)
@@ -378,6 +393,7 @@ class PushMonitorService(Service):
         except Exception, e:
             print("Error:", e)
             reactor.stop()
+
 
     @inlineCallbacks
     def getPrincipalDetails(self, path, includeCardDAV=True):
@@ -443,7 +459,8 @@ class PushMonitorService(Service):
             print("Unable to look up principal details", e)
             raise
 
-        returnValue( (name, homes) )
+        returnValue((name, homes))
+
 
     @inlineCallbacks
     def getProxyFor(self):
@@ -576,7 +593,7 @@ class PushMonitorService(Service):
                                                         host = xmppServer
                                                         port = 5222
 
-                    if key and not nodes.has_key(key):
+                    if key and key not in nodes:
                         nodes[key] = (href.text, name, kind)
 
             except Exception, e:
@@ -593,7 +610,7 @@ class PushMonitorService(Service):
         if port is None:
             raise Exception("Unable to determine xmpp server port")
 
-        returnValue( (host, port, nodes) )
+        returnValue((host, port, nodes))
 
 
     def startMonitoring(self, host, port, nodes):

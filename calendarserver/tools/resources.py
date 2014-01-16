@@ -62,6 +62,8 @@ def usage():
 
     sys.exit(0)
 
+
+
 def abort(msg, status=1):
     sys.stdout.write("%s\n" % (msg,))
     try:
@@ -70,9 +72,11 @@ def abort(msg, status=1):
         pass
     sys.exit(status)
 
+
+
 def main():
     try:
-        (optargs, args) = getopt(
+        (optargs, _ignore_args) = getopt(
             sys.argv[1:], "hf:v", [
                 "help",
                 "config=",
@@ -175,6 +179,7 @@ def migrate(sourceService, resourceService, verbose=False):
         reactor.stop()
 
 
+
 def queryForType(sourceService, recordType, verbose=False):
     """
     Queries OD for all records of the specified record type
@@ -198,6 +203,7 @@ def queryForType(sourceService, recordType, verbose=False):
         print("Found %d records" % (len(results),))
 
     return results
+
 
 
 @inlineCallbacks

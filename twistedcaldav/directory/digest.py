@@ -57,6 +57,7 @@ class IDigestCredentialsDatabase(Interface):
         """
         pass
 
+
     def set(self, key, value):
         """
         Store per-client credential information the first time a nonce is generated and used.
@@ -67,6 +68,7 @@ class IDigestCredentialsDatabase(Interface):
         @type value:       any.
         """
         pass
+
 
     def get(self, key):
         """
@@ -80,6 +82,7 @@ class IDigestCredentialsDatabase(Interface):
         """
         pass
 
+
     def delete(self, key):
         """
         Remove the record associated with the supplied key.
@@ -88,6 +91,8 @@ class IDigestCredentialsDatabase(Interface):
         @type key:         C{str}
         """
         pass
+
+
 
 class DigestCredentialsMemcache(Memcacher):
 
@@ -101,13 +106,15 @@ class DigestCredentialsMemcache(Memcacher):
             pickle=True,
         )
 
+
     def has_key(self, key):
         """
         See IDigestCredentialsDatabase.
         """
         d = self.get(key)
-        d.addCallback(lambda value:value is not None)
+        d.addCallback(lambda value: value is not None)
         return d
+
 
     def set(self, key, value):
         """
@@ -118,6 +125,8 @@ class DigestCredentialsMemcache(Memcacher):
             value,
             expireTime=self.CHALLENGE_MAXTIME_SECS
         )
+
+
 
 class QopDigestCredentialFactory(DigestCredentialFactory):
     """
@@ -163,7 +172,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         c = challenge['nonce']
 
         # Make sure it is not a duplicate
-        result = (yield self.db.has_key(c))
+        result = (yield self.db.has_key(c)) #@IgnorePep8
         if result:
             raise AssertionError("nonce value already cached in credentials database: %s" % (c,))
 
@@ -237,12 +246,13 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
                                               self._real.authenticationRealm,
                                               auth)
 
-            if not self.qop and credentials.fields.has_key('qop'):
+            if not self.qop and 'qop' in credentials.fields:
                 del credentials.fields['qop']
 
             returnValue(credentials)
         else:
             raise error.LoginFailed('Invalid nonce/cnonce values')
+
 
     @inlineCallbacks
     def _validate(self, auth, request):
@@ -302,6 +312,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             raise error.LoginFailed('Digest credentials expired')
 
         returnValue(True)
+
 
     def _invalidate(self, nonce):
         """

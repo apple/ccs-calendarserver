@@ -41,6 +41,7 @@ class FakeCheckSACL(object):
     def __init__(self, sacls=None):
         self.sacls = sacls or {}
 
+
     def __call__(self, username, service):
         if service not in self.sacls:
             return 1
@@ -49,6 +50,8 @@ class FakeCheckSACL(object):
             return 0
 
         return 1
+
+
 
 class RootTests(TestCase):
 
@@ -127,7 +130,7 @@ class ComplianceTests(RootTests):
 
 
 class SACLTests(RootTests):
-    
+
     @inlineCallbacks
     def test_noSacls(self):
         """
@@ -141,7 +144,7 @@ class SACLTests(RootTests):
                                 "GET",
                                 "/principals/")
 
-        resrc, segments = (yield maybeDeferred(
+        resrc, _ignore_segments = (yield maybeDeferred(
             self.root.locateChild, request, ["principals"]
         ))
 
@@ -156,6 +159,7 @@ class SACLTests(RootTests):
         )
 
         self.assertEquals(segments, [])
+
 
     @inlineCallbacks
     def test_inSacls(self):
@@ -179,7 +183,7 @@ class SACLTests(RootTests):
             })
         )
 
-        resrc, segments = (yield maybeDeferred(
+        resrc, _ignore_segments = (yield maybeDeferred(
             self.root.locateChild, request, ["principals"]
         ))
 
@@ -205,6 +209,7 @@ class SACLTests(RootTests):
             )
         )
 
+
     @inlineCallbacks
     def test_notInSacls(self):
         """
@@ -227,16 +232,17 @@ class SACLTests(RootTests):
             })
         )
 
-        resrc, segments = (yield maybeDeferred(
+        resrc, _ignore_segments = (yield maybeDeferred(
             self.root.locateChild, request, ["principals"]
         ))
 
         try:
-            resrc, segments = (yield maybeDeferred(
+            resrc, _ignore_segments = (yield maybeDeferred(
                 resrc.locateChild, request, ["principals"]
             ))
         except HTTPError, e:
             self.assertEquals(e.response.code, 403)
+
 
     @inlineCallbacks
     def test_unauthenticated(self):
@@ -254,12 +260,12 @@ class SACLTests(RootTests):
             "/principals/"
         )
 
-        resrc, segments = (yield maybeDeferred(
+        resrc, _ignore_segments = (yield maybeDeferred(
             self.root.locateChild, request, ["principals"]
         ))
 
         try:
-            resrc, segments = (yield maybeDeferred(
+            resrc, _ignore_segments = (yield maybeDeferred(
                 resrc.locateChild, request, ["principals"]
             ))
             raise AssertionError(
@@ -267,6 +273,7 @@ class SACLTests(RootTests):
             )
         except HTTPError, e:
             self.assertEquals(e.response.code, 401)
+
 
     @inlineCallbacks
     def test_badCredentials(self):
@@ -286,17 +293,16 @@ class SACLTests(RootTests):
                     "Authorization": ["basic", "%s" % (
                             "dreid:dreid".encode("base64"),)]}))
 
-        resrc, segments = (yield maybeDeferred(
+        resrc, _ignore_segments = (yield maybeDeferred(
             self.root.locateChild, request, ["principals"]
         ))
 
         try:
-            resrc, segments = (yield maybeDeferred(
+            resrc, _ignore_segments = (yield maybeDeferred(
                 resrc.locateChild, request, ["principals"]
             ))
         except HTTPError, e:
             self.assertEquals(e.response.code, 401)
-
 
 
     def test_DELETE(self):
@@ -310,6 +316,7 @@ class SACLTests(RootTests):
         request = SimpleRequest(self.site, "DELETE", "/")
         return self.send(request, do_test)
 
+
     def test_COPY(self):
         def do_test(response):
             response = IResponse(response)
@@ -322,9 +329,10 @@ class SACLTests(RootTests):
             self.site,
             "COPY",
             "/",
-            headers=http_headers.Headers({"Destination":"/copy/"})
+            headers=http_headers.Headers({"Destination": "/copy/"})
         )
         return self.send(request, do_test)
+
 
     def test_MOVE(self):
         def do_test(response):
@@ -338,12 +346,14 @@ class SACLTests(RootTests):
             self.site,
             "MOVE",
             "/",
-            headers=http_headers.Headers({"Destination":"/copy/"})
+            headers=http_headers.Headers({"Destination": "/copy/"})
         )
         return self.send(request, do_test)
 
+
+
 class SACLCacheTests(RootTests):
-    
+
     class StubResponseCacheResource(object):
         def __init__(self):
             self.cache = {}
@@ -354,15 +364,17 @@ class SACLCacheTests(RootTests):
             if str(request) in self.cache:
                 self.cacheHitCount += 1
                 return self.cache[str(request)]
-    
-    
+
+
         def cacheResponseForRequest(self, request, response):
             self.cache[str(request)] = response
             return response
 
+
     def setUp(self):
         super(SACLCacheTests, self).setUp()
         self.root.resource.responseCache = SACLCacheTests.StubResponseCacheResource()
+
 
     def test_PROPFIND(self):
         self.root.resource.useSacls = True
@@ -383,7 +395,7 @@ class SACLCacheTests(RootTests):
             headers=http_headers.Headers({
                     'Authorization': ['basic', '%s' % ('dreid:dierd'.encode('base64'),)],
                     'Content-Type': 'application/xml; charset="utf-8"',
-                    'Depth':'1',
+                    'Depth': '1',
             }),
             content=body
         )
@@ -399,7 +411,7 @@ class SACLCacheTests(RootTests):
                 headers=http_headers.Headers({
                         'Authorization': ['basic', '%s' % ('dreid:dierd'.encode('base64'),)],
                         'Content-Type': 'application/xml; charset="utf-8"',
-                        'Depth':'1',
+                        'Depth': '1',
                 }),
                 content=body
             )
@@ -415,8 +427,10 @@ class SACLCacheTests(RootTests):
         d = self.send(request, gotResponse1)
         return d
 
+
+
 class WikiTests(RootTests):
-    
+
     @inlineCallbacks
     def test_oneTime(self):
         """
@@ -426,10 +440,10 @@ class WikiTests(RootTests):
 
         request = SimpleRequest(self.site, "GET", "/principals/")
 
-        resrc, segments = (yield maybeDeferred(
+        resrc, _ignore_segments = (yield maybeDeferred(
             self.root.locateChild, request, ["principals"]
         ))
-        resrc, segments = (yield maybeDeferred(
+        resrc, _ignore_segments = (yield maybeDeferred(
             resrc.locateChild, request, ["principals"]
         ))
         self.assertTrue(request.checkedWiki)

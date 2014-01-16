@@ -54,6 +54,8 @@ def usage(e=None):
     else:
         sys.exit(0)
 
+
+
 def main():
     try:
         (optargs, args) = getopt(
@@ -66,7 +68,6 @@ def main():
         usage(e)
 
     configFileName = None
-
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):

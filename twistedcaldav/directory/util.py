@@ -51,6 +51,7 @@ def uuidFromName(namespace, name):
     return normalizeUUID(str(uuid5(UUID(namespace), name)))
 
 
+
 def normalizeUUID(value):
     """
     Convert strings which the uuid.UUID( ) method can parse into normalized
@@ -106,6 +107,7 @@ def transactionFromRequest(request, newStore):
     return transaction
 
 
+
 def splitIntoBatches(data, size):
     """
     Return a generator of sets consisting of the contents of the data set
@@ -117,6 +119,7 @@ def splitIntoBatches(data, size):
     while data:
         yield set(data[:size])
         del data[:size]
+
 
 
 class NotFoundResource(DAVResource):
@@ -131,7 +134,7 @@ class NotFoundResource(DAVResource):
     def renderHTTP(self, request):
 
         try:
-            authnUser, authzUser = yield self.authenticate(request)
+            _ignore_authnUser, authzUser = yield self.authenticate(request)
         except Exception:
             authzUser = davxml.Principal(davxml.Unauthenticated())
 
@@ -145,4 +148,3 @@ class NotFoundResource(DAVResource):
         else:
             response = StatusResponse(responsecode.NOT_FOUND, "Resource not found")
             returnValue(response)
-

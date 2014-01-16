@@ -84,6 +84,7 @@ class Directory(object):
         self.node = node
         self.nodeName = nodeName
 
+
     def __str__(self):
         return "OpenDirectory node: %s" % (self.nodeName)
 
@@ -94,6 +95,7 @@ def adjustMatchType(matchType, caseInsensitive):
     return (matchType | 0x100) if caseInsensitive else matchType
 
     # return caseInsensitiveEquivalents[matchType] if caseInsensitive else matchType
+
 
 
 def recordToResult(record, encodings):
@@ -132,6 +134,7 @@ def recordToResult(record, encodings):
     return (details.get(dsattributes.kDSNAttrRecordName, [None])[0], result)
 
 
+
 def attributeNamesFromList(attributes):
     """
     The attributes list can contain string names or tuples of the form (name,
@@ -150,6 +153,7 @@ def attributeNamesFromList(attributes):
         else:
             names.append(attribute)
     return names, encodings
+
 
 
 @autoPooled
@@ -216,6 +220,7 @@ def getNodeAttributes(directory, nodeName, attributes):
     raise ODNSError(error)
 
 
+
 @autoPooled
 def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0):
     """
@@ -263,6 +268,7 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
 
     log.error("Error: {err}", err=error)
     raise ODNSError(error)
+
 
 
 @autoPooled
@@ -319,6 +325,7 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
     raise ODNSError(error)
 
 
+
 @autoPooled
 def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attributes, count=0):
     """
@@ -372,6 +379,7 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
     raise ODNSError(error)
 
 
+
 def getUserRecord(directory, user):
     """
     Look up the record for the given user within the directory's node
@@ -404,6 +412,7 @@ def getUserRecord(directory, user):
     raise ODNSError(error)
 
 
+
 @autoPooled
 def authenticateUserBasic(directory, nodeName, user, password):
     """
@@ -422,7 +431,7 @@ def authenticateUserBasic(directory, nodeName, user, password):
     tries = NUM_TRIES
     while tries:
 
-        log.debug("Checking basic auth for user '{user}' (tries remaining: {tries})", 
+        log.debug("Checking basic auth for user '{user}' (tries remaining: {tries})",
             user=user, tries=tries)
 
         result, error = record.verifyPassword_error_(password, None)
@@ -446,6 +455,7 @@ def authenticateUserBasic(directory, nodeName, user, password):
 
     log.error("Basic auth error: {err}", err=error)
     raise ODNSError(error)
+
 
 
 @autoPooled
@@ -472,7 +482,7 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
             user=user, tries=tries)
 
         # TODO: what are these other return values?
-        result, mystery1, mystery2, error = record.verifyExtendedWithAuthenticationType_authenticationItems_continueItems_context_error_(
+        result, _ignore_mystery1, _ignore_mystery2, error = record.verifyExtendedWithAuthenticationType_authenticationItems_continueItems_context_error_(
             DIGEST_MD5,
             [user, challenge, response, method],
             None, None, None
@@ -499,6 +509,7 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
     raise ODNSError(error)
 
 
+
 class ODError(Exception):
     """
     Exceptions from DirectoryServices errors.
@@ -506,8 +517,10 @@ class ODError(Exception):
     def __init__(self, msg, code):
         self.message = (msg, code)
 
+
     def __str__(self):
         return "<OD Error %s %d>" % (self.message[0], self.message[1])
+
 
 
 class ODNSError(ODError):

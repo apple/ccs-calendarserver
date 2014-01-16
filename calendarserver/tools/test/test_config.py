@@ -110,6 +110,7 @@ class WritableConfigTestCase(TestCase):
         self.assertEquals(writable2.currentConfigSubset, {'key1': u'\U0001f4a3'})
 
 
+
 class ConfigTestCase(RunCommandTestCase):
 
     @inlineCallbacks

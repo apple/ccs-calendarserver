@@ -200,7 +200,6 @@ else:
                 )
 
 
-
     class BuildFilterFromTokensTestCase(TestCase):
 
         def test_buildFilterFromTokens(self):
@@ -300,7 +299,6 @@ else:
                 )
 
 
-
     class StubList(object):
         def __init__(self, wrapper):
             self.ldap = wrapper
@@ -320,11 +318,9 @@ else:
                                                  attrlist=self.attrList)
 
 
-
     class StubAsync(object):
         def List(self, wrapper):
             return StubList(wrapper)
-
 
 
     class LdapDirectoryTestWrapper(object):

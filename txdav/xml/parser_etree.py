@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -28,7 +28,7 @@ __all__ = [
     "WebDAVDocument",
 ]
 
-from xml.etree.ElementTree import TreeBuilder, XMLParser,\
+from xml.etree.ElementTree import TreeBuilder, XMLParser, \
     _namespace_map
 from txdav.xml.base import WebDAVUnknownElement, PCDATAElement
 from txdav.xml.base import _elements_by_qname
@@ -39,15 +39,19 @@ try:
 except ImportError:
     from xml.parsers.expat import ExpatError as XMLParseError
 
+
+
 def QNameSplit(qname):
     return tuple(qname[1:].split("}", 1)) if "}" in qname else ("", qname,)
+
+
 
 class WebDAVContentHandler (TreeBuilder):
 
     def __init__(self):
         TreeBuilder.__init__(self)
         self._characterBuffer = None
-        
+
         self.startDocument()
 
 
@@ -55,7 +59,6 @@ class WebDAVContentHandler (TreeBuilder):
         """
         Doctype declaration is ignored.
         """
-
 
     def startDocument(self):
         self.stack = [{
@@ -71,6 +74,7 @@ class WebDAVContentHandler (TreeBuilder):
         # multiple times in a document.
         self.unknownElementClasses = {}
 
+
     def close(self):
         top = self.stack[-1]
 
@@ -83,11 +87,13 @@ class WebDAVContentHandler (TreeBuilder):
         del(self.unknownElementClasses)
         return self.dom
 
+
     def data(self, data):
         # Stash character data away in a list that we will "".join() when done
         if self._characterBuffer is None:
             self._characterBuffer = []
         self._characterBuffer.append(data)
+
 
     def start(self, tag, attrs):
         name = QNameSplit(tag)
@@ -117,7 +123,7 @@ class WebDAVContentHandler (TreeBuilder):
             def element_class(*args, **kwargs):
                 element = WebDAVUnknownElement(*args, **kwargs)
                 element.namespace = tag_namespace
-                element.name      = tag_name
+                element.name = tag_name
                 return element
             self.unknownElementClasses[name] = element_class
 
@@ -127,6 +133,7 @@ class WebDAVContentHandler (TreeBuilder):
             "attributes" : attributes_dict,
             "children"   : [],
         })
+
 
     def end(self, tag):
         name = QNameSplit(tag)
@@ -149,10 +156,11 @@ class WebDAVContentHandler (TreeBuilder):
         self.stack[-1]["children"].append(element)
 
 
+
 class WebDAVDocument(AbstractWebDAVDocument):
     @classmethod
     def fromStream(cls, source):
-        parser  = XMLParser(target=WebDAVContentHandler())
+        parser = XMLParser(target=WebDAVContentHandler())
         try:
             while 1:
                 data = source.read(65536)
@@ -162,6 +170,7 @@ class WebDAVDocument(AbstractWebDAVDocument):
         except XMLParseError, e:
             raise ValueError(e)
         return parser.close()
-        
+
+
     def writeXML(self, output):
         self.root_element.writeXML(output)

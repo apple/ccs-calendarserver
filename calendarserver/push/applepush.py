@@ -51,9 +51,9 @@ class ApplePushPriority(Values):
     """
     Maps calendarserver.push.util.PushPriority values to APNS-specific values
     """
-    low    = ValueConstant(PushPriority.low.value)
+    low = ValueConstant(PushPriority.low.value)
     medium = ValueConstant(PushPriority.medium.value)
-    high   = ValueConstant(PushPriority.high.value)
+    high = ValueConstant(PushPriority.high.value)
 
 
 
@@ -400,26 +400,26 @@ class APNProviderProtocol(protocol.Protocol):
                                                     # Frame struct.pack format
                                                     # ! Network byte order
         command = self.COMMAND_PROVIDER             # B
-        frameLength = (                             # I
+        frameLength = (# I
             # Item 1 (Device token)
-            1 +  # Item number                      # B
-            2 +  # Item length                      # H
+            1 + # Item number                      # B
+            2 + # Item length                      # H
             32 + # device token                     # 32s
             # Item 2 (Payload)
-            1 +  # Item number                      # B
-            2 +  # Item length                      # H
+            1 + # Item number                      # B
+            2 + # Item length                      # H
             payloadLength + # the JSON payload      # %d s
             # Item 3 (Notification ID)
-            1 +  # Item number                      # B    
-            2 +  # Item length                      # H
-            4 +  # Notification ID                  # I
+            1 + # Item number                      # B
+            2 + # Item length                      # H
+            4 + # Notification ID                  # I
             # Item 4 (Expiration)
-            1 +  # Item number                      # B
-            2 +  # Item length                      # H
-            4 +  # Expiration seconds since epoch   # I
+            1 + # Item number                      # B
+            2 + # Item length                      # H
+            4 + # Expiration seconds since epoch   # I
             # Item 5 (Priority)
-            1 +  # Item number                      # B
-            2 +  # Item length                      # H
+            1 + # Item number                      # B
+            2 + # Item length                      # H
             1    # Priority                         # B
         )
 
@@ -451,6 +451,7 @@ class APNProviderProtocol(protocol.Protocol):
 
             )
         )
+
 
 
 class APNProviderFactory(ReconnectingClientFactory):
@@ -629,7 +630,7 @@ class APNProviderService(APNConnectionService):
         """
         for token in tokens:
             tokenKeyPair = (token, key)
-            for existingPair, timstamp, priority in self.queue:
+            for existingPair, _ignore_timstamp, priority in self.queue:
                 if tokenKeyPair == existingPair:
                     self.log.debug("APNProviderService has no connection; skipping duplicate: %s %s" % (token, key))
                     break # Already scheduled

@@ -24,9 +24,9 @@ class PushPriority(Values):
     """
     Constants to use for push priorities
     """
-    low    = ValueConstant(1)
+    low = ValueConstant(1)
     medium = ValueConstant(5)
-    high   = ValueConstant(10)
+    high = ValueConstant(10)
 
 
 

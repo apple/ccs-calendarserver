@@ -772,7 +772,7 @@ class Commands(CommandsBase):
 
             class Handler(object):
 
-                def addOutput(innerSelf, bytes, async=False):
+                def addOutput(innerSelf, bytes, async=False): #@NoSelf
                     """
                     This is a delegate method, called by ManholeInterpreter.
                     """
@@ -867,5 +867,5 @@ class Commands(CommandsBase):
         """
         self.terminal.write("Nothing happens.")
         self.terminal.nextLine()
-        
+
     cmd_sql.hidden = ""

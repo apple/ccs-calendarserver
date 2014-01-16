@@ -36,11 +36,11 @@ from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.idirectory import IDirectoryService
-from twistedcaldav.directory.common import uidsResourceName,\
+from twistedcaldav.directory.common import uidsResourceName, \
     CommonUIDProvisioningResource, CommonHomeTypeProvisioningResource
 
 from twistedcaldav.directory.wiki import getWikiACL
-from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource,\
+from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource, \
     DAVResourceWithChildrenMixin
 from twistedcaldav.resource import CalendarHomeResource
 
@@ -56,6 +56,8 @@ class CalDAVComplianceMixIn(object):
             + config.CalDAVComplianceClasses
         )
 
+
+
 class DirectoryCalendarProvisioningResource (
     ReadOnlyResourceMixIn,
     CalDAVComplianceMixIn,
@@ -65,15 +67,19 @@ class DirectoryCalendarProvisioningResource (
     def defaultAccessControlList(self):
         return config.ProvisioningResourceACL
 
+
     def etag(self):
         return succeed(ETag(str(uuid4())))
+
 
     def contentType(self):
         return MimeType("httpd", "unix-directory")
 
+
+
 class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningResource):
     """
-    Resource which provisions calendar home collections as needed.    
+    Resource which provisions calendar home collections as needed.
     """
     def __init__(self, directory, url, store):
         """
@@ -100,21 +106,26 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
 
         self.putChild(uidsResourceName, DirectoryCalendarHomeUIDProvisioningResource(self))
 
+
     def url(self):
         return self._url
 
+
     def listChildren(self):
         return self.directory.recordTypes()
+
 
     def principalCollections(self):
         # FIXME: directory.principalCollection smells like a hack
         # See DirectoryPrincipalProvisioningResource.__init__()
         return self.directory.principalCollection.principalCollections()
 
+
     def principalForRecord(self, record):
         # FIXME: directory.principalCollection smells like a hack
         # See DirectoryPrincipalProvisioningResource.__init__()
         return self.directory.principalCollection.principalForRecord(record)
+
 
     def homeForDirectoryRecord(self, record, request):
         uidResource = self.getChild(uidsResourceName)
@@ -123,15 +134,19 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
         else:
             return uidResource.homeResourceForRecord(record, request)
 
+
     ##
     # DAV
     ##
-    
+
     def isCollection(self):
         return True
 
+
     def displayName(self):
         return "calendars"
+
+
 
 class DirectoryCalendarHomeTypeProvisioningResource(
         CommonHomeTypeProvisioningResource,
@@ -155,6 +170,7 @@ class DirectoryCalendarHomeTypeProvisioningResource(
         self.recordType = recordType
         self._parent = parent
 
+
     def url(self):
         return joinURL(self._parent.url(), self.recordType)
 
@@ -173,18 +189,22 @@ class DirectoryCalendarHomeTypeProvisioningResource(
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)
 
+
     def makeChild(self, name):
         return None
+
 
     ##
     # DAV
     ##
-    
+
     def isCollection(self):
         return True
 
+
     def displayName(self):
         return self.recordType
+
 
     ##
     # ACL
@@ -193,8 +213,11 @@ class DirectoryCalendarHomeTypeProvisioningResource(
     def principalCollections(self):
         return self._parent.principalCollections()
 
+
     def principalForRecord(self, record):
         return self._parent.principalForRecord(record)
+
+
 
 class DirectoryCalendarHomeUIDProvisioningResource (
         CommonUIDProvisioningResource,
@@ -240,6 +263,7 @@ class DirectoryCalendarHomeResource (CalendarHomeResource):
         d = getWikiACL(self, request)
         d.addCallback(gotACL)
         return d
+
 
     def principalForRecord(self):
         return self.parent.principalForRecord(self.record)

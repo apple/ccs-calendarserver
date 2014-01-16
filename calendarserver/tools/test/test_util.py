@@ -29,6 +29,7 @@ class UtilTestCase(TestCase):
         self.assertEquals(config.EnableCalDAV, True)
         self.assertEquals(config.EnableCardDAV, True)
 
+
     def test_checkDirectory(self):
         tmpDir = tempfile.mkdtemp()
         tmpFile = os.path.join(tmpDir, "tmpFile")

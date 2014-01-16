@@ -26,16 +26,16 @@ import tarfile
 from twistedcaldav.config import config
 from calendarserver.tools.util import loadConfig
 
-SIPP          = "/Applications/Server.app/Contents/ServerRoot"
+SIPP = "/Applications/Server.app/Contents/ServerRoot"
 if not os.path.exists(SIPP):
-    SIPP      = ""
-USERNAME      = "caldav"
-DATABASENAME  = "caldav"
-DUMPFILENAME  = "db_backup"
+    SIPP = ""
+USERNAME = "caldav"
+DATABASENAME = "caldav"
+DUMPFILENAME = "db_backup"
 
-PSQL          = "%s/usr/bin/psql" % (SIPP,)
-PGDUMP        = "%s/usr/bin/pg_dump" % (SIPP,)
-PGSOCKETDIR   = "/var/run/caldavd/PostgresSocket"
+PSQL = "%s/usr/bin/psql" % (SIPP,)
+PGDUMP = "%s/usr/bin/pg_dump" % (SIPP,)
+PGSOCKETDIR = "/var/run/caldavd/PostgresSocket"
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
@@ -58,6 +58,7 @@ def usage(e=None):
         sys.exit(64)
     else:
         sys.exit(0)
+
 
 
 def dumpData(dumpFile, verbose=False):
@@ -90,6 +91,7 @@ def dumpData(dumpFile, verbose=False):
         )
 
 
+
 def loadData(dumpFile, verbose=False):
     """
     Use psql to load data from dumpFile
@@ -117,13 +119,16 @@ def loadData(dumpFile, verbose=False):
         )
 
 
+
 class BackupError(Exception):
     pass
+
 
 
 def error(s):
     sys.stderr.write("%s\n" % (s,))
     sys.exit(1)
+
 
 
 def main():

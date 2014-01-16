@@ -29,7 +29,8 @@ class CProfileCPURunner(CProfileRunner):
         Run reactor under the cProfile profiler.
         """
         try:
-            import cProfile, pstats
+            import cProfile
+            import pstats
         except ImportError, e:
             self._reportImportError("cProfile", e)
 

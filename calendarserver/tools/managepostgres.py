@@ -26,15 +26,19 @@ def error(s):
     print(s)
     sys.exit(1)
 
+
+
 def cmd(s):
     print(s)
     subprocess.call(s, shell=True)
 
+
+
 def doInit(basedir):
-    
+
     cmd("mkdir %s/data" % (basedir,))
     cmd("%s/bin/initdb -D %s/data" % (basedir, basedir,))
-    
+
     # Have the DB listen on all interfaces
     with open("%s/data/postgresql.conf" % (basedir,)) as f:
         conf = f.read()
@@ -42,7 +46,7 @@ def doInit(basedir):
     conf = conf.replace("max_connections = 20 ", "max_connections = 500")
     with open("%s/data/postgresql.conf" % (basedir,), "w") as f:
         f.write(conf)
-        
+
     # Allow current user to auth to the DBs
     with open("%s/data/pg_hba.conf" % (basedir,)) as f:
         conf = f.read()
@@ -56,21 +60,31 @@ def doInit(basedir):
     cmd("%s/bin/createdb augments" % (basedir,))
     cmd("%s/bin/pg_ctl -D %s/data -l logfile stop" % (basedir, basedir,))
 
+
+
 def doStart(basedir):
-    
+
     cmd("%s/bin/pg_ctl -D %s/data -l logfile start" % (basedir, basedir,))
 
+
+
 def doStop(basedir):
-    
+
     cmd("%s/bin/pg_ctl -D %s/data -l logfile stop" % (basedir, basedir,))
 
+
+
 def doRun(basedir, verbose):
-    
-    cmd("%s/bin/postgres %s -D %s/data" % (basedir, "-d 3" if verbose else "",  basedir,))
+
+    cmd("%s/bin/postgres %s -D %s/data" % (basedir, "-d 3" if verbose else "", basedir,))
+
+
 
 def doClean(basedir):
-    
+
     cmd("rm -rf %s/data" % (basedir,))
+
+
 
 def main():
 
@@ -83,13 +97,13 @@ ACTION is one of init|start|stop|run
   stop:   stop postgres daemon
   run:    run postgres (non-daemon)
   clean:  remove databases
-  
+
 """
     description = "Tool to manage PostgreSQL"
     version = "%prog v1.0"
     parser = OptionParser(usage=usage, description=description, version=version)
     parser.epilog = epilog
-    parser.format_epilog = lambda _:epilog
+    parser.format_epilog = lambda _: epilog
 
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
                       default=True, help="Use debug logging for PostgreSQL")

@@ -48,17 +48,20 @@ except ImportError:
     print("Unable to import OpenDirectory framework")
 
 
+
 def generateNonce():
     c = tuple([random.randrange(sys.maxint) for _ in range(3)])
     c = '%d%d%d' % c
     return c
+
+
 
 def getChallengeResponse(user, password, node, uri, method):
     nonce = generateNonce()
 
     ha1 = hashlib.md5("%s:%s:%s" % (user, node, password)).hexdigest()
     ha2 = hashlib.md5("%s:%s" % (method, uri)).hexdigest()
-    response = hashlib.md5("%s:%s:%s"% (ha1, nonce, ha2)).hexdigest()
+    response = hashlib.md5("%s:%s:%s" % (ha1, nonce, ha2)).hexdigest()
 
     fields = {
         'username': user,
@@ -135,7 +138,7 @@ if runTests:
                 count=0
             )
             recordNames = [x[0] for x in results]
-            for recordName, info in setup_directory.masterUsers:
+            for recordName, _ignore_info in setup_directory.masterUsers:
                 self.assertTrue(recordName in recordNames)
 
         def test_listAllRecordsWithAttributes_list_local(self):
@@ -148,7 +151,7 @@ if runTests:
                 count=0
             )
             recordNames = [x[0] for x in results]
-            for recordName, info in setup_directory.localUsers:
+            for recordName, _ignore_info in setup_directory.localUsers:
                 self.assertTrue(recordName in recordNames)
 
 
@@ -333,9 +336,9 @@ if runTests:
                 count=0
             )
             recordNames = [x[0] for x in results]
-            for recordName, info in setup_directory.masterUsers:
+            for recordName, _ignore_info in setup_directory.masterUsers:
                 self.assertTrue(recordName in recordNames)
-            for recordName, info in setup_directory.localUsers:
+            for recordName, _ignore_info in setup_directory.localUsers:
                 self.assertTrue(recordName in recordNames)
 
         def test_queryRecordsWithAttribute_list_lastname_begins_insensitive_match_multitype(self):
@@ -358,9 +361,9 @@ if runTests:
                 count=0
             )
             recordNames = [x[0] for x in results]
-            for recordName, info in setup_directory.masterUsers:
+            for recordName, _ignore_info in setup_directory.masterUsers:
                 self.assertTrue(recordName in recordNames)
-            for recordName, info in setup_directory.localUsers:
+            for recordName, _ignore_info in setup_directory.localUsers:
                 self.assertTrue(recordName in recordNames)
 
         def test_queryRecordsWithAttribute_list_lastname_contains_insensitive_match(self):
@@ -378,9 +381,9 @@ if runTests:
                 count=0
             )
             recordNames = [x[0] for x in results]
-            for recordName, info in setup_directory.masterUsers:
+            for recordName, _ignore_info in setup_directory.masterUsers:
                 self.assertTrue(recordName in recordNames)
-            for recordName, info in setup_directory.localUsers:
+            for recordName, _ignore_info in setup_directory.localUsers:
                 self.assertTrue(recordName in recordNames)
 
         def test_queryRecordsWithAttribute_list_lastname_contains_insensitive_match_multitype(self):
@@ -403,9 +406,9 @@ if runTests:
                 count=0
             )
             recordNames = [x[0] for x in results]
-            for recordName, info in setup_directory.masterUsers:
+            for recordName, _ignore_info in setup_directory.masterUsers:
                 self.assertTrue(recordName in recordNames)
-            for recordName, info in setup_directory.localUsers:
+            for recordName, _ignore_info in setup_directory.localUsers:
                 self.assertTrue(recordName in recordNames)
 
         def test_queryRecordsWithAttribute_list_email_begins_insensitive_match(self):
@@ -449,7 +452,6 @@ if runTests:
             )
             recordNames = [x[0] for x in results]
             self.assertTrue("odtestamanda" in recordNames)
-
 
 
         def test_queryRecordsWithAttribute_list_guid_exact_sensitive_match_master(self):
@@ -535,7 +537,6 @@ if runTests:
             recordNames = [x[0] for x in results]
             # Local user:
             self.assertTrue("odtestalbert" in recordNames)
-
 
 
         def test_queryRecordsWithAttribute_list_groupMembers_recordName_master(self):
@@ -658,7 +659,6 @@ if runTests:
             )
             recordNames = [x[0] for x in results]
             self.assertTrue("odtestgrouptop" in recordNames)
-
 
             results = opendirectory.queryRecordsWithAttribute_list(
                 directory,
@@ -856,7 +856,7 @@ if runTests:
         def test_result_types(self):
             directory = opendirectory.odInit("/Search")
             record = opendirectory.getUserRecord(directory, "odtestbill")
-            name, data = opendirectory.recordToResult(record, {})
+            _ignore_name, data = opendirectory.recordToResult(record, {})
             for value in data.values():
                 if isinstance(value, list):
                     for item in value:
@@ -925,7 +925,7 @@ if runTests:
                 ([], {}), opendirectory.attributeNamesFromList(None)
             )
             self.assertEquals(
-                (["a", "b"], {"b":"base64"}),
+                (["a", "b"], {"b": "base64"}),
                 opendirectory.attributeNamesFromList(["a", ("b", "base64")])
             )
 

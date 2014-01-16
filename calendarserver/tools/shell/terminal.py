@@ -72,6 +72,7 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 class ShellOptions(Options):
     """
     Command line options for "calendarserver_shell".
@@ -181,6 +182,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.activeCommand = None
         self.emulate = "emacs"
 
+
     def reloadCommands(self):
         # FIXME: doesn't work for alternative Commands classes passed
         # to __init__.
@@ -189,6 +191,7 @@ class ShellProtocol(ReceiveLineProtocol):
         import calendarserver.tools.shell.cmd
         reload(calendarserver.tools.shell.cmd)
         self.commands = calendarserver.tools.shell.cmd.Commands(self)
+
 
     #
     # Input handling
@@ -201,7 +204,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.keyHandlers['\x04'] = self.handle_EOF   # Control-D
         self.keyHandlers['\x1c'] = self.handle_QUIT  # Control-\
         self.keyHandlers['\x0c'] = self.handle_FF    # Control-L
-       #self.keyHandlers['\t'  ] = self.handle_TAB   # Tab
+        #self.keyHandlers['\t'  ] = self.handle_TAB   # Tab
 
         if self.emulate == "emacs":
             # EMACS key bindinds
@@ -224,8 +227,10 @@ class ShellProtocol(ReceiveLineProtocol):
 
         log.startLoggingWithObserver(observer)
 
+
     def handle_INT(self):
         return self.resetInputLine()
+
 
     def handle_EOF(self):
         if self.lineBuffer:
@@ -236,6 +241,7 @@ class ShellProtocol(ReceiveLineProtocol):
         else:
             self.handle_QUIT()
 
+
     def handle_FF(self):
         """
         Handle a "form feed" byte - generally used to request a screen
@@ -244,11 +250,14 @@ class ShellProtocol(ReceiveLineProtocol):
         # FIXME: Clear screen != redraw screen.
         return self.clearScreen()
 
+
     def handle_QUIT(self):
         return self.exit()
 
+
     def handle_TAB(self):
         return self.completeLine()
+
 
     #
     # Utilities
@@ -262,6 +271,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.terminal.cursorHome()
         self.drawInputLine()
 
+
     def resetInputLine(self):
         """
         Reset the current input variables to their initial state.
@@ -271,6 +281,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.lineBufferIndex = 0
         self.terminal.nextLine()
         self.drawInputLine()
+
 
     @inlineCallbacks
     def completeLine(self):
@@ -318,12 +329,14 @@ class ShellProtocol(ReceiveLineProtocol):
                 self.terminal.write("%s%s\n" % (word, completion))
             self.drawInputLine()
 
+
     def exit(self):
         """
         Exit.
         """
         self.terminal.loseConnection()
         self.service.reactor.stop()
+
 
     def handleFailure(self, f):
         """
@@ -336,6 +349,7 @@ class ShellProtocol(ReceiveLineProtocol):
         if not f.check(NotImplementedError, NotFoundError):
             log.info(f.getTraceback())
         self.resetInputLine()
+
 
     #
     # Command dispatch
@@ -386,6 +400,7 @@ class ShellProtocol(ReceiveLineProtocol):
         else:
             self.drawInputLine()
 
+
     @staticmethod
     def tokenize(line):
         """
@@ -405,6 +420,7 @@ class ShellProtocol(ReceiveLineProtocol):
         return tokens
 
 
+
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     if reactor is None:
         from twisted.internet import reactor
@@ -414,6 +430,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         options.parseOptions(argv[1:])
     except UsageError, e:
         usage(e)
+
 
     def makeService(store):
         from twistedcaldav.config import config

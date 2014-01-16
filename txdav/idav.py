@@ -240,9 +240,9 @@ class ChangeCategory(Values):
     types of changes to the appropriate push priority level.
     TODO: make these values configurable in plist perhaps.
     """
-    default             = ValueConstant(PushPriority.high)
-    inbox               = ValueConstant(PushPriority.medium)
-    attendeeITIPUpdate  = ValueConstant(PushPriority.medium)
+    default = ValueConstant(PushPriority.high)
+    inbox = ValueConstant(PushPriority.medium)
+    attendeeITIPUpdate = ValueConstant(PushPriority.medium)
     organizerITIPUpdate = ValueConstant(PushPriority.medium)
 
 

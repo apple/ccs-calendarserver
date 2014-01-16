@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -49,7 +49,8 @@ class Error (WebDAVElement):
     # FIXME: Move when we update to RFC 2518bis
     name = "error"
 
-    allowed_children = { WebDAVElement: (0, None) }
+    allowed_children = {WebDAVElement: (0, None)}
+
 
 
 ##
@@ -68,6 +69,7 @@ class Comment (WebDAVTextElement):
     hidden = True
 
 
+
 @registerElement
 @registerElementClass
 class CreatorDisplayName (WebDAVTextElement):
@@ -77,6 +79,7 @@ class CreatorDisplayName (WebDAVTextElement):
     """
     name = "creator-displayname"
     hidden = True
+
 
 
 @registerElement
@@ -92,8 +95,9 @@ class SupportedMethod (WebDAVElement):
     name = "supported-method"
     hidden = True
 
-    allowed_children = { WebDAVElement: (0, None) }
-    allowed_attributes = { "name": True }
+    allowed_children = {WebDAVElement: (0, None)}
+    allowed_attributes = {"name": True}
+
 
 
 @registerElement
@@ -107,7 +111,8 @@ class SupportedMethodSet (WebDAVElement):
     protected = True
     hidden = True
 
-    allowed_children = { (dav_namespace, "supported-method"): (0, None) }
+    allowed_children = {(dav_namespace, "supported-method"): (0, None)}
+
 
 
 @registerElement
@@ -124,7 +129,8 @@ class SupportedLiveProperty (WebDAVElement):
     name = "supported-live-property"
 
     # FIXME: Where is the name element defined?
-    allowed_children = { (dav_namespace, "name"): (1, 1) }
+    allowed_children = {(dav_namespace, "name"): (1, 1)}
+
 
 
 @registerElement
@@ -138,7 +144,8 @@ class SupportedLivePropertySet (WebDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (dav_namespace, "supported-live-property"): (0, None) }
+    allowed_children = {(dav_namespace, "supported-live-property"): (0, None)}
+
 
 
 @registerElement
@@ -150,7 +157,8 @@ class Report (WebDAVElement):
     # FIXME: Section 3.1.5 is pretty low on information.  Where else do we look?
     name = "report"
 
-    allowed_children = { WebDAVElement: (0, None) }
+    allowed_children = {WebDAVElement: (0, None)}
+
 
 
 @registerElement
@@ -185,7 +193,8 @@ class SupportedReport (WebDAVElement):
     #   Absent any better guidance, we'll allow no children for this element for
     # the time being.
     #
-    allowed_children = { (dav_namespace, "report"): (0, 1) }
+    allowed_children = {(dav_namespace, "report"): (0, 1)}
+
 
 
 @registerElement
@@ -199,7 +208,8 @@ class SupportedReportSet (WebDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (dav_namespace, "supported-report"): (0, None) }
+    allowed_children = {(dav_namespace, "supported-report"): (0, None)}
+
 
 
 @registerElement
@@ -212,7 +222,8 @@ class ExpandProperty (WebDAVElement):
     """
     name = "expand-property"
 
-    allowed_children = { (dav_namespace, "property"): (0, None) }
+    allowed_children = {(dav_namespace, "property"): (0, None)}
+
 
 
 @registerElement
@@ -227,7 +238,7 @@ class Property (WebDAVElement):
     """
     name = "property"
 
-    allowed_children = { (dav_namespace, "property"): (0, None) }
+    allowed_children = {(dav_namespace, "property"): (0, None)}
     allowed_attributes = {
         "name"      : True,
         "namespace" : False,

@@ -32,6 +32,7 @@ def usage():
     print("    new-hostname - new FQDN for the server")
 
 
+
 def main():
 
     name = os.path.basename(sys.argv[0])
@@ -93,6 +94,8 @@ def main():
     if verbose:
         print("Calendar Server: done")
 
+
+
 def updatePlist(plist, oldIP, newIP, oldHostname, newHostname, verbose=False):
 
     keys = (
@@ -118,13 +121,13 @@ def updatePlist(plist, oldIP, newIP, oldHostname, newHostname, verbose=False):
         key = keyPath[-1]
 
         for step in path:
-            if not parent.has_key(step):
+            if step not in parent:
                 parent = None
                 break
             parent = parent[step]
 
         if parent:
-            if parent.has_key(key):
+            if key in parent:
                 value = parent[key]
 
                 if isinstance(value, list):
@@ -138,9 +141,6 @@ def updatePlist(plist, oldIP, newIP, oldHostname, newHostname, verbose=False):
                         newHostname)
 
                 parent[key] = newValue
-
-
-
 
 
 

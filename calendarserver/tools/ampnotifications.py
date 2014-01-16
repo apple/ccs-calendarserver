@@ -71,6 +71,7 @@ class MonitorAMPNotifications(WorkerService):
         pass
 
 
+
 def main():
 
     try:

@@ -40,7 +40,6 @@ __all__ = [
     "LdapDirectoryService",
 ]
 
-import ldap
 import ldap.async
 from ldap.filter import escape_filter_chars as ldapEsc
 

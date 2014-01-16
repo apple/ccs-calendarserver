@@ -21,22 +21,22 @@ This comes directly (with C->Python conversion) from <DirectoryServices/DirServi
 
 # Specific match types
 
-eDSExact             =    0x2001
-eDSStartsWith        =    0x2002
-eDSEndsWith          =    0x2003
-eDSContains          =    0x2004
+eDSExact = 0x2001
+eDSStartsWith = 0x2002
+eDSEndsWith = 0x2003
+eDSContains = 0x2004
 
-eDSLessThan          =    0x2005
-eDSGreaterThan       =    0x2006
-eDSLessEqual         =    0x2007
-eDSGreaterEqual      =    0x2008
+eDSLessThan = 0x2005
+eDSGreaterThan = 0x2006
+eDSLessEqual = 0x2007
+eDSGreaterEqual = 0x2008
 
 # Specific Record Type Constants
 
 """
  DirectoryService Specific Record Type Constants
 """
- 
+
 """
  kDSStdRecordTypeAccessControls
   Record type that contains directory access control directives.
@@ -129,7 +129,7 @@ kDSStdRecordTypeEthernets = "dsRecTypeStandard:Ethernets"
 
 """
  kDSStdRecordTypeFileMakerServers
-  FileMaker servers record type. Describes available FileMaker servers, 
+  FileMaker servers record type. Describes available FileMaker servers,
   used for service discovery.
 """
 kDSStdRecordTypeFileMakerServers = "dsRecTypeStandard:FileMakerServers"
@@ -399,7 +399,7 @@ kDSStdRecordTypeWebServer = "dsRecTypeStandard:WebServer"
 
     NOTE #2: Attributes in the model are available for records and directory nodes.
 """
- 
+
 
 # Single Valued Specific Attribute Type Constants
 
@@ -458,7 +458,7 @@ kDS1AttrBirthday = "dsAttrTypeStandard:Birthday"
 
 """
  kDS1AttrBootFile
- Attribute type in host or machine records for the name of the 
+ Attribute type in host or machine records for the name of the
         kernel that this machine will use by default when NetBooting.
 """
 kDS1AttrBootFile = "dsAttrTypeStandard:BootFile"
@@ -480,8 +480,8 @@ kDS1AttrCapabilities = "dsAttrTypeStandard:Capabilities"
 
 """
  kDS1AttrCapacity
- Attribute type for the capacity of a resource. 
-     found in resource records (kDSStdRecordTypeResources). 
+ Attribute type for the capacity of a resource.
+     found in resource records (kDSStdRecordTypeResources).
     Example: 50
 """
 kDS1AttrCapacity = "dsAttrTypeStandard:Capacity"
@@ -514,14 +514,14 @@ kDS1AttrComment = "dsAttrTypeStandard:Comment"
 
 """
  kDS1AttrContactGUID
- Attribute type for the contact GUID of a group. 
-     found in group records (kDSStdRecordTypeGroups). 
+ Attribute type for the contact GUID of a group.
+     found in group records (kDSStdRecordTypeGroups).
 """
 kDS1AttrContactGUID = "dsAttrTypeStandard:ContactGUID"
 
 """
  kDS1AttrContactPerson
- Attribute type for the contact person of the machine. 
+ Attribute type for the contact person of the machine.
         Found in host or machine records.
 """
 kDS1AttrContactPerson = "dsAttrTypeStandard:ContactPerson"
@@ -535,7 +535,7 @@ kDS1AttrCreationTimestamp = "dsAttrTypeStandard:CreationTimestamp"
 
 """
  kDS1AttrCrossCertificatePair
- Attribute containing the binary of a pair of certificates which 
+ Attribute containing the binary of a pair of certificates which
  verify each other.  Both certificates have the same level of authority.
  Usually found in kDSStdRecordTypeCertificateAuthority records.
 """
@@ -587,7 +587,7 @@ kDS1AttrFirstName = "dsAttrTypeStandard:FirstName"
 
 """
  kDS1AttrGeneratedUID
- Used for 36 character (128 bit) unique ID. Usually found in user, 
+ Used for 36 character (128 bit) unique ID. Usually found in user,
  group, and computer records. An example value is "A579E95E-CDFE-4EBC-B7E7-F2158562170F".
  The standard format contains 32 hex characters and four hyphen characters.
 """
@@ -678,7 +678,7 @@ kDS1AttrMailAttribute = "dsAttrTypeStandard:MailAttribute"
 
 """
  kDS1AttrMetaAutomountMap
- Used to query for kDSStdRecordTypeAutomount entries associated with a specific 
+ Used to query for kDSStdRecordTypeAutomount entries associated with a specific
  kDSStdRecordTypeAutomountMap.
 """
 kDS1AttrMetaAutomountMap = "dsAttrTypeStandard:MetaAutomountMap"
@@ -728,15 +728,15 @@ kDS1AttrNote = "dsAttrTypeStandard:Note"
 
 """
  kDS1AttrOwner
- Attribute type for the owner of a record. 
+ Attribute type for the owner of a record.
         Typically the value is a LDAP distinguished name.
 """
 kDS1AttrOwner = "dsAttrTypeStandard:Owner"
 
 """
  kDS1AttrOwnerGUID
- Attribute type for the owner GUID of a group. 
-     found in group records (kDSStdRecordTypeGroups). 
+ Attribute type for the owner GUID of a group.
+     found in group records (kDSStdRecordTypeGroups).
 """
 kDS1AttrOwnerGUID = "dsAttrTypeStandard:OwnerGUID"
 
@@ -796,7 +796,7 @@ kDS1AttrPresetUserIsAdmin = "dsAttrTypeStandard:PresetUserIsAdmin"
 
 """
  kDS1AttrPrimaryComputerGUID
- Single-valued attribute that defines a primary computer of the computer group.  
+ Single-valued attribute that defines a primary computer of the computer group.
  added via extensible object for computer group record type (kDSStdRecordTypeComputerGroups)
 """
 kDS1AttrPrimaryComputerGUID = "dsAttrTypeStandard:PrimaryComputerGUID"
@@ -809,7 +809,7 @@ kDS1AttrPrimaryComputerList = "dsAttrTypeStandard:PrimaryComputerList"
 
 """
  kDS1AttrPrimaryGroupID
- This is the 32 bit unique ID that represents the primary group 
+ This is the 32 bit unique ID that represents the primary group
  a user is part of, or the ID of a group. Format is a signed 32 bit integer
  represented as a string.
 """
@@ -860,7 +860,7 @@ kDS1AttrPrinterURI = "dsAttrTypeStandard:PrinterURI"
 """
  kDS1AttrPrinterXRISupported
  Multi-valued attribute that defines additional URIs supported by a printer.
-              This is used when configuring a printer. This attribute is based on the IPP 
+              This is used when configuring a printer. This attribute is based on the IPP
                 Printing Specification RFC and IETF IPP-LDAP Printer Record.
 """
 kDSNAttrPrinterXRISupported = "dsAttrTypeStandard:PrinterXRISupported"
@@ -912,14 +912,14 @@ kDS1AttrSMBGroupRID = "dsAttrTypeStandard:SMBGroupRID"
 
 """
  kDS1AttrSMBHome
- 
+
      UNC address of Windows homedirectory mount point (\\server\\sharepoint).
 """
 kDS1AttrSMBHome = "dsAttrTypeStandard:SMBHome"
 
 """
  kDS1AttrSMBHomeDrive
- 
+
      Drive letter for homedirectory mount point.
 """
 kDS1AttrSMBHomeDrive = "dsAttrTypeStandard:SMBHomeDrive"
@@ -977,7 +977,7 @@ kDS1AttrSMBScriptPath = "dsAttrTypeStandard:SMBScriptPath"
 """
  kDS1AttrSMBSID
  SMB Security ID, stored as a string attribute of up to 64 bytes.
-    Found in user, group, and computer records (kDSStdRecordTypeUsers, 
+    Found in user, group, and computer records (kDSStdRecordTypeUsers,
     kDSStdRecordTypeGroups, kDSStdRecordTypeComputers).
 """
 kDS1AttrSMBSID = "dsAttrTypeStandard:SMBSID"
@@ -991,7 +991,7 @@ kDS1AttrSMBUserWorkstations = "dsAttrTypeStandard:SMBUserWorkstations"
 """
  kDS1AttrServiceType
  Represents the service type for the service.  This is the raw service type of the
-     service.  For example a service record type of kDSStdRecordTypeWebServer 
+     service.  For example a service record type of kDSStdRecordTypeWebServer
      might have a service type of "http" or "https".
 """
 kDS1AttrServiceType = "dsAttrTypeStandard:ServiceType"
@@ -1038,14 +1038,14 @@ kDS1AttrUniqueID = "dsAttrTypeStandard:UniqueID"
  kDS1AttrUserCertificate
  Attribute containing the binary of the user's certificate.
  Usually found in user records. The certificate is data which identifies a user.
- This data is attested to by a known party, and can be independently verified 
+ This data is attested to by a known party, and can be independently verified
  by a third party.
 """
 kDS1AttrUserCertificate = "dsAttrTypeStandard:UserCertificate"
 
 """
  kDS1AttrUserPKCS12Data
- Attribute containing binary data in PKCS #12 format. 
+ Attribute containing binary data in PKCS #12 format.
  Usually found in user records. The value can contain keys, certificates,
  and other related information and is encrypted with a passphrase.
 """
@@ -1061,7 +1061,7 @@ kDS1AttrUserShell = "dsAttrTypeStandard:UserShell"
  kDS1AttrUserSMIMECertificate
  Attribute containing the binary of the user's SMIME certificate.
  Usually found in user records. The certificate is data which identifies a user.
- This data is attested to by a known party, and can be independently verified 
+ This data is attested to by a known party, and can be independently verified
  by a third party. SMIME certificates are often used for signed or encrypted
  emails.
 """
@@ -1094,7 +1094,7 @@ kDS1AttrVFSType = "dsAttrTypeStandard:VFSType"
 """
  kDS1AttrWeblogURI
  Single-valued attribute that defines the URI of a user's weblog.
-    Usually found in user records (kDSStdRecordTypeUsers). 
+    Usually found in user records (kDSStdRecordTypeUsers).
     Example: http://example.com/blog/jsmith
 """
 kDS1AttrWeblogURI = "dsAttrTypeStandard:WeblogURI"
@@ -1193,7 +1193,7 @@ kDSNAttrBootParams = "dsAttrTypeStandard:BootParams"
 """
  kDSNAttrBuilding
  Represents the building name for a user or person record.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrBuilding = "dsAttrTypeStandard:Building"
@@ -1207,7 +1207,7 @@ kDSNAttrCalendarPrincipalURI = "dsAttrTypeStandard:CalendarPrincipalURI"
 """
  kDSNAttrCity
  Usually, city for a user or person record.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrCity = "dsAttrTypeStandard:City"
@@ -1235,7 +1235,7 @@ kDSNAttrComputers = "dsAttrTypeStandard:Computers"
 """
  kDSNAttrCountry
  Represents country of a record entry.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrCountry = "dsAttrTypeStandard:Country"
@@ -1243,7 +1243,7 @@ kDSNAttrCountry = "dsAttrTypeStandard:Country"
 """
  kDSNAttrDepartment
  Represents the department name of a user or person.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrDepartment = "dsAttrTypeStandard:Department"
@@ -1263,7 +1263,7 @@ kDSNAttrEMailAddress = "dsAttrTypeStandard:EMailAddress"
 """
  kDSNAttrEMailContacts
  multi-valued attribute that defines a record's custom email addresses .
-     found in user records (kDSStdRecordTypeUsers). 
+     found in user records (kDSStdRecordTypeUsers).
     Example: home:johndoe@mymail.com
 """
 kDSNAttrEMailContacts = "dsAttrTypeStandard:EMailContacts"
@@ -1271,7 +1271,7 @@ kDSNAttrEMailContacts = "dsAttrTypeStandard:EMailContacts"
 """
  kDSNAttrFaxNumber
  Represents the FAX numbers of a user or person.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrFaxNumber = "dsAttrTypeStandard:FAXNumber"
@@ -1297,7 +1297,7 @@ kDSNAttrGroupMembership = "dsAttrTypeStandard:GroupMembership"
 """
  kDSNAttrGroupServices
  xml-plist attribute that defines a group's services .
-     found in group records (kDSStdRecordTypeGroups). 
+     found in group records (kDSStdRecordTypeGroups).
 """
 kDSNAttrGroupServices = "dsAttrTypeStandard:GroupServices"
 
@@ -1336,9 +1336,9 @@ kDSNAttrIPAddress = "dsAttrTypeStandard:IPAddress"
 
 """
     kDSNAttrIPAddressAndENetAddress
- A pairing of IPv4 or IPv6 addresses with Ethernet addresses 
- (e.g., "10.1.1.1/00:16:cb:92:56:41").  Usually found on kDSStdRecordTypeComputers for use by 
- services that need specific pairing of the two values.  This should be in addition to 
+ A pairing of IPv4 or IPv6 addresses with Ethernet addresses
+ (e.g., "10.1.1.1/00:16:cb:92:56:41").  Usually found on kDSStdRecordTypeComputers for use by
+ services that need specific pairing of the two values.  This should be in addition to
  kDSNAttrIPAddress, kDSNAttrIPv6Address and kDS1AttrENetAddress. This is necessary because not
  all directories return attribute values in a guaranteed order.
 """
@@ -1347,15 +1347,15 @@ kDSNAttrIPAddressAndENetAddress = "dsAttrTypeStandard:IPAddressAndENetAddress"
 """
  kDSNAttrIPv6Address
  IPv6 address expressed in the standard notation (e.g., "fe80::236:caff:fcc2:5641" )
- Usually found on kDSStdRecordTypeComputers, kDSStdRecordTypeHosts, and 
+ Usually found on kDSStdRecordTypeComputers, kDSStdRecordTypeHosts, and
  kDSStdRecordTypeMachines.
 """
 kDSNAttrIPv6Address = "dsAttrTypeStandard:IPv6Address"
 
 """
  kDSNAttrJPEGPhoto
- Used to store binary picture data in JPEG format. 
- Usually found in user, people or group records (kDSStdRecordTypeUsers, 
+ Used to store binary picture data in JPEG format.
+ Usually found in user, people or group records (kDSStdRecordTypeUsers,
  kDSStdRecordTypePeople, kDSStdRecordTypeGroups).
 """
 kDSNAttrJPEGPhoto = "dsAttrTypeStandard:JPEGPhoto"
@@ -1363,7 +1363,7 @@ kDSNAttrJPEGPhoto = "dsAttrTypeStandard:JPEGPhoto"
 """
  kDSNAttrJobTitle
  Represents the job title of a user.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrJobTitle = "dsAttrTypeStandard:JobTitle"
@@ -1394,7 +1394,7 @@ kDSNAttrLDAPWriteReplicas = "dsAttrTypeStandard:LDAPWriteReplicas"
 
 """
  kDSNAttrMachineServes
- Attribute type in host or machine records for storing NetInfo 
+ Attribute type in host or machine records for storing NetInfo
         domains served.
 """
 kDSNAttrMachineServes = "dsAttrTypeStandard:MachineServes"
@@ -1410,7 +1410,7 @@ kDSNAttrMapCoordinates = "dsAttrTypeStandard:MapCoordinates"
 """
  kDSNAttrMapURI
  attribute that defines the URI of a user's location.
-    Usually found in user records (kDSStdRecordTypeUsers). 
+    Usually found in user records (kDSStdRecordTypeUsers).
     Example: http://example.com/bldg1
 """
 kDSNAttrMapURI = "dsAttrTypeStandard:MapURI"
@@ -1423,20 +1423,20 @@ kDSNAttrMCXSettings = "dsAttrTypeStandard:MCXSettings"
 
 """
  kDSNAttrMIME
- Data contained in this attribute type is a fully qualified MIME Type. 
+ Data contained in this attribute type is a fully qualified MIME Type.
 """
 kDSNAttrMIME = "dsAttrTypeStandard:MIME"
 
 """
  kDSNAttrMember
- List of member records. 
+ List of member records.
 """
 kDSNAttrMember = "dsAttrTypeStandard:Member"
 
 """
  kDSNAttrMobileNumber
  Represents the mobile numbers of a user or person.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrMobileNumber = "dsAttrTypeStandard:MobileNumber"
@@ -1463,7 +1463,7 @@ kDSNAttrNetGroups = "dsAttrTypeStandard:NetGroups"
 """
  kDSNAttrNickName
  Represents the nickname of a user or person.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrNickName = "dsAttrTypeStandard:NickName"
@@ -1490,7 +1490,7 @@ kDSNAttrOrganizationName = "dsAttrTypeStandard:OrganizationName"
 """
  kDSNAttrPagerNumber
  Represents the pager numbers of a user or person.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrPagerNumber = "dsAttrTypeStandard:PagerNumber"
@@ -1498,7 +1498,7 @@ kDSNAttrPagerNumber = "dsAttrTypeStandard:PagerNumber"
 """
  kDSNAttrPhoneContacts
  multi-valued attribute that defines a record's custom phone numbers .
-     found in user records (kDSStdRecordTypeUsers). 
+     found in user records (kDSStdRecordTypeUsers).
     Example: home fax:408-555-4444
 """
 kDSNAttrPhoneContacts = "dsAttrTypeStandard:PhoneContacts"
@@ -1539,7 +1539,7 @@ kDSNAttrPostalCode = "dsAttrTypeStandard:PostalCode"
  kDSNAttrNamePrefix
  Represents the title prefix of a user or person.
  ie. Mr., Ms., Mrs., Dr., etc.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrNamePrefix = "dsAttrTypeStandard:NamePrefix"
@@ -1559,7 +1559,7 @@ kDSNAttrRecordName = "dsAttrTypeStandard:RecordName"
 """
  kDSNAttrRelationships
  multi-valued attribute that defines the relationship to the record type .
-     found in user records (kDSStdRecordTypeUsers). 
+     found in user records (kDSStdRecordTypeUsers).
     Example: brother:John
 """
 kDSNAttrRelationships = "dsAttrTypeStandard:Relationships"
@@ -1572,8 +1572,8 @@ kDSNAttrResourceInfo = "dsAttrTypeStandard:ResourceInfo"
 
 """
  kDSNAttrResourceType
- Attribute type for the kind of resource. 
-     found in resource records (kDSStdRecordTypeResources). 
+ Attribute type for the kind of resource.
+     found in resource records (kDSStdRecordTypeResources).
     Example: ConferenceRoom
 """
 kDSNAttrResourceType = "dsAttrTypeStandard:ResourceType"
@@ -1593,7 +1593,7 @@ kDSNAttrState = "dsAttrTypeStandard:State"
 """
  kDSNAttrStreet
  Represents the street address of a user or person.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrStreet = "dsAttrTypeStandard:Street"
@@ -1602,7 +1602,7 @@ kDSNAttrStreet = "dsAttrTypeStandard:Street"
  kDSNAttrNameSuffix
  Represents the name suffix of a user or person.
  ie. Jr., Sr., etc.
- Usually found in user or people records (kDSStdRecordTypeUsers or 
+ Usually found in user or people records (kDSStdRecordTypeUsers or
  kDSStdRecordTypePeople).
 """
 kDSNAttrNameSuffix = "dsAttrTypeStandard:NameSuffix"
@@ -1837,7 +1837,7 @@ kDSNAttrNetGroupTriplet = "dsAttrTypeStandard:NetGroupTriplet"
 """
  Search Node attribute type Constants
 """
- 
+
 """
  kDS1AttrSearchPath
  Search path used by the search node.
@@ -1891,4 +1891,3 @@ kDS1AttrCSPSearchPath = "dsAttrTypeStandard:CSPSearchPath"
  Retained only for backward compatibility.
 """
 kDSNAttrCSPSearchPath = "dsAttrTypeStandard:CSPSearchPath"
-

@@ -45,20 +45,22 @@ class InternalDirectoryService(DirectoryService):
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.realmName)
 
+
     def __init__(self, realm):
         super(InternalDirectoryService, self).__init__()
 
         self.realmName = realm
         self._records()
 
+
     def _records(self):
         """
         Build the list of records.
-        
+
         Right now we want public/global and public/directory for
         global and directory address books.
         """
-        
+
         if not hasattr(self, "_cachedRecords"):
             self._cachedRecords = (
                 InternalDirectoryRecord(
@@ -80,14 +82,17 @@ class InternalDirectoryService(DirectoryService):
             )
         return self._cachedRecords
 
+
     def recordTypes(self):
         return InternalDirectoryService.supportedRecordTypes
+
 
     def listRecords(self, recordType):
         if recordType not in InternalDirectoryService.supportedRecordTypes:
             raise UnknownRecordTypeError(recordType)
 
         return self._records()
+
 
     def recordWithShortName(self, recordType, shortName):
         if recordType not in InternalDirectoryService.supportedRecordTypes:
@@ -97,9 +102,11 @@ class InternalDirectoryService(DirectoryService):
             if shortName in record.shortNames:
                 return record
 
+
     def requestAvatarId(self, credentials):
         credentials = IPrincipalCredentials(credentials)
         raise UnauthorizedLogin("No such user: %s" % (credentials.credentials.username,))
+
 
 
 class InternalDirectoryRecord(DirectoryRecord):
@@ -120,6 +127,7 @@ class InternalDirectoryRecord(DirectoryRecord):
         )
 
         self.enabled = True     # Explicitly enabled
+
 
     def verifyCredentials(self, credentials):
         return False

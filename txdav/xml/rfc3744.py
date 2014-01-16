@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -51,6 +51,7 @@ class Read (WebDAVEmptyElement):
     name = "read"
 
 
+
 # For DAV:write element (RFC 3744, section 3.2) see Write class in
 # rfc2518.py.
 
@@ -65,6 +66,7 @@ class WriteProperties (WebDAVEmptyElement):
     name = "write-properties"
 
 
+
 @registerElement
 @registerElementClass
 class WriteContent (WebDAVEmptyElement):
@@ -73,6 +75,7 @@ class WriteContent (WebDAVEmptyElement):
     resource. (RFC 3744, section 3.4)
     """
     name = "write-content"
+
 
 
 @registerElement
@@ -85,6 +88,7 @@ class Unlock (WebDAVEmptyElement):
     name = "unlock"
 
 
+
 @registerElement
 @registerElementClass
 class ReadACL (WebDAVEmptyElement):
@@ -93,6 +97,7 @@ class ReadACL (WebDAVEmptyElement):
     DAV:acl property of a resource. (RFC 3744, section 3.6)
     """
     name = "read-acl"
+
 
 
 @registerElement
@@ -106,6 +111,7 @@ class ReadCurrentUserPrivilegeSet (WebDAVEmptyElement):
     name = "read-current-user-privilege-set"
 
 
+
 @registerElement
 @registerElementClass
 class WriteACL (WebDAVEmptyElement):
@@ -114,6 +120,7 @@ class WriteACL (WebDAVEmptyElement):
     property of a resource. (RFC 3744, section 3.8)
     """
     name = "write-acl"
+
 
 
 @registerElement
@@ -126,6 +133,7 @@ class Bind (WebDAVEmptyElement):
     name = "bind"
 
 
+
 @registerElement
 @registerElementClass
 class Unbind (WebDAVEmptyElement):
@@ -134,6 +142,7 @@ class Unbind (WebDAVEmptyElement):
     resource. (RFC 3744, section 3.10)
     """
     name = "unbind"
+
 
 
 @registerElement
@@ -145,6 +154,7 @@ class All (WebDAVEmptyElement):
     Principal which matches all users. (RFC 3744, section 5.5.1)
     """
     name = "all"
+
 
 
 ##
@@ -161,12 +171,12 @@ class Principal (WebDAVElement):
     name = "principal"
 
     allowed_children = {
-        (dav_namespace, "href"           ): (0, 1),
-        (dav_namespace, "all"            ): (0, 1),
-        (dav_namespace, "authenticated"  ): (0, 1),
+        (dav_namespace, "href"): (0, 1),
+        (dav_namespace, "all"): (0, 1),
+        (dav_namespace, "authenticated"): (0, 1),
         (dav_namespace, "unauthenticated"): (0, 1),
-        (dav_namespace, "property"       ): (0, 1),
-        (dav_namespace, "self"           ): (0, 1),
+        (dav_namespace, "property"): (0, 1),
+        (dav_namespace, "self"): (0, 1),
     }
 
     def validate(self):
@@ -181,6 +191,7 @@ class Principal (WebDAVElement):
             )
 
 
+
 @registerElement
 @registerElementClass
 class AlternateURISet (WebDAVElement):
@@ -192,7 +203,8 @@ class AlternateURISet (WebDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (dav_namespace, "href"): (0, None) }
+    allowed_children = {(dav_namespace, "href"): (0, None)}
+
 
 
 @registerElement
@@ -206,7 +218,8 @@ class PrincipalURL (WebDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (dav_namespace, "href"): (0, 1) }
+    allowed_children = {(dav_namespace, "href"): (0, 1)}
+
 
 
 @registerElement
@@ -220,7 +233,8 @@ class GroupMemberSet (WebDAVElement):
     name = "group-member-set"
     hidden = True
 
-    allowed_children = { (dav_namespace, "href"): (0, None) }
+    allowed_children = {(dav_namespace, "href"): (0, None)}
+
 
 
 @registerElement
@@ -234,7 +248,8 @@ class GroupMembership (WebDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (dav_namespace, "href"): (0, None) }
+    allowed_children = {(dav_namespace, "href"): (0, None)}
+
 
 
 ##
@@ -256,7 +271,8 @@ class Group (WebDAVElement):
     hidden = True
     protected = True # may be protected, per RFC 3744, section 5.2
 
-    allowed_children = { (dav_namespace, "href"): (0, 1) }
+    allowed_children = {(dav_namespace, "href"): (0, 1)}
+
 
 
 @registerElement
@@ -270,7 +286,8 @@ class SupportedPrivilegeSet (WebDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (dav_namespace, "supported-privilege"): (0, None) }
+    allowed_children = {(dav_namespace, "supported-privilege"): (0, None)}
+
 
 
 @registerElement
@@ -282,11 +299,12 @@ class SupportedPrivilege (WebDAVElement):
     name = "supported-privilege"
 
     allowed_children = {
-        (dav_namespace, "privilege"          ): (1, 1),
-        (dav_namespace, "abstract"           ): (0, 1),
-        (dav_namespace, "description"        ): (1, 1),
+        (dav_namespace, "privilege"): (1, 1),
+        (dav_namespace, "abstract"): (0, 1),
+        (dav_namespace, "description"): (1, 1),
         (dav_namespace, "supported-privilege"): (0, None),
     }
+
 
 
 @registerElement
@@ -297,7 +315,7 @@ class Privilege (WebDAVElement):
     """
     name = "privilege"
 
-    allowed_children = { WebDAVElement: (0, None) }
+    allowed_children = {WebDAVElement: (0, None)}
 
     def isAggregateOf(self, subprivilege, supportedPrivileges):
         """
@@ -338,6 +356,7 @@ class Privilege (WebDAVElement):
                 return True
         else:
             return False
+
 
     def expandAggregate(self, supportedPrivileges):
         """
@@ -384,6 +403,7 @@ class Privilege (WebDAVElement):
         return aggregates
 
 
+
 @registerElement
 @registerElementClass
 class Abstract (WebDAVElement):
@@ -391,6 +411,7 @@ class Abstract (WebDAVElement):
     Identifies a privilege as abstract. (RFC 3744, section 5.3)
     """
     name = "abstract"
+
 
 
 @registerElement
@@ -401,7 +422,8 @@ class Description (WebDAVTextElement):
     3744, sections 5.3 and 9.5)
     """
     name = "description"
-    allowed_attributes = { "xml:lang": True }
+    allowed_attributes = {"xml:lang": True}
+
 
 
 @registerElement
@@ -416,7 +438,8 @@ class CurrentUserPrivilegeSet (WebDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (dav_namespace, "privilege"): (0, None) }
+    allowed_children = {(dav_namespace, "privilege"): (0, None)}
+
 
 
 # For DAV:privilege element (RFC 3744, section 5.4) see Privilege class above.
@@ -434,7 +457,8 @@ class ACL (WebDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (dav_namespace, "ace"): (0, None) }
+    allowed_children = {(dav_namespace, "ace"): (0, None)}
+
 
 
 @registerElement
@@ -448,9 +472,9 @@ class ACE (WebDAVElement):
 
     allowed_children = {
         (dav_namespace, "principal"): (0, 1),
-        (dav_namespace, "invert"   ): (0, 1),
-        (dav_namespace, "grant"    ): (0, 1),
-        (dav_namespace, "deny"     ): (0, 1),
+        (dav_namespace, "invert"): (0, 1),
+        (dav_namespace, "grant"): (0, 1),
+        (dav_namespace, "deny"): (0, 1),
         (dav_namespace, "protected"): (0, 1),
         (dav_namespace, "inherited"): (0, 1),
     }
@@ -458,12 +482,12 @@ class ACE (WebDAVElement):
     def __init__(self, *children, **attributes):
         super(ACE, self).__init__(*children, **attributes)
 
-        self.principal  = None
-        self.invert     = None
-        self.allow      = None
+        self.principal = None
+        self.invert = None
+        self.allow = None
         self.privileges = None
-        self.inherited  = None
-        self.protected  = False
+        self.inherited = None
+        self.protected = False
 
         my_children = []
 
@@ -481,24 +505,24 @@ class ACE (WebDAVElement):
                             % (self.sname(), self.children)
                         )
                     if name == "invert":
-                        self.invert    = True
+                        self.invert = True
                         self.principal = child.children[0]
                     else:
-                        self.invert    = False
+                        self.invert = False
                         self.principal = child
-    
+
                 elif name in ("grant", "deny"):
                     if self.allow is not None:
                         raise ValueError(
                             "Only one of DAV:grant or DAV:deny allowed in %s, got: %s"
                             % (self.sname(), self.children)
                         )
-                    self.allow      = (name == "grant")
+                    self.allow = (name == "grant")
                     self.privileges = child.children
-    
+
                 elif name == "inherited":
                     self.inherited = str(child.children[0])
-    
+
                 elif name == "protected":
                     self.protected = True
 
@@ -525,6 +549,7 @@ class ACE (WebDAVElement):
 # class above.
 
 
+
 # For DAV:all element (RFC 3744, section 5.5.1) see All class above.
 
 
@@ -537,6 +562,7 @@ class Authenticated (WebDAVEmptyElement):
     name = "authenticated"
 
 
+
 @registerElement
 @registerElementClass
 class Unauthenticated (WebDAVEmptyElement):
@@ -544,6 +570,7 @@ class Unauthenticated (WebDAVEmptyElement):
     Principal which matches unauthenticated users. (RFC 3744, section 5.5.1)
     """
     name = "unauthenticated"
+
 
 
 # For DAV:property element (RFC 3744, section 5.5.1) see Property
@@ -560,6 +587,7 @@ class Self (WebDAVEmptyElement):
     name = "self"
 
 
+
 @registerElement
 @registerElementClass
 class Invert (WebDAVElement):
@@ -569,7 +597,8 @@ class Invert (WebDAVElement):
     """
     name = "invert"
 
-    allowed_children = { (dav_namespace, "principal"): (1, 1) }
+    allowed_children = {(dav_namespace, "principal"): (1, 1)}
+
 
 
 @registerElement
@@ -580,7 +609,8 @@ class Grant (WebDAVElement):
     """
     name = "grant"
 
-    allowed_children = { (dav_namespace, "privilege"): (1, None) }
+    allowed_children = {(dav_namespace, "privilege"): (1, None)}
+
 
 
 @registerElement
@@ -591,7 +621,8 @@ class Deny (WebDAVElement):
     """
     name = "deny"
 
-    allowed_children = { (dav_namespace, "privilege"): (1, None) }
+    allowed_children = {(dav_namespace, "privilege"): (1, None)}
+
 
 
 # For DAV:privilege element (RFC 3744, section 5.5.2) see Privilege
@@ -607,16 +638,18 @@ class Protected (WebDAVEmptyElement):
     name = "protected"
 
 
+
 @registerElement
 @registerElementClass
 class Inherited (WebDAVElement):
     """
-    Indicates that an ACE is inherited from the resource indentified by the
+    Indicates that an ACE is inherited from the resource identified by the
     contained DAV:href element. (RFC 3744, section 5.5.4)
     """
     name = "inherited"
 
-    allowed_children = { (dav_namespace, "href"): (1, 1) }
+    allowed_children = {(dav_namespace, "href"): (1, 1)}
+
 
 
 @registerElement
@@ -631,11 +664,12 @@ class ACLRestrictions (WebDAVElement):
     protected = True
 
     allowed_children = {
-        (dav_namespace, "grant-only"        ): (0, 1),
-        (dav_namespace, "no-invert"         ): (0, 1),
-        (dav_namespace, "deny-before-grant" ): (0, 1),
+        (dav_namespace, "grant-only"): (0, 1),
+        (dav_namespace, "no-invert"): (0, 1),
+        (dav_namespace, "deny-before-grant"): (0, 1),
         (dav_namespace, "required-principal"): (0, 1),
     }
+
 
 
 @registerElement
@@ -648,6 +682,7 @@ class GrantOnly (WebDAVEmptyElement):
     name = "grant-only"
 
 
+
 @registerElement
 @registerElementClass
 class NoInvert (WebDAVEmptyElement):
@@ -656,6 +691,7 @@ class NoInvert (WebDAVEmptyElement):
     section 5.6.2)
     """
     name = "no-invert"
+
 
 
 @registerElement
@@ -668,6 +704,7 @@ class DenyBeforeGrant (WebDAVEmptyElement):
     name = "deny-before-grant"
 
 
+
 @registerElement
 @registerElementClass
 class RequiredPrincipal (WebDAVElement):
@@ -678,12 +715,12 @@ class RequiredPrincipal (WebDAVElement):
     name = "required-principal"
 
     allowed_children = {
-        (dav_namespace, "all"            ): (0, 1),
-        (dav_namespace, "authenticated"  ): (0, 1),
+        (dav_namespace, "all"): (0, 1),
+        (dav_namespace, "authenticated"): (0, 1),
         (dav_namespace, "unauthenticated"): (0, 1),
-        (dav_namespace, "self"           ): (0, 1),
-        (dav_namespace, "href"           ): (0, None),
-        (dav_namespace, "property"       ): (0, None),
+        (dav_namespace, "self"): (0, 1),
+        (dav_namespace, "href"): (0, None),
+        (dav_namespace, "property"): (0, None),
     }
 
     def validate(self):
@@ -702,6 +739,7 @@ class RequiredPrincipal (WebDAVElement):
                 )
 
 
+
 @registerElement
 @registerElementClass
 class InheritedACLSet (WebDAVElement):
@@ -713,7 +751,8 @@ class InheritedACLSet (WebDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (dav_namespace, "href"): (0, None) }
+    allowed_children = {(dav_namespace, "href"): (0, None)}
+
 
 
 @registerElement
@@ -728,7 +767,8 @@ class PrincipalCollectionSet (WebDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (dav_namespace, "href"): (0, None) }
+    allowed_children = {(dav_namespace, "href"): (0, None)}
+
 
 
 ##
@@ -743,7 +783,8 @@ class NeedPrivileges (WebDAVElement):
     """
     name = "need-privileges"
 
-    allowed_children = { (dav_namespace, "resource"): (0, None) }
+    allowed_children = {(dav_namespace, "resource"): (0, None)}
+
 
 
 @registerElement
@@ -756,9 +797,10 @@ class Resource (WebDAVElement):
     name = "resource"
 
     allowed_children = {
-        (dav_namespace, "href"     ): (1, 1),
+        (dav_namespace, "href"): (1, 1),
         (dav_namespace, "privilege"): (1, 1),
     }
+
 
 
 ##
@@ -776,13 +818,13 @@ class ACLPrincipalPropSet (WebDAVElement):
     """
     name = "acl-principal-prop-set"
 
-    allowed_children = { WebDAVElement: (0, None) }
+    allowed_children = {WebDAVElement: (0, None)}
 
     def validate(self):
         super(ACLPrincipalPropSet, self).validate()
 
         prop = False
-        
+
         for child in self.children:
             if child.qname() == (dav_namespace, "prop"):
                 if prop:
@@ -791,6 +833,7 @@ class ACLPrincipalPropSet (WebDAVElement):
                         % (self.sname(), self.children)
                     )
                 prop = True
+
 
 
 @registerElement
@@ -805,8 +848,8 @@ class PrincipalMatch (WebDAVElement):
 
     allowed_children = {
         (dav_namespace, "principal-property"): (0, 1),
-        (dav_namespace, "self"              ): (0, 1),
-        (dav_namespace, "prop"              ): (0, 1),
+        (dav_namespace, "self"): (0, 1),
+        (dav_namespace, "prop"): (0, 1),
     }
 
     def validate(self):
@@ -836,6 +879,7 @@ class PrincipalMatch (WebDAVElement):
             )
 
 
+
 @registerElement
 @registerElementClass
 class PrincipalProperty (WebDAVElement):
@@ -844,7 +888,8 @@ class PrincipalProperty (WebDAVElement):
     """
     name = "principal-property"
 
-    allowed_children = { WebDAVElement: (0, None) }
+    allowed_children = {WebDAVElement: (0, None)}
+
 
 
 # For DAV:self element (RFC 3744, section 9.3) see Self class above.
@@ -861,11 +906,12 @@ class PrincipalPropertySearch (WebDAVElement):
     name = "principal-property-search"
 
     allowed_children = {
-        (dav_namespace, "property-search"                  ): (0, None),    # This is required but this element must be empty in supported-report-set
-        (dav_namespace, "prop"                             ): (0, 1),
+        (dav_namespace, "property-search"): (0, None),    # This is required but this element must be empty in supported-report-set
+        (dav_namespace, "prop"): (0, 1),
         (dav_namespace, "apply-to-principal-collection-set"): (0, 1),
     }
-    allowed_attributes = { "test": False }
+    allowed_attributes = {"test": False}
+
 
 
 @registerElement
@@ -878,9 +924,10 @@ class PropertySearch (WebDAVElement):
     name = "property-search"
 
     allowed_children = {
-        (dav_namespace, "prop" ): (1, 1),
+        (dav_namespace, "prop"): (1, 1),
         (dav_namespace, "match"): (1, 1),
     }
+
 
 
 @registerElement
@@ -892,6 +939,7 @@ class Match (WebDAVTextElement):
     name = "match"
 
 
+
 @registerElement
 @registerElementClass
 class PrincipalSearchPropertySet (WebDAVElement):
@@ -901,7 +949,8 @@ class PrincipalSearchPropertySet (WebDAVElement):
     """
     name = "principal-search-property-set"
 
-    allowed_children = { (dav_namespace, "principal-search-property"): (0, None) }
+    allowed_children = {(dav_namespace, "principal-search-property"): (0, None)}
+
 
 
 @registerElement
@@ -914,9 +963,10 @@ class PrincipalSearchProperty (WebDAVElement):
     name = "principal-search-property"
 
     allowed_children = {
-        (dav_namespace, "prop"       ): (1, 1),
+        (dav_namespace, "prop"): (1, 1),
         (dav_namespace, "description"): (1, 1),
     }
+
 
 
 @registerElement

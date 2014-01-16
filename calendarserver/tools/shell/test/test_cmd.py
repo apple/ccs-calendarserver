@@ -15,7 +15,7 @@
 # limitations under the License.
 ##
 
-import twisted.trial.unittest 
+import twisted.trial.unittest
 from twisted.internet.defer import inlineCallbacks
 
 from txdav.common.icommondatastore import NotFoundError
@@ -29,6 +29,7 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         self.protocol = ShellProtocol(None, commandsClass=CommandsBase)
         self.commands = self.protocol.commands
 
+
     @inlineCallbacks
     def test_getTargetNone(self):
         target = (yield self.commands.getTarget([], wdFallback=True))
@@ -37,8 +38,10 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         target = (yield self.commands.getTarget([]))
         self.assertEquals(target, None)
 
+
     def test_getTargetMissing(self):
         self.assertFailure(self.commands.getTarget(["/foo"]), NotFoundError)
+
 
     @inlineCallbacks
     def test_getTargetOne(self):
@@ -46,11 +49,13 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         match = (yield self.commands.wd.locate(["users"]))
         self.assertEquals(target, match)
 
+
     @inlineCallbacks
     def test_getTargetSome(self):
         target = (yield self.commands.getTarget(["users", "blah"]))
         match = (yield self.commands.wd.locate(["users"]))
         self.assertEquals(target, match)
+
 
     def test_commandsNone(self):
         allCommands = self.commands.commands()
@@ -58,6 +63,7 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
 
         allCommands = self.commands.commands(showHidden=True)
         self.assertEquals(sorted(allCommands), [])
+
 
     def test_commandsSome(self):
         protocol = ShellProtocol(None, commandsClass=SomeCommands)
@@ -84,6 +90,7 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
             ]
         )
 
+
     def test_complete(self):
         items = (
             "foo",
@@ -96,14 +103,15 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         def c(word):
             return sorted(CommandsBase.complete(word, items))
 
-        self.assertEquals(c(""       ), sorted(items))
-        self.assertEquals(c("f"      ), ["oo", "oobar"])
-        self.assertEquals(c("foo"    ), ["", "bar"])
-        self.assertEquals(c("foobar" ), [""])
+        self.assertEquals(c(""), sorted(items))
+        self.assertEquals(c("f"), ["oo", "oobar"])
+        self.assertEquals(c("foo"), ["", "bar"])
+        self.assertEquals(c("foobar"), [""])
         self.assertEquals(c("foobars"), [])
-        self.assertEquals(c("baz"    ), [""])
-        self.assertEquals(c("q"      ), ["uux"])
-        self.assertEquals(c("xyzzy"  ), [])
+        self.assertEquals(c("baz"), [""])
+        self.assertEquals(c("q"), ["uux"])
+        self.assertEquals(c("xyzzy"), [])
+
 
     def test_completeCommands(self):
         protocol = ShellProtocol(None, commandsClass=SomeCommands)
@@ -112,10 +120,11 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         def c(word):
             return sorted(commands.complete_commands(word))
 
-        self.assertEquals(c("" ), ["a", "b"])
+        self.assertEquals(c(""), ["a", "b"])
         self.assertEquals(c("a"), [""])
         self.assertEquals(c("h"), ["idden"])
         self.assertEquals(c("f"), [])
+
 
     @inlineCallbacks
     def _test_completeFiles(self, tests):
@@ -147,6 +156,7 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
                 self.assertEquals((yield c(word)), completions, "Completing %r" % (word,))
                 self.assertEquals((yield d(word)), completions, "Completing %r" % (word,))
 
+
     def test_completeFilesLevelOne(self):
         return self._test_completeFiles((
             (None    , ["groups/", "locations/", "resources/", "uids/", "users/"]),
@@ -157,6 +167,7 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
             ("groups", ["/"]),
         ))
 
+
     def test_completeFilesLevelOneSlash(self):
         return self._test_completeFiles((
             ("/"      , ["groups/", "locations/", "resources/", "uids/", "users/"]),
@@ -165,6 +176,7 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
             ("/gr"    , ["oups/"]),
             ("/groups", ["/"]),
         ))
+
 
     def test_completeFilesDirectory(self):
         return self._test_completeFiles((
@@ -181,11 +193,17 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
     test_completeFilesLevelTwo.todo = "Doesn't work yet"
 
 
+
 class SomeCommands(CommandsBase):
     def cmd_a(self, tokens):
         pass
+
+
     def cmd_b(self, tokens):
         pass
+
+
     def cmd_hidden(self, tokens):
         pass
+
     cmd_hidden.hidden = "Hidden"

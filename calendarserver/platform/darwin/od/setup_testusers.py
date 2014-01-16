@@ -36,6 +36,7 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 def lookupRecordName(node, recordType, name):
     query, error = odframework.ODQuery.queryWithNode_forRecordTypes_attribute_matchType_queryValues_returnAttributes_maximumResults_error_(
         node,
@@ -59,6 +60,8 @@ def lookupRecordName(node, recordType, name):
 
     return records[0]
 
+
+
 def createRecord(node, recordType, recordName, attrs):
     record, error = node.createRecordWithRecordType_name_attributes_error_(
         recordType,
@@ -70,6 +73,8 @@ def createRecord(node, recordType, recordName, attrs):
         raise ODError(error)
     return record
 
+
+
 def main():
 
     try:
@@ -77,7 +82,7 @@ def main():
     except GetoptError, e:
         usage(e)
 
-    for opt, arg in optargs:
+    for opt, _ignore_arg in optargs:
         if opt in ("-h", "--help"):
             usage()
 
@@ -108,7 +113,7 @@ def main():
 
     print("Creating users within %s:" % (nodeName,))
     for i in xrange(99):
-        j = i+1
+        j = i + 1
         recordName = "user%02d" % (j,)
         password = "user%02d" % (j,)
         attrs = {
@@ -135,6 +140,7 @@ def main():
                 print("Failed to create user %s: %s" % (recordName, e))
         else:
             print("User %s already exists" % (recordName,))
+
 
 
 class ODError(Exception):

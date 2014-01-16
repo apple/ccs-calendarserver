@@ -481,7 +481,7 @@ class PrincipalHomeFolder(Folder):
         self._didInitChildren = True
 
 
-    def _needsChildren(m):
+    def _needsChildren(m): #@NoSelf
         def decorate(self, *args, **kwargs):
             d = self._initChildren()
             d.addCallback(lambda _: m(self, *args, **kwargs))

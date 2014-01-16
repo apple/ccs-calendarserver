@@ -6861,4 +6861,3 @@ def deleteRevisionsBefore(txn, minRevision):
                             aboMembers.REVISION.In(Parameter("revisionsToRemove", len(revisionsToRemove)))
                         )
                 ).on(txn, revisionsToRemove=revisionsToRemove)
-

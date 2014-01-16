@@ -187,7 +187,7 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["RealName"], u'Updated Address')
         self.assertEquals(results["result"]["StreetAddress"], u'Updated Street Address')
         self.assertEquals(results["result"]["Geo"], u'Updated Geo')
-        
+
         results = yield self.runCommand(command_deleteAddress)
 
         results = yield self.runCommand(command_getAddressList)
@@ -332,6 +332,7 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["RetainDays"], 42)
         results = yield self.runCommand(command_purgeOldEventsNoDays)
         self.assertEquals(results["result"]["RetainDays"], 365)
+
 
     @inlineCallbacks
     def test_readConfig(self):

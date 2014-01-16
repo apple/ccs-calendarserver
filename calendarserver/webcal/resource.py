@@ -59,36 +59,44 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
             ),
         )
 
+
     def etag(self):
         # Can't be calculated here
         return succeed(None)
+
 
     def contentLength(self):
         # Can't be calculated here
         return None
 
+
     def lastModified(self):
         return None
+
 
     def exists(self):
         return True
 
+
     def displayName(self):
         return "Web Calendar"
+
 
     def contentType(self):
         return MimeType.fromString("text/html; charset=utf-8")
 
+
     def contentEncoding(self):
         return None
+
 
     def createSimilarFile(self, path):
         return DAVFile(path, principalCollections=self.principalCollections())
 
-    _htmlContent_lastCheck      = 0
-    _htmlContent_statInfo       = 0
+    _htmlContent_lastCheck = 0
+    _htmlContent_statInfo = 0
     _htmlContentDebug_lastCheck = 0
-    _htmlContentDebug_statInfo  = 0
+    _htmlContentDebug_statInfo = 0
 
     def htmlContent(self, debug=False):
         if debug:
@@ -133,6 +141,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
             setattr(self, cacheAttr, htmlContent)
 
         return getattr(self, cacheAttr)
+
 
     def render(self, request):
         if not self.fp.isdir():
@@ -200,6 +209,7 @@ try:
 except ImportError:
     def lookupSystemTimezone():
         return ""
+
 
 
 def getLocalTimezone():

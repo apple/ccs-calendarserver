@@ -52,6 +52,8 @@ def guidForAuthToken(token, host="localhost", port=80):
     else:
         raise WebAuthError("Could not look up token: %s" % (token,))
 
+
+
 def accessForUserToWiki(user, wiki, host="localhost", port=4444):
     """
     Send a GET request to the wiki collabd service to retrieve the access level
@@ -72,6 +74,7 @@ def accessForUserToWiki(user, wiki, host="localhost", port=4444):
     return _getPage(url, host, port)
 
 
+
 def _getPage(url, host, port):
     """
     Fetch the body of the given url via HTTP, connecting to the given host
@@ -90,6 +93,8 @@ def _getPage(url, host, port):
     factory.protocol = HTTPPageGetter
     connect(GAIEndpoint(reactor, host, port), factory)
     return factory.deferred
+
+
 
 class WebAuthError(RuntimeError):
     """
