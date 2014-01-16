@@ -298,13 +298,6 @@ class ExporterService(WorkerService, object):
         self._directory = self.store.directoryService()
 
 
-    def postStartService(self):
-        """
-        Don't quit right away
-        """
-        pass
-
-
     @inlineCallbacks
     def doWork(self):
         """
@@ -324,8 +317,6 @@ class ExporterService(WorkerService, object):
             self.output.close()
         except:
             log.failure("doWork()")
-
-        self.reactor.stop()
 
 
     def directoryService(self):

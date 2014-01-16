@@ -157,13 +157,6 @@ class ObliterateService(WorkerService, object):
         self.attachments = set()
 
 
-    def postStartService(self):
-        """
-        Don't quit right away
-        """
-        pass
-
-
     @inlineCallbacks
     def doWork(self):
         """
@@ -184,8 +177,6 @@ class ObliterateService(WorkerService, object):
             pass
         except:
             log.failure("doWork()")
-
-        self.reactor.stop()
 
 
     @inlineCallbacks

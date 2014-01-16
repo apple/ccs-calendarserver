@@ -179,5 +179,8 @@ class WorkerService(Service):
         By default, stop the reactor after doWork( ) finishes.  Subclasses
         can override this if they want different behavior.
         """
-        from twisted.internet import reactor
-        reactor.stop()
+        if hasattr(self, "reactor"):
+            self.reactor.stop()
+        else:
+            from twisted.internet import reactor
+            reactor.stop()

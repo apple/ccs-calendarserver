@@ -139,13 +139,6 @@ class MigrateVerifyService(WorkerService, object):
         self.missingResources = []
 
 
-    def postStartService(self):
-        """
-        Don't quit right away
-        """
-        pass
-
-
     @inlineCallbacks
     def doWork(self):
         """
@@ -161,8 +154,6 @@ class MigrateVerifyService(WorkerService, object):
             pass
         except:
             log.failure("doWork()")
-
-        self.reactor.stop()
 
 
     def readPaths(self):
