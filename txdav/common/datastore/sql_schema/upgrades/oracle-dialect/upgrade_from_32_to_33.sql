@@ -40,6 +40,11 @@ create table REVISION_CLEANUP_WORK (
   "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
  
+-- add min revision
+
+insert into CALENDARSERVER values ('MIN-VALID-REVISION', '1');
+
+
 -- Update version --
 
 update CALENDARSERVER set VALUE = '31' where NAME = 'VERSION';

@@ -39,6 +39,11 @@ create table REVISION_CLEANUP_WORK (
   WORK_ID integer primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
+
+-- add min revision
+
+insert into CALENDARSERVER values ('MIN-VALID-REVISION', '1');
+
   
 -- Update version --
 
