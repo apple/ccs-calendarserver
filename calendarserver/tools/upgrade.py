@@ -15,7 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twisted.internet.defer import succeed
 
 """
 This tool allows any necessary upgrade to complete, then exits.
@@ -26,6 +25,7 @@ import os
 import sys
 import time
 
+from twisted.internet.defer import succeed
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 

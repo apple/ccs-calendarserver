@@ -15,7 +15,6 @@
 # limitations under the License.
 ##
 from __future__ import print_function
-from twisted.internet.defer import succeed
 
 """
 This tool takes data from stdin and validates it as iCalendar data suitable
@@ -23,6 +22,7 @@ for the server.
 """
 
 from calendarserver.tools.cmdline import utilityMain, WorkerService
+from twisted.internet.defer import succeed
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
 from twistedcaldav.config import config
