@@ -52,11 +52,12 @@ CS_GROUP = _calendar
 # Build
 #
 
-.phony: $(Project) pycalendar build setup prep install install-ossfiles buildit
+.phony: $(Project) pycalendar twext build setup prep install install-ossfiles buildit
 
 CALDAVTESTER = CalDAVTester
 PYKERBEROS   = PyKerberos-9409
 PYCALENDAR   = PyCalendar-11947
+TWEXT        = twext-12213
 PYGRESQL     = PyGreSQL-4.1.1
 SQLPARSE     = sqlparse-0.1.2
 SETPROCTITLE = setproctitle-1.1.8
@@ -68,6 +69,7 @@ PYCPARSER    = pycparser-2.10
 $(CALDAVTESTER):: $(BuildDirectory)/$(CALDAVTESTER)
 $(PYKERBEROS)::   $(BuildDirectory)/$(PYKERBEROS)
 $(PYCALENDAR)::   $(BuildDirectory)/$(PYCALENDAR)
+$(TWEXT)::        $(BuildDirectory)/$(TWEXT)
 $(PYGRESQL)::     $(BuildDirectory)/$(PYGRESQL)
 $(SQLPARSE)::     $(BuildDirectory)/$(SQLPARSE)
 $(SETPROCTITLE):: $(BuildDirectory)/$(SETPROCTITLE)
@@ -77,12 +79,12 @@ $(CFFI)::	  $(BuildDirectory)/$(CFFI)
 $(PYCPARSER)::	  $(BuildDirectory)/$(PYCPARSER)
 $(Project)::      $(BuildDirectory)/$(Project)
 
-build:: $(PYKERBEROS) $(PYCALENDAR) $(PYGRESQL) $(SQLPARSE) $(SETPROCTITLE) $(PSUTIL) $(PYCRYPTO) $(CFFI) $(PYCPARSER) $(Project)
+build:: $(PYKERBEROS) $(PYCALENDAR) $(TWEXT) $(PYGRESQL) $(SQLPARSE) $(SETPROCTITLE) $(PSUTIL) $(PYCRYPTO) $(CFFI) $(PYCPARSER) $(Project)
 
 setup:
 	$(_v) ./run -g
 
-prep:: setup $(CALDAVTESTER).tgz $(PYKERBEROS).tgz $(PYCALENDAR).tgz $(PYGRESQL).tgz $(SQLPARSE).tgz $(SETPROCTITLE).tgz $(PSUTIL).tgz $(PYCRYPTO).tgz $(CFFI).tgz $(PYCPARSER).tgz
+prep:: setup $(CALDAVTESTER).tgz $(PYKERBEROS).tgz $(PYCALENDAR).tgz $(TWEXT).tgz $(PYGRESQL).tgz $(SQLPARSE).tgz $(SETPROCTITLE).tgz $(PSUTIL).tgz $(PYCRYPTO).tgz $(CFFI).tgz $(PYCPARSER).tgz
 
 # $(PYKERBEROS) $(PYCALENDAR) $(PYGRESQL) $(SQLPARSE) $(SETPROCTITLE) $(PSUTIL) $(PYCRYPTO) $(CFFI) $(PYCPARSER) $(Project)::
 # 	@echo "Building $@..."
@@ -91,6 +93,7 @@ prep:: setup $(CALDAVTESTER).tgz $(PYKERBEROS).tgz $(PYCALENDAR).tgz $(PYGRESQL)
 install:: build
 	$(_v) cd $(BuildDirectory)/$(PYKERBEROS)   && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(PYCALENDAR)   && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(TWEXT)        && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(PYGRESQL)     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(SQLPARSE)     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/$(SETPROCTITLE) && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
