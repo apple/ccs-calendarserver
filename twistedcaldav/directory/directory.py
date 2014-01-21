@@ -29,8 +29,6 @@ __all__ = [
     "GroupMembershipCacheUpdater",
 ]
 
-raise NotImplementedError("obsolete")
-
 from plistlib import readPlistFromString
 
 from twext.enterprise.dal.record import fromTable
