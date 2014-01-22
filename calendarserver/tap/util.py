@@ -57,7 +57,6 @@ from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.directory import GroupMembershipCache
-from twistedcaldav.directory.internal import InternalDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.wiki import WikiDirectoryService
 from calendarserver.push.notifier import NotifierFactory
@@ -354,14 +353,6 @@ def directoryFromConfig(config):
         wikiDirectory = WikiDirectoryService()
         wikiDirectory.realmName = baseDirectory.realmName
         directories.append(wikiDirectory)
-
-    #
-    # Add internal directory service
-    # Right now we only use this for CardDAV
-    #
-    if config.EnableCardDAV:
-        internalDirectory = InternalDirectoryService(baseDirectory.realmName)
-        directories.append(internalDirectory)
 
     directory = AggregateDirectoryService(directories, groupMembershipCache)
 

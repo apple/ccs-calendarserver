@@ -68,7 +68,6 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
-from twistedcaldav.directory.internal import InternalDirectoryRecord
 from twistedcaldav.extensions import DAVResource, DAVPrincipalResource, \
     DAVResourceWithChildrenMixin
 from twistedcaldav import ical
@@ -2817,13 +2816,8 @@ class AddressBookHomeResource (CommonHomeResource):
         # Check for public/global path
         from twistedcaldav.storebridge import (
             AddressBookCollectionResource,
-            GlobalAddressBookCollectionResource,
         )
         mainCls = AddressBookCollectionResource
-        if isinstance(self.record, InternalDirectoryRecord):
-            if "global" in self.record.shortNames:
-                mainCls = GlobalAddressBookCollectionResource
-
         newAddressBook = yield self._newStoreHome.addressbookWithName(name)
         if newAddressBook and not newAddressBook.owned() and not self.canShare():
             newAddressBook = None
