@@ -52,8 +52,7 @@ from twistedcaldav.instance import InvalidOverriddenInstanceError, \
     TooManyInstancesError
 from twistedcaldav.memcachelock import MemcacheLockTimeoutError
 from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
-from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
-    DefaultAlarmPropertyMixin
+from twistedcaldav.resource import CalDAVResource, DefaultAlarmPropertyMixin
 from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
 from twistedcaldav.sharing import invitationBindStatusToXMLMap, \
     invitationBindModeToXMLMap
@@ -3421,14 +3420,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                             WebDAVUnknownElement.withName(*error),
                         ) if error else None,
                     )
-
-
-
-class GlobalAddressBookCollectionResource(GlobalAddressBookResource, AddressBookCollectionResource):
-    """
-    Wrapper around a L{txdav.carddav.iaddressbook.IAddressBook}.
-    """
-    pass
 
 
 

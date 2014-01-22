@@ -41,8 +41,6 @@ class ManagePrincipalsTestCase(TestCase):
         # Since this test operates on proxy db, we need to assign the service:
         calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB(os.path.abspath(self.mktemp()))
 
-        config.GlobalAddressBook.Enabled = False
-
         testRoot = os.path.join(os.path.dirname(__file__), "principals")
         templateName = os.path.join(testRoot, "caldavd.plist")
         templateFile = open(templateName)

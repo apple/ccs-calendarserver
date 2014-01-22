@@ -646,12 +646,6 @@ DEFAULT_CONFIG = {
     "EnableSearchAddressBook": False, # /directory resource exists
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
 
-    "GlobalAddressBook": {
-        "Enabled": False,
-        "Name": "global-addressbook",
-        "EnableAnonymousReadAccess": False,
-    },
-
     # /XXX CardDAV
 
     #

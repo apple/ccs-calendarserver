@@ -2793,9 +2793,6 @@ class AddressBookHomeResource (CommonHomeResource):
             from twistedcaldav.notifications import NotificationCollectionResource
             self._provisionedChildren["notification"] = NotificationCollectionResource
 
-        if config.GlobalAddressBook.Enabled:
-            self._provisionedLinks[config.GlobalAddressBook.Name] = "/addressbooks/public/global/addressbook/"
-
 
     def makeNewStore(self):
         return self._associatedTransaction.addressbookHomeWithUID(self.name, create=True), False     # Don't care about created
@@ -2908,50 +2905,6 @@ class AddressBookHomeResource (CommonHomeResource):
 
 
 
-class GlobalAddressBookResource (ReadOnlyResourceMixIn, CalDAVResource):
-    """
-    Global address book. All we care about is making sure permissions are setup.
-    """
-
-    def resourceType(self):
-        return element.ResourceType.sharedaddressbook #@UndefinedVariable
-
-
-    def defaultAccessControlList(self):
-
-        aces = (
-            element.ACE(
-                element.Principal(element.Authenticated()),
-                element.Grant(
-                    element.Privilege(element.Read()),
-                    element.Privilege(element.ReadCurrentUserPrivilegeSet()),
-                    element.Privilege(element.Write()),
-                ),
-                element.Protected(),
-                TwistedACLInheritable(),
-           ),
-        )
-
-        if config.GlobalAddressBook.EnableAnonymousReadAccess:
-            aces += (
-                element.ACE(
-                    element.Principal(element.Unauthenticated()),
-                    element.Grant(
-                        element.Privilege(element.Read()),
-                    ),
-                    element.Protected(),
-                    TwistedACLInheritable(),
-               ),
-            )
-        return element.ACL(*aces)
-
-
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
-        # Permissions here are fixed, and are not subject to inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
-
-
-
 class AuthenticationWrapper(SuperAuthenticationWrapper):
 
     """ AuthenticationWrapper implementation which allows overriding
@@ -2981,7 +2934,6 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
         factories = self.overrides.get(req.path.rstrip("/"),
             req.credentialFactories)
         req.credentialFactories = factories
-
 
 
 ##
