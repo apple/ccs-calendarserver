@@ -736,7 +736,6 @@ dependencies () {
       "PostgreSQL" "${p}" \
       "http://ftp.postgresql.org/pub/source/v${v}/${p}.tar.bz2" \
       --with-python ${enable_dtrace};
-    :;
   fi;
 
   if find_header ldap.h 20428 LDAP_VENDOR_VERSION; then
